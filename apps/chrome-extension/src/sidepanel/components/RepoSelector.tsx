@@ -8,12 +8,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@conductor/ui";
-import type { Doc } from "@conductor/backend";
+import type { Doc, Id } from "@conductor/backend";
 
 interface RepoSelectorProps {
   repos: Doc<"githubRepos">[];
-  selectedRepoId: string | null;
-  onRepoChange: (repoId: string) => void;
+  selectedRepoId: Id<"githubRepos"> | null;
+  onRepoChange: (repoId: Id<"githubRepos">) => void;
 }
 
 export function RepoSelector({
@@ -59,7 +59,13 @@ export function RepoSelector({
     : undefined;
 
   return (
-    <Select value={selectedRepoId ?? ""} onValueChange={onRepoChange}>
+    <Select
+      value={selectedRepoId ?? ""}
+      onValueChange={(val) => {
+        const repo = repos.find((r) => r._id === val);
+        if (repo) onRepoChange(repo._id);
+      }}
+    >
       <SelectTrigger className="flex-1 min-w-[180px]">
         <SelectValue placeholder="Select repository...">
           {displayLabel}

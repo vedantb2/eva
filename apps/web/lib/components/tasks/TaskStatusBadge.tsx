@@ -15,8 +15,8 @@ export type TaskStatus =
   | "draft"
   | "todo"
   | "in_progress"
-  | "business_review"
   | "code_review"
+  | "business_review"
   | "done"
   | "cancelled";
 
@@ -25,8 +25,8 @@ export type DisplayTaskStatus = Exclude<TaskStatus, "draft">;
 export const TASK_STATUSES: DisplayTaskStatus[] = [
   "todo",
   "in_progress",
-  "business_review",
   "code_review",
+  "business_review",
   "done",
   "cancelled",
 ];
@@ -70,14 +70,6 @@ export const statusConfig: Record<
     label: "In Progress",
     icon: IconClock,
   },
-  business_review: {
-    bg: "bg-status-business-review-bg",
-    cardBg: "bg-status-business-review-subtle",
-    bar: "bg-status-business-review-bar",
-    text: "text-status-business-review",
-    label: "Business Review",
-    icon: IconClipboardCheck,
-  },
   code_review: {
     bg: "bg-status-code-review-bg",
     cardBg: "bg-status-code-review-subtle",
@@ -85,6 +77,14 @@ export const statusConfig: Record<
     text: "text-status-code-review",
     label: "Code Review",
     icon: IconEye,
+  },
+  business_review: {
+    bg: "bg-status-business-review-bg",
+    cardBg: "bg-status-business-review-subtle",
+    bar: "bg-status-business-review-bar",
+    text: "text-status-business-review",
+    label: "Business Review",
+    icon: IconClipboardCheck,
   },
   done: {
     bg: "bg-status-done-bg",

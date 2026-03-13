@@ -85,19 +85,39 @@ export function registerTools(
 
   server.tool(
     "list_repos",
-    "List all GitHub repos you have access to. Call this first to let the user choose which codebase to work with.",
+    "List all GitHub repos you have access to. Call this first to discover available repos and their instructions for data routing (e.g. which backend to query for which data).",
     {},
     async () => {
       const { deployKey, userId } = await getContext();
       const repos = await listUserRepos(convexUrl, deployKey, userId);
-      return textResult(
-        repos.map((r) => ({
-          id: r.id,
-          owner: r.owner,
-          name: r.name,
-          app: r.rootDirectory,
-        })),
-      );
+      const repoList = repos.map((r) => ({
+        id: r.id,
+        owner: r.owner,
+        name: r.name,
+        app: r.rootDirectory,
+        ...(r.mcpRootPrompt ? { mcpRootPrompt: r.mcpRootPrompt } : {}),
+      }));
+
+      const rootPrompts = repos
+        .filter((r) => r.mcpRootPrompt)
+        .map(
+          (r) =>
+            `[${r.owner}/${r.name}${r.rootDirectory ? ` (${r.rootDirectory})` : ""}]: ${r.mcpRootPrompt}`,
+        );
+
+      if (rootPrompts.length > 0) {
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify(repoList, null, 2) },
+            {
+              type: "text" as const,
+              text: `\n---\nRepo instructions:\n${rootPrompts.join("\n")}`,
+            },
+          ],
+        };
+      }
+
+      return textResult(repoList);
     },
   );
 

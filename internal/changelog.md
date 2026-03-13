@@ -1,5 +1,43 @@
 # Changelog
 
+## Chrome extension bug fixes: branding, URL, session persistence, sidebar tabs - 2026-03-12
+
+- Renamed "Open in Conductor" → "Open in Eva" and updated production URL from `conductor-lake.vercel.app` to `eva-git-staging-vedantb.vercel.app`
+- Opening the extension now restores the last viewed session **per repo** (persisted as `lastSessionByRepo` map in `chrome.storage.local`) instead of showing an empty screen — switching repos also restores that repo's last session
+- Added home button to sidebar sheet header so users can navigate back to the empty/home screen
+- Replaced custom tab buttons in sidebar with the shared `Tabs`/`TabsList`/`TabsTrigger` UI components for consistency
+
+## Repo switch nudge banner for Chrome extension - 2026-03-12
+
+- Instead of silently auto-switching repos when navigating to a different domain, the extension now shows a nudge banner: "This page matches owner/repo-name" with Switch/dismiss buttons
+- Added `chrome.tabs.onActivated` listener so the extension detects tab switches (previously only detected URL changes within the same tab via `onUpdated`)
+- User controls when to switch repos — prevents disorienting context switches mid-conversation
+- Fixed `handleRepoChange` to accept `Id<"githubRepos">` instead of untyped `string`, removing an `as` cast
+
+## Swap code review and business review stage order - 2026-03-12
+
+- Pipeline now flows: in_progress → code_review → business_review → done (previously business_review came first)
+- After a successful agent run, tasks now land in code_review (first review stage) instead of business_review
+- Simplified runLifecycle.ts — resolve_conflicts and normal runs both go to code_review now (no conditional needed)
+- Updated project phase recomputation to treat business_review (now the final review stage) as "active"
+- Swapped column/section ordering across all frontend views (kanban, list, project tasks, bulk status modal)
+
+## Remove flag mode from chrome extension and sessions page - 2026-03-12
+
+- Removed "flag" tab mode from chrome extension chat UI — extension now only supports "ask" mode (read-only Q&A with MCP access)
+- Removed flag message filtering from session detail page and summarize workflow since flag messages will no longer be created
+- Added migration function (`migrateFlagMessages`) to convert existing flag messages to ask mode — run before removing `v.literal("flag")` from validators
+- Kept `v.literal("flag")` in `sessionModeValidator` temporarily until migration runs (chicken-egg pattern)
+
+## Domain-based repo auto-select for Chrome extension - 2026-03-12
+
+- Added `domains` field to `githubRepos` schema — each app/repo can have associated hostnames (e.g. `myapp.com`, `staging.myapp.com`)
+- New "Domains" section on the config page (`/settings/config`) to manage hostnames per app, with input normalization (strips protocols/paths, stores only hostnames)
+- Chrome extension now auto-selects the correct repo when browsing a configured domain, replacing the need to manually switch repos
+- Replaced hardcoded `ALLOWED_HOSTS` with a merge of static localhost defaults + DB-configured domains + `.vercel.app` wildcard
+- Uses longest-match domain resolution so `eprocurement.carepulse.co.uk` correctly selects its own app over the parent `carepulse.co.uk` app
+- Auto-select fires on both initial load and tab navigation; user can still manually override via the repo dropdown
+
 ## Fix MCP create_task/start_execution auth - 2026-03-11
 
 - **Why**: MCP `create_task` and `create_and_run_task` tools were failing with "Not authenticated". The MCP server was using deploy key auth (`Authorization: Convex ${deployKey}`) for mutations, but `authMutation` requires user identity from `ctx.auth.getUserIdentity()` which only works with JWT/Clerk auth. Deploy key auth bypasses identity entirely.

@@ -13,6 +13,7 @@ export {
   removeFromTeam,
   create,
   updateConfig,
+  updateMcpRootPrompt,
   toggleHidden,
   deleteInternal,
 } from "./_githubRepos/mutations";

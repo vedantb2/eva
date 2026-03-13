@@ -68,11 +68,11 @@ import {
   IconBrandVercel,
   IconHammer,
 } from "@tabler/icons-react";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Streamdown } from "streamdown";
-import { code } from "@streamdown/code";
+import { FormattedText } from "./_components/FormattedText";
+import { UserInitials } from "@conductor/shared";
 import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { formatDuration } from "@/lib/utils/formatDuration";
@@ -107,6 +107,11 @@ export function useTaskDetail(
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
   const allAudits = useQuery(api.audits.listByTask, { taskId });
+  const hasEnabledAuditCategories =
+    useQuery(
+      api.auditCategories.hasEnabledCategories,
+      task?.repoId ? { repoId: task.repoId } : "skip",
+    ) ?? true;
   const latestAudit = allAudits?.[0] ?? null;
   const pastAudits = allAudits?.slice(1) ?? [];
   const auditStreaming = useQuery(
@@ -139,6 +144,12 @@ export function useTaskDetail(
   const createComment = useMutation(api.taskComments.create);
   const removeComment = useMutation(api.taskComments.remove);
   const subtasks = useQuery(api.subtasks.listByTask, { parentTaskId: taskId });
+  const auditCategories = useQuery(
+    api.auditCategories.listByRepo,
+    task?.repoId ? { repoId: task.repoId } : "skip",
+  );
+  const enabledAuditCount =
+    auditCategories?.filter((c) => c.enabled).length ?? 0;
   const proofs = useQuery(api.taskProof.listByTask, { taskId });
   const [baseBranch, setBaseBranch] = useState("main");
   const [isStarting, setIsStarting] = useState(false);
@@ -155,11 +166,12 @@ export function useTaskDetail(
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [editDescription, setEditDescription] = useState("");
   const [viewingCommentForRun, setViewingCommentForRun] = useState<
     string | null
   >(null);
-  const descriptionEditorRef = useRef<HTMLDivElement>(null);
+  const [deletingCommentId, setDeletingCommentId] =
+    useState<Id<"taskComments"> | null>(null);
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
 
   useEffect(() => {
     setTagsInput((task?.tags ?? []).join(", "));
@@ -239,26 +251,6 @@ export function useTaskDetail(
     setIsEditingDescription(false);
   }, [canEditTaskText]);
 
-  useEffect(() => {
-    if (!isEditingDescription) return;
-    const editor = descriptionEditorRef.current;
-    if (!editor || typeof window === "undefined") return;
-    editor.innerText = editDescription;
-    editor.focus();
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    range.collapse(false);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-  }, [isEditingDescription]);
-
-  const beginDescriptionEdit = (value: string) => {
-    if (!canEditTaskText) return;
-    setEditDescription(value);
-    setIsEditingDescription(true);
-  };
-
   const handleStartExecution = async () => {
     setIsStarting(true);
     try {
@@ -312,6 +304,19 @@ export function useTaskDetail(
       return;
     }
     await updateTask({ id: taskId, tags: nextTags });
+  };
+
+  const handleDeleteComment = async () => {
+    if (!deletingCommentId) return;
+    setIsDeletingComment(true);
+    try {
+      await removeComment({ id: deletingCommentId });
+      setDeletingCommentId(null);
+    } catch (err) {
+      console.error("Failed to delete comment:", err);
+    } finally {
+      setIsDeletingComment(false);
+    }
   };
 
   const modalWidthClass = "max-w-[72rem]";
@@ -390,116 +395,89 @@ export function useTaskDetail(
             : ""}
         </span>
       </div>
-      {isEditingDescription ? (
-        <div
-          ref={descriptionEditorRef}
-          contentEditable
-          suppressContentEditableWarning
-          onInput={(event) =>
-            setEditDescription(event.currentTarget.innerText.replace(/\r/g, ""))
-          }
-          onBlur={() => {
-            const trimmed = editDescription.trim();
-            if (canEditTaskText && trimmed !== task?.description) {
-              updateTask({ id: taskId, description: trimmed });
-            }
-            setIsEditingDescription(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && e.ctrlKey) {
-              e.currentTarget.blur();
-            } else if (e.key === "Escape") {
-              setEditDescription(task?.description ?? "");
-              setIsEditingDescription(false);
-            }
-          }}
-          className="min-h-[1.5rem] rounded px-2 py-1 -mx-2 -my-1 text-sm leading-[1.7142857] text-muted-foreground whitespace-pre-wrap break-words focus:outline-none focus:bg-muted/50"
-        />
-      ) : task?.description ? (
-        (() => {
-          const separatorIndex = task.description.indexOf("---");
-          const mainDesc =
-            separatorIndex !== -1
-              ? task.description.slice(0, separatorIndex).trimEnd()
-              : task.description;
-          const elementDetails =
-            separatorIndex !== -1
-              ? task.description.slice(separatorIndex + 3).trimStart()
-              : null;
-          return (
-            <>
-              <div
-                onClick={
-                  canEditTaskText
-                    ? () => beginDescriptionEdit(task.description ?? "")
-                    : undefined
-                }
-                title={
-                  canEditTaskText
-                    ? undefined
-                    : "Description can only be edited in To Do"
-                }
-                className={`overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${inline ? "max-h-[40vh] overflow-y-auto scrollbar" : ""} ${
-                  !canEditTaskText ? "" : "cursor-pointer hover:bg-muted/50"
-                }`}
-              >
-                <Streamdown
-                  plugins={{ code }}
-                  className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground break-words [&_p]:my-0 [&_p]:break-words [&_li]:my-0.5 [&_li]:break-words [&_a]:break-all [&_code]:break-all [&_pre]:my-2 [&_pre]:whitespace-pre-wrap [&_pre]:break-all [&_pre]:overflow-x-hidden"
-                >
-                  {mainDesc}
-                </Streamdown>
-              </div>
-              {elementDetails && (
-                <Accordion type="single" collapsible className="mt-2 px-0">
-                  <AccordionItem value="element-details">
-                    <AccordionTrigger>
-                      <span className="text-xs text-muted-foreground">
-                        Element Details
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <SyntaxHighlighter
-                        language="css"
-                        style={oneDark}
-                        wrapLines
-                        wrapLongLines
-                        customStyle={{
-                          fontSize: "0.75rem",
-                          borderRadius: "0.5rem",
-                          margin: 0,
-                        }}
-                      >
-                        {elementDetails}
-                      </SyntaxHighlighter>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+      {(() => {
+        const description = task?.description ?? "";
+        const separatorIndex = description.indexOf("---");
+        const mainDesc =
+          separatorIndex !== -1
+            ? description.slice(0, separatorIndex).trimEnd()
+            : description;
+        const elementDetails =
+          separatorIndex !== -1
+            ? description.slice(separatorIndex + 3).trimStart()
+            : null;
+        return (
+          <>
+            <div
+              onClick={
+                !isEditingDescription && canEditTaskText
+                  ? () => setIsEditingDescription(true)
+                  : undefined
+              }
+              title={
+                !isEditingDescription && !canEditTaskText
+                  ? "Description can only be edited in To Do"
+                  : undefined
+              }
+              className={`min-h-[1.5rem] overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1 ${inline && !isEditingDescription ? "max-h-[40vh] overflow-y-auto scrollbar" : ""} ${
+                isEditingDescription
+                  ? ""
+                  : !canEditTaskText
+                    ? ""
+                    : "cursor-pointer hover:bg-muted/50"
+              }`}
+            >
+              {!description && !isEditingDescription ? (
+                <p className="text-sm text-muted-foreground italic">
+                  Click to add description...
+                </p>
+              ) : (
+                <FormattedText
+                  content={mainDesc}
+                  editable={isEditingDescription}
+                  className="text-sm leading-7 text-muted-foreground whitespace-pre-wrap break-words [&_.tiptap]:outline-none [&_.tiptap_p]:my-0 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6"
+                  onBlur={(markdown) => {
+                    const trimmed = markdown.trim();
+                    if (canEditTaskText && trimmed !== task?.description) {
+                      const fullDesc = elementDetails
+                        ? `${trimmed}\n---\n${elementDetails}`
+                        : trimmed;
+                      updateTask({ id: taskId, description: fullDesc });
+                    }
+                    setIsEditingDescription(false);
+                  }}
+                />
               )}
-            </>
-          );
-        })()
-      ) : (
-        <p
-          onClick={() => {
-            if (canEditTaskText) {
-              beginDescriptionEdit("");
-            }
-          }}
-          title={
-            canEditTaskText
-              ? undefined
-              : "Description can only be edited in To Do"
-          }
-          className={`text-sm text-muted-foreground italic ${
-            !canEditTaskText
-              ? ""
-              : "cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1"
-          }`}
-        >
-          Click to add description...
-        </p>
-      )}
+            </div>
+            {!isEditingDescription && elementDetails && (
+              <Accordion type="single" collapsible className="mt-2 px-0">
+                <AccordionItem value="element-details">
+                  <AccordionTrigger>
+                    <span className="text-xs text-muted-foreground">
+                      Element Details
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <SyntaxHighlighter
+                      language="css"
+                      style={oneDark}
+                      wrapLines
+                      wrapLongLines
+                      customStyle={{
+                        fontSize: "0.75rem",
+                        borderRadius: "0.5rem",
+                        margin: 0,
+                      }}
+                    >
+                      {elementDetails}
+                    </SyntaxHighlighter>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 
@@ -515,23 +493,120 @@ export function useTaskDetail(
       (b.startedAt ?? b._creationTime) - (a.startedAt ?? a._creationTime),
   );
 
+  type ActivityItem =
+    | {
+        kind: "audit";
+        timestamp: number;
+        audit: NonNullable<typeof allAudits>[number];
+      }
+    | { kind: "run"; timestamp: number; run: (typeof sortedRunsDesc)[number] };
+
+  const activityTimeline: ActivityItem[] = [
+    ...(allAudits ?? []).map((audit) => ({
+      kind: "audit" as const,
+      timestamp: audit.createdAt,
+      audit,
+    })),
+    ...sortedRunsDesc.map((run) => ({
+      kind: "run" as const,
+      timestamp: run.startedAt ?? run._creationTime,
+      run,
+    })),
+  ].sort((a, b) => b.timestamp - a.timestamp);
+
   const runsSection =
-    sortedRunsDesc.length > 0 ? (
+    activityTimeline.length > 0 ? (
       <div className="pt-4">
         <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
-          {(allAudits ?? []).map((audit, auditIndex) => {
-            const isLatest = auditIndex === 0;
-            const isAuditStreaming = isLatest && audit.status === "running";
-            const isFixStreaming = isLatest && audit.fixStatus === "fixing";
-            return (
-              <Fragment key={audit._id}>
-                {audit.fixStatus && (
+          {activityTimeline.map((item) => {
+            if (item.kind === "audit") {
+              const audit = item.audit;
+              const auditIndex = (allAudits ?? []).indexOf(audit);
+              const isLatest = auditIndex === 0;
+              const isAuditStreaming = isLatest && audit.status === "running";
+              const isFixStreaming = isLatest && audit.fixStatus === "fixing";
+              return (
+                <Fragment key={`audit-${audit._id}`}>
+                  {audit.fixStatus && (
+                    <Accordion
+                      type="multiple"
+                      defaultValue={isFixStreaming ? [`fix-${audit._id}`] : []}
+                    >
+                      <AccordionItem
+                        value={`fix-${audit._id}`}
+                        className="border rounded-lg px-3"
+                      >
+                        <AccordionTrigger>
+                          <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                              <Badge
+                                variant={
+                                  audit.fixStatus === "fixing"
+                                    ? "warning"
+                                    : audit.fixStatus === "fix_error"
+                                      ? "destructive"
+                                      : "success"
+                                }
+                              >
+                                {audit.fixStatus === "fixing"
+                                  ? "fixing audit issues"
+                                  : audit.fixStatus === "fix_error"
+                                    ? "fix error"
+                                    : "fixed audit issues"}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground truncate">
+                                {dayjs(audit.createdAt).format(
+                                  "DD/MM/YYYY HH:mm",
+                                )}
+                              </span>
+                            </div>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {isFixStreaming
+                                ? formatElapsed(fixElapsed)
+                                : audit.fixCompletedAt
+                                  ? formatDuration(
+                                      audit.createdAt,
+                                      audit.fixCompletedAt,
+                                    )
+                                  : null}
+                            </span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2">
+                            {isFixStreaming &&
+                              auditStreaming?.currentActivity &&
+                              (() => {
+                                const steps = parseActivitySteps(
+                                  auditStreaming.currentActivity,
+                                );
+                                return steps ? (
+                                  <ActivitySteps
+                                    steps={steps}
+                                    isStreaming
+                                    name="Fixing"
+                                  />
+                                ) : null;
+                              })()}
+                            {!isFixStreaming && audit.runId && (
+                              <AuditActivityLog
+                                runId={audit.runId}
+                                type="fix"
+                              />
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
                   <Accordion
                     type="multiple"
-                    defaultValue={isFixStreaming ? [`fix-${audit._id}`] : []}
+                    defaultValue={
+                      isAuditStreaming ? [`audit-${audit._id}`] : []
+                    }
                   >
                     <AccordionItem
-                      value={`fix-${audit._id}`}
+                      value={`audit-${audit._id}`}
                       className="border rounded-lg px-3"
                     >
                       <AccordionTrigger>
@@ -539,18 +614,18 @@ export function useTaskDetail(
                           <div className="flex items-center gap-2 min-w-0 flex-wrap">
                             <Badge
                               variant={
-                                audit.fixStatus === "fixing"
+                                audit.status === "running"
                                   ? "warning"
-                                  : audit.fixStatus === "fix_error"
+                                  : audit.status === "error"
                                     ? "destructive"
                                     : "success"
                               }
                             >
-                              {audit.fixStatus === "fixing"
-                                ? "fixing audit issues"
-                                : audit.fixStatus === "fix_error"
-                                  ? "fix error"
-                                  : "fixed audit issues"}
+                              {audit.status === "running"
+                                ? "auditing"
+                                : audit.status === "error"
+                                  ? "audit error"
+                                  : "audited"}
                             </Badge>
                             <span className="text-xs text-muted-foreground truncate">
                               {dayjs(audit.createdAt).format(
@@ -558,21 +633,46 @@ export function useTaskDetail(
                               )}
                             </span>
                           </div>
-                          <span className="text-xs text-muted-foreground shrink-0">
-                            {isFixStreaming
-                              ? formatElapsed(fixElapsed)
-                              : audit.fixCompletedAt
-                                ? formatDuration(
-                                    audit.createdAt,
-                                    audit.fixCompletedAt,
-                                  )
-                                : null}
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {audit.status === "completed" &&
+                              audit.sections.length > 0 &&
+                              (() => {
+                                const passed = audit.sections.reduce(
+                                  (sum, s) =>
+                                    sum +
+                                    s.results.filter((r) => r.passed).length,
+                                  0,
+                                );
+                                const total = audit.sections.reduce(
+                                  (sum, s) => sum + s.results.length,
+                                  0,
+                                );
+                                return (
+                                  <Badge
+                                    variant={
+                                      passed === total ? "success" : "warning"
+                                    }
+                                  >
+                                    {passed}/{total}
+                                  </Badge>
+                                );
+                              })()}
+                            <span className="text-xs text-muted-foreground">
+                              {isAuditStreaming
+                                ? formatElapsed(auditElapsed)
+                                : audit.completedAt
+                                  ? formatDuration(
+                                      audit.createdAt,
+                                      audit.completedAt,
+                                    )
+                                  : null}
+                            </span>
+                          </div>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="space-y-2">
-                          {isFixStreaming &&
+                          {isAuditStreaming &&
                             auditStreaming?.currentActivity &&
                             (() => {
                               const steps = parseActivitySteps(
@@ -582,117 +682,29 @@ export function useTaskDetail(
                                 <ActivitySteps
                                   steps={steps}
                                   isStreaming
-                                  name="Fixing"
+                                  name="Auditing"
                                 />
                               ) : null;
                             })()}
-                          {!isFixStreaming && audit.runId && (
-                            <AuditActivityLog runId={audit.runId} type="fix" />
+                          {!isAuditStreaming && audit.runId && (
+                            <AuditActivityLog
+                              runId={audit.runId}
+                              type="audit"
+                            />
+                          )}
+                          {audit.status === "error" && (
+                            <p className="text-sm text-destructive">
+                              {audit.error ?? "Audit failed"}
+                            </p>
                           )}
                         </div>
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
-                )}
-                <Accordion
-                  type="multiple"
-                  defaultValue={isAuditStreaming ? [`audit-${audit._id}`] : []}
-                >
-                  <AccordionItem
-                    value={`audit-${audit._id}`}
-                    className="border rounded-lg px-3"
-                  >
-                    <AccordionTrigger>
-                      <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                          <Badge
-                            variant={
-                              audit.status === "running"
-                                ? "warning"
-                                : audit.status === "error"
-                                  ? "destructive"
-                                  : "success"
-                            }
-                          >
-                            {audit.status === "running"
-                              ? "auditing"
-                              : audit.status === "error"
-                                ? "audit error"
-                                : "audited"}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground truncate">
-                            {dayjs(audit.createdAt).format("DD/MM/YYYY HH:mm")}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {audit.status === "completed" &&
-                            audit.sections.length > 0 &&
-                            (() => {
-                              const passed = audit.sections.reduce(
-                                (sum, s) =>
-                                  sum +
-                                  s.results.filter((r) => r.passed).length,
-                                0,
-                              );
-                              const total = audit.sections.reduce(
-                                (sum, s) => sum + s.results.length,
-                                0,
-                              );
-                              return (
-                                <Badge
-                                  variant={
-                                    passed === total ? "success" : "warning"
-                                  }
-                                >
-                                  {passed}/{total}
-                                </Badge>
-                              );
-                            })()}
-                          <span className="text-xs text-muted-foreground">
-                            {isAuditStreaming
-                              ? formatElapsed(auditElapsed)
-                              : audit.completedAt
-                                ? formatDuration(
-                                    audit.createdAt,
-                                    audit.completedAt,
-                                  )
-                                : null}
-                          </span>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-2">
-                        {isAuditStreaming &&
-                          auditStreaming?.currentActivity &&
-                          (() => {
-                            const steps = parseActivitySteps(
-                              auditStreaming.currentActivity,
-                            );
-                            return steps ? (
-                              <ActivitySteps
-                                steps={steps}
-                                isStreaming
-                                name="Auditing"
-                              />
-                            ) : null;
-                          })()}
-                        {!isAuditStreaming && audit.runId && (
-                          <AuditActivityLog runId={audit.runId} type="audit" />
-                        )}
-                        {audit.status === "error" && (
-                          <p className="text-sm text-destructive">
-                            {audit.error ?? "Audit failed"}
-                          </p>
-                        )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </Fragment>
-            );
-          })}
-          {sortedRunsDesc.map((run) => {
+                </Fragment>
+              );
+            }
+            const run = item.run;
             const isActiveRun =
               run.status === "running" || run.status === "queued";
             return (
@@ -1081,17 +1093,26 @@ export function useTaskDetail(
           {comments.map((comment) => (
             <div
               key={comment._id}
-              className="rounded-lg border border-border p-3 space-y-1"
+              className="rounded-lg border border-border p-3 space-y-2"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {dayjs(comment.createdAt).fromNow()}
-                </span>
+                <div className="flex items-center gap-2">
+                  {comment.authorId && (
+                    <UserInitials
+                      userId={comment.authorId}
+                      hideLastSeen
+                      size="sm"
+                    />
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {dayjs(comment.createdAt).fromNow()}
+                  </span>
+                </div>
                 <Button
                   size="icon-sm"
                   variant="ghost"
                   className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                  onClick={() => removeComment({ id: comment._id })}
+                  onClick={() => setDeletingCommentId(comment._id)}
                 >
                   <IconTrash size={12} />
                 </Button>
@@ -1103,6 +1124,37 @@ export function useTaskDetail(
           ))}
         </div>
       )}
+      <Dialog
+        open={deletingCommentId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingCommentId(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Comment</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">
+            Are you sure you want to delete this comment? This action cannot be
+            undone.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeletingCommentId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteComment}
+              disabled={isDeletingComment}
+            >
+              {isDeletingComment && (
+                <IconLoader2 size={16} className="animate-spin" />
+              )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {(status === "business_review" ||
         status === "code_review" ||
         status === "done" ||

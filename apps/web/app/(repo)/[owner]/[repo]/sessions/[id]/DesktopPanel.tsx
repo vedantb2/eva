@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useCallback,
-  useRef,
-  useEffect,
-  type ReactNode,
-} from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -39,7 +33,6 @@ interface DesktopPanelProps {
   sessionId: string;
   sandboxId: string | undefined;
   isActive: boolean;
-  tabSwitcher: ReactNode;
   repoId: Id<"githubRepos">;
   enabled?: boolean;
 }
@@ -49,7 +42,6 @@ export function DesktopPanel({
   sandboxId,
   isActive,
   repoId,
-  tabSwitcher,
   enabled = true,
 }: DesktopPanelProps) {
   const [url, setUrl] = useState<string | null>(null);
@@ -189,59 +181,44 @@ export function DesktopPanel({
 
   if (!enabled) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-1 border-b p-2">
-          {tabSwitcher}
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
-          <IconDeviceDesktop className="w-12 h-12 opacity-50" />
-          <p className="text-sm">Desktop (VNC) is disabled</p>
-          <p className="text-xs text-muted-foreground/70">
-            Enable it in repository settings under Config.
-          </p>
-        </div>
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
+        <IconDeviceDesktop className="w-12 h-12 opacity-50" />
+        <p className="text-sm">Desktop (VNC) is disabled</p>
+        <p className="text-xs text-muted-foreground/70">
+          Enable it in repository settings under Config.
+        </p>
       </div>
     );
   }
 
   if (!isActive || !sandboxId) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-1 border-b p-2">
-          {tabSwitcher}
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
-          <IconDeviceDesktop className="w-12 h-12 opacity-50" />
-          <p className="text-sm">Start the sandbox to use the desktop</p>
-        </div>
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
+        <IconDeviceDesktop className="w-12 h-12 opacity-50" />
+        <p className="text-sm">Start the sandbox to use the desktop</p>
       </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col" ref={containerRef}>
-      <div className="flex items-center gap-1 border-b p-2">
-        {tabSwitcher}
-        <div className="ml-auto flex items-center gap-1">
-          {url && desktopState === "running" && (
-            <>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-8"
-                onClick={toggleFullscreen}
-              >
-                <IconMaximize className="w-4 h-4" />
-              </Button>
-              <Button size="icon" variant="ghost" className="size-8" asChild>
-                <a href={url} target="_blank" rel="noopener noreferrer">
-                  <IconExternalLink className="w-4 h-4" />
-                </a>
-              </Button>
-            </>
-          )}
+      {url && desktopState === "running" && (
+        <div className="flex items-center justify-end gap-1 border-b px-2 py-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            onClick={toggleFullscreen}
+          >
+            <IconMaximize className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="ghost" className="size-8" asChild>
+            <a href={url} target="_blank" rel="noopener noreferrer">
+              <IconExternalLink className="w-4 h-4" />
+            </a>
+          </Button>
         </div>
-      </div>
+      )}
       <div className="flex-1 min-h-0 relative">
         {desktopState === "starting" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-secondary z-10 gap-3">

@@ -12,19 +12,13 @@ import {
   Badge,
 } from "@conductor/ui";
 import { ProjectTaskCard } from "./ProjectTaskCard";
-import { statusConfig } from "@/lib/components/tasks/TaskStatusBadge";
+import {
+  statusConfig,
+  TASK_STATUSES,
+} from "@/lib/components/tasks/TaskStatusBadge";
 
 type Task = FunctionReturnType<typeof api.agentTasks.listByProject>[number];
 type TaskStatus = Task["status"];
-
-const STATUS_ORDER: TaskStatus[] = [
-  "todo",
-  "in_progress",
-  "business_review",
-  "code_review",
-  "done",
-  "cancelled",
-];
 
 interface ProjectTaskListPanelProps {
   tasks: Task[];
@@ -42,8 +36,8 @@ export function ProjectTaskListPanel({
       draft: [],
       todo: [],
       in_progress: [],
-      business_review: [],
       code_review: [],
+      business_review: [],
       done: [],
       cancelled: [],
     };
@@ -53,7 +47,7 @@ export function ProjectTaskListPanel({
     return groups;
   }, [tasks]);
 
-  const nonEmptyStatuses = STATUS_ORDER.filter(
+  const nonEmptyStatuses = TASK_STATUSES.filter(
     (status) => groupedTasks[status].length > 0,
   );
   const defaultExpandedKeys = nonEmptyStatuses.filter(
@@ -67,7 +61,7 @@ export function ProjectTaskListPanel({
         className="px-0 [&_hr]:bg-border"
         defaultValue={defaultExpandedKeys}
       >
-        {STATUS_ORDER.map((status) => {
+        {TASK_STATUSES.map((status) => {
           const config = statusConfig[status];
           const StatusIcon = config.icon;
           const statusTasks = groupedTasks[status];

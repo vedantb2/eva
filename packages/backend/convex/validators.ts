@@ -11,8 +11,8 @@ export const taskStatusValidator = v.union(
   v.literal("draft"),
   v.literal("todo"),
   v.literal("in_progress"),
-  v.literal("business_review"),
   v.literal("code_review"),
+  v.literal("business_review"),
   v.literal("done"),
   v.literal("cancelled"),
 );
@@ -36,7 +36,6 @@ export const sessionModeValidator = v.union(
   v.literal("execute"),
   v.literal("ask"),
   v.literal("plan"),
-  v.literal("flag"),
 );
 
 export const sessionStatusValidator = v.union(
@@ -300,6 +299,8 @@ export const githubRepoFields = {
   sessionsVscodeEnabled: v.optional(v.boolean()),
   hidden: v.optional(v.boolean()),
   deploymentProjectName: v.optional(v.string()),
+  domains: v.optional(v.array(v.string())),
+  mcpRootPrompt: v.optional(v.string()),
 };
 
 export const conversationMessageValidator = v.object({

@@ -1,4 +1,10 @@
+import { sendExtensionMessage, sendTabMessage } from "../shared/messaging";
+
 let capturedContext: unknown = null;
+
+function forwardRuntimeMessage(msg: { type: string; payload?: unknown }): void {
+  void chrome.runtime.sendMessage(msg).catch(() => {});
+}
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== "sidepanel") return;
@@ -6,9 +12,7 @@ chrome.runtime.onConnect.addListener((port) => {
     chrome.tabs.query({}, (tabs) => {
       for (const tab of tabs) {
         if (tab.id) {
-          chrome.tabs
-            .sendMessage(tab.id, { type: "PANEL_CLOSED" })
-            .catch(() => {});
+          sendTabMessage(tab.id, { type: "PANEL_CLOSED" });
         }
       }
     });
@@ -58,7 +62,7 @@ chrome.runtime.onMessage.addListener(
       }
 
       case "ANNOTATIONS_CHANGED": {
-        chrome.runtime.sendMessage({
+        forwardRuntimeMessage({
           type: "ANNOTATIONS_CHANGED",
           payload: message.payload,
         });
@@ -67,13 +71,13 @@ chrome.runtime.onMessage.addListener(
       }
 
       case "STOP_ANNOTATION": {
-        chrome.runtime.sendMessage({ type: "STOP_ANNOTATION" });
+        void sendExtensionMessage({ type: "STOP_ANNOTATION" });
         sendResponse({ success: true });
         break;
       }
 
       case "REQUEST_ANNOTATIONS": {
-        chrome.runtime.sendMessage({ type: "REQUEST_ANNOTATIONS" });
+        void sendExtensionMessage({ type: "REQUEST_ANNOTATIONS" });
         sendResponse({ success: true });
         break;
       }
@@ -82,7 +86,7 @@ chrome.runtime.onMessage.addListener(
       case "TOOLBAR_ADD_QUICK_TASKS":
       case "TOOLBAR_ADD_TO_PROJECT":
       case "RUN_ALL_ANNOTATIONS": {
-        chrome.runtime.sendMessage({
+        forwardRuntimeMessage({
           type: message.type,
           payload: message.payload,
         });

@@ -36,6 +36,7 @@ export async function launchScript(
     const mcpConfig = JSON.stringify({
       mcpServers: {
         eva: {
+          type: "http",
           url: `${opts.mcpBaseUrl}/mcp`,
           headers: {
             Authorization: `Bearer ${opts.mcpToken}`,
@@ -45,7 +46,7 @@ export async function launchScript(
     });
     await sandbox.fs.uploadFile(
       Buffer.from(mcpConfig, "utf-8"),
-      "/workspace/repo/.mcp.json",
+      "/tmp/eva-mcp.json",
     );
   }
 

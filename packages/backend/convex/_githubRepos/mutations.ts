@@ -159,6 +159,7 @@ export const updateConfig = authMutation({
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
     deploymentProjectName: v.optional(v.string()),
+    domains: v.optional(v.array(v.string())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -201,6 +202,12 @@ export const updateConfig = authMutation({
       });
     }
 
+    if (args.domains !== undefined) {
+      await ctx.db.patch(args.repoId, {
+        domains: args.domains.length > 0 ? args.domains : undefined,
+      });
+    }
+
     return null;
   },
 });
@@ -232,6 +239,38 @@ export const toggleHidden = authMutation({
 
     await ctx.db.patch(args.repoId, {
       hidden: args.hidden || undefined,
+    });
+    return null;
+  },
+});
+
+export const updateMcpRootPrompt = authMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    mcpRootPrompt: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    if (repo.connectedBy !== ctx.userId) {
+      const teamId = repo.teamId;
+      if (teamId) {
+        const membership = await ctx.db
+          .query("teamMembers")
+          .withIndex("by_team_and_user", (q) =>
+            q.eq("teamId", teamId).eq("userId", ctx.userId),
+          )
+          .first();
+        if (!membership) throw new Error("Not authorized");
+      } else {
+        throw new Error("Not authorized");
+      }
+    }
+
+    await ctx.db.patch(args.repoId, {
+      mcpRootPrompt: args.mcpRootPrompt,
     });
     return null;
   },

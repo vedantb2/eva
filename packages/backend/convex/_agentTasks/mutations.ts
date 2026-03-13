@@ -71,8 +71,8 @@ export const updateStatus = authMutation({
     const workStatuses = [
       "todo",
       "in_progress",
-      "business_review",
       "code_review",
+      "business_review",
     ];
     if (workStatuses.includes(args.status)) {
       const dependencies = await ctx.db

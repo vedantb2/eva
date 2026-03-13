@@ -40,14 +40,15 @@ export function QuickTasksKanbanBoard({
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  const tasks = [...externalTasks].sort((a, b) => b.updatedAt - a.updatedAt);
+  const tasks = [...externalTasks].sort((a, b) => b.createdAt - a.createdAt);
 
   if (tasks.length === 0) {
     return null;
   }
 
   const handleStatusChange = async (id: string, status: TaskStatus) => {
-    await updateStatus({ id: id as Id<"agentTasks">, status });
+    const task = tasks.find((t) => t._id === id);
+    if (task) await updateStatus({ id: task._id, status });
   };
 
   const todoTasks = tasks.filter((t) => t.status === "todo");

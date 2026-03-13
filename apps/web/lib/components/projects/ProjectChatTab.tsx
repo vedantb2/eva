@@ -131,7 +131,7 @@ export function ProjectChatTab({
     async (currentAnswers: AnswerRecord[]) => {
       setIsLoading(true);
       await startProjectInterview({
-        projectId: projectId as Id<"projects">,
+        projectId: projectId,
         featureDescription: rawInput,
         previousAnswers: currentAnswers,
         installationId,

@@ -7,8 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
-import { UserInitials } from "@conductor/shared";
-import dayjs from "@conductor/shared/dates";
+import { SidebarSessionItem } from "@/lib/components/sidebar/SidebarSessionItem";
 import {
   Button,
   ContextMenu,
@@ -30,6 +29,7 @@ import {
   IconChevronDown,
   IconTerminal2,
 } from "@tabler/icons-react";
+import dayjs from "@conductor/shared/dates";
 
 interface SessionsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -188,34 +188,15 @@ export function SessionsSidebar({
                             : "text-sidebar-foreground hover:bg-sidebar-accent/70",
                         )}
                       >
-                        <Link
+                        <SidebarSessionItem
                           href={`${baseUrl}/${session._id}`}
-                          onClick={onNavigate}
-                          className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <h3
-                              className={cn(
-                                "truncate text-sm font-medium transition-colors duration-200",
-                                isSelected
-                                  ? "text-sidebar-primary"
-                                  : "text-sidebar-foreground",
-                              )}
-                            >
-                              {session.title}
-                            </h3>
-                          </div>
-                          <div className="mt-2 flex items-center">
-                            <div className="flex -space-x-1">
-                              <UserInitials userId={session.userId} />
-                            </div>
-                            <span className="ml-auto text-xs text-muted-foreground">
-                              {dayjs(
-                                session.updatedAt ?? session._creationTime,
-                              ).fromNow()}
-                            </span>
-                          </div>
-                        </Link>
+                          title={session.title}
+                          userId={session.userId}
+                          createdAt={session._creationTime}
+                          updatedAt={session.updatedAt}
+                          isSelected={isSelected}
+                          onNavigate={onNavigate}
+                        />
                       </motion.div>
                     </ContextMenuTrigger>
                     <ContextMenuContent>

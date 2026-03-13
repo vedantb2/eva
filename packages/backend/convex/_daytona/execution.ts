@@ -214,7 +214,7 @@ export const prepareSandbox = internalAction({
           await exec(
             sandbox,
             `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
-            30,
+            60,
           );
         }
 

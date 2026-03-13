@@ -20,10 +20,11 @@
     "@daytonaio/sdk": "^0.143.0",
     "@octokit/auth-app": "^8.1.2",
     "@solvers-hub/llm-json": "^0.1.8",
+    "@tiptap/pm": "^3.20.1",
     "convex": "^1.24.5",
-    "jose": "^6.0.11",
     "convex-helpers": "^0.1.111",
     "convex-timeline": "^0.1.2",
+    "jose": "^6.0.11",
     "octokit": "^5.0.5",
     "resend": "^4.6.0",
     "shell-quote": "^1.8.3"

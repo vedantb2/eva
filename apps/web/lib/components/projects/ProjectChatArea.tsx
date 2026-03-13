@@ -12,7 +12,7 @@ import {
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
-  PromptInputSettings,
+  ModelSelect,
   type ClaudeModel,
   type PromptInputMessage,
 } from "@conductor/ui";
@@ -86,9 +86,9 @@ export function ProjectChatArea({
           />
           <PromptInputFooter>
             <PromptInputTools>
-              <PromptInputSettings
-                model={model}
-                onModelChange={setModel}
+              <ModelSelect
+                value={model}
+                onValueChange={setModel}
                 disabled={isSending}
               />
             </PromptInputTools>

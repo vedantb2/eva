@@ -90,14 +90,34 @@ export function registerTools(
     async () => {
       const { deployKey, userId } = await getContext();
       const repos = await listUserRepos(convexUrl, deployKey, userId);
-      return textResult(
-        repos.map((r) => ({
-          id: r.id,
-          owner: r.owner,
-          name: r.name,
-          app: r.rootDirectory,
-        })),
-      );
+      const repoList = repos.map((r) => ({
+        id: r.id,
+        owner: r.owner,
+        name: r.name,
+        app: r.rootDirectory,
+        ...(r.mcpRootPrompt ? { mcpRootPrompt: r.mcpRootPrompt } : {}),
+      }));
+
+      const rootPrompts = repos
+        .filter((r) => r.mcpRootPrompt)
+        .map(
+          (r) =>
+            `[${r.owner}/${r.name}${r.rootDirectory ? ` (${r.rootDirectory})` : ""}]: ${r.mcpRootPrompt}`,
+        );
+
+      if (rootPrompts.length > 0) {
+        return {
+          content: [
+            { type: "text" as const, text: JSON.stringify(repoList, null, 2) },
+            {
+              type: "text" as const,
+              text: `\n---\nRepo instructions:\n${rootPrompts.join("\n")}`,
+            },
+          ],
+        };
+      }
+
+      return textResult(repoList);
     },
   );
 

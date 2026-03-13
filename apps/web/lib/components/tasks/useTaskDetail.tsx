@@ -107,6 +107,11 @@ export function useTaskDetail(
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
   const allAudits = useQuery(api.audits.listByTask, { taskId });
+  const hasEnabledAuditCategories =
+    useQuery(
+      api.auditCategories.hasEnabledCategories,
+      task?.repoId ? { repoId: task.repoId } : "skip",
+    ) ?? true;
   const latestAudit = allAudits?.[0] ?? null;
   const pastAudits = allAudits?.slice(1) ?? [];
   const auditStreaming = useQuery(
@@ -1031,29 +1036,8 @@ export function useTaskDetail(
       )}
     </div>
   ) : (
-    <div className="space-y-2">
-      <p className="text-sm text-muted-foreground">No audit available</p>
-      {status === "todo" && enabledAuditCount > 0 && (
-        <p className="text-sm text-muted-foreground">
-          {enabledAuditCount} audit{enabledAuditCount !== 1 ? "s" : ""} will run
-          when this task is executed
-        </p>
-      )}
-    </div>
+    <p className="text-sm text-muted-foreground">No audit available</p>
   );
-
-  const handleDeleteComment = async () => {
-    if (!deletingCommentId) return;
-    setIsDeletingComment(true);
-    try {
-      await removeComment({ id: deletingCommentId });
-      setDeletingCommentId(null);
-    } catch (err) {
-      console.error("Failed to delete comment:", err);
-    } finally {
-      setIsDeletingComment(false);
-    }
-  };
 
   const commentsSection = (
     <div className="space-y-4">

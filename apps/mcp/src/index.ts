@@ -15,15 +15,19 @@ import {
   mintInternalToken,
 } from "./auth.js";
 import { registerTools } from "./tools.js";
+import { registerSupabaseTools } from "./supabase-proxy.js";
 import type { ConvexCredentials } from "./auth.js";
 import type { Request, Response } from "express";
 
-function createMcpServer(credentials: ConvexCredentials): McpServer {
+async function createMcpServer(
+  credentials: ConvexCredentials,
+): Promise<McpServer> {
   const server = new McpServer({
     name: "convex-mcp",
     version: "1.0.0",
   });
   registerTools(server, credentials);
+  await registerSupabaseTools(server, credentials);
   return server;
 }
 
@@ -173,7 +177,7 @@ async function handleMcpPost(req: Request, res: Response) {
 
   try {
     console.log("  MCP: authenticated, handling request");
-    const server = createMcpServer(credentials);
+    const server = await createMcpServer(credentials);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });

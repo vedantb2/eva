@@ -1,5 +1,11 @@
 # Changelog
 
+## Session sidebar status indicators and deduplication - 2026-03-13
+
+- Added colored status dots to sidebar session items: green (active), amber pulse (starting), gray (closed) — users can now see at a glance which sessions have live sandboxes
+- Extracted shared `SessionListSidebar` generic component from `SessionsSidebar` and `DesignSessionsSidebar` — both were 95% identical, now they're thin wrappers (~50 lines each) over the shared component (~280 lines)
+- Generic `<T extends SessionItem>` design preserves full Convex ID types through callbacks without `as` casts
+
 ## Chrome extension bug fixes: branding, URL, session persistence, sidebar tabs - 2026-03-12
 
 - Renamed "Open in Conductor" → "Open in Eva" and updated production URL from `conductor-lake.vercel.app` to `eva-git-staging-vedantb.vercel.app`

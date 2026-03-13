@@ -24,6 +24,7 @@ import {
   IconMenu2,
   IconMoon,
   IconPalette,
+  IconPlayerPlay,
   IconPlus,
   IconSearch,
   IconSettings,
@@ -43,6 +44,7 @@ import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSi
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
+import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoSelect } from "@/lib/components/RepoSelect";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
@@ -58,6 +60,7 @@ const KNOWN_SUB_PAGES = new Set([
   "settings",
   "testing-arena",
   "stats",
+  "automations",
 ]);
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
@@ -67,6 +70,7 @@ const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Settings: "settings",
   Documents: "docs",
   "Testing Arena": "testing-arena",
+  Automations: "automations",
 } as const;
 
 type ContextSidebarMode =
@@ -76,7 +80,8 @@ type ContextSidebarMode =
   | "analyse"
   | "settings"
   | "docs"
-  | "testing-arena";
+  | "testing-arena"
+  | "automations";
 
 function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   const segments = pathname.split("/").filter(Boolean);
@@ -88,7 +93,8 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
       s === "analyse" ||
       s === "settings" ||
       s === "docs" ||
-      s === "testing-arena"
+      s === "testing-arena" ||
+      s === "automations"
     ) {
       return s;
     }
@@ -110,6 +116,8 @@ export function Sidebar() {
   const [analyseCreateRequestId, setAnalyseCreateRequestId] = useState(0);
   const [docsCreateRequestId, setDocsCreateRequestId] = useState(0);
   const [testingArenaCreateRequestId, setTestingArenaCreateRequestId] =
+    useState(0);
+  const [automationsCreateRequestId, setAutomationsCreateRequestId] =
     useState(0);
 
   const repos = useQuery(api.githubRepos.list, {});
@@ -250,6 +258,11 @@ export function Sidebar() {
                   icon: IconInbox,
                 },
                 {
+                  name: "Automations",
+                  href: `${repoBasePath}/automations`,
+                  icon: IconPlayerPlay,
+                },
+                {
                   name: "Stats",
                   href: `${repoBasePath}/stats`,
                   icon: IconChartBar,
@@ -302,9 +315,12 @@ export function Sidebar() {
               ? "Documents"
               : contextSidebarMode === "testing-arena"
                 ? "Testing Arena"
-                : "";
+                : contextSidebarMode === "automations"
+                  ? "Automations"
+                  : "";
 
-  const showContextCreate = contextSidebarMode !== "settings";
+  const showContextCreate =
+    contextSidebarMode !== "settings" && contextSidebarMode !== "automations";
   const contextCreateButtonTitle =
     contextSidebarMode === "designs"
       ? "New design session"
@@ -640,6 +656,13 @@ export function Sidebar() {
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                               createRequestId={testingArenaCreateRequestId}
+                            />
+                          ) : contextSidebarMode === "automations" ? (
+                            <AutomationsSidebar
+                              repoId={repo._id}
+                              basePath={repoBasePath}
+                              pathname={pathname}
+                              onNavigate={closeMobileSidebar}
                             />
                           ) : (
                             <AnalyseSidebar

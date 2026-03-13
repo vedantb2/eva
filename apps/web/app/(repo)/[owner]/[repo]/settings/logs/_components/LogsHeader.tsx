@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Badge,
   Button,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -29,25 +30,35 @@ export function LogsHeader({
   timeRange,
   onTimeRangeChange,
 }: LogsHeaderProps) {
+  const filterActive = visibleTypes.size > 0;
+
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size="sm" className="motion-press">
             <IconFilter size={14} />
             <span className="hidden sm:inline">
-              {visibleTypes.size === 0
-                ? "All Types"
-                : `${visibleTypes.size} of ${availableTypes.length} Types`}
+              {filterActive
+                ? `${visibleTypes.size} of ${availableTypes.length} Types`
+                : "All Types"}
             </span>
             <span className="sm:hidden">
-              {visibleTypes.size === 0
-                ? "All"
-                : `${visibleTypes.size}/${availableTypes.length}`}
+              {filterActive
+                ? `${visibleTypes.size}/${availableTypes.length}`
+                : "All"}
             </span>
+            {filterActive && (
+              <Badge
+                variant="default"
+                className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+              >
+                {visibleTypes.size}
+              </Badge>
+            )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent>
+        <DropdownMenuContent align="end">
           {availableTypes.map((type) => (
             <DropdownMenuCheckboxItem
               key={type}

@@ -7,6 +7,7 @@ import {
 } from "@/lib/contexts/ThemeContext";
 import type {
   AccentColor,
+  CustomTheme,
   RadiusSize,
   FontFamily,
   LetterSpacing,
@@ -14,6 +15,7 @@ import type {
 import { Spinner } from "@conductor/ui";
 import { useTheme } from "next-themes";
 import { AppearanceSection } from "./_components/AppearanceSection";
+import { PresetsSection } from "./_components/PresetsSection";
 import { AccentColorSection } from "./_components/AccentColorSection";
 import { TypographySection } from "./_components/TypographySection";
 import { ThemePreview } from "./_components/ThemePreview";
@@ -53,6 +55,10 @@ export function ThemeSettingsClient() {
     setCustomTheme({ ...customTheme, letterSpacing: ls });
   };
 
+  const handleApplyPreset = (preset: Required<CustomTheme>) => {
+    setCustomTheme(preset);
+  };
+
   if (!mounted) {
     return (
       <PageWrapper title="Theme">
@@ -69,6 +75,10 @@ export function ThemeSettingsClient() {
         <AppearanceSection
           currentMode={currentMode}
           onModeChange={handleModeChange}
+        />
+        <PresetsSection
+          currentTheme={resolved}
+          onApplyPreset={handleApplyPreset}
         />
         <AccentColorSection
           accentColor={accentColor}

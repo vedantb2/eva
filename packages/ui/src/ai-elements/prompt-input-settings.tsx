@@ -10,6 +10,13 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "../ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { IconBrain, IconTextResize, IconDots } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
 
@@ -113,5 +120,89 @@ export function PromptInputSettings({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+export interface ModelSelectProps {
+  value: ClaudeModel;
+  onValueChange: (model: ClaudeModel) => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+export function ModelSelect({
+  value,
+  onValueChange,
+  disabled,
+  className,
+}: ModelSelectProps) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(v) => {
+        if (isClaudeModel(v)) onValueChange(v);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        className={cn(
+          "h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none",
+          "hover:bg-accent hover:text-foreground",
+          className,
+        )}
+      >
+        <IconBrain size={14} className="shrink-0" />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {MODELS.map((m) => (
+          <SelectItem key={m.key} value={m.key}>
+            {m.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+export interface ResponseLengthSelectProps {
+  value: ResponseLength;
+  onValueChange: (length: ResponseLength) => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+export function ResponseLengthSelect({
+  value,
+  onValueChange,
+  disabled,
+  className,
+}: ResponseLengthSelectProps) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(v) => {
+        if (isResponseLength(v)) onValueChange(v);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        className={cn(
+          "h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none",
+          "hover:bg-accent hover:text-foreground",
+          className,
+        )}
+      >
+        <IconTextResize size={14} className="shrink-0" />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {RESPONSE_LENGTHS.map((o) => (
+          <SelectItem key={o.key} value={o.key}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

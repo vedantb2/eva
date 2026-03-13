@@ -14,15 +14,9 @@ import { authQuery, authMutation } from "./functions";
 
 const crons = new Crons(components.crons);
 
-const LEGACY_SCHEDULE_TO_CRON: Record<string, string> = {
-  daily: "0 6 * * *",
-  every_3_days: "0 6 */3 * *",
-  weekly: "0 6 * * 1",
-};
-
 function resolveCronspec(schedule: string): string | null {
   if (schedule === "manual") return null;
-  return LEGACY_SCHEDULE_TO_CRON[schedule] ?? schedule;
+  return schedule;
 }
 
 const STALE_BUILD_MS = 30 * 60 * 1000;

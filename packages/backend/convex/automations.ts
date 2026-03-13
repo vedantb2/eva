@@ -63,7 +63,7 @@ export const create = authMutation({
       repoId: args.repoId,
       title: args.title,
       description: "",
-      cronSchedule: "0 6 * * *",
+      cronSchedule: "",
       enabled: false,
       createdBy: ctx.userId,
       createdAt: now,

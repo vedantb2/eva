@@ -17,6 +17,24 @@ const TOKEN_CACHE_TTL_MS = 5 * 60 * 1000;
 const CONNECT_TIMEOUT_MS = 15_000;
 const CALL_TIMEOUT_MS = 30_000;
 
+const READ_ONLY_TOOLS = new Set([
+  "execute_sql",
+  "generate_typescript_types",
+  "get_anon_key",
+  "get_cost",
+  "get_logs",
+  "get_organization",
+  "get_project",
+  "get_project_url",
+  "list_branches",
+  "list_edge_functions",
+  "list_extensions",
+  "list_migrations",
+  "list_organizations",
+  "list_projects",
+  "list_tables",
+]);
+
 interface CachedToken {
   clerkUserId: string;
   token: string;
@@ -217,11 +235,14 @@ export async function registerSupabaseTools(
     return;
   }
 
+  const readOnlyTools = tools.filter((t) => READ_ONLY_TOOLS.has(t.name));
+  const skipped = tools.length - readOnlyTools.length;
+
   console.log(
-    `  Supabase: discovered ${tools.length} tools, registering with prefix "${SUPABASE_PREFIX}"`,
+    `  Supabase: discovered ${tools.length} tools, registering ${readOnlyTools.length} read-only (skipped ${skipped} write tools)`,
   );
 
-  for (const tool of tools) {
+  for (const tool of readOnlyTools) {
     const prefixedName = `${SUPABASE_PREFIX}${tool.name}`;
     const zodShape = toolSchemaToZodShape(tool.inputSchema);
 
@@ -311,5 +332,5 @@ export async function registerSupabaseTools(
     );
   }
 
-  console.log(`  Supabase: registered ${tools.length} tools`);
+  console.log(`  Supabase: registered ${readOnlyTools.length} read-only tools`);
 }

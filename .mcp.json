@@ -31,17 +31,6 @@
         "--header",
         "Authorization:Bearer ${POSTHOG_API_KEY}"
       ]
-    },
-    "supabase-db": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@supabase/mcp-server-supabase@latest",
-        "--access-token",
-        "${SUPABASE_ACCESS_TOKEN}",
-        "--read-only"
-      ]
     }
   }
 }

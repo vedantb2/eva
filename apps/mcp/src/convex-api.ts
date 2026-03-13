@@ -275,6 +275,7 @@ export interface Repo {
   owner: string;
   name: string;
   rootDirectory: string | null;
+  mcpRootPrompt: string | null;
 }
 
 export async function listRepos(
@@ -283,7 +284,7 @@ export async function listRepos(
 ): Promise<Repo[]> {
   const source = wrapQueryHandler(
     `const repos = await ctx.db.query("githubRepos").collect();
-    return repos.map(r => ({ id: r._id, owner: r.owner, name: r.name, rootDirectory: r.rootDirectory ?? null }));`,
+    return repos.map(r => ({ id: r._id, owner: r.owner, name: r.name, rootDirectory: r.rootDirectory ?? null, mcpRootPrompt: r.mcpRootPrompt ?? null }));`,
   );
   const result = await runTestQuery(convexUrl, deployKey, source);
   return z
@@ -293,6 +294,7 @@ export async function listRepos(
         owner: z.string(),
         name: z.string(),
         rootDirectory: z.string().nullable(),
+        mcpRootPrompt: z.string().nullable(),
       }),
     )
     .parse(result.value);
@@ -323,7 +325,7 @@ export async function listUserRepos(
     const accessible = [];
     for (const repo of repos) {
       if (repo.connectedBy === userId) {
-        accessible.push({ id: repo._id, owner: repo.owner, name: repo.name, rootDirectory: repo.rootDirectory ?? null });
+        accessible.push({ id: repo._id, owner: repo.owner, name: repo.name, rootDirectory: repo.rootDirectory ?? null, mcpRootPrompt: repo.mcpRootPrompt ?? null });
         continue;
       }
       if (repo.teamId) {
@@ -331,7 +333,7 @@ export async function listUserRepos(
           .withIndex("by_team_and_user", q => q.eq("teamId", repo.teamId).eq("userId", userId))
           .first();
         if (membership) {
-          accessible.push({ id: repo._id, owner: repo.owner, name: repo.name, rootDirectory: repo.rootDirectory ?? null });
+          accessible.push({ id: repo._id, owner: repo.owner, name: repo.name, rootDirectory: repo.rootDirectory ?? null, mcpRootPrompt: repo.mcpRootPrompt ?? null });
         }
       }
     }
@@ -345,6 +347,7 @@ export async function listUserRepos(
         owner: z.string(),
         name: z.string(),
         rootDirectory: z.string().nullable(),
+        mcpRootPrompt: z.string().nullable(),
       }),
     )
     .parse(result.value);

@@ -300,6 +300,7 @@ export const githubRepoFields = {
   hidden: v.optional(v.boolean()),
   deploymentProjectName: v.optional(v.string()),
   domains: v.optional(v.array(v.string())),
+  mcpRootPrompt: v.optional(v.string()),
 };
 
 export const conversationMessageValidator = v.object({

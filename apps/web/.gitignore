@@ -17,6 +17,3 @@ yarn-error.*
 .next/
 .bolt/
 .vscode/
-
-# convex
-api.ts

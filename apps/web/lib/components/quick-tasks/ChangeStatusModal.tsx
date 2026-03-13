@@ -19,11 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@conductor/ui";
-import {
-  TASK_STATUSES,
-  statusConfig,
-  type DisplayTaskStatus,
-} from "@/lib/components/tasks/TaskStatusBadge";
+
+const STATUS_OPTIONS = [
+  { value: "todo", label: "To Do" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "code_review", label: "Code Review" },
+  { value: "business_review", label: "Business Review" },
+  { value: "done", label: "Done" },
+  { value: "cancelled", label: "Cancelled" },
+] as const;
 
 type TaskStatus = DisplayTaskStatus;
 
@@ -41,7 +45,7 @@ export function ChangeStatusModal({
   onSuccess,
 }: ChangeStatusModalProps) {
   const updateStatus = useMutation(api.agentTasks.updateStatus);
-  const [selectedStatus, setSelectedStatus] = useState<string>("");
+  const [selectedStatus, setSelectedStatus] = useState<TaskStatus | "">("");
   const [isLoading, setIsLoading] = useState(false);
 
   const count = selectedTaskIds.size;
@@ -57,9 +61,7 @@ export function ChangeStatusModal({
     setIsLoading(true);
     try {
       await Promise.all(
-        taskIds.map((id) =>
-          updateStatus({ id, status: selectedStatus as TaskStatus }),
-        ),
+        taskIds.map((id) => updateStatus({ id, status: selectedStatus })),
       );
       setSelectedStatus("");
       onSuccess();
@@ -85,7 +87,13 @@ export function ChangeStatusModal({
             All selected tasks will be moved to the chosen status.
           </DialogDescription>
         </DialogHeader>
-        <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+        <Select
+          value={selectedStatus}
+          onValueChange={(val) => {
+            const found = TASK_STATUSES.find((s) => s === val);
+            if (found) setSelectedStatus(found);
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select a status" />
           </SelectTrigger>

@@ -61,7 +61,10 @@ export function RepoSelector({
   return (
     <Select
       value={selectedRepoId ?? ""}
-      onValueChange={(val) => onRepoChange(val as Id<"githubRepos">)}
+      onValueChange={(val) => {
+        const repo = repos.find((r) => r._id === val);
+        if (repo) onRepoChange(repo._id);
+      }}
     >
       <SelectTrigger className="flex-1 min-w-[180px]">
         <SelectValue placeholder="Select repository...">

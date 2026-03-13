@@ -34,9 +34,10 @@ export function PersonaDropdown({
   return (
     <Select
       value={value ?? "none"}
-      onValueChange={(val) =>
-        onChange(val === "none" ? undefined : (val as Id<"designPersonas">))
-      }
+      onValueChange={(val) => {
+        const persona = personas?.find((p) => p._id === val);
+        onChange(persona?._id);
+      }}
     >
       <SelectTrigger className="h-7 w-auto gap-1.5 border-none bg-transparent text-xs text-muted-foreground shadow-none hover:bg-accent hover:text-foreground">
         <SelectValue placeholder="No persona" />

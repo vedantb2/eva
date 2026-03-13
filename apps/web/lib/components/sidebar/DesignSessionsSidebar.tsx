@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
-import dayjs from "@conductor/shared/dates";
+import { SidebarSessionItem } from "@/lib/components/sidebar/SidebarSessionItem";
 import {
   Button,
   ContextMenu,
@@ -25,6 +25,7 @@ import {
   cn,
 } from "@conductor/ui";
 import { IconArchive, IconChevronDown, IconPalette } from "@tabler/icons-react";
+import dayjs from "@conductor/shared/dates";
 
 interface DesignSessionsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -176,29 +177,13 @@ export function DesignSessionsSidebar({
                             : "text-sidebar-foreground hover:bg-sidebar-accent/70",
                         )}
                       >
-                        <Link
+                        <SidebarSessionItem
                           href={`${baseUrl}/${session._id}`}
-                          onClick={onNavigate}
-                          className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <h3
-                              className={cn(
-                                "truncate text-sm font-medium transition-colors duration-200",
-                                isSelected
-                                  ? "text-sidebar-primary"
-                                  : "text-sidebar-foreground",
-                              )}
-                            >
-                              {session.title}
-                            </h3>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {dayjs(
-                              session.updatedAt ?? session._creationTime,
-                            ).fromNow()}
-                          </span>
-                        </Link>
+                          title={session.title}
+                          userId={session.userId}
+                          isSelected={isSelected}
+                          onNavigate={onNavigate}
+                        />
                       </motion.div>
                     </ContextMenuTrigger>
                     <ContextMenuContent>

@@ -17,12 +17,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Input,
   SearchInput,
   Spinner,
   Textarea,
   cn,
 } from "@conductor/ui";
 import { IconFile, IconTrash, IconUpload } from "@tabler/icons-react";
+import dayjs from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
 
@@ -56,7 +58,10 @@ export function DocsSidebar({
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newDocTitle, setNewDocTitle] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [showUploadSection, setShowUploadSection] = useState(false);
   const [pastedPrdContent, setPastedPrdContent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
@@ -65,19 +70,32 @@ export function DocsSidebar({
     if (createRequestId === undefined) return;
     if (createRequestId <= lastCreateRequestIdRef.current) return;
     lastCreateRequestIdRef.current = createRequestId;
-    createDoc({ repoId, title: "Untitled", content: "" })
-      .then((id) => {
-        router.push(`${basePath}/docs/${id}`);
-        onNavigate?.();
-      })
-      .catch(console.error);
-  }, [createRequestId, createDoc, repoId, basePath, onNavigate, router]);
+    setIsCreateDialogOpen(true);
+  }, [createRequestId]);
 
   const filteredDocs = useMemo(() => {
     if (!docs) return [];
     const q = searchQuery.toLowerCase().trim();
     return q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : docs;
   }, [docs, searchQuery]);
+
+  const handleCreateDoc = async () => {
+    if (!newDocTitle.trim()) return;
+    setIsCreating(true);
+    try {
+      const id = await createDoc({
+        repoId,
+        title: newDocTitle.trim(),
+        content: "",
+      });
+      setNewDocTitle("");
+      setIsCreateDialogOpen(false);
+      router.push(`${basePath}/docs/${id}`);
+      onNavigate?.();
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const readFileContent = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -115,8 +133,10 @@ export function DocsSidebar({
     setIsUploading(true);
     try {
       const id = await createDoc({ repoId, title, content: prdContent });
-      setIsUploadDialogOpen(false);
+      setIsCreateDialogOpen(false);
+      setShowUploadSection(false);
       setPastedPrdContent("");
+      setNewDocTitle("");
       router.push(`${basePath}/docs/${id}`);
       onNavigate?.();
       await startPrdParse({
@@ -222,7 +242,7 @@ export function DocsSidebar({
                   <ContextMenuTrigger asChild>
                     <div
                       className={cn(
-                        "group mx-1 rounded-md px-3 py-2 transition-colors",
+                        "group mx-1 rounded-md px-3 py-3.5 transition-colors",
                         isSelected
                           ? "bg-sidebar-accent text-sidebar-primary"
                           : "text-sidebar-foreground hover:bg-sidebar-accent/70",
@@ -231,15 +251,18 @@ export function DocsSidebar({
                       <Link
                         href={href}
                         onClick={onNavigate}
-                        className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                       >
                         <span
                           className={cn(
-                            "flex-1 truncate text-sm",
+                            "block truncate text-sm",
                             isSelected && "font-medium text-sidebar-primary",
                           )}
                         >
                           {doc.title}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {dayjs(doc.updatedAt ?? doc._creationTime).fromNow()}
                         </span>
                       </Link>
                     </div>
@@ -262,77 +285,114 @@ export function DocsSidebar({
         )}
       </div>
 
-      <div className="border-t border-sidebar-border/40 px-3 pb-2 pt-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="w-full justify-start gap-2 text-muted-foreground hover:text-sidebar-foreground"
-          onClick={() => setIsUploadDialogOpen(true)}
-          disabled={isUploading}
-        >
-          {isUploading ? <Spinner size="sm" /> : <IconUpload size={14} />}
-          Upload PRD
-        </Button>
-      </div>
-
       <Dialog
-        open={isUploadDialogOpen}
+        open={isCreateDialogOpen}
         onOpenChange={(open) => {
-          if (isUploading) return;
-          setIsUploadDialogOpen(open);
+          if (isUploading || isCreating) return;
+          setIsCreateDialogOpen(open);
           if (!open) {
+            setNewDocTitle("");
+            setShowUploadSection(false);
             setPastedPrdContent("");
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Upload PRD</DialogTitle>
+            <DialogTitle>New Document</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="rounded-md border border-border/70 p-3">
-              <p className="text-sm font-medium">Upload a file</p>
-              <p className="mb-3 text-sm text-muted-foreground">
-                Supported formats: .md, .txt
-              </p>
-              <Button
-                variant="secondary"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
+          {showUploadSection ? (
+            <div className="space-y-4">
+              <div className="rounded-md border border-border/70 p-3">
+                <p className="text-sm font-medium">Upload a file</p>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Supported formats: .md, .txt
+                </p>
+                <Button
+                  variant="secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <IconUpload size={14} />
+                  )}
+                  Click to upload
+                </Button>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Paste PRD content</label>
+                <Textarea
+                  value={pastedPrdContent}
+                  onChange={(event) => setPastedPrdContent(event.target.value)}
+                  placeholder="Paste your PRD here..."
+                  rows={8}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setShowUploadSection(false);
+                    setPastedPrdContent("");
+                  }}
+                  disabled={isUploading}
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={handlePasteUpload}
+                  disabled={isUploading || pastedPrdContent.trim().length === 0}
+                >
+                  {isUploading && <Spinner size="sm" />}
+                  Upload from paste
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Document Title</label>
+                <Input
+                  placeholder="e.g., User Authentication PRD"
+                  value={newDocTitle}
+                  onChange={(event) => setNewDocTitle(event.target.value)}
+                  autoFocus
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && newDocTitle.trim()) {
+                      void handleCreateDoc();
+                    }
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md border border-dashed border-border/70 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+                onClick={() => setShowUploadSection(true)}
               >
-                {isUploading ? <Spinner size="sm" /> : <IconUpload size={14} />}
-                Click to upload
-              </Button>
+                <IconUpload size={14} />
+                Upload PRD instead
+              </button>
+              <DialogFooter>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    setNewDocTitle("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateDoc}
+                  disabled={isCreating || !newDocTitle.trim()}
+                >
+                  {isCreating ? <Spinner size="sm" /> : "Create Document"}
+                </Button>
+              </DialogFooter>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Paste PRD content</label>
-              <Textarea
-                value={pastedPrdContent}
-                onChange={(event) => setPastedPrdContent(event.target.value)}
-                placeholder="Paste your PRD here..."
-                rows={8}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setIsUploadDialogOpen(false);
-                setPastedPrdContent("");
-              }}
-              disabled={isUploading}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handlePasteUpload}
-              disabled={isUploading || pastedPrdContent.trim().length === 0}
-            >
-              {isUploading && <Spinner size="sm" />}
-              Upload from paste
-            </Button>
-          </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 

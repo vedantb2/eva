@@ -47,7 +47,8 @@ export function QuickTasksKanbanBoard({
   }
 
   const handleStatusChange = async (id: string, status: TaskStatus) => {
-    await updateStatus({ id: id as Id<"agentTasks">, status });
+    const task = tasks.find((t) => t._id === id);
+    if (task) await updateStatus({ id: task._id, status });
   };
 
   const todoTasks = tasks.filter((t) => t.status === "todo");

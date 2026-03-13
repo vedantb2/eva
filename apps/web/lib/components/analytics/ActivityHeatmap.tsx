@@ -135,7 +135,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
   }, [data]);
 
   return (
-    <Card className="shadow-none border border-border">
+    <Card className="mx-auto w-fit max-w-full border border-border shadow-none">
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground">
@@ -157,7 +157,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
         <TooltipProvider delayDuration={0}>
           <div className="overflow-x-auto">
             <div
-              className="inline-grid"
+              className="inline-grid min-w-max"
               style={{
                 gridTemplateColumns: `auto repeat(${weeks.length}, 1fr)`,
               }}

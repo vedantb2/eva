@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { ExtractedContext } from "@/shared/types";
-import type { StoredPin } from "@/shared/messaging";
+import { type StoredPin, isTaskId } from "@/shared/messaging";
 
 interface AnnotationPayload {
   title: string;
@@ -70,8 +70,8 @@ export function AnnotationTool({
       : {};
     const ids: Id<"agentTasks">[] = [];
     for (const p of Object.values(pins)) {
-      if (p.taskId) {
-        ids.push(p.taskId as Id<"agentTasks">);
+      if (p.taskId && isTaskId(p.taskId)) {
+        ids.push(p.taskId);
       }
     }
     setTrackedTaskIds(ids);

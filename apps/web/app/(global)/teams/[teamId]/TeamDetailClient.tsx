@@ -4,16 +4,18 @@ import { useQueryState } from "nuqs";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import { teamDetailTabParser } from "@/lib/search-params";
-import type { Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
+import { isConvexId } from "@/lib/type-guards";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@conductor/ui";
 import { TeamMembersTab } from "./_components/TeamMembersTab";
 import { TeamReposTab } from "./_components/TeamReposTab";
 import { TeamEnvVarsTab } from "./_components/TeamEnvVarsTab";
 
 export function TeamDetailClient({ teamId }: { teamId: string }) {
-  const typedTeamId: Id<"teams"> = teamId as Id<"teams">;
-  const team = useQuery(api.teams.get, { id: typedTeamId });
+  const team = useQuery(
+    api.teams.get,
+    isConvexId<"teams">(teamId) ? { id: teamId } : "skip",
+  );
   const members =
     useQuery(api.teamMembers.list, team ? { teamId: team._id } : "skip") ?? [];
   const repos =

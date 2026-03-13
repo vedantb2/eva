@@ -1,13 +1,14 @@
 import type { ExtractedContext } from "./types";
+import type { Id } from "@conductor/backend";
 
 export type TaskStatus =
   | "draft"
   | "todo"
   | "in_progress"
-  | "business_review"
   | "code_review"
-  | "cancelled"
-  | "done";
+  | "business_review"
+  | "done"
+  | "cancelled";
 
 export type MessageType =
   | "START_SELECTION"
@@ -31,7 +32,9 @@ export type MessageType =
   | "RUN_ALL_ANNOTATIONS"
   | "RUN_ALL_RESULT"
   | "RUN_ANNOTATION_TASK"
-  | "PANEL_CLOSED";
+  | "PANEL_CLOSED"
+  | "REQUEST_ANNOTATIONS"
+  | "REQUEST_TOOLBAR_STATE";
 
 export interface StartSelectionMessage {
   type: "START_SELECTION";
@@ -111,6 +114,18 @@ export interface RunAnnotationTaskMessage {
   payload: {
     taskId: string;
   };
+}
+
+export interface PanelClosedMessage {
+  type: "PANEL_CLOSED";
+}
+
+export interface RequestAnnotationsMessage {
+  type: "REQUEST_ANNOTATIONS";
+}
+
+export interface RequestToolbarStateMessage {
+  type: "REQUEST_TOOLBAR_STATE";
 }
 
 export interface AnnotationStatusSyncMessage {
@@ -204,10 +219,33 @@ export type ExtensionMessage =
   | ToolbarResultMessage
   | RunAllAnnotationsMessage
   | RunAllResultMessage
-  | RunAnnotationTaskMessage;
+  | RunAnnotationTaskMessage
+  | PanelClosedMessage
+  | RequestAnnotationsMessage
+  | RequestToolbarStateMessage;
 
 export const EVA_URL =
   typeof chrome !== "undefined" &&
   chrome.runtime?.getManifest?.()?.version_name === "development"
     ? "http://localhost:3000"
     : "https://eva-git-staging-vedantb.vercel.app";
+
+export function isSessionId(value: unknown): value is Id<"sessions"> {
+  return typeof value === "string" && value.length > 0;
+}
+
+export function isRepoId(value: unknown): value is Id<"githubRepos"> {
+  return typeof value === "string" && value.length > 0;
+}
+
+export function isTaskId(value: unknown): value is Id<"agentTasks"> {
+  return typeof value === "string" && value.length > 0;
+}
+
+export function sendExtensionMessage(message: ExtensionMessage): Promise<void> {
+  return chrome.runtime.sendMessage(message).catch(() => {});
+}
+
+export function sendTabMessage(tabId: number, message: ExtensionMessage): void {
+  void chrome.tabs.sendMessage(tabId, message).catch(() => {});
+}

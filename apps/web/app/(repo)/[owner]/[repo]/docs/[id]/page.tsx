@@ -3,8 +3,8 @@
 import { use } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
 import { DocViewer } from "@/lib/components/docs/DocViewer";
+import { isConvexId } from "@/lib/type-guards";
 import { Spinner } from "@conductor/ui";
 
 export default function DocPage({
@@ -13,7 +13,7 @@ export default function DocPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const doc = useQuery(api.docs.get, { id: id as Id<"docs"> });
+  const doc = useQuery(api.docs.get, isConvexId<"docs">(id) ? { id } : "skip");
 
   if (doc === undefined) {
     return (

@@ -131,7 +131,8 @@ export function AssignTasksModal({
               if (mode === "me" && currentUserId) {
                 void handleAssign(currentUserId);
               } else if (mode === "pick" && selectedUserId) {
-                void handleAssign(selectedUserId as Id<"users">);
+                const user = users?.find((u) => u._id === selectedUserId);
+                if (user) void handleAssign(user._id);
               }
             }}
             disabled={

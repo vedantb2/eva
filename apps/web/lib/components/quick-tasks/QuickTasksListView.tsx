@@ -65,7 +65,7 @@ export function QuickTasksListView({
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
 
   const tasks = useMemo(
-    () => [...externalTasks].sort((a, b) => b.updatedAt - a.updatedAt),
+    () => [...externalTasks].sort((a, b) => b.createdAt - a.createdAt),
     [externalTasks],
   );
 

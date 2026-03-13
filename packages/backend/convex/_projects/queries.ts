@@ -60,8 +60,8 @@ export const getTaskProgress = authQuery({
     total: v.number(),
     todo: v.number(),
     in_progress: v.number(),
-    business_review: v.number(),
     code_review: v.number(),
+    business_review: v.number(),
     done: v.number(),
     cancelled: v.number(),
   }),
@@ -75,8 +75,8 @@ export const getTaskProgress = authQuery({
         total: 0,
         todo: 0,
         in_progress: 0,
-        business_review: 0,
         code_review: 0,
+        business_review: 0,
         done: 0,
         cancelled: 0,
       };
@@ -89,9 +89,9 @@ export const getTaskProgress = authQuery({
       total: tasks.length,
       todo: tasks.filter((t) => t.status === "todo").length,
       in_progress: tasks.filter((t) => t.status === "in_progress").length,
+      code_review: tasks.filter((t) => t.status === "code_review").length,
       business_review: tasks.filter((t) => t.status === "business_review")
         .length,
-      code_review: tasks.filter((t) => t.status === "code_review").length,
       done: tasks.filter((t) => t.status === "done").length,
       cancelled: tasks.filter((t) => t.status === "cancelled").length,
     };

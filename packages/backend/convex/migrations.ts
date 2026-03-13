@@ -56,7 +56,7 @@ export const cleanupStaleRuns = internalMutation({
 
       const hasSuccessRun = runs.some((r) => r.status === "success");
       await ctx.db.patch(task._id, {
-        status: hasSuccessRun ? "business_review" : "todo",
+        status: hasSuccessRun ? "code_review" : "todo",
         activeWorkflowId: undefined,
         updatedAt: Date.now(),
       });

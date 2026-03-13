@@ -117,6 +117,12 @@ export const ensureUserExists = mutation({
       };
     }
 
+    if (process.env.ENVIRONMENT === "production") {
+      throw new Error(
+        "Sign-ups are disabled on this deployment. Please self-host Eva to create your own instance.",
+      );
+    }
+
     const userId = await ctx.db.insert("users", {
       clerkId: clerkUserId,
       email: email || undefined,

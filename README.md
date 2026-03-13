@@ -1,43 +1,49 @@
 # Eva
 
-> Run AI coding agents inside real cloud development environments.
+> Manage coding agents inside cloud development environments connected to your repositories
 
-Eva runs AI coding agents inside real cloud sandboxes connected to your repositories. Instead of editing code locally or inside limited LLM sandboxes, Eva provisions full development environments where agents can run commands, install dependencies, execute tests, and open pull requests.
+**Fully open source** under the [MIT License](LICENSE).
 
-Think of it as infrastructure for AI agents that work against real codebases.
+Instead of editing code locally or inside restricted LLM sandboxes, Eva provisions full development environments where agents can:
+
+• run shell commands
+• install dependencies
+• execute tests
+• build and preview apps
+• open pull requests
 
 ```
-GitHub Repo
-     ↓
-   Eva
-     ↓
+GitHub Repository
+        ↓
+       Eva
+        ↓
 Cloud Sandbox (Daytona)
-     ↓
+        ↓
 AI Agent (Claude)
-     ↓
-Diff / PR / Preview
+        ↓
+Code Changes → Diff → Pull Request → Preview
 ```
 
-## How It Works
+## Quick Start
 
-1. **Connect a repo** — Link your GitHub repository and configure environment variables.
-2. **Build a snapshot** — Create a sandbox snapshot with your dependencies pre-installed (automate via GitHub Actions).
-3. **Run tasks** — Eva provisions a cloud sandbox from your snapshot, runs the AI agent, and streams results back.
-4. **Review and merge** — View diffs, live previews, and test results. Merge when ready.
+1. Connect your GitHub repository
+2. Build a sandbox snapshot with your dependencies
+3. Run a task (e.g. “fix failing tests”)
+4. Review the diff and open a pull request
 
 ## Features
 
 ### Quick Tasks
 
-Describe a bug or a small change, and Eva spins up an isolated sandbox to execute it. Each task runs independently — launch batches without worrying about one blocking another.
+Describe a bug or change and Eva spins up an isolated sandbox to execute it. Tasks run independently so you can launch multiple in parallel.
 
 ### Sessions
 
-Cloud-hosted development environments with live previews. A collaborative workspace where you and the AI agent iterate together in real-time.
+Persistent cloud development environments with live previews where you and the agent collaborate in real time.
 
 ### Projects
 
-Structured workflows for larger changes. Projects give the agent a way to plan, implement, and verify features end-to-end across your codebase.
+Structured workflows for larger changes. Agents can plan, implement, and verify features across your codebase.
 
 ### Documents
 
@@ -69,6 +75,10 @@ Access your connected databases (Convex, Supabase) directly from Claude. Query, 
 | `apps/teams-bot`        | Microsoft Teams integration                               |
 | `apps/mobile`           | React Native mobile client                                |
 
+## Self-Hosting
+
+Eva is self-hosted — there is no managed cloud version. You create your own Convex deployment, set up your own Clerk project, and run the app yourself. This gives you full control over your data and infrastructure.
+
 ## Setup
 
 ### Prerequisites
@@ -81,10 +91,28 @@ Access your connected databases (Convex, Supabase) directly from Claude. Query, 
 
 ### Environment Variables
 
-| Variable            | Required | Purpose                          |
-| ------------------- | -------- | -------------------------------- |
-| `DAYTONA_API_KEY`   | Yes      | Sandbox creation and management  |
-| `CONVEX_DEPLOY_KEY` | Yes      | Convex MCP and analysis features |
+#### Next.js (`apps/web`)
+
+| Variable                            | Required | Purpose                                   |
+| ----------------------------------- | -------- | ----------------------------------------- |
+| `NEXT_PUBLIC_CONVEX_URL`            | Yes      | Your Convex deployment URL                |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes      | Clerk publishable key                     |
+| `NEXT_PUBLIC_ENV`                   | Yes      | `development`, `staging`, or `production` |
+
+#### Convex (set in Convex dashboard or `npx convex env set`)
+
+| Variable                  | Required | Purpose                                 |
+| ------------------------- | -------- | --------------------------------------- |
+| `CLERK_JWT_ISSUER_DOMAIN` | Yes      | Clerk JWT issuer for auth               |
+| `ENCRYPTION_KEY`          | Yes      | Encryption key for sensitive data       |
+| `EVA_DEPLOY_KEY`          | Yes      | Deploy key for Eva operations           |
+| `DAYTONA_API_KEY`         | Yes      | Sandbox creation and management         |
+| `GITHUB_APP_ID`           | Yes      | GitHub App ID for repo access           |
+| `GITHUB_CLIENT_ID`        | Yes      | GitHub OAuth client ID                  |
+| `GITHUB_CLIENT_SECRET`    | Yes      | GitHub OAuth client secret              |
+| `GITHUB_PRIVATE_KEY`      | Yes      | GitHub App private key                  |
+| `GITHUB_WEBHOOK_SECRET`   | Yes      | GitHub webhook signature verification   |
+| `ENVIRONMENT`             | No       | Set to `production` to disable sign-ups |
 
 Add any repo-specific env vars through the repo/team settings in the dashboard.
 
@@ -117,3 +145,9 @@ You may face authentication issues in the preview URL if your auth provider bloc
 3. **Implement backend auth** — if you want the iframe to work, implement a separate login page that doesn't make network requests to your auth provider (e.g. AuthKit), so it renders inside the iframe. Add instructions to your `CLAUDE.md` so the agent knows how to use this flow with `agent-browser`.
 
 This restriction is not unique to Eva — it's a standard iframe security limitation.
+
+## Roadmap
+
+- Codex agent support
+- Testing arena for running and comparing agent strategies
+- Improved project interview UI/UX

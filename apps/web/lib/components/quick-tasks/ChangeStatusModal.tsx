@@ -19,17 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@conductor/ui";
+import {
+  TASK_STATUSES,
+  statusConfig,
+  type DisplayTaskStatus,
+} from "@/lib/components/tasks/TaskStatusBadge";
 
-const STATUS_OPTIONS = [
-  { value: "todo", label: "To Do" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "business_review", label: "Business Review" },
-  { value: "code_review", label: "Code Review" },
-  { value: "done", label: "Done" },
-  { value: "cancelled", label: "Cancelled" },
-] as const;
-
-type TaskStatus = (typeof STATUS_OPTIONS)[number]["value"];
+type TaskStatus = DisplayTaskStatus;
 
 interface ChangeStatusModalProps {
   isOpen: boolean;
@@ -94,9 +90,9 @@ export function ChangeStatusModal({
             <SelectValue placeholder="Select a status" />
           </SelectTrigger>
           <SelectContent>
-            {STATUS_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
+            {TASK_STATUSES.map((status) => (
+              <SelectItem key={status} value={status}>
+                {statusConfig[status].label}
               </SelectItem>
             ))}
           </SelectContent>

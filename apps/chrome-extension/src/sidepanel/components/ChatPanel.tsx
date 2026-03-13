@@ -6,9 +6,6 @@ import { SelectionTool } from "./SelectionTool";
 import { AnnotationTool } from "./AnnotationTool";
 import {
   Button,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -41,9 +38,7 @@ import { UserInitials } from "@conductor/shared";
 import { parseActivitySteps } from "@/shared/parseActivitySteps";
 import dayjs from "@conductor/shared/dates";
 import {
-  IconCheck,
   IconChevronRight,
-  IconFlag,
   IconLayoutBottombar,
   IconMessageCircle,
   IconMessageCircle2,
@@ -62,12 +57,10 @@ type EphemeralMessage = {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
-  mode?: "ask" | "flag";
+  mode?: "ask";
   activityLog?: string;
   userId?: string;
 };
-
-type Mode = "ask" | "flag";
 
 function formatDuration(startedAt: number, finishedAt: number): string {
   const totalSeconds = Math.round((finishedAt - startedAt) / 1000);
@@ -104,7 +97,6 @@ export function ChatPanel({
     EphemeralMessage[]
   >([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<Mode>("ask");
   const [model, setModel] = useState<ClaudeModel>("sonnet");
   const [responseLength, setResponseLength] =
     useState<ResponseLength>("default");
@@ -190,103 +182,42 @@ export function ChatPanel({
 
     setIsLoading(true);
 
-    if (mode === "flag") {
-      try {
-        const [tab] = await chrome.tabs.query({
-          active: true,
-          currentWindow: true,
-        });
-        const pageUrl = tab?.url || "";
+    try {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      const pageUrl = tab?.url || "";
 
-        await appendMessage({
-          role: "user",
-          content: text,
-          timestamp: Date.now(),
-          mode: "flag",
-        });
+      const fullMessage = pageUrl
+        ? `The user's question comes from this URL. Look into the code in this route and answer based on the code in that folder. URL: ${pageUrl}\n\n${text}`
+        : text;
 
-        let fullDescription = text;
+      await appendMessage({
+        role: "user",
+        content: text,
+        timestamp: Date.now(),
+        mode: "ask",
+      });
 
-        if (pageUrl) {
-          fullDescription += `\n\nThis issue must be resolved on the following page: ${pageUrl}
+      if (!selectedRepo) throw new Error("Repository not found");
+      if (!sessionId) throw new Error("No active session");
 
-Please review all components and files used on this page before implementing the fix.`;
-        }
-
-        for (const ctx of capturedContexts) {
-          fullDescription += `\n\n---\n**Captured Element Context**\n`;
-          if (ctx.selectedText) {
-            fullDescription += `- Selected Text: "${ctx.selectedText}"\n`;
-          }
-          fullDescription += `- Element: \`<${ctx.element.tagName}>\`\n`;
-          fullDescription += `- Selector: \`${ctx.element.selector}\`\n`;
-          if (ctx.element.classNames.length > 0) {
-            fullDescription += `- Classes: \`${ctx.element.classNames.join(", ")}\`\n`;
-          }
-        }
-
-        await createQuickTask({
-          repoId: selectedRepoId,
-          title: text.slice(0, 100),
-          description: fullDescription,
-        });
-
-        const successMessage = `Issue flagged successfully!${capturedContexts.length > 0 ? `\n\nI've attached ${capturedContexts.length} captured element${capturedContexts.length !== 1 ? "s" : ""} to the task.` : ""}`;
-
-        await appendMessage({
-          role: "assistant",
-          content: successMessage,
-          timestamp: Date.now(),
-        });
-        onClearContext();
-      } catch (error) {
-        await appendMessage({
-          role: "assistant",
-          content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          timestamp: Date.now(),
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      try {
-        const [tab] = await chrome.tabs.query({
-          active: true,
-          currentWindow: true,
-        });
-        const pageUrl = tab?.url || "";
-
-        const fullMessage =
-          mode === "ask" && pageUrl
-            ? `The user's question comes from this URL. Look into the code in this route and answer based on the code in that folder. URL: ${pageUrl}\n\n${text}`
-            : text;
-
-        await appendMessage({
-          role: "user",
-          content: text,
-          timestamp: Date.now(),
-          mode,
-        });
-
-        if (!selectedRepo) throw new Error("Repository not found");
-        if (!sessionId) throw new Error("No active session");
-
-        await startExecution({
-          sessionId,
-          message: fullMessage,
-          mode,
-          model,
-          responseLength,
-          installationId: selectedRepo.installationId,
-        });
-      } catch (error) {
-        await appendMessage({
-          role: "assistant",
-          content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          timestamp: Date.now(),
-        });
-        setIsLoading(false);
-      }
+      await startExecution({
+        sessionId,
+        message: fullMessage,
+        mode: "ask",
+        model,
+        responseLength,
+        installationId: selectedRepo.installationId,
+      });
+    } catch (error) {
+      await appendMessage({
+        role: "assistant",
+        content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        timestamp: Date.now(),
+      });
+      setIsLoading(false);
     }
   };
 
@@ -360,26 +291,15 @@ Please review all components and files used on this page before implementing the
   const getPlaceholder = () => {
     if (!selectedRepoId) return "Select a repository first...";
     if (isLoadingSession) return "Loading session...";
-    if (mode === "ask") {
-      return capturedContexts.length > 0
-        ? `Ask Eva about ${capturedContexts.length} element${capturedContexts.length !== 1 ? "s" : ""}...`
-        : "Ask Eva about the codebase...";
-    }
     return capturedContexts.length > 0
-      ? `Describe the issue with ${capturedContexts.length} element${capturedContexts.length !== 1 ? "s" : ""}...`
-      : "Describe an issue to Eva to flag...";
+      ? `Ask Eva about ${capturedContexts.length} element${capturedContexts.length !== 1 ? "s" : ""}...`
+      : "Ask Eva about the codebase...";
   };
 
   const isInputDisabled = !selectedRepoId || isLoading || isLoadingSession;
 
   const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
     await handleSend(text);
-  };
-
-  const handleModeChange = (v: string) => {
-    if (v === "ask" || v === "flag") {
-      setMode(v);
-    }
   };
 
   if (!sessionId) {
@@ -429,31 +349,12 @@ Please review all components and files used on this page before implementing the
             </div>
           ) : messages.length === 0 ? (
             <ConversationEmptyState
-              icon={
-                mode === "flag" ? (
-                  <IconFlag size={28} className="text-primary" />
-                ) : (
-                  <IconMessageCircle size={28} className="text-primary" />
-                )
-              }
-              title={
-                mode === "ask"
-                  ? "Ask Eva questions about your codebase"
-                  : capturedContexts.length > 0
-                    ? "Describe the issue you want to flag to Eva"
-                    : "Flag an issue for Eva"
-              }
-              description={
-                mode === "ask"
-                  ? "Get AI-powered answers by Eva"
-                  : "Use the select tool to capture element context"
-              }
+              icon={<IconMessageCircle size={28} className="text-primary" />}
+              title="Ask Eva questions about your codebase"
+              description="Get AI-powered answers by Eva"
             />
           ) : (
             messages.map((message, index) => {
-              const prev = index > 0 ? messages[index - 1] : undefined;
-              const isFlagResponse =
-                message.role === "assistant" && prev?.mode === "flag";
               const isSystemAlert =
                 "_id" in message &&
                 "isSystemAlert" in message &&
@@ -507,31 +408,7 @@ Please review all components and files used on this page before implementing the
                         : "px-1 py-2"
                     }
                   >
-                    {isFlagResponse && prev ? (
-                      <Collapsible className="rounded-lg rounded-tl-none border border-border bg-muted text-card-foreground overflow-hidden">
-                        <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium hover:bg-muted/50 transition-colors group">
-                          <IconCheck
-                            size={16}
-                            className="text-primary shrink-0"
-                          />
-                          <span className="flex-1 text-left">
-                            Issue flagged and task created
-                          </span>
-                          <IconChevronRight
-                            size={14}
-                            className="text-muted-foreground transition-transform group-data-[state=open]:rotate-90"
-                          />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="px-4 pb-3 text-xs space-y-1.5 border-t border-border pt-2">
-                          <p className="font-medium">
-                            {prev.content.slice(0, 100)}
-                          </p>
-                          <p className="text-muted-foreground whitespace-pre-wrap break-words">
-                            {message.content}
-                          </p>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ) : message.role === "assistant" && !message.content ? (
+                    {message.role === "assistant" && !message.content ? (
                       (() => {
                         const steps = parseActivitySteps(streamingActivity);
                         return steps ? (
@@ -736,32 +613,9 @@ Please review all components and files used on this page before implementing the
           </Tooltip>
         </div>
 
-        <div className="relative pt-4">
-          <Tabs
-            value={mode}
-            onValueChange={handleModeChange}
-            className="absolute left-3 top-4 z-20 -translate-y-1/2"
-          >
-            <TabsList className="h-8 rounded-full border border-border/70 bg-muted/90 p-0.5 shadow-sm">
-              <TabsTrigger
-                value="ask"
-                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
-              >
-                <IconMessageCircle className="w-3 h-3" />
-                Ask
-              </TabsTrigger>
-              <TabsTrigger
-                value="flag"
-                className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
-              >
-                <IconFlag className="w-3 h-3" />
-                Flag
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <div>
           <PromptInput onSubmit={handlePromptSubmit}>
             <PromptInputTextarea
-              className="pt-8"
               placeholder={getPlaceholder()}
               disabled={isInputDisabled}
             />

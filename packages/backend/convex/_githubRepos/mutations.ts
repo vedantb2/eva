@@ -159,6 +159,7 @@ export const updateConfig = authMutation({
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
     deploymentProjectName: v.optional(v.string()),
+    domains: v.optional(v.array(v.string())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -198,6 +199,12 @@ export const updateConfig = authMutation({
     if (args.deploymentProjectName !== undefined) {
       await ctx.db.patch(args.repoId, {
         deploymentProjectName: args.deploymentProjectName,
+      });
+    }
+
+    if (args.domains !== undefined) {
+      await ctx.db.patch(args.repoId, {
+        domains: args.domains.length > 0 ? args.domains : undefined,
       });
     }
 

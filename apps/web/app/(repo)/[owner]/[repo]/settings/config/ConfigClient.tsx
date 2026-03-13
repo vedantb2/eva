@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api, CLAUDE_MODELS } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -12,8 +13,10 @@ import {
   SelectValue,
   Checkbox,
   Input,
+  Button,
 } from "@conductor/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
+import { IconPlus, IconX } from "@tabler/icons-react";
 
 export function ConfigClient() {
   const { repo, repoId } = useRepo();
@@ -136,7 +139,93 @@ export function ConfigClient() {
             </label>
           </div>
         </div>
+
+        <DomainsSection />
       </div>
     </PageWrapper>
+  );
+}
+
+function extractHostname(raw: string): string {
+  try {
+    const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+    return url.hostname;
+  } catch {
+    return raw;
+  }
+}
+
+function DomainsSection() {
+  const { repo, repoId } = useRepo();
+  const updateConfig = useMutation(api.githubRepos.updateConfig);
+  const [newDomain, setNewDomain] = useState("");
+
+  const domains = repo.domains ?? [];
+
+  const addDomain = () => {
+    const raw = newDomain.trim().toLowerCase();
+    if (!raw) return;
+    const hostname = extractHostname(raw);
+    if (domains.includes(hostname)) return;
+    updateConfig({ repoId, domains: [...domains, hostname] });
+    setNewDomain("");
+  };
+
+  const removeDomain = (domain: string) => {
+    updateConfig({ repoId, domains: domains.filter((d) => d !== domain) });
+  };
+
+  return (
+    <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
+      <div>
+        <h3 className="text-sm font-medium">Domains</h3>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Hostnames where this app is deployed. The Chrome extension will
+          auto-select this repo when browsing these domains.
+        </p>
+      </div>
+
+      {domains.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {domains.map((domain) => (
+            <span
+              key={domain}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-1 text-xs"
+            >
+              {domain}
+              <button
+                type="button"
+                onClick={() => removeDomain(domain)}
+                className="ml-0.5 rounded hover:bg-muted-foreground/20 p-0.5"
+              >
+                <IconX size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Input
+          className="h-8 text-xs flex-1"
+          placeholder="e.g. myapp.com or localhost:3000"
+          value={newDomain}
+          onChange={(e) => setNewDomain(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") addDomain();
+          }}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          onClick={addDomain}
+          disabled={!newDomain.trim()}
+        >
+          <IconPlus size={14} />
+          Add
+        </Button>
+      </div>
+    </div>
   );
 }

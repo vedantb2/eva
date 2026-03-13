@@ -75,7 +75,7 @@ export async function recomputeProjectPhase(
     (t) =>
       t.status === "todo" ||
       t.status === "in_progress" ||
-      t.status === "code_review",
+      t.status === "business_review",
   );
   if (allDone && project.phase !== "completed") {
     await db.patch(projectId, { phase: "completed" });

@@ -15,8 +15,8 @@ export const searchParser = parseAsString
 const taskStatuses = [
   "todo",
   "in_progress",
-  "business_review",
   "code_review",
+  "business_review",
   "done",
   "cancelled",
 ] as const;

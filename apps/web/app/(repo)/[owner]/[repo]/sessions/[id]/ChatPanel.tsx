@@ -29,7 +29,8 @@ import {
   PromptInputTools,
   PromptInputSubmit,
   PromptInputSpeech,
-  PromptInputSettings,
+  ModelSelect,
+  ResponseLengthSelect,
   type PromptInputMessage,
   Plan,
   PlanHeader,
@@ -73,6 +74,12 @@ import {
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
+import {
+  getSessionModel,
+  getSessionResponseLength,
+  useSessionModelSetter,
+  useSessionResponseLengthSetter,
+} from "@/lib/hooks/useSessionSettings";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -133,9 +140,39 @@ export function ChatPanel({
   >("confirm");
   const [completedAudits, setCompletedAudits] = useState(0);
   const [mode, setMode] = useQueryState("mode", sessionModeParser);
-  const [model, setModel] = useState<ClaudeModel>("sonnet");
-  const [responseLength, setResponseLength] =
-    useState<ResponseLength>("default");
+
+  const defaultModel = repo.defaultModel ?? "sonnet";
+  const initialModel = useMemo(
+    () => getSessionModel(sessionId, defaultModel),
+    [sessionId, defaultModel],
+  );
+  const initialResponseLength = useMemo(
+    () => getSessionResponseLength(sessionId, "default"),
+    [sessionId],
+  );
+  const [model, setModelState] = useState<ClaudeModel>(initialModel);
+  const [responseLength, setResponseLengthState] = useState<ResponseLength>(
+    initialResponseLength,
+  );
+
+  const saveModel = useSessionModelSetter(sessionId);
+  const saveResponseLength = useSessionResponseLengthSetter(sessionId);
+
+  const setModel = useCallback(
+    (m: ClaudeModel) => {
+      setModelState(m);
+      saveModel(m);
+    },
+    [saveModel],
+  );
+
+  const setResponseLength = useCallback(
+    (rl: ResponseLength) => {
+      setResponseLengthState(rl);
+      saveResponseLength(rl);
+    },
+    [saveResponseLength],
+  );
 
   const evaIcon = <EvaIcon />;
 
@@ -276,10 +313,6 @@ export function ChatPanel({
     await handleSend(text);
   };
 
-  const filteredMessages = useMemo(
-    () => messages.filter((m) => m.mode !== "flag"),
-    [messages],
-  );
   const hasSummary = Boolean(summary && summary.length > 0);
   const showSummaryStreaming = Boolean(summaryStreamingActivity);
 
@@ -394,7 +427,7 @@ export function ChatPanel({
               type="single"
               collapsible
               defaultValue={showSummaryStreaming ? "summary" : undefined}
-              className="px-3 sm:px-6 bg-secondary rounded-b-3xl"
+              className="w-full min-w-0 px-3 sm:px-6 bg-secondary rounded-b-3xl"
             >
               <AccordionItem value="summary" className="border-b-0">
                 <AccordionTrigger className="py-2 text-sm">
@@ -423,7 +456,7 @@ export function ChatPanel({
       </AnimatePresence>
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="gap-3 p-3">
-          {filteredMessages.length === 0 ? (
+          {messages.length === 0 ? (
             <ConversationEmptyState
               title={
                 isSandboxActive
@@ -432,7 +465,7 @@ export function ChatPanel({
               }
             />
           ) : (
-            filteredMessages.map((message) =>
+            messages.map((message) =>
               message.isSystemAlert ? (
                 <SystemAlertMessage
                   key={message._id}
@@ -620,11 +653,14 @@ export function ChatPanel({
               />
               <PromptInputFooter>
                 <PromptInputTools>
-                  <PromptInputSettings
-                    model={model}
-                    onModelChange={setModel}
-                    responseLength={responseLength}
-                    onResponseLengthChange={setResponseLength}
+                  <ModelSelect
+                    value={model}
+                    onValueChange={setModel}
+                    disabled={isInputDisabled}
+                  />
+                  <ResponseLengthSelect
+                    value={responseLength}
+                    onValueChange={setResponseLength}
                     disabled={isInputDisabled}
                   />
                 </PromptInputTools>

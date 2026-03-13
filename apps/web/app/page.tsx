@@ -2,6 +2,8 @@ import Image from "next/image";
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Button } from "@conductor/ui";
 
+const isProduction = process.env.NEXT_PUBLIC_ENV === "production";
+
 export default function LandingPage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
@@ -23,17 +25,37 @@ export default function LandingPage() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <SignInButton mode="modal">
-            <Button size="lg" variant="default">
-              Sign In
-            </Button>
-          </SignInButton>
-          <SignUpButton mode="modal">
-            <Button size="lg" variant="outline">
-              Sign Up
-            </Button>
-          </SignUpButton>
+          {isProduction ? (
+            <>
+              <Button size="lg" variant="default" disabled>
+                Sign In
+              </Button>
+              <Button size="lg" variant="outline" disabled>
+                Sign Up
+              </Button>
+            </>
+          ) : (
+            <>
+              <SignInButton mode="modal">
+                <Button size="lg" variant="default">
+                  Sign In
+                </Button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <Button size="lg" variant="outline">
+                  Sign Up
+                </Button>
+              </SignUpButton>
+            </>
+          )}
         </div>
+
+        {isProduction && (
+          <div className="max-w-sm rounded-lg border border-border bg-muted/50 px-4 py-3 text-center text-sm text-muted-foreground">
+            Eva is fully open source and self-hosted. Clone the repo, create
+            your own Convex and Clerk projects, and run it locally.
+          </div>
+        )}
       </div>
     </div>
   );

@@ -359,7 +359,8 @@ const toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
 const systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
 const settingsJson = '{"attribution":{"commit":"","pr":""}}';
 const settingsArg = "--settings " + JSON.stringify(settingsJson);
-const baseCmd = "cat /tmp/design-prompt.txt | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " " + settingsArg + " --output-format stream-json";
+const mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
+const baseCmd = "cat /tmp/design-prompt.txt | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
 
 const TOOL_STEP_TYPES = new Set(["read", "search_files", "search_code", "write", "edit", "bash", "tool"]);
 

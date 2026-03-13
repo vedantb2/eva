@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   ClerkProvider,
   SignedIn,
@@ -21,6 +21,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -38,7 +39,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
-import { type StoredPin, CONDUCTOR_URL } from "@/shared/messaging";
+import { type StoredPin, EVA_URL } from "@/shared/messaging";
 import type { Id } from "@conductor/backend";
 import { useTheme } from "./hooks/useTheme";
 
@@ -50,22 +51,30 @@ if (!PUBLISHABLE_KEY) {
 
 const EXTENSION_URL = chrome.runtime.getURL(".");
 
-const ALLOWED_HOSTS = [
-  "localhost:3000",
-  "localhost:3001",
-  "carepulse.co.uk",
-  "staging.carepulse.co.uk",
-  "eprocurement.carepulse.co.uk",
-];
+const ALLOWED_HOSTS = ["localhost:3000", "localhost:3001"];
 
-const isAllowedUrl = (url: string) => {
+function getHostFromUrl(url: string): string | null {
   try {
-    const { host } = new URL(url);
-    return ALLOWED_HOSTS.includes(host) || host.endsWith(".vercel.app");
+    return new URL(url).host;
   } catch {
-    return false;
+    return null;
   }
-};
+}
+
+function domainMatches(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+function isAllowedHost(
+  host: string,
+  repoDomains: ReadonlyArray<string>,
+): boolean {
+  return (
+    ALLOWED_HOSTS.includes(host) ||
+    host.endsWith(".vercel.app") ||
+    repoDomains.some((d) => domainMatches(host, d))
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -95,12 +104,65 @@ function AuthenticatedApp() {
   const reposResult = useQuery(api.githubRepos.list, {});
   const repos = reposResult ?? [];
   const isLoadingRepos = reposResult === undefined;
+
+  const domainToRepoId = useMemo(() => {
+    const map = new Map<string, Id<"githubRepos">>();
+    for (const repo of repos) {
+      if (repo.domains) {
+        for (const raw of repo.domains) {
+          let hostname = raw;
+          try {
+            const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+            hostname = url.hostname;
+          } catch {
+            // already a plain hostname
+          }
+          map.set(hostname, repo._id);
+        }
+      }
+    }
+    return map;
+  }, [repos]);
+
+  const allRepoDomains = useMemo(
+    () => Array.from(domainToRepoId.keys()),
+    [domainToRepoId],
+  );
   const [selectedRepoId, setSelectedRepoId] =
     useState<Id<"githubRepos"> | null>(null);
   const [capturedContexts, setCapturedContexts] = useState<ExtractedContext[]>(
     [],
   );
   const [isValidUrl, setIsValidUrl] = useState<boolean | null>(null);
+  const [currentTabHost, setCurrentTabHost] = useState<string | null>(null);
+  const [dismissedSuggestion, setDismissedSuggestion] =
+    useState<Id<"githubRepos"> | null>(null);
+
+  const suggestedRepoId = useMemo(() => {
+    if (!currentTabHost) return null;
+    let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null = null;
+    for (const [domain, repoId] of domainToRepoId) {
+      if (
+        domainMatches(currentTabHost, domain) &&
+        (!bestMatch || domain.length > bestMatch.domain.length)
+      ) {
+        bestMatch = { domain, repoId };
+      }
+    }
+    if (!bestMatch) return null;
+    const matchedRepoId = bestMatch.repoId;
+    const exists = repos.some((r) => r._id === matchedRepoId);
+    if (!exists) return null;
+    return matchedRepoId;
+  }, [currentTabHost, domainToRepoId, repos]);
+
+  const suggestedRepo =
+    suggestedRepoId &&
+    suggestedRepoId !== selectedRepoId &&
+    dismissedSuggestion !== suggestedRepoId
+      ? repos.find((r) => r._id === suggestedRepoId)
+      : null;
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentSessionId, setCurrentSessionId] =
     useState<Id<"sessions"> | null>(null);
@@ -138,10 +200,12 @@ function AuthenticatedApp() {
   const sendToolbarResult = useCallback((success: boolean, message: string) => {
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, {
-          type: "TOOLBAR_RESULT",
-          payload: { success, message },
-        });
+        chrome.tabs
+          .sendMessage(tab.id, {
+            type: "TOOLBAR_RESULT",
+            payload: { success, message },
+          })
+          .catch(() => {});
       }
     });
   }, []);
@@ -153,9 +217,11 @@ function AuthenticatedApp() {
     });
     if (!tab?.id) return;
     const next = !toolbarVisible;
-    chrome.tabs.sendMessage(tab.id, {
-      type: next ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
-    });
+    chrome.tabs
+      .sendMessage(tab.id, {
+        type: next ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
+      })
+      .catch(() => {});
     setToolbarVisibleMutation({ visible: next });
   }, [toolbarVisible, setToolbarVisibleMutation]);
 
@@ -194,10 +260,12 @@ function AuthenticatedApp() {
   const sendRunAllResult = useCallback((success: boolean, message: string) => {
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, {
-          type: "RUN_ALL_RESULT",
-          payload: { success, message },
-        });
+        chrome.tabs
+          .sendMessage(tab.id, {
+            type: "RUN_ALL_RESULT",
+            payload: { success, message },
+          })
+          .catch(() => {});
       }
     });
   }, []);
@@ -216,15 +284,17 @@ function AuthenticatedApp() {
           });
           chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
             if (tab?.id) {
-              chrome.tabs.sendMessage(tab.id, {
-                type: "ANNOTATION_TASK_CREATED",
-                payload: {
-                  pinId,
-                  taskId: String(taskId),
-                  userId: convexUserId ?? undefined,
-                  creatorInitials,
-                },
-              });
+              chrome.tabs
+                .sendMessage(tab.id, {
+                  type: "ANNOTATION_TASK_CREATED",
+                  payload: {
+                    pinId,
+                    taskId: String(taskId),
+                    userId: convexUserId ?? undefined,
+                    creatorInitials,
+                  },
+                })
+                .catch(() => {});
             }
           });
           await startExecution({ id: taskId });
@@ -311,13 +381,44 @@ function AuthenticatedApp() {
     return () => port.disconnect();
   }, []);
 
+  const handleRepoChange = useCallback((repoId: Id<"githubRepos">) => {
+    setSelectedRepoId(repoId);
+    chrome.storage.local.set({ defaultRepoId: repoId });
+    chrome.storage.local.get(["lastSessionByRepo"], (result) => {
+      const map = isRecord(result.lastSessionByRepo)
+        ? result.lastSessionByRepo
+        : {};
+      const saved = map[repoId];
+      setCurrentSessionId(
+        typeof saved === "string" ? (saved as Id<"sessions">) : null,
+      );
+    });
+  }, []);
+
   useEffect(() => {
     const checkCurrentTab = async () => {
       const [tab] = await chrome.tabs.query({
         active: true,
         currentWindow: true,
       });
-      setIsValidUrl(tab?.url ? isAllowedUrl(tab.url) : false);
+      const host = tab?.url ? getHostFromUrl(tab.url) : null;
+      setIsValidUrl(host ? isAllowedHost(host, allRepoDomains) : false);
+      setCurrentTabHost(host);
+      if (host) {
+        let bestMatch: { domain: string; repoId: Id<"githubRepos"> } | null =
+          null;
+        for (const [domain, repoId] of domainToRepoId) {
+          if (
+            domainMatches(host, domain) &&
+            (!bestMatch || domain.length > bestMatch.domain.length)
+          ) {
+            bestMatch = { domain, repoId };
+          }
+        }
+        if (bestMatch && !selectedRepoId) {
+          handleRepoChange(bestMatch.repoId);
+        }
+      }
     };
     checkCurrentTab();
 
@@ -326,34 +427,76 @@ function AuthenticatedApp() {
       changeInfo: chrome.tabs.TabChangeInfo,
     ) => {
       if (changeInfo.url) {
-        const url = changeInfo.url;
+        const host = getHostFromUrl(changeInfo.url);
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-          if (tab?.id === tabId) {
-            setIsValidUrl(isAllowedUrl(url));
+          if (tab?.id === tabId && host) {
+            setIsValidUrl(isAllowedHost(host, allRepoDomains));
+            setCurrentTabHost(host);
           }
         });
       }
     };
+
+    const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
+      chrome.tabs.get(activeInfo.tabId, (tab) => {
+        const host = tab?.url ? getHostFromUrl(tab.url) : null;
+        setIsValidUrl(host ? isAllowedHost(host, allRepoDomains) : false);
+        setCurrentTabHost(host);
+      });
+    };
+
     chrome.tabs.onUpdated.addListener(handleTabUpdate);
-    return () => chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+    chrome.tabs.onActivated.addListener(handleTabActivated);
+    return () => {
+      chrome.tabs.onUpdated.removeListener(handleTabUpdate);
+      chrome.tabs.onActivated.removeListener(handleTabActivated);
+    };
+  }, [allRepoDomains, domainToRepoId, selectedRepoId, handleRepoChange]);
+
+  useEffect(() => {
+    chrome.storage.local.get(
+      ["defaultRepoId", "lastSessionByRepo"],
+      (result) => {
+        const repoId = result.defaultRepoId;
+        if (repoId && typeof repoId === "string") {
+          setSelectedRepoId(repoId as Id<"githubRepos">);
+          const map = isRecord(result.lastSessionByRepo)
+            ? result.lastSessionByRepo
+            : {};
+          const saved = map[repoId];
+          if (typeof saved === "string") {
+            setCurrentSessionId(saved as Id<"sessions">);
+          }
+        }
+      },
+    );
   }, []);
 
   useEffect(() => {
-    chrome.storage.local.get(["defaultRepoId"], (result) => {
-      if (result.defaultRepoId && typeof result.defaultRepoId === "string") {
-        setSelectedRepoId(result.defaultRepoId as Id<"githubRepos">);
+    if (!selectedRepoId) return;
+    chrome.storage.local.get(["lastSessionByRepo"], (result) => {
+      const map = isRecord(result.lastSessionByRepo)
+        ? { ...result.lastSessionByRepo }
+        : {};
+      if (currentSessionId) {
+        map[selectedRepoId] = currentSessionId;
+      } else {
+        delete map[selectedRepoId];
       }
+      chrome.storage.local.set({ lastSessionByRepo: map });
     });
-  }, []);
+  }, [currentSessionId, selectedRepoId]);
 
   useEffect(() => {
     if (syncedToolbarVisible === undefined || syncedToolbarVisible === null)
       return;
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
       if (tab?.id) {
-        chrome.tabs.sendMessage(tab.id, {
-          type: syncedToolbarVisible ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
-        });
+        chrome.tabs
+          .sendMessage(tab.id, {
+            type: syncedToolbarVisible ? "SHOW_TOOLBAR" : "HIDE_TOOLBAR",
+          })
+          .catch(() => {});
       }
     });
   }, [syncedToolbarVisible]);
@@ -379,7 +522,9 @@ function AuthenticatedApp() {
       if (message.type === "REQUEST_TOOLBAR_STATE") {
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
           if (tab?.id && syncedToolbarVisible) {
-            chrome.tabs.sendMessage(tab.id, { type: "SHOW_TOOLBAR" });
+            chrome.tabs
+              .sendMessage(tab.id, { type: "SHOW_TOOLBAR" })
+              .catch(() => {});
           }
         });
       }
@@ -446,13 +591,6 @@ function AuthenticatedApp() {
 
   // No auto-session creation — user picks from sidebar or creates via "+" button
 
-  const handleRepoChange = (repoId: string) => {
-    const typedId = repoId as Id<"githubRepos">;
-    setSelectedRepoId(typedId);
-    setCurrentSessionId(null);
-    chrome.storage.local.set({ defaultRepoId: repoId });
-  };
-
   const handleClearContext = (index?: number) => {
     if (index === undefined) {
       setCapturedContexts([]);
@@ -477,10 +615,14 @@ function AuthenticatedApp() {
     setCurrentSessionId(sessionId as Id<"sessions">);
   };
 
-  const handleOpenInConductor = () => {
+  const handleGoHome = () => {
+    setCurrentSessionId(null);
+  };
+
+  const handleOpenInEva = () => {
     const selectedRepo = repos.find((r) => r._id === selectedRepoId);
     if (!selectedRepo) return;
-    const base = `${CONDUCTOR_URL}/${selectedRepo.owner}/${selectedRepo.name}`;
+    const base = `${EVA_URL}/${selectedRepo.owner}/${selectedRepo.name}`;
     const url = currentSessionId
       ? `${base}/sessions/${currentSessionId}`
       : base;
@@ -503,6 +645,9 @@ function AuthenticatedApp() {
         </p>
         <ul className="mt-4 text-muted-foreground list-disc list-inside">
           {ALLOWED_HOSTS.map((host) => (
+            <li key={host}>{host}</li>
+          ))}
+          {allRepoDomains.map((host) => (
             <li key={host}>{host}</li>
           ))}
           <li>*.vercel.app</li>
@@ -541,15 +686,11 @@ function AuthenticatedApp() {
           {selectedRepoId && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleOpenInConductor}
-                >
+                <Button variant="ghost" size="icon" onClick={handleOpenInEva}>
                   <IconExternalLink size={18} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Open in Conductor</TooltipContent>
+              <TooltipContent>Open in Eva</TooltipContent>
             </Tooltip>
           )}
           <Tooltip>
@@ -566,6 +707,36 @@ function AuthenticatedApp() {
           </Tooltip>
         </div>
       </header>
+
+      {suggestedRepo && (
+        <div className="border-b border-border bg-muted/50 px-4 py-2 space-y-1.5">
+          <p className="text-sm text-muted-foreground">
+            This page matches{" "}
+            <span className="font-medium text-foreground">
+              {suggestedRepo.owner}/{suggestedRepo.name}
+            </span>
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => {
+                handleRepoChange(suggestedRepo._id);
+                setDismissedSuggestion(null);
+              }}
+            >
+              Switch
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setDismissedSuggestion(suggestedRepo._id)}
+            >
+              ✕
+            </Button>
+          </div>
+        </div>
+      )}
 
       {pendingProjectPins && (
         <div className="border-b border-border bg-muted/50 p-4 space-y-3">
@@ -656,6 +827,7 @@ function AuthenticatedApp() {
           repoId={selectedRepoId}
           currentSessionId={currentSessionId}
           onSessionSelect={handleSessionSelect}
+          onGoHome={handleGoHome}
           afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`}
           theme={theme}
           onToggleTheme={toggleTheme}
@@ -666,6 +838,9 @@ function AuthenticatedApp() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Session</DialogTitle>
+            <DialogDescription className="sr-only">
+              Create a new chat session
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <label

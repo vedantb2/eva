@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api, CLAUDE_MODELS, type ClaudeModel } from "@conductor/backend";
 import type { Doc, Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
+import { CronScheduleCard } from "@/lib/components/CronScheduleCard";
 import {
   Button,
   Input,
@@ -279,25 +280,7 @@ function SettingsForm({ automation }: { automation: Automation }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
-        <h3 className="text-sm font-medium">Cron Schedule</h3>
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            Schedule (cron expression)
-          </label>
-          <Input
-            className="h-8 text-xs font-mono"
-            placeholder="0 6 * * *"
-            value={cronSchedule}
-            onChange={(e) => setCronSchedule(e.target.value)}
-          />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Standard cron format. Examples: <code>0 6 * * *</code> (daily at
-            6am), <code>0 6 * * 1</code> (weekly Monday at 6am),{" "}
-            <code>0 */6 * * *</code> (every 6 hours)
-          </p>
-        </div>
-      </div>
+      <CronScheduleCard value={cronSchedule} onChange={setCronSchedule} />
 
       <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Description</h3>

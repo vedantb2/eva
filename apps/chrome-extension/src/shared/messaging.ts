@@ -183,18 +183,6 @@ export interface RunAllResultMessage {
   };
 }
 
-export interface RequestAnnotationsMessage {
-  type: "REQUEST_ANNOTATIONS";
-}
-
-export interface RequestToolbarStateMessage {
-  type: "REQUEST_TOOLBAR_STATE";
-}
-
-export interface PanelClosedMessage {
-  type: "PANEL_CLOSED";
-}
-
 export type ExtensionMessage =
   | StartSelectionMessage
   | StopSelectionMessage
@@ -216,27 +204,7 @@ export type ExtensionMessage =
   | ToolbarResultMessage
   | RunAllAnnotationsMessage
   | RunAllResultMessage
-  | RunAnnotationTaskMessage
-  | RequestAnnotationsMessage
-  | RequestToolbarStateMessage
-  | PanelClosedMessage;
-
-export function sendChromeMessage(message: ExtensionMessage): void {
-  chrome.runtime.sendMessage(message).catch(() => {});
-}
-
-export function sendTabMessage(tabId: number, message: ExtensionMessage): void {
-  chrome.tabs.sendMessage(tabId, message).catch(() => {});
-}
-
-export function extractHostname(raw: string): string {
-  try {
-    const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
-    return url.hostname;
-  } catch {
-    return raw;
-  }
-}
+  | RunAnnotationTaskMessage;
 
 export const EVA_URL =
   typeof chrome !== "undefined" &&

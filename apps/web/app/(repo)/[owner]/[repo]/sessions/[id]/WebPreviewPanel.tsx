@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useRef } from "react";
 import {
   Spinner,
   Button,
@@ -25,7 +25,6 @@ interface WebPreviewPanelProps {
   error: string | null;
   iframeKey: number;
   onRefresh: () => void;
-  tabSwitcher?: ReactNode;
   port: number;
   onPortChange: (port: number) => void;
 }
@@ -35,7 +34,6 @@ function NavigationBar({
   isLoading,
   onRefresh,
   containerRef,
-  tabSwitcher,
   port,
   onPortChange,
 }: {
@@ -43,7 +41,6 @@ function NavigationBar({
   isLoading: boolean;
   onRefresh: () => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
-  tabSwitcher?: ReactNode;
   port: number;
   onPortChange: (port: number) => void;
 }) {
@@ -59,7 +56,6 @@ function NavigationBar({
         onPortChange={onPortChange}
         isLoading={isLoading}
         onRefresh={onRefresh}
-        leading={tabSwitcher}
       />
     </WebPreviewNavigation>
   );
@@ -73,7 +69,6 @@ export function WebPreviewPanel({
   error,
   iframeKey,
   onRefresh,
-  tabSwitcher,
   port,
   onPortChange,
 }: WebPreviewPanelProps) {
@@ -82,9 +77,6 @@ export function WebPreviewPanel({
   if (!isActive || !sandboxId) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex items-center gap-1 border-b p-2">
-          {tabSwitcher}
-        </div>
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
           <IconWorld className="w-12 h-12 opacity-50" />
           <p className="text-sm">
@@ -108,7 +100,6 @@ export function WebPreviewPanel({
         isLoading={isLoading}
         onRefresh={onRefresh}
         containerRef={containerRef}
-        tabSwitcher={tabSwitcher}
         port={port}
         onPortChange={onPortChange}
       />

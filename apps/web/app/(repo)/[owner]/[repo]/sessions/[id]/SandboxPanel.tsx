@@ -7,17 +7,11 @@ import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
 import { sandboxTabParser, previewPortParser } from "@/lib/search-params";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
-import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
-import {
-  IconWorld,
-  IconCode,
-  IconTerminal2,
-  IconDeviceDesktop,
-} from "@tabler/icons-react";
 import { TerminalPanel } from "./TerminalPanel";
 import { WebPreviewPanel } from "./WebPreviewPanel";
 import { EditorPanel } from "./EditorPanel";
 import { DesktopPanel } from "./DesktopPanel";
+import { SandboxTabBar } from "./_components/SandboxTabBar";
 
 interface PreviewInfo {
   url: string;
@@ -162,42 +156,17 @@ export function SandboxPanel({
     [sessionId, sandboxId, isActive, devCommand],
   );
 
-  const tabSwitcher = (
-    <div className="flex items-center gap-2">
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => {
-          if (
-            v === "preview" ||
-            v === "editor" ||
-            v === "terminal" ||
-            v === "desktop"
-          ) {
-            setActiveTab(v);
-          }
-        }}
-      >
-        <TabsList className="gap-1">
-          <TabsTrigger value="preview">
-            <IconWorld className="w-4 h-4" />
-          </TabsTrigger>
-          <TabsTrigger value="desktop">
-            <IconDeviceDesktop className="w-4 h-4" />
-          </TabsTrigger>
-          <TabsTrigger value="editor">
-            <IconCode className="w-4 h-4" />
-          </TabsTrigger>
-          <TabsTrigger value="terminal">
-            <IconTerminal2 className="w-4 h-4" />
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-    </div>
+  const handleTabChange = useCallback(
+    (tab: "preview" | "desktop" | "editor" | "terminal") => {
+      setActiveTab(tab);
+    },
+    [setActiveTab],
   );
 
   return (
-    <div className="h-full flex flex-col bg-card">
-      <div className="flex-1 overflow-hidden">
+    <div className="h-full flex flex-col">
+      <SandboxTabBar activeTab={activeTab} onTabChange={handleTabChange} />
+      <div className="flex-1 overflow-hidden bg-card">
         <div className={activeTab === "preview" ? "h-full" : "hidden"}>
           <WebPreviewPanel
             isActive={isActive}
@@ -207,7 +176,6 @@ export function SandboxPanel({
             error={error}
             iframeKey={iframeKey}
             onRefresh={fetchPreview}
-            tabSwitcher={tabSwitcher}
             port={effectivePort}
             onPortChange={setPort}
           />
@@ -217,16 +185,12 @@ export function SandboxPanel({
             sessionId={sessionId}
             sandboxId={sandboxId}
             isActive={isActive}
-            tabSwitcher={tabSwitcher}
             repoId={repoId}
             enabled={vscodeEnabled}
           />
         </div>
         <div className={activeTab === "terminal" ? "h-full" : "hidden"}>
           <div className="h-full flex flex-col">
-            <div className="flex items-center gap-1 border-b p-2">
-              {tabSwitcher}
-            </div>
             <div className="flex-1 min-h-0">{terminal}</div>
           </div>
         </div>
@@ -235,7 +199,6 @@ export function SandboxPanel({
             sessionId={sessionId}
             sandboxId={sandboxId}
             isActive={isActive}
-            tabSwitcher={tabSwitcher}
             repoId={repoId}
             enabled={vncEnabled}
           />

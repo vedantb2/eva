@@ -28,6 +28,20 @@ export const listByRepo = authQuery({
   },
 });
 
+export const hasEnabledCategories = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
+    const category = await ctx.db
+      .query("auditCategories")
+      .withIndex("by_repo", (q) => q.eq("repoId", canonicalId))
+      .filter((q) => q.eq(q.field("enabled"), true))
+      .first();
+    return category !== null;
+  },
+});
+
 export const listEnabledForContext = internalQuery({
   args: {
     repoId: v.id("githubRepos"),

@@ -19,11 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@conductor/ui";
-import {
-  TASK_STATUSES,
-  statusConfig,
-  type DisplayTaskStatus,
-} from "../tasks/TaskStatusBadge";
+
+const STATUS_OPTIONS = [
+  { value: "todo", label: "To Do" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "code_review", label: "Code Review" },
+  { value: "business_review", label: "Business Review" },
+  { value: "done", label: "Done" },
+  { value: "cancelled", label: "Cancelled" },
+] as const;
 
 type TaskStatus = DisplayTaskStatus;
 

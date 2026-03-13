@@ -10,6 +10,7 @@ import {
   DialogBody,
   Avatar,
   AvatarFallback,
+  MessageResponse,
 } from "@conductor/ui";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import {
@@ -18,8 +19,6 @@ import {
   IconUser,
   IconRobot,
 } from "@tabler/icons-react";
-import { Streamdown } from "streamdown";
-import { code } from "@streamdown/code";
 import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 
 interface PlanContextPanelProps {
@@ -161,12 +160,9 @@ export function PlanContextPanel({
                           {displayContent}
                         </p>
                       ) : (
-                        <Streamdown
-                          plugins={{ code }}
-                          className="prose prose-sm dark:prose-invert max-w-none"
-                        >
+                        <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
                           {displayContent}
-                        </Streamdown>
+                        </MessageResponse>
                       )}
                     </div>
                     {isUser && (

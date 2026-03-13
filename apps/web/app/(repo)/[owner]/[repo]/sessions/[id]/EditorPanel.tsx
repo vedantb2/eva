@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useCallback,
-  useRef,
-  useEffect,
-  type ReactNode,
-} from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -24,7 +18,6 @@ interface EditorPanelProps {
   sessionId: string;
   sandboxId: string | undefined;
   isActive: boolean;
-  tabSwitcher: ReactNode;
   repoId: Id<"githubRepos">;
   enabled?: boolean;
 }
@@ -34,7 +27,6 @@ export function EditorPanel({
   sandboxId,
   isActive,
   repoId,
-  tabSwitcher,
   enabled = true,
 }: EditorPanelProps) {
   const [url, setUrl] = useState<string | null>(null);
@@ -140,38 +132,27 @@ export function EditorPanel({
 
   if (!enabled) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-1 border-b p-2">
-          {tabSwitcher}
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
-          <IconCode className="w-12 h-12 opacity-50" />
-          <p className="text-sm">Editor (VSCode) is disabled</p>
-          <p className="text-xs text-muted-foreground/70">
-            Enable it in repository settings under Config.
-          </p>
-        </div>
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
+        <IconCode className="w-12 h-12 opacity-50" />
+        <p className="text-sm">Editor (VSCode) is disabled</p>
+        <p className="text-xs text-muted-foreground/70">
+          Enable it in repository settings under Config.
+        </p>
       </div>
     );
   }
 
   if (!isActive || !sandboxId) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-1 border-b p-2">
-          {tabSwitcher}
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
-          <IconCode className="w-12 h-12 opacity-50" />
-          <p className="text-sm">Start the sandbox to use the editor</p>
-        </div>
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
+        <IconCode className="w-12 h-12 opacity-50" />
+        <p className="text-sm">Start the sandbox to use the editor</p>
       </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-1 border-b p-2">{tabSwitcher}</div>
       <div className="flex-1 min-h-0 relative">
         {editorState === "starting" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-secondary z-10 gap-3">

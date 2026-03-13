@@ -13,6 +13,7 @@ import { PRsOverTimeChart } from "@/lib/components/analytics/PRsOverTimeChart";
 import { SessionFunnel } from "@/lib/components/analytics/SessionFunnel";
 import { ActivityTimelineChart } from "@/lib/components/analytics/ActivityTimelineChart";
 import { Leaderboard } from "@/lib/components/analytics/Leaderboard";
+import { ActivityHeatmap } from "@/lib/components/analytics/ActivityHeatmap";
 import {
   TimeRangeFilter,
   TimeRange,
@@ -57,12 +58,16 @@ export function StatsClient() {
     repoId: repo._id,
     startTime,
   });
+  const heatmap = useQuery(api.analytics.getActivityHeatmap, {
+    repoId: repo._id,
+  });
 
   const isLoading =
     impactStats === undefined ||
     activeUsers === undefined ||
     timeline === undefined ||
-    leaderboard === undefined;
+    leaderboard === undefined ||
+    heatmap === undefined;
 
   return (
     <PageWrapper
@@ -78,10 +83,18 @@ export function StatsClient() {
       ) : (
         <div className="space-y-6">
           <motion.div
-            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
+          >
+            <ActivityHeatmap data={heatmap} />
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, delay: 0.03 }}
           >
             <StatCard
               icon={IconGitPullRequest}
@@ -111,7 +124,7 @@ export function StatsClient() {
             className="grid grid-cols-1 gap-4 lg:grid-cols-2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.24, delay: 0.05 }}
+            transition={{ duration: 0.24, delay: 0.08 }}
           >
             <PRsOverTimeChart timeline={timeline} />
             <SessionFunnel

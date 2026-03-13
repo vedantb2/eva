@@ -72,6 +72,7 @@ import { Fragment, useEffect, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { FormattedText } from "./_components/FormattedText";
+import { UserInitials } from "@conductor/shared";
 import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { formatDuration } from "@/lib/utils/formatDuration";
@@ -106,6 +107,11 @@ export function useTaskDetail(
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
   const allAudits = useQuery(api.audits.listByTask, { taskId });
+  const hasEnabledAuditCategories =
+    useQuery(
+      api.auditCategories.hasEnabledCategories,
+      task?.repoId ? { repoId: task.repoId } : "skip",
+    ) ?? true;
   const latestAudit = allAudits?.[0] ?? null;
   const pastAudits = allAudits?.slice(1) ?? [];
   const auditStreaming = useQuery(
@@ -138,6 +144,12 @@ export function useTaskDetail(
   const createComment = useMutation(api.taskComments.create);
   const removeComment = useMutation(api.taskComments.remove);
   const subtasks = useQuery(api.subtasks.listByTask, { parentTaskId: taskId });
+  const auditCategories = useQuery(
+    api.auditCategories.listByRepo,
+    task?.repoId ? { repoId: task.repoId } : "skip",
+  );
+  const enabledAuditCount =
+    auditCategories?.filter((c) => c.enabled).length ?? 0;
   const proofs = useQuery(api.taskProof.listByTask, { taskId });
   const [baseBranch, setBaseBranch] = useState("main");
   const [isStarting, setIsStarting] = useState(false);
@@ -157,6 +169,9 @@ export function useTaskDetail(
   const [viewingCommentForRun, setViewingCommentForRun] = useState<
     string | null
   >(null);
+  const [deletingCommentId, setDeletingCommentId] =
+    useState<Id<"taskComments"> | null>(null);
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
 
   useEffect(() => {
     setTagsInput((task?.tags ?? []).join(", "));
@@ -1031,17 +1046,26 @@ export function useTaskDetail(
           {comments.map((comment) => (
             <div
               key={comment._id}
-              className="rounded-lg border border-border p-3 space-y-1"
+              className="rounded-lg border border-border p-3 space-y-2"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {dayjs(comment.createdAt).fromNow()}
-                </span>
+                <div className="flex items-center gap-2">
+                  {comment.authorId && (
+                    <UserInitials
+                      userId={comment.authorId}
+                      hideLastSeen
+                      size="sm"
+                    />
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {dayjs(comment.createdAt).fromNow()}
+                  </span>
+                </div>
                 <Button
                   size="icon-sm"
                   variant="ghost"
                   className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                  onClick={() => removeComment({ id: comment._id })}
+                  onClick={() => setDeletingCommentId(comment._id)}
                 >
                   <IconTrash size={12} />
                 </Button>
@@ -1053,6 +1077,37 @@ export function useTaskDetail(
           ))}
         </div>
       )}
+      <Dialog
+        open={deletingCommentId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingCommentId(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Comment</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">
+            Are you sure you want to delete this comment? This action cannot be
+            undone.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeletingCommentId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteComment}
+              disabled={isDeletingComment}
+            >
+              {isDeletingComment && (
+                <IconLoader2 size={16} className="animate-spin" />
+              )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {(status === "business_review" ||
         status === "code_review" ||
         status === "done" ||

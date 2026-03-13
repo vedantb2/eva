@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Button,
   Spinner,
@@ -17,8 +17,11 @@ import {
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
+  PromptInputTools,
   PromptInputSubmit,
   PromptInputSpeech,
+  ModelSelect,
+  type ClaudeModel,
   type PromptInputMessage,
 } from "@conductor/ui";
 import { IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
@@ -33,6 +36,10 @@ import {
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import dayjs from "@conductor/shared/dates";
+import {
+  getSessionModel,
+  useSessionModelSetter,
+} from "@/lib/hooks/useSessionSettings";
 
 interface DesignChatPanelProps {
   designSessionId: Id<"designSessions">;
@@ -69,6 +76,20 @@ export function DesignChatPanel({
   const [selectedPersonaId, setSelectedPersonaId] =
     useState<Id<"designPersonas">>();
   const [numDesigns, setNumDesigns] = useState(3);
+
+  const initialModel = useMemo(
+    () => getSessionModel(designSessionId, "sonnet"),
+    [designSessionId],
+  );
+  const [model, setModelState] = useState<ClaudeModel>(initialModel);
+  const saveModel = useSessionModelSetter(designSessionId);
+  const setModel = useCallback(
+    (m: ClaudeModel) => {
+      setModelState(m);
+      saveModel(m);
+    },
+    [saveModel],
+  );
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
@@ -253,11 +274,18 @@ export function DesignChatPanel({
                 disabled={isExecuting || !isSandboxActive}
               />
               <PromptInputFooter>
-                <PersonaDropdown
-                  repoId={repoId}
-                  value={selectedPersonaId}
-                  onChange={setSelectedPersonaId}
-                />
+                <PromptInputTools>
+                  <ModelSelect
+                    value={model}
+                    onValueChange={setModel}
+                    disabled={isExecuting || !isSandboxActive}
+                  />
+                  <PersonaDropdown
+                    repoId={repoId}
+                    value={selectedPersonaId}
+                    onChange={setSelectedPersonaId}
+                  />
+                </PromptInputTools>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <span>Designs:</span>
                   {[1, 2, 3, 4, 5].map((n) => (

@@ -40,7 +40,7 @@ export function QuickTasksKanbanBoard({
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  const tasks = [...externalTasks].sort((a, b) => b.updatedAt - a.updatedAt);
+  const tasks = [...externalTasks].sort((a, b) => b.createdAt - a.createdAt);
 
   if (tasks.length === 0) {
     return null;

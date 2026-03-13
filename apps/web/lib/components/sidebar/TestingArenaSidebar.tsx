@@ -121,7 +121,7 @@ export function TestingArenaSidebar({
                   href={href}
                   onClick={onNavigate}
                   className={cn(
-                    "mx-1 flex items-center gap-2.5 rounded-md px-3 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
+                    "mx-1 flex items-center gap-2.5 rounded-md px-3 py-3.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
                     isSelected
                       ? "bg-sidebar-accent font-medium text-sidebar-primary"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",

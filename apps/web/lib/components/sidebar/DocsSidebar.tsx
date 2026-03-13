@@ -242,7 +242,7 @@ export function DocsSidebar({
                   <ContextMenuTrigger asChild>
                     <div
                       className={cn(
-                        "group mx-1 rounded-md px-3 py-3 transition-colors",
+                        "group mx-1 rounded-md px-3 py-3.5 transition-colors",
                         isSelected
                           ? "bg-sidebar-accent text-sidebar-primary"
                           : "text-sidebar-foreground hover:bg-sidebar-accent/70",

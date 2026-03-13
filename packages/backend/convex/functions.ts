@@ -71,6 +71,8 @@ export async function recomputeProjectPhase(
     .collect();
   if (tasks.length === 0) return;
   const allDone = tasks.every((t) => t.status === "done");
+  // code_review is intentionally excluded: tasks awaiting review are not
+  // considered "active work" and don't block the project from completing.
   const anyActive = tasks.some(
     (t) =>
       t.status === "todo" ||

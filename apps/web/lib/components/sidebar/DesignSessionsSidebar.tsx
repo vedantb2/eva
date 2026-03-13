@@ -25,6 +25,7 @@ import {
   cn,
 } from "@conductor/ui";
 import { IconArchive, IconChevronDown, IconPalette } from "@tabler/icons-react";
+import dayjs from "@conductor/shared/dates";
 
 interface DesignSessionsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -245,6 +246,11 @@ export function DesignSessionsSidebar({
                         )}
                       >
                         <h3 className="truncate text-sm">{session.title}</h3>
+                        <span className="text-xs text-muted-foreground/60">
+                          {dayjs(
+                            session.updatedAt ?? session._creationTime,
+                          ).fromNow()}
+                        </span>
                       </Link>
                     </motion.div>
                   );

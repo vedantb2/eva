@@ -5,7 +5,7 @@ import { Button, Spinner } from "@conductor/ui";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
-import { isConvexId } from "@/lib/type-guards";
+import type { Id } from "@conductor/backend";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -71,14 +71,13 @@ export function TerminalPanel({
   const connectPty = useAction(api.pty.connectPty);
   const resizePtyAction = useAction(api.pty.resizePty);
 
-  const typedSessionId = isConvexId<"sessions">(sessionId) ? sessionId : null;
+  const typedSessionId = sessionId as Id<"sessions">;
 
   const resizePtyRef = useRef(resizePtyAction);
   resizePtyRef.current = resizePtyAction;
 
   const connectWebSocket = useCallback(
     async (terminal: Terminal, mounted: { current: boolean }) => {
-      if (!typedSessionId) return;
       const { wsUrl, isNewPty } = await connectPty({
         sessionId: typedSessionId,
         cols: terminal.cols,
@@ -286,11 +285,7 @@ export function TerminalPanel({
       ) {
         return;
       }
-      if (
-        fitAddonRef.current &&
-        terminalInstanceRef.current &&
-        typedSessionId
-      ) {
+      if (fitAddonRef.current && terminalInstanceRef.current) {
         fitAddonRef.current.fit();
         const { cols, rows } = terminalInstanceRef.current;
         resizePtyRef

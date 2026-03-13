@@ -7,7 +7,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
-import { isConvexId } from "@/lib/type-guards";
 import {
   ActivitySteps,
   Button,
@@ -358,7 +357,7 @@ export default function TestingArenaDocPage({
 }) {
   const { id } = use(params);
   const { repo } = useRepo();
-  const doc = useQuery(api.docs.get, isConvexId<"docs">(id) ? { id } : "skip");
+  const doc = useQuery(api.docs.get, { id: id as Id<"docs"> });
   const reports = useQuery(
     api.evaluationReports.listByDoc,
     doc ? { docId: doc._id } : "skip",

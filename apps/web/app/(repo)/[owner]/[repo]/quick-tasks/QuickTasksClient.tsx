@@ -6,7 +6,6 @@ import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
-import { isConvexId } from "@/lib/type-guards";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -102,8 +101,7 @@ export function QuickTasksClient() {
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);
-  const typedSelectedTaskId =
-    taskId !== null && isConvexId<"agentTasks">(taskId) ? taskId : null;
+  const typedSelectedTaskId = taskId as Id<"agentTasks"> | null;
 
   useHotkey("Alt+N", (e) => {
     e.preventDefault();

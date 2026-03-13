@@ -128,16 +128,13 @@ export function ProjectCardModal({
                     </p>
                     <Select
                       value={project.projectLead ?? "none"}
-                      onValueChange={(val) => {
-                        const user =
-                          val !== "none"
-                            ? (users ?? []).find((u) => u._id === val)
-                            : undefined;
+                      onValueChange={(val) =>
                         updateProject({
                           id: projectId,
-                          projectLead: user?._id,
-                        });
-                      }}
+                          projectLead:
+                            val === "none" ? undefined : (val as Id<"users">),
+                        })
+                      }
                     >
                       <SelectTrigger className="h-8 text-sm">
                         <SelectValue placeholder="Unassigned" />

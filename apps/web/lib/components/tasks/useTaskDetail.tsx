@@ -1184,16 +1184,11 @@ export function useTaskDetail(
         <Select
           value={selectedProjectValue}
           onValueChange={(val) => {
-            if (val === NO_PROJECT_VALUE) {
-              updateTask({ id: taskId, projectId: null });
-              return;
-            }
-            const found =
-              projectOptions.find((p) => p._id === val)?._id ??
-              (task?.projectId !== undefined && task.projectId === val
-                ? task.projectId
-                : null);
-            updateTask({ id: taskId, projectId: found });
+            updateTask({
+              id: taskId,
+              projectId:
+                val === NO_PROJECT_VALUE ? null : (val as Id<"projects">),
+            });
           }}
         >
           <SelectTrigger className="h-8 text-sm">

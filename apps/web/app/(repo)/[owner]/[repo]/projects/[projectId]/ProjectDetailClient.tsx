@@ -16,8 +16,8 @@ import {
   Spinner,
 } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import type { Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { isConvexId } from "@/lib/type-guards";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
@@ -31,15 +31,12 @@ interface ProjectDetailClientProps {
 
 export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const { basePath, repo, installationId } = useRepo();
+  const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const [isStartingBuild, setIsStartingBuild] = useState(false);
   const startBuild = useMutation(api.buildWorkflow.startBuild);
 
-  const typedProjectId = isConvexId<"projects">(projectId) ? projectId : null;
-  const project = useQuery(
-    api.projects.get,
-    typedProjectId ? { id: typedProjectId } : "skip",
-  );
+  const project = useQuery(api.projects.get, { id: typedProjectId });
   const streaming = useQuery(api.streaming.get, { entityId: projectId });
   const currentUserId = useQuery(api.auth.me);
   const isOwner = project ? currentUserId === project.userId : false;
@@ -52,7 +49,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
     );
   }
 
-  if (project === null || !typedProjectId) {
+  if (project === null) {
     return (
       <PageWrapper>
         <div className="py-12 text-center">

@@ -306,6 +306,19 @@ export function useTaskDetail(
     await updateTask({ id: taskId, tags: nextTags });
   };
 
+  const handleDeleteComment = async () => {
+    if (!deletingCommentId) return;
+    setIsDeletingComment(true);
+    try {
+      await removeComment({ id: deletingCommentId });
+      setDeletingCommentId(null);
+    } catch (err) {
+      console.error("Failed to delete comment:", err);
+    } finally {
+      setIsDeletingComment(false);
+    }
+  };
+
   const modalWidthClass = "max-w-[72rem]";
   const layoutGridClass = "grid-cols-1 md:grid-cols-[1fr_1fr_200px]";
 

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useState, useEffect, useCallback, type RefObject } from "react";
 import { Input, Spinner } from "@conductor/ui";
 import { WebPreviewNavigationButton } from "@conductor/ui";
 import {
@@ -45,7 +39,6 @@ interface PreviewNavBarProps {
   defaultPath?: string;
   isLoading?: boolean;
   onRefresh?: () => void;
-  leading?: ReactNode;
 }
 
 export function PreviewNavBar({
@@ -57,7 +50,6 @@ export function PreviewNavBar({
   defaultPath = "/",
   isLoading = false,
   onRefresh,
-  leading,
 }: PreviewNavBarProps) {
   const [portInput, setPortInput] = useState(String(port));
   const [pathInput, setPathInput] = useState(defaultPath);
@@ -134,8 +126,6 @@ export function PreviewNavBar({
 
   return (
     <>
-      {leading}
-      <div className="ml-auto" />
       <WebPreviewNavigationButton tooltip="Back" onClick={goBack}>
         <IconArrowLeft className="w-3.5 h-3.5" />
       </WebPreviewNavigationButton>

@@ -56,6 +56,26 @@ export function TaskFooter({
         <p className="text-xs text-destructive text-right">{executionError}</p>
       )}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+        {status !== "todo" && status !== "in_progress" && (
+          <Button variant="secondary" onClick={onRequestChanges}>
+            <IconMessagePlus size={18} />
+            <span className="hidden sm:inline">Request Changes</span>
+          </Button>
+        )}
+        {!hasActiveRun && status === "code_review" && (
+          <Button
+            variant="secondary"
+            onClick={onResolveConfirm}
+            disabled={isStarting}
+          >
+            {isStarting ? (
+              <IconLoader2 size={18} className="animate-spin" />
+            ) : (
+              <IconHammer size={18} />
+            )}
+            <span className="hidden sm:inline">Resolve Conflicts</span>
+          </Button>
+        )}
         {latestPrUrl && (status === "code_review" || status === "done") && (
           <Button asChild variant="outline">
             <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
@@ -105,26 +125,6 @@ export function TaskFooter({
                     : "Deployment is queued..."}
             </TooltipContent>
           </Tooltip>
-        )}
-        {status !== "todo" && status !== "in_progress" && (
-          <Button variant="secondary" onClick={onRequestChanges}>
-            <IconMessagePlus size={18} />
-            <span className="hidden sm:inline">Request Changes</span>
-          </Button>
-        )}
-        {!hasActiveRun && status === "code_review" && (
-          <Button
-            variant="secondary"
-            onClick={onResolveConfirm}
-            disabled={isStarting}
-          >
-            {isStarting ? (
-              <IconLoader2 size={18} className="animate-spin" />
-            ) : (
-              <IconHammer size={18} />
-            )}
-            <span className="hidden sm:inline">Resolve Conflicts</span>
-          </Button>
         )}
         {!hasActiveRun && status === "todo" && (
           <>

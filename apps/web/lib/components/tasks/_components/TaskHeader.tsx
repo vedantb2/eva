@@ -45,7 +45,7 @@ export function TaskHeader({
             }
           }}
           autoFocus
-          className="flex-1 text-base font-semibold h-auto px-1 -mx-1 py-0 border-none shadow-none focus-visible:ring-0 bg-muted/50 rounded"
+          className="flex-1 text-xl font-semibold h-auto px-1 -mx-1 py-0 border-none shadow-none focus-visible:ring-0 bg-muted/50 rounded"
         />
       ) : (
         <span
@@ -60,8 +60,8 @@ export function TaskHeader({
           }
           className={
             !canEditTaskText
-              ? "text-base font-semibold"
-              : "text-base font-semibold cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1"
+              ? "text-xl font-semibold"
+              : "text-xl font-semibold cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1"
           }
         >
           {title}

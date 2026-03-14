@@ -171,7 +171,7 @@ export function TaskDetailModal({
                       ) : null}
                     </div>
                     {showTabsColumn && (
-                      <div className="md:pl-6 md:border-l md:border-border/60 min-h-0 md:overflow-y-auto scrollbar">
+                      <div className="md:pl-8 min-h-0 md:overflow-y-auto scrollbar">
                         <Tabs
                           value={activeTab}
                           onValueChange={(v) => {
@@ -272,7 +272,7 @@ export function TaskDetailModal({
                         </Tabs>
                       </div>
                     )}
-                    <div className="md:pl-6 md:border-l md:border-border/60 min-h-0 md:overflow-y-auto scrollbar">
+                    <div className="md:pl-8 min-h-0 md:overflow-y-auto scrollbar">
                       <StatusFieldsSection
                         taskId={taskId}
                         task={task}
@@ -289,7 +289,7 @@ export function TaskDetailModal({
                   </div>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center justify-end border-t border-border/60 pt-4 gap-1.5">
+              <div className="flex shrink-0 items-center justify-end pt-4 gap-1.5">
                 <TaskFooter
                   taskId={taskId}
                   task={task}

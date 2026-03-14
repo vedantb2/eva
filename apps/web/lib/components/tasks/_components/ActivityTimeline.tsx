@@ -118,7 +118,7 @@ export function ActivityTimeline({
 
   return (
     <div className="pt-4">
-      <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar pr-2">
+      <div className="space-y-2">
         {activityTimeline.map((item) => {
           if (item.kind === "audit") {
             const audit = item.audit;

@@ -317,7 +317,7 @@ export function StatusFieldsSection({
       </Select>
 
       {!task?.projectId && (
-        <div className="flex items-center min-h-[28px] rounded-md hover:bg-muted/50 transition-colors px-2">
+        <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2">
           {status === "todo" ? (
             <BranchSelect
               value={baseBranch}
@@ -348,7 +348,7 @@ export function StatusFieldsSection({
       )}
 
       {latestDeployment?.deploymentStatus && (
-        <div className="flex items-center h-7 rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+        <div className="flex items-center h-10 rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
           <IconBrandVercel size={14} className="text-muted-foreground" />
           <span
             className={`h-2 w-2 rounded-full shrink-0 ${

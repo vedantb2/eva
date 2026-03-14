@@ -149,11 +149,11 @@ export function TaskDetailModal({
                     </Badge>
                   </div>
                 ) : null}
-                <div className="flex-1 min-h-0 pb-2 md:pb-6 flex flex-col overflow-hidden">
+                <div className="flex-1 min-h-0 pb-2 flex flex-col overflow-hidden">
                   <div
-                    className={`grid gap-3 md:gap-6 flex-1 min-h-0 overflow-y-auto md:overflow-hidden md:grid-rows-1 ${gridClass}`}
+                    className={`grid gap-4 md:gap-0 flex-1 min-h-0 overflow-y-auto md:overflow-hidden md:grid-rows-1 ${gridClass}`}
                   >
-                    <div className="space-y-3 md:space-y-6 min-h-0 md:overflow-y-auto scrollbar md:pr-2">
+                    <div className="space-y-4 min-h-0 md:overflow-y-auto scrollbar md:pr-6">
                       <TaskDescription
                         description={task?.description}
                         createdAt={task?.createdAt}
@@ -171,7 +171,7 @@ export function TaskDetailModal({
                       ) : null}
                     </div>
                     {showTabsColumn && (
-                      <div className="md:pl-4 min-h-0 md:overflow-y-auto">
+                      <div className="md:pl-6 md:border-l md:border-border/60 min-h-0 md:overflow-y-auto scrollbar">
                         <Tabs
                           value={activeTab}
                           onValueChange={(v) => {
@@ -272,7 +272,7 @@ export function TaskDetailModal({
                         </Tabs>
                       </div>
                     )}
-                    <div className="md:pl-4 space-y-3 md:space-y-4 min-h-0 md:overflow-y-auto scrollbar">
+                    <div className="md:pl-6 md:border-l md:border-border/60 min-h-0 md:overflow-y-auto scrollbar">
                       <StatusFieldsSection
                         taskId={taskId}
                         task={task}
@@ -289,7 +289,7 @@ export function TaskDetailModal({
                   </div>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center justify-end border-t border-border pt-3 md:pt-4 gap-1.5">
+              <div className="flex shrink-0 items-center justify-end border-t border-border/60 pt-4 gap-1.5">
                 <TaskFooter
                   taskId={taskId}
                   task={task}

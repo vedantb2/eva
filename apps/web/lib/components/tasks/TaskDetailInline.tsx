@@ -89,17 +89,15 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
   return (
     <>
       <div className="flex flex-col h-full overflow-hidden">
-        <div className="px-3 pt-3 pb-2 sm:px-4 sm:pt-4 md:px-6 md:pt-5 flex-shrink-0">
+        <div className="px-4 pt-4 pb-3 md:px-6 md:pt-5 md:pb-3 flex-shrink-0">
           <TaskHeader
             taskNumber={task?.taskNumber}
             title={task?.title}
             canEditTaskText={canEditTaskText}
             taskId={taskId}
           />
-        </div>
-        <div className="px-3 sm:px-4 md:px-6 flex-1 min-h-0 overflow-y-auto scrollbar flex flex-col">
           {task?.scheduledAt ? (
-            <div className="flex items-center gap-1.5 px-1 -mt-1 mb-1">
+            <div className="flex items-center gap-1.5 mt-2">
               <Badge
                 variant="outline"
                 className="gap-1 text-xs font-normal text-muted-foreground"
@@ -110,9 +108,11 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
               </Badge>
             </div>
           ) : null}
+        </div>
+        <div className="px-4 md:px-6 flex-1 min-h-0 overflow-y-auto scrollbar flex flex-col">
           <div className="flex-1 flex flex-col pb-4">
-            <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] gap-3 sm:gap-4 md:gap-6 flex-1 min-h-0">
-              <div className="space-y-3 md:space-y-6 min-h-0 min-w-0">
+            <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] flex-1 min-h-0">
+              <div className="space-y-4 min-h-0 min-w-0 md:pr-6">
                 <TaskDescription
                   description={task?.description}
                   createdAt={task?.createdAt}
@@ -216,8 +216,8 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
                   </TabsContent>
                 </Tabs>
               </div>
-              <div className="md:pl-4 flex flex-col min-h-0 min-w-0 md:overflow-y-auto scrollbar">
-                <div className="space-y-4 flex-1">
+              <div className="md:pl-6 md:border-l md:border-border/60 flex flex-col min-h-0 min-w-0 md:overflow-y-auto scrollbar">
+                <div className="flex-1">
                   <StatusFieldsSection
                     taskId={taskId}
                     task={task}
@@ -231,7 +231,7 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
                     hasActiveRun={hasActiveRun}
                   />
                 </div>
-                <div className="flex items-center justify-end pt-4 mt-4 pb-4 md:pb-0">
+                <div className="flex items-center justify-end pt-4 mt-auto pb-4 md:pb-0 border-t border-border/60 md:border-0">
                   <TaskFooter
                     taskId={taskId}
                     task={task}

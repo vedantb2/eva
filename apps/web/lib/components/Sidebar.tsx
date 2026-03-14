@@ -295,11 +295,11 @@ export function Sidebar() {
 
   const navItemClass = (isActive: boolean) =>
     cn(
-      "group motion-base flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+      "group motion-base flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
       collapsed && "lg:justify-center lg:px-0",
       isActive
-        ? "border-sidebar-primary/35 bg-sidebar-primary/10 text-sidebar-primary shadow-sm"
-        : "border-transparent text-sidebar-foreground/80 hover:-translate-y-[1px] hover:border-sidebar-border/85 hover:bg-sidebar-accent/85 hover:text-sidebar-foreground",
+        ? "bg-sidebar-primary/10 text-sidebar-primary"
+        : "text-sidebar-foreground/80 hover:-translate-y-[1px] hover:bg-sidebar-accent/85 hover:text-sidebar-foreground",
     );
 
   const contextSidebarTitle =

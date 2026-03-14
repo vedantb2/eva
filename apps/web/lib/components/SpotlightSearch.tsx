@@ -21,7 +21,7 @@ import {
 } from "@tabler/icons-react";
 
 const itemClass =
-  "mx-2 flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-sm text-muted-foreground transition-colors data-[selected=true]:border-primary/20 data-[selected=true]:bg-accent/80 data-[selected=true]:text-primary";
+  "mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors data-[selected=true]:bg-accent/80 data-[selected=true]:text-primary";
 
 const headingClass =
   "[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase";

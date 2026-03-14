@@ -89,9 +89,6 @@ export function TeamMembersTab({
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    Email Address
-                  </label>
                   <Input
                     type="email"
                     value={dialog.email}
@@ -102,7 +99,7 @@ export function TeamMembersTab({
                         error: "",
                       }))
                     }
-                    placeholder="user@example.com"
+                    placeholder="Email address"
                     disabled={dialog.isSubmitting}
                     onKeyDown={(e) => e.key === "Enter" && handleAddMember()}
                   />

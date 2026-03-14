@@ -97,7 +97,7 @@ export function CommentsSection({
           {comments.map((comment) => (
             <div
               key={comment._id}
-              className="rounded-lg border border-border p-3 space-y-2"
+              className="rounded-lg bg-muted/40 p-3 space-y-2"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

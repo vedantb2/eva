@@ -1,5 +1,14 @@
 FOLLOW ALL OF THESE RULES
 
+UI Design System — Tonal Surface Hierarchy:
+
+- No shadows on inline elements (cards, buttons, inputs, tabs, alerts, checkboxes). Only floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) get shadows.
+- No borders for visual separation between layout regions (e.g. sidebar edge, section dividers). Use background color contrast (tonal surfaces) instead.
+- Borders are only for structural purposes (e.g. browser-tab metaphor in SandboxTabBar) or form element affordance (inputs, selects).
+- No borders on active/selected states — background color alone indicates active state.
+- Use whitespace/padding (Gestalt Law of Proximity) to group related elements, not dividers.
+- Hierarchy comes from: tonal surface contrast > whitespace > typography weight/size. Never from shadows or decorative borders.
+
 Implementation:
 
 - Always read the CLAUDE.md file (if it exists) first to understand the codebase's specific rules

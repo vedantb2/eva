@@ -416,10 +416,10 @@ export function Sidebar() {
         )}
       >
         <div className="h-full">
-          <div className="flex h-full flex-col overflow-hidden border-r border-sidebar-border/60 bg-sidebar lg:bg-sidebar/92">
+          <div className="flex h-full flex-col overflow-hidden bg-sidebar lg:bg-sidebar/92">
             <div
               className={cn(
-                "flex h-16 items-center border-b border-sidebar-border/60 bg-sidebar-accent/20",
+                "flex h-16 items-center bg-sidebar-accent/20",
                 collapsed ? "px-2" : "px-3",
               )}
             >
@@ -825,7 +825,7 @@ export function Sidebar() {
 
             <div
               className={cn(
-                "border-t border-sidebar-border/60 bg-sidebar-accent/32",
+                "bg-sidebar-accent/32",
                 collapsed ? "px-2 py-3" : "px-3 py-3",
               )}
             >

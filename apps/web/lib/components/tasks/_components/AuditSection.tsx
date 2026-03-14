@@ -53,7 +53,7 @@ function AuditResults({ auditData }: { auditData: AuditDoc }) {
                 <AccordionItem
                   key={section.name}
                   value={section.name}
-                  className="border rounded-lg px-3"
+                  className="rounded-lg bg-muted/40 px-3"
                 >
                   <AccordionTrigger>
                     <div className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export function AuditSection({ latestAudit, pastAudits }: AuditSectionProps) {
             {showPastAudits ? "Hide" : "Show"} past audits ({pastAudits.length})
           </button>
           {showPastAudits && (
-            <div className="mt-3 space-y-4 border-t pt-3">
+            <div className="mt-6 space-y-4">
               {pastAudits.map((pastAudit) => (
                 <div key={pastAudit._id} className="space-y-2">
                   <span className="text-xs text-muted-foreground">

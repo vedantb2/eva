@@ -98,14 +98,14 @@ export function QuickTaskCard({
 
   const card = (
     <Card
-      className={`group relative overflow-hidden transition-[transform,border-color,background-color] duration-200 ${
+      className={`group relative overflow-hidden transition-[transform,background-color] duration-200 ${
         showError
-          ? "border border-border/70 bg-card/88"
+          ? "bg-card/88"
           : isInProgress
-            ? "border-transparent bg-card/95"
+            ? "bg-card/95"
             : isActive
               ? "bg-primary/5"
-              : "border border-border/70 bg-card/88 hover:bg-card"
+              : "bg-card/88 hover:bg-card"
       } ${isSelected ? "ring-2 ring-primary/40" : ""} ${isActive ? "ring-1 ring-primary/30" : ""} ${
         onClick
           ? "cursor-pointer hover:-translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"

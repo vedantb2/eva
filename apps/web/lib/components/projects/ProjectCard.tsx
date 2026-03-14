@@ -79,7 +79,7 @@ export function ProjectCard({
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
   const cardContent = (
-    <div className="group relative shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card/88 shadow-sm  transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-[1px] hover:border-primary/25 hover:shadow-md hover:z-10">
+    <div className="group relative shrink-0 overflow-hidden rounded-lg bg-card/88 transition-[transform,background-color] duration-200 hover:-translate-y-[1px] hover:bg-card hover:z-10">
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div
         className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${accentColor}`}

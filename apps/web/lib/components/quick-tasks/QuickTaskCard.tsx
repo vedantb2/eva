@@ -98,7 +98,7 @@ export function QuickTaskCard({
 
   const card = (
     <Card
-      className={`group relative overflow-hidden transition-[transform,background-color] duration-200 ${
+      className={`group relative overflow-hidden border-0 transition-[transform,background-color] duration-200 ${
         showError
           ? "bg-card/88"
           : isInProgress
@@ -128,7 +128,7 @@ export function QuickTaskCard({
       <div
         className={`absolute inset-y-1.5 left-0 w-1 rounded-r-full ${accentClass}`}
       />
-      <CardContent className="relative z-[1] space-y-1 px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5">
+      <CardContent className="relative z-[1] space-y-1 px-2.5 py-1.5 pl-3 sm:px-3 sm:py-2 sm:pl-3.5">
         <div className="flex min-w-0 items-start gap-1.5">
           {isSelecting && (
             <Checkbox
@@ -194,47 +194,49 @@ export function QuickTaskCard({
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center gap-1.5">
             {createdBy && <UserInitials userId={createdBy} size="sm" />}
+          </div>
+          <div className="flex items-center gap-1">
             <span className="text-[10px] text-muted-foreground">
               {dayjs(createdAt).fromNow()}
             </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <IconDots size={14} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {siblingApps && siblingApps.length > 0 && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <IconArrowMoveRight size={16} />
+                      Move to app
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {siblingApps.map((app) => (
+                        <DropdownMenuItem
+                          key={app._id}
+                          onClick={() => setMoveTarget(app._id)}
+                        >
+                          {app.appName}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                )}
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <IconTrash size={16} />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <IconDots size={14} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {siblingApps && siblingApps.length > 0 && (
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <IconArrowMoveRight size={16} />
-                    Move to app
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    {siblingApps.map((app) => (
-                      <DropdownMenuItem
-                        key={app._id}
-                        onClick={() => setMoveTarget(app._id)}
-                      >
-                        {app.appName}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              )}
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <IconTrash size={16} />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </CardContent>
     </Card>

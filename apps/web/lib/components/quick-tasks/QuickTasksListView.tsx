@@ -201,7 +201,7 @@ export function QuickTasksListView({
                         No tasks
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-1.5 px-1.5 pb-1.5">
+                      <div className="flex flex-col gap-0.5 pr-1.5 pb-1.5">
                         {items.map((task) => (
                           <QuickTaskCard
                             key={task._id}

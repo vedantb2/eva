@@ -1,5 +1,14 @@
 # Changelog
 
+## Decompose useTaskDetail hook - 2026-03-14
+
+- Broke the 1,774-line `useTaskDetail` hook into ~13 focused child components + a slim 200-line data-only hook
+- The hook was a component masquerading as a hook — it constructed all JSX internally and returned opaque blobs. Now it returns data + handlers, and consumers compose child components with explicit props
+- Extracted: TaskHeader, TaskDescription, ActivityTimeline, AuditTimelineItem, RunTimelineItem, ProofSection, AuditSection, CommentsSection, StatusFieldsSection, TaskFooter, StopConfirmDialog, ResolveConfirmDialog
+- Pushed 10 useState calls down into the child components that actually own them (title editing → TaskHeader, comment text → CommentsSection, tags → StatusFieldsSection, etc.)
+- Fixed `as` type assertion violations: removed unnecessary `status as TaskStatus` (Convex type already narrows), replaced `val as Id<"projects">` with safe `.find()` lookup, replaced `v as TabType` with `isTaskDetailTab` type guard
+- Shared utilities extracted to `task-detail-constants.ts`: `capitalize`, `getUserDisplayName`, `DEPLOYMENT_STATUS_CONFIG`, `GHOST_TRIGGER_CLASS`
+
 ## Session sidebar status indicators and deduplication - 2026-03-13
 
 - Added colored status dots to sidebar session items: green (active), amber pulse (starting), gray (closed) — users can now see at a glance which sessions have live sandboxes

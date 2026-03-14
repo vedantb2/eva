@@ -61,7 +61,6 @@ export function SchedulePopover({
       <PopoverTrigger asChild>
         <Button
           variant="secondary"
-          size="sm"
           disabled={disabled}
           className={isScheduled ? "text-primary" : undefined}
         >

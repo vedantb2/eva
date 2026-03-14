@@ -15,6 +15,7 @@ import {
   IconPhoto,
   IconShieldCheck,
   IconMessagePlus,
+  IconLoader2,
 } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { useTaskDetail } from "./useTaskDetail";
@@ -31,6 +32,7 @@ export function TaskDetailModal({
   taskId,
 }: TaskDetailModalProps) {
   const {
+    isLoading,
     titleContent,
     scheduledBadge,
     descriptionSection,

@@ -68,28 +68,19 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
           <DialogTitle>New Project</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Title</label>
-            <Input
-              placeholder="Name your project"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Description</label>
-            <Textarea
-              placeholder="Describe what you want to build..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Base Branch</label>
-            <BranchSelect value={baseBranch} onValueChange={setBaseBranch} />
-          </div>
+          <Input
+            placeholder="Project title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+          />
+          <Textarea
+            placeholder="Describe what you want to build..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+          />
+          <BranchSelect value={baseBranch} onValueChange={setBaseBranch} />
         </div>
         <DialogFooter>
           <Button variant="secondary" onClick={onClose}>

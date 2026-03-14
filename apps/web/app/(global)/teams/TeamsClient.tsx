@@ -91,9 +91,6 @@ export function TeamsClient() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium">
-                  Team Name
-                </label>
                 <Input
                   value={createDialog.name}
                   onChange={(e) =>
@@ -103,7 +100,7 @@ export function TeamsClient() {
                       error: "",
                     }))
                   }
-                  placeholder="Engineering"
+                  placeholder="Team name"
                   disabled={createDialog.isSubmitting}
                   onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                 />

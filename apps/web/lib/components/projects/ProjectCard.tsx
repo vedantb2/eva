@@ -18,7 +18,6 @@ import {
   DialogTitle,
   DialogFooter,
   Input,
-  Label,
   Textarea,
 } from "@conductor/ui";
 import { ProjectProgressBar } from "./ProjectProgressBar";
@@ -146,23 +145,18 @@ export function ProjectCard({
             }}
             className="flex flex-col gap-4"
           >
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="edit-title">Title</Label>
-              <Input
-                id="edit-title"
-                value={editTitle}
-                onChange={(event) => setEditTitle(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={editDescription}
-                onChange={(event) => setEditDescription(event.target.value)}
-                rows={3}
-              />
-            </div>
+            <Input
+              placeholder="Title"
+              value={editTitle}
+              onChange={(event) => setEditTitle(event.target.value)}
+              autoFocus
+            />
+            <Textarea
+              placeholder="Description"
+              value={editDescription}
+              onChange={(event) => setEditDescription(event.target.value)}
+              rows={3}
+            />
             <DialogFooter>
               <Button
                 type="button"

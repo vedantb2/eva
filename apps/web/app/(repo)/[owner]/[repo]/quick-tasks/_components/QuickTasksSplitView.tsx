@@ -67,7 +67,11 @@ export function QuickTasksSplitView({
             </span>
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
-            <TaskDetailInline onClose={onCloseTask} taskId={selectedTaskId} />
+            <TaskDetailInline
+              key={selectedTaskId}
+              onClose={onCloseTask}
+              taskId={selectedTaskId}
+            />
           </div>
         </div>
       ) : (

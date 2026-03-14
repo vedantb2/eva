@@ -30,8 +30,8 @@ export function PageWrapper({
   return (
     <div className="flex-1 h-full min-h-0 overflow-hidden animate-in fade-in duration-300">
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="motion-base relative border-b border-border/70 bg-card/65 px-2 py-2 sm:px-4 sm:py-3">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="motion-base relative p-3 sm:px-4">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               {showBack && (
                 <Button

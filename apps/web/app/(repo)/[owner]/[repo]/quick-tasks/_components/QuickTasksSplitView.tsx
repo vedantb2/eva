@@ -37,7 +37,7 @@ export function QuickTasksSplitView({
       <div
         className={
           selectedTaskId
-            ? "hidden sm:flex sm:w-[280px] md:w-[20%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col border-r border-border/40"
+            ? "hidden sm:flex sm:w-[280px] md:w-[20%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col pr-3"
             : "flex flex-col min-w-0 min-h-0 flex-1 sm:flex-none sm:w-[280px] md:w-[20%] sm:flex-shrink-0 overflow-hidden"
         }
       >
@@ -53,7 +53,7 @@ export function QuickTasksSplitView({
       </div>
       {selectedTaskId ? (
         <div className="w-full sm:flex-1 min-w-0 min-h-0 h-full overflow-hidden flex flex-col">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 sm:hidden flex-shrink-0">
+          <div className="flex items-center gap-2 px-3 py-2 pb-3 mb-3 sm:hidden flex-shrink-0">
             <Button
               size="icon-sm"
               variant="ghost"

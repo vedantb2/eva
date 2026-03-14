@@ -49,7 +49,7 @@ export function CronScheduleCard({
   const schedule = allowManual ? value : value || "";
 
   return (
-    <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
+    <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
       <h3 className="text-sm font-medium">Cron Schedule</h3>
       <div>
         <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -134,8 +134,8 @@ function CronPreview({
 
 function CronGuide() {
   return (
-    <div className="mt-3 rounded-md border border-border/50 overflow-hidden">
-      <div className="bg-muted/30 px-3 py-1.5 border-b border-border/50">
+    <div className="mt-3 rounded-md bg-muted/40 overflow-hidden">
+      <div className="bg-muted/30 px-3 py-1.5">
         <p className="text-[11px] font-medium text-muted-foreground">
           Cron format reference
         </p>

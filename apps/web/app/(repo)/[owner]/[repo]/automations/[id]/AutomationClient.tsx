@@ -101,7 +101,7 @@ function RunHistory({ automationId }: { automationId: Id<"automations"> }) {
 
   if (runs.length === 0) {
     return (
-      <div className="rounded-lg border border-border/70 p-8 text-center">
+      <div className="rounded-lg bg-muted/40 p-8 text-center">
         <p className="text-sm text-muted-foreground">
           No runs yet. Enable the automation and wait for the cron schedule to
           trigger.
@@ -149,7 +149,7 @@ function RunAccordion({
         : "";
 
   return (
-    <div className="rounded-lg border border-border/70 overflow-hidden">
+    <div className="rounded-lg bg-muted/40 overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
@@ -208,7 +208,7 @@ function RunAccordion({
         )}
       </button>
       {expanded && (
-        <div className="border-t border-border/70 px-4 py-3 space-y-3">
+        <div className="mt-6 px-4 py-3 space-y-3">
           {run.resultSummary && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1">
@@ -282,7 +282,7 @@ function SettingsForm({ automation }: { automation: Automation }) {
     <div className="space-y-4">
       <CronScheduleCard value={cronSchedule} onChange={setCronSchedule} />
 
-      <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
+      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Description</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -311,7 +311,7 @@ function SettingsForm({ automation }: { automation: Automation }) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
+      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Model</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">

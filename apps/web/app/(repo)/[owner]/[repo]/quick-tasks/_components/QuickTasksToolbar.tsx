@@ -142,7 +142,7 @@ export function QuickTasksToolbar({
         </DropdownMenu>
       )}
       {hasQuickTasks && (
-        <div className="flex items-center rounded-lg border border-border overflow-hidden">
+        <div className="flex items-center rounded-lg bg-muted/40 overflow-hidden">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

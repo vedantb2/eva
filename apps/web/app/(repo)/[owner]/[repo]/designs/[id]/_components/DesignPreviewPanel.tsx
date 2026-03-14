@@ -93,7 +93,7 @@ export function DesignPreviewPanel({
         }}
         className="flex flex-col h-full"
       >
-        <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border sm:gap-2 sm:px-4 sm:py-2 flex-wrap">
+        <div className="flex items-center gap-1 px-2 py-1.5 pb-2 mb-2 sm:gap-2 sm:px-4 sm:py-2 flex-wrap">
           <Tabs
             value={view}
             onValueChange={(v) => {
@@ -181,7 +181,7 @@ export function DesignPreviewPanel({
             </div>
           </TabsContent>
         ))}
-        <div className="flex items-center justify-between gap-2 px-2 py-2 border-t border-border sm:gap-3 sm:px-4">
+        <div className="flex items-center justify-between gap-2 px-2 py-2 pt-2 mt-2 sm:gap-3 sm:px-4">
           {!isArchived && (
             <Button
               size="sm"

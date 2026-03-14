@@ -203,7 +203,7 @@ export function DesktopPanel({
   return (
     <div className="h-full flex flex-col" ref={containerRef}>
       {url && desktopState === "running" && (
-        <div className="flex items-center justify-end gap-1 border-b px-2 py-1">
+        <div className="flex items-center justify-end gap-1 pb-1 mb-1 px-2 py-1">
           <Button
             size="icon"
             variant="ghost"

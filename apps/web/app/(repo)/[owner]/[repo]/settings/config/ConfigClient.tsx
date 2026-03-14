@@ -25,7 +25,7 @@ export function ConfigClient() {
   return (
     <PageWrapper title="Config">
       <div className="space-y-4">
-        <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
+        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
           <h3 className="text-sm font-medium">Repository Configuration</h3>
 
           <div className="grid gap-4">
@@ -103,7 +103,7 @@ export function ConfigClient() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
+        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
           <h3 className="text-sm font-medium">Feature Toggles</h3>
           <div className="grid gap-3">
             <label className="flex items-center gap-3 cursor-pointer">
@@ -176,7 +176,7 @@ function DomainsSection() {
   };
 
   return (
-    <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
+    <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
       <div>
         <h3 className="text-sm font-medium">Domains</h3>
         <p className="mt-1 text-[11px] text-muted-foreground">
@@ -190,7 +190,7 @@ function DomainsSection() {
           {domains.map((domain) => (
             <span
               key={domain}
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-1 text-xs"
+              className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-xs"
             >
               {domain}
               <button

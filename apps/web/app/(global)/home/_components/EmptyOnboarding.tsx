@@ -23,7 +23,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
             <div
               className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-all ${
                 step.active
-                  ? "bg-primary text-background shadow-sm ring-2 ring-primary/25 ring-offset-1 ring-offset-background"
+                  ? "bg-primary text-background ring-2 ring-primary/25 ring-offset-1 ring-offset-background"
                   : "bg-secondary text-muted-foreground"
               }`}
             >
@@ -55,7 +55,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
         <div className="relative mb-6 flex items-center justify-center">
           <div className="absolute h-32 w-32 rounded-full bg-primary/5 blur-3xl" />
           <div className="absolute h-20 w-20 rounded-full bg-primary/10 blur-xl" />
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-border/80 bg-card/95 shadow-md ring-1 ring-primary/15">
+          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/40 ring-1 ring-primary/15">
             <IconBrandGithub size={26} className="text-primary" />
           </div>
         </div>

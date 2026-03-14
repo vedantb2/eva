@@ -93,7 +93,7 @@ export function InboxClient() {
           </Button>
           {unreadCount > 0 && (
             <>
-              <div className="mx-1 h-4 w-px bg-border hidden sm:block" />
+              <div className="mx-1 h-4 w-px bg-muted-foreground/20 hidden sm:block" />
               <Button
                 size="sm"
                 variant="ghost"
@@ -134,7 +134,7 @@ export function InboxClient() {
           />
         </div>
       ) : (
-        <div className="rounded-lg border border-border/70 overflow-hidden">
+        <div className="rounded-lg bg-muted/40 overflow-hidden">
           <AnimatePresence initial={false}>
             {groups!.map((group) => (
               <motion.div
@@ -144,7 +144,7 @@ export function InboxClient() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                <div className="border-b border-border/50 bg-muted/40 px-3 sm:px-4 py-1.5">
+                <div className="bg-muted/60 px-3 sm:px-4 py-1.5">
                   <span className="text-xs font-medium text-muted-foreground">
                     {group.label}
                   </span>

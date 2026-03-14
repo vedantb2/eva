@@ -45,7 +45,7 @@ export function ProjectTaskCard({
 
   return (
     <Card
-      className={`w-full rounded-sm shadow-none transition-all duration-200 ${isSelected ? "ring-2 ring-primary shadow-xs" : ""} ${statusConfig[status].cardBg} ${onClick ? "motion-emphasized cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 dark:hover:brightness-110" : ""}`}
+      className={`w-full rounded-sm shadow-none transition-all duration-200 ${isSelected ? "ring-2 ring-primary" : ""} ${statusConfig[status].cardBg} ${onClick ? "motion-emphasized cursor-pointer hover:-translate-y-0.5 hover:bg-muted/60 hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 dark:hover:brightness-110" : ""}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}

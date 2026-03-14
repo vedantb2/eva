@@ -613,24 +613,24 @@ export function ChatPanel({
               }}
               className="absolute left-1.5 top-4 z-20 -translate-y-1/2 sm:left-3"
             >
-              <TabsList className="h-8 rounded-full  p-0.5 shadow-sm">
+              <TabsList className="h-8 rounded-full  p-0.5">
                 <TabsTrigger
                   value="execute"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
                 >
                   <IconCode className="w-3 h-3" />
                   Execute
                 </TabsTrigger>
                 <TabsTrigger
                   value="ask"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
                 >
                   <IconMessageCircle2 className="w-3 h-3" />
                   Ask
                 </TabsTrigger>
                 <TabsTrigger
                   value="plan"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
                 >
                   <IconClipboardList className="w-3 h-3" />
                   PRD
@@ -839,7 +839,7 @@ export function ChatPanel({
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.1 }}
-                  className="rounded-lg border border-success/30 bg-success/10 p-4 text-center"
+                  className="rounded-lg bg-success/10 p-4 text-center"
                 >
                   <IconCircleCheck
                     size={24}

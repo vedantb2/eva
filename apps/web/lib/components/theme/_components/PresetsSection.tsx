@@ -85,10 +85,10 @@ export function PresetsSection({
               key={preset.name}
               onClick={() => onApplyPreset(preset.theme)}
               className={cn(
-                "relative flex flex-col items-center gap-2 rounded-xl border p-3 text-xs font-medium transition-all sm:gap-3 sm:p-4 sm:text-sm",
+                "relative flex flex-col items-center gap-2 rounded-xl p-3 text-xs font-medium transition-all sm:gap-3 sm:p-4 sm:text-sm",
                 active
-                  ? "border-primary bg-primary/8 text-primary shadow-sm ring-1 ring-primary/20"
-                  : "border-border bg-card/60 text-muted-foreground hover:border-border/80 hover:bg-card hover:text-foreground",
+                  ? "bg-primary/8 text-primary ring-1 ring-primary/20"
+                  : "bg-card/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
             >
               {active && (

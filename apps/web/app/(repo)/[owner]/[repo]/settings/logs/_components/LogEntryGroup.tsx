@@ -46,7 +46,7 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
         {open ? "Hide raw" : "View raw"}
       </button>
       {open && (
-        <pre className="mt-2 max-h-48 overflow-auto rounded-lg border bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
+        <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
           {formatted}
         </pre>
       )}
@@ -57,7 +57,7 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
 export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
   return (
     <Collapsible defaultOpen>
-      <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm font-medium hover:border-border/50 hover:bg-accent/40 sm:gap-2.5 sm:px-4 [&[data-state=open]>svg:first-child]:rotate-90">
+      <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>svg:first-child]:rotate-90">
         <IconChevronRight
           size={14}
           className="shrink-0 text-muted-foreground transition-transform"
@@ -71,7 +71,7 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="ml-2 border-l border-border/50 pl-3 sm:ml-4 sm:pl-4">
+        <div className="ml-2 pl-3 sm:ml-4 sm:pl-4">
           {logs.map((log) => {
             const evt = parseResultEvent(log.rawResultEvent);
             return (

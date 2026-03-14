@@ -360,7 +360,7 @@ export function Sidebar() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/80 px-3 sm:px-4 lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 bg-background/80 px-3 sm:px-4 lg:hidden">
         <Button
           size="icon"
           variant="ghost"
@@ -371,7 +371,7 @@ export function Sidebar() {
         </Button>
         <Link
           href="/home"
-          className="mx-auto flex items-center gap-2 rounded-lg border border-border/65 bg-card/75 px-2.5 py-1.5 shadow-sm "
+          className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
         >
           <Image
             src="/icon.png"

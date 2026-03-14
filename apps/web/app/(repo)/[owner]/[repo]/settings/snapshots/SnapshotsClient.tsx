@@ -133,7 +133,7 @@ export function SnapshotsClient() {
             allowManual
           />
 
-          <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
+          <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
             <h3 className="text-sm font-medium">Workflow Branch</h3>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -173,7 +173,7 @@ export function SnapshotsClient() {
 
         <TabsContent value="status" className="space-y-6">
           {snapshot ? (
-            <div className="rounded-lg border border-border/70 p-4 space-y-3">
+            <div className="rounded-lg bg-muted/40 p-4 space-y-3">
               <h3 className="text-sm font-medium">Current Status</h3>
               <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 sm:gap-4">
                 <div>
@@ -239,7 +239,7 @@ export function SnapshotsClient() {
               </Button>
             </div>
           ) : (
-            <div className="rounded-lg border border-border/70 p-8 text-center">
+            <div className="rounded-lg bg-muted/40 p-8 text-center">
               <p className="text-sm text-muted-foreground">
                 No snapshot configured yet. Configure one in the Configuration
                 tab.
@@ -250,14 +250,14 @@ export function SnapshotsClient() {
 
         <TabsContent value="builds" className="space-y-6">
           {snapshot && builds && builds.length > 0 ? (
-            <div className="rounded-lg border border-border/70 overflow-hidden">
-              <div className="px-4 py-3 border-b border-border/60">
+            <div className="rounded-lg bg-muted/40 overflow-hidden">
+              <div className="px-4 py-3">
                 <h3 className="text-sm font-medium">Build History</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs min-w-[320px] sm:min-w-[420px]">
                   <thead>
-                    <tr className="border-b border-border/60 text-left text-muted-foreground">
+                    <tr className="text-left text-muted-foreground">
                       <th className="px-2 py-2 font-medium w-8 sm:px-4" />
                       <th className="px-2 py-2 font-medium sm:px-4">Date</th>
                       <th className="px-2 py-2 font-medium sm:px-4">
@@ -300,7 +300,7 @@ export function SnapshotsClient() {
               </p>
             </div>
           ) : (
-            <div className="rounded-lg border border-border/70 p-8 text-center">
+            <div className="rounded-lg bg-muted/40 p-8 text-center">
               <p className="text-sm text-muted-foreground">
                 No snapshot configured yet. Configure one in the Configuration
                 tab.
@@ -341,10 +341,7 @@ function BuildRow({
 
   return (
     <>
-      <tr
-        className="border-b border-border/40 last:border-0 cursor-pointer hover:bg-muted/30"
-        onClick={onToggle}
-      >
+      <tr className="cursor-pointer hover:bg-muted/30" onClick={onToggle}>
         <td className="px-2 py-2 sm:px-4">
           {isExpanded ? (
             <IconChevronDown size={14} />
@@ -367,7 +364,7 @@ function BuildRow({
         </td>
       </tr>
       {isExpanded && (
-        <tr className="border-b border-border/40">
+        <tr>
           <td colSpan={5} className="px-4 py-3">
             {build.error && (
               <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">

@@ -55,7 +55,7 @@ export function LogsSummaryGrid({
       {stats.map((stat) => (
         <Card
           key={stat.label}
-          className="motion-emphasized border border-border shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+          className="motion-emphasized bg-muted/40 transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-muted/60"
         >
           <CardContent className="flex flex-row items-center gap-2.5 p-3 sm:gap-3 sm:p-4">
             <div className="motion-base rounded-lg bg-secondary p-1.5 text-muted-foreground sm:p-2">

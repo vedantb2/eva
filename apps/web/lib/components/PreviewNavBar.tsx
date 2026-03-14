@@ -144,7 +144,7 @@ export function PreviewNavBar({
         )}
       </WebPreviewNavigationButton>
       <Input
-        className="h-8 flex-1 text-xs max-w-40 sm:max-w-64"
+        className="h-8 flex-1 text-xs"
         value={pathInput}
         onChange={(e) => setPathInput(e.target.value)}
         onBlur={commitPath}

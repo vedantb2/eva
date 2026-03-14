@@ -40,7 +40,7 @@ export function SandboxTabBar({ activeTab, onTabChange }: SandboxTabBarProps) {
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-3 py-1.5 text-xs font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary"
+                className="relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary"
               >
                 <Icon className="w-3.5 h-3.5" />
                 {tab.label}

@@ -34,7 +34,7 @@ export function QuickTasksBulkModals({
       <GroupTasksModal
         isOpen={activeBulkAction === "group"}
         onClose={onCloseBulkAction}
-        selectedTaskIds={selectedTaskIds}
+        selectedTasks={selectedTasks}
         onSuccess={onSuccess}
       />
       <DeleteTasksModal

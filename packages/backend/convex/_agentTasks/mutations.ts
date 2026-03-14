@@ -225,11 +225,22 @@ export const assignToProject = authMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
       throw new Error("Project not found");
-    for (const taskId of args.taskIds) {
-      const task = await ctx.db.get(taskId);
+    const existingTasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    let maxTaskNumber = 0;
+    for (const t of existingTasks) {
+      if (t.taskNumber !== undefined && t.taskNumber > maxTaskNumber) {
+        maxTaskNumber = t.taskNumber;
+      }
+    }
+    for (let i = 0; i < args.taskIds.length; i++) {
+      const task = await ctx.db.get(args.taskIds[i]);
       if (task) {
-        await ctx.db.patch(taskId, {
+        await ctx.db.patch(args.taskIds[i], {
           projectId: args.projectId,
+          taskNumber: maxTaskNumber + i + 1,
           updatedAt: Date.now(),
         });
       }

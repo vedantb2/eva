@@ -8,6 +8,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectLabel,
+  SelectGroup,
   Textarea,
   Input,
   Tooltip,
@@ -56,7 +58,6 @@ import {
   IconLoader2,
   IconCheck,
   IconAlertTriangle,
-  IconCircleDot,
   IconUserPlus,
   IconBrain,
   IconFolder,
@@ -68,7 +69,7 @@ import {
   IconBrandVercel,
   IconHammer,
 } from "@tabler/icons-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { FormattedText } from "./_components/FormattedText";
@@ -83,6 +84,7 @@ import { RunActivityLog } from "./RunActivityLog";
 import { AuditActivityLog } from "./AuditActivityLog";
 
 const NO_PROJECT_VALUE = "__none__";
+const UNASSIGNED_VALUE = "__unassigned__";
 
 export function useTaskDetail(
   taskId: Id<"agentTasks">,
@@ -163,6 +165,7 @@ export function useTaskDetail(
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [requestingChanges, setRequestingChanges] = useState(false);
   const [tagsInput, setTagsInput] = useState("");
+  const tagsInputRef = useRef<HTMLInputElement>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -1220,44 +1223,44 @@ export function useTaskDetail(
     </div>
   );
 
+  const ghostTriggerClass =
+    "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-md text-[13px] [&>svg:last-child]:hidden";
+
   const statusFieldsSection = (
-    <>
-      <div>
-        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-          <IconCircleDot size={12} />
-          Status
-        </p>
-        <Select
-          value={status ?? ""}
-          onValueChange={(val) => {
-            const matched = TASK_STATUSES.find((s) => s === val);
-            if (matched) {
-              updateStatus({
-                id: taskId,
-                status: matched,
-              });
-            }
-          }}
-        >
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue>
-              {status
-                ? (() => {
-                    const config = statusConfig[status as TaskStatus];
-                    const Icon = config.icon;
-                    return (
-                      <div
-                        className={`flex items-center gap-1.5 ${config.text}`}
-                      >
-                        <Icon size={14} />
-                        <span className="text-sm">{config.label}</span>
-                      </div>
-                    );
-                  })()
-                : null}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
+    <div className="space-y-0.5">
+      <Select
+        value={status ?? ""}
+        onValueChange={(val) => {
+          const matched = TASK_STATUSES.find((s) => s === val);
+          if (matched) {
+            updateStatus({ id: taskId, status: matched });
+          }
+        }}
+      >
+        <SelectTrigger className={ghostTriggerClass}>
+          <SelectValue placeholder="Status">
+            {status
+              ? (() => {
+                  const config = statusConfig[status as TaskStatus];
+                  const Icon = config.icon;
+                  return (
+                    <div className={`flex items-center gap-1.5 ${config.text}`}>
+                      <Icon size={14} />
+                      <span>{config.label}</span>
+                      {isBlocked && (
+                        <Badge variant="warning" className="ml-0.5">
+                          Blocked
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })()
+              : null}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectLabel>Status</SelectLabel>
             {TASK_STATUSES.map((s) => {
               const config = statusConfig[s];
               const Icon = config.icon;
@@ -1270,33 +1273,41 @@ export function useTaskDetail(
                 </SelectItem>
               );
             })}
-          </SelectContent>
-        </Select>
-        {isBlocked && (
-          <Badge variant="warning" className="mt-1.5">
-            Blocked
-          </Badge>
-        )}
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-          <IconFolder size={12} />
-          Project
-        </p>
-        <Select
-          value={selectedProjectValue}
-          onValueChange={(val) => {
-            updateTask({
-              id: taskId,
-              projectId:
-                val === NO_PROJECT_VALUE ? null : (val as Id<"projects">),
-            });
-          }}
-        >
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue placeholder="No project" />
-          </SelectTrigger>
-          <SelectContent>
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={selectedProjectValue}
+        onValueChange={(val) => {
+          updateTask({
+            id: taskId,
+            projectId:
+              val === NO_PROJECT_VALUE ? null : (val as Id<"projects">),
+          });
+        }}
+      >
+        <SelectTrigger className={ghostTriggerClass}>
+          <SelectValue placeholder="Project">
+            {selectedProjectValue !== NO_PROJECT_VALUE ? (
+              <div className="flex items-center gap-1.5">
+                <IconFolder size={14} className="text-muted-foreground" />
+                <span>
+                  {projectOptions.find((p) => p._id === selectedProjectValue)
+                    ?.title ?? "Project"}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <IconFolder size={14} />
+                <span>Project</span>
+              </div>
+            )}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectLabel>Project</SelectLabel>
             <SelectItem value={NO_PROJECT_VALUE}>No project</SelectItem>
             {task?.projectId && !hasSelectedProject && (
               <SelectItem value={task.projectId}>Current project</SelectItem>
@@ -1306,25 +1317,51 @@ export function useTaskDetail(
                 {project.title}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-          <IconUserPlus size={12} />
-          Assign for Code Review
-        </p>
-        <Select
-          value={task?.assignedTo ?? ""}
-          onValueChange={(val) => {
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={task?.assignedTo ?? UNASSIGNED_VALUE}
+        onValueChange={(val) => {
+          if (val === UNASSIGNED_VALUE) {
+            updateTask({ id: taskId, assignedTo: undefined });
+          } else {
             const user = users?.find((u) => u._id === val);
             updateTask({ id: taskId, assignedTo: user?._id });
-          }}
-        >
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue placeholder="Unassigned" />
-          </SelectTrigger>
-          <SelectContent>
+          }
+        }}
+      >
+        <SelectTrigger className={ghostTriggerClass}>
+          <SelectValue>
+            {task?.assignedTo ? (
+              <div className="flex items-center gap-1.5">
+                <IconUserPlus size={14} className="text-muted-foreground" />
+                <span>
+                  {(() => {
+                    const user = users?.find((u) => u._id === task?.assignedTo);
+                    return (
+                      user?.fullName ||
+                      [user?.firstName, user?.lastName]
+                        .filter(Boolean)
+                        .join(" ") ||
+                      "Unnamed User"
+                    );
+                  })()}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <IconUserPlus size={14} />
+                <span>Assignee</span>
+              </div>
+            )}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectLabel>Assignee</SelectLabel>
+            <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
             {(users ?? []).map((user) => (
               <SelectItem key={user._id} value={user._id}>
                 {user.fullName ||
@@ -1332,18 +1369,30 @@ export function useTaskDetail(
                   "Unnamed User"}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-          <IconTags size={12} />
-          Tags
-        </p>
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+
+      <div
+        className="group/tags flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1 flex-wrap cursor-text"
+        onClick={() => tagsInputRef.current?.focus()}
+      >
+        <IconTags size={14} className="text-muted-foreground shrink-0" />
+        {task?.tags?.map((tag) => (
+          <Badge key={tag} variant="outline" className="text-xs h-5">
+            {tag}
+          </Badge>
+        ))}
+        {(task?.tags?.length ?? 0) === 0 && (
+          <span className="text-[13px] text-muted-foreground group-focus-within/tags:hidden">
+            Tags
+          </span>
+        )}
         <Input
+          ref={tagsInputRef}
           value={tagsInput}
-          placeholder="bug, ui, backend"
-          className="h-8 text-sm"
+          placeholder="Add tag..."
+          className="h-7 border-0 shadow-none bg-transparent px-0 focus-visible:ring-0 text-[13px] min-w-16 flex-1 placeholder:text-muted-foreground hidden group-focus-within/tags:block"
           onChange={(e) => setTagsInput(e.target.value)}
           onBlur={() => {
             void handleSaveTags();
@@ -1355,60 +1404,67 @@ export function useTaskDetail(
             }
           }}
         />
-        {(task?.tags?.length ?? 0) > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {task?.tags?.map((tag) => (
-              <Badge key={tag} variant="outline">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        )}
       </div>
-      <div>
-        <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-          <IconBrain size={12} />
-          Model
-          {status !== "todo" && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <IconInfoCircle
-                  size={12}
-                  className="text-muted-foreground cursor-help"
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                Cannot be modified after task has run
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </p>
-        <Select
-          value={task?.model ?? "sonnet"}
-          onValueChange={(val) => {
-            const model = CLAUDE_MODELS.find((m) => m === val);
-            if (model) updateTask({ id: taskId, model });
-          }}
-          disabled={status !== "todo"}
-        >
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
+
+      <Select
+        value={task?.model ?? "sonnet"}
+        onValueChange={(val) => {
+          const model = CLAUDE_MODELS.find((m) => m === val);
+          if (model) updateTask({ id: taskId, model });
+        }}
+        disabled={status !== "todo"}
+      >
+        <SelectTrigger className={ghostTriggerClass}>
+          <SelectValue>
+            <div className="flex items-center gap-1.5">
+              <IconBrain size={14} className="text-muted-foreground" />
+              <span>
+                {(task?.model ?? "sonnet").charAt(0).toUpperCase() +
+                  (task?.model ?? "sonnet").slice(1)}
+              </span>
+              {status !== "todo" && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <IconInfoCircle
+                      size={12}
+                      className="text-muted-foreground cursor-help"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Cannot be modified after task has run
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectLabel>Model</SelectLabel>
             {CLAUDE_MODELS.map((m) => (
               <SelectItem key={m} value={m}>
                 {m.charAt(0).toUpperCase() + m.slice(1)}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+
       {!task?.projectId && (
-        <div>
-          <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-            <IconGitBranch size={12} />
-            Base Branch
-            {status !== "todo" && (
+        <div className="flex items-center min-h-[28px] rounded-md hover:bg-muted/50 transition-colors px-2">
+          {status === "todo" ? (
+            <BranchSelect
+              value={baseBranch}
+              onValueChange={(val) => {
+                setBaseBranch(val);
+                updateTask({ id: taskId, baseBranch: val });
+              }}
+              className="h-7 border-0 shadow-none bg-transparent px-0 hover:bg-transparent text-[13px] [&>svg:last-child]:hidden"
+            />
+          ) : (
+            <div className="flex items-center gap-1.5 text-[13px]">
+              <IconGitBranch size={14} className="text-muted-foreground" />
+              <span>{baseBranch}</span>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <IconInfoCircle
@@ -1420,55 +1476,37 @@ export function useTaskDetail(
                   Cannot be modified after task has run
                 </TooltipContent>
               </Tooltip>
-            )}
-          </p>
-          {status === "todo" ? (
-            <BranchSelect
-              value={baseBranch}
-              onValueChange={(val) => {
-                setBaseBranch(val);
-                updateTask({ id: taskId, baseBranch: val });
-              }}
-            />
-          ) : (
-            <div className="flex h-8 items-center gap-1.5 rounded-md border border-input bg-muted px-3 text-sm">
-              <IconGitBranch size={14} className="text-muted-foreground" />
-              <span className="text-foreground">{baseBranch}</span>
             </div>
           )}
         </div>
       )}
+
       {latestDeployment?.deploymentStatus && (
-        <div>
-          <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-            <IconBrandVercel size={12} />
-            Deploy Status
-          </p>
-          <div className="flex h-8 items-center gap-1.5 rounded-md border border-input bg-muted px-3 text-sm">
-            <span
-              className={`h-2 w-2 rounded-full ${
-                latestDeployment.deploymentStatus === "deployed"
-                  ? "bg-emerald-500"
-                  : latestDeployment.deploymentStatus === "error"
-                    ? "bg-red-500"
-                    : latestDeployment.deploymentStatus === "building"
-                      ? "bg-amber-500 animate-pulse"
-                      : "bg-blue-500 animate-pulse"
-              }`}
-            />
-            <span className="text-foreground">
-              {latestDeployment.deploymentStatus === "deployed"
-                ? "Deployed"
-                : latestDeployment.deploymentStatus === "building"
-                  ? "Building"
-                  : latestDeployment.deploymentStatus === "error"
-                    ? "Deploy failed"
-                    : "Queued"}
-            </span>
-          </div>
+        <div className="flex items-center h-7 rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+          <IconBrandVercel size={14} className="text-muted-foreground" />
+          <span
+            className={`h-2 w-2 rounded-full shrink-0 ${
+              latestDeployment.deploymentStatus === "deployed"
+                ? "bg-emerald-500"
+                : latestDeployment.deploymentStatus === "error"
+                  ? "bg-red-500"
+                  : latestDeployment.deploymentStatus === "building"
+                    ? "bg-amber-500 animate-pulse"
+                    : "bg-blue-500 animate-pulse"
+            }`}
+          />
+          <span>
+            {latestDeployment.deploymentStatus === "deployed"
+              ? "Deployed"
+              : latestDeployment.deploymentStatus === "building"
+                ? "Building"
+                : latestDeployment.deploymentStatus === "error"
+                  ? "Deploy failed"
+                  : "Queued"}
+          </span>
         </div>
       )}
-    </>
+    </div>
   );
 
   const footerButtons = (
@@ -1704,6 +1742,7 @@ export function useTaskDetail(
   const showTabsColumn = status !== "todo" || hasTabContent;
 
   return {
+    isLoading: task === undefined,
     titleContent,
     scheduledBadge,
     descriptionSection,

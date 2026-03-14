@@ -7,6 +7,7 @@ import {
   IconPhoto,
   IconShieldCheck,
   IconMessagePlus,
+  IconLoader2,
 } from "@tabler/icons-react";
 import { useTaskDetail } from "./useTaskDetail";
 
@@ -17,6 +18,7 @@ interface TaskDetailInlineProps {
 
 export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
   const {
+    isLoading,
     titleContent,
     scheduledBadge,
     descriptionSection,
@@ -36,6 +38,14 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
     isProofBusy,
     isAuditBusy,
   } = useTaskDetail(taskId, onClose, true);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <IconLoader2 size={20} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -99,7 +109,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
                   </TabsContent>
                 </Tabs>
               </div>
-              <div className="md:pl-4 flex flex-col min-h-0 md:overflow-y-auto scrollbar">
+              <div className="md:pl-4 flex flex-col min-h-0 min-w-0 md:overflow-y-auto scrollbar">
                 <div className="space-y-4 flex-1">{statusFieldsSection}</div>
                 <div className="flex items-center justify-end pt-4 mt-4 pb-4 md:pb-0">
                   {footerButtons}

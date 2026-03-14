@@ -15,6 +15,7 @@ import {
   IconPhoto,
   IconShieldCheck,
   IconMessagePlus,
+  IconLoader2,
 } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { useTaskDetail } from "./useTaskDetail";
@@ -31,6 +32,7 @@ export function TaskDetailModal({
   taskId,
 }: TaskDetailModalProps) {
   const {
+    isLoading,
     titleContent,
     scheduledBadge,
     descriptionSection,
@@ -71,80 +73,91 @@ export function TaskDetailModal({
         <DialogContent
           className={`w-full ${widthClass} max-h-[90vh] overflow-hidden flex flex-col`}
         >
-          <DialogHeader>
-            <DialogTitle>{titleContent}</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 min-h-0 flex flex-col">
-            {scheduledBadge}
-            <div className="flex-1 min-h-0 pb-6 flex flex-col">
-              <div
-                className={`grid grid-rows-1 gap-4 md:gap-6 flex-1 min-h-0 ${gridClass}`}
-              >
-                <div className="space-y-4 md:space-y-6 min-h-0 overflow-y-auto scrollbar md:pr-2">
-                  {descriptionSection}
-                  {subtasksSection}
-                </div>
-                {showTabsColumn && (
-                  <div className="md:pl-4 min-h-0 overflow-y-auto scrollbar">
-                    <Tabs
-                      value={activeTab}
-                      onValueChange={(v) =>
-                        setActiveTab(
-                          v as "activity" | "proof" | "audit" | "comments",
-                        )
-                      }
-                    >
-                      <TabsList className="w-full justify-start">
-                        <TabsTrigger value="activity" className="gap-1.5">
-                          <IconTerminal2 size={14} />
-                          Activity
-                          {isActivityBusy && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          )}
-                        </TabsTrigger>
-                        <TabsTrigger value="proof" className="gap-1.5">
-                          <IconPhoto size={14} />
-                          Proof
-                          {isProofBusy && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          )}
-                        </TabsTrigger>
-                        <TabsTrigger value="audit" className="gap-1.5">
-                          <IconShieldCheck size={14} />
-                          Audit
-                          {isAuditBusy && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          )}
-                        </TabsTrigger>
-                        <TabsTrigger value="comments" className="gap-1.5">
-                          <IconMessagePlus size={14} />
-                          Comments
-                        </TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="activity" className="mt-4">
-                        {runsSection}
-                      </TabsContent>
-                      <TabsContent value="proof" className="mt-4">
-                        {proofSection}
-                      </TabsContent>
-                      <TabsContent value="audit" className="mt-4">
-                        {auditSection}
-                      </TabsContent>
-                      <TabsContent value="comments" className="mt-4">
-                        {commentsSection}
-                      </TabsContent>
-                    </Tabs>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <IconLoader2
+                size={20}
+                className="animate-spin text-muted-foreground"
+              />
+            </div>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>{titleContent}</DialogTitle>
+              </DialogHeader>
+              <div className="flex-1 min-h-0 flex flex-col">
+                {scheduledBadge}
+                <div className="flex-1 min-h-0 pb-6 flex flex-col">
+                  <div
+                    className={`grid grid-rows-1 gap-4 md:gap-6 flex-1 min-h-0 ${gridClass}`}
+                  >
+                    <div className="space-y-4 md:space-y-6 min-h-0 overflow-y-auto scrollbar md:pr-2">
+                      {descriptionSection}
+                      {subtasksSection}
+                    </div>
+                    {showTabsColumn && (
+                      <div className="md:pl-4 min-h-0 overflow-y-auto scrollbar">
+                        <Tabs
+                          value={activeTab}
+                          onValueChange={(v) =>
+                            setActiveTab(
+                              v as "activity" | "proof" | "audit" | "comments",
+                            )
+                          }
+                        >
+                          <TabsList className="w-full justify-start">
+                            <TabsTrigger value="activity" className="gap-1.5">
+                              <IconTerminal2 size={14} />
+                              Activity
+                              {isActivityBusy && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              )}
+                            </TabsTrigger>
+                            <TabsTrigger value="proof" className="gap-1.5">
+                              <IconPhoto size={14} />
+                              Proof
+                              {isProofBusy && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              )}
+                            </TabsTrigger>
+                            <TabsTrigger value="audit" className="gap-1.5">
+                              <IconShieldCheck size={14} />
+                              Audit
+                              {isAuditBusy && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              )}
+                            </TabsTrigger>
+                            <TabsTrigger value="comments" className="gap-1.5">
+                              <IconMessagePlus size={14} />
+                              Comments
+                            </TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="activity" className="mt-4">
+                            {runsSection}
+                          </TabsContent>
+                          <TabsContent value="proof" className="mt-4">
+                            {proofSection}
+                          </TabsContent>
+                          <TabsContent value="audit" className="mt-4">
+                            {auditSection}
+                          </TabsContent>
+                          <TabsContent value="comments" className="mt-4">
+                            {commentsSection}
+                          </TabsContent>
+                        </Tabs>
+                      </div>
+                    )}
+                    <div className="md:pl-4 space-y-4 min-h-0 min-w-0 overflow-y-auto scrollbar">
+                      {statusFieldsSection}
+                    </div>
                   </div>
-                )}
-                <div className="md:pl-4 space-y-4 min-h-0 overflow-y-auto scrollbar">
-                  {statusFieldsSection}
                 </div>
               </div>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center justify-end border-t border-border pt-4">
-            {footerButtons}
-          </div>
+              <div className="flex shrink-0 items-center justify-end border-t border-border pt-4">
+                {footerButtons}
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
       {stopConfirmDialog}

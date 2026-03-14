@@ -1,7 +1,8 @@
 "use client";
 
 import { api } from "@conductor/backend";
-import type { Doc, Id, FunctionReturnType } from "@conductor/backend";
+import type { Doc, Id } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
 import { Button, Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 import {
   IconGitPullRequest,

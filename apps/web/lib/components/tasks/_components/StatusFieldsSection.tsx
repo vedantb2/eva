@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
-import type { Doc, Id, FunctionReturnType } from "@conductor/backend";
+import type { Doc, Id } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
 import { CLAUDE_MODELS } from "@conductor/backend";
 import {
   Select,
@@ -105,6 +106,17 @@ export function StatusFieldsSection({
     task?.projectId !== undefined &&
     projectOptions.some((project) => project._id === task.projectId);
   const selectedProjectValue = task?.projectId ?? NO_PROJECT_VALUE;
+  const selectedProjectTitle =
+    selectedProjectValue !== NO_PROJECT_VALUE
+      ? (projectOptions.find((p) => p._id === selectedProjectValue)?.title ??
+        "Project")
+      : "Project";
+  const assignedUser = task?.assignedTo
+    ? users?.find((u) => u._id === task.assignedTo)
+    : undefined;
+  const assignedDisplayName = assignedUser
+    ? getUserDisplayName(assignedUser)
+    : "Unnamed User";
 
   return (
     <div className="space-y-0.5">
@@ -172,20 +184,12 @@ export function StatusFieldsSection({
       >
         <SelectTrigger className={GHOST_TRIGGER_CLASS}>
           <SelectValue placeholder="Project">
-            {selectedProjectValue !== NO_PROJECT_VALUE ? (
-              <div className="flex items-center gap-1.5">
-                <IconFolder size={14} className="text-muted-foreground" />
-                <span>
-                  {projectOptions.find((p) => p._id === selectedProjectValue)
-                    ?.title ?? "Project"}
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <IconFolder size={14} />
-                <span>Project</span>
-              </div>
-            )}
+            <div
+              className={`flex items-center gap-1.5 ${selectedProjectValue === NO_PROJECT_VALUE ? "text-muted-foreground" : ""}`}
+            >
+              <IconFolder size={14} className="text-muted-foreground" />
+              <span>{selectedProjectTitle}</span>
+            </div>
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -217,22 +221,12 @@ export function StatusFieldsSection({
       >
         <SelectTrigger className={GHOST_TRIGGER_CLASS}>
           <SelectValue>
-            {task?.assignedTo ? (
-              <div className="flex items-center gap-1.5">
-                <IconUserPlus size={14} className="text-muted-foreground" />
-                <span>
-                  {(() => {
-                    const user = users?.find((u) => u._id === task?.assignedTo);
-                    return user ? getUserDisplayName(user) : "Unnamed User";
-                  })()}
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <IconUserPlus size={14} />
-                <span>Assignee</span>
-              </div>
-            )}
+            <div
+              className={`flex items-center gap-1.5 ${!task?.assignedTo ? "text-muted-foreground" : ""}`}
+            >
+              <IconUserPlus size={14} className="text-muted-foreground" />
+              <span>{task?.assignedTo ? assignedDisplayName : "Assignee"}</span>
+            </div>
           </SelectValue>
         </SelectTrigger>
         <SelectContent>

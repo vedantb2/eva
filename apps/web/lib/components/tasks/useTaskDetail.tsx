@@ -8,7 +8,8 @@ import { useEffect, useState } from "react";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
 
 export function useTaskDetail(taskId: Id<"agentTasks">) {
-  const task = useQuery(api.agentTasks.get, { id: taskId });
+  const taskResult = useQuery(api.agentTasks.get, { id: taskId });
+  const task = taskResult ?? undefined;
   const currentUserId = useQuery(api.auth.me);
   const isOwner = currentUserId === task?.createdBy;
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId });

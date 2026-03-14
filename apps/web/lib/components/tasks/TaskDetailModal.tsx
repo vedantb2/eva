@@ -111,8 +111,22 @@ export function TaskDetailModal({
         <DialogContent
           className={`w-full ${modalWidthClass} max-h-[90vh] h-[85vh] overflow-hidden flex flex-col p-4 sm:p-6`}
         >
+          <DialogHeader>
+            <DialogTitle className="text-base sm:text-lg">
+              {isLoading ? (
+                <span className="text-muted-foreground">Loading...</span>
+              ) : (
+                <TaskHeader
+                  taskNumber={task?.taskNumber}
+                  title={task?.title}
+                  canEditTaskText={canEditTaskText}
+                  taskId={taskId}
+                />
+              )}
+            </DialogTitle>
+          </DialogHeader>
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex-1 flex items-center justify-center">
               <IconLoader2
                 size={20}
                 className="animate-spin text-muted-foreground"
@@ -120,16 +134,6 @@ export function TaskDetailModal({
             </div>
           ) : (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-base sm:text-lg">
-                  <TaskHeader
-                    taskNumber={task?.taskNumber}
-                    title={task?.title}
-                    canEditTaskText={canEditTaskText}
-                    taskId={taskId}
-                  />
-                </DialogTitle>
-              </DialogHeader>
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 {task?.scheduledAt ? (
                   <div className="flex items-center gap-1.5 px-1 -mt-1 mb-1">

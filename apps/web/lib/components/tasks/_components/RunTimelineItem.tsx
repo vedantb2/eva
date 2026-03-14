@@ -57,117 +57,127 @@ export function RunTimelineItem({
   return (
     <Accordion type="multiple" defaultValue={isActiveRun ? [run._id] : []}>
       <AccordionItem value={run._id} className="border rounded-lg px-3">
-        <AccordionTrigger>
-          <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-wrap">
-              <Badge
-                variant={
-                  run.status === "running"
-                    ? "warning"
-                    : run.status === "error"
-                      ? "destructive"
-                      : run.status === "success"
-                        ? "success"
-                        : "secondary"
-                }
-              >
-                {run.mode === "resolve_conflicts"
-                  ? run.status === "running"
-                    ? "resolving conflicts"
-                    : run.status === "success"
-                      ? "resolved conflicts"
+        <div className="flex items-center gap-2">
+          <AccordionTrigger className="flex-1 min-w-0">
+            <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                <Badge
+                  variant={
+                    run.status === "running"
+                      ? "warning"
                       : run.status === "error"
-                        ? "error"
-                        : "queued"
-                  : hasComment
+                        ? "destructive"
+                        : run.status === "success"
+                          ? "success"
+                          : "secondary"
+                  }
+                >
+                  {run.mode === "resolve_conflicts"
                     ? run.status === "running"
-                      ? "making changes"
+                      ? "resolving conflicts"
                       : run.status === "success"
-                        ? "made changes"
+                        ? "resolved conflicts"
                         : run.status === "error"
                           ? "error"
                           : "queued"
-                    : run.status === "running"
-                      ? "running"
-                      : run.status === "success"
-                        ? "success"
-                        : run.status === "error"
-                          ? "error"
-                          : "queued"}
-              </Badge>
-              {hasComment && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onViewComment();
-                      }}
-                    >
-                      <IconMessagePlus size={14} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>View user message</TooltipContent>
-                </Tooltip>
-              )}
-              <span className="text-xs text-muted-foreground truncate">
-                {run.startedAt
-                  ? dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")
-                  : "Queued"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {isActiveRun && run.startedAt ? (
-                <span className="text-xs text-muted-foreground">
-                  {formatElapsed(activeRunElapsed)}
-                </span>
-              ) : run.startedAt && run.finishedAt ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDuration(run.startedAt, run.finishedAt)}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Completed {dayjs(run.finishedAt).format("DD/MM/YYYY HH:mm")}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-              {isActiveRun && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="h-6 px-2 text-xs"
+                    : hasComment
+                      ? run.status === "running"
+                        ? "making changes"
+                        : run.status === "success"
+                          ? "made changes"
+                          : run.status === "error"
+                            ? "error"
+                            : "queued"
+                      : run.status === "running"
+                        ? "running"
+                        : run.status === "success"
+                          ? "success"
+                          : run.status === "error"
+                            ? "error"
+                            : "queued"}
+                </Badge>
+                {hasComment && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onStopConfirm();
+                          onViewComment();
                         }}
-                        disabled={isStopping || !isOwner}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.stopPropagation();
+                            onViewComment();
+                          }
+                        }}
                       >
-                        {isStopping ? (
-                          <IconLoader2 size={14} className="animate-spin" />
-                        ) : (
-                          <IconPlayerStop size={14} />
-                        )}
-                        Stop
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  {!isOwner && (
+                        <IconMessagePlus size={14} />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>View user message</TooltipContent>
+                  </Tooltip>
+                )}
+                <span className="text-xs text-muted-foreground truncate">
+                  {run.startedAt
+                    ? dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")
+                    : "Queued"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {isActiveRun && run.startedAt ? (
+                  <span className="text-xs text-muted-foreground">
+                    {formatElapsed(activeRunElapsed)}
+                  </span>
+                ) : run.startedAt && run.finishedAt ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDuration(run.startedAt, run.finishedAt)}
+                      </span>
+                    </TooltipTrigger>
                     <TooltipContent>
-                      Only the task owner can stop execution
+                      Completed{" "}
+                      {dayjs(run.finishedAt).format("DD/MM/YYYY HH:mm")}
                     </TooltipContent>
-                  )}
-                </Tooltip>
-              )}
+                  </Tooltip>
+                ) : null}
+              </div>
             </div>
-          </div>
-        </AccordionTrigger>
+          </AccordionTrigger>
+          {isActiveRun && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStopConfirm();
+                    }}
+                    disabled={isStopping || !isOwner}
+                  >
+                    {isStopping ? (
+                      <IconLoader2 size={14} className="animate-spin" />
+                    ) : (
+                      <IconPlayerStop size={14} />
+                    )}
+                    Stop
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {!isOwner && (
+                <TooltipContent>
+                  Only the task owner can stop execution
+                </TooltipContent>
+              )}
+            </Tooltip>
+          )}
+        </div>
         <AccordionContent>
           <div className="space-y-2">
             {run.status === "running" &&

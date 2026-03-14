@@ -337,6 +337,7 @@ export const projectFields = {
   activeBuildWorkflowId: v.optional(v.string()),
   scheduledBuildAt: v.optional(v.number()),
   scheduledBuildFunctionId: v.optional(v.id("_scheduled_functions")),
+  lastBuildError: v.optional(v.string()),
 };
 
 export const projectDetailsFields = {

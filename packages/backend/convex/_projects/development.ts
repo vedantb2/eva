@@ -115,12 +115,18 @@ export const createFromTasks = authMutation({
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
+    if (args.taskIds.length === 0) {
+      throw new Error("At least one task is required");
+    }
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
     const projectId = await ctx.db.insert("projects", {
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
       rawInput: args.title,
       phase: "active",
+      baseBranch: repo.defaultBaseBranch ?? "main",
       projectStartDate: Date.now(),
     });
     await setProjectConversation(ctx.db, projectId, []);

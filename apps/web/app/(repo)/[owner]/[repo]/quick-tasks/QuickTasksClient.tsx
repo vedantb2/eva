@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
@@ -72,6 +72,31 @@ export function QuickTasksClient() {
   }, [tasks, project]);
   const hasAnyTasks = (tasks ?? []).length > 0;
   const hasQuickTasks = quickTasks.length > 0;
+
+  const taskIdSet = useMemo(() => {
+    const set = new Set<string>();
+    if (tasks) {
+      for (const t of tasks) set.add(t._id);
+    }
+    return set;
+  }, [tasks]);
+
+  useEffect(() => {
+    if (!isSelecting) return;
+    setSelectedIds((prev) => {
+      let changed = false;
+      const next = new Set<Id<"agentTasks">>();
+      for (const id of prev) {
+        if (taskIdSet.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [taskIdSet, isSelecting]);
+
   const selectedTasks = quickTasks.filter((t) => selectedIds.has(t._id));
 
   const toggleSelect = (id: Id<"agentTasks">) => {

@@ -135,7 +135,7 @@ export function GroupTasksModal({
   const taskIds = orderedTasks.map((t) => t._id);
 
   const handleCreate = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || taskIds.length === 0) return;
     setIsLoading(true);
     try {
       const projectId = await createFromTasks({
@@ -153,7 +153,7 @@ export function GroupTasksModal({
   };
 
   const handleAddToProject = async () => {
-    if (!selectedProjectId) return;
+    if (!selectedProjectId || taskIds.length === 0) return;
     setIsLoading(true);
     try {
       await assignToProject({
@@ -270,7 +270,7 @@ export function GroupTasksModal({
           {activeTab === "new" ? (
             <Button
               onClick={handleCreate}
-              disabled={isLoading || !title.trim()}
+              disabled={isLoading || !title.trim() || taskIds.length === 0}
             >
               {isLoading && <Spinner size="sm" />}
               Create Project
@@ -278,7 +278,7 @@ export function GroupTasksModal({
           ) : (
             <Button
               onClick={handleAddToProject}
-              disabled={isLoading || !selectedProjectId}
+              disabled={isLoading || !selectedProjectId || taskIds.length === 0}
             >
               {isLoading && <Spinner size="sm" />}
               Add to Project

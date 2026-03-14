@@ -225,25 +225,32 @@ export const assignToProject = authMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
       throw new Error("Project not found");
+    if (args.taskIds.length === 0) {
+      throw new Error("At least one task is required");
+    }
+    const existingProjectTaskIds = new Set<string>();
     const existingTasks = await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
     let maxTaskNumber = 0;
     for (const t of existingTasks) {
+      existingProjectTaskIds.add(t._id);
       if (t.taskNumber !== undefined && t.taskNumber > maxTaskNumber) {
         maxTaskNumber = t.taskNumber;
       }
     }
-    for (let i = 0; i < args.taskIds.length; i++) {
-      const task = await ctx.db.get(args.taskIds[i]);
-      if (task) {
-        await ctx.db.patch(args.taskIds[i], {
-          projectId: args.projectId,
-          taskNumber: maxTaskNumber + i + 1,
-          updatedAt: Date.now(),
-        });
-      }
+    let assigned = 0;
+    for (const taskId of args.taskIds) {
+      if (existingProjectTaskIds.has(taskId)) continue;
+      const task = await ctx.db.get(taskId);
+      if (!task) throw new Error(`Task ${taskId} not found`);
+      assigned++;
+      await ctx.db.patch(taskId, {
+        projectId: args.projectId,
+        taskNumber: maxTaskNumber + assigned,
+        updatedAt: Date.now(),
+      });
     }
     return null;
   },

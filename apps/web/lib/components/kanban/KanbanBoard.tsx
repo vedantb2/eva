@@ -106,7 +106,8 @@ export function KanbanBoard<T extends BaseTask>({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 10,
+        delay: 200,
+        tolerance: 10,
       },
     }),
   );

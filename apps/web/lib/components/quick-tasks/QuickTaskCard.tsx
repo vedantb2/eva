@@ -12,6 +12,13 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -22,6 +29,7 @@ import { UserInitials } from "@conductor/shared";
 import {
   IconArrowMoveRight,
   IconClock,
+  IconDots,
   IconFolder,
   IconTag,
   IconTrash,
@@ -184,12 +192,49 @@ export function QuickTaskCard({
         </div>
 
         <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center">
+          <div className="flex items-center gap-1.5">
             {createdBy && <UserInitials userId={createdBy} size="sm" />}
+            <span className="text-[10px] text-muted-foreground">
+              {dayjs(createdAt).fromNow()}
+            </span>
           </div>
-          <span className="text-[10px] text-muted-foreground">
-            {dayjs(createdAt).fromNow()}
-          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <IconDots size={14} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {siblingApps && siblingApps.length > 0 && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <IconArrowMoveRight size={16} />
+                    Move to app
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {siblingApps.map((app) => (
+                      <DropdownMenuItem
+                        key={app._id}
+                        onClick={() => setMoveTarget(app._id)}
+                      >
+                        {app.appName}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <IconTrash size={16} />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardContent>
     </Card>

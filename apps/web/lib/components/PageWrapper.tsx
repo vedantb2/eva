@@ -44,7 +44,7 @@ export function PageWrapper({
                 </Button>
               )}
               {title && (
-                <h1 className="truncate text-lg font-semibold tracking-[-0.02em] text-foreground sm:text-xl animate-in fade-in slide-in-from-left-1 duration-300">
+                <h1 className="truncate text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300">
                   {title}
                 </h1>
               )}
@@ -56,7 +56,7 @@ export function PageWrapper({
             ) : (
               <div className="hidden md:block" />
             )}
-            <div className="flex min-h-10 items-center justify-end gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
+            <div className="flex min-h-10 items-center justify-end gap-1.5 sm:gap-2 justify-self-end overflow-x-auto animate-in fade-in slide-in-from-right-1 duration-300">
               {headerRight}
             </div>
           </div>

@@ -37,7 +37,7 @@ export function QuerySavedSidebar({ repoId }: QuerySavedSidebarProps) {
 
   return (
     <div
-      className={`flex h-full flex-col overflow-hidden border-l border-border/60 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${panelCollapsed ? "w-12" : "w-[33%]"}`}
+      className={`flex h-full flex-col overflow-hidden pl-6 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${panelCollapsed ? "w-12" : "w-[33%]"}`}
     >
       <div
         className={`flex items-center p-2 ${panelCollapsed ? "justify-center" : ""}`}

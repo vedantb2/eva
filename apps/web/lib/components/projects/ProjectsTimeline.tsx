@@ -443,7 +443,7 @@ export function ProjectsTimeline({
                     Today
                   </Button>
                 </div>
-                <div className="min-w-0 flex-1 overflow-hidden border-l border-border/60">
+                <div className="min-w-0 flex-1 overflow-hidden">
                   <div
                     className="relative bg-gradient-to-b from-muted/30 to-transparent transition-transform duration-200 ease-out"
                     style={{
@@ -455,14 +455,14 @@ export function ProjectsTimeline({
                       {monthLabels.map((month, index) => (
                         <div
                           key={`${month.label}-${index}`}
-                          className="absolute flex h-full items-center truncate border-l border-border/60 px-2 text-[10px] font-semibold text-foreground/70 transition-[left,width] duration-200 ease-out"
+                          className="absolute flex h-full items-center truncate px-2 text-[10px] font-semibold text-foreground/70 transition-[left,width] duration-200 ease-out"
                           style={{ left: month.x, width: month.width }}
                         >
                           {month.label}
                         </div>
                       ))}
                     </div>
-                    <div className="relative h-6 border-t border-border/50">
+                    <div className="relative h-6 pt-1">
                       {dayLabels.map((day, index) => (
                         <span
                           key={`${day.label}-${index}`}
@@ -502,7 +502,7 @@ export function ProjectsTimeline({
                     <div
                       key={project._id}
                       className={cn(
-                        "group flex items-center border-b border-border/35 last:border-b-0 animate-in fade-in duration-300",
+                        "group flex items-center animate-in fade-in duration-300",
                         index % 2 === 0
                           ? "bg-background/25"
                           : "bg-background/10",
@@ -526,7 +526,7 @@ export function ProjectsTimeline({
                       </button>
 
                       <div
-                        className="relative h-full min-w-0 flex-1 overflow-hidden border-l border-border/50"
+                        className="relative h-full min-w-0 flex-1 overflow-hidden"
                         style={{ height: ROW_HEIGHT }}
                       >
                         <div

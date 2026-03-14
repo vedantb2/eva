@@ -197,7 +197,7 @@ export function SessionListSidebar<T extends SessionItem>({
                         className={cn(
                           "group mx-1 rounded-md px-3 py-2 transition-all duration-200",
                           isSelected
-                            ? "bg-sidebar-accent text-sidebar-primary shadow-xs"
+                            ? "bg-sidebar-accent text-sidebar-primary"
                             : "text-sidebar-foreground hover:bg-sidebar-accent/70",
                         )}
                       >
@@ -235,7 +235,7 @@ export function SessionListSidebar<T extends SessionItem>({
         )}
 
         {filteredArchivedSessions.length > 0 && (
-          <div className="mt-2 border-t border-sidebar-border/50">
+          <div className="mt-4 pt-4">
             <button
               onClick={() => setIsArchiveOpen((prev) => !prev)}
               className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-sidebar-foreground transition-colors"
@@ -268,7 +268,7 @@ export function SessionListSidebar<T extends SessionItem>({
                         className={cn(
                           "mx-1 block rounded-md px-3 py-2 transition-all duration-200",
                           isSelected
-                            ? "bg-sidebar-accent text-sidebar-primary shadow-xs"
+                            ? "bg-sidebar-accent text-sidebar-primary"
                             : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50",
                         )}
                       >

@@ -56,7 +56,7 @@ export function SpotlightSearch() {
         className="top-[28%] max-w-xl translate-y-0 gap-0 p-0"
       >
         <Command className="flex flex-col bg-transparent" shouldFilter>
-          <div className="flex items-center gap-2 border-b border-border/70 px-4 py-3 focus-within:ring-2 focus-within:ring-ring/35">
+          <div className="flex items-center gap-2 px-4 py-3 focus-within:ring-2 focus-within:ring-ring/35">
             <IconSearch className="size-4 flex-shrink-0 text-muted-foreground" />
             <Command.Input
               autoFocus
@@ -65,7 +65,7 @@ export function SpotlightSearch() {
               onValueChange={setSearch}
               className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
             />
-            <kbd className="rounded-md border border-border/70 bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            <kbd className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
               ESC
             </kbd>
           </div>

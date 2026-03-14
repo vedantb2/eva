@@ -40,7 +40,7 @@ export function HiddenReposSheet() {
           {hiddenRepos.map((repo) => (
             <div
               key={repo._id}
-              className="flex items-center justify-between rounded-lg border border-border/70 p-3"
+              className="flex items-center justify-between rounded-lg bg-muted/40 p-3"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <IconBrandGithub

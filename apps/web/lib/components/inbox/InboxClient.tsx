@@ -164,7 +164,7 @@ export function InboxClient() {
                     >
                       <button
                         onClick={() => handleClick(n)}
-                        className={`group flex w-full items-center gap-2 border-b border-border/40 px-3 py-2.5 text-left transition-colors duration-100 hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50 sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
+                        className={`group flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors duration-100 hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50 sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
                       >
                         <div className="flex w-3 items-center justify-center flex-shrink-0">
                           {!n.read && (

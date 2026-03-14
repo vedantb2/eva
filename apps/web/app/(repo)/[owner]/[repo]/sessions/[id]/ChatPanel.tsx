@@ -810,7 +810,7 @@ export function ChatPanel({
                           ) : isActive ? (
                             <Spinner size="sm" />
                           ) : (
-                            <div className="h-4 w-4 rounded-full border-2 border-muted" />
+                            <div className="h-4 w-4 rounded-full ring-2 ring-muted" />
                           )}
                         </div>
                         <span

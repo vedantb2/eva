@@ -51,12 +51,12 @@ export function AppearanceSection({
               )}
               <div
                 className={cn(
-                  "flex h-12 w-full items-center justify-center rounded-lg border sm:h-16",
+                  "flex h-12 w-full items-center justify-center rounded-lg sm:h-16",
                   mode === "light"
-                    ? "border-border/60 bg-white"
+                    ? "bg-white"
                     : mode === "dark"
-                      ? "border-border/60 bg-zinc-900"
-                      : "border-border/60 bg-gradient-to-br from-white to-zinc-900",
+                      ? "bg-zinc-900"
+                      : "bg-gradient-to-br from-white to-zinc-900",
                 )}
               >
                 <Icon

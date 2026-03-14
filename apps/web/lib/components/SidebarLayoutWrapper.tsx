@@ -40,7 +40,7 @@ export function SidebarLayoutWrapper({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="lg:hidden motion-base flex items-center gap-2 border-b border-border/60 bg-card/70 px-3 py-3 ">
+      <div className="lg:hidden motion-base flex items-center gap-2 bg-card/70 px-3 py-3 ">
         <Button
           size="icon-sm"
           variant="ghost"

@@ -223,7 +223,7 @@ export function EnvVarsTable({
   const showTable = (vars && vars.length > 0) || adding;
 
   const renderRow = (v: EnvVar) => (
-    <tr key={v.key} className="border-b border-border/40 last:border-0">
+    <tr key={v.key} className="last:border-0">
       <td className="px-2.5 py-2.5 font-mono text-xs sm:px-4">{v.key}</td>
       <td className="px-2.5 py-2.5 sm:px-4">
         {editingKey === v.key ? (
@@ -346,7 +346,7 @@ export function EnvVarsTable({
 
   const tableHeader = (
     <thead>
-      <tr className="border-b border-border/60 text-left text-muted-foreground">
+      <tr className="text-left text-muted-foreground">
         <th className="px-2.5 py-2.5 font-medium sm:px-4">Key</th>
         <th className="px-2.5 py-2.5 font-medium sm:px-4">Value</th>
         <th className="px-2.5 py-2.5 text-right font-medium sm:px-4">
@@ -357,7 +357,7 @@ export function EnvVarsTable({
   );
 
   const addingRow = adding ? (
-    <tr className="border-b border-border/40">
+    <tr>
       <td className="px-2.5 py-2.5 sm:px-4">
         <Input
           value={keyInput}

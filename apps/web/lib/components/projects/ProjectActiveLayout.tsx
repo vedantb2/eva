@@ -126,7 +126,7 @@ export function ProjectActiveLayout({
                 />
               </div>
               {(generatedSpec || prUrl) && (
-                <div className="border-t border-border/60 p-2 flex justify-center gap-2">
+                <div className="pt-6 p-2 flex justify-center gap-2">
                   {prUrl && (
                     <Button
                       size="sm"
@@ -175,7 +175,7 @@ export function ProjectActiveLayout({
         {chatOpen && (
           <motion.div
             key="project-chat-side-panel"
-            className="w-1/4 h-full flex flex-col overflow-hidden border-l border-border/60"
+            className="w-1/4 h-full flex flex-col overflow-hidden pl-6"
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 16 }}

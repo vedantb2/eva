@@ -56,7 +56,7 @@ export function MonorepoAppsPanel({
         return (
           <div
             key={app.path}
-            className="flex items-center justify-between p-2 rounded-lg bg-card border border-border"
+            className="flex items-center justify-between p-2 rounded-lg bg-muted/40"
           >
             <div className="flex items-center gap-2 min-w-0">
               <IconFolder className="w-4 h-4 text-muted-foreground flex-shrink-0" />

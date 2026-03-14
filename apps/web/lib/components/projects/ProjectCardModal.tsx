@@ -99,7 +99,7 @@ export function ProjectCardModal({
                   <ProjectProgressBar projectId={projectId} />
                 </div>
 
-                <div className="pl-0 sm:pl-4 sm:border-l sm:border-border/40 space-y-4">
+                <div className="pl-0 sm:pl-6 space-y-4">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
                       <IconCalendar size={12} />

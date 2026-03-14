@@ -242,7 +242,7 @@ export function ActivityHeatmap({ data, days }: ActivityHeatmapProps) {
       </div>
 
       <TooltipProvider delayDuration={0}>
-        <div className="overflow-x-auto rounded-xl border border-border bg-card/50 p-3 sm:p-4">
+        <div className="overflow-x-auto rounded-xl bg-muted/40 p-3 sm:p-4">
           <div
             className="inline-grid min-w-max"
             style={{

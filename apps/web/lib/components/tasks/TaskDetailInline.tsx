@@ -40,12 +40,12 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
   return (
     <>
       <div className="flex flex-col h-full overflow-hidden">
-        <div className="px-3 pt-3 pb-2 sm:px-4 sm:pt-4 md:px-6 md:pt-5">
+        <div className="px-3 pt-3 pb-2 sm:px-4 sm:pt-4 md:px-6 md:pt-5 flex-shrink-0">
           {titleContent}
         </div>
         <div className="px-3 sm:px-4 md:px-6 flex-1 min-h-0 overflow-y-auto scrollbar flex flex-col">
           {scheduledBadge}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col pb-4">
             <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] gap-3 sm:gap-4 md:gap-6 flex-1 min-h-0">
               <div className="space-y-3 md:space-y-6 min-h-0 md:overflow-y-auto scrollbar md:pr-4">
                 {descriptionSection}
@@ -58,10 +58,10 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
                     )
                   }
                 >
-                  <TabsList className="w-full justify-start overflow-x-auto">
+                  <TabsList className="w-full justify-start overflow-x-auto sticky top-0 z-10 bg-background">
                     <TabsTrigger
                       value="activity"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
                     >
                       <IconTerminal2 size={14} />
                       <span className="hidden sm:inline">Activity</span>
@@ -72,7 +72,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
                     </TabsTrigger>
                     <TabsTrigger
                       value="proof"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
                     >
                       <IconPhoto size={14} />
                       Proof
@@ -82,7 +82,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
                     </TabsTrigger>
                     <TabsTrigger
                       value="audit"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
                     >
                       <IconShieldCheck size={14} />
                       Audit
@@ -92,7 +92,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
                     </TabsTrigger>
                     <TabsTrigger
                       value="comments"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
                     >
                       <IconMessagePlus size={14} />
                       <span className="hidden sm:inline">Comments</span>
@@ -113,7 +113,7 @@ export function TaskDetailInline({ onClose, taskId }: TaskDetailInlineProps) {
                   </TabsContent>
                 </Tabs>
               </div>
-              <div className="md:pl-4 flex flex-col min-h-0 md:overflow-y-auto scrollbar">
+              <div className="md:pl-4 flex flex-col min-h-0 md:overflow-y-auto scrollbar border-t border-border/40 pt-3 md:border-t-0 md:pt-0">
                 <div className="space-y-3 md:space-y-4 flex-1">
                   {statusFieldsSection}
                 </div>

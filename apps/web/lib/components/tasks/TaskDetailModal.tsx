@@ -71,7 +71,7 @@ export function TaskDetailModal({
         }}
       >
         <DialogContent
-          className={`w-full ${widthClass} max-h-[90vh] h-[90vh] md:h-auto overflow-hidden flex flex-col`}
+          className={`w-full ${widthClass} max-h-[90vh] h-[90vh] md:h-auto overflow-hidden flex flex-col p-4 sm:p-6`}
         >
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">
@@ -98,10 +98,10 @@ export function TaskDetailModal({
                         )
                       }
                     >
-                      <TabsList className="w-full justify-start overflow-x-auto">
+                      <TabsList className="w-full justify-start overflow-x-auto sticky top-0 z-10 bg-background">
                         <TabsTrigger
                           value="activity"
-                          className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                          className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
                         >
                           <IconTerminal2 size={14} />
                           <span className="hidden sm:inline">Activity</span>
@@ -112,7 +112,7 @@ export function TaskDetailModal({
                         </TabsTrigger>
                         <TabsTrigger
                           value="proof"
-                          className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                          className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
                         >
                           <IconPhoto size={14} />
                           Proof
@@ -122,7 +122,7 @@ export function TaskDetailModal({
                         </TabsTrigger>
                         <TabsTrigger
                           value="audit"
-                          className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                          className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
                         >
                           <IconShieldCheck size={14} />
                           Audit
@@ -132,7 +132,7 @@ export function TaskDetailModal({
                         </TabsTrigger>
                         <TabsTrigger
                           value="comments"
-                          className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                          className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
                         >
                           <IconMessagePlus size={14} />
                           <span className="hidden sm:inline">Comments</span>
@@ -160,7 +160,7 @@ export function TaskDetailModal({
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 items-center justify-end border-t border-border pt-3 md:pt-4">
+          <div className="flex shrink-0 items-center justify-end border-t border-border pt-3 md:pt-4 gap-1.5">
             {footerButtons}
           </div>
         </DialogContent>

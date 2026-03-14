@@ -1472,7 +1472,7 @@ export function useTaskDetail(
   );
 
   const footerButtons = (
-    <div className="space-y-2">
+    <div className="space-y-2 w-full">
       {executionError && (
         <p className="text-xs text-destructive text-right">{executionError}</p>
       )}

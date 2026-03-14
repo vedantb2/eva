@@ -33,12 +33,12 @@ export function QuickTasksSplitView({
   projectNames,
 }: QuickTasksSplitViewProps) {
   return (
-    <div className="flex min-w-0 flex-1 min-h-0 flex-col sm:flex-row">
+    <div className="flex min-w-0 flex-1 min-h-0 flex-col sm:flex-row overflow-hidden">
       <div
         className={
           selectedTaskId
             ? "hidden sm:flex sm:w-[280px] md:w-[20%] min-w-0 min-h-0 flex-shrink-0 overflow-hidden flex-col border-r border-border/40"
-            : "flex flex-col min-w-0 min-h-0 flex-1 sm:flex-none sm:w-[280px] md:w-[20%] sm:flex-shrink-0 sm:overflow-hidden"
+            : "flex flex-col min-w-0 min-h-0 flex-1 sm:flex-none sm:w-[280px] md:w-[20%] sm:flex-shrink-0 overflow-hidden"
         }
       >
         <QuickTasksListView
@@ -53,14 +53,14 @@ export function QuickTasksSplitView({
       </div>
       {selectedTaskId ? (
         <div className="w-full sm:flex-1 min-w-0 min-h-0 h-full overflow-hidden flex flex-col">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 sm:hidden">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 sm:hidden flex-shrink-0">
             <Button
               size="icon-sm"
               variant="ghost"
               onClick={onCloseTask}
-              className="h-8 w-8"
+              className="h-9 w-9 min-h-[36px]"
             >
-              <IconArrowLeft size={16} />
+              <IconArrowLeft size={18} />
             </Button>
             <span className="text-sm font-medium text-muted-foreground">
               Back to tasks

@@ -170,7 +170,7 @@ export function TaskDetailModal({
                     ) : null}
                   </div>
                   {showTabsColumn && (
-                    <div className="md:pl-4 min-h-0 md:overflow-y-auto scrollbar">
+                    <div className="md:pl-4 min-h-0 md:overflow-y-auto">
                       <Tabs
                         value={activeTab}
                         onValueChange={(v) => {

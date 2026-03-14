@@ -112,7 +112,7 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
           ) : null}
           <div className="flex-1 flex flex-col pb-4">
             <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] gap-3 sm:gap-4 md:gap-6 flex-1 min-h-0">
-              <div className="space-y-3 md:space-y-6 min-h-0 md:overflow-y-auto scrollbar md:pr-4">
+              <div className="space-y-3 md:space-y-6 min-h-0 min-w-0">
                 <TaskDescription
                   description={task?.description}
                   createdAt={task?.createdAt}

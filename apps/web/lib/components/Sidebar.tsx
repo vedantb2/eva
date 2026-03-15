@@ -25,7 +25,6 @@ import {
   IconMoon,
   IconPalette,
   IconPlayerPlay,
-  IconPlus,
   IconSearch,
   IconSettings,
   IconSun,
@@ -111,14 +110,6 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [contextSidebarMode, setContextSidebarMode] =
     useState<ContextSidebarMode>(() => getInitialContextSidebarMode(pathname));
-  const [designCreateRequestId, setDesignCreateRequestId] = useState(0);
-  const [sessionsCreateRequestId, setSessionsCreateRequestId] = useState(0);
-  const [analyseCreateRequestId, setAnalyseCreateRequestId] = useState(0);
-  const [docsCreateRequestId, setDocsCreateRequestId] = useState(0);
-  const [testingArenaCreateRequestId, setTestingArenaCreateRequestId] =
-    useState(0);
-  const [automationsCreateRequestId, setAutomationsCreateRequestId] =
-    useState(0);
 
   const repos = useQuery(api.githubRepos.list, {});
 
@@ -319,43 +310,6 @@ export function Sidebar() {
                   ? "Automations"
                   : "";
 
-  const showContextCreate =
-    contextSidebarMode !== "settings" && contextSidebarMode !== "automations";
-  const contextCreateButtonTitle =
-    contextSidebarMode === "designs"
-      ? "New design session"
-      : contextSidebarMode === "sessions"
-        ? "New session"
-        : contextSidebarMode === "analyse"
-          ? "New query"
-          : contextSidebarMode === "docs"
-            ? "New document"
-            : contextSidebarMode === "testing-arena"
-              ? "Test all"
-              : "New item";
-
-  const handleContextCreate = () => {
-    if (contextSidebarMode === "designs") {
-      setDesignCreateRequestId((current) => current + 1);
-      return;
-    }
-    if (contextSidebarMode === "sessions") {
-      setSessionsCreateRequestId((current) => current + 1);
-      return;
-    }
-    if (contextSidebarMode === "analyse") {
-      setAnalyseCreateRequestId((current) => current + 1);
-      return;
-    }
-    if (contextSidebarMode === "docs") {
-      setDocsCreateRequestId((current) => current + 1);
-      return;
-    }
-    if (contextSidebarMode === "testing-arena") {
-      setTestingArenaCreateRequestId((current) => current + 1);
-    }
-  };
-
   const closeMobileSidebar = () => setMobileOpen(false);
 
   return (
@@ -459,20 +413,6 @@ export function Sidebar() {
                       )}
 
                       <div className="flex items-center gap-1">
-                        {!collapsed && showContextCreate && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="motion-press hover:scale-[1.03] active:scale-[0.97]"
-                            onClick={handleContextCreate}
-                            title={contextCreateButtonTitle}
-                          >
-                            <IconPlus
-                              size={18}
-                              className="text-sidebar-primary"
-                            />
-                          </Button>
-                        )}
                         <Button
                           size="icon"
                           variant="ghost"
@@ -629,7 +569,6 @@ export function Sidebar() {
                               basePath={repoBasePath}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
-                              createRequestId={designCreateRequestId}
                             />
                           ) : contextSidebarMode === "sessions" ? (
                             <SessionsSidebar
@@ -637,7 +576,6 @@ export function Sidebar() {
                               basePath={repoBasePath}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
-                              createRequestId={sessionsCreateRequestId}
                             />
                           ) : contextSidebarMode === "docs" ? (
                             <DocsSidebar
@@ -646,7 +584,6 @@ export function Sidebar() {
                               installationId={repo.installationId}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
-                              createRequestId={docsCreateRequestId}
                             />
                           ) : contextSidebarMode === "testing-arena" ? (
                             <TestingArenaSidebar
@@ -655,7 +592,6 @@ export function Sidebar() {
                               installationId={repo.installationId}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
-                              createRequestId={testingArenaCreateRequestId}
                             />
                           ) : contextSidebarMode === "automations" ? (
                             <AutomationsSidebar
@@ -670,7 +606,6 @@ export function Sidebar() {
                               basePath={repoBasePath}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
-                              createRequestId={analyseCreateRequestId}
                             />
                           )
                         ) : (

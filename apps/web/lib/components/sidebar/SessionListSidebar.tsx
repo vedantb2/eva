@@ -22,7 +22,7 @@ import {
   Spinner,
   cn,
 } from "@conductor/ui";
-import { IconArchive, IconChevronDown } from "@tabler/icons-react";
+import { IconArchive, IconChevronDown, IconPlus } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 
 type SessionStatus = "active" | "starting" | "closed";
@@ -153,15 +153,24 @@ export function SessionListSidebar<T extends SessionItem>({
 
   return (
     <>
-      <div className="p-2 animate-in fade-in duration-300">
+      <div className="flex items-center gap-1.5 p-2 animate-in fade-in duration-300">
         <SearchInput
           placeholder={searchPlaceholder}
           value={searchQuery}
           onChange={setSearchQuery}
           onClear={() => setSearchQuery("")}
-          className="max-w-none"
+          className="min-w-0 flex-1"
           inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
         />
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="shrink-0 text-sidebar-primary"
+          onClick={() => setIsCreateModalOpen(true)}
+          title={createTitle}
+        >
+          <IconPlus size={16} />
+        </Button>
       </div>
 
       <div className="flex-1">

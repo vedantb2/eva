@@ -105,43 +105,6 @@ export function QuickTasksToolbar({
         visible={hasQuickTasks}
       />
       {hasQuickTasks && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="motion-press hover:scale-[1.01] active:scale-[0.99] max-w-[100px] sm:max-w-[180px]"
-            >
-              <IconFolder size={16} />
-              <span className="truncate hidden sm:inline">{filterLabel}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuRadioGroup
-              value={projectFilter}
-              onValueChange={onProjectFilterChange}
-            >
-              <DropdownMenuRadioItem value="all">
-                All Tasks
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="none">
-                No Project
-              </DropdownMenuRadioItem>
-              {projects && projects.length > 0 && (
-                <>
-                  <DropdownMenuSeparator />
-                  {projects.map((p) => (
-                    <DropdownMenuRadioItem key={p._id} value={p._id}>
-                      {p.title}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </>
-              )}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-      {hasQuickTasks && (
         <div className="flex items-center rounded-lg bg-muted/40 overflow-hidden">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -215,6 +178,35 @@ export function QuickTasksToolbar({
               Import from Linear
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <IconFolder size={16} className="mr-2" />
+                {filterLabel}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={projectFilter}
+                  onValueChange={onProjectFilterChange}
+                >
+                  <DropdownMenuRadioItem value="all">
+                    All Tasks
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="none">
+                    No Project
+                  </DropdownMenuRadioItem>
+                  {projects && projects.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      {projects.map((p) => (
+                        <DropdownMenuRadioItem key={p._id} value={p._id}>
+                          {p.title}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </>
+                  )}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <IconFilter size={16} className="mr-2" />

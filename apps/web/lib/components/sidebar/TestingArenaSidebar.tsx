@@ -16,7 +16,7 @@ import {
   Spinner,
   cn,
 } from "@conductor/ui";
-import { IconFileText } from "@tabler/icons-react";
+import { IconFileText, IconPlus } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
 import { branchParser, searchParser } from "@/lib/search-params";
 
@@ -79,15 +79,24 @@ export function TestingArenaSidebar({
 
   return (
     <>
-      <div className="p-2">
+      <div className="flex items-center gap-1.5 p-2">
         <SearchInput
           placeholder="Search docs..."
           value={searchQuery}
           onChange={(v) => setSearchQuery(v || null)}
           onClear={() => setSearchQuery(null)}
-          className="max-w-none"
+          className="min-w-0 flex-1"
           inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
         />
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="shrink-0 text-sidebar-primary"
+          onClick={() => setShowTestAllModal(true)}
+          title="Test all"
+        >
+          <IconPlus size={16} />
+        </Button>
       </div>
 
       <div className="flex-1">

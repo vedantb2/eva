@@ -23,7 +23,7 @@ import {
   Textarea,
   cn,
 } from "@conductor/ui";
-import { IconFile, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
@@ -204,15 +204,24 @@ export function DocsSidebar({
         onChange={handleUploadSelect}
       />
 
-      <div className="p-2">
+      <div className="flex items-center gap-1.5 p-2">
         <SearchInput
           placeholder="Search docs..."
           value={searchQuery}
           onChange={(v) => setSearchQuery(v || null)}
           onClear={() => setSearchQuery(null)}
-          className="max-w-none"
+          className="min-w-0 flex-1"
           inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
         />
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="shrink-0 text-sidebar-primary"
+          onClick={() => setIsCreateDialogOpen(true)}
+          title="New document"
+        >
+          <IconPlus size={16} />
+        </Button>
       </div>
 
       <div className="flex-1">

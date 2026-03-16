@@ -16,21 +16,22 @@ import {
   ImportLinearModal,
 } from "@/lib/components/quick-tasks";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
+import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { TaskDetailModal } from "@/lib/components/tasks/TaskDetailModal";
+import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import {
   searchParser,
   quickTaskViewParser,
   projectFilterParser,
   taskIdParser,
 } from "@/lib/search-params";
-import { IconChecklist } from "@tabler/icons-react";
+import { IconChecklist, IconChevronRight } from "@tabler/icons-react";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
 import {
   QuickTasksBulkBar,
   type BulkAction,
 } from "./_components/QuickTasksBulkBar";
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
-import { QuickTasksSplitView } from "./_components/QuickTasksSplitView";
 
 export function QuickTasksClient() {
   const { repo } = useRepo();
@@ -127,6 +128,11 @@ export function QuickTasksClient() {
 
   const closeBulkAction = () => setActiveBulkAction(null);
   const typedSelectedTaskId = taskId as Id<"agentTasks"> | null;
+  const isListDetailView = view === "list" && !!typedSelectedTaskId;
+  const selectedTask = useMemo(() => {
+    if (!typedSelectedTaskId || !tasks) return undefined;
+    return tasks.find((t) => t._id === typedSelectedTaskId);
+  }, [typedSelectedTaskId, tasks]);
 
   useHotkey("Alt+N", (e) => {
     e.preventDefault();
@@ -144,24 +150,47 @@ export function QuickTasksClient() {
   return (
     <>
       <PageWrapper
-        title="Quick Tasks"
+        title={
+          isListDetailView ? (
+            <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
+              <button
+                onClick={handleTaskClose}
+                className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
+              >
+                Quick Tasks
+              </button>
+              <IconChevronRight
+                size={14}
+                className="text-muted-foreground/50 flex-shrink-0"
+              />
+              <span className="truncate font-semibold">
+                {selectedTask?.taskNumber ? `#${selectedTask.taskNumber}` : ""}
+                {selectedTask?.title ? ` ${selectedTask.title}` : ""}
+              </span>
+            </div>
+          ) : (
+            "Quick Tasks"
+          )
+        }
         fillHeight
         childPadding={false}
         headerRight={
-          <QuickTasksToolbar
-            view={view}
-            onViewChange={(v: "kanban" | "list") => setParams({ view: v })}
-            searchQuery={searchQuery}
-            onSearchChange={(v) => setParams({ q: v })}
-            hasQuickTasks={hasAnyTasks}
-            isSelecting={isSelecting}
-            onStartSelecting={() => setIsSelecting(true)}
-            onCreateTask={() => setIsCreating(true)}
-            onImport={() => setIsImporting(true)}
-            projects={projects}
-            projectFilter={project}
-            onProjectFilterChange={(v) => setParams({ project: v })}
-          />
+          isListDetailView ? undefined : (
+            <QuickTasksToolbar
+              view={view}
+              onViewChange={(v: "kanban" | "list") => setParams({ view: v })}
+              searchQuery={searchQuery}
+              onSearchChange={(v) => setParams({ q: v })}
+              hasQuickTasks={hasAnyTasks}
+              isSelecting={isSelecting}
+              onStartSelecting={() => setIsSelecting(true)}
+              onCreateTask={() => setIsCreating(true)}
+              onImport={() => setIsImporting(true)}
+              projects={projects}
+              projectFilter={project}
+              onProjectFilterChange={(v) => setParams({ project: v })}
+            />
+          )
         }
       >
         <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
@@ -186,6 +215,23 @@ export function QuickTasksClient() {
                   actionLabel="Create Quick Task"
                   onAction={() => setIsCreating(true)}
                 />
+              </motion.div>
+            ) : isListDetailView ? (
+              <motion.div
+                key="quick-tasks-detail"
+                className="flex min-w-0 flex-1 min-h-0"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <TaskDetailInline
+                    key={typedSelectedTaskId}
+                    onClose={handleTaskClose}
+                    taskId={typedSelectedTaskId}
+                  />
+                </div>
               </motion.div>
             ) : view === "kanban" ? (
               <motion.div
@@ -214,20 +260,18 @@ export function QuickTasksClient() {
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <QuickTasksSplitView
+                <QuickTasksListView
+                  tasks={quickTasks}
+                  projectNames={projectNames}
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
-                  selectedTaskId={typedSelectedTaskId}
-                  onCloseTask={handleTaskClose}
-                  quickTasks={quickTasks}
-                  projectNames={projectNames}
                 />
               </motion.div>
             )}
           </AnimatePresence>
-          {hasQuickTasks && (
+          {hasQuickTasks && !isListDetailView && (
             <QuickTasksBulkBar
               isSelecting={isSelecting}
               selectedCount={selectedIds.size}

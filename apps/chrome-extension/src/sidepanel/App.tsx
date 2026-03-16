@@ -58,8 +58,6 @@ if (!PUBLISHABLE_KEY) {
 
 const EXTENSION_URL = chrome.runtime.getURL(".");
 
-const ALLOWED_HOSTS = ["localhost:3000", "localhost:3001"];
-
 function getHostFromUrl(url: string): string | null {
   try {
     return new URL(url).host;
@@ -86,17 +84,6 @@ function findBestMatchingRepo(
     }
   }
   return bestMatch?.repoId ?? null;
-}
-
-function isAllowedHost(
-  host: string,
-  repoDomains: ReadonlyArray<string>,
-): boolean {
-  return (
-    ALLOWED_HOSTS.includes(host) ||
-    host.endsWith(".vercel.app") ||
-    repoDomains.some((d) => domainMatches(host, d))
-  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -147,16 +134,11 @@ function AuthenticatedApp() {
     return map;
   }, [repos]);
 
-  const allRepoDomains = useMemo(
-    () => Array.from(domainToRepoId.keys()),
-    [domainToRepoId],
-  );
   const [selectedRepoId, setSelectedRepoId] =
     useState<Id<"githubRepos"> | null>(null);
   const [capturedContexts, setCapturedContexts] = useState<ExtractedContext[]>(
     [],
   );
-  const [isValidUrl, setIsValidUrl] = useState<boolean | null>(null);
   const [currentTabHost, setCurrentTabHost] = useState<string | null>(null);
   const [dismissedSuggestion, setDismissedSuggestion] =
     useState<Id<"githubRepos"> | null>(null);
@@ -411,7 +393,6 @@ function AuthenticatedApp() {
         currentWindow: true,
       });
       const host = tab?.url ? getHostFromUrl(tab.url) : null;
-      setIsValidUrl(host ? isAllowedHost(host, allRepoDomains) : false);
       setCurrentTabHost(host);
       if (host) {
         const bestMatchRepoId = findBestMatchingRepo(host, domainToRepoId);
@@ -430,7 +411,6 @@ function AuthenticatedApp() {
         const host = getHostFromUrl(changeInfo.url);
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
           if (tab?.id === tabId && host) {
-            setIsValidUrl(isAllowedHost(host, allRepoDomains));
             setCurrentTabHost(host);
           }
         });
@@ -440,7 +420,6 @@ function AuthenticatedApp() {
     const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
       chrome.tabs.get(activeInfo.tabId, (tab) => {
         const host = tab?.url ? getHostFromUrl(tab.url) : null;
-        setIsValidUrl(host ? isAllowedHost(host, allRepoDomains) : false);
         setCurrentTabHost(host);
       });
     };
@@ -451,7 +430,7 @@ function AuthenticatedApp() {
       chrome.tabs.onUpdated.removeListener(handleTabUpdate);
       chrome.tabs.onActivated.removeListener(handleTabActivated);
     };
-  }, [allRepoDomains, domainToRepoId, selectedRepoId, handleRepoChange]);
+  }, [domainToRepoId, selectedRepoId, handleRepoChange]);
 
   useEffect(() => {
     chrome.storage.local.get(
@@ -629,29 +608,10 @@ function AuthenticatedApp() {
     chrome.tabs.create({ url });
   };
 
-  if (isValidUrl === null || isLoadingRepos) {
+  if (isLoadingRepos) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <Spinner />
-      </div>
-    );
-  }
-
-  if (!isValidUrl) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground p-6">
-        <p className="text-xl text-muted-foreground text-center">
-          Eva Assist is only supported on:
-        </p>
-        <ul className="mt-4 text-muted-foreground list-disc list-inside">
-          {ALLOWED_HOSTS.map((host) => (
-            <li key={host}>{host}</li>
-          ))}
-          {allRepoDomains.map((host) => (
-            <li key={host}>{host}</li>
-          ))}
-          <li>*.vercel.app</li>
-        </ul>
       </div>
     );
   }

@@ -34,7 +34,6 @@ interface DesktopPanelProps {
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
-  enabled?: boolean;
 }
 
 export function DesktopPanel({
@@ -42,7 +41,6 @@ export function DesktopPanel({
   sandboxId,
   isActive,
   repoId,
-  enabled = true,
 }: DesktopPanelProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [desktopState, setDesktopState] = useState<DesktopState>("idle");
@@ -149,15 +147,13 @@ export function DesktopPanel({
       if (cached) {
         setUrl(cached);
         setDesktopState("running");
-        return;
       }
-      startDesktop();
     }
     if (!isActive) {
       desktopCache.clear(sessionId);
     }
     return stopPolling;
-  }, [isActive, sandboxId, desktopState, startDesktop, stopPolling, sessionId]);
+  }, [isActive, sandboxId, desktopState, stopPolling, sessionId]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
@@ -179,23 +175,23 @@ export function DesktopPanel({
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  if (!enabled) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
-        <IconDeviceDesktop className="w-12 h-12 opacity-50" />
-        <p className="text-sm">Desktop (VNC) is disabled</p>
-        <p className="text-xs text-muted-foreground/70">
-          Enable it in repository settings under Config.
-        </p>
-      </div>
-    );
-  }
-
   if (!isActive || !sandboxId) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
         <IconDeviceDesktop className="w-12 h-12 opacity-50" />
         <p className="text-sm">Start the sandbox to use the desktop</p>
+      </div>
+    );
+  }
+
+  if (desktopState === "idle") {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
+        <IconDeviceDesktop className="w-12 h-12 opacity-50" />
+        <p className="text-sm">Desktop is not running</p>
+        <Button size="sm" variant="secondary" onClick={startDesktop}>
+          Start Desktop
+        </Button>
       </div>
     );
   }

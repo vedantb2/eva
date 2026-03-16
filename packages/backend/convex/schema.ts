@@ -309,6 +309,7 @@ const schema = defineSchema({
     workflowRunId: v.optional(v.number()),
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
+    retryCount: v.optional(v.number()),
   })
     .index("by_repo_snapshot", ["repoSnapshotId"])
     .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])

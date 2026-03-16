@@ -1,5 +1,15 @@
 # Changelog
 
+## Fix quick tasks → project → build workflow - 2026-03-14
+
+- `createFromTasks` now sets `baseBranch` from repo defaults — previously omitted, causing builds to silently target wrong base branch
+- `startBuild` now checks `hasRepoAccess` — previously any user with a project ID could trigger a build
+- `assignToProject` now throws on deleted tasks instead of silently skipping, skips tasks already in the project (idempotency), and validates non-empty input
+- Build workflow now tracks failure: stores `lastBuildError` on project when a task fails mid-build, clears it on next build start
+- `startTaskForBuild` reads `project.branchName` instead of hardcoding `eva/project-{id}` — respects stored branch name with fallback
+- Frontend `GroupTasksModal` validates non-empty task list before submission
+- `QuickTasksClient` prunes stale IDs from selection set when tasks are deleted externally
+
 ## Decompose useTaskDetail hook - 2026-03-14
 
 - Broke the 1,774-line `useTaskDetail` hook into ~13 focused child components + a slim 200-line data-only hook

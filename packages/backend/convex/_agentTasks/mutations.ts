@@ -256,6 +256,95 @@ export const assignToProject = authMutation({
   },
 });
 
+export const createBatchWithDependencies = authMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    tasks: v.array(
+      v.object({
+        title: v.string(),
+        description: v.optional(v.string()),
+        dependsOn: v.optional(v.array(v.number())),
+      }),
+    ),
+    projectTitle: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
+    model: v.optional(claudeModelValidator),
+  },
+  returns: v.object({
+    taskIds: v.array(v.id("agentTasks")),
+    projectId: v.optional(v.id("projects")),
+  }),
+  handler: async (ctx, args) => {
+    if (args.tasks.length === 0) {
+      throw new Error("At least one task is required");
+    }
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repo not found");
+
+    const now = Date.now();
+    const baseBranch = args.baseBranch ?? repo.defaultBaseBranch ?? "main";
+    const model = args.model ?? repo.defaultModel;
+
+    const taskIds: Id<"agentTasks">[] = [];
+    for (let i = 0; i < args.tasks.length; i++) {
+      const task = args.tasks[i];
+      const taskId = await ctx.db.insert("agentTasks", {
+        title: task.title,
+        description: task.description,
+        repoId: args.repoId,
+        taskNumber: i + 1,
+        status: "todo",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: ctx.userId,
+        baseBranch,
+        model,
+      });
+      taskIds.push(taskId);
+    }
+
+    for (let i = 0; i < args.tasks.length; i++) {
+      const deps = args.tasks[i].dependsOn;
+      if (!deps) continue;
+      for (const depIndex of deps) {
+        if (depIndex < 0 || depIndex >= args.tasks.length) {
+          throw new Error(`Task ${i} has invalid dependency index ${depIndex}`);
+        }
+        if (depIndex === i) {
+          throw new Error(`Task ${i} cannot depend on itself`);
+        }
+        await ctx.db.insert("taskDependencies", {
+          taskId: taskIds[i],
+          dependsOnId: taskIds[depIndex],
+        });
+      }
+    }
+
+    let projectId: Id<"projects"> | undefined;
+    if (args.projectTitle) {
+      projectId = await ctx.db.insert("projects", {
+        repoId: args.repoId,
+        userId: ctx.userId,
+        title: args.projectTitle,
+        rawInput: args.projectTitle,
+        phase: "active",
+        baseBranch,
+        projectStartDate: now,
+      });
+      await ctx.db.patch(projectId, {
+        branchName: `eva/project-${projectId}`,
+      });
+      for (const taskId of taskIds) {
+        await ctx.db.patch(taskId, { projectId });
+      }
+    }
+
+    return { taskIds, projectId };
+  },
+});
+
 export const deleteCascade = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),

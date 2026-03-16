@@ -13,6 +13,7 @@ import {
   getRepoConvexCredentials,
   runMutationAsUser,
   resolveUserByClerkId,
+  type Repo,
 } from "./convex-api.js";
 
 function errorResult(message: string) {
@@ -322,6 +323,63 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
     },
   );
 
+  async function resolveRepoByName(
+    repoName: string,
+    app?: string,
+  ): Promise<{ repo: Repo } | ReturnType<typeof errorResult>> {
+    const { deployKey, userId } = await getContext();
+    const repos = await listUserRepos(convexUrl, deployKey, userId);
+
+    const normalizedInput = repoName.toLowerCase();
+    const normalizedApp = app?.toLowerCase();
+
+    const nameMatches = repos.filter((r) => {
+      const fullName = `${r.owner}/${r.name}`.toLowerCase();
+      return (
+        fullName === normalizedInput || r.name.toLowerCase() === normalizedInput
+      );
+    });
+
+    let repo: Repo | undefined;
+    if (nameMatches.length === 0) {
+      repo = undefined;
+    } else if (nameMatches.length === 1) {
+      repo = nameMatches[0];
+    } else if (normalizedApp) {
+      repo = nameMatches.find((r) => {
+        if (!r.rootDirectory) return false;
+        const rootDir = r.rootDirectory.toLowerCase();
+        return (
+          rootDir === normalizedApp || rootDir.endsWith(`/${normalizedApp}`)
+        );
+      });
+      if (!repo) {
+        const apps = nameMatches
+          .map((r) => r.rootDirectory ?? "(root)")
+          .join(", ");
+        return errorResult(
+          `Multiple apps found for "${repoName}" but none matched app "${app}". Available apps: ${apps}`,
+        );
+      }
+    } else {
+      const apps = nameMatches
+        .map((r) => r.rootDirectory ?? "(root)")
+        .join(", ");
+      return errorResult(
+        `Multiple apps found for "${repoName}". Specify the "app" parameter to disambiguate. Available apps: ${apps}`,
+      );
+    }
+
+    if (!repo) {
+      const available = repos.map((r) => `${r.owner}/${r.name}`).join(", ");
+      return errorResult(
+        `Repo "${repoName}" not found. Your repos: ${available}`,
+      );
+    }
+
+    return { repo };
+  }
+
   const taskArgs = {
     title: z.string().describe("Short task title"),
     description: z
@@ -368,55 +426,9 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
   ): Promise<
     { taskId: string; repoFullName: string } | ReturnType<typeof errorResult>
   > {
-    const { deployKey, userId } = await getContext();
-    const repos = await listUserRepos(convexUrl, deployKey, userId);
-
-    const normalizedInput = input.repoName.toLowerCase();
-    const normalizedApp = input.app?.toLowerCase();
-
-    const nameMatches = repos.filter((r) => {
-      const fullName = `${r.owner}/${r.name}`.toLowerCase();
-      return (
-        fullName === normalizedInput || r.name.toLowerCase() === normalizedInput
-      );
-    });
-
-    let repo: (typeof repos)[number] | undefined;
-    if (nameMatches.length === 0) {
-      repo = undefined;
-    } else if (nameMatches.length === 1) {
-      repo = nameMatches[0];
-    } else if (normalizedApp) {
-      repo = nameMatches.find((r) => {
-        if (!r.rootDirectory) return false;
-        const rootDir = r.rootDirectory.toLowerCase();
-        return (
-          rootDir === normalizedApp || rootDir.endsWith(`/${normalizedApp}`)
-        );
-      });
-      if (!repo) {
-        const apps = nameMatches
-          .map((r) => r.rootDirectory ?? "(root)")
-          .join(", ");
-        return errorResult(
-          `Multiple apps found for "${input.repoName}" but none matched app "${input.app}". Available apps: ${apps}`,
-        );
-      }
-    } else {
-      const apps = nameMatches
-        .map((r) => r.rootDirectory ?? "(root)")
-        .join(", ");
-      return errorResult(
-        `Multiple apps found for "${input.repoName}". Specify the "app" parameter to disambiguate. Available apps: ${apps}`,
-      );
-    }
-
-    if (!repo) {
-      const available = repos.map((r) => `${r.owner}/${r.name}`).join(", ");
-      return errorResult(
-        `Repo "${input.repoName}" not found. Your repos: ${available}`,
-      );
-    }
+    const resolved = await resolveRepoByName(input.repoName, input.app);
+    if ("isError" in resolved) return resolved;
+    const { repo } = resolved;
 
     const mutationArgs: Record<string, string> = {
       repoId: repo.id,
@@ -478,6 +490,103 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         taskId: result.taskId,
         repo: result.repoFullName,
         title: input.title,
+        status: "created",
+      });
+    },
+  );
+
+  server.tool(
+    "create_tasks_batch",
+    `Create multiple tasks at once with dependencies between them, and optionally group them into a project.
+
+Each task in the array has a title, description, and optional dependsOn array of 0-based indices referencing other tasks in the same batch.
+
+Example: [
+  { "title": "Setup DB schema", "description": "..." },
+  { "title": "Build API", "description": "...", "dependsOn": [0] },
+  { "title": "Build UI", "description": "...", "dependsOn": [1] }
+]
+
+This creates 3 tasks where Build API depends on Setup DB schema, and Build UI depends on Build API.`,
+    {
+      repoName: z
+        .string()
+        .describe(
+          'Repo name (e.g. "conductor" or "vedantb2/conductor"). Resolved by matching against your connected repos.',
+        ),
+      tasks: z
+        .array(
+          z.object({
+            title: z.string().describe("Short task title"),
+            description: z
+              .string()
+              .optional()
+              .describe("Full prompt/instructions for the task"),
+            dependsOn: z
+              .array(z.number())
+              .optional()
+              .describe(
+                "Array of 0-based indices of tasks this task depends on",
+              ),
+          }),
+        )
+        .describe("Ordered array of tasks to create"),
+      projectTitle: z
+        .string()
+        .optional()
+        .describe(
+          "If provided, creates a project with this title and assigns all tasks to it",
+        ),
+      model: z
+        .enum(["opus", "sonnet", "haiku"])
+        .optional()
+        .describe(
+          "Claude model to use for all tasks. If omitted, uses the repo's default model.",
+        ),
+      baseBranch: z
+        .string()
+        .optional()
+        .describe(
+          "Branch to base work off of. If omitted, uses the repo's default base branch.",
+        ),
+      app: z
+        .string()
+        .optional()
+        .describe(
+          'App name within a monorepo (e.g. "web", "mcp"). Required when a repo has multiple apps.',
+        ),
+    },
+    async (input) => {
+      const resolved = await resolveRepoByName(input.repoName, input.app);
+      if ("isError" in resolved) return resolved;
+      const { repo } = resolved;
+
+      const tasksForMutation = input.tasks.map((t) => ({
+        title: t.title,
+        ...(t.description ? { description: t.description } : {}),
+        ...(t.dependsOn ? { dependsOn: t.dependsOn } : {}),
+      }));
+
+      const result = await runMutationAsUser(
+        convexUrl,
+        clerkUserId,
+        "_agentTasks/mutations:createBatchWithDependencies",
+        {
+          repoId: repo.id,
+          tasks: tasksForMutation,
+          ...(input.projectTitle ? { projectTitle: input.projectTitle } : {}),
+          ...(input.model ? { model: input.model } : {}),
+          ...(input.baseBranch ? { baseBranch: input.baseBranch } : {}),
+        },
+      );
+
+      const batchResult =
+        typeof result === "object" && result !== null ? result : {};
+
+      return textResult({
+        repo: `${repo.owner}/${repo.name}`,
+        ...batchResult,
+        taskCount: input.tasks.length,
         status: "created",
       });
     },

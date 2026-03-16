@@ -11,7 +11,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Checkbox,
   Input,
   Button,
 } from "@conductor/ui";
@@ -100,43 +99,6 @@ export function ConfigClient() {
                 </p>
               </div>
             )}
-          </div>
-        </div>
-
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
-          <h3 className="text-sm font-medium">Feature Toggles</h3>
-          <div className="grid gap-3">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <Checkbox
-                checked={repo.sessionsVncEnabled !== false}
-                onCheckedChange={(checked) =>
-                  updateConfig({ repoId, sessionsVncEnabled: checked === true })
-                }
-              />
-              <div>
-                <p className="text-xs font-medium">Sessions Desktop (VNC)</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Enable the desktop tab in sessions for VNC access.
-                </p>
-              </div>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <Checkbox
-                checked={repo.sessionsVscodeEnabled !== false}
-                onCheckedChange={(checked) =>
-                  updateConfig({
-                    repoId,
-                    sessionsVscodeEnabled: checked === true,
-                  })
-                }
-              />
-              <div>
-                <p className="text-xs font-medium">Sessions Editor (VSCode)</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Enable the code editor tab in sessions.
-                </p>
-              </div>
-            </label>
           </div>
         </div>
 

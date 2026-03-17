@@ -128,7 +128,7 @@ export async function fetchOrigin(
   await exec(
     sandbox,
     `cd ${WORKSPACE_DIR} && git -c http.https://github.com/.extraheader=${quote([authHeader])} fetch${pruneArg} origin${refArg}`,
-    opts?.timeoutSeconds ?? 60,
+    opts?.timeoutSeconds ?? 120,
   );
 }
 
@@ -140,7 +140,7 @@ export async function syncRepo(
 ): Promise<void> {
   await fetchOrigin(sandbox, installationId, owner, name, undefined, {
     prune: true,
-    timeoutSeconds: 60,
+    timeoutSeconds: 120,
   });
 }
 

@@ -204,7 +204,7 @@ export const prepareSandbox = internalAction({
             args.repoOwner,
             args.repoName,
             args.baseBranch,
-            { prune: false, timeoutSeconds: 60 },
+            { prune: false, timeoutSeconds: 120 },
           );
           await exec(
             sandbox,

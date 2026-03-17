@@ -171,14 +171,14 @@ function RunAccordion({
 
   const elapsed = useElapsedSeconds(run.startedAt, isActive);
 
-  const statusColor =
+  const badgeVariant =
     run.status === "success"
-      ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/30"
+      ? "success"
       : run.status === "error"
-        ? "bg-red-500/15 text-red-600 border-red-500/30"
+        ? "destructive"
         : run.status === "running"
-          ? "bg-blue-500/15 text-blue-600 border-blue-500/30"
-          : "bg-amber-500/15 text-amber-600 border-amber-500/30";
+          ? "warning"
+          : "secondary";
 
   const duration =
     run.finishedAt && run.startedAt
@@ -212,12 +212,7 @@ function RunAccordion({
             className="shrink-0 text-muted-foreground"
           />
         )}
-        <Badge
-          variant="outline"
-          className={cn("text-[10px] font-medium capitalize", statusColor)}
-        >
-          {run.status}
-        </Badge>
+        <Badge variant={badgeVariant}>{run.status}</Badge>
         <span className="text-sm text-muted-foreground">
           {dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")}
         </span>

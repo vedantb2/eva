@@ -38,6 +38,33 @@ After pushing, write a brief summary of the changes you made. This will be added
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+function buildReadOnlyPrompt(
+  title: string,
+  description: string,
+  rootDirectory: string,
+): string {
+  return `You are in READ-ONLY / REPORT MODE. Do NOT modify any files, do NOT commit, do NOT push, do NOT create branches or PRs.
+
+## Automation: ${title}
+## Prompt: ${description}
+
+## Steps:
+1. Read and analyze the codebase to answer the prompt
+2. You may run read-only commands (e.g. grep, find, cat, ls, git log, git diff, npm test, npm run build) to gather information
+3. Write a detailed report/analysis as your final output
+
+## Report (REQUIRED):
+Provide a clear, structured report answering the prompt. This is the only output — no code changes.
+
+## Rules:
+- Do NOT edit, write, or create any files
+- Do NOT run git add, git commit, git push, or any git commands that modify state
+- Do NOT use agent-browser, take screenshots, or record videos
+- Do NOT run audits
+- Prefix shell commands with timeouts: \`timeout 60 npm run build\`, \`timeout 60 npm test\`
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+}
+
 export const automationExecutionWorkflow = workflow.define({
   args: {
     runId: v.id("automationRuns"),
@@ -50,10 +77,12 @@ export const automationExecutionWorkflow = workflow.define({
     model: claudeModelValidator,
     rootDirectory: v.string(),
     userId: v.id("users"),
+    readOnly: v.optional(v.boolean()),
   },
   handler: async (step, args): Promise<void> => {
     let sandboxId: string | undefined;
     let completionPrUrl: string | null = null;
+    const isReadOnly = args.readOnly === true;
 
     try {
       await step.runMutation(internal.automations.updateRunStatus, {
@@ -67,12 +96,14 @@ export const automationExecutionWorkflow = workflow.define({
       });
       if (!data) throw new Error("Automation data not found");
 
-      const prompt = buildAutomationPrompt(
-        args.title,
-        args.description,
-        args.branchName,
-        args.rootDirectory,
-      );
+      const prompt = isReadOnly
+        ? buildReadOnlyPrompt(args.title, args.description, args.rootDirectory)
+        : buildAutomationPrompt(
+            args.title,
+            args.description,
+            args.branchName,
+            args.rootDirectory,
+          );
 
       const streamingEntityId = `automation-run-${String(args.runId)}`;
 
@@ -84,7 +115,7 @@ export const automationExecutionWorkflow = workflow.define({
         repoId: args.repoId,
         streamingEntityId,
         baseBranch: data.defaultBaseBranch ?? "main",
-        branchName: args.branchName,
+        branchName: isReadOnly ? undefined : args.branchName,
         createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
       });
 
@@ -102,7 +133,9 @@ export const automationExecutionWorkflow = workflow.define({
         completionMutation: "automations:handleCompletion",
         entityIdField: "automationRunId",
         model: args.model,
-        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+        allowedTools: isReadOnly
+          ? "Read,Bash,Glob,Grep"
+          : "Read,Write,Edit,Bash,Glob,Grep",
         repoId: args.repoId,
         streamingEntityId,
         runId: String(args.runId),
@@ -110,7 +143,7 @@ export const automationExecutionWorkflow = workflow.define({
 
       const result = await step.awaitEvent(taskCompleteEvent);
 
-      if (result.success) {
+      if (result.success && !isReadOnly) {
         completionPrUrl = await step.runAction(
           internal.taskWorkflowActions.createPullRequest,
           {

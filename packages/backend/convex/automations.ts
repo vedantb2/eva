@@ -80,6 +80,7 @@ export const update = authMutation({
     cronSchedule: v.optional(v.string()),
     model: v.optional(claudeModelValidator),
     enabled: v.optional(v.boolean()),
+    readOnly: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -95,6 +96,7 @@ export const update = authMutation({
     if (args.cronSchedule !== undefined) patch.cronSchedule = args.cronSchedule;
     if (args.model !== undefined) patch.model = args.model;
     if (args.enabled !== undefined) patch.enabled = args.enabled;
+    if (args.readOnly !== undefined) patch.readOnly = args.readOnly;
 
     const newSchedule = args.cronSchedule ?? automation.cronSchedule;
     const newEnabled =
@@ -244,6 +246,7 @@ export const triggerAutomation = internalMutation({
         model: automation.model ?? repo.defaultModel ?? "sonnet",
         rootDirectory: repo.rootDirectory ?? "",
         userId: automation.createdBy,
+        readOnly: automation.readOnly === true,
       },
     );
 
@@ -311,6 +314,7 @@ export const runNow = authMutation({
         model: automation.model ?? repo.defaultModel ?? "sonnet",
         rootDirectory: repo.rootDirectory ?? "",
         userId: automation.createdBy,
+        readOnly: automation.readOnly === true,
       },
     );
 

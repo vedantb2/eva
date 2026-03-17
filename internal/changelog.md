@@ -1,5 +1,13 @@
 # Changelog
 
+## Fix automations stuck on running + add manual run, stop, read-only mode - 2026-03-17
+
+- **Root cause fix:** `handleCompletion` was missing `runId` in its args validator. The sandbox callback sends `runId` as an extra field, which Convex rejects — causing the completion event to never fire and the workflow to hang at `awaitEvent` forever.
+- **Run Now button:** Users can manually trigger automation runs without waiting for the cron schedule.
+- **Stop button:** Users can cancel running automations (cancels workflow, cleans up streaming activity).
+- **Live streaming activity:** Run history now shows real-time steps during execution via `streaming.get`, and completed activity logs after runs finish.
+- **Read-only / Report Only mode:** New toggle in automation settings. When enabled, Claude analyzes the codebase and returns a report without making code changes, creating branches, or PRs. Uses restricted tool set (no Write/Edit) and a dedicated read-only prompt.
+
 ## Granular Sandbox Preparation Steps - 2026-03-17
 
 Split the monolithic `prepareSandbox` action into 4 granular actions (`createOrResumeSandbox`, `fetchBaseBranch`, `checkoutBaseBranch`, `setupSandboxBranch`) for workflow callers that use `baseBranch`. Each operation now runs as its own workflow step with an independent 10-minute action budget. Also bumped all git fetch timeouts to 240s.

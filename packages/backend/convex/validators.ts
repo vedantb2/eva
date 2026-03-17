@@ -354,6 +354,7 @@ export const automationFields = {
   cronSchedule: v.string(),
   model: v.optional(claudeModelValidator),
   enabled: v.boolean(),
+  readOnly: v.optional(v.boolean()),
   cronJobId: v.optional(v.string()),
   createdBy: v.id("users"),
   createdAt: v.number(),

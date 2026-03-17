@@ -311,13 +311,15 @@ function SettingsForm({ automation }: { automation: Automation }) {
   const [description, setDescription] = useState(automation.description);
   const [cronSchedule, setCronSchedule] = useState(automation.cronSchedule);
   const [model, setModel] = useState<ClaudeModel>(automation.model ?? "sonnet");
+  const [readOnly, setReadOnly] = useState(automation.readOnly === true);
   const [isSaving, setIsSaving] = useState(false);
 
   const hasChanges =
     title !== automation.title ||
     description !== automation.description ||
     cronSchedule !== automation.cronSchedule ||
-    model !== (automation.model ?? "sonnet");
+    model !== (automation.model ?? "sonnet") ||
+    readOnly !== (automation.readOnly === true);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -328,6 +330,7 @@ function SettingsForm({ automation }: { automation: Automation }) {
         description,
         cronSchedule,
         model,
+        readOnly,
       });
     } finally {
       setIsSaving(false);
@@ -364,6 +367,32 @@ function SettingsForm({ automation }: { automation: Automation }) {
           <p className="mt-1 text-[11px] text-muted-foreground">
             The prompt that will be executed on each run.
           </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium">Report Only</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Analyze and report without making code changes, branches, or PRs
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReadOnly(!readOnly)}
+            className={cn(
+              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              readOnly ? "bg-emerald-500" : "bg-muted-foreground/30",
+            )}
+          >
+            <span
+              className={cn(
+                "pointer-events-none block h-5 w-5 rounded-full bg-white transition-transform",
+                readOnly ? "translate-x-5" : "translate-x-0",
+              )}
+            />
+          </button>
         </div>
       </div>
 

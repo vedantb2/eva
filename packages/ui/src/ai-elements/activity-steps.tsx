@@ -21,10 +21,21 @@ import {
   SearchIcon,
   WorkflowIcon,
   BookOpenIcon,
-  BrainIcon,
   WrenchIcon,
 } from "lucide-react";
 import { memo, useState, useEffect, useRef } from "react";
+
+function EvaThinkingIcon({ className }: { className?: string }) {
+  return (
+    <img
+      src="/icon.png"
+      alt="Eva"
+      width={16}
+      height={16}
+      className={cn("rounded-full", className)}
+    />
+  );
+}
 
 export interface ActivityStep {
   type:
@@ -56,7 +67,7 @@ const stepConfig = {
   web_search: { icon: SearchIcon, defaultLabel: "Web search" },
   subtask: { icon: WorkflowIcon, defaultLabel: "Ran agent" },
   notebook: { icon: BookOpenIcon, defaultLabel: "Edited notebook" },
-  thinking: { icon: BrainIcon, defaultLabel: "Thinking..." },
+  thinking: { icon: EvaThinkingIcon, defaultLabel: "Thinking..." },
   tool: { icon: WrenchIcon, defaultLabel: "Used tool" },
 };
 

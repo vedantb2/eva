@@ -111,9 +111,9 @@ export function useElapsedSeconds(
       setElapsed(0);
       return;
     }
-    setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
     const id = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+      setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
     }, 1000);
     return () => clearInterval(id);
   }, [active, startedAt]);

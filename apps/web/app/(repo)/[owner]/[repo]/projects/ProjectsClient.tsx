@@ -1,9 +1,12 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
-import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
+import { useQueryStates } from "nuqs";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
@@ -21,6 +24,8 @@ import {
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
+import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
+import { ProjectDetailInline } from "@/lib/components/projects/ProjectDetailInline";
 import {
   IconLayoutKanban,
   IconPlus,
@@ -29,6 +34,7 @@ import {
   IconSortDescending,
   IconTimeline,
   IconList,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import {
   PROJECT_PHASES,
@@ -40,16 +46,13 @@ import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
 import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
 import { SORT_FIELDS, type SortField } from "./_components/ProjectsToolbar";
-
-import { useState, useMemo } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { useQueryStates } from "nuqs";
 import {
   searchParser,
   phasesParser,
   sortFieldParser,
   sortDirParser,
   projectViewParser,
+  projectIdParser,
 } from "@/lib/search-params";
 
 type ProjectView = "kanban" | "timeline" | "list";
@@ -73,13 +76,16 @@ export function ProjectsClient() {
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const deleteProject = useMutation(api.projects.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
-  const [{ q, phases, sort, dir, view }, setParams] = useQueryStates({
-    q: searchParser,
-    phases: phasesParser,
-    sort: sortFieldParser,
-    dir: sortDirParser,
-    view: projectViewParser,
-  });
+  const [{ q, phases, sort, dir, view, projectId }, setParams] = useQueryStates(
+    {
+      q: searchParser,
+      phases: phasesParser,
+      sort: sortFieldParser,
+      dir: sortDirParser,
+      view: projectViewParser,
+      projectId: projectIdParser,
+    },
+  );
   const searchQuery = q;
   const visiblePhases = useMemo(() => new Set<ProjectPhase>(phases), [phases]);
   const sortField = sort;
@@ -153,128 +159,163 @@ export function ProjectsClient() {
     setParams({ phases: [...next] });
   };
 
+  const handleOpenProject = (id: string) => {
+    setParams({ projectId: id });
+  };
+
+  const handleProjectClose = () => {
+    setParams({ projectId: null });
+  };
+
+  const typedProjectId = projectId as Id<"projects"> | null;
+  const isListDetailView = view === "list" && !!typedProjectId;
+  const selectedProject = useMemo(() => {
+    if (!typedProjectId || !projects) return undefined;
+    return projects.find((p) => p._id === typedProjectId);
+  }, [typedProjectId, projects]);
+
+  const toolbarContent = (
+    <div className="flex items-center gap-1.5 sm:gap-2">
+      <ToggleSearch
+        value={searchQuery}
+        onChange={(v) => setParams({ q: v })}
+        placeholder="Search projects..."
+        tooltipLabel="Search projects"
+        visible={hasProjects}
+      />
+      {hasProjects && (
+        <div className="flex items-center rounded-lg bg-muted/40 overflow-hidden">
+          {VIEW_OPTIONS.map((opt) => (
+            <Tooltip key={opt.key}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={view === opt.key ? "secondary" : "ghost"}
+                  size="icon"
+                  className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                  onClick={() => setParams({ view: opt.key })}
+                >
+                  <opt.icon size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{opt.label}</TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
+      )}
+      {hasProjects && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary" size="sm">
+              <IconFilter size={16} />
+              {visiblePhases.size === PROJECT_PHASES.length
+                ? "All Phases"
+                : `${visiblePhases.size} Phases`}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {PROJECT_PHASES.map((p) => {
+              const cfg = phaseConfig[p];
+              return (
+                <DropdownMenuCheckboxItem
+                  key={p}
+                  checked={visiblePhases.has(p)}
+                  onCheckedChange={() => handlePhaseToggle(p)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <cfg.icon size={16} className={cfg.text + " mr-2"} />
+                  <span className={cfg.text}>{cfg.label}</span>
+                </DropdownMenuCheckboxItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      {hasProjects && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary" size="sm">
+              {sortField === "created" ? "Date" : "Title"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup
+              value={sortField}
+              onValueChange={(v) => {
+                if (isSortField(v)) setParams({ sort: v });
+              }}
+            >
+              {SORT_FIELDS.map((item) => (
+                <DropdownMenuRadioItem key={item.key} value={item.key}>
+                  {item.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      {hasProjects && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setParams({ dir: dir === "asc" ? "desc" : "asc" })}
+            >
+              {sortDirection === "asc" ? (
+                <IconSortAscending size={16} />
+              ) : (
+                <IconSortDescending size={16} />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {sortDirection === "asc"
+              ? "Ascending - click to reverse"
+              : "Descending - click to reverse"}
+          </TooltipContent>
+        </Tooltip>
+      )}
+      <Button
+        size="sm"
+        className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+        onClick={() => setIsCreating(true)}
+      >
+        <IconPlus size={16} />
+        New Project
+      </Button>
+    </div>
+  );
+
   return (
     <>
       <PageWrapper
-        title="Projects"
+        title={
+          isListDetailView ? (
+            <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
+              <button
+                onClick={handleProjectClose}
+                className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
+              >
+                Projects
+              </button>
+              <IconChevronRight
+                size={14}
+                className="text-muted-foreground/50 flex-shrink-0"
+              />
+              <span className="truncate font-semibold">
+                {selectedProject?.title ?? ""}
+              </span>
+            </div>
+          ) : (
+            "Projects"
+          )
+        }
         fillHeight
         childPadding={false}
-        headerRight={
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <ToggleSearch
-              value={searchQuery}
-              onChange={(v) => setParams({ q: v })}
-              placeholder="Search projects..."
-              tooltipLabel="Search projects"
-              visible={hasProjects}
-            />
-            {hasProjects && (
-              <div className="flex items-center rounded-lg bg-muted/40 overflow-hidden">
-                {VIEW_OPTIONS.map((opt) => (
-                  <Tooltip key={opt.key}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={view === opt.key ? "secondary" : "ghost"}
-                        size="icon"
-                        className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
-                        onClick={() => setParams({ view: opt.key })}
-                      >
-                        <opt.icon size={16} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{opt.label}</TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
-            )}
-            {hasProjects && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm">
-                    <IconFilter size={16} />
-                    {visiblePhases.size === PROJECT_PHASES.length
-                      ? "All Phases"
-                      : `${visiblePhases.size} Phases`}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {PROJECT_PHASES.map((p) => {
-                    const cfg = phaseConfig[p];
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={p}
-                        checked={visiblePhases.has(p)}
-                        onCheckedChange={() => handlePhaseToggle(p)}
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        <cfg.icon size={16} className={cfg.text + " mr-2"} />
-                        <span className={cfg.text}>{cfg.label}</span>
-                      </DropdownMenuCheckboxItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {hasProjects && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm">
-                    {sortField === "created" ? "Date" : "Title"}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuRadioGroup
-                    value={sortField}
-                    onValueChange={(v) => {
-                      if (isSortField(v)) setParams({ sort: v });
-                    }}
-                  >
-                    {SORT_FIELDS.map((item) => (
-                      <DropdownMenuRadioItem key={item.key} value={item.key}>
-                        {item.label}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {hasProjects && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() =>
-                      setParams({ dir: dir === "asc" ? "desc" : "asc" })
-                    }
-                  >
-                    {sortDirection === "asc" ? (
-                      <IconSortAscending size={16} />
-                    ) : (
-                      <IconSortDescending size={16} />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {sortDirection === "asc"
-                    ? "Ascending - click to reverse"
-                    : "Descending - click to reverse"}
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <Button
-              size="sm"
-              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-              onClick={() => setIsCreating(true)}
-            >
-              <IconPlus size={16} />
-              New Project
-            </Button>
-          </div>
-        }
+        headerRight={isListDetailView ? undefined : toolbarContent}
       >
-        <div className="flex flex-1 min-h-0 min-w-0 flex-col p-3">
+        <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
           {projects === undefined ? (
             <div className="flex flex-1 items-center justify-center">
               <Spinner />
@@ -290,63 +331,76 @@ export function ProjectsClient() {
               onAction={() => setIsCreating(true)}
             />
           ) : (
-            <div className="flex flex-col flex-1 min-h-0 min-w-0 gap-4">
-              <AnimatePresence initial={false} mode="wait">
-                {view === "kanban" ? (
-                  <motion.div
-                    key="projects-kanban-view"
-                    className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ProjectsKanbanView
-                      projectsByPhase={projectsByPhase}
-                      visiblePhases={visiblePhases}
-                      owner={owner}
-                      name={name}
-                      basePath={basePath}
-                      onDelete={(id, title) =>
-                        setProjectToDelete({ id, title })
-                      }
+            <AnimatePresence initial={false} mode="wait">
+              {isListDetailView ? (
+                <motion.div
+                  key="projects-detail"
+                  className="flex min-w-0 flex-1 min-h-0"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <ProjectDetailInline
+                      key={typedProjectId}
+                      projectId={typedProjectId}
+                      projectUrl={`${basePath}/projects/${typedProjectId}`}
                     />
-                  </motion.div>
-                ) : view === "timeline" ? (
-                  <motion.div
-                    key="projects-timeline-view"
-                    className="flex flex-1 min-h-0 min-w-0"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ProjectsTimeline
-                      projects={filteredSorted}
-                      basePath={basePath}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="projects-list-view"
-                    className="flex flex-1 min-h-0"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ProjectsListView
-                      projectsByPhase={projectsByPhase}
-                      visiblePhases={visiblePhases}
-                      basePath={basePath}
-                      onDelete={(id, title) =>
-                        setProjectToDelete({ id, title })
-                      }
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                  </div>
+                </motion.div>
+              ) : view === "kanban" ? (
+                <motion.div
+                  key="projects-kanban-view"
+                  className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ProjectsKanbanView
+                    projectsByPhase={projectsByPhase}
+                    visiblePhases={visiblePhases}
+                    owner={owner}
+                    name={name}
+                    onOpenProject={handleOpenProject}
+                    onDelete={(id, title) => setProjectToDelete({ id, title })}
+                  />
+                </motion.div>
+              ) : view === "timeline" ? (
+                <motion.div
+                  key="projects-timeline-view"
+                  className="flex flex-1 min-h-0 min-w-0"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ProjectsTimeline
+                    projects={filteredSorted}
+                    basePath={basePath}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="projects-list-view"
+                  className="flex flex-1 min-h-0"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ProjectsListView
+                    projectsByPhase={projectsByPhase}
+                    visiblePhases={visiblePhases}
+                    basePath={basePath}
+                    selectedProjectId={projectId}
+                    onOpenProject={handleOpenProject}
+                    onDelete={(id, title) => setProjectToDelete({ id, title })}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           )}
         </div>
       </PageWrapper>
@@ -360,6 +414,15 @@ export function ProjectsClient() {
         onConfirm={handleDelete}
         isDeleting={isDeleting}
       />
+      {typedProjectId && view === "kanban" && (
+        <ProjectCardModal
+          isOpen={!!typedProjectId}
+          onClose={handleProjectClose}
+          projectId={typedProjectId}
+          createdAt={selectedProject?._creationTime ?? Date.now()}
+          projectUrl={`${basePath}/projects/${typedProjectId}`}
+        />
+      )}
     </>
   );
 }

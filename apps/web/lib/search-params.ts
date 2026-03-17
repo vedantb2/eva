@@ -89,7 +89,7 @@ export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
 
 const projectViews = ["kanban", "timeline", "list"] as const;
 export const projectViewParser = parseAsStringLiteral(projectViews)
-  .withDefault("kanban")
+  .withDefault("list")
   .withOptions(tabOptions);
 
 const quickTaskViews = ["kanban", "list"] as const;
@@ -124,3 +124,5 @@ export const logEntityTypesParser = parseAsArrayOf(parseAsString)
   .withOptions(searchOptions);
 
 export const taskIdParser = parseAsString.withOptions(tabOptions);
+
+export const projectIdParser = parseAsString.withOptions(tabOptions);

@@ -36,8 +36,8 @@ export function McpConfigClient() {
             <h3 className="text-sm font-medium">Root Prompt</h3>
             <p className="mt-1 text-[11px] text-muted-foreground">
               Freeform instructions injected into MCP server context to guide
-              the AI on your data topology (e.g. &quot;app1 uses Convex for
-              tasks, app2 uses Supabase for analytics&quot;).
+              the AI on your data topology. Shared across all apps in a
+              monorepo.
             </p>
           </div>
 

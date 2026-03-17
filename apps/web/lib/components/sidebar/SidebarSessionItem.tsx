@@ -4,7 +4,20 @@ import Link from "next/link";
 import type { Id } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
 import { cn } from "@conductor/ui";
-import dayjs from "@conductor/shared/dates";
+
+function compactTimeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return "now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${String(minutes)}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${String(hours)}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${String(days)}d`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${String(months)}mo`;
+  return `${String(Math.floor(months / 12))}y`;
+}
 
 type SessionStatus = "active" | "starting" | "closed";
 
@@ -72,7 +85,7 @@ export function SidebarSessionItem({
           <UserInitials userId={userId} />
         </div>
         <span className="shrink-0 text-xs text-muted-foreground/60">
-          {dayjs(timestamp).fromNow()}
+          {compactTimeAgo(timestamp)}
         </span>
       </div>
     </Link>

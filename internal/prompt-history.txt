@@ -1,15 +1,16 @@
-[] Flag is for creating issues via chat
+[]for the computer/editor tabs in sessions id page, is it better to have the toggle in config, or to just moe  this to a start button on the tab that starts it i added thet oggle in config so the sandbox starts up faster, but if we have a start button instead, can we    achieve the same speed?    
+[x] Flag is for creating issues via chat
 [x] Add mcp prompt to settings
-[] Break repo swjtcher and add org switcher
-[] Move this to a modal in ext which shows current repo selected
-[] Design sessions id tabs like chrome tabs
+[x] Break repo swjtcher and add org switcher
+[x] Move this to a modal in ext which shows current repo selected
+[x] Design sessions id tabs like chrome tabs
 [] Add response style on user profile page
 [] add team roles and description of roles, then if eva has a question she knows who to ask the question to, and this can be done through the teams bot then. e.g. if its a design question -> check team members -> check designers -> message designer on teams with question
-[] get chrome extension updated with new features
-[] fix chrome ext issues/errors/warnings
+[x] get chrome extension updated with new features
+[x] fix chrome ext issues/errors/warnings
+[x] add posted via Assist, store the origin of msg send
 [] figure out chrome distribution policy
 [] improve extension toolbar
-[x] add posted via Assist, store the origin of msg send
 
 [] auto open chrome in vnc
 [] fix agent browser connecting to chrome

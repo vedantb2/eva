@@ -18,6 +18,7 @@ import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import {
   fetchOrigin,
   setupBranch,
+  configureGitHubOrigin,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
   EPHEMERAL_LIFECYCLE,
@@ -268,6 +269,221 @@ export const prepareSandbox = internalAction({
     }
 
     return { sandboxId: sandbox.id };
+  },
+});
+
+export const createOrResumeSandbox = internalAction({
+  args: {
+    existingSandboxId: v.optional(v.string()),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    ephemeral: v.optional(v.boolean()),
+    repoId: v.id("githubRepos"),
+    sessionPersistenceId: v.optional(v.id("sessions")),
+    attachRunId: v.optional(v.id("agentRuns")),
+    streamingEntityId: v.optional(v.string()),
+  },
+  returns: v.object({ sandboxId: v.string() }),
+  handler: async (ctx, args) => {
+    const completedSteps: Array<{
+      type: string;
+      label: string;
+      status: string;
+    }> = [];
+    const emitProgress = async (label: string): Promise<void> => {
+      if (!args.streamingEntityId) return;
+      const steps = [
+        ...completedSteps,
+        { type: "tool", label, status: "active" },
+      ];
+      await ctx.runMutation(internal.streaming.internalSet, {
+        entityId: args.streamingEntityId,
+        currentActivity: JSON.stringify(steps),
+      });
+      completedSteps.push({ type: "tool", label, status: "complete" });
+    };
+
+    const setupStartedAt = Date.now();
+    const { daytona, sandboxEnvVars, snapshotName } =
+      await resolveSandboxContext(ctx, args.repoId);
+    const sessionVolumeMounts = args.sessionPersistenceId
+      ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
+      : undefined;
+
+    let sandbox: Sandbox | undefined;
+    let deleteSandboxOnFailure = false;
+    let attempt = 1;
+    const maxSetupAttempts = 3;
+    const attachRunSandbox = async (
+      sandboxToAttach: Sandbox,
+    ): Promise<void> => {
+      if (!args.attachRunId) {
+        return;
+      }
+      await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
+        runId: args.attachRunId,
+        sandboxId: sandboxToAttach.id,
+      });
+    };
+
+    while (true) {
+      try {
+        if (args.ephemeral) {
+          const prepared = await createSandboxAndPrepareRepo(
+            daytona,
+            args.installationId,
+            args.repoOwner,
+            args.repoName,
+            sandboxEnvVars,
+            EPHEMERAL_LIFECYCLE,
+            snapshotName,
+            sessionVolumeMounts,
+            attachRunSandbox,
+            emitProgress,
+          );
+          sandbox = prepared.sandbox;
+          deleteSandboxOnFailure = true;
+        } else {
+          const prepared = await getOrCreateSandbox(
+            daytona,
+            args.existingSandboxId,
+            args.installationId,
+            args.repoOwner,
+            args.repoName,
+            sandboxEnvVars,
+            SESSION_LIFECYCLE,
+            snapshotName,
+            sessionVolumeMounts,
+            emitProgress,
+          );
+          sandbox = prepared.sandbox;
+          deleteSandboxOnFailure = prepared.isNew;
+        }
+
+        if (!args.ephemeral && args.attachRunId && sandbox) {
+          await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
+            runId: args.attachRunId,
+            sandboxId: sandbox.id,
+          });
+        }
+
+        break;
+      } catch (error) {
+        if (deleteSandboxOnFailure && sandbox) {
+          try {
+            await sandbox.delete();
+          } catch {}
+        }
+
+        const message = errorMessage(error, "Sandbox setup failed");
+        const elapsed = Date.now() - setupStartedAt;
+        const shouldRetry =
+          isDaytonaNetworkIssue(message) && elapsed < MAX_SETUP_ELAPSED_MS;
+
+        if (!shouldRetry || attempt >= maxSetupAttempts) {
+          throw error;
+        }
+
+        const delayMs =
+          2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
+        console.warn(
+          `[daytona] createOrResumeSandbox transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
+        );
+        await sleep(delayMs);
+        completedSteps.length = 0;
+        await emitProgress("Retrying sandbox setup...");
+        attempt += 1;
+        sandbox = undefined;
+        deleteSandboxOnFailure = false;
+      }
+    }
+
+    if (!sandbox) {
+      throw new Error("Sandbox setup failed");
+    }
+
+    return { sandboxId: sandbox.id };
+  },
+});
+
+export const fetchBaseBranch = internalAction({
+  args: {
+    sandboxId: v.string(),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await fetchOrigin(
+      sandbox,
+      args.installationId,
+      args.repoOwner,
+      args.repoName,
+      args.baseBranch,
+      { prune: false, timeoutSeconds: 240 },
+    );
+    await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
+      10,
+    );
+    return null;
+  },
+});
+
+export const checkoutBaseBranch = internalAction({
+  args: {
+    sandboxId: v.string(),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await configureGitHubOrigin(
+      sandbox,
+      args.installationId,
+      args.repoOwner,
+      args.repoName,
+    );
+    await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
+      240,
+    );
+    return null;
+  },
+});
+
+export const setupSandboxBranch = internalAction({
+  args: {
+    sandboxId: v.string(),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await configureGitHubOrigin(
+      sandbox,
+      args.installationId,
+      args.repoOwner,
+      args.repoName,
+    );
+    await setupBranch(sandbox, args.branchName, args.baseBranch);
+    return null;
   },
 });
 

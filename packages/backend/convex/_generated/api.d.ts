@@ -22,6 +22,7 @@ import type * as _daytona_git from "../_daytona/git.js";
 import type * as _daytona_helpers from "../_daytona/helpers.js";
 import type * as _daytona_launch from "../_daytona/launch.js";
 import type * as _daytona_lifecycle from "../_daytona/lifecycle.js";
+import type * as _daytona_prepareSandboxSteps from "../_daytona/prepareSandboxSteps.js";
 import type * as _daytona_services from "../_daytona/services.js";
 import type * as _daytona_sessions from "../_daytona/sessions.js";
 import type * as _daytona_volumes from "../_daytona/volumes.js";
@@ -150,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   "_daytona/helpers": typeof _daytona_helpers;
   "_daytona/launch": typeof _daytona_launch;
   "_daytona/lifecycle": typeof _daytona_lifecycle;
+  "_daytona/prepareSandboxSteps": typeof _daytona_prepareSandboxSteps;
   "_daytona/services": typeof _daytona_services;
   "_daytona/sessions": typeof _daytona_sessions;
   "_daytona/volumes": typeof _daytona_volumes;

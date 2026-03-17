@@ -15,6 +15,7 @@ import {
 import { buildPrBody } from "../taskWorkflowActions";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
+import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
 
 export const taskExecutionWorkflow = workflow.define({
   args: {
@@ -57,23 +58,19 @@ export const taskExecutionWorkflow = workflow.define({
       });
       hasSubtasks = data.hasSubtasks;
 
-      const setupResult = await step.runAction(
-        internal.daytona.prepareSandbox,
-        {
-          existingSandboxId: data.projectSandboxId,
-          installationId: args.installationId,
-          repoOwner: data.repoOwner,
-          repoName: data.repoName,
-          branchName: data.branchName,
-          baseBranch: args.baseBranch,
-          ephemeral: !args.projectId,
-          repoId: args.repoId,
-          attachRunId: args.runId,
-          streamingEntityId: getTaskRunStreamingEntityId(args.runId),
-        },
-        { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
-      );
-      sandboxId = setupResult.sandboxId;
+      sandboxId = await prepareSandboxSteps(step, {
+        existingSandboxId: data.projectSandboxId,
+        installationId: args.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        ephemeral: !args.projectId,
+        repoId: args.repoId,
+        attachRunId: args.runId,
+        streamingEntityId: getTaskRunStreamingEntityId(args.runId),
+        baseBranch: args.baseBranch,
+        branchName: data.branchName,
+        createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
+      });
 
       await step.runAction(internal.daytona.launchOnExistingSandbox, {
         sandboxId,

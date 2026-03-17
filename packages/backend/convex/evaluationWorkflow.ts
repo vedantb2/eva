@@ -8,6 +8,7 @@ import { evalResultValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./taskWorkflowActions";
+import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
 const evalCompleteEvent = defineEvent({
   name: "evalComplete",
@@ -45,18 +46,17 @@ export const evaluationWorkflow = workflow.define({
         { docId: args.docId },
       );
 
-      const { sandboxId } = await step.runAction(
-        internal.daytona.prepareSandbox,
-        {
-          installationId: args.installationId,
-          repoOwner: docData.repoOwner,
-          repoName: docData.repoName,
-          baseBranch: args.branchName,
-          ephemeral: true,
-          repoId: docData.repoId,
-          streamingEntityId: String(args.reportId),
-        },
-      );
+      const streamingEntityId = String(args.reportId);
+
+      const sandboxId = await prepareSandboxSteps(step, {
+        installationId: args.installationId,
+        repoOwner: docData.repoOwner,
+        repoName: docData.repoName,
+        ephemeral: true,
+        repoId: docData.repoId,
+        streamingEntityId,
+        baseBranch: args.branchName,
+      });
 
       await step.runAction(internal.daytona.launchOnExistingSandbox, {
         sandboxId,
@@ -95,19 +95,16 @@ export const evaluationWorkflow = workflow.define({
           fixBranchName,
         });
 
-        const { sandboxId: fixSandboxId } = await step.runAction(
-          internal.daytona.prepareSandbox,
-          {
-            installationId: args.installationId,
-            repoOwner: fixData.repoOwner,
-            repoName: fixData.repoName,
-            branchName: fixBranchName,
-            baseBranch: args.branchName ?? "main",
-            ephemeral: true,
-            repoId: fixData.repoId,
-            streamingEntityId: String(args.reportId),
-          },
-        );
+        const fixSandboxId = await prepareSandboxSteps(step, {
+          installationId: args.installationId,
+          repoOwner: fixData.repoOwner,
+          repoName: fixData.repoName,
+          ephemeral: true,
+          repoId: fixData.repoId,
+          streamingEntityId,
+          baseBranch: args.branchName ?? "main",
+          branchName: fixBranchName,
+        });
 
         await step.runAction(internal.daytona.launchOnExistingSandbox, {
           sandboxId: fixSandboxId,

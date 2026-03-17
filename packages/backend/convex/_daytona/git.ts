@@ -86,7 +86,7 @@ export async function createSandbox(
   return sandbox;
 }
 
-async function configureGitHubOrigin(
+export async function configureGitHubOrigin(
   sandbox: Sandbox,
   installationId: number,
   owner: string,

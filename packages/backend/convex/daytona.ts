@@ -10,6 +10,10 @@ export {
   runSandboxCommand,
   getPreviewUrl,
   prepareSandbox,
+  createOrResumeSandbox,
+  fetchBaseBranch,
+  checkoutBaseBranch,
+  setupSandboxBranch,
   launchOnExistingSandbox,
   validateSandbox,
 } from "./_daytona/execution";

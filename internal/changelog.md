@@ -1,5 +1,11 @@
 # Changelog
 
+## Granular Sandbox Preparation Steps - 2026-03-17
+
+Split the monolithic `prepareSandbox` action into 4 granular actions (`createOrResumeSandbox`, `fetchBaseBranch`, `checkoutBaseBranch`, `setupSandboxBranch`) for workflow callers that use `baseBranch`. Each operation now runs as its own workflow step with an independent 10-minute action budget. Also bumped all git fetch timeouts to 240s.
+
+**Why:** `git fetch` on repos like vmem was exceeding the 120s exec timeout within the monolithic action, causing the entire sandbox preparation to fail. Breaking into separate steps gives each operation its own timeout budget and enables per-step retries via the workflow component.
+
 ## Fix quick tasks → project → build workflow - 2026-03-14
 
 - `createFromTasks` now sets `baseBranch` from repo defaults — previously omitted, causing builds to silently target wrong base branch

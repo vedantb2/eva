@@ -5,6 +5,7 @@ import { claudeModelValidator } from "./validators";
 import { taskCompleteEvent } from "./_taskWorkflow/events";
 import { buildPrBody } from "./taskWorkflowActions";
 import { buildRootDirectoryInstruction } from "./prompts/shared";
+import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
 function buildAutomationPrompt(
   title: string,
@@ -73,21 +74,19 @@ export const automationExecutionWorkflow = workflow.define({
         args.rootDirectory,
       );
 
-      const setupResult = await step.runAction(
-        internal.daytona.prepareSandbox,
-        {
-          installationId: args.installationId,
-          repoOwner: data.repoOwner,
-          repoName: data.repoName,
-          branchName: args.branchName,
-          baseBranch: data.defaultBaseBranch,
-          ephemeral: true,
-          repoId: args.repoId,
-          streamingEntityId: `automation-run-${String(args.runId)}`,
-        },
-        { retry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 } },
-      );
-      sandboxId = setupResult.sandboxId;
+      const streamingEntityId = `automation-run-${String(args.runId)}`;
+
+      sandboxId = await prepareSandboxSteps(step, {
+        installationId: args.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        ephemeral: true,
+        repoId: args.repoId,
+        streamingEntityId,
+        baseBranch: data.defaultBaseBranch ?? "main",
+        branchName: args.branchName,
+        createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
+      });
 
       await step.runMutation(internal.automations.updateRunStatus, {
         runId: args.runId,
@@ -105,7 +104,7 @@ export const automationExecutionWorkflow = workflow.define({
         model: args.model,
         allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
         repoId: args.repoId,
-        streamingEntityId: `automation-run-${String(args.runId)}`,
+        streamingEntityId,
         runId: String(args.runId),
       });
 

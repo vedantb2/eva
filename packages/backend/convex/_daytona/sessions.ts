@@ -19,7 +19,7 @@ import {
   createSandboxAndPrepareRepo,
   SESSION_LIFECYCLE,
 } from "./git";
-import { ensureSessionClaudeVolume } from "./volumes";
+import { ensureSessionClaudeVolume, ensureDesignClaudeVolume } from "./volumes";
 import { startSessionServices } from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 
@@ -104,7 +104,7 @@ export const startSessionSandbox = internalAction({
         sandboxEnvVars,
         SESSION_LIFECYCLE,
         snapshotName,
-        await ensureSessionClaudeVolume(daytona, args.sessionId),
+        await ensureSessionClaudeVolume(daytona, args.repoId, args.sessionId),
       );
       const sandbox = prepared.sandbox;
       await fetchOrigin(
@@ -166,8 +166,9 @@ export const startDesignSandbox = internalAction({
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
-      const designVolumeMounts = await ensureSessionClaudeVolume(
+      const designVolumeMounts = await ensureDesignClaudeVolume(
         daytona,
+        args.repoId,
         args.designSessionId,
       );
 

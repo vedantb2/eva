@@ -22,6 +22,8 @@ import {
   Spinner,
   Badge,
   ActivitySteps,
+  useElapsedSeconds,
+  formatElapsed,
   cn,
 } from "@conductor/ui";
 import {
@@ -167,6 +169,8 @@ function RunAccordion({
     isActive ? { entityId: streamingEntityId } : "skip",
   );
 
+  const elapsed = useElapsedSeconds(run.startedAt, isActive);
+
   const statusColor =
     run.status === "success"
       ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/30"
@@ -179,8 +183,8 @@ function RunAccordion({
   const duration =
     run.finishedAt && run.startedAt
       ? formatDuration(run.startedAt, run.finishedAt)
-      : run.status === "running"
-        ? "Running..."
+      : isActive && run.startedAt
+        ? formatElapsed(elapsed)
         : "";
 
   const liveSteps = streaming?.currentActivity

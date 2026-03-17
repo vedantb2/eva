@@ -94,29 +94,6 @@ export function DesignPreviewPanel({
         className="flex flex-col h-full"
       >
         <div className="relative flex items-end px-2 pt-1.5 bg-secondary/50">
-          <Tabs
-            value={view}
-            onValueChange={(v) => {
-              if (v === "desktop" || v === "mobile") {
-                setDesignParams({ view: v });
-              }
-            }}
-          >
-            <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none mr-1">
-              <TabsTrigger
-                value="desktop"
-                className="relative flex items-center gap-1 rounded-none rounded-t-md border border-b-0 px-2.5 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary"
-              >
-                <IconDeviceDesktop className="w-3.5 h-3.5" />
-              </TabsTrigger>
-              <TabsTrigger
-                value="mobile"
-                className="relative flex items-center gap-1 rounded-none rounded-t-md border border-b-0 px-2.5 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary"
-              >
-                <IconDeviceMobile className="w-3.5 h-3.5" />
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
           <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none">
             {latestVariations.map((_, i) => (
               <TabsTrigger
@@ -128,25 +105,26 @@ export function DesignPreviewPanel({
               </TabsTrigger>
             ))}
           </TabsList>
-          {!isArchived && (
-            <div className="ml-auto flex items-center pb-1">
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 text-xs gap-1 shrink-0"
-                onClick={() => onSelectVariation(activeTabIndex)}
-                disabled={selectedVariationIndex === activeTabIndex}
-              >
-                <IconCheck size={14} />
-                {selectedVariationIndex === activeTabIndex
-                  ? "Selected"
-                  : "Use this design"}
-              </Button>
-            </div>
-          )}
           <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
         </div>
-        <div className="px-2 py-1.5">
+        <div className="flex items-center gap-1 px-2 py-1.5 shrink-0">
+          <Tabs
+            value={view}
+            onValueChange={(v) => {
+              if (v === "desktop" || v === "mobile") {
+                setDesignParams({ view: v });
+              }
+            }}
+          >
+            <TabsList className="h-8">
+              <TabsTrigger value="desktop" className="text-xs px-2">
+                <IconDeviceDesktop size={14} />
+              </TabsTrigger>
+              <TabsTrigger value="mobile" className="text-xs px-2">
+                <IconDeviceMobile size={14} />
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <PreviewNavBar
             previewUrl={previewUrl}
             iframeRef={activeIframeRef}
@@ -210,6 +188,25 @@ export function DesignPreviewPanel({
             </div>
           </TabsContent>
         ))}
+        <div className="flex items-center justify-between gap-2 px-3 py-2 shrink-0">
+          {!isArchived && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-7 text-xs gap-1 shrink-0"
+              onClick={() => onSelectVariation(activeTabIndex)}
+              disabled={selectedVariationIndex === activeTabIndex}
+            >
+              <IconCheck size={14} />
+              {selectedVariationIndex === activeTabIndex
+                ? "Selected"
+                : "Use this design"}
+            </Button>
+          )}
+          <p className="text-xs text-muted-foreground truncate">
+            {latestVariations[activeTabIndex]?.label}
+          </p>
+        </div>
       </Tabs>
     </div>
   );

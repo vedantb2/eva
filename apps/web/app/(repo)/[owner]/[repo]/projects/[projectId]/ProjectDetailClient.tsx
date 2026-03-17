@@ -22,7 +22,7 @@ import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
 
-import { IconGitBranch, IconHammer } from "@tabler/icons-react";
+import { IconGitBranch, IconHammer, IconRefresh } from "@tabler/icons-react";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 
 interface ProjectDetailClientProps {
@@ -34,7 +34,10 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const [isStartingBuild, setIsStartingBuild] = useState(false);
+  const [isRerunModalOpen, setIsRerunModalOpen] = useState(false);
+  const [isStartingRerun, setIsStartingRerun] = useState(false);
   const startBuild = useMutation(api.buildWorkflow.startBuild);
+  const rerunBuild = useMutation(api.buildWorkflow.rerunBuild);
 
   const project = useQuery(api.projects.get, { id: typedProjectId });
   const streaming = useQuery(api.streaming.get, { entityId: projectId });
@@ -84,6 +87,34 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
       headerRight={
         !isDraftOrFinalized ? (
           <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsRerunModalOpen(true)}
+                    disabled={
+                      !isOwner ||
+                      !!project.activeBuildWorkflowId ||
+                      !!project.scheduledBuildAt
+                    }
+                  >
+                    <IconRefresh size={16} />
+                    Rerun
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {!isOwner ? (
+                <TooltipContent>
+                  Only the project owner can rerun
+                </TooltipContent>
+              ) : project.activeBuildWorkflowId ? (
+                <TooltipContent>Build is currently running</TooltipContent>
+              ) : project.scheduledBuildAt ? (
+                <TooltipContent>Build is already scheduled</TooltipContent>
+              ) : null}
+            </Tooltip>
             <ScheduleBuildPopover
               projectId={typedProjectId}
               scheduledBuildAt={project.scheduledBuildAt}
@@ -187,6 +218,51 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             >
               <IconHammer size={16} />
               {isStartingBuild ? "Starting..." : "Start cooking"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={isRerunModalOpen}
+        onOpenChange={(v) => {
+          if (!v) setIsRerunModalOpen(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rerun Project</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="text-muted-foreground">
+              This will create a new branch, reset all tasks to todo, and rerun
+              the entire build from scratch.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              All previous agent runs will be preserved. A new PR will be
+              created on the new branch.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsRerunModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={isStartingRerun}
+              onClick={async () => {
+                setIsStartingRerun(true);
+                try {
+                  await rerunBuild({
+                    projectId: typedProjectId,
+                    installationId: repo.installationId,
+                  });
+                  setIsRerunModalOpen(false);
+                } finally {
+                  setIsStartingRerun(false);
+                }
+              }}
+            >
+              <IconRefresh size={16} />
+              {isStartingRerun ? "Starting..." : "Rerun build"}
             </Button>
           </DialogFooter>
         </DialogContent>

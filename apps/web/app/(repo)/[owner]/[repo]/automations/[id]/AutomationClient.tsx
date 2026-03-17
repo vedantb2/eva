@@ -35,6 +35,12 @@ import {
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@/lib/utils/formatDuration";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { Streamdown } from "streamdown";
+import { cjk } from "@streamdown/cjk";
+import { math } from "@streamdown/math";
+import { mermaid } from "@streamdown/mermaid";
+
+const summaryPlugins = { cjk, math, mermaid };
 
 type Automation = Doc<"automations">;
 
@@ -270,7 +276,12 @@ function RunAccordion({
               <p className="text-xs font-medium text-muted-foreground mb-1">
                 Summary
               </p>
-              <p className="text-sm whitespace-pre-wrap">{run.resultSummary}</p>
+              <Streamdown
+                className="text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                plugins={summaryPlugins}
+              >
+                {run.resultSummary}
+              </Streamdown>
             </div>
           )}
           {run.error && (

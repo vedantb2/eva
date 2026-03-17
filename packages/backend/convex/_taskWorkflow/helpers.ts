@@ -71,8 +71,10 @@ export function buildRunResultSummary(
   success: boolean,
   prUrl: string | null,
   projectId: Id<"projects"> | undefined,
+  claudeResult?: string,
 ): string | undefined {
   if (!success) return undefined;
+  if (claudeResult) return claudeResult;
   if (prUrl) return projectId ? "Created project PR" : "Created task PR";
   return projectId
     ? "Pushed commit to project branch"
@@ -88,6 +90,7 @@ export async function finalizeRunStatus(
     error: string | null;
     prUrl: string | null;
     exitReason?: string;
+    claudeResult?: string;
   },
 ): Promise<void> {
   const run = await ctx.db.get(params.runId);
@@ -100,6 +103,7 @@ export async function finalizeRunStatus(
       params.success,
       params.prUrl,
       params.projectId,
+      params.claudeResult,
     ),
     prUrl: params.prUrl ?? undefined,
     error: params.success ? undefined : (params.error ?? "Unknown error"),

@@ -140,6 +140,7 @@ export const finalizeRunStreamingPhase = internalMutation({
     prUrl: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     exitReason: v.optional(v.string()),
+    claudeResult: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -150,6 +151,7 @@ export const finalizeRunStreamingPhase = internalMutation({
       error: args.error,
       prUrl: args.prUrl,
       exitReason: args.exitReason,
+      claudeResult: args.claudeResult,
     });
     if (args.activityLog) {
       await upsertActivityLog(ctx, args.runId, args.activityLog);
@@ -172,6 +174,7 @@ export const completeRun = internalMutation({
     activityLog: v.union(v.string(), v.null()),
     exitReason: v.optional(v.string()),
     mode: v.optional(runModeValidator),
+    claudeResult: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -184,6 +187,7 @@ export const completeRun = internalMutation({
       error: args.error,
       prUrl: args.prUrl,
       exitReason: args.exitReason,
+      claudeResult: args.claudeResult,
     });
 
     if (args.activityLog) {

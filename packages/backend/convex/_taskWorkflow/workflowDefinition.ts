@@ -38,6 +38,7 @@ export const taskExecutionWorkflow = workflow.define({
     let completionError: string | null = null;
     let completionPrUrl: string | null = null;
     let completionActivityLog: string | null = null;
+    let completionResult: string | null = null;
     let runCompletionRecorded = false;
     let runFinalized = false;
     let sandboxDeleted = false;
@@ -102,6 +103,7 @@ export const taskExecutionWorkflow = workflow.define({
       completionSuccess = result.success;
       completionError = result.error;
       completionActivityLog = result.activityLog;
+      completionResult = result.result;
 
       if (result.success) {
         await step.runMutation(
@@ -154,6 +156,7 @@ export const taskExecutionWorkflow = workflow.define({
         error: result.error,
         prUrl: completionPrUrl,
         activityLog: result.activityLog,
+        claudeResult: result.result ?? undefined,
       });
       runCompletionRecorded = true;
 
@@ -292,6 +295,7 @@ export const taskExecutionWorkflow = workflow.define({
         hasSubtasks: data.hasSubtasks,
         activityLog: result.activityLog,
         mode: args.mode,
+        claudeResult: result.result ?? undefined,
       });
       runFinalized = true;
 
@@ -342,6 +346,7 @@ export const taskExecutionWorkflow = workflow.define({
             prUrl: completionPrUrl,
             activityLog: completionActivityLog,
             exitReason: fallbackExitReason,
+            claudeResult: completionResult ?? undefined,
           },
         );
       }
@@ -358,6 +363,7 @@ export const taskExecutionWorkflow = workflow.define({
           activityLog: completionActivityLog,
           exitReason: fallbackExitReason,
           mode: args.mode,
+          claudeResult: completionResult ?? undefined,
         });
       }
 

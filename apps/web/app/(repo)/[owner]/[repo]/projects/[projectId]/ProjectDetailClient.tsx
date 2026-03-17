@@ -22,8 +22,14 @@ import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
 
-import { IconGitBranch, IconHammer } from "@tabler/icons-react";
+import {
+  IconGitBranch,
+  IconHammer,
+  IconPlayerStop,
+  IconLoader2,
+} from "@tabler/icons-react";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
+import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 
 interface ProjectDetailClientProps {
   projectId: string;
@@ -34,12 +40,27 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const [isStartingBuild, setIsStartingBuild] = useState(false);
+  const [isStoppingBuild, setIsStoppingBuild] = useState(false);
+  const [showStopBuildConfirm, setShowStopBuildConfirm] = useState(false);
   const startBuild = useMutation(api.buildWorkflow.startBuild);
+  const cancelBuild = useMutation(api.buildWorkflow.cancelBuild);
 
   const project = useQuery(api.projects.get, { id: typedProjectId });
   const streaming = useQuery(api.streaming.get, { entityId: projectId });
   const currentUserId = useQuery(api.auth.me);
   const isOwner = project ? currentUserId === project.userId : false;
+
+  const handleStopBuild = async () => {
+    if (!project) return;
+    setIsStoppingBuild(true);
+    try {
+      await cancelBuild({ projectId: typedProjectId });
+    } catch (err) {
+      console.error("Failed to stop build:", err);
+    } finally {
+      setIsStoppingBuild(false);
+    }
+  };
 
   if (project === undefined) {
     return (
@@ -89,33 +110,43 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
               scheduledBuildAt={project.scheduledBuildAt}
               disabled={!isOwner || !!project.activeBuildWorkflowId}
             />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Button
-                    size="sm"
-                    onClick={() => setIsBuildModalOpen(true)}
-                    disabled={
-                      !isOwner ||
-                      !!project.scheduledBuildAt ||
-                      !!project.activeBuildWorkflowId
-                    }
-                  >
-                    <IconHammer size={16} />
-                    Build Project
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              {!isOwner ? (
-                <TooltipContent>
-                  Only the project owner can build
-                </TooltipContent>
-              ) : project.activeBuildWorkflowId ? (
-                <TooltipContent>Build is currently running</TooltipContent>
-              ) : project.scheduledBuildAt ? (
-                <TooltipContent>Build is already scheduled</TooltipContent>
-              ) : null}
-            </Tooltip>
+            {project.activeBuildWorkflowId ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setShowStopBuildConfirm(true)}
+                disabled={!isOwner || isStoppingBuild}
+              >
+                {isStoppingBuild ? (
+                  <IconLoader2 size={16} className="animate-spin" />
+                ) : (
+                  <IconPlayerStop size={16} />
+                )}
+                Stop Build
+              </Button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button
+                      size="sm"
+                      onClick={() => setIsBuildModalOpen(true)}
+                      disabled={!isOwner || !!project.scheduledBuildAt}
+                    >
+                      <IconHammer size={16} />
+                      Build Project
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {!isOwner ? (
+                  <TooltipContent>
+                    Only the project owner can build
+                  </TooltipContent>
+                ) : project.scheduledBuildAt ? (
+                  <TooltipContent>Build is already scheduled</TooltipContent>
+                ) : null}
+              </Tooltip>
+            )}
           </div>
         ) : null
       }
@@ -191,6 +222,13 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <StopConfirmDialog
+        open={showStopBuildConfirm}
+        onOpenChange={setShowStopBuildConfirm}
+        onConfirm={handleStopBuild}
+        isStopping={isStoppingBuild}
+      />
     </PageWrapper>
   );
 }

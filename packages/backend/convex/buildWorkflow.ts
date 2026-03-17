@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
 import { buildTaskDoneEvent } from "./taskWorkflow";
@@ -331,6 +332,71 @@ export const cancelScheduledBuild = authMutation({
       scheduledBuildAt: undefined,
       scheduledBuildFunctionId: undefined,
     });
+    return null;
+  },
+});
+
+export const cancelBuild = authMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      throw new Error("Project not found");
+
+    if (!project.activeBuildWorkflowId) {
+      throw new Error("No active build to cancel");
+    }
+
+    try {
+      await workflow.cancel(ctx, project.activeBuildWorkflowId as WorkflowId);
+    } catch {}
+
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    for (const task of tasks) {
+      if (task.status !== "in_progress") continue;
+
+      if (task.activeWorkflowId) {
+        try {
+          await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
+        } catch {}
+      }
+
+      const run = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("status"), "queued"),
+            q.eq(q.field("status"), "running"),
+          ),
+        )
+        .first();
+
+      if (run) {
+        await ctx.db.patch(run._id, {
+          status: "error",
+          error: "Cancelled by user",
+          finishedAt: Date.now(),
+        });
+      }
+
+      await ctx.db.patch(task._id, {
+        status: "todo",
+        activeWorkflowId: undefined,
+        updatedAt: Date.now(),
+      });
+    }
+
+    await ctx.db.patch(args.projectId, {
+      activeBuildWorkflowId: undefined,
+      lastBuildError: "Build cancelled by user",
+    });
+
     return null;
   },
 });

@@ -1,12 +1,18 @@
 "use client";
 
-import { Card, CardContent } from "@conductor/ui";
+import { useState } from "react";
+import { Card, CardContent, Button } from "@conductor/ui";
 import type { Id } from "@conductor/backend";
 import { DependencyBadge } from "@/lib/components/tasks/DependencyBadge";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
-import { IconGitPullRequest, IconClock } from "@tabler/icons-react";
+import {
+  IconGitPullRequest,
+  IconClock,
+  IconPlayerStop,
+  IconLoader2,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import {
   statusConfig,
@@ -15,6 +21,7 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
 import dayjs from "@conductor/shared/dates";
+import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 
 interface ProjectTaskCardProps {
   id: Id<"agentTasks">;
@@ -42,6 +49,23 @@ export function ProjectTaskCard({
   const isBlocked = useQuery(api.taskDependencies.isBlocked, { taskId: id });
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
+  const cancelExecution = useMutation(
+    api._taskWorkflow.publicMutations.cancelExecution,
+  );
+  const [isStopping, setIsStopping] = useState(false);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const isActive = status === "in_progress";
+
+  const handleStop = async () => {
+    setIsStopping(true);
+    try {
+      await cancelExecution({ taskId: id });
+    } catch (err) {
+      console.error("Failed to stop task:", err);
+    } finally {
+      setIsStopping(false);
+    }
+  };
 
   return (
     <Card
@@ -89,6 +113,24 @@ export function ProjectTaskCard({
                 </TooltipContent>
               </Tooltip>
             ) : null}
+            {isActive && (
+              <Button
+                variant="destructive"
+                size="icon-xs"
+                className="h-5 w-5 flex-shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowStopConfirm(true);
+                }}
+                disabled={isStopping}
+              >
+                {isStopping ? (
+                  <IconLoader2 size={12} className="animate-spin" />
+                ) : (
+                  <IconPlayerStop size={12} />
+                )}
+              </Button>
+            )}
             <DependencyBadge isBlocked={isBlocked ?? false} status={status} />
           </div>
         </div>
@@ -102,6 +144,12 @@ export function ProjectTaskCard({
           <SubtaskProgress taskId={id} />
         </div>
       </CardContent>
+      <StopConfirmDialog
+        open={showStopConfirm}
+        onOpenChange={setShowStopConfirm}
+        onConfirm={handleStop}
+        isStopping={isStopping}
+      />
     </Card>
   );
 }

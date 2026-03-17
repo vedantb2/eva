@@ -113,7 +113,7 @@ export const startSessionSandbox = internalAction({
         args.repoOwner,
         args.repoName,
         undefined,
-        { prune: false, timeoutSeconds: 60 },
+        { prune: false, timeoutSeconds: 240 },
       );
       await checkoutSessionBranch(sandbox, args.branchName, args.baseBranch);
       const { port: devPort, devCommand } = await startSessionServices(

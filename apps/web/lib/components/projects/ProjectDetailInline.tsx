@@ -11,6 +11,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -34,6 +36,9 @@ import {
 import dayjs from "@conductor/shared/dates";
 import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 import { ProjectProgressBar } from "./ProjectProgressBar";
+
+const GHOST_TRIGGER_CLASS =
+  "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-md text-[13px] [&>svg:last-child]:hidden";
 
 interface ProjectDetailInlineProps {
   projectId: Id<"projects">;
@@ -65,47 +70,33 @@ export function ProjectDetailInline({
   return (
     <div className="flex flex-1 min-h-0 overflow-y-auto scrollbar">
       <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto py-6 px-4">
-        <div className="space-y-4">
-          {(project.description || project.rawInput) && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-1.5">
-                Description
-              </p>
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-6">
+          <div className="space-y-4">
+            {(project.description || project.rawInput) && (
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {project.description || project.rawInput}
               </p>
+            )}
+            <ProjectProgressBar projectId={projectId} />
+          </div>
+
+          <div className="pl-0 sm:pl-6 space-y-0.5">
+            <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+              <IconCalendar
+                size={14}
+                className="text-muted-foreground shrink-0"
+              />
+              <span>{dayjs(project._creationTime).format("MMM D, YYYY")}</span>
+              <span className="text-muted-foreground">
+                ({dayjs(project._creationTime).fromNow()})
+              </span>
             </div>
-          )}
-          <ProjectProgressBar projectId={projectId} />
-        </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-              <IconCalendar size={12} />
-              Created
-            </p>
-            <p className="text-sm text-foreground">
-              {dayjs(project._creationTime).format("MMM D, YYYY")}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {dayjs(project._creationTime).fromNow()}
-            </p>
-          </div>
+            <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+              <IconFlag size={14} className="text-muted-foreground shrink-0" />
+              <ProjectPhaseBadge phase={project.phase} />
+            </div>
 
-          <div>
-            <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-              <IconFlag size={12} />
-              Phase
-            </p>
-            <ProjectPhaseBadge phase={project.phase} />
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-              <IconUser size={12} />
-              Project Lead
-            </p>
             <Select
               value={project.projectLead ?? "none"}
               onValueChange={(val) =>
@@ -116,37 +107,53 @@ export function ProjectDetailInline({
                 })
               }
             >
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Unassigned" />
+              <SelectTrigger className={GHOST_TRIGGER_CLASS}>
+                <SelectValue>
+                  <div
+                    className={`flex items-center gap-1.5 ${!project.projectLead ? "text-muted-foreground" : ""}`}
+                  >
+                    <IconUser size={14} className="text-muted-foreground" />
+                    <span>
+                      {project.projectLead
+                        ? (() => {
+                            const lead = (users ?? []).find(
+                              (u) => u._id === project.projectLead,
+                            );
+                            return lead ? displayName(lead) : "Unknown";
+                          })()
+                        : "Project Lead"}
+                    </span>
+                  </div>
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Unassigned</SelectItem>
-                {(users ?? []).map((user) => (
-                  <SelectItem key={user._id} value={user._id}>
-                    {displayName(user)}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  <SelectLabel>Project Lead</SelectLabel>
+                  <SelectItem value="none">Unassigned</SelectItem>
+                  {(users ?? []).map((user) => (
+                    <SelectItem key={user._id} value={user._id}>
+                      {displayName(user)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
 
-          <div>
-            <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
-              <IconUsers size={12} />
-              Members
-            </p>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="w-full justify-start"
+                <button
+                  className={`flex items-center w-full min-h-[40px] rounded-md hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] ${!project.members?.length ? "text-muted-foreground" : ""}`}
                 >
-                  <IconUsers size={14} />
-                  {project.members?.length
-                    ? `${project.members.length} member${project.members.length > 1 ? "s" : ""}`
-                    : "None"}
-                </Button>
+                  <IconUsers
+                    size={14}
+                    className="text-muted-foreground shrink-0"
+                  />
+                  <span>
+                    {project.members?.length
+                      ? `${project.members.length} member${project.members.length > 1 ? "s" : ""}`
+                      : "Members"}
+                  </span>
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 {(users ?? []).map((user) => {
@@ -170,44 +177,44 @@ export function ProjectDetailInline({
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <DatePickerField
+              label="Start Date"
+              icon={IconCalendarEvent}
+              value={project.projectStartDate}
+              onChange={(date) =>
+                updateProject({
+                  id: projectId,
+                  projectStartDate: date ?? undefined,
+                })
+              }
+            />
+
+            <DatePickerField
+              label="End Date"
+              icon={IconCalendarDue}
+              value={project.projectEndDate}
+              onChange={(date) =>
+                updateProject({
+                  id: projectId,
+                  projectEndDate: date ?? undefined,
+                })
+              }
+            />
+
+            <DatePickerField
+              label="Deadline"
+              icon={IconAlertTriangle}
+              iconClassName="text-destructive"
+              value={project.deadline}
+              onChange={(date) =>
+                updateProject({
+                  id: projectId,
+                  deadline: date ?? undefined,
+                })
+              }
+            />
           </div>
-
-          <DatePickerField
-            label="Start Date"
-            icon={IconCalendarEvent}
-            value={project.projectStartDate}
-            onChange={(date) =>
-              updateProject({
-                id: projectId,
-                projectStartDate: date ?? undefined,
-              })
-            }
-          />
-
-          <DatePickerField
-            label="End Date"
-            icon={IconCalendarDue}
-            value={project.projectEndDate}
-            onChange={(date) =>
-              updateProject({
-                id: projectId,
-                projectEndDate: date ?? undefined,
-              })
-            }
-          />
-
-          <DatePickerField
-            label="Deadline"
-            icon={IconAlertTriangle}
-            value={project.deadline}
-            className="text-destructive"
-            onChange={(date) =>
-              updateProject({
-                id: projectId,
-                deadline: date ?? undefined,
-              })
-            }
-          />
         </div>
 
         <div>
@@ -224,45 +231,40 @@ export function ProjectDetailInline({
 function DatePickerField({
   label,
   value,
-  className,
   icon: Icon,
+  iconClassName,
   onChange,
 }: {
   label: string;
   value: number | undefined;
-  className?: string;
-  icon?: typeof IconCalendar;
+  icon: typeof IconCalendar;
+  iconClassName?: string;
   onChange: (epoch: number | null) => void;
 }) {
   const selected = value ? new Date(value) : undefined;
 
   return (
-    <div>
-      <p
-        className={`text-xs mb-1.5 flex items-center gap-1.5 ${className ?? "text-muted-foreground"}`}
-      >
-        {Icon && <Icon size={12} />}
-        {label}
-      </p>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className={`w-full justify-start text-left font-normal ${!selected ? "text-muted-foreground" : ""}`}
-          >
-            <IconCalendar size={14} />
-            {selected ? dayjs(selected).format("MMM D, YYYY") : "Pick a date"}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={selected}
-            onSelect={(date) => onChange(date ? date.getTime() : null)}
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className={`flex items-center w-full min-h-[40px] rounded-md hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] ${!selected ? "text-muted-foreground" : ""}`}
+        >
+          <Icon
+            size={14}
+            className={iconClassName ?? "text-muted-foreground"}
           />
-        </PopoverContent>
-      </Popover>
-    </div>
+          <span>
+            {selected ? dayjs(selected).format("MMM D, YYYY") : label}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={selected}
+          onSelect={(date) => onChange(date ? date.getTime() : null)}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -21,6 +21,7 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
+import { ProjectMetadataBar } from "@/lib/components/projects/ProjectMetadataBar";
 
 import {
   IconGitBranch,
@@ -151,6 +152,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
         ) : null
       }
     >
+      <ProjectMetadataBar projectId={typedProjectId} />
       <div className="flex-1 flex flex-col min-h-0">
         {isDraftOrFinalized ? (
           <ProjectTabs

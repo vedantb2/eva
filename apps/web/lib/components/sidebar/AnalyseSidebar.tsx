@@ -28,6 +28,7 @@ import {
   IconBookmark,
   IconBrain,
   IconFolder,
+  IconPlus,
   IconRefresh,
   IconTrash,
 } from "@tabler/icons-react";
@@ -120,15 +121,24 @@ export function AnalyseSidebar({
 
   return (
     <>
-      <div className="p-2">
+      <div className="flex items-center gap-1.5 p-2">
         <SearchInput
           placeholder="Search queries..."
           value={searchQuery}
           onChange={setSearchQuery}
           onClear={() => setSearchQuery("")}
-          className="max-w-none"
+          className="min-w-0 flex-1"
           inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
         />
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="shrink-0 text-sidebar-primary"
+          onClick={() => setIsCreateModalOpen(true)}
+          title="New query"
+        >
+          <IconPlus size={16} />
+        </Button>
       </div>
 
       <div className="flex-1">

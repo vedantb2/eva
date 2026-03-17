@@ -75,7 +75,26 @@ export function PreviewNavBar({
     const iframe = iframeRef.current;
     if (!iframe) return;
     iframe.addEventListener("load", syncPathFromIframe);
-    return () => iframe.removeEventListener("load", syncPathFromIframe);
+
+    function handleMessage(event: MessageEvent) {
+      if (
+        event.source === iframeRef.current?.contentWindow &&
+        typeof event.data === "object" &&
+        event.data !== null &&
+        "type" in event.data &&
+        event.data.type === "navigation" &&
+        "url" in event.data &&
+        typeof event.data.url === "string"
+      ) {
+        setPathInput(getPathFromUrl(event.data.url));
+      }
+    }
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      iframe.removeEventListener("load", syncPathFromIframe);
+      window.removeEventListener("message", handleMessage);
+    };
   }, [iframeRef, syncPathFromIframe]);
 
   function goBack() {
@@ -144,7 +163,7 @@ export function PreviewNavBar({
         )}
       </WebPreviewNavigationButton>
       <Input
-        className="h-8 flex-1 text-xs max-w-40 sm:max-w-64"
+        className="h-8 flex-1 text-xs"
         value={pathInput}
         onChange={(e) => setPathInput(e.target.value)}
         onBlur={commitPath}

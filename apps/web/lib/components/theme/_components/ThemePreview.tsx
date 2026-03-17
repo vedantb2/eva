@@ -31,7 +31,7 @@ export function ThemePreview({
   return (
     <section>
       <SectionLabel>Preview</SectionLabel>
-      <div className="rounded-xl border border-border/70 bg-card/80 p-3 shadow-sm sm:p-5">
+      <div className="rounded-xl bg-muted/40 p-3 sm:p-5">
         <div className="mb-4 flex items-start gap-2">
           <div
             className="mt-1 h-3 w-3 shrink-0 rounded-full"

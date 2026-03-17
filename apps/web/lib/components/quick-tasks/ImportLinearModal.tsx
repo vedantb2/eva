@@ -115,9 +115,6 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Linear URLs or Identifiers
-            </label>
             <Textarea
               placeholder="Paste Linear URLs or identifiers (one per line)&#10;Example:&#10;https://linear.app/team/issue/TEAM-123/...&#10;TEAM-456"
               value={input}

@@ -72,7 +72,7 @@ export function ProjectsToolbar({
 }: ProjectsToolbarProps) {
   return (
     <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-      <div className="flex items-center rounded-lg border border-border overflow-hidden">
+      <div className="flex items-center rounded-lg bg-muted/40 overflow-hidden">
         {VIEW_OPTIONS.map((opt) => (
           <Tooltip key={opt.key}>
             <TooltipTrigger asChild>

@@ -202,6 +202,12 @@ export const fontFamilyValidator = v.union(
   v.literal("dm-sans"),
   v.literal("space-grotesk"),
   v.literal("geist"),
+  v.literal("source-serif"),
+  v.literal("jakarta"),
+  v.literal("outfit"),
+  v.literal("nunito"),
+  v.literal("ibm-plex"),
+  v.literal("figtree"),
 );
 
 export const letterSpacingValidator = v.union(
@@ -331,12 +337,41 @@ export const projectFields = {
   activeBuildWorkflowId: v.optional(v.string()),
   scheduledBuildAt: v.optional(v.number()),
   scheduledBuildFunctionId: v.optional(v.id("_scheduled_functions")),
+  lastBuildError: v.optional(v.string()),
 };
 
 export const projectDetailsFields = {
   projectId: v.id("projects"),
   conversationHistory: v.array(conversationMessageValidator),
   generatedSpec: v.optional(v.string()),
+};
+
+export const automationFields = {
+  repoId: v.id("githubRepos"),
+  title: v.string(),
+  description: v.string(),
+  cronSchedule: v.string(),
+  model: v.optional(claudeModelValidator),
+  enabled: v.boolean(),
+  cronJobId: v.optional(v.string()),
+  createdBy: v.id("users"),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
+export const automationRunFields = {
+  automationId: v.id("automations"),
+  repoId: v.id("githubRepos"),
+  status: runStatusValidator,
+  startedAt: v.number(),
+  finishedAt: v.optional(v.number()),
+  resultSummary: v.optional(v.string()),
+  prUrl: v.optional(v.string()),
+  error: v.optional(v.string()),
+  acknowledged: v.boolean(),
+  sandboxId: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
+  activityLog: v.optional(v.string()),
 };
 
 export const messageFields = {

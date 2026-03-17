@@ -113,7 +113,7 @@ export function NotificationToastStream() {
         return (
           <Card
             key={notification._id}
-            className="pointer-events-auto border-border bg-background/95 shadow-lg"
+            className="pointer-events-auto bg-background/95 shadow-lg"
           >
             <CardContent className="p-3">
               <div className="flex items-start gap-3">

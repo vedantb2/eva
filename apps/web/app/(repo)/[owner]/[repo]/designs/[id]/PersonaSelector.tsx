@@ -126,7 +126,7 @@ export function ManagePersonasModal({
   };
 
   const formUI = (
-    <div className="space-y-2 rounded-md border border-border p-3">
+    <div className="space-y-2 rounded-md bg-muted/40 p-3">
       <Input
         placeholder="Persona name"
         value={formName}
@@ -178,7 +178,7 @@ export function ManagePersonasModal({
               ) : (
                 <div
                   key={persona._id}
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+                  className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">

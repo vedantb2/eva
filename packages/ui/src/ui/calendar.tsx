@@ -22,7 +22,7 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        "rounded-lg border border-border/70 bg-card/90 p-3 shadow-sm ",
+        "rounded-lg border border-border/70 bg-card/90 p-3",
         className,
       )}
       classNames={{
@@ -121,7 +121,7 @@ function CalendarDayButton({
       className={cn(
         buttonVariants({ variant: "ghost" }),
         "h-8 w-8 p-0 font-normal",
-        "data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:shadow-sm data-[selected=true]:hover:bg-primary data-[selected=true]:hover:text-primary-foreground",
+        "data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:hover:bg-primary data-[selected=true]:hover:text-primary-foreground",
         defaultClassNames.day,
         className,
       )}

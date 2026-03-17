@@ -21,7 +21,7 @@ import {
 } from "@tabler/icons-react";
 
 const itemClass =
-  "mx-2 flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-sm text-muted-foreground transition-colors data-[selected=true]:border-primary/20 data-[selected=true]:bg-accent/80 data-[selected=true]:text-primary";
+  "mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors data-[selected=true]:bg-accent/80 data-[selected=true]:text-primary";
 
 const headingClass =
   "[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase";
@@ -56,7 +56,7 @@ export function SpotlightSearch() {
         className="top-[28%] max-w-xl translate-y-0 gap-0 p-0"
       >
         <Command className="flex flex-col bg-transparent" shouldFilter>
-          <div className="flex items-center gap-2 border-b border-border/70 px-4 py-3 focus-within:ring-2 focus-within:ring-ring/35">
+          <div className="flex items-center gap-2 px-4 py-3 focus-within:ring-2 focus-within:ring-ring/35">
             <IconSearch className="size-4 flex-shrink-0 text-muted-foreground" />
             <Command.Input
               autoFocus
@@ -65,7 +65,7 @@ export function SpotlightSearch() {
               onValueChange={setSearch}
               className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
             />
-            <kbd className="rounded-md border border-border/70 bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            <kbd className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
               ESC
             </kbd>
           </div>

@@ -86,7 +86,7 @@ export function SetupBanner() {
             To use sandboxes and AI features, you need to configure the
             following environment variables in your team or repo settings.
           </p>
-          <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
+          <div className="rounded-lg bg-muted/40 p-4">
             <p className="mb-2 text-xs font-medium text-muted-foreground">
               Missing Variables:
             </p>

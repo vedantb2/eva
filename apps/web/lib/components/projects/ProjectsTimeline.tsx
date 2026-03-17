@@ -399,7 +399,7 @@ export function ProjectsTimeline({
         {withDates.length > 0 && (
           <div
             ref={containerRef}
-            className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-border/70 bg-card/60 select-none"
+            className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg bg-muted/40 select-none"
             style={{ cursor: isDragging ? "grabbing" : "grab" }}
             onWheel={handleWheel}
             onPointerDown={handlePointerDown}
@@ -421,7 +421,7 @@ export function ProjectsTimeline({
             )}
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div className="flex border-b border-border/70 bg-background/55">
+              <div className="flex pb-6 bg-background/55">
                 <div
                   className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2"
                   style={{ width: LABEL_WIDTH }}
@@ -443,7 +443,7 @@ export function ProjectsTimeline({
                     Today
                   </Button>
                 </div>
-                <div className="min-w-0 flex-1 overflow-hidden border-l border-border/60">
+                <div className="min-w-0 flex-1 overflow-hidden">
                   <div
                     className="relative bg-gradient-to-b from-muted/30 to-transparent transition-transform duration-200 ease-out"
                     style={{
@@ -455,14 +455,14 @@ export function ProjectsTimeline({
                       {monthLabels.map((month, index) => (
                         <div
                           key={`${month.label}-${index}`}
-                          className="absolute flex h-full items-center truncate border-l border-border/60 px-2 text-[10px] font-semibold text-foreground/70 transition-[left,width] duration-200 ease-out"
+                          className="absolute flex h-full items-center truncate px-2 text-[10px] font-semibold text-foreground/70 transition-[left,width] duration-200 ease-out"
                           style={{ left: month.x, width: month.width }}
                         >
                           {month.label}
                         </div>
                       ))}
                     </div>
-                    <div className="relative h-6 border-t border-border/50">
+                    <div className="relative h-6 pt-1">
                       {dayLabels.map((day, index) => (
                         <span
                           key={`${day.label}-${index}`}
@@ -502,7 +502,7 @@ export function ProjectsTimeline({
                     <div
                       key={project._id}
                       className={cn(
-                        "group flex items-center border-b border-border/35 last:border-b-0 animate-in fade-in duration-300",
+                        "group flex items-center animate-in fade-in duration-300",
                         index % 2 === 0
                           ? "bg-background/25"
                           : "bg-background/10",
@@ -526,7 +526,7 @@ export function ProjectsTimeline({
                       </button>
 
                       <div
-                        className="relative h-full min-w-0 flex-1 overflow-hidden border-l border-border/50"
+                        className="relative h-full min-w-0 flex-1 overflow-hidden"
                         style={{ height: ROW_HEIGHT }}
                       >
                         <div
@@ -538,7 +538,7 @@ export function ProjectsTimeline({
                         >
                           <button
                             className={cn(
-                              "absolute top-1/2 flex -translate-y-1/2 items-center gap-1 overflow-hidden rounded-md border border-border/50 bg-card/95 pr-1.5 shadow-sm transition-[left,width,transform,filter,box-shadow] duration-200 ease-out hover:scale-[1.01] hover:brightness-95 hover:shadow",
+                              "absolute top-1/2 flex -translate-y-1/2 items-center gap-1 overflow-hidden rounded-md bg-card/95 pr-1.5 transition-[left,width,transform,filter] duration-200 ease-out hover:scale-[1.01] hover:brightness-95",
                               config.bg,
                             )}
                             style={{
@@ -579,7 +579,7 @@ export function ProjectsTimeline({
                                   style={{ left: deadlineX }}
                                 >
                                   <div className="absolute inset-y-0 left-0 w-px bg-destructive/60" />
-                                  <div className="absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-destructive shadow-sm" />
+                                  <div className="absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-destructive" />
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="text-xs">
@@ -601,7 +601,7 @@ export function ProjectsTimeline({
         {withoutDates.length > 0 && (
           <div
             className={cn(
-              "rounded-lg border border-dashed border-border/75 bg-muted/20 p-3",
+              "rounded-lg bg-muted/30 p-3",
               withDates.length > 0
                 ? "max-h-56 flex-shrink-0 overflow-y-auto scrollbar"
                 : "min-h-0 flex-1 overflow-y-auto",
@@ -622,7 +622,7 @@ export function ProjectsTimeline({
                 return (
                   <button
                     key={project._id}
-                    className="motion-base flex items-center gap-2 rounded-lg border border-border/65 bg-background/70 px-3 py-2 text-left transition-all hover:-translate-y-[1px] hover:border-primary/25 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                    className="motion-base flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-left transition-[transform,background-color] hover:-translate-y-[1px] hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
                     onClick={() => openProject(project._id)}
                   >
                     <span

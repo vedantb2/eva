@@ -24,7 +24,7 @@ import {
   IconMenu2,
   IconMoon,
   IconPalette,
-  IconPlus,
+  IconPlayerPlay,
   IconSearch,
   IconSettings,
   IconSun,
@@ -43,6 +43,7 @@ import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSi
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
+import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoSelect } from "@/lib/components/RepoSelect";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
@@ -58,6 +59,7 @@ const KNOWN_SUB_PAGES = new Set([
   "settings",
   "testing-arena",
   "stats",
+  "automations",
 ]);
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
@@ -67,6 +69,7 @@ const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Settings: "settings",
   Documents: "docs",
   "Testing Arena": "testing-arena",
+  Automations: "automations",
 } as const;
 
 type ContextSidebarMode =
@@ -76,7 +79,8 @@ type ContextSidebarMode =
   | "analyse"
   | "settings"
   | "docs"
-  | "testing-arena";
+  | "testing-arena"
+  | "automations";
 
 function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   const segments = pathname.split("/").filter(Boolean);
@@ -88,7 +92,8 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
       s === "analyse" ||
       s === "settings" ||
       s === "docs" ||
-      s === "testing-arena"
+      s === "testing-arena" ||
+      s === "automations"
     ) {
       return s;
     }
@@ -105,12 +110,6 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [contextSidebarMode, setContextSidebarMode] =
     useState<ContextSidebarMode>(() => getInitialContextSidebarMode(pathname));
-  const [designCreateRequestId, setDesignCreateRequestId] = useState(0);
-  const [sessionsCreateRequestId, setSessionsCreateRequestId] = useState(0);
-  const [analyseCreateRequestId, setAnalyseCreateRequestId] = useState(0);
-  const [docsCreateRequestId, setDocsCreateRequestId] = useState(0);
-  const [testingArenaCreateRequestId, setTestingArenaCreateRequestId] =
-    useState(0);
 
   const repos = useQuery(api.githubRepos.list, {});
 
@@ -250,6 +249,11 @@ export function Sidebar() {
                   icon: IconInbox,
                 },
                 {
+                  name: "Automations",
+                  href: `${repoBasePath}/automations`,
+                  icon: IconPlayerPlay,
+                },
+                {
                   name: "Stats",
                   href: `${repoBasePath}/stats`,
                   icon: IconChartBar,
@@ -282,11 +286,11 @@ export function Sidebar() {
 
   const navItemClass = (isActive: boolean) =>
     cn(
-      "group motion-base flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+      "group motion-base flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
       collapsed && "lg:justify-center lg:px-0",
       isActive
-        ? "border-sidebar-primary/35 bg-sidebar-primary/10 text-sidebar-primary shadow-sm"
-        : "border-transparent text-sidebar-foreground/80 hover:-translate-y-[1px] hover:border-sidebar-border/85 hover:bg-sidebar-accent/85 hover:text-sidebar-foreground",
+        ? "bg-sidebar-primary/10 text-sidebar-primary"
+        : "text-sidebar-foreground/80 hover:-translate-y-[1px] hover:bg-sidebar-accent/85 hover:text-sidebar-foreground",
     );
 
   const contextSidebarTitle =
@@ -302,49 +306,15 @@ export function Sidebar() {
               ? "Documents"
               : contextSidebarMode === "testing-arena"
                 ? "Testing Arena"
-                : "";
-
-  const showContextCreate = contextSidebarMode !== "settings";
-  const contextCreateButtonTitle =
-    contextSidebarMode === "designs"
-      ? "New design session"
-      : contextSidebarMode === "sessions"
-        ? "New session"
-        : contextSidebarMode === "analyse"
-          ? "New query"
-          : contextSidebarMode === "docs"
-            ? "New document"
-            : contextSidebarMode === "testing-arena"
-              ? "Test all"
-              : "New item";
-
-  const handleContextCreate = () => {
-    if (contextSidebarMode === "designs") {
-      setDesignCreateRequestId((current) => current + 1);
-      return;
-    }
-    if (contextSidebarMode === "sessions") {
-      setSessionsCreateRequestId((current) => current + 1);
-      return;
-    }
-    if (contextSidebarMode === "analyse") {
-      setAnalyseCreateRequestId((current) => current + 1);
-      return;
-    }
-    if (contextSidebarMode === "docs") {
-      setDocsCreateRequestId((current) => current + 1);
-      return;
-    }
-    if (contextSidebarMode === "testing-arena") {
-      setTestingArenaCreateRequestId((current) => current + 1);
-    }
-  };
+                : contextSidebarMode === "automations"
+                  ? "Automations"
+                  : "";
 
   const closeMobileSidebar = () => setMobileOpen(false);
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/80 px-3 sm:px-4 lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 bg-background/80 px-3 sm:px-4 lg:hidden">
         <Button
           size="icon"
           variant="ghost"
@@ -355,7 +325,7 @@ export function Sidebar() {
         </Button>
         <Link
           href="/home"
-          className="mx-auto flex items-center gap-2 rounded-lg border border-border/65 bg-card/75 px-2.5 py-1.5 shadow-sm "
+          className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
         >
           <Image
             src="/icon.png"
@@ -400,10 +370,10 @@ export function Sidebar() {
         )}
       >
         <div className="h-full">
-          <div className="flex h-full flex-col overflow-hidden border-r border-sidebar-border/60 bg-sidebar lg:bg-sidebar/92">
+          <div className="flex h-full flex-col overflow-hidden bg-sidebar lg:bg-sidebar/92">
             <div
               className={cn(
-                "flex h-16 items-center border-b border-sidebar-border/60 bg-sidebar-accent/20",
+                "flex h-16 items-center bg-sidebar-accent/20",
                 collapsed ? "px-2" : "px-3",
               )}
             >
@@ -443,20 +413,6 @@ export function Sidebar() {
                       )}
 
                       <div className="flex items-center gap-1">
-                        {!collapsed && showContextCreate && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="motion-press hover:scale-[1.03] active:scale-[0.97]"
-                            onClick={handleContextCreate}
-                            title={contextCreateButtonTitle}
-                          >
-                            <IconPlus
-                              size={18}
-                              className="text-sidebar-primary"
-                            />
-                          </Button>
-                        )}
                         <Button
                           size="icon"
                           variant="ghost"
@@ -613,7 +569,6 @@ export function Sidebar() {
                               basePath={repoBasePath}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
-                              createRequestId={designCreateRequestId}
                             />
                           ) : contextSidebarMode === "sessions" ? (
                             <SessionsSidebar
@@ -621,7 +576,6 @@ export function Sidebar() {
                               basePath={repoBasePath}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
-                              createRequestId={sessionsCreateRequestId}
                             />
                           ) : contextSidebarMode === "docs" ? (
                             <DocsSidebar
@@ -630,7 +584,6 @@ export function Sidebar() {
                               installationId={repo.installationId}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
-                              createRequestId={docsCreateRequestId}
                             />
                           ) : contextSidebarMode === "testing-arena" ? (
                             <TestingArenaSidebar
@@ -639,7 +592,13 @@ export function Sidebar() {
                               installationId={repo.installationId}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
-                              createRequestId={testingArenaCreateRequestId}
+                            />
+                          ) : contextSidebarMode === "automations" ? (
+                            <AutomationsSidebar
+                              repoId={repo._id}
+                              basePath={repoBasePath}
+                              pathname={pathname}
+                              onNavigate={closeMobileSidebar}
                             />
                           ) : (
                             <AnalyseSidebar
@@ -647,7 +606,6 @@ export function Sidebar() {
                               basePath={repoBasePath}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
-                              createRequestId={analyseCreateRequestId}
                             />
                           )
                         ) : (
@@ -802,7 +760,7 @@ export function Sidebar() {
 
             <div
               className={cn(
-                "border-t border-sidebar-border/60 bg-sidebar-accent/32",
+                "bg-sidebar-accent/32",
                 collapsed ? "px-2 py-3" : "px-3 py-3",
               )}
             >

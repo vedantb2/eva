@@ -34,7 +34,7 @@ export function AuditsClient() {
   return (
     <PageWrapper title="Audits">
       <div className="space-y-6">
-        <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
+        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
           <div>
             <h3 className="text-sm font-medium">Repo-level Audits</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -84,7 +84,7 @@ export function AuditsClient() {
         </div>
 
         {isApp && (
-          <div className="rounded-lg border border-border/70 p-3 space-y-4 sm:p-4">
+          <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
             <div>
               <h3 className="text-sm font-medium">App-specific Audits</h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -138,7 +138,7 @@ function CategoryRow(props: CategoryRowProps) {
   const checked = props.isInherited ? !isDisabled : props.category.enabled;
 
   return (
-    <div className="flex items-start gap-3 rounded-md border border-border/50 p-3">
+    <div className="flex items-start gap-3 rounded-md bg-muted/40 p-3">
       <Checkbox
         checked={checked}
         onCheckedChange={(value) =>

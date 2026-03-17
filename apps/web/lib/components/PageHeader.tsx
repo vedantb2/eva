@@ -23,11 +23,11 @@ export function PageHeader({
     return null;
 
   return (
-    <div className="motion-base flex items-center gap-2 border-b border-border/70 bg-card/65 px-3 py-3  sm:gap-3 sm:px-4">
+    <div className="motion-base flex items-center gap-2 p-3 sm:gap-3 sm:px-4">
       {showBack && (
         <button
           onClick={onBack ?? (() => router.back())}
-          className="motion-press flex-shrink-0 rounded-lg border border-border/70 bg-background/80 p-1.5 shadow-xs transition-all hover:-translate-y-0.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          className="motion-press flex-shrink-0 rounded-lg bg-muted/40 p-1.5 transition-all hover:-translate-y-0.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         >
           <IconArrowLeft size={18} className="text-muted-foreground" />
         </button>

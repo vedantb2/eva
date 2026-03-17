@@ -35,7 +35,7 @@ export function RepoSetupCard({
   children,
 }: RepoSetupCardProps) {
   return (
-    <div className="rounded-xl border border-border overflow-hidden">
+    <div className="rounded-xl bg-muted/40 overflow-hidden">
       <div className="flex items-center justify-between p-3 sm:p-4 bg-card">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <IconBrandGithub className="w-5 h-5 text-muted-foreground flex-shrink-0" />
@@ -70,9 +70,7 @@ export function RepoSetupCard({
       </div>
 
       {isExpanded && (
-        <div className="border-t border-border bg-muted/30 p-3 sm:p-4 space-y-2">
-          {children}
-        </div>
+        <div className="mt-6 bg-muted/30 p-3 sm:p-4 space-y-2">{children}</div>
       )}
     </div>
   );

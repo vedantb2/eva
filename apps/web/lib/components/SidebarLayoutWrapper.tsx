@@ -40,7 +40,7 @@ export function SidebarLayoutWrapper({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="lg:hidden motion-base flex items-center gap-2 border-b border-border/60 bg-card/70 px-3 py-3 ">
+      <div className="lg:hidden motion-base flex items-center gap-2 bg-card/70 px-3 py-3 ">
         <Button
           size="icon-sm"
           variant="ghost"
@@ -78,8 +78,8 @@ export function SidebarLayoutWrapper({
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="h-full">
-              <div className="flex h-full flex-col overflow-hidden border-r border-border/55 bg-sidebar shadow-sm lg:bg-sidebar/95 ">
-                <div className="flex items-center justify-between border-b border-border/70 bg-sidebar-accent/30 px-4 py-3">
+              <div className="flex h-full flex-col overflow-hidden bg-sidebar lg:bg-sidebar/95">
+                <div className="flex items-center justify-between bg-sidebar-accent/30 px-4 py-3">
                   <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
                     {title}
                   </h1>
@@ -112,9 +112,9 @@ export function SidebarLayoutWrapper({
           )}
         >
           <div className="h-full">
-            <div className="flex h-full flex-col overflow-hidden border-r border-border/55 bg-sidebar shadow-sm lg:bg-sidebar/95 ">
+            <div className="flex h-full flex-col overflow-hidden bg-sidebar lg:bg-sidebar/95">
               <div
-                className={`border-b border-border/70 bg-sidebar-accent/30 px-4 py-3 flex items-center ${collapsed ? "justify-center" : ""}`}
+                className={`bg-sidebar-accent/30 px-4 py-3 flex items-center ${collapsed ? "justify-center" : ""}`}
               >
                 <AnimatePresence initial={false} mode="wait">
                   {collapsed ? (

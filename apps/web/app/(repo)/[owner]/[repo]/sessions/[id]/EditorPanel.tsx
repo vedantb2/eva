@@ -19,7 +19,6 @@ interface EditorPanelProps {
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
-  enabled?: boolean;
 }
 
 export function EditorPanel({
@@ -27,7 +26,6 @@ export function EditorPanel({
   sandboxId,
   isActive,
   repoId,
-  enabled = true,
 }: EditorPanelProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<EditorState>("idle");
@@ -120,33 +118,31 @@ export function EditorPanel({
       if (cached) {
         setUrl(cached);
         setEditorState("running");
-        return;
       }
-      startEditor();
     }
     if (!isActive) {
       editorCache.clear(sessionId);
     }
     return stopPolling;
-  }, [isActive, sandboxId, editorState, startEditor, stopPolling, sessionId]);
-
-  if (!enabled) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
-        <IconCode className="w-12 h-12 opacity-50" />
-        <p className="text-sm">Editor (VSCode) is disabled</p>
-        <p className="text-xs text-muted-foreground/70">
-          Enable it in repository settings under Config.
-        </p>
-      </div>
-    );
-  }
+  }, [isActive, sandboxId, editorState, stopPolling, sessionId]);
 
   if (!isActive || !sandboxId) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
         <IconCode className="w-12 h-12 opacity-50" />
         <p className="text-sm">Start the sandbox to use the editor</p>
+      </div>
+    );
+  }
+
+  if (editorState === "idle") {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
+        <IconCode className="w-12 h-12 opacity-50" />
+        <p className="text-sm">Editor is not running</p>
+        <Button size="sm" variant="secondary" onClick={startEditor}>
+          Start Editor
+        </Button>
       </div>
     );
   }

@@ -5,7 +5,7 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 242 246 245;
+    --background: 255 255 255;
     --app-shell: 235 239 238;
     --foreground: 28 33 35;
     --shell-gradient-start: 246 249 248;
@@ -20,7 +20,7 @@
     --popover-foreground: 24 28 31;
     --primary: 13 132 120;
     --primary-foreground: 255 255 255;
-    --secondary: 255 255 255;
+    --secondary: 242 246 245;
     --secondary-foreground: 35 47 45;
     --muted: 239 244 243;
     --muted-foreground: 102 112 118;
@@ -62,7 +62,7 @@
     --status-cancelled-bg: 229 231 235;
     --status-cancelled-subtle: 249 250 251;
     --status-cancelled-bar: 156 163 175;
-    --sidebar: 247 250 249;
+    --sidebar: 242 246 245;
     --sidebar-foreground: 24 28 31;
     --sidebar-primary: 13 132 120;
     --sidebar-primary-foreground: 255 255 255;
@@ -100,7 +100,7 @@
 
   .dark {
     color-scheme: dark;
-    --background: 9 11 12;
+    --background: 22 25 27;
     --app-shell: 9 12 13;
     --foreground: 227 232 231;
     --shell-gradient-start: 8 10 11;
@@ -157,7 +157,7 @@
     --status-cancelled-bg: 55 65 81;
     --status-cancelled-subtle: 31 41 55;
     --status-cancelled-bar: 107 114 128;
-    --sidebar: 14 17 18;
+    --sidebar: 9 11 12;
     --sidebar-foreground: 207 216 214;
     --sidebar-primary: 52 199 181;
     --sidebar-primary-foreground: 8 23 20;

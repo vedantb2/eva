@@ -1,5 +1,30 @@
 # Changelog
 
+## Fix quick tasks → project → build workflow - 2026-03-14
+
+- `createFromTasks` now sets `baseBranch` from repo defaults — previously omitted, causing builds to silently target wrong base branch
+- `startBuild` now checks `hasRepoAccess` — previously any user with a project ID could trigger a build
+- `assignToProject` now throws on deleted tasks instead of silently skipping, skips tasks already in the project (idempotency), and validates non-empty input
+- Build workflow now tracks failure: stores `lastBuildError` on project when a task fails mid-build, clears it on next build start
+- `startTaskForBuild` reads `project.branchName` instead of hardcoding `eva/project-{id}` — respects stored branch name with fallback
+- Frontend `GroupTasksModal` validates non-empty task list before submission
+- `QuickTasksClient` prunes stale IDs from selection set when tasks are deleted externally
+
+## Decompose useTaskDetail hook - 2026-03-14
+
+- Broke the 1,774-line `useTaskDetail` hook into ~13 focused child components + a slim 200-line data-only hook
+- The hook was a component masquerading as a hook — it constructed all JSX internally and returned opaque blobs. Now it returns data + handlers, and consumers compose child components with explicit props
+- Extracted: TaskHeader, TaskDescription, ActivityTimeline, AuditTimelineItem, RunTimelineItem, ProofSection, AuditSection, CommentsSection, StatusFieldsSection, TaskFooter, StopConfirmDialog, ResolveConfirmDialog
+- Pushed 10 useState calls down into the child components that actually own them (title editing → TaskHeader, comment text → CommentsSection, tags → StatusFieldsSection, etc.)
+- Fixed `as` type assertion violations: removed unnecessary `status as TaskStatus` (Convex type already narrows), replaced `val as Id<"projects">` with safe `.find()` lookup, replaced `v as TabType` with `isTaskDetailTab` type guard
+- Shared utilities extracted to `task-detail-constants.ts`: `capitalize`, `getUserDisplayName`, `DEPLOYMENT_STATUS_CONFIG`, `GHOST_TRIGGER_CLASS`
+
+## Session sidebar status indicators and deduplication - 2026-03-13
+
+- Added colored status dots to sidebar session items: green (active), amber pulse (starting), gray (closed) — users can now see at a glance which sessions have live sandboxes
+- Extracted shared `SessionListSidebar` generic component from `SessionsSidebar` and `DesignSessionsSidebar` — both were 95% identical, now they're thin wrappers (~50 lines each) over the shared component (~280 lines)
+- Generic `<T extends SessionItem>` design preserves full Convex ID types through callbacks without `as` casts
+
 ## Chrome extension bug fixes: branding, URL, session persistence, sidebar tabs - 2026-03-12
 
 - Renamed "Open in Conductor" → "Open in Eva" and updated production URL from `conductor-lake.vercel.app` to `eva-git-staging-vedantb.vercel.app`

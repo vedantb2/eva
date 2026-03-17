@@ -38,7 +38,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
       <HoverCardTrigger asChild>
         <Badge
           variant="secondary"
-          className="ml-auto cursor-default gap-1.5 border-sidebar-border/70 bg-sidebar/70 px-1.5 py-0.5"
+          className="ml-auto cursor-default gap-1.5 border-none bg-sidebar-accent/50 px-1.5 py-0.5"
         >
           <span className="relative flex h-2 w-2">
             <span
@@ -65,7 +65,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
             <h3 className="text-sm font-semibold text-foreground">
               Active Tasks
             </h3>
-            <span className="ml-auto rounded-full border border-border/70 bg-muted/50 px-1.5 py-0.5 text-xs text-muted-foreground">
+            <span className="ml-auto rounded-full bg-muted/40 px-1.5 py-0.5 text-xs text-muted-foreground">
               {tasks.length}
             </span>
           </div>
@@ -76,7 +76,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
                 href={getTaskLink(task)}
                 className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
-                <div className="flex items-center justify-between rounded-lg border border-transparent p-2.5 transition-colors hover:border-border/70 hover:bg-accent/60">
+                <div className="flex items-center justify-between rounded-lg p-2.5 transition-colors hover:bg-muted/60">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-foreground">
                       {task.title}

@@ -162,7 +162,7 @@ export function QuickTasksListView({
                 >
                   <div className="flex items-center sticky top-0 z-10 bg-background pb-1.5 pt-0.5">
                     <CollapsibleTrigger asChild>
-                      <button className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50">
+                      <button className="flex flex-1 items-center gap-2 rounded-lg px-2 py-3 sm:px-3 sm:py-2 text-left transition-colors hover:bg-muted/50 min-h-[44px]">
                         <IconChevronRight
                           size={14}
                           className={`text-muted-foreground transition-transform duration-200 ${
@@ -183,14 +183,15 @@ export function QuickTasksListView({
                         size="sm"
                         onClick={() => setIsConfirmOpen(true)}
                         disabled={isFixingAll}
-                        className="mr-2"
+                        className="mr-2 min-h-[36px]"
                       >
                         {isFixingAll ? (
                           <Spinner size="sm" />
                         ) : (
                           <IconPlayerPlay size={14} />
                         )}
-                        Fix All
+                        <span className="hidden sm:inline">Fix All</span>
+                        <span className="sm:hidden">Fix</span>
                       </Button>
                     )}
                   </div>
@@ -200,7 +201,7 @@ export function QuickTasksListView({
                         No tasks
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-1.5 px-1.5 pb-1.5">
+                      <div className="flex flex-col gap-0.5 pr-1.5 pb-1.5">
                         {items.map((task) => (
                           <QuickTaskCard
                             key={task._id}

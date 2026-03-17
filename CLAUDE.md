@@ -1,5 +1,36 @@
 FOLLOW ALL OF THESE RULES
 
+UI Design System — Tonal Surface Hierarchy:
+
+Shadows:
+
+- No shadows on inline elements (cards, buttons, inputs, tabs, alerts, checkboxes).
+- Only floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) get shadows — they need depth to show layering over content.
+- `shadow-none`/`border-0` on embedded form elements is fine — that's stripping inherited defaults, not adding decoration.
+
+Borders:
+
+- No borders for visual separation between layout regions (sidebar edge, section dividers, header/footer separators). Use background color contrast instead.
+- No borders on cards, accordion items, or content containers. Use `bg-muted/40` or similar tonal shift.
+- No borders on active/selected/hover states. Background color change alone indicates state.
+- Borders allowed only for: form element affordance (inputs, selects) and structural metaphors (e.g. browser-tab in SandboxTabBar).
+
+Layout & Surface Colors:
+
+- Sidebar is always the darker surface, main content the lighter surface (both light and dark mode).
+- Hierarchy comes from: tonal surface contrast > whitespace > typography weight/size.
+
+Hover & Interaction States:
+
+- Hover: `hover:bg-*` (background shift). Never `hover:border-*` or `hover:shadow-*`.
+- Active/selected: `bg-*` + `ring-*` if emphasis needed. Never border.
+- Keep transitions to `transition-[transform,background-color]` — no `box-shadow` or `border-color` in transitions.
+
+Spacing:
+
+- Use whitespace/padding (Gestalt Law of Proximity) to group related elements, not dividers or `border-t`/`border-b`.
+- Section separation = increased margin (`mt-6`), not a line.
+
 Implementation:
 
 - Always read the CLAUDE.md file (if it exists) first to understand the codebase's specific rules

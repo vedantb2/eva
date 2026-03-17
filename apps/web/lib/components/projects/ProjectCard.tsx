@@ -18,7 +18,6 @@ import {
   DialogTitle,
   DialogFooter,
   Input,
-  Label,
   Textarea,
 } from "@conductor/ui";
 import { ProjectProgressBar } from "./ProjectProgressBar";
@@ -80,7 +79,7 @@ export function ProjectCard({
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
   const cardContent = (
-    <div className="group relative shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card/88 shadow-sm  transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-[1px] hover:border-primary/25 hover:shadow-md hover:z-10">
+    <div className="group relative shrink-0 overflow-hidden rounded-lg bg-card/88 transition-[transform,background-color] duration-200 hover:-translate-y-[1px] hover:bg-card hover:z-10">
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div
         className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${accentColor}`}
@@ -146,23 +145,18 @@ export function ProjectCard({
             }}
             className="flex flex-col gap-4"
           >
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="edit-title">Title</Label>
-              <Input
-                id="edit-title"
-                value={editTitle}
-                onChange={(event) => setEditTitle(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={editDescription}
-                onChange={(event) => setEditDescription(event.target.value)}
-                rows={3}
-              />
-            </div>
+            <Input
+              placeholder="Title"
+              value={editTitle}
+              onChange={(event) => setEditTitle(event.target.value)}
+              autoFocus
+            />
+            <Textarea
+              placeholder="Description"
+              value={editDescription}
+              onChange={(event) => setEditDescription(event.target.value)}
+              rows={3}
+            />
             <DialogFooter>
               <Button
                 type="button"

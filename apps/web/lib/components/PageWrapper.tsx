@@ -30,7 +30,7 @@ export function PageWrapper({
   return (
     <div className="flex-1 h-full min-h-0 overflow-hidden animate-in fade-in duration-300">
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="motion-base relative border-b border-border/70 bg-card/65 px-3 py-3  sm:px-4">
+        <div className="motion-base relative p-3 sm:px-4">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               {showBack && (
@@ -44,7 +44,7 @@ export function PageWrapper({
                 </Button>
               )}
               {title && (
-                <h1 className="truncate text-lg font-semibold tracking-[-0.02em] text-foreground sm:text-xl animate-in fade-in slide-in-from-left-1 duration-300">
+                <h1 className="truncate text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300">
                   {title}
                 </h1>
               )}
@@ -56,7 +56,7 @@ export function PageWrapper({
             ) : (
               <div className="hidden md:block" />
             )}
-            <div className="flex min-h-10 items-center justify-end gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
+            <div className="flex min-h-10 items-center justify-end gap-1.5 sm:gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
               {headerRight}
             </div>
           </div>
@@ -70,7 +70,7 @@ export function PageWrapper({
           className={`flex-1 min-h-0 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto scrollbar"}`}
         >
           <div
-            className={`flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ${childPadding ? "px-3 py-3 sm:px-4 sm:py-4 lg:px-5 lg:py-5" : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
+            className={`flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ${childPadding ? "p-3 pt-0" : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
           >
             {children}
           </div>

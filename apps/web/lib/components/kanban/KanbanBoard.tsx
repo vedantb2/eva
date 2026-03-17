@@ -106,7 +106,8 @@ export function KanbanBoard<T extends BaseTask>({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 10,
+        delay: 200,
+        tolerance: 10,
       },
     }),
   );
@@ -256,7 +257,7 @@ export function KanbanBoard<T extends BaseTask>({
         <DragOverlay>
           {activeItem ? (
             <div
-              className="pointer-events-none rotate-[1.5deg] shadow-sm"
+              className="pointer-events-none rotate-[1.5deg]"
               style={
                 activeOverlayWidth
                   ? { width: `${activeOverlayWidth}px` }

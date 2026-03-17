@@ -23,7 +23,7 @@ import {
   Textarea,
   cn,
 } from "@conductor/ui";
-import { IconFile, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
@@ -204,15 +204,24 @@ export function DocsSidebar({
         onChange={handleUploadSelect}
       />
 
-      <div className="p-2">
+      <div className="flex items-center gap-1.5 p-2">
         <SearchInput
           placeholder="Search docs..."
           value={searchQuery}
           onChange={(v) => setSearchQuery(v || null)}
           onClear={() => setSearchQuery(null)}
-          className="max-w-none"
+          className="min-w-0 flex-1"
           inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
         />
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="shrink-0 text-sidebar-primary"
+          onClick={() => setIsCreateDialogOpen(true)}
+          title="New document"
+        >
+          <IconPlus size={16} />
+        </Button>
       </div>
 
       <div className="flex-1">
@@ -303,7 +312,7 @@ export function DocsSidebar({
           </DialogHeader>
           {showUploadSection ? (
             <div className="space-y-4">
-              <div className="rounded-md border border-border/70 p-3">
+              <div className="rounded-md bg-muted/40 p-3">
                 <p className="text-sm font-medium">Upload a file</p>
                 <p className="mb-3 text-sm text-muted-foreground">
                   Supported formats: .md, .txt
@@ -368,7 +377,7 @@ export function DocsSidebar({
               </div>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-md border border-dashed border-border/70 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+                className="flex w-full items-center gap-2 rounded-md bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                 onClick={() => setShowUploadSection(true)}
               >
                 <IconUpload size={14} />

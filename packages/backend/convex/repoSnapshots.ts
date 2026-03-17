@@ -14,18 +14,13 @@ import { authQuery, authMutation } from "./functions";
 
 const crons = new Crons(components.crons);
 
-const LEGACY_SCHEDULE_TO_CRON: Record<string, string> = {
-  daily: "0 6 * * *",
-  every_3_days: "0 6 */3 * *",
-  weekly: "0 6 * * 1",
-};
-
 function resolveCronspec(schedule: string): string | null {
   if (schedule === "manual") return null;
-  return LEGACY_SCHEDULE_TO_CRON[schedule] ?? schedule;
+  return schedule;
 }
 
 const STALE_BUILD_MS = 30 * 60 * 1000;
+const MAX_CRON_RETRIES = 2;
 
 export const getRepoSnapshot = authQuery({
   args: { repoId: v.id("githubRepos") },
@@ -114,6 +109,7 @@ export const listBuilds = authQuery({
       workflowRunId: v.optional(v.number()),
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
+      retryCount: v.optional(v.number()),
     }),
   ),
   handler: async (ctx, args) => {
@@ -142,6 +138,7 @@ export const getBuild = authQuery({
       workflowRunId: v.optional(v.number()),
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
+      retryCount: v.optional(v.number()),
     }),
     v.null(),
   ),
@@ -364,6 +361,30 @@ export const completeBuild = internalMutation({
           repoId: snapshot.repoId,
         });
       }
+    }
+    if (
+      args.status === "error" &&
+      build.triggeredBy === "cron" &&
+      (build.retryCount ?? 0) < MAX_CRON_RETRIES
+    ) {
+      const retryCount = (build.retryCount ?? 0) + 1;
+      const now = Date.now();
+      const retryBuildId = await ctx.db.insert("snapshotBuilds", {
+        repoSnapshotId: build.repoSnapshotId,
+        status: "running",
+        triggeredBy: "cron",
+        logs: `Retry ${retryCount}/${MAX_CRON_RETRIES} after failure: ${args.error ?? "unknown error"}\n`,
+        startedAt: now,
+        retryCount,
+      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.snapshotActions.rebuildSnapshot,
+        {
+          buildId: retryBuildId,
+          repoSnapshotId: build.repoSnapshotId,
+        },
+      );
     }
     return null;
   },

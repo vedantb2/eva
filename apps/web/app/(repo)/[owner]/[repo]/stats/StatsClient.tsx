@@ -33,12 +33,20 @@ export function StatsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
 
-  const { startTime, bucketSize, timelineStart } = useMemo(() => {
+  const TIME_RANGE_DAYS: Record<TimeRange, number | undefined> = {
+    "7d": 7,
+    "30d": 30,
+    "90d": 90,
+    all: undefined,
+  };
+
+  const { startTime, bucketSize, timelineStart, heatmapDays } = useMemo(() => {
     const start = getStartTime(timeRange);
     return {
       startTime: start,
       bucketSize: getBucketSize(timeRange),
       timelineStart: start ?? dayjs().subtract(90, "day").valueOf(),
+      heatmapDays: TIME_RANGE_DAYS[timeRange],
     };
   }, [timeRange]);
 
@@ -60,6 +68,7 @@ export function StatsClient() {
   });
   const heatmap = useQuery(api.analytics.getActivityHeatmap, {
     repoId: repo._id,
+    startTime,
   });
 
   const isLoading =
@@ -83,29 +92,41 @@ export function StatsClient() {
       ) : (
         <div className="space-y-6">
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.3 }}
           >
-            <ActivityHeatmap data={heatmap} />
+            <ActivityHeatmap data={heatmap} days={heatmapDays} />
           </motion.div>
 
           <motion.div
             className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, delay: 0.03 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
           >
             <StatCard
               icon={IconGitPullRequest}
               label="PRs Shipped"
               value={impactStats.prsShipped}
+              currentValue={impactStats.prsShipped}
+              previousValue={
+                "prevPrsShipped" in impactStats
+                  ? impactStats.prevPrsShipped
+                  : undefined
+              }
             />
             <StatCard
               icon={IconPercentage}
               label="Ship Rate"
               value={`${impactStats.shipRate}%`}
               subtitle={`${impactStats.sessionsWithPr} of ${impactStats.totalSessions} sessions`}
+              currentValue={impactStats.shipRate}
+              previousValue={
+                "prevShipRate" in impactStats
+                  ? impactStats.prevShipRate
+                  : undefined
+              }
             />
             <StatCard
               icon={IconUsers}
@@ -117,22 +138,40 @@ export function StatsClient() {
               icon={IconChecklist}
               label="Tasks Completed"
               value={impactStats.tasksCompleted}
+              currentValue={impactStats.tasksCompleted}
+              previousValue={
+                "prevTasksCompleted" in impactStats
+                  ? impactStats.prevTasksCompleted
+                  : undefined
+              }
             />
           </motion.div>
 
           <motion.div
-            className="grid grid-cols-1 gap-4 lg:grid-cols-2"
-            initial={{ opacity: 0, y: 10 }}
+            className="grid grid-cols-1 gap-4 lg:grid-cols-3"
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.24, delay: 0.08 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
           >
-            <PRsOverTimeChart timeline={timeline} />
+            <div className="lg:col-span-2">
+              <PRsOverTimeChart timeline={timeline} />
+            </div>
             <SessionFunnel
               totalSessions={impactStats.totalSessions}
               sessionsWithPr={impactStats.sessionsWithPr}
               shipRate={impactStats.shipRate}
             />
-            <ActivityTimelineChart timeline={timeline} />
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-1 gap-4 lg:grid-cols-3"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.35 }}
+          >
+            <div className="lg:col-span-2">
+              <ActivityTimelineChart timeline={timeline} />
+            </div>
             <Leaderboard entries={leaderboard} />
           </motion.div>
         </div>

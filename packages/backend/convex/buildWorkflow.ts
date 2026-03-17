@@ -28,10 +28,10 @@ export const buildProjectWorkflow = workflow.define({
     }
 
     // Step 2: Execute tasks sequentially
+    let failedTaskId: string | undefined;
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
 
-      // Start the task execution workflow
       await step.runMutation(internal.buildWorkflow.startTaskForBuild, {
         taskId: task._id,
         projectId: args.projectId,
@@ -39,16 +39,18 @@ export const buildProjectWorkflow = workflow.define({
         installationId: args.installationId,
       });
 
-      // Wait for the task workflow to send completion event
       const result = await step.awaitEvent(buildTaskDoneEvent);
 
-      // If task failed, stop the build
-      if (!result.success) break;
+      if (!result.success) {
+        failedTaskId = task._id;
+        break;
+      }
     }
 
     // Step 3: Finalize the build
     await step.runMutation(internal.buildWorkflow.completeBuild, {
       projectId: args.projectId,
+      failedTaskId,
     });
   },
 });
@@ -152,8 +154,8 @@ export const startTaskForBuild = internalMutation({
         repoId: task.repoId,
         installationId: args.installationId,
         projectId: args.projectId,
-        branchName: `eva/project-${args.projectId}`,
-        baseBranch: project.baseBranch,
+        branchName: project.branchName ?? `eva/project-${args.projectId}`,
+        baseBranch: project.baseBranch ?? "main",
         isFirstTaskOnBranch,
         model: task.model ?? repo.defaultModel,
         userId: args.userId,
@@ -169,11 +171,17 @@ export const startTaskForBuild = internalMutation({
 });
 
 export const completeBuild = internalMutation({
-  args: { projectId: v.id("projects") },
+  args: {
+    projectId: v.id("projects"),
+    failedTaskId: v.optional(v.string()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.patch(args.projectId, {
       activeBuildWorkflowId: undefined,
+      lastBuildError: args.failedTaskId
+        ? `Build stopped: task ${args.failedTaskId} failed`
+        : undefined,
     });
     return null;
   },
@@ -193,7 +201,8 @@ export const startBuild = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      throw new Error("Project not found");
 
     if (project.activeBuildWorkflowId) {
       throw new Error("Project already has an active build");
@@ -211,6 +220,7 @@ export const startBuild = authMutation({
 
     await ctx.db.patch(args.projectId, {
       activeBuildWorkflowId: String(workflowId),
+      lastBuildError: undefined,
     });
 
     await ctx.scheduler.runAfter(

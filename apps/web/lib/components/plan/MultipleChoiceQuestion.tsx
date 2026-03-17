@@ -85,7 +85,7 @@ export function MultipleChoiceQuestion({
                     text-[11px] font-bold tracking-wide transition-all duration-150
                     ${
                       isSelected
-                        ? "bg-primary text-primary-foreground shadow-sm"
+                        ? "bg-primary text-primary-foreground"
                         : "bg-secondary text-muted-foreground"
                     }
                   `}
@@ -135,7 +135,7 @@ export function MultipleChoiceQuestion({
                   w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-150
                   ${
                     isOther
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                      ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-muted-foreground"
                   }
                 `}

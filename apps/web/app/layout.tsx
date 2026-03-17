@@ -6,6 +6,12 @@ import {
   Poppins,
   DM_Sans,
   Space_Grotesk,
+  Source_Serif_4,
+  Plus_Jakarta_Sans,
+  Outfit,
+  Nunito,
+  IBM_Plex_Sans,
+  Figtree,
 } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import { ClerkProvider } from "@clerk/nextjs";
@@ -78,6 +84,42 @@ const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
 });
 
+const sourceSerif4 = Source_Serif_4({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-source-serif",
+});
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-jakarta",
+});
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-outfit",
+});
+
+const nunito = Nunito({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-nunito",
+});
+
+const ibmPlexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-ibm-plex",
+});
+
+const figtree = Figtree({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-figtree",
+});
 export default function RootLayout({
   children,
 }: {
@@ -87,7 +129,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${roboto.variable} ${poppins.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${GeistSans.variable}`}
+      className={`${inter.variable} ${roboto.variable} ${poppins.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${GeistSans.variable} ${sourceSerif4.variable} ${plusJakartaSans.variable} ${outfit.variable} ${nunito.variable} ${ibmPlexSans.variable} ${figtree.variable}`}
     >
       <body suppressHydrationWarning className="font-sans text-foreground">
         <ClerkProvider

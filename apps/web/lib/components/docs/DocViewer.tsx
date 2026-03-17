@@ -258,7 +258,7 @@ function DocEditor({ doc }: { doc: Doc }) {
       />
       {streaming && (
         <div className="px-4 pb-3">
-          <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+          <div className="rounded-lg bg-muted/40 p-3 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
               <span>
@@ -394,7 +394,7 @@ function DocEditor({ doc }: { doc: Doc }) {
                 {(doc.userFlows ?? []).map((flow, flowIdx) => (
                   <div
                     key={flowIdx}
-                    className="border border-border rounded-lg p-3 bg-card sm:p-4"
+                    className="bg-muted/40 rounded-lg p-3 sm:p-4"
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <Input

@@ -51,7 +51,7 @@ export default function LandingPage() {
         </div>
 
         {isProduction && (
-          <div className="max-w-sm rounded-lg border border-border bg-muted/50 px-4 py-3 text-center text-sm text-muted-foreground">
+          <div className="max-w-sm rounded-lg bg-muted/40 px-4 py-3 text-center text-sm text-muted-foreground">
             Eva is fully open source and self-hosted. Clone the repo, create
             your own Convex and Clerk projects, and run it locally.
           </div>

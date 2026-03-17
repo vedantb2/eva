@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
@@ -15,6 +15,18 @@ import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 const CHAT_DEFAULT_SIZE = "30%";
 const CHAT_MIN_EXPANDED_WIDTH_PX = 320;
 const SANDBOX_MIN_WIDTH_PX = 300;
+
+const SANDBOX_COLLAPSED_COOKIE = "sandbox-collapsed";
+const ONE_YEAR = 60 * 60 * 24 * 365;
+
+function readSandboxCollapsed(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.cookie.includes(`${SANDBOX_COLLAPSED_COOKIE}=true`);
+}
+
+function writeSandboxCollapsed(collapsed: boolean) {
+  document.cookie = `${SANDBOX_COLLAPSED_COOKIE}=${collapsed}; path=/; max-age=${ONE_YEAR}; SameSite=Lax`;
+}
 
 export function SessionDetailClient({
   sessionId,
@@ -35,7 +47,8 @@ export function SessionDetailClient({
   const isSandboxStarting = session?.status === "starting";
   const [isStopPending, setIsStopPending] = useState(false);
   const sandboxPanelRef = usePanelRef();
-  const [sandboxCollapsed, setSandboxCollapsed] = useState(false);
+  const [sandboxCollapsed, setSandboxCollapsed] =
+    useState(readSandboxCollapsed);
   const [previewInfo, setPreviewInfo] = useState<{
     url: string;
     port: number;
@@ -46,14 +59,21 @@ export function SessionDetailClient({
   );
   const isMobile = useMediaQuery("(max-width: 767px)");
 
-  const handleSandboxPanelToggle = () => {
+  useEffect(() => {
     if (sandboxCollapsed) {
-      sandboxPanelRef.current?.expand();
-      setSandboxCollapsed(false);
-    } else {
       sandboxPanelRef.current?.collapse();
-      setSandboxCollapsed(true);
     }
+  }, [sandboxCollapsed, sandboxPanelRef]);
+
+  const handleSandboxPanelToggle = () => {
+    const next = !sandboxCollapsed;
+    if (next) {
+      sandboxPanelRef.current?.collapse();
+    } else {
+      sandboxPanelRef.current?.expand();
+    }
+    setSandboxCollapsed(next);
+    writeSandboxCollapsed(next);
   };
 
   const handleSandboxToggle = async (action: "start" | "stop") => {
@@ -125,8 +145,6 @@ export function SessionDetailClient({
       devCommand={session.devCommand}
       previewInfo={previewInfo}
       onPreviewInfoChange={handlePreviewInfoChange}
-      vncEnabled={repo.sessionsVncEnabled !== false}
-      vscodeEnabled={repo.sessionsVscodeEnabled !== false}
     />
   );
 

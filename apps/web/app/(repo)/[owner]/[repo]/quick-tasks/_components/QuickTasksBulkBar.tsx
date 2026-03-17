@@ -2,16 +2,13 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  Separator,
 } from "@conductor/ui";
 import {
-  IconBolt,
   IconFolders,
   IconTrash,
   IconTags,
@@ -20,6 +17,7 @@ import {
   IconRefresh,
   IconPlayerPlay,
   IconCalendarClock,
+  IconX,
 } from "@tabler/icons-react";
 
 export type BulkAction =
@@ -41,142 +39,112 @@ interface QuickTasksBulkBarProps {
   onSetBulkAction: (action: BulkAction | null) => void;
 }
 
+const actions: Array<{
+  key: BulkAction;
+  label: string;
+  icon: React.ComponentType<{ size: number; className?: string }>;
+  destructive?: boolean;
+}> = [
+  { key: "changeStatus", label: "Change Status", icon: IconRefresh },
+  { key: "assign", label: "Assign to...", icon: IconUser },
+  { key: "assignMe", label: "Assign to Me", icon: IconUserCheck },
+  { key: "addLabels", label: "Add Labels", icon: IconTags },
+  { key: "group", label: "Group into Project", icon: IconFolders },
+  { key: "schedule", label: "Schedule Run", icon: IconCalendarClock },
+  { key: "run", label: "Run Tasks", icon: IconPlayerPlay },
+  { key: "delete", label: "Delete All", icon: IconTrash, destructive: true },
+];
+
 export function QuickTasksBulkBar({
   isSelecting,
   selectedCount,
   onExitSelect,
-  activeBulkAction,
+  activeBulkAction: _activeBulkAction,
   onSetBulkAction,
 }: QuickTasksBulkBarProps) {
+  const hasSelection = selectedCount > 0;
+
   return (
-    <>
-      <AnimatePresence initial={false}>
-        {isSelecting && (
-          <motion.div
-            key="quick-tasks-actions-bottom"
-            className="absolute inset-x-2 bottom-2 z-20 flex justify-center pb-[env(safe-area-inset-bottom)]"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-            transition={{ duration: 0.18 }}
-          >
-            <div className="flex items-center gap-1.5 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm max-w-[calc(100vw-2rem)]">
-              <Button
-                size="sm"
-                variant="secondary"
-                className="motion-press hover:scale-[1.01] active:scale-[0.99]"
-                onClick={onExitSelect}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                className="motion-press min-w-28 hover:scale-[1.01] active:scale-[0.99] sm:min-w-36"
-                onClick={() => onSetBulkAction("actions")}
-                disabled={selectedCount === 0}
-              >
-                <IconBolt size={16} />
-                Actions
-                {selectedCount > 0 ? ` (${selectedCount})` : ""}
-              </Button>
+    <AnimatePresence initial={false}>
+      {isSelecting && (
+        <motion.div
+          key="quick-tasks-bulk-bar"
+          className="absolute inset-x-0 bottom-3 z-20 flex justify-center px-4 pb-[env(safe-area-inset-bottom)]"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
+        >
+          <TooltipProvider delayDuration={300}>
+            <div className="flex items-center gap-0.5 rounded-lg bg-foreground px-1.5 py-1 shadow-lg">
+              <div className="flex items-center px-2">
+                <span className="text-xs font-medium text-background tabular-nums">
+                  {selectedCount} selected
+                </span>
+              </div>
+
+              <Separator
+                orientation="vertical"
+                className="mx-1 h-4 bg-background/20"
+              />
+
+              {actions.map((action) => (
+                <span key={action.key} className="flex items-center">
+                  {action.destructive && (
+                    <Separator
+                      orientation="vertical"
+                      className="mx-1 h-4 bg-background/20"
+                    />
+                  )}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:pointer-events-none disabled:opacity-30 ${
+                          action.destructive
+                            ? "text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                            : "text-background/70 hover:bg-background/10 hover:text-background"
+                        }`}
+                        onClick={() => onSetBulkAction(action.key)}
+                        disabled={!hasSelection}
+                      >
+                        <action.icon size={15} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      className="text-xs"
+                      sideOffset={8}
+                    >
+                      {action.label}
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+              ))}
+
+              <Separator
+                orientation="vertical"
+                className="mx-1 h-4 bg-background/20"
+              />
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-background/70 transition-colors hover:bg-background/10 hover:text-background"
+                    onClick={onExitSelect}
+                  >
+                    <IconX size={15} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs" sideOffset={8}>
+                  Cancel selection
+                </TooltipContent>
+              </Tooltip>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <Dialog
-        open={activeBulkAction === "actions"}
-        onOpenChange={(v) => {
-          if (!v) onSetBulkAction(null);
-        }}
-      >
-        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Selected task actions</DialogTitle>
-            <DialogDescription>
-              {selectedCount} task{selectedCount === 1 ? "" : "s"} selected
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2">
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => onSetBulkAction("group")}
-              disabled={selectedCount === 0}
-            >
-              <IconFolders size={16} />
-              Group into Project
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => onSetBulkAction("addLabels")}
-              disabled={selectedCount === 0}
-            >
-              <IconTags size={16} />
-              Add Labels
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => onSetBulkAction("assign")}
-              disabled={selectedCount === 0}
-            >
-              <IconUser size={16} />
-              Assign to...
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => onSetBulkAction("assignMe")}
-              disabled={selectedCount === 0}
-            >
-              <IconUserCheck size={16} />
-              Assign to Me
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => onSetBulkAction("changeStatus")}
-              disabled={selectedCount === 0}
-            >
-              <IconRefresh size={16} />
-              Change Status
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => onSetBulkAction("schedule")}
-              disabled={selectedCount === 0}
-            >
-              <IconCalendarClock size={16} />
-              Schedule Run
-            </Button>
-            <Button
-              variant="secondary"
-              className="justify-start"
-              onClick={() => onSetBulkAction("run")}
-              disabled={selectedCount === 0}
-            >
-              <IconPlayerPlay size={16} />
-              Run Tasks
-            </Button>
-            <Button
-              variant="destructive"
-              className="justify-start"
-              onClick={() => onSetBulkAction("delete")}
-              disabled={selectedCount === 0}
-            >
-              <IconTrash size={16} />
-              Delete All
-            </Button>
-          </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => onSetBulkAction(null)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+          </TooltipProvider>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

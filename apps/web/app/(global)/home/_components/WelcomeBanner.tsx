@@ -54,7 +54,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
             <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/60 bg-primary/10">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
                   <IconSparkles size={14} className="text-primary" />
                 </div>
                 <p className="text-sm font-semibold text-foreground">
@@ -78,7 +78,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
               {PLATFORM_SECTIONS.map((section) => (
                 <div
                   key={section.label}
-                  className="flex flex-col gap-1.5 rounded-lg border border-border/50 bg-secondary/40 p-2.5"
+                  className="flex flex-col gap-1.5 rounded-lg bg-muted/40 p-2.5"
                 >
                   <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
                     <section.icon size={13} className="text-primary" />

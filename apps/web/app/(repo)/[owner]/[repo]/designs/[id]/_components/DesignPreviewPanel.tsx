@@ -70,7 +70,7 @@ export function DesignPreviewPanel({
 
   if (latestVariations.length === 0) {
     return (
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex flex-col min-w-0 h-full">
         <div className="flex items-center justify-center h-full text-muted-foreground">
           <p className="text-sm">
             {isExecuting
@@ -83,7 +83,7 @@ export function DesignPreviewPanel({
   }
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col min-w-0">
+    <div ref={containerRef} className="flex flex-col min-w-0 h-full">
       <Tabs
         value={tab}
         onValueChange={(v) => {

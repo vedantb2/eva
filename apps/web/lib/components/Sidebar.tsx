@@ -738,7 +738,10 @@ export function Sidebar() {
                                             }}
                                             title={`Open ${item.name.toLowerCase()} sidebar`}
                                           >
-                                            <IconChevronRight size={14} />
+                                            <IconChevronRight
+                                              size={14}
+                                              className="text-muted-foreground"
+                                            />
                                           </Button>
                                         </div>
                                       );

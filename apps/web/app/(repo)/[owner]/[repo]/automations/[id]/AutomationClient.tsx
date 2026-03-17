@@ -273,9 +273,6 @@ function RunAccordion({
           )}
           {run.resultSummary && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">
-                Summary
-              </p>
               <Streamdown
                 className="text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                 plugins={summaryPlugins}

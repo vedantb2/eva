@@ -53,11 +53,7 @@ export function SidebarSessionItem({
       onClick={onNavigate}
       className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
     >
-      <div className="flex items-center gap-2">
-        <span
-          className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
-          title={statusStyle.label}
-        />
+      <div className="flex items-center justify-between gap-2">
         <h3
           className={cn(
             "truncate text-sm font-medium transition-colors duration-200",
@@ -66,6 +62,10 @@ export function SidebarSessionItem({
         >
           {title}
         </h3>
+        <span
+          className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
+          title={statusStyle.label}
+        />
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <div className="flex -space-x-1">

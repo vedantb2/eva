@@ -46,6 +46,13 @@ export function isDaytonaNetworkIssue(errorMsg: string): boolean {
     return false;
   }
 
+  if (
+    message.includes("sandbox exec") ||
+    message.includes("sandbox command failed")
+  ) {
+    return false;
+  }
+
   const hasNetworkMarker = networkMarkers.some((marker) =>
     message.includes(marker),
   );

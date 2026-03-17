@@ -204,7 +204,7 @@ export const prepareSandbox = internalAction({
             args.repoOwner,
             args.repoName,
             args.baseBranch,
-            { prune: false, timeoutSeconds: 30 },
+            { prune: false, timeoutSeconds: 60 },
           );
           await exec(
             sandbox,
@@ -214,7 +214,7 @@ export const prepareSandbox = internalAction({
           await exec(
             sandbox,
             `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
-            60,
+            120,
           );
         }
 

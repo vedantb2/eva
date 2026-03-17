@@ -62,7 +62,8 @@ export async function recomputeProjectPhase(
   if (
     project.phase !== "active" &&
     project.phase !== "completed" &&
-    project.phase !== "finalized"
+    project.phase !== "finalized" &&
+    project.phase !== "cancelled"
   )
     return;
   const tasks = await db
@@ -80,6 +81,8 @@ export async function recomputeProjectPhase(
   if (allDone && project.phase !== "completed") {
     await db.patch(projectId, { phase: "completed" });
   } else if (anyActive && project.phase === "completed") {
+    await db.patch(projectId, { phase: "active" });
+  } else if (anyActive && project.phase === "cancelled") {
     await db.patch(projectId, { phase: "active" });
   } else if (anyActive && project.phase === "finalized") {
     await db.patch(projectId, { phase: "active" });

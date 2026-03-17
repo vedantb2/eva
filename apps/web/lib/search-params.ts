@@ -24,7 +24,13 @@ export const statusesParser = parseAsArrayOf(parseAsStringLiteral(taskStatuses))
   .withDefault([...taskStatuses])
   .withOptions(searchOptions);
 
-const projectPhases = ["draft", "finalized", "active", "completed"] as const;
+const projectPhases = [
+  "draft",
+  "finalized",
+  "active",
+  "completed",
+  "cancelled",
+] as const;
 export const phasesParser = parseAsArrayOf(parseAsStringLiteral(projectPhases))
   .withDefault([...projectPhases])
   .withOptions(searchOptions);

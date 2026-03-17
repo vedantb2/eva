@@ -49,6 +49,7 @@ export const phaseValidator = v.union(
   v.literal("finalized"),
   v.literal("active"),
   v.literal("completed"),
+  v.literal("cancelled"),
 );
 
 export const indexingStatusValidator = v.union(

@@ -28,7 +28,7 @@ interface Project {
   branchName?: string;
   prUrl?: string;
   sandboxId?: string;
-  phase: "draft" | "finalized" | "active" | "completed";
+  phase: "draft" | "finalized" | "active" | "completed" | "cancelled";
   rawInput: string;
   generatedSpec?: string;
   conversationHistory: Array<{
@@ -69,7 +69,7 @@ export function ProjectActiveLayout({
 
   useEffect(() => {
     if (
-      project.phase === "completed" &&
+      (project.phase === "completed" || project.phase === "cancelled") &&
       project.sandboxId &&
       !cleanupTriggeredRef.current
     ) {

@@ -130,6 +130,7 @@ export function ProjectsClient() {
       finalized: [],
       active: [],
       completed: [],
+      cancelled: [],
     };
     return PROJECT_PHASES.reduce((acc, phase) => {
       acc[phase] = filteredSorted.filter((p) => p.phase === phase);

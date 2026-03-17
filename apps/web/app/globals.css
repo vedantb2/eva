@@ -338,36 +338,6 @@
   }
 }
 
-@keyframes activity-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-.activity-step-shimmer {
-  position: relative;
-  overflow: hidden;
-}
-
-.activity-step-shimmer::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 25%,
-    hsl(var(--muted-foreground) / 0.06) 50%,
-    transparent 75%
-  );
-  background-size: 200% 100%;
-  animation: activity-shimmer 2s ease-in-out infinite;
-  border-radius: inherit;
-  pointer-events: none;
-}
-
 .qt-in-progress-border {
   --qt-border-angle: 0deg;
   animation: qt-border-spin 2.5s linear infinite;

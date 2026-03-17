@@ -74,18 +74,18 @@ const ActivityStepItem = memo(({ step, isLast }: ActivityStepItemProps) => {
       label={
         <div className="flex items-center gap-2">
           {step.status === "active" && <Spinner size="sm" />}
-          <span className={step.status === "active" ? "font-medium" : ""}>
-            {step.label}
-          </span>
+          {step.status === "active" ? (
+            <Shimmer as="span" duration={2.5} spread={1.5}>
+              {step.label}
+            </Shimmer>
+          ) : (
+            <span>{step.label}</span>
+          )}
         </div>
       }
       description={step.detail}
       status={step.status}
-      className={cn(
-        isLast ? "[&_.bg-border]:hidden" : "",
-        step.status === "active" &&
-          "activity-step-shimmer rounded-md px-1 -mx-1",
-      )}
+      className={isLast ? "[&_.bg-border]:hidden" : ""}
     />
   );
 });

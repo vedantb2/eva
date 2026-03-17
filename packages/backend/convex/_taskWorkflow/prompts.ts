@@ -77,6 +77,9 @@ ${subtasksList}${changeRequestSection}
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
 5. Run: git push -u origin ${branchName}
 
+## Summary (REQUIRED):
+After pushing, write a brief summary of the changes you made and why.
+
 ## Proof of Completion (REQUIRED):
 After pushing, capture visual proof of your changes using agent-browser.
 Assume proof is needed unless your changes are EXCLUSIVELY backend logic with no rendering impact (e.g. a cron job, a migration, an internal API rate limit).

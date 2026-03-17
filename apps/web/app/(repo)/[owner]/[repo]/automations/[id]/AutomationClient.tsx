@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api, CLAUDE_MODELS, type ClaudeModel } from "@conductor/backend";
-import type { Doc, Id } from "@conductor/backend";
+import type { Doc } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { CronScheduleCard } from "@/lib/components/CronScheduleCard";
 import {
@@ -21,6 +21,7 @@ import {
   Textarea,
   Spinner,
   Badge,
+  ActivitySteps,
   cn,
 } from "@conductor/ui";
 import {
@@ -28,9 +29,12 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconExternalLink,
+  IconPlayerPlay,
+  IconPlayerStop,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@/lib/utils/formatDuration";
+import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
 type Automation = Doc<"automations">;
 
@@ -40,6 +44,13 @@ interface AutomationClientProps {
 
 export function AutomationClient({ automation }: AutomationClientProps) {
   const updateAutomation = useMutation(api.automations.update);
+  const runNow = useMutation(api.automations.runNow);
+  const runs = useQuery(api.automations.listRuns, {
+    automationId: automation._id,
+  });
+  const hasActiveRun = runs?.some(
+    (r) => r.status === "queued" || r.status === "running",
+  );
 
   return (
     <PageWrapper
@@ -68,6 +79,17 @@ export function AutomationClient({ automation }: AutomationClientProps) {
           </button>
         </div>
       }
+      headerRight={
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={hasActiveRun === true || !automation.description}
+          onClick={() => runNow({ automationId: automation._id })}
+        >
+          <IconPlayerPlay size={14} />
+          Run Now
+        </Button>
+      }
     >
       <Tabs defaultValue="history" className="space-y-4">
         <TabsList>
@@ -76,7 +98,7 @@ export function AutomationClient({ automation }: AutomationClientProps) {
         </TabsList>
 
         <TabsContent value="history">
-          <RunHistory automationId={automation._id} />
+          <RunHistory runs={runs} />
         </TabsContent>
 
         <TabsContent value="settings">
@@ -87,8 +109,7 @@ export function AutomationClient({ automation }: AutomationClientProps) {
   );
 }
 
-function RunHistory({ automationId }: { automationId: Id<"automations"> }) {
-  const runs = useQuery(api.automations.listRuns, { automationId });
+function RunHistory({ runs }: { runs: Doc<"automationRuns">[] | undefined }) {
   const acknowledgeRun = useMutation(api.automations.acknowledgeRun);
 
   if (runs === undefined) {
@@ -104,7 +125,7 @@ function RunHistory({ automationId }: { automationId: Id<"automations"> }) {
       <div className="rounded-lg bg-muted/40 p-8 text-center">
         <p className="text-sm text-muted-foreground">
           No runs yet. Enable the automation and wait for the cron schedule to
-          trigger.
+          trigger, or click &quot;Run Now&quot;.
         </p>
       </div>
     );
@@ -130,7 +151,15 @@ function RunAccordion({
   run: Doc<"automationRuns">;
   onAcknowledge: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const isActive = run.status === "running" || run.status === "queued";
+  const [expanded, setExpanded] = useState(isActive);
+  const cancelRun = useMutation(api.automations.cancelRun);
+
+  const streamingEntityId = `automation-run-${run._id}`;
+  const streaming = useQuery(
+    api.streaming.get,
+    isActive ? { entityId: streamingEntityId } : "skip",
+  );
 
   const statusColor =
     run.status === "success"
@@ -147,6 +176,13 @@ function RunAccordion({
       : run.status === "running"
         ? "Running..."
         : "";
+
+  const liveSteps = streaming?.currentActivity
+    ? parseActivitySteps(streaming.currentActivity)
+    : null;
+  const completedSteps = run.activityLog
+    ? parseActivitySteps(run.activityLog)
+    : null;
 
   return (
     <div className="rounded-lg bg-muted/40 overflow-hidden">
@@ -187,6 +223,20 @@ function RunAccordion({
             {duration}
           </span>
         )}
+        {isActive && (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="shrink-0 h-7 text-xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              cancelRun({ runId: run._id });
+            }}
+          >
+            <IconPlayerStop size={12} />
+            Stop
+          </Button>
+        )}
         {!run.acknowledged &&
           run.status !== "queued" &&
           run.status !== "running" && (
@@ -208,7 +258,13 @@ function RunAccordion({
         )}
       </button>
       {expanded && (
-        <div className="mt-6 px-4 py-3 space-y-3">
+        <div className="px-4 py-3 space-y-3">
+          {isActive && liveSteps && (
+            <ActivitySteps steps={liveSteps} isStreaming />
+          )}
+          {!isActive && completedSteps && (
+            <ActivitySteps steps={completedSteps} />
+          )}
           {run.resultSummary && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1">
@@ -238,7 +294,7 @@ function RunAccordion({
               </a>
             </div>
           )}
-          {!run.resultSummary && !run.error && (
+          {!isActive && !run.resultSummary && !run.error && !completedSteps && (
             <p className="text-sm text-muted-foreground">
               No details available.
             </p>

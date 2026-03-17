@@ -27,6 +27,12 @@ import { formatDuration } from "@/lib/utils/formatDuration";
 import { RunActivityLog } from "../RunActivityLog";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
+import { Streamdown } from "streamdown";
+import { cjk } from "@streamdown/cjk";
+import { math } from "@streamdown/math";
+import { mermaid } from "@streamdown/mermaid";
+
+const summaryPlugins = { cjk, math, mermaid };
 
 type Run = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
@@ -201,9 +207,12 @@ export function RunTimelineItem({
               })()}
             <RunActivityLog runId={run._id} />
             {run.resultSummary && (
-              <p className="text-sm text-muted-foreground">
+              <Streamdown
+                className="text-sm text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                plugins={summaryPlugins}
+              >
                 {run.resultSummary}
-              </p>
+              </Streamdown>
             )}
             {run.error && (
               <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">

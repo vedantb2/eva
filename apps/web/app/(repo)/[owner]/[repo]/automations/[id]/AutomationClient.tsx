@@ -198,7 +198,13 @@ function RunAccordion({
     <div className="rounded-lg bg-muted/40 overflow-hidden">
       <button
         type="button"
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => {
+          const willExpand = !expanded;
+          setExpanded(willExpand);
+          if (willExpand && !run.acknowledged && !isActive) {
+            onAcknowledge();
+          }
+        }}
         className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
       >
         {expanded ? (

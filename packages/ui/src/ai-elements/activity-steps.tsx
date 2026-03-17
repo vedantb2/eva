@@ -9,6 +9,7 @@ import {
 } from "./chain-of-thought";
 import { cn } from "../utils/cn";
 import { Spinner } from "../ui/spinner";
+import { Shimmer } from "./shimmer";
 import {
   FileSearchIcon,
   PencilIcon,
@@ -80,7 +81,11 @@ const ActivityStepItem = memo(({ step, isLast }: ActivityStepItemProps) => {
       }
       description={step.detail}
       status={step.status}
-      className={isLast ? "[&_.bg-border]:hidden" : ""}
+      className={cn(
+        isLast ? "[&_.bg-border]:hidden" : "",
+        step.status === "active" &&
+          "activity-step-shimmer rounded-md px-1 -mx-1",
+      )}
     />
   );
 });
@@ -176,7 +181,15 @@ export const ActivitySteps = memo(
         className={cn("text-sm", className)}
         {...props}
       >
-        <ChainOfThoughtHeader icon={icon}>{headerLabel}</ChainOfThoughtHeader>
+        <ChainOfThoughtHeader icon={icon}>
+          {isStreaming ? (
+            <Shimmer as="span" duration={2.5} spread={1.5}>
+              {headerLabel}
+            </Shimmer>
+          ) : (
+            headerLabel
+          )}
+        </ChainOfThoughtHeader>
         <ChainOfThoughtContentArea>
           <div
             ref={scrollContainerRef}

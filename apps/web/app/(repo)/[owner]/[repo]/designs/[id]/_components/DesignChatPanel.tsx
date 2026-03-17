@@ -141,7 +141,7 @@ export function DesignChatPanel({
   };
 
   return (
-    <div className="flex flex-col w-full min-w-0 max-h-[50vh] pb-3 mb-3 sm:max-h-[60vh] md:max-h-none md:w-2/5 md:min-w-[280px] lg:min-w-[320px] md:pb-0 md:mb-0 md:pr-3">
+    <div className="flex flex-col min-w-0 h-full">
       <ChatPageWrapper
         title={title}
         isArchived={isArchived}

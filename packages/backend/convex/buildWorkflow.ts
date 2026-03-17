@@ -233,6 +233,91 @@ export const startBuild = authMutation({
   },
 });
 
+// --- Rerun Build ---
+
+/**
+ * Resets all project tasks to "todo", generates a new branch name,
+ * clears the old PR URL, and starts a fresh build workflow.
+ * All previous agent runs are preserved.
+ */
+export const rerunBuild = authMutation({
+  args: {
+    projectId: v.id("projects"),
+    installationId: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      throw new Error("Project not found");
+
+    if (project.activeBuildWorkflowId) {
+      throw new Error("Project already has an active build");
+    }
+
+    if (project.phase !== "active" && project.phase !== "completed") {
+      throw new Error("Only active or completed projects can be rerun");
+    }
+
+    const nextRerunCount = (project.rerunCount ?? 0) + 1;
+    const newBranchName = `eva/project-${args.projectId}-v${nextRerunCount + 1}`;
+
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    for (const task of tasks) {
+      await ctx.db.patch(task._id, {
+        status: "todo",
+        activeWorkflowId: undefined,
+        scheduledRetryAt: undefined,
+        scheduledAt: undefined,
+        scheduledFunctionId: undefined,
+        updatedAt: Date.now(),
+      });
+
+      const subtasks = await ctx.db
+        .query("subtasks")
+        .withIndex("by_parent", (q) => q.eq("parentTaskId", task._id))
+        .collect();
+      for (const subtask of subtasks) {
+        await ctx.db.patch(subtask._id, { completed: false });
+      }
+    }
+
+    await ctx.db.patch(args.projectId, {
+      branchName: newBranchName,
+      prUrl: undefined,
+      phase: "active",
+      rerunCount: nextRerunCount,
+      lastBuildError: undefined,
+    });
+
+    const workflowId = await workflow.start(
+      ctx,
+      internal.buildWorkflow.buildProjectWorkflow,
+      {
+        projectId: args.projectId,
+        userId: ctx.userId,
+        installationId: args.installationId,
+      },
+    );
+
+    await ctx.db.patch(args.projectId, {
+      activeBuildWorkflowId: String(workflowId),
+    });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleBuild,
+      { projectId: args.projectId, workflowId: String(workflowId) },
+    );
+
+    return null;
+  },
+});
+
 // --- Scheduled Build ---
 
 /**

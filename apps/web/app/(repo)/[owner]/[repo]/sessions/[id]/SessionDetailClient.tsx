@@ -13,7 +13,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 
 const CHAT_DEFAULT_SIZE = "30%";
-const CHAT_MIN_EXPANDED_WIDTH_PX = 320;
+const CHAT_MIN_EXPANDED_WIDTH_PX = 350;
 const SANDBOX_MIN_WIDTH_PX = 300;
 
 const SANDBOX_COLLAPSED_COOKIE = "sandbox-collapsed";

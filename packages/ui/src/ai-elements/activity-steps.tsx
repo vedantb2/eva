@@ -175,8 +175,12 @@ export const ActivitySteps = memo(
           : null;
     const headerLabel = isStreaming
       ? name
-        ? `${name} is cooking... (${stepsText})`
-        : `Cooking... (${stepsText})`
+        ? timeText
+          ? `${name} is cooking... (${stepsText} · ${timeText})`
+          : `${name} is cooking... (${stepsText})`
+        : timeText
+          ? `Cooking... (${stepsText} · ${timeText})`
+          : `Cooking... (${stepsText})`
       : name
         ? timeText
           ? `${name} cooked ${stepsText} in ${timeText}`

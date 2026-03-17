@@ -143,6 +143,12 @@ function toolCallToStep(name, input) {
     case "Edit": return { type: "edit", label: "Editing file...", detail: path || undefined, status: "active" };
     case "Bash": return { type: "bash", label: "Running command...", detail: input.command ? String(input.command).slice(0, 300) : undefined, status: "active" };
     case "Skill": return { type: "tool", label: "Using Skill...", detail: input.skill ? String(input.skill) : undefined, status: "active" };
+    case "WebFetch": return { type: "web_fetch", label: "Fetching URL...", detail: input.url ? String(input.url) : undefined, status: "active" };
+    case "WebSearch": return { type: "web_search", label: "Searching web...", detail: input.query ? String(input.query) : undefined, status: "active" };
+    case "NotebookEdit": return { type: "notebook", label: "Editing notebook...", detail: input.notebook_path ? shortenPath(String(input.notebook_path)) : undefined, status: "active" };
+    case "Agent": return { type: "subtask", label: "Running agent...", detail: input.description ? String(input.description) : undefined, status: "active" };
+    case "TodoWrite": return { type: "tool", label: "Updating tasks...", status: "active" };
+    case "TodoRead": return { type: "tool", label: "Reading tasks...", status: "active" };
     default: return { type: "tool", label: "Using " + name + "...", status: "active" };
   }
 }
@@ -153,6 +159,7 @@ const completedLabels = {
   "Starting Claude...": "Started Claude",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
+  "Writing response...": "Wrote response",
   "Finalizing response...": "Finalized response",
   "Reading file...": "Read file",
   "Searching files...": "Searched files",
@@ -161,6 +168,12 @@ const completedLabels = {
   "Editing file...": "Edited file",
   "Running command...": "Ran command",
   "Using Skill...": "Used Skill",
+  "Fetching URL...": "Fetched URL",
+  "Searching web...": "Searched web",
+  "Editing notebook...": "Edited notebook",
+  "Running agent...": "Ran agent",
+  "Updating tasks...": "Updated tasks",
+  "Reading tasks...": "Read tasks",
 };
 
 function markLastComplete() {
@@ -193,8 +206,12 @@ function parseStreamEvent(line) {
         added = true;
       } else if (block.type === "thinking" && block.thinking) {
         markLastComplete();
-        const preview = String(block.thinking).split("\\n")[0].slice(0, 500);
-        accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: preview, status: "active" });
+        accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: String(block.thinking), status: "active" });
+        lastStepType = "thinking";
+        added = true;
+      } else if (block.type === "text" && block.text) {
+        markLastComplete();
+        accumulatedSteps.push({ type: "thinking", label: "Writing response...", detail: String(block.text), status: "active" });
         lastStepType = "thinking";
         added = true;
       }

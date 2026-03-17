@@ -10,6 +10,7 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   taskAudit: "Task Audits",
   summarize: "Summaries",
   testGen: "Test Generation",
+  automation: "Automations",
 };
 
 export function labelFor(entityType: string): string {

@@ -447,6 +447,18 @@ export const handleCompletion = authMutation({
       },
     });
 
+    const automation = await ctx.db.get(run.automationId);
+    if (automation) {
+      await ctx.db.insert("logs", {
+        entityType: "automation",
+        entityId: String(args.automationRunId),
+        entityTitle: automation.title,
+        rawResultEvent: args.rawResultEvent,
+        repoId: run.repoId,
+        createdAt: Date.now(),
+      });
+    }
+
     return null;
   },
 });

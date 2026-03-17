@@ -44,7 +44,8 @@ import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
-import { RepoSelect } from "@/lib/components/RepoSelect";
+import { RepoSwitcher } from "@/lib/components/RepoSwitcher";
+import { AppSwitcher } from "@/lib/components/AppSwitcher";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
@@ -270,12 +271,41 @@ export function Sidebar() {
     [repoBasePath, isRepoRoute],
   );
 
+  const monorepoApps = useMemo(() => {
+    if (!repos || !owner || !repoName) return [];
+    return repos.filter(
+      (r) => r.owner === owner && r.name === repoName && r.rootDirectory,
+    );
+  }, [repos, owner, repoName]);
+
+  const isMonorepo = monorepoApps.length > 0;
+
   const { openSearch } = useSearch();
   const { theme, toggleTheme } = useThemeContext();
 
-  const handleRepoSelect = (selectedHref: string) => {
+  const handleRepoSwitch = (selectedOwner: string, selectedName: string) => {
+    if (selectedOwner === owner && selectedName === repoName) return;
+    const matchingApps = (repos ?? []).filter(
+      (r) =>
+        r.owner === selectedOwner && r.name === selectedName && r.rootDirectory,
+    );
+    const subPath = repoBasePath ? pathname.slice(repoBasePath.length) : "";
+    const segments = subPath.split("/").filter(Boolean);
+    const preservePath =
+      segments.length > 0 && KNOWN_SUB_PAGES.has(segments[0]) ? subPath : "";
+    if (matchingApps.length > 0) {
+      const firstApp = matchingApps[0];
+      const appSlug = firstApp.rootDirectory?.split("/").pop();
+      router.push(
+        `/${selectedOwner}/${selectedName}/${appSlug}${preservePath}`,
+      );
+    } else {
+      router.push(`/${selectedOwner}/${selectedName}${preservePath}`);
+    }
+  };
+
+  const handleAppSwitch = (selectedHref: string) => {
     if (selectedHref !== repoBasePath) {
-      // Preserve the current sub-page path when switching repos
       const subPath = repoBasePath ? pathname.slice(repoBasePath.length) : "";
       const segments = subPath.split("/").filter(Boolean);
       const preservePath =
@@ -532,11 +562,11 @@ export function Sidebar() {
               <div className="space-y-4">
                 {!isRepoRoute && !collapsed && repos && repos.length > 0 && (
                   <div className="space-y-2">
-                    <RepoSelect
+                    <RepoSwitcher
                       repos={repos}
-                      value={null}
-                      onValueChange={handleRepoSelect}
-                      placeholder="Select a repo"
+                      currentOwner={null}
+                      currentName={null}
+                      onSelect={handleRepoSwitch}
                       className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
                     />
                   </div>
@@ -616,13 +646,22 @@ export function Sidebar() {
                       ) : (
                         <div className="space-y-4">
                           {!collapsed && (
-                            <div className="space-y-2">
-                              <RepoSelect
+                            <div className="space-y-1.5">
+                              <RepoSwitcher
                                 repos={repos ?? []}
-                                value={repoBasePath}
-                                onValueChange={handleRepoSelect}
+                                currentOwner={owner}
+                                currentName={repoName}
+                                onSelect={handleRepoSwitch}
                                 className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
                               />
+                              {isMonorepo && (
+                                <AppSwitcher
+                                  apps={monorepoApps}
+                                  currentValue={repoBasePath}
+                                  onValueChange={handleAppSwitch}
+                                  className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
+                                />
+                              )}
                             </div>
                           )}
 

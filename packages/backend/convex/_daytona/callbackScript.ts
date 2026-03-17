@@ -224,6 +224,7 @@ try {
 let rawOutput = "";
 let lastProcessed = 0;
 let lastStreamingSentAt = Date.now();
+let lastSentPayload = "";
 
 async function flushStreaming() {
   if (rawOutput.length <= lastProcessed) return;
@@ -238,8 +239,11 @@ async function flushStreaming() {
     if (parseStreamEvent(clean)) hasNew = true;
   }
   if (hasNew) {
+    const payload = JSON.stringify(accumulatedSteps);
+    if (payload === lastSentPayload) return;
     try {
-      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
+      await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
+      lastSentPayload = payload;
       lastStreamingSentAt = Date.now();
       consecutiveHeartbeatFailures = 0;
     } catch (e) {
@@ -253,10 +257,13 @@ let consecutiveHeartbeatFailures = 0;
 
 async function heartbeatPing() {
   if (Date.now() - lastStreamingSentAt < 10000) return;
+  const payload = JSON.stringify(accumulatedSteps);
+  if (payload === lastSentPayload) return;
   let attempt = 0;
   while (attempt <= 1) {
     try {
-      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
+      await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
+      lastSentPayload = payload;
       lastStreamingSentAt = Date.now();
       if (consecutiveHeartbeatFailures > 0) {
         console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
@@ -307,7 +314,8 @@ if (!callbackReady) {
   process.exit(1);
 }
 
-const interval = setInterval(flushStreaming, 500);
+// TODO: reduce back to 500ms once we move to a more efficient streaming transport
+const interval = setInterval(flushStreaming, 2000);
 const heartbeatInterval = setInterval(heartbeatPing, 10000);
 let streamingLoopsStopped = false;
 

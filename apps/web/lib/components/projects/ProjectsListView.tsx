@@ -24,7 +24,6 @@ interface ProjectsListViewProps {
   projectsByPhase: Record<ProjectPhase, Project[]>;
   visiblePhases: Set<ProjectPhase>;
   basePath: string;
-  selectedProjectId?: string | null;
   onOpenProject: (id: string) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
@@ -33,7 +32,6 @@ export function ProjectsListView({
   projectsByPhase,
   visiblePhases,
   basePath,
-  selectedProjectId,
   onOpenProject,
   onDelete,
 }: ProjectsListViewProps) {
@@ -109,7 +107,6 @@ export function ProjectsListView({
                         accentColor={phaseConfig[phase].bar}
                         members={project.members}
                         projectLead={project.projectLead}
-                        isActive={selectedProjectId === project._id}
                         onClick={() => onOpenProject(project._id)}
                         onDelete={() => onDelete(project._id, project.title)}
                       />

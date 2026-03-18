@@ -25,7 +25,6 @@ import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
-import { ProjectDetailInline } from "@/lib/components/projects/ProjectDetailInline";
 import {
   IconLayoutKanban,
   IconPlus,
@@ -34,7 +33,6 @@ import {
   IconSortDescending,
   IconTimeline,
   IconList,
-  IconChevronRight,
 } from "@tabler/icons-react";
 import {
   PROJECT_PHASES,
@@ -52,7 +50,6 @@ import {
   sortFieldParser,
   sortDirParser,
   projectViewParser,
-  projectIdParser,
 } from "@/lib/search-params";
 
 type ProjectView = "kanban" | "timeline" | "list";
@@ -76,16 +73,15 @@ export function ProjectsClient() {
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const deleteProject = useMutation(api.projects.deleteCascade);
   const [isCreating, setIsCreating] = useState(false);
-  const [{ q, phases, sort, dir, view, projectId }, setParams] = useQueryStates(
-    {
-      q: searchParser,
-      phases: phasesParser,
-      sort: sortFieldParser,
-      dir: sortDirParser,
-      view: projectViewParser,
-      projectId: projectIdParser,
-    },
-  );
+  const [selectedProjectId, setSelectedProjectId] =
+    useState<Id<"projects"> | null>(null);
+  const [{ q, phases, sort, dir, view }, setParams] = useQueryStates({
+    q: searchParser,
+    phases: phasesParser,
+    sort: sortFieldParser,
+    dir: sortDirParser,
+    view: projectViewParser,
+  });
   const searchQuery = q;
   const visiblePhases = useMemo(() => new Set<ProjectPhase>(phases), [phases]);
   const sortField = sort;
@@ -161,19 +157,13 @@ export function ProjectsClient() {
   };
 
   const handleOpenProject = (id: string) => {
-    setParams({ projectId: id });
+    setSelectedProjectId(id as Id<"projects">);
   };
 
-  const handleProjectClose = () => {
-    setParams({ projectId: null });
-  };
-
-  const typedProjectId = projectId as Id<"projects"> | null;
-  const isListDetailView = view === "list" && !!typedProjectId;
   const selectedProject = useMemo(() => {
-    if (!typedProjectId || !projects) return undefined;
-    return projects.find((p) => p._id === typedProjectId);
-  }, [typedProjectId, projects]);
+    if (!selectedProjectId || !projects) return undefined;
+    return projects.find((p) => p._id === selectedProjectId);
+  }, [selectedProjectId, projects]);
 
   const toolbarContent = (
     <div className="flex items-center gap-1.5 sm:gap-2">
@@ -291,30 +281,10 @@ export function ProjectsClient() {
   return (
     <>
       <PageWrapper
-        title={
-          isListDetailView ? (
-            <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
-              <button
-                onClick={handleProjectClose}
-                className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
-              >
-                Projects
-              </button>
-              <IconChevronRight
-                size={14}
-                className="text-muted-foreground/50 flex-shrink-0"
-              />
-              <span className="truncate font-semibold">
-                {selectedProject?.title ?? ""}
-              </span>
-            </div>
-          ) : (
-            "Projects"
-          )
-        }
+        title="Projects"
         fillHeight
         childPadding={false}
-        headerRight={isListDetailView ? undefined : toolbarContent}
+        headerRight={toolbarContent}
       >
         <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
           {projects === undefined ? (
@@ -333,24 +303,7 @@ export function ProjectsClient() {
             />
           ) : (
             <AnimatePresence initial={false} mode="wait">
-              {isListDetailView ? (
-                <motion.div
-                  key="projects-detail"
-                  className="flex min-w-0 flex-1 min-h-0"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div className="flex-1 min-h-0 overflow-hidden">
-                    <ProjectDetailInline
-                      key={typedProjectId}
-                      projectId={typedProjectId}
-                      projectUrl={`${basePath}/projects/${typedProjectId}`}
-                    />
-                  </div>
-                </motion.div>
-              ) : view === "kanban" ? (
+              {view === "kanban" ? (
                 <motion.div
                   key="projects-kanban-view"
                   className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar"
@@ -395,7 +348,6 @@ export function ProjectsClient() {
                     projectsByPhase={projectsByPhase}
                     visiblePhases={visiblePhases}
                     basePath={basePath}
-                    selectedProjectId={projectId}
                     onOpenProject={handleOpenProject}
                     onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
@@ -415,13 +367,13 @@ export function ProjectsClient() {
         onConfirm={handleDelete}
         isDeleting={isDeleting}
       />
-      {typedProjectId && view === "kanban" && (
+      {selectedProjectId && (
         <ProjectCardModal
-          isOpen={!!typedProjectId}
-          onClose={handleProjectClose}
-          projectId={typedProjectId}
+          isOpen={!!selectedProjectId}
+          onClose={() => setSelectedProjectId(null)}
+          projectId={selectedProjectId}
           createdAt={selectedProject?._creationTime ?? Date.now()}
-          projectUrl={`${basePath}/projects/${typedProjectId}`}
+          projectUrl={`${basePath}/projects/${selectedProjectId}`}
         />
       )}
     </>

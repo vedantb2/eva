@@ -23,12 +23,7 @@ import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
 import { ProjectMetadataBar } from "@/lib/components/projects/ProjectMetadataBar";
 
-import {
-  IconGitBranch,
-  IconHammer,
-  IconPlayerStop,
-  IconLoader2,
-} from "@tabler/icons-react";
+import { IconHammer, IconPlayerStop, IconLoader2 } from "@tabler/icons-react";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 
@@ -95,14 +90,6 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
       showBack
       fillHeight
       childPadding={false}
-      headerCenter={
-        project.branchName ? (
-          <div className="flex items-center gap-1 text-muted-foreground text-sm">
-            <IconGitBranch size={14} />
-            {project.branchName}
-          </div>
-        ) : undefined
-      }
       headerRight={
         !isDraftOrFinalized ? (
           <div className="flex items-center gap-2">

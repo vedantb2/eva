@@ -130,19 +130,14 @@ export function ProjectActiveLayout({
               {(generatedSpec || prUrl) && (
                 <div className="pt-6 p-2 flex justify-center gap-2">
                   {prUrl && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="rounded-full"
-                      asChild
-                    >
+                    <Button variant="ghost" className="rounded-full" asChild>
                       <Link
                         href={prUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <IconGitPullRequest size={14} />
-                        <span className="text-xs">PR</span>
+                        <IconGitPullRequest size={16} />
+                        View PR
                       </Link>
                     </Button>
                   )}

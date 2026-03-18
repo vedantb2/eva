@@ -1,5 +1,14 @@
 # Changelog
 
+## Convex performance audit — quick wins - 2026-03-18
+
+- **streaming.set/internalSet**: Skip patch when `currentActivity` unchanged. During AI streaming this fires constantly — every no-op write invalidated all `streaming.get` subscribers for no reason.
+- **Analytics → one-shot reads**: All analytics queries (`getImpactStats`, `getActivityTimeline`, `getActivityHeatmap`, `getLeaderboard`, `getActiveUsers`) switched from reactive `useQuery` to one-shot `ConvexHttpClient` via new `useOneShotQuery` hook. These queries do full table scans across sessions/tasks/runs — maintaining persistent subscriptions meant every write to any of those tables re-ran the entire scan. Stats pages don't need live-second freshness.
+- **notifications.list**: Capped at 100 results (was unbounded `.collect()`).
+- **notifications.countUnread**: Capped at 100 (was `.collect()` just to return `.length`).
+- **notifications.markAsRead**: Skip patch when already `read: true`.
+- **logs.listByRepo**: Push `startTime` filter into `by_repo_and_created` index range (`.gte("createdAt", startTime)`) instead of scanning all logs then JS-filtering.
+
 ## Harden sandbox startup, heartbeats, and base-branch sync - 2026-03-18
 
 - **Why**: Scheduled project builds and task runs were failing from multiple adjacent weaknesses instead of one bug: long base-branch prep could outlive the normal watchdog window, checkout was redundantly hitting GitHub a second time after fetch, unchanged activity did not actually refresh heartbeats, and Claude startup could sit on `Starting Claude...` if stdout never became parseable stream-json.

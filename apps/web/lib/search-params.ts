@@ -130,5 +130,3 @@ export const logEntityTypesParser = parseAsArrayOf(parseAsString)
   .withOptions(searchOptions);
 
 export const taskIdParser = parseAsString.withOptions(tabOptions);
-
-export const projectIdParser = parseAsString.withOptions(tabOptions);

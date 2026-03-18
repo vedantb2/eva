@@ -106,9 +106,6 @@ export function ProjectCardModal({
                       className="text-muted-foreground shrink-0"
                     />
                     <span>{dayjs(createdAt).format("MMM D, YYYY")}</span>
-                    <span className="text-muted-foreground">
-                      ({dayjs(createdAt).fromNow()})
-                    </span>
                   </div>
 
                   <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">

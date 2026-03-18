@@ -11,10 +11,11 @@ export const listByProject = authQuery({
     const project = await ctx.db.get(args.projectId);
     if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
       return [];
-    return await ctx.db
+    const tasks = await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
+    return tasks.sort((a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0));
   },
 });
 

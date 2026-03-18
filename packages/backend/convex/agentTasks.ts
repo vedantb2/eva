@@ -14,6 +14,7 @@ export {
   createQuickTask,
   createQuickTasksBatch,
   assignToProject,
+  reorderProjectTasks,
   deleteCascade,
 } from "./_agentTasks/mutations";
 

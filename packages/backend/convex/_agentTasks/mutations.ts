@@ -348,6 +348,27 @@ export const createBatchWithDependencies = authMutation({
   },
 });
 
+export const reorderProjectTasks = authMutation({
+  args: {
+    projectId: v.id("projects"),
+    taskIds: v.array(v.id("agentTasks")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      throw new Error("Project not found");
+    const now = Date.now();
+    for (let i = 0; i < args.taskIds.length; i++) {
+      await ctx.db.patch(args.taskIds[i], {
+        taskNumber: i + 1,
+        updatedAt: now,
+      });
+    }
+    return null;
+  },
+});
+
 export const deleteCascade = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),

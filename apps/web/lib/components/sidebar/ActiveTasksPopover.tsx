@@ -67,7 +67,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
             {tasks.map((task) => (
               <Link
                 key={task._id}
-                href={`${basePath}/quick-tasks`}
+                href={`${basePath}/quick-tasks?taskId=${task._id}`}
                 className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 <div className="flex items-center justify-between rounded-lg p-2.5 transition-colors hover:bg-muted/60">

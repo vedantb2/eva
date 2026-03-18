@@ -1,5 +1,46 @@
 # Changelog
 
+## Retry shallow session base fallback fetches quickly - 2026-03-18
+
+- **Why**: After switching regular sessions to a shallow base-branch fallback, one sandbox could fetch `staging` in under a second while another hung for four minutes on the same command. That points to transient sandbox fetch stalls, not consistently expensive work.
+- **Fail-fast fallback fetches**: `_daytona/sessions.ts` now gives the shallow fallback base fetch a short 45s timeout instead of waiting 240s on a single bad attempt.
+- **Targeted retries**: Regular session fallback fetches now retry a few times with short backoff when they fail with sandbox exec timeouts, so transient stalls no longer tank the whole session start as easily.
+
+## Use ls-remote before fetching session branch - 2026-03-18
+
+- **Why**: Concurrent first-run session starts were still timing out while trying to fetch remote session branches that did not exist yet. We were paying full `git fetch` cost just to learn the branch was missing.
+- **Cheap existence probe**: `_daytona/git.ts` now exposes `remoteBranchExists`, which uses `git ls-remote --heads` to check for a remote session branch without downloading pack data.
+- **Session restore path updated**: `_daytona/sessions.ts` now checks whether the remote session branch exists first. Existing remote session branches are fetched shallowly for checkout; missing ones skip straight to the shallow base-branch fallback.
+
+## Make session fallback base fetch shallow - 2026-03-18
+
+- **Why**: Concurrent regular session starts were still getting stuck on the fallback base-branch fetch after the session-branch probe succeeded. That fallback only exists to give `checkoutSessionBranch` a base ref when the remote session branch does not exist yet, so it does not need full branch history.
+- **Session-only shallow fallback**: `_daytona/sessions.ts` now requests a shallow base-branch fetch for the regular session restore fallback path, while `_daytona/git.ts` keeps full-history branch fetches as the default for merge-sensitive task and design flows.
+- **Preserves restore behavior**: Sessions still restore from the remote session branch when it exists and still fall back to base when it does not, but the expensive fallback `staging` fetch now transfers less history.
+
+## Fetch session branch first on restore - 2026-03-18
+
+- **Why**: Regular session sandboxes were still spending too long in `fetchBranchRefs` because startup always fetched both the remote session branch and base branch up front, even though the base branch is only needed when the session branch does not exist remotely.
+- **Session-specific sync path**: `_daytona/sessions.ts` now fetches the session branch first for restore. If that remote branch exists, startup skips the base branch fetch entirely and goes straight to checkout. Only missing remote session branches fall back to fetching the base branch.
+- **Preserves restore semantics**: Recreated sessions still restore from `origin/<session-branch>` when available and still fall back to base for first-run sessions, but the common restore path now does less network work.
+
+## Add step-level session sandbox timing logs - 2026-03-18
+
+- **Why**: Session sandbox starts were still taking long enough that we were reasoning from timeouts instead of knowing the exact slow step. We need visibility into whether a delay is sandbox create, snapshot sync, branch checkout, or session-ready mutation.
+- **Session action timing**: `_daytona/sessions.ts` now logs start, completion, and failure timings for repo lookup, sandbox context resolution, sandbox reuse, volume attach, sandbox creation/prep, branch checkout, service detection, and ready/error mutations.
+- **Git helper timing**: `_daytona/git.ts` now logs timings for sandbox create, origin configuration, fetches, syncs, checkout, and branch setup so snapshot-backed session starts can be traced end-to-end from server logs.
+
+## Increase startup headroom for branch sync and snapshot install - 2026-03-18
+
+- **Why**: Sandbox startup was still failing with `Sandbox exec (120s) timed out after 135000ms` on valid long-running setup work. The remaining 120s caps were too aggressive for branch-scoped fetches on larger repos and snapshot-backed design-session reinstalls.
+- **Branch sync timeout 120s → 240s**: `_daytona/git.ts` now gives branch-targeted `syncRepo` the same larger timeout budget as other fetch-heavy startup paths.
+- **Snapshot design install timeout 120s → 240s**: `_daytona/sessions.ts` now gives the post-snapshot `pnpm install` step more room so design sandboxes do not fail purely because dependency relinking takes longer than two minutes.
+
+## Remove redundant origin reconfigure before local base checkout - 2026-03-18
+
+- **Why**: The split sandbox prep flow already reconfigured `origin` during `fetchBaseBranch`, then paid for another `configureGitHubOrigin` call in `checkoutBaseBranch` even though the checkout step only does a local fast-forward merge against `origin/<baseBranch>`.
+- **One less sandbox round trip**: `checkoutBaseBranch` now goes straight to the local checkout/merge step, shaving an extra `exec()` from workflows that use the granular base-branch path without changing git behavior.
+
 ## Restore remote session branch on sandbox recreate - 2026-03-18
 
 - **Why**: Session startup must restore prior work when a sandbox is recreated. Fetching only the base branch made fresh sandboxes recreate the session branch from base, which could make an existing remote session branch appear blank.

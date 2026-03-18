@@ -488,12 +488,6 @@ export const checkoutBaseBranch = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await configureGitHubOrigin(
-      sandbox,
-      args.installationId,
-      args.repoOwner,
-      args.repoName,
-    );
     await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
     return null;
   },

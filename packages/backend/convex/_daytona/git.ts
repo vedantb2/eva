@@ -42,6 +42,56 @@ const WARMING_LIFECYCLE: SandboxLifecycle = {
 
 export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE, WARMING_LIFECYCLE };
 
+function formatDurationMs(durationMs: number): string {
+  return `${durationMs}ms`;
+}
+
+function logGit(message: string): void {
+  console.log(`[daytona][git] ${message}`);
+}
+
+async function runLoggedGitStep<T>(
+  label: string,
+  details: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  logGit(`${label} started${details ? ` (${details})` : ""}`);
+  try {
+    const result = await fn();
+    logGit(
+      `${label} completed in ${formatDurationMs(Date.now() - startedAt)}${details ? ` (${details})` : ""}`,
+    );
+    return result;
+  } catch (error) {
+    logGit(
+      `${label} failed after ${formatDurationMs(Date.now() - startedAt)}${details ? ` (${details})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    throw error;
+  }
+}
+
+export async function remoteBranchExists(
+  sandbox: Sandbox,
+  installationId: number,
+  owner: string,
+  name: string,
+  branchName: string,
+  timeoutSeconds = 30,
+): Promise<boolean> {
+  const details = `${owner}/${name}, branch=${branchName}`;
+  return await runLoggedGitStep("remoteBranchExists", details, async () => {
+    const githubToken = await getInstallationToken(installationId);
+    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const output = await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git ls-remote --heads origin ${quote([`refs/heads/${branchName}`])}`,
+      timeoutSeconds,
+    );
+    return output.trim().length > 0;
+  });
+}
+
 function normalizeBranchNames(branchNames: string[]): string[] {
   const normalized: string[] = [];
   for (const branchName of branchNames) {
@@ -84,45 +134,52 @@ export async function createSandbox(
   volumes?: VolumeMount[],
   readyTimeoutSeconds?: number,
 ): Promise<Sandbox> {
-  const timeoutSeconds =
-    readyTimeoutSeconds ??
-    (snapshotName
-      ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
-      : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS);
+  const details = [
+    `installation=${installationId}`,
+    snapshotName ? `snapshot=${snapshotName}` : "snapshot=none",
+    lifecycle.ephemeral ? "ephemeral=true" : "ephemeral=false",
+  ].join(", ");
+  return await runLoggedGitStep("createSandbox", details, async () => {
+    const timeoutSeconds =
+      readyTimeoutSeconds ??
+      (snapshotName
+        ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
+        : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS);
 
-  const githubToken = await getInstallationToken(installationId);
+    const githubToken = await getInstallationToken(installationId);
 
-  const sandbox = await withTimeout(
-    daytona.create(
-      {
-        ...(snapshotName
-          ? { snapshot: snapshotName }
-          : { language: "typescript" }),
-        ...(volumes ? { volumes } : {}),
-        envVars: {
-          ...sandboxEnvVars,
-          GITHUB_TOKEN: githubToken,
-          INSTALLATION_ID: String(installationId),
+    const sandbox = await withTimeout(
+      daytona.create(
+        {
+          ...(snapshotName
+            ? { snapshot: snapshotName }
+            : { language: "typescript" }),
+          ...(volumes ? { volumes } : {}),
+          envVars: {
+            ...sandboxEnvVars,
+            GITHUB_TOKEN: githubToken,
+            INSTALLATION_ID: String(installationId),
+          },
+          autoStopInterval: lifecycle.autoStopInterval,
+          ...(lifecycle.autoDeleteInterval !== undefined
+            ? { autoDeleteInterval: lifecycle.autoDeleteInterval }
+            : {}),
+          ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
         },
-        autoStopInterval: lifecycle.autoStopInterval,
-        ...(lifecycle.autoDeleteInterval !== undefined
-          ? { autoDeleteInterval: lifecycle.autoDeleteInterval }
-          : {}),
-        ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
-      },
-      { timeout: timeoutSeconds },
-    ),
-    readyTimeoutSeconds
-      ? timeoutSeconds * 1000 + 30_000
-      : DAYTONA_CREATE_TIMEOUT_MS,
-    "create",
-  );
-  await exec(
-    sandbox,
-    'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
-    10,
-  );
-  return sandbox;
+        { timeout: timeoutSeconds },
+      ),
+      readyTimeoutSeconds
+        ? timeoutSeconds * 1000 + 30_000
+        : DAYTONA_CREATE_TIMEOUT_MS,
+      "create",
+    );
+    await exec(
+      sandbox,
+      'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
+      10,
+    );
+    return sandbox;
+  });
 }
 
 export async function configureGitHubOrigin(
@@ -131,14 +188,17 @@ export async function configureGitHubOrigin(
   owner: string,
   name: string,
 ): Promise<void> {
-  const githubToken = await getInstallationToken(installationId);
-  const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+  const details = `${owner}/${name}`;
+  await runLoggedGitStep("configureGitHubOrigin", details, async () => {
+    const githubToken = await getInstallationToken(installationId);
+    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
 
-  await exec(
-    sandbox,
-    `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])}`,
-    20,
-  );
+    await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])}`,
+      20,
+    );
+  });
 }
 
 export async function fetchOrigin(
@@ -149,60 +209,76 @@ export async function fetchOrigin(
   ref?: string,
   opts?: { prune?: boolean; timeoutSeconds?: number },
 ): Promise<void> {
-  const githubToken = await getInstallationToken(installationId);
-  const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
-  const pruneArg = opts?.prune === false ? "" : " --prune";
-  const refArg = ref ? ` ${quote([ref])}` : "";
-  await exec(
-    sandbox,
-    `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch${pruneArg} origin${refArg}`,
-    opts?.timeoutSeconds ?? 240,
-  );
+  const details = `${owner}/${name}, ref=${ref ?? "all"}, prune=${
+    opts?.prune === false ? "false" : "true"
+  }`;
+  await runLoggedGitStep("fetchOrigin", details, async () => {
+    const githubToken = await getInstallationToken(installationId);
+    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const pruneArg = opts?.prune === false ? "" : " --prune";
+    const refArg = ref ? ` ${quote([ref])}` : "";
+    await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch${pruneArg} origin${refArg}`,
+      opts?.timeoutSeconds ?? 240,
+    );
+  });
 }
 
-async function fetchBranchRefs(
+export async function fetchBranchRefs(
   sandbox: Sandbox,
   installationId: number,
   owner: string,
   name: string,
   branchNames: string[],
-  opts?: { prune?: boolean; timeoutSeconds?: number },
-): Promise<void> {
-  const normalized = normalizeBranchNames(branchNames);
-  if (normalized.length === 0) {
-    return;
-  }
-  const githubToken = await getInstallationToken(installationId);
-  const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
-  const pruneArg = opts?.prune === false ? "" : " --prune";
-  const timeoutSeconds = opts?.timeoutSeconds ?? 240;
-  const refspecs = normalized.map(
-    (b) => `+refs/heads/${b}:refs/remotes/origin/${b}`,
-  );
-  const refspecArgs = refspecs.map((r) => quote([r])).join(" ");
-  const setupAndFetch = `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${pruneArg} origin`;
-  try {
-    await exec(sandbox, `${setupAndFetch} ${refspecArgs}`, timeoutSeconds);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!isMissingRemoteRefError(message)) {
-      throw error;
+  opts?: { prune?: boolean; timeoutSeconds?: number; shallow?: boolean },
+): Promise<string[]> {
+  const details = `${owner}/${name}, branches=${branchNames.join(",")}`;
+  return await runLoggedGitStep("fetchBranchRefs", details, async () => {
+    const normalized = normalizeBranchNames(branchNames);
+    if (normalized.length === 0) {
+      return [];
     }
-    for (const refspec of refspecs) {
-      try {
-        await exec(
-          sandbox,
-          `${setupAndFetch} ${quote([refspec])}`,
-          timeoutSeconds,
-        );
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (!isMissingRemoteRefError(msg)) {
-          throw e;
+    const githubToken = await getInstallationToken(installationId);
+    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const pruneArg = opts?.prune === false ? "" : " --prune";
+    const depthArg = opts?.shallow ? " --depth=1" : "";
+    const timeoutSeconds = opts?.timeoutSeconds ?? 240;
+    const refspecs = normalized.map(
+      (b) => `+refs/heads/${b}:refs/remotes/origin/${b}`,
+    );
+    const refspecArgs = refspecs.map((r) => quote([r])).join(" ");
+    const setupAndFetch = `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${depthArg}${pruneArg} origin`;
+    try {
+      await exec(sandbox, `${setupAndFetch} ${refspecArgs}`, timeoutSeconds);
+      return normalized;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!isMissingRemoteRefError(message)) {
+        throw error;
+      }
+      const fetchedBranches: string[] = [];
+      for (const [index, refspec] of refspecs.entries()) {
+        try {
+          await exec(
+            sandbox,
+            `${setupAndFetch} ${quote([refspec])}`,
+            timeoutSeconds,
+          );
+          const fetchedBranch = normalized[index];
+          if (fetchedBranch) {
+            fetchedBranches.push(fetchedBranch);
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!isMissingRemoteRefError(msg)) {
+            throw e;
+          }
         }
       }
+      return fetchedBranches;
     }
-  }
+  });
 }
 
 export async function syncRepo(
@@ -212,27 +288,33 @@ export async function syncRepo(
   name: string,
   strategy: RepoSyncStrategy,
 ): Promise<void> {
-  if (strategy.mode === "none") {
-    return;
-  }
-  if (strategy.mode === "all") {
-    await fetchOrigin(sandbox, installationId, owner, name, undefined, {
-      prune: true,
-      timeoutSeconds: 180,
-    });
-    return;
-  }
-  await fetchBranchRefs(
-    sandbox,
-    installationId,
-    owner,
-    name,
-    strategy.branchNames,
-    {
-      prune: false,
-      timeoutSeconds: 120,
-    },
-  );
+  const details =
+    strategy.mode === "branches"
+      ? `${owner}/${name}, strategy=branches(${strategy.branchNames.join(",")})`
+      : `${owner}/${name}, strategy=${strategy.mode}`;
+  await runLoggedGitStep("syncRepo", details, async () => {
+    if (strategy.mode === "none") {
+      return;
+    }
+    if (strategy.mode === "all") {
+      await fetchOrigin(sandbox, installationId, owner, name, undefined, {
+        prune: true,
+        timeoutSeconds: 180,
+      });
+      return;
+    }
+    await fetchBranchRefs(
+      sandbox,
+      installationId,
+      owner,
+      name,
+      strategy.branchNames,
+      {
+        prune: false,
+        timeoutSeconds: 240,
+      },
+    );
+  });
 }
 
 export async function checkoutSessionBranch(
@@ -240,13 +322,16 @@ export async function checkoutSessionBranch(
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const quotedBranch = quote([branchName]);
-  const quotedBase = quote([`origin/${baseBranch}`]);
-  await exec(
-    sandbox,
-    `cd ${WORKSPACE_DIR} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch} ${quotedBase})`,
-    30,
-  );
+  const details = `branch=${branchName}, base=${baseBranch}`;
+  await runLoggedGitStep("checkoutSessionBranch", details, async () => {
+    const quotedBranch = quote([branchName]);
+    const quotedBase = quote([`origin/${baseBranch}`]);
+    await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch} ${quotedBase})`,
+      30,
+    );
+  });
 }
 
 export async function checkoutFetchedBaseBranch(
@@ -254,13 +339,16 @@ export async function checkoutFetchedBaseBranch(
   baseBranch: string,
   timeoutSeconds = 30,
 ): Promise<void> {
-  const quotedBranch = quote([baseBranch]);
-  const quotedBase = quote([`origin/${baseBranch}`]);
-  await exec(
-    sandbox,
-    `cd ${WORKSPACE_DIR} && git checkout ${quotedBranch} && git merge --ff-only ${quotedBase}`,
-    timeoutSeconds,
-  );
+  const details = `base=${baseBranch}`;
+  await runLoggedGitStep("checkoutFetchedBaseBranch", details, async () => {
+    const quotedBranch = quote([baseBranch]);
+    const quotedBase = quote([`origin/${baseBranch}`]);
+    await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && git checkout ${quotedBranch} && git merge --ff-only ${quotedBase}`,
+      timeoutSeconds,
+    );
+  });
 }
 
 async function installDependencies(
@@ -305,38 +393,41 @@ export async function setupBranch(
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const quotedBranch = quote([branchName]);
-  const quotedRemote = quote([`origin/${branchName}`]);
-  const quotedBase = quote([`origin/${baseBranch}`]);
-  await exec(
-    sandbox,
-    `cd ${WORKSPACE_DIR} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} ${quotedBase})`,
-    15,
-  );
-  const currentBranch = (
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && git branch --show-current`, 5)
-  ).trim();
-  if (currentBranch !== branchName) {
-    throw new Error(
-      `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
-    );
-  }
-  await exec(
-    sandbox,
-    `cd ${WORKSPACE_DIR} && (git merge --ff-only ${quotedRemote} 2>/dev/null || true) && (git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true)`,
-    30,
-  );
-  try {
+  const details = `branch=${branchName}, base=${baseBranch}`;
+  await runLoggedGitStep("setupBranch", details, async () => {
+    const quotedBranch = quote([branchName]);
+    const quotedRemote = quote([`origin/${branchName}`]);
+    const quotedBase = quote([`origin/${baseBranch}`]);
     await exec(
       sandbox,
-      `cd ${WORKSPACE_DIR} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
-      60,
+      `cd ${WORKSPACE_DIR} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} ${quotedBase})`,
+      15,
     );
-  } catch (error) {
-    console.warn(
-      `[daytona] setupBranch push skipped: ${error instanceof Error ? error.message : String(error)}`,
+    const currentBranch = (
+      await exec(sandbox, `cd ${WORKSPACE_DIR} && git branch --show-current`, 5)
+    ).trim();
+    if (currentBranch !== branchName) {
+      throw new Error(
+        `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
+      );
+    }
+    await exec(
+      sandbox,
+      `cd ${WORKSPACE_DIR} && (git merge --ff-only ${quotedRemote} 2>/dev/null || true) && (git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true)`,
+      30,
     );
-  }
+    try {
+      await exec(
+        sandbox,
+        `cd ${WORKSPACE_DIR} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
+        60,
+      );
+    } catch (error) {
+      console.warn(
+        `[daytona] setupBranch push skipped: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  });
 }
 
 export async function createSandboxAndPrepareRepo(
@@ -354,27 +445,40 @@ export async function createSandboxAndPrepareRepo(
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
   let sandbox: Sandbox | undefined;
   try {
-    if (onProgress) await onProgress("Creating sandbox...");
-    sandbox = await createSandbox(
-      daytona,
-      installationId,
-      sandboxEnvVars,
-      lifecycle,
-      snapshotName,
-      volumes,
+    const details = `${owner}/${name}, snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}`;
+    return await runLoggedGitStep(
+      "createSandboxAndPrepareRepo",
+      details,
+      async () => {
+        if (onProgress) await onProgress("Creating sandbox...");
+        sandbox = await createSandbox(
+          daytona,
+          installationId,
+          sandboxEnvVars,
+          lifecycle,
+          snapshotName,
+          volumes,
+        );
+        if (onSandboxAcquired) {
+          await onSandboxAcquired(sandbox);
+        }
+        if (snapshotName) {
+          if (syncStrategy.mode !== "none") {
+            if (onProgress) await onProgress("Syncing repository...");
+            await syncRepo(sandbox, installationId, owner, name, syncStrategy);
+          }
+          return { sandbox, usedSnapshot: true };
+        }
+        await cloneAndSetupRepo(
+          sandbox,
+          installationId,
+          owner,
+          name,
+          onProgress,
+        );
+        return { sandbox, usedSnapshot: false };
+      },
     );
-    if (onSandboxAcquired) {
-      await onSandboxAcquired(sandbox);
-    }
-    if (snapshotName) {
-      if (syncStrategy.mode !== "none") {
-        if (onProgress) await onProgress("Syncing repository...");
-        await syncRepo(sandbox, installationId, owner, name, syncStrategy);
-      }
-      return { sandbox, usedSnapshot: true };
-    }
-    await cloneAndSetupRepo(sandbox, installationId, owner, name, onProgress);
-    return { sandbox, usedSnapshot: false };
   } catch (error) {
     if (sandbox) {
       try {
@@ -398,32 +502,35 @@ export async function getOrCreateSandbox(
   onProgress?: (label: string) => Promise<void>,
   syncStrategy: RepoSyncStrategy = { mode: "all" },
 ): Promise<{ sandbox: Sandbox; isNew: boolean }> {
-  if (existingSandboxId) {
-    try {
-      if (onProgress) await onProgress("Resuming sandbox...");
-      const sandbox = await daytona.get(existingSandboxId);
-      await ensureSandboxRunning(sandbox);
-      if (syncStrategy.mode !== "none") {
-        if (onProgress) await onProgress("Syncing repository...");
-        await syncRepo(sandbox, installationId, owner, name, syncStrategy);
+  const details = `${owner}/${name}, existingSandboxId=${existingSandboxId ?? "none"}, snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}`;
+  return await runLoggedGitStep("getOrCreateSandbox", details, async () => {
+    if (existingSandboxId) {
+      try {
+        if (onProgress) await onProgress("Resuming sandbox...");
+        const sandbox = await daytona.get(existingSandboxId);
+        await ensureSandboxRunning(sandbox);
+        if (syncStrategy.mode !== "none") {
+          if (onProgress) await onProgress("Syncing repository...");
+          await syncRepo(sandbox, installationId, owner, name, syncStrategy);
+        }
+        return { sandbox, isNew: false };
+      } catch {
+        // Sandbox was deleted/expired or sync failed, fall through to create a new one
       }
-      return { sandbox, isNew: false };
-    } catch {
-      // Sandbox was deleted/expired or sync failed, fall through to create a new one
     }
-  }
-  const { sandbox } = await createSandboxAndPrepareRepo(
-    daytona,
-    installationId,
-    owner,
-    name,
-    sandboxEnvVars,
-    lifecycle,
-    snapshotName,
-    volumes,
-    undefined,
-    onProgress,
-    syncStrategy,
-  );
-  return { sandbox, isNew: true };
+    const { sandbox } = await createSandboxAndPrepareRepo(
+      daytona,
+      installationId,
+      owner,
+      name,
+      sandboxEnvVars,
+      lifecycle,
+      snapshotName,
+      volumes,
+      undefined,
+      onProgress,
+      syncStrategy,
+    );
+    return { sandbox, isNew: true };
+  });
 }

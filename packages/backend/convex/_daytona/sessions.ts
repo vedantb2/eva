@@ -63,6 +63,47 @@ function isRetryableSessionFetchError(message: string): boolean {
   return lower.includes("sandbox exec") && lower.includes("timed out");
 }
 
+async function checkSessionBranchExistsWithRetry(
+  sandbox: Sandbox,
+  installationId: number,
+  repoOwner: string,
+  repoName: string,
+  branchName: string,
+): Promise<boolean> {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const exists = await remoteBranchExists(
+        sandbox,
+        installationId,
+        repoOwner,
+        repoName,
+        branchName,
+        10,
+      );
+      if (attempt > 1) {
+        logSession(
+          `checkSessionBranchExistsWithRetry recovered on retry ${attempt}/${maxAttempts} (repo=${repoOwner}/${repoName}, branch=${branchName})`,
+        );
+      }
+      return exists;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const canRetry =
+        attempt < maxAttempts && isRetryableSessionFetchError(message);
+      if (!canRetry) {
+        throw error;
+      }
+      const delayMs = 1000 * attempt;
+      logSession(
+        `checkSessionBranchExistsWithRetry retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branch=${branchName}): ${message}`,
+      );
+      await sleep(delayMs);
+    }
+  }
+  return false;
+}
+
 async function fetchSessionBaseFallbackBranch(
   sandbox: Sandbox,
   installationId: number,
@@ -116,13 +157,12 @@ async function syncSessionRefsForRestore(
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const sessionBranchExists = await remoteBranchExists(
+  const sessionBranchExists = await checkSessionBranchExistsWithRetry(
     sandbox,
     installationId,
     repoOwner,
     repoName,
     branchName,
-    30,
   );
   if (sessionBranchExists) {
     await fetchBranchRefs(

@@ -1,5 +1,11 @@
 # Changelog
 
+## Retry session-branch existence probes quickly - 2026-03-18
+
+- **Why**: Concurrent session starts could still fail with `Sandbox exec (30s) timed out after 45000ms` before reaching checkout or the base-branch fallback. The remaining 30s session-path probe was `git ls-remote` for the remote session branch, which can also stall transiently under concurrency.
+- **Fail-fast probe timeout**: `_daytona/sessions.ts` now checks for the remote session branch with a 10s timeout per attempt instead of waiting a full 30s on one bad `ls-remote`.
+- **Targeted retries**: Session-only remote-branch existence checks now retry a few times with short backoff when the sandbox exec times out, matching the resilience already added to the shallow base-branch fallback fetch.
+
 ## Retry shallow session base fallback fetches quickly - 2026-03-18
 
 - **Why**: After switching regular sessions to a shallow base-branch fallback, one sandbox could fetch `staging` in about a second while another still sat on the same command for 45 seconds before retrying. That points to transient sandbox fetch stalls, not consistently expensive work.

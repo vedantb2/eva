@@ -29,9 +29,10 @@ import {
   IconAlertTriangle,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 
 const GHOST_TRIGGER_CLASS =
-  "h-8 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-md text-[13px] [&>svg:last-child]:hidden";
+  "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-md text-[13px] [&>svg:last-child]:hidden";
 
 interface ProjectMetadataBarProps {
   projectId: Id<"projects">;
@@ -51,6 +52,9 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
 
   return (
     <div className="flex items-center gap-0.5 px-4 py-1 flex-wrap">
+      <div className="flex items-center h-8 px-2">
+        <ProjectPhaseBadge phase={project.phase} />
+      </div>
       <Select
         value={project.projectLead ?? "none"}
         onValueChange={(val) =>

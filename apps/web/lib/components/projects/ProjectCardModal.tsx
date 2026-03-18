@@ -33,7 +33,6 @@ import {
   IconExternalLink,
   IconUsers,
   IconCalendar,
-  IconFlag,
   IconUser,
   IconCalendarEvent,
   IconCalendarDue,
@@ -109,10 +108,6 @@ export function ProjectCardModal({
                   </div>
 
                   <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
-                    <IconFlag
-                      size={14}
-                      className="text-muted-foreground shrink-0"
-                    />
                     <ProjectPhaseBadge phase={project.phase} />
                   </div>
 

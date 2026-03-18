@@ -14,10 +14,8 @@ import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconPlus,
-  IconGitPullRequest,
 } from "@tabler/icons-react";
 import { Button } from "@conductor/ui";
-import Link from "next/link";
 import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 
 interface Project {
@@ -25,7 +23,6 @@ interface Project {
   title: string;
   description?: string;
   branchName?: string;
-  prUrl?: string;
   sandboxId?: string;
   phase: "draft" | "finalized" | "active" | "completed" | "cancelled";
   rawInput: string;
@@ -45,7 +42,6 @@ interface ProjectActiveLayoutProps {
     role: "user" | "assistant";
     content: string;
   }>;
-  prUrl?: string;
 }
 
 export function ProjectActiveLayout({
@@ -54,7 +50,6 @@ export function ProjectActiveLayout({
   basePath,
   generatedSpec,
   conversationHistory,
-  prUrl,
 }: ProjectActiveLayoutProps) {
   const cleanupTriggeredRef = useRef(false);
   const [tasksCollapsed, setTasksCollapsed] = useState(false);
@@ -127,26 +122,12 @@ export function ProjectActiveLayout({
                   onSelectTask={setSelectedTaskId}
                 />
               </div>
-              {(generatedSpec || prUrl) && (
+              {generatedSpec && (
                 <div className="pt-6 p-2 flex justify-center gap-2">
-                  {prUrl && (
-                    <Button variant="ghost" className="rounded-full" asChild>
-                      <Link
-                        href={prUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <IconGitPullRequest size={16} />
-                        View PR
-                      </Link>
-                    </Button>
-                  )}
-                  {generatedSpec && (
-                    <PlanContextPanel
-                      generatedSpec={generatedSpec}
-                      conversationHistory={conversationHistory}
-                    />
-                  )}
+                  <PlanContextPanel
+                    generatedSpec={generatedSpec}
+                    conversationHistory={conversationHistory}
+                  />
                 </div>
               )}
             </motion.div>

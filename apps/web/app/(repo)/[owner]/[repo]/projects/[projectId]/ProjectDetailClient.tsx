@@ -19,11 +19,16 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
-import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
 import { ProjectMetadataBar } from "@/lib/components/projects/ProjectMetadataBar";
 
-import { IconHammer, IconPlayerStop, IconLoader2 } from "@tabler/icons-react";
+import {
+  IconGitPullRequest,
+  IconHammer,
+  IconPlayerStop,
+  IconLoader2,
+} from "@tabler/icons-react";
+import Link from "next/link";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 
@@ -81,18 +86,30 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
 
   return (
     <PageWrapper
-      title={
-        <div className="flex items-center gap-2">
-          <span>{project.title}</span>
-          <ProjectPhaseBadge phase={project.phase} />
-        </div>
-      }
+      title={project.title}
       showBack
       fillHeight
       childPadding={false}
       headerRight={
         !isDraftOrFinalized ? (
           <div className="flex items-center gap-2">
+            {project.prUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                asChild
+              >
+                <Link
+                  href={project.prUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <IconGitPullRequest size={16} />
+                  View PR
+                </Link>
+              </Button>
+            )}
             <ScheduleBuildPopover
               projectId={typedProjectId}
               scheduledBuildAt={project.scheduledBuildAt}
@@ -160,7 +177,6 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             basePath={basePath}
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
-            prUrl={project.prUrl}
           />
         )}
       </div>

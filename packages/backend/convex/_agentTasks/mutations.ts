@@ -167,6 +167,20 @@ export const createQuickTask = authMutation({
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repo not found");
     const now = Date.now();
+    let taskNumber: number | undefined;
+    if (args.projectId) {
+      const existingTasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect();
+      let maxTaskNumber = 0;
+      for (const t of existingTasks) {
+        if (t.taskNumber !== undefined && t.taskNumber > maxTaskNumber) {
+          maxTaskNumber = t.taskNumber;
+        }
+      }
+      taskNumber = maxTaskNumber + 1;
+    }
     return await ctx.db.insert("agentTasks", {
       title: args.title,
       description: args.description,
@@ -178,6 +192,7 @@ export const createQuickTask = authMutation({
       baseBranch: args.baseBranch ?? repo.defaultBaseBranch ?? "main",
       model: args.model ?? repo.defaultModel,
       projectId: args.projectId,
+      taskNumber,
     });
   },
 });
@@ -359,9 +374,15 @@ export const reorderProjectTasks = authMutation({
     if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
       throw new Error("Project not found");
     const now = Date.now();
+    const existingNumbers: number[] = [];
+    for (const taskId of args.taskIds) {
+      const task = await ctx.db.get(taskId);
+      existingNumbers.push(task?.taskNumber ?? 0);
+    }
+    const sortedNumbers = [...existingNumbers].sort((a, b) => a - b);
     for (let i = 0; i < args.taskIds.length; i++) {
       await ctx.db.patch(args.taskIds[i], {
-        taskNumber: i + 1,
+        taskNumber: sortedNumbers[i],
         updatedAt: now,
       });
     }

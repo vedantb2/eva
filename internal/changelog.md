@@ -1,5 +1,10 @@
 # Changelog
 
+## Persist activity log on watchdog kill - 2026-03-18
+
+- **Why**: When the watchdog killed a run (no heartbeat for 180s), the streaming activity was deleted without saving it to `agentRunActivityLogs`. This meant there was no way to trace what steps the agent completed before it died.
+- **Snapshot before clear**: `cleanUpStaleRun` and `handleStaleRun` now call `snapshotStreamingActivityToLog` to persist the current streaming activity into `agentRunActivityLogs` before deleting it. The UI already renders `RunActivityLog` for errored runs — it just had no data until now.
+
 ## Harden branch sync to avoid startup timeouts - 2026-03-18
 
 - **Why**: Runs were still freezing on `Syncing repository...` because branch-scoped sync could block on expensive prune behavior and failed hard when a task branch did not yet exist remotely.

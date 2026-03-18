@@ -15,6 +15,7 @@ import {
   clearStreamingActivity,
   getTaskAuditStreamingEntityId,
   getTaskRunStreamingEntityId,
+  snapshotStreamingActivityToLog,
 } from "./helpers";
 
 const SANDBOX_STARTUP_LABELS = new Set([
@@ -250,6 +251,11 @@ export const handleStaleRun = internalMutation({
       }
     }
 
+    await snapshotStreamingActivityToLog(
+      ctx,
+      getTaskRunStreamingEntityId(args.runId),
+      args.runId,
+    );
     await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(args.runId));
     await clearStreamingActivity(ctx, String(args.taskId));
     await clearStreamingActivity(

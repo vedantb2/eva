@@ -67,6 +67,20 @@ export async function upsertActivityLog(
   }
 }
 
+export async function snapshotStreamingActivityToLog(
+  ctx: MutationCtx,
+  entityId: string,
+  runId: Id<"agentRuns">,
+): Promise<void> {
+  const streaming = await ctx.db
+    .query("streamingActivity")
+    .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+    .first();
+  if (streaming?.currentActivity) {
+    await upsertActivityLog(ctx, runId, streaming.currentActivity);
+  }
+}
+
 export function buildRunResultSummary(
   success: boolean,
   prUrl: string | null,

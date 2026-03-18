@@ -1,3 +1,4 @@
+[] add ui for selecting issues to work on, only produce report during automation
 []for the computer/editor tabs in sessions id page, is it better to have the toggle in config, or to just moe  this to a start button on the tab that starts it i added thet oggle in config so the sandbox starts up faster, but if we have a start button instead, can we    achieve the same speed?    
 [x] Flag is for creating issues via chat
 [x] Add mcp prompt to settings

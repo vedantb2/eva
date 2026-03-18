@@ -49,6 +49,8 @@ export async function prepareSandboxSteps(
       repoName: args.repoName,
       ephemeral: args.ephemeral,
       repoId: args.repoId,
+      branchName: args.branchName,
+      baseBranch: args.baseBranch,
       attachRunId: args.attachRunId,
       sessionPersistenceId: args.sessionPersistenceId,
       streamingEntityId: args.streamingEntityId,

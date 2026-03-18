@@ -1,5 +1,21 @@
 # Changelog
 
+## Harden branch sync to avoid startup timeouts - 2026-03-18
+
+- **Why**: Runs were still freezing on `Syncing repository...` because branch-scoped sync could block on expensive prune behavior and failed hard when a task branch did not yet exist remotely.
+- **Missing-branch tolerance**: Branch ref sync now fetches refs one-by-one and ignores missing remote refs, so first-run branches can still proceed to branch creation instead of failing setup.
+- **Lower-latency sync**: Branch sync no longer prunes and now uses a shorter timeout window, reducing long fetch calls that were exceeding the sandbox action budget.
+- **Better branch targeting**: Sandbox prep now syncs base branch (or `main` fallback) before task branch to prioritize refs that are guaranteed to exist.
+- **Retry hardening**: Sandbox setup now treats timed-out sandbox exec calls as retryable setup failures, so transient sync stalls can self-recover instead of immediately failing the run.
+- **Branch setup resilience**: `setupBranch` no longer hard-fails sandbox startup when the initial upstream `git push -u` call times out; upstream push is now best-effort during setup so the run can proceed.
+
+## Scope sandbox git sync to required refs - 2026-03-18
+
+- **Why**: Task runs were timing out in the `Syncing repository...` phase because snapshot sandboxes still did a full `git fetch --prune origin` before branch prep. On larger repos that meant paying for every remote ref even when the workflow only needed one feature branch or was going to fetch the base branch in a later step anyway.
+- **Ref-scoped sync**: `_daytona/git.ts` now supports explicit sync strategies (`none`, `branches`, `all`). Branch-targeted sync fetches only the required remote refs into `origin/*` instead of every branch and tag.
+- **Workflow prep**: `_daytona/execution.ts` now skips the initial sync entirely when sandbox prep does not need remote refs yet, and only prefetches the feature branch when later setup may need `origin/<branch>`.
+- **Session/design sandboxes**: `_daytona/sessions.ts` now requests only the active feature branch + base branch refs, and no longer does an extra full fetch on fresh session sandbox creation.
+
 ## Make MCP token minting non-fatal for task launches - 2026-03-18
 
 - **Why**: Runs could fail before Claude even started when the MCP service returned transient errors like HTTP 502 during sandbox token minting. That turned an optional integration dependency into a hard blocker for quick tasks and project builds.

@@ -21,6 +21,8 @@ import {
   checkoutFetchedBaseBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
+  createBranchSyncStrategy,
+  type RepoSyncStrategy,
   EPHEMERAL_LIFECYCLE,
   SESSION_LIFECYCLE,
 } from "./git";
@@ -105,6 +107,33 @@ export const getPreviewUrl = action({
 
 const MAX_SETUP_ELAPSED_MS = 8 * 60 * 1000;
 
+function getSandboxPrepSyncStrategy(
+  branchName: string | undefined,
+  baseBranch: string | undefined,
+): RepoSyncStrategy {
+  if (!branchName && !baseBranch) {
+    return { mode: "none" };
+  }
+  const branchTargets: string[] = [];
+  if (baseBranch) {
+    branchTargets.push(baseBranch);
+  } else if (branchName) {
+    branchTargets.push("main");
+  }
+  if (branchName) {
+    branchTargets.push(branchName);
+  }
+  return createBranchSyncStrategy(branchTargets);
+}
+
+function isSandboxSetupRetryable(message: string): boolean {
+  if (isDaytonaNetworkIssue(message)) {
+    return true;
+  }
+  const lowered = message.toLowerCase();
+  return lowered.includes("sandbox exec") && lowered.includes("timed out");
+}
+
 export const prepareSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
@@ -146,6 +175,10 @@ export const prepareSandbox = internalAction({
     const sessionVolumeMounts = args.sessionPersistenceId
       ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
       : undefined;
+    const syncStrategy = getSandboxPrepSyncStrategy(
+      args.branchName,
+      args.baseBranch,
+    );
 
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
@@ -177,6 +210,7 @@ export const prepareSandbox = internalAction({
             sessionVolumeMounts,
             attachRunSandbox,
             emitProgress,
+            syncStrategy,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -192,6 +226,7 @@ export const prepareSandbox = internalAction({
             snapshotName,
             sessionVolumeMounts,
             emitProgress,
+            syncStrategy,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
@@ -241,7 +276,7 @@ export const prepareSandbox = internalAction({
         const message = errorMessage(error, "Sandbox setup failed");
         const elapsed = Date.now() - setupStartedAt;
         const shouldRetry =
-          isDaytonaNetworkIssue(message) && elapsed < MAX_SETUP_ELAPSED_MS;
+          isSandboxSetupRetryable(message) && elapsed < MAX_SETUP_ELAPSED_MS;
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
           throw error;
@@ -275,6 +310,8 @@ export const createOrResumeSandbox = internalAction({
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
+    branchName: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
     repoId: v.id("githubRepos"),
     sessionPersistenceId: v.optional(v.id("sessions")),
@@ -307,6 +344,10 @@ export const createOrResumeSandbox = internalAction({
     const sessionVolumeMounts = args.sessionPersistenceId
       ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
       : undefined;
+    const syncStrategy = getSandboxPrepSyncStrategy(
+      args.branchName,
+      args.baseBranch,
+    );
 
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
@@ -338,6 +379,7 @@ export const createOrResumeSandbox = internalAction({
             sessionVolumeMounts,
             attachRunSandbox,
             emitProgress,
+            syncStrategy,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -353,6 +395,7 @@ export const createOrResumeSandbox = internalAction({
             snapshotName,
             sessionVolumeMounts,
             emitProgress,
+            syncStrategy,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
@@ -376,7 +419,7 @@ export const createOrResumeSandbox = internalAction({
         const message = errorMessage(error, "Sandbox setup failed");
         const elapsed = Date.now() - setupStartedAt;
         const shouldRetry =
-          isDaytonaNetworkIssue(message) && elapsed < MAX_SETUP_ELAPSED_MS;
+          isSandboxSetupRetryable(message) && elapsed < MAX_SETUP_ELAPSED_MS;
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
           throw error;

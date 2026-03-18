@@ -77,7 +77,7 @@ export function ProjectCardModal({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-auto">
         {!project ? (
           <div className="flex items-center justify-center min-h-[300px]">
             <Spinner size="lg" />

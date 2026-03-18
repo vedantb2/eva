@@ -89,7 +89,7 @@ export function ProjectPlanTab({
   }
 
   return (
-    <div className="h-full overflow-y-auto scrollbar p-4">
+    <div className="h-full overflow-y-auto scrollbar p-3 sm:p-4">
       <div className="space-y-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -126,7 +126,7 @@ export function ProjectPlanTab({
         {!isLocked && (
           <div className="space-y-3 pt-4">
             {showRejectInput ? (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
@@ -139,11 +139,12 @@ export function ProjectPlanTab({
                     }
                   }}
                   autoFocus
-                  className="h-8 text-sm"
+                  className="h-8 text-sm flex-1"
                 />
                 <Button
                   size="sm"
                   disabled={!rejectReason.trim()}
+                  className="w-full sm:w-auto"
                   onClick={() => {
                     onRejectSpec(rejectReason.trim());
                     setRejectReason("");
@@ -154,16 +155,21 @@ export function ProjectPlanTab({
                 </Button>
               </div>
             ) : (
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <Button
                   variant="secondary"
                   onClick={() => setShowRejectInput(true)}
                   disabled={isLoading}
+                  className="w-full sm:w-auto"
                 >
                   <IconArrowBack size={18} />
                   Keep Interviewing
                 </Button>
-                <Button onClick={handleStartDevelopment} disabled={isLoading}>
+                <Button
+                  onClick={handleStartDevelopment}
+                  disabled={isLoading}
+                  className="w-full sm:w-auto"
+                >
                   <IconRocket size={18} />
                   {isLoading ? "Starting..." : "Accept Plan"}
                 </Button>

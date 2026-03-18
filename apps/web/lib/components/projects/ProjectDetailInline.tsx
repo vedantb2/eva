@@ -69,7 +69,7 @@ export function ProjectDetailInline({
 
   return (
     <div className="flex flex-1 min-h-0 overflow-y-auto scrollbar">
-      <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto py-6 px-4">
+      <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto py-4 sm:py-6 px-3 sm:px-4">
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-6">
           <div className="space-y-4">
             {(project.description || project.rawInput) && (

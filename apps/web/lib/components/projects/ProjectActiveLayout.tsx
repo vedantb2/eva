@@ -73,9 +73,9 @@ export function ProjectActiveLayout({
   }, [project.phase, project.sandboxId, project._id, clearProjectSandbox]);
 
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden bg-background">
+    <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden bg-background">
       <div
-        className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full flex flex-col overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+        className={`${tasksCollapsed ? "w-full md:w-8 h-8 md:h-full" : "w-full md:w-1/3 lg:w-1/4 h-1/3 md:h-full"} flex flex-col overflow-hidden transition-[width,height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] shrink-0`}
       >
         <div
           className={`flex items-center ${tasksCollapsed ? "justify-center" : "justify-between"}`}
@@ -141,7 +141,7 @@ export function ProjectActiveLayout({
             onClose={() => setSelectedTaskId(null)}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+          <div className="flex flex-col items-center justify-center h-full text-center gap-2 p-4">
             <IconChecklist size={32} className="text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
               Select a task to view details

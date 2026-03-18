@@ -1,5 +1,21 @@
 # Changelog
 
+## Restore remote session branch on sandbox recreate - 2026-03-18
+
+- **Why**: Session startup must restore prior work when a sandbox is recreated. Fetching only the base branch made fresh sandboxes recreate the session branch from base, which could make an existing remote session branch appear blank.
+- **Restore branch-first sync**: `_daytona/sessions.ts` now syncs the session branch and base branch again so checkout can recover `origin/<session-branch>` when it exists and still fall back to base when it does not.
+- **Revert global shallow branch fetch**: `_daytona/git.ts` no longer forces `--depth=1` for all branch-targeted fetches. That keeps merge-based paths like design/task branch setup on the safer full-history behavior.
+
+## Optimize sandbox git operations for faster startup - 2026-03-18
+
+- **Why**: Session sandbox startup was slow and timing out. Each `exec()` is a Daytona API round trip, and git commands were split across too many sequential calls.
+- **Eliminate redundant `configureGitHubOrigin` exec from fetches**: `fetchOrigin` and `fetchBranchRefs` were doing a separate exec call to set the remote URL before every fetch, but the fetch already passes auth via `-c http.extraheader`. Removed the extra round trip.
+- **Batch refspecs into single fetch**: Multiple branches fetched in one `git fetch` call instead of sequential per-branch fetches.
+- **Combine `checkoutSessionBranch`**: Stash + checkout collapsed from 2 exec calls → 1.
+- **Combine `setupBranch`**: Stash+checkout combined, both merges combined. 6 exec calls → 4.
+- **Combine `installDependencies` for pnpm**: `npm install -g pnpm` + `pnpm install` combined into 1 exec call.
+- **Shallow clone for fresh repos**: `git clone --depth 1` for non-snapshot sandboxes. Full history isn't needed for coding sessions.
+
 ## Reduce false watchdog kills - 2026-03-18
 
 - **Why**: Watchdog was killing healthy runs that hit transient network blips. The 180s threshold combined with only 1 heartbeat retry meant brief connectivity issues could cascade into a kill.

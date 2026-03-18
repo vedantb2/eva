@@ -15,11 +15,13 @@ import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconMessageCircle,
+  IconPlus,
   IconX,
   IconGitPullRequest,
 } from "@tabler/icons-react";
 import { Button } from "@conductor/ui";
 import Link from "next/link";
+import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 
 interface Project {
   _id: Id<"projects">;
@@ -60,6 +62,7 @@ export function ProjectActiveLayout({
   const cleanupTriggeredRef = useRef(false);
   const [tasksCollapsed, setTasksCollapsed] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
     null,
   );
@@ -89,10 +92,15 @@ export function ProjectActiveLayout({
           className={`flex items-center ${tasksCollapsed ? "justify-center" : "justify-between"}`}
         >
           {!tasksCollapsed && (
-            <div className="flex flex-row items-center gap-1 mx-auto text-primary">
-              <IconChecklist size={14} />
-              <p className="text-sm font-semibold">Tasks</p>
-            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mx-auto text-primary"
+              onClick={() => setCreateTaskOpen(true)}
+            >
+              <IconPlus size={14} />
+              Create Task
+            </Button>
           )}
           <Button
             size="icon"
@@ -211,6 +219,11 @@ export function ProjectActiveLayout({
           aria-hidden
         />
       )}
+      <QuickTaskModal
+        isOpen={createTaskOpen}
+        onClose={() => setCreateTaskOpen(false)}
+        projectId={projectId}
+      />
     </div>
   );
 }

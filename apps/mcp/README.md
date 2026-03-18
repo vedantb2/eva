@@ -1,6 +1,6 @@
 # Conductor MCP Server
 
-Remote MCP server that lets Claude query the Conductor Convex backend and any connected repo's own Convex database. Users authenticate via Clerk (same account as the web app), then Claude can list repos and run read-only queries against any codebase's database — without credentials ever being returned to the user.
+Remote MCP server that lets Claude query the Eva Convex backend and any connected repo's own Convex database. Users authenticate via Clerk (same account as the web app), then Claude can list repos and run read-only queries against any codebase's database — without credentials ever being returned to the user.
 
 ## Setup
 

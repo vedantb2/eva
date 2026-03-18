@@ -20,14 +20,8 @@ interface ActiveTasksBadgeProps {
 
 export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
   const allTasks = useQuery(api.agentTasks.getActiveTasks, { repoId });
-  const tasks = allTasks?.filter((t) => t.status === "in_progress") ?? [];
-
-  const getTaskLink = (task: NonNullable<typeof allTasks>[number]) => {
-    if (task.projectId) {
-      return `${basePath}/projects/${task.projectId}`;
-    }
-    return `${basePath}/quick-tasks`;
-  };
+  const tasks =
+    allTasks?.filter((t) => t.status === "in_progress" && !t.projectId) ?? [];
 
   if (tasks.length === 0) {
     return null;
@@ -73,7 +67,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
             {tasks.map((task) => (
               <Link
                 key={task._id}
-                href={getTaskLink(task)}
+                href={`${basePath}/quick-tasks`}
                 className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 <div className="flex items-center justify-between rounded-lg p-2.5 transition-colors hover:bg-muted/60">

@@ -37,6 +37,8 @@ import {
 import { api } from "@conductor/backend";
 import { Button, Spinner, cn } from "@conductor/ui";
 import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
+import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
+import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
@@ -694,6 +696,10 @@ export function Sidebar() {
                                       ];
 
                                     if (contextMode && !collapsed) {
+                                      const showActiveCount =
+                                        (item.name === "Sessions" ||
+                                          item.name === "Designs") &&
+                                        repo;
                                       return (
                                         <div
                                           key={item.name}
@@ -724,6 +730,16 @@ export function Sidebar() {
                                             <span className="truncate">
                                               {item.name}
                                             </span>
+                                            {showActiveCount && (
+                                              <ActiveCountBadge
+                                                repoId={repo._id}
+                                                type={
+                                                  item.name === "Sessions"
+                                                    ? "sessions"
+                                                    : "designs"
+                                                }
+                                              />
+                                            )}
                                           </Link>
                                           <Button
                                             size="icon-sm"
@@ -783,6 +799,13 @@ export function Sidebar() {
                                             <ActiveTasksBadge
                                               repoId={repo._id}
                                               basePath={repoBasePath}
+                                            />
+                                          )}
+                                        {item.name === "Projects" &&
+                                          !collapsed &&
+                                          repo && (
+                                            <BuildingProjectsBadge
+                                              repoId={repo._id}
                                             />
                                           )}
                                       </Link>

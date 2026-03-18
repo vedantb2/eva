@@ -64,6 +64,19 @@ export const listArchived = authQuery({
   },
 });
 
+export const countActive = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return 0;
+    const sessions = await ctx.db
+      .query("designSessions")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    return sessions.filter((s) => s.status === "active" && !s.archived).length;
+  },
+});
+
 export const get = authQuery({
   args: { id: v.id("designSessions") },
   returns: v.union(designSessionValidator, v.null()),

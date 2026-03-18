@@ -6,17 +6,14 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
-import { ProjectChatArea } from "./ProjectChatArea";
-import { ProjectTaskDetailPanel } from "./ProjectTaskDetailPanel";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 import { PlanContextPanel } from "./PlanContextPanel";
+import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import {
   IconChecklist,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
-  IconMessageCircle,
   IconPlus,
-  IconX,
   IconGitPullRequest,
 } from "@tabler/icons-react";
 import { Button } from "@conductor/ui";
@@ -61,7 +58,6 @@ export function ProjectActiveLayout({
 }: ProjectActiveLayoutProps) {
   const cleanupTriggeredRef = useRef(false);
   const [tasksCollapsed, setTasksCollapsed] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
     null,
@@ -80,8 +76,6 @@ export function ProjectActiveLayout({
       clearProjectSandbox({ id: project._id }).catch(() => {});
     }
   }, [project.phase, project.sandboxId, project._id, clearProjectSandbox]);
-
-  const selectedTask = tasks?.find((t) => t._id === selectedTaskId) ?? null;
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden bg-background">
@@ -165,10 +159,10 @@ export function ProjectActiveLayout({
         </AnimatePresence>
       </div>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {selectedTask ? (
-          <ProjectTaskDetailPanel
-            taskId={selectedTask._id}
-            onOpenChat={() => setChatOpen(true)}
+        {selectedTaskId ? (
+          <TaskDetailInline
+            taskId={selectedTaskId}
+            onClose={() => setSelectedTaskId(null)}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2">
@@ -179,46 +173,6 @@ export function ProjectActiveLayout({
           </div>
         )}
       </div>
-      <AnimatePresence initial={false}>
-        {chatOpen && (
-          <motion.div
-            key="project-chat-side-panel"
-            className="w-1/4 h-full flex flex-col overflow-hidden pl-6"
-            initial={{ opacity: 0, x: 16 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 16 }}
-            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="flex items-center justify-between px-2 py-1">
-              <div className="flex flex-row gap-1 items-center text-primary">
-                <IconMessageCircle size={14} />
-                <p className="text-sm font-semibold">Chat</p>
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="motion-press h-7 w-7 text-muted-foreground hover:scale-[1.03] active:scale-[0.97]"
-                onClick={() => setChatOpen(false)}
-              >
-                <IconX size={14} />
-              </Button>
-            </div>
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <ProjectChatArea
-                projectId={projectId}
-                conversationHistory={project.conversationHistory}
-                selectedTaskTitle={selectedTask?.title}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {!chatOpen && (
-        <div
-          className="w-0 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-          aria-hidden
-        />
-      )}
       <QuickTaskModal
         isOpen={createTaskOpen}
         onClose={() => setCreateTaskOpen(false)}

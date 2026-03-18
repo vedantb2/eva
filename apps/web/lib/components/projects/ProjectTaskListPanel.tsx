@@ -9,9 +9,8 @@ import {
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
-  Badge,
 } from "@conductor/ui";
-import { ProjectTaskCard } from "./ProjectTaskCard";
+import { QuickTaskCard } from "@/lib/components/quick-tasks/QuickTaskCard";
 import {
   statusConfig,
   TASK_STATUSES,
@@ -68,35 +67,33 @@ export function ProjectTaskListPanel({
           return (
             <AccordionItem key={status} value={status}>
               <AccordionTrigger className="p-2 hover:no-underline">
-                <Badge
-                  variant="outline"
-                  className={`${config.bg} ${config.text} shadow-inner gap-1.5`}
-                >
+                <div className="flex items-center gap-1.5">
                   <StatusIcon size={14} className={config.text} />
-                  {config.label}
-                  <Badge
-                    variant="outline"
-                    className={`${config.text} ${config.bg} ml-1 px-1.5 py-0`}
-                  >
+                  <span className={`text-sm font-medium ${config.text}`}>
+                    {config.label}
+                  </span>
+                  <span className="text-xs text-muted-foreground/60 tabular-nums">
                     {statusTasks.length}
-                  </Badge>
-                </Badge>
+                  </span>
+                </div>
               </AccordionTrigger>
               <AccordionContent className="flex flex-col gap-2 px-3">
                 {statusTasks.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-2">No tasks</p>
                 ) : (
                   statusTasks.map((task) => (
-                    <ProjectTaskCard
+                    <QuickTaskCard
                       key={task._id}
                       id={task._id}
-                      taskNumber={task.taskNumber ?? 0}
                       title={task.title}
                       description={task.description}
                       status={task.status}
+                      taskNumber={task.taskNumber ?? 0}
+                      tags={task.tags}
                       createdBy={task.createdBy}
+                      createdAt={task._creationTime}
                       scheduledAt={task.scheduledAt}
-                      isSelected={selectedTaskId === task._id}
+                      isActive={selectedTaskId === task._id}
                       onClick={() => onSelectTask(task._id)}
                     />
                   ))

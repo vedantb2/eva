@@ -47,22 +47,19 @@ export const listByRepo = authQuery({
 
     const all = await ctx.db
       .query("logs")
-      .withIndex("by_repo_and_created", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo_and_created", (q) => {
+        const base = q.eq("repoId", args.repoId);
+        return args.startTime !== undefined
+          ? base.gte("createdAt", args.startTime)
+          : base;
+      })
       .order("desc")
       .collect();
 
-    const filtered = all.filter((entry) => {
-      if (args.startTime !== undefined && entry.createdAt < args.startTime) {
-        return false;
-      }
-      if (
-        args.entityTypes !== undefined &&
-        !args.entityTypes.includes(entry.entityType)
-      ) {
-        return false;
-      }
-      return true;
-    });
+    const filtered =
+      args.entityTypes !== undefined
+        ? all.filter((entry) => args.entityTypes?.includes(entry.entityType))
+        : all;
 
     return filtered.map((entry) => ({
       _id: entry._id,

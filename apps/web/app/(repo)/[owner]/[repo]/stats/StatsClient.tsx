@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { motion } from "motion/react";
 import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
-import { useQuery } from "convex/react";
 import { api } from "@conductor/backend";
+import { useOneShotQuery } from "@/lib/hooks/useOneShotQuery";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { StatCard } from "@/lib/components/analytics/StatCard";
@@ -50,23 +50,23 @@ export function StatsClient() {
     };
   }, [timeRange]);
 
-  const impactStats = useQuery(api.analytics.getImpactStats, {
+  const impactStats = useOneShotQuery(api.analytics.getImpactStats, {
     repoId: repo._id,
     startTime,
   });
-  const activeUsers = useQuery(api.analytics.getActiveUsers, {
+  const activeUsers = useOneShotQuery(api.analytics.getActiveUsers, {
     repoId: repo._id,
   });
-  const timeline = useQuery(api.analytics.getActivityTimeline, {
+  const timeline = useOneShotQuery(api.analytics.getActivityTimeline, {
     repoId: repo._id,
     startTime: timelineStart,
     bucketSizeMs: bucketSize,
   });
-  const leaderboard = useQuery(api.analytics.getLeaderboard, {
+  const leaderboard = useOneShotQuery(api.analytics.getLeaderboard, {
     repoId: repo._id,
     startTime,
   });
-  const heatmap = useQuery(api.analytics.getActivityHeatmap, {
+  const heatmap = useOneShotQuery(api.analytics.getActivityHeatmap, {
     repoId: repo._id,
     startTime,
   });

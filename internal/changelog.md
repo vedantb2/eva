@@ -1,5 +1,10 @@
 # Changelog
 
+## Make MCP token minting non-fatal for task launches - 2026-03-18
+
+- **Why**: Runs could fail before Claude even started when the MCP service returned transient errors like HTTP 502 during sandbox token minting. That turned an optional integration dependency into a hard blocker for quick tasks and project builds.
+- **Retry + degrade gracefully**: `mcpTokenMinter.ts` now retries transient mint failures a few times, and `_daytona/helpers.ts` now continues launching the sandbox without MCP config if minting still fails. This keeps task execution alive while preserving MCP when the service is healthy.
+
 ## Convex performance audit — quick wins - 2026-03-18
 
 - **streaming.set/internalSet**: Skip patch when `currentActivity` unchanged. During AI streaming this fires constantly — every no-op write invalidated all `streaming.get` subscribers for no reason.

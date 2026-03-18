@@ -150,15 +150,27 @@ export async function signAndLaunchScript(
     { userId },
   );
 
-  const mcpToken = await ctx.runAction(
-    internal.mcpTokenMinter.mintSandboxMcpToken,
-    { userId, repoId },
-  );
+  let mcpToken:
+    | {
+        token: string;
+        expiresIn: number;
+      }
+    | undefined;
+  try {
+    mcpToken = await ctx.runAction(
+      internal.mcpTokenMinter.mintSandboxMcpToken,
+      { userId, repoId },
+    );
+  } catch (error) {
+    console.warn(
+      `[mcp] Continuing without MCP config: ${errorMessage(error, "Failed to mint MCP token")}`,
+    );
+  }
 
   const streamingEntityId = opts.extraEnvVars?.STREAMING_ENTITY_ID ?? entityId;
   const streamingHmac = computeStreamingHmac(streamingEntityId);
   const convexSiteUrl = process.env.CONVEX_SITE_URL ?? "";
-  const mcpBaseUrl = process.env.MCP_BASE_URL ?? "";
+  const mcpBaseUrl = mcpToken ? (process.env.MCP_BASE_URL ?? "") : "";
 
   await launchScript(
     sandbox,
@@ -174,7 +186,7 @@ export async function signAndLaunchScript(
         STREAMING_HMAC: streamingHmac,
         CONVEX_SITE_URL: convexSiteUrl,
       },
-      mcpToken: mcpToken.token,
+      mcpToken: mcpToken?.token,
       mcpBaseUrl,
     },
   );

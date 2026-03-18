@@ -1,0 +1,1 @@
+cd packages/backend && npx convex codegen --typecheck enable

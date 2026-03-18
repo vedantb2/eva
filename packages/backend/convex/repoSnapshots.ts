@@ -9,6 +9,7 @@ import {
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
+  snapshotWarmupStatusValidator,
 } from "./validators";
 import { authQuery, authMutation } from "./functions";
 
@@ -110,6 +111,8 @@ export const listBuilds = authQuery({
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
+      warmupStatus: v.optional(snapshotWarmupStatusValidator),
+      warmupError: v.optional(v.string()),
     }),
   ),
   handler: async (ctx, args) => {
@@ -139,6 +142,8 @@ export const getBuild = authQuery({
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
+      warmupStatus: v.optional(snapshotWarmupStatusValidator),
+      warmupError: v.optional(v.string()),
     }),
     v.null(),
   ),
@@ -357,8 +362,10 @@ export const completeBuild = internalMutation({
     if (args.status === "success") {
       const snapshot = await ctx.db.get(build.repoSnapshotId);
       if (snapshot) {
+        await ctx.db.patch(args.buildId, { warmupStatus: "pending" });
         await ctx.scheduler.runAfter(0, internal.daytona.warmSnapshotCache, {
           repoId: snapshot.repoId,
+          buildId: args.buildId,
         });
       }
     }
@@ -386,6 +393,24 @@ export const completeBuild = internalMutation({
         },
       );
     }
+    return null;
+  },
+});
+
+export const updateWarmupStatus = internalMutation({
+  args: {
+    buildId: v.id("snapshotBuilds"),
+    status: snapshotWarmupStatusValidator,
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return null;
+    await ctx.db.patch(args.buildId, {
+      warmupStatus: args.status,
+      warmupError: args.error,
+    });
     return null;
   },
 });

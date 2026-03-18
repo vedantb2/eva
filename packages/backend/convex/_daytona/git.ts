@@ -35,7 +35,7 @@ const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
 };
 
 const WARMING_LIFECYCLE: SandboxLifecycle = {
-  autoStopInterval: 5,
+  autoStopInterval: 10,
   ephemeral: true,
 };
 
@@ -48,10 +48,13 @@ export async function createSandbox(
   lifecycle: SandboxLifecycle,
   snapshotName?: string,
   volumes?: VolumeMount[],
+  readyTimeoutSeconds?: number,
 ): Promise<Sandbox> {
-  const timeoutSeconds = snapshotName
-    ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
-    : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS;
+  const timeoutSeconds =
+    readyTimeoutSeconds ??
+    (snapshotName
+      ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
+      : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS);
 
   const githubToken = await getInstallationToken(installationId);
 
@@ -75,7 +78,9 @@ export async function createSandbox(
       },
       { timeout: timeoutSeconds },
     ),
-    DAYTONA_CREATE_TIMEOUT_MS,
+    readyTimeoutSeconds
+      ? timeoutSeconds * 1000 + 30_000
+      : DAYTONA_CREATE_TIMEOUT_MS,
     "create",
   );
   await exec(

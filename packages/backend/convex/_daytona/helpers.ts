@@ -71,6 +71,7 @@ export async function sleep(ms: number): Promise<void> {
 }
 
 export const DAYTONA_CREATE_TIMEOUT_MS = 90_000;
+export const WARMING_SANDBOX_READY_TIMEOUT_SECONDS = 60;
 
 export async function withTimeout<T>(
   promise: Promise<T>,

@@ -3,38 +3,74 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { exec, resolveSandboxContext, getSandbox } from "./helpers";
+import {
+  exec,
+  resolveSandboxContext,
+  getSandbox,
+  sleep,
+  WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
+} from "./helpers";
 import { createSandbox, WARMING_LIFECYCLE } from "./git";
 
+const MAX_WARMUP_RETRIES = 2;
+const WARMUP_RETRY_DELAY_MS = 5_000;
+
 export const warmSnapshotCache = internalAction({
-  args: { repoId: v.id("githubRepos") },
+  args: {
+    repoId: v.id("githubRepos"),
+    buildId: v.id("snapshotBuilds"),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
-    try {
-      const { daytona, sandboxEnvVars, snapshotName } =
-        await resolveSandboxContext(ctx, args.repoId);
-      if (!snapshotName) return null;
-      const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
-        repoId: args.repoId,
-      });
-      if (!repo) return null;
-      const sandbox = await createSandbox(
-        daytona,
-        repo.installationId,
-        sandboxEnvVars,
-        WARMING_LIFECYCLE,
-        snapshotName,
-      );
-      await sandbox.delete();
-      console.log(
-        `[daytona] Warmed snapshot cache for ${repo.owner}/${repo.name}`,
-      );
-    } catch (err) {
-      console.error(
-        "[daytona] warmSnapshotCache failed (best-effort):",
-        err instanceof Error ? err.message : err,
-      );
+    const { daytona, sandboxEnvVars, snapshotName } =
+      await resolveSandboxContext(ctx, args.repoId);
+    if (!snapshotName) return null;
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) return null;
+
+    let lastError = "";
+    for (let attempt = 0; attempt <= MAX_WARMUP_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          console.log(
+            `[daytona] Warmup retry ${attempt}/${MAX_WARMUP_RETRIES} for ${repo.owner}/${repo.name}`,
+          );
+          await sleep(WARMUP_RETRY_DELAY_MS);
+        }
+        const sandbox = await createSandbox(
+          daytona,
+          repo.installationId,
+          sandboxEnvVars,
+          WARMING_LIFECYCLE,
+          snapshotName,
+          undefined,
+          WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
+        );
+        await sandbox.delete();
+        console.log(
+          `[daytona] Warmed snapshot cache for ${repo.owner}/${repo.name}`,
+        );
+        await ctx.runMutation(internal.repoSnapshots.updateWarmupStatus, {
+          buildId: args.buildId,
+          status: "success",
+        });
+        return null;
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+        console.error(
+          `[daytona] warmSnapshotCache attempt ${attempt + 1} failed:`,
+          lastError,
+        );
+      }
     }
+
+    await ctx.runMutation(internal.repoSnapshots.updateWarmupStatus, {
+      buildId: args.buildId,
+      status: "error",
+      error: lastError,
+    });
     return null;
   },
 });

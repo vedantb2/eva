@@ -146,6 +146,12 @@ export const snapshotBuildTriggerValidator = v.union(
   v.literal("manual"),
 );
 
+export const snapshotWarmupStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("success"),
+  v.literal("error"),
+);
+
 export const teamMemberRoleValidator = v.union(
   v.literal("owner"),
   v.literal("member"),

@@ -1,5 +1,13 @@
 # Changelog
 
+## Harden sandbox startup, heartbeats, and base-branch sync - 2026-03-18
+
+- **Why**: Scheduled project builds and task runs were failing from multiple adjacent weaknesses instead of one bug: long base-branch prep could outlive the normal watchdog window, checkout was redundantly hitting GitHub a second time after fetch, unchanged activity did not actually refresh heartbeats, and Claude startup could sit on `Starting Claude...` if stdout never became parseable stream-json.
+- **Startup/watchdog hardening**: `checkStaleRuns` now treats the full sandbox-prep label set as startup work, not just the literal `Starting sandbox...` marker. This keeps long repo prep on the intended startup threshold across the workflow-step path instead of killing runs mid-fetch or mid-checkout.
+- **Base branch sync fix**: Replaced `git pull --ff-only origin <branch>` with a local fast-forward merge against the already-fetched `origin/<branch>` in both sandbox prep codepaths. This removes duplicate network work and turns checkout into a short local operation after fetch succeeds.
+- **Heartbeat fix**: Callback heartbeats now refresh `streamingActivity.lastUpdatedAt` even when the visible activity payload has not changed, so long-running tool calls no longer look stale to the watchdog.
+- **Claude startup robustness**: Removed `--verbose` from the background Claude CLI stream-json path, added an explicit first-parseable-event timeout, and now include stdout/stderr tails in callback failures so stuck starts fail fast with actionable diagnostics instead of hanging on `Starting Claude...`.
+
 ## Fix automations stuck on running + add manual run, stop, read-only mode - 2026-03-17
 
 - **Root cause fix:** `handleCompletion` was missing `runId` in its args validator. The sandbox callback sends `runId` as an extra field, which Convex rejects — causing the completion event to never fire and the workflow to hang at `awaitEvent` forever.

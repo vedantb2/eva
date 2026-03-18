@@ -39,7 +39,8 @@ export const handleCompletion = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task || !task.activeWorkflowId) return null;
+    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
+    if (!task || !workflowId) return null;
 
     const runs = await ctx.db
       .query("agentRuns")
@@ -62,16 +63,20 @@ export const handleCompletion = authMutation({
       }
     }
 
-    await workflow.sendEvent(ctx, {
-      ...taskCompleteEvent,
-      workflowId: task.activeWorkflowId as WorkflowId,
-      value: {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
-      },
-    });
+    try {
+      await workflow.sendEvent(ctx, {
+        ...taskCompleteEvent,
+        workflowId,
+        value: {
+          success: args.success,
+          result: args.result,
+          error: args.error,
+          activityLog: args.activityLog,
+        },
+      });
+    } catch {
+      return null;
+    }
 
     if (task.repoId) {
       await ctx.db.insert("logs", {
@@ -116,16 +121,20 @@ export const handleAuditCompletion = authMutation({
       return null;
     }
 
-    await workflow.sendEvent(ctx, {
-      ...auditCompleteEvent,
-      workflowId,
-      value: {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
-      },
-    });
+    try {
+      await workflow.sendEvent(ctx, {
+        ...auditCompleteEvent,
+        workflowId,
+        value: {
+          success: args.success,
+          result: args.result,
+          error: args.error,
+          activityLog: args.activityLog,
+        },
+      });
+    } catch {
+      return null;
+    }
 
     const task = await ctx.db.get(args.taskId);
     if (task?.repoId) {
@@ -158,16 +167,20 @@ export const handleAuditFixCompletion = authMutation({
     const workflowId = await getActiveWorkflowId(ctx, args.taskId);
     if (!workflowId) return null;
 
-    await workflow.sendEvent(ctx, {
-      ...auditFixCompleteEvent,
-      workflowId,
-      value: {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
-      },
-    });
+    try {
+      await workflow.sendEvent(ctx, {
+        ...auditFixCompleteEvent,
+        workflowId,
+        value: {
+          success: args.success,
+          result: args.result,
+          error: args.error,
+          activityLog: args.activityLog,
+        },
+      });
+    } catch {
+      return null;
+    }
 
     return null;
   },

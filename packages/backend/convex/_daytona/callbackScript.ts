@@ -12,10 +12,11 @@ const RUN_ID = process.env.RUN_ID || null;
 const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 const MODEL = process.env.CLAUDE_MODEL || "opus";
-const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
+const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 const WORK_DIR = "/workspace/repo";
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
+const FIRST_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
 const SCRIPT_STARTED_AT = Date.now();
@@ -242,6 +243,7 @@ let rawOutput = "";
 let lastProcessed = 0;
 let lastStreamingSentAt = Date.now();
 let lastSentPayload = "";
+let parsedStreamEventCount = 0;
 
 async function flushStreaming() {
   if (rawOutput.length <= lastProcessed) return;
@@ -253,7 +255,10 @@ async function flushStreaming() {
   for (const line of pending.slice(0, lastNewline).split("\\n")) {
     const clean = line.trim();
     if (!clean) continue;
-    if (parseStreamEvent(clean)) hasNew = true;
+    if (parseStreamEvent(clean)) {
+      hasNew = true;
+      parsedStreamEventCount++;
+    }
   }
   if (hasNew) {
     const payload = JSON.stringify(accumulatedSteps);
@@ -275,7 +280,6 @@ let consecutiveHeartbeatFailures = 0;
 async function heartbeatPing() {
   if (Date.now() - lastStreamingSentAt < 10000) return;
   const payload = JSON.stringify(accumulatedSteps);
-  if (payload === lastSentPayload) return;
   let attempt = 0;
   while (attempt <= 1) {
     try {
@@ -317,6 +321,7 @@ async function initialHeartbeat() {
 }
 await initialHeartbeat()
   .then(() => {
+    lastSentPayload = JSON.stringify(accumulatedSteps);
     lastStreamingSentAt = Date.now();
     callbackReady = true;
     try {
@@ -413,14 +418,38 @@ function extractResultEvent(output) {
   return resultEvent;
 }
 
-function buildErrorMessage(code, timedOutForMaxRuntime, timedOutForNoOutput) {
+function buildErrorMessage(
+  code,
+  timedOutForMaxRuntime,
+  timedOutForNoOutput,
+  timedOutForFirstEvent,
+) {
   if (timedOutForMaxRuntime) {
     return "Claude CLI terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
+  }
+  if (timedOutForFirstEvent) {
+    return "Claude CLI produced no parseable stream-json events within " + FIRST_EVENT_TIMEOUT_MS + "ms";
   }
   if (timedOutForNoOutput) {
     return "Claude CLI terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms";
   }
   return "Claude CLI exited with code " + code;
+}
+
+function appendDiagnosticTail(message) {
+  const details = [];
+  const stdoutTail = rawOutput.slice(-1500).trim();
+  const stderrTail = stderrOutput.slice(-1500).trim();
+  if (stdoutTail) {
+    details.push("stdout tail:\\n" + stdoutTail);
+  }
+  if (stderrTail) {
+    details.push("stderr tail:\\n" + stderrTail);
+  }
+  if (details.length === 0) {
+    return message;
+  }
+  return message + "\\n\\n" + details.join("\\n\\n");
 }
 
 async function uploadMediaFile(filePath, mimeType) {
@@ -456,12 +485,26 @@ async function runClaudeAttempt(includeSessionId) {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let attemptOutput = "";
+    const attemptStartedAt = Date.now();
+    const parsedEventsAtStart = parsedStreamEventCount;
     let lastStdoutAt = Date.now();
     let timedOutForNoOutput = false;
     let timedOutForMaxRuntime = false;
+    let timedOutForFirstEvent = false;
     const noOutputTimer = setInterval(() => {
       if (Date.now() - SCRIPT_STARTED_AT > MAX_TOTAL_RUNTIME_MS) {
         timedOutForMaxRuntime = true;
+        try { child.kill("SIGTERM"); } catch {}
+        setTimeout(() => {
+          try { child.kill("SIGKILL"); } catch {}
+        }, 2000);
+        return;
+      }
+      if (
+        parsedStreamEventCount === parsedEventsAtStart &&
+        Date.now() - attemptStartedAt > FIRST_EVENT_TIMEOUT_MS
+      ) {
+        timedOutForFirstEvent = true;
         try { child.kill("SIGTERM"); } catch {}
         setTimeout(() => {
           try { child.kill("SIGKILL"); } catch {}
@@ -494,6 +537,7 @@ async function runClaudeAttempt(includeSessionId) {
         output: attemptOutput,
         timedOutForNoOutput,
         timedOutForMaxRuntime,
+        timedOutForFirstEvent,
       });
     });
     child.on("error", (err) => {
@@ -510,6 +554,7 @@ try {
   let finalCode = firstAttempt.code;
   let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
   let finalTimedOutForMaxRuntime = Boolean(firstAttempt.timedOutForMaxRuntime);
+  let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   const shouldRetryWithoutSession =
     Boolean(process.env.CLAUDE_SESSION_ID) &&
@@ -530,6 +575,7 @@ try {
     finalCode = secondAttempt.code;
     finalTimedOutForNoOutput = Boolean(secondAttempt.timedOutForNoOutput);
     finalTimedOutForMaxRuntime = Boolean(secondAttempt.timedOutForMaxRuntime);
+    finalTimedOutForFirstEvent = Boolean(secondAttempt.timedOutForFirstEvent);
     finalResultEvent = extractResultEvent(secondAttempt.output);
   }
 
@@ -590,8 +636,14 @@ try {
   if (finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;
   } else if (finalCode !== 0) {
-    errorValue = buildErrorMessage(finalCode, finalTimedOutForMaxRuntime, finalTimedOutForNoOutput);
-    if (stderrOutput) errorValue += "\\n" + stderrOutput.slice(-500);
+    errorValue = appendDiagnosticTail(
+      buildErrorMessage(
+        finalCode,
+        finalTimedOutForMaxRuntime,
+        finalTimedOutForNoOutput,
+        finalTimedOutForFirstEvent,
+      ),
+    );
   }
 
   for (const step of accumulatedSteps) step.status = "complete";
@@ -621,7 +673,9 @@ try {
     ...(RUN_ID ? { runId: RUN_ID } : {}),
     success: false,
     result: null,
-    error: err instanceof Error ? err.message : "Failed to run Claude CLI",
+    error: appendDiagnosticTail(
+      err instanceof Error ? err.message : "Failed to run Claude CLI",
+    ),
     activityLog: "[]",
   };
   try {

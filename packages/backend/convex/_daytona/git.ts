@@ -168,6 +168,20 @@ export async function checkoutSessionBranch(
   );
 }
 
+export async function checkoutFetchedBaseBranch(
+  sandbox: Sandbox,
+  baseBranch: string,
+  timeoutSeconds = 30,
+): Promise<void> {
+  const quotedBranch = quote([baseBranch]);
+  const quotedBase = quote([`origin/${baseBranch}`]);
+  await exec(
+    sandbox,
+    `cd ${WORKSPACE_DIR} && git checkout ${quotedBranch} && git merge --ff-only ${quotedBase}`,
+    timeoutSeconds,
+  );
+}
+
 async function installDependencies(
   sandbox: Sandbox,
   pm: string,

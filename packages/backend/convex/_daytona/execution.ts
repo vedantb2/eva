@@ -4,7 +4,6 @@ import { v } from "convex/values";
 import type { Sandbox } from "@daytonaio/sdk";
 import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { quote } from "shell-quote";
 import {
   exec,
   WORKSPACE_DIR,
@@ -19,6 +18,7 @@ import {
   fetchOrigin,
   setupBranch,
   configureGitHubOrigin,
+  checkoutFetchedBaseBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
   EPHEMERAL_LIFECYCLE,
@@ -212,11 +212,8 @@ export const prepareSandbox = internalAction({
             `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
             10,
           );
-          await exec(
-            sandbox,
-            `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
-            240,
-          );
+          await emitProgress("Checking out base branch...");
+          await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
         }
 
         if (args.branchName) {
@@ -454,11 +451,7 @@ export const checkoutBaseBranch = internalAction({
       args.repoOwner,
       args.repoName,
     );
-    await exec(
-      sandbox,
-      `cd ${WORKSPACE_DIR} && git checkout ${quote([args.baseBranch])} && git pull --ff-only origin ${quote([args.baseBranch])}`,
-      240,
-    );
+    await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
     return null;
   },
 });

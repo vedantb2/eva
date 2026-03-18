@@ -245,61 +245,75 @@ let lastStreamingSentAt = Date.now();
 let lastSentPayload = "";
 let parsedStreamEventCount = 0;
 
+let flushInProgress = false;
 async function flushStreaming() {
+  if (flushInProgress) return;
   if (rawOutput.length <= lastProcessed) return;
-  const pending = rawOutput.slice(lastProcessed);
-  const lastNewline = pending.lastIndexOf("\\n");
-  if (lastNewline === -1) return;
-  lastProcessed += lastNewline + 1;
-  let hasNew = false;
-  for (const line of pending.slice(0, lastNewline).split("\\n")) {
-    const clean = line.trim();
-    if (!clean) continue;
-    if (parseStreamEvent(clean)) {
-      hasNew = true;
-      parsedStreamEventCount++;
+  flushInProgress = true;
+  try {
+    const pending = rawOutput.slice(lastProcessed);
+    const lastNewline = pending.lastIndexOf("\\n");
+    if (lastNewline === -1) return;
+    lastProcessed += lastNewline + 1;
+    let hasNew = false;
+    for (const line of pending.slice(0, lastNewline).split("\\n")) {
+      const clean = line.trim();
+      if (!clean) continue;
+      if (parseStreamEvent(clean)) {
+        hasNew = true;
+        parsedStreamEventCount++;
+      }
     }
-  }
-  if (hasNew) {
-    const payload = JSON.stringify(accumulatedSteps);
-    if (payload === lastSentPayload) return;
-    try {
-      await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
-      lastSentPayload = payload;
-      lastStreamingSentAt = Date.now();
-      consecutiveHeartbeatFailures = 0;
-    } catch (e) {
-      consecutiveHeartbeatFailures++;
-      console.error("flushStreaming failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+    if (hasNew) {
+      const payload = JSON.stringify(accumulatedSteps);
+      if (payload === lastSentPayload) return;
+      try {
+        await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
+        lastSentPayload = payload;
+        lastStreamingSentAt = Date.now();
+        consecutiveHeartbeatFailures = 0;
+      } catch (e) {
+        consecutiveHeartbeatFailures++;
+        console.error("flushStreaming failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+      }
     }
+  } finally {
+    flushInProgress = false;
   }
 }
 
 let consecutiveHeartbeatFailures = 0;
 
+let pingInProgress = false;
 async function heartbeatPing() {
+  if (pingInProgress) return;
   if (Date.now() - lastStreamingSentAt < 10000) return;
-  const payload = JSON.stringify(accumulatedSteps);
-  const maxAttempts = 3;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
-      lastSentPayload = payload;
-      lastStreamingSentAt = Date.now();
-      if (consecutiveHeartbeatFailures > 0) {
-        console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
-      }
-      consecutiveHeartbeatFailures = 0;
-      return;
-    } catch (e) {
-      if (attempt < maxAttempts - 1) {
-        const delayMs = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 500);
-        await new Promise((r) => setTimeout(r, delayMs));
-      } else {
-        consecutiveHeartbeatFailures++;
-        console.error("Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+  pingInProgress = true;
+  try {
+    const payload = JSON.stringify(accumulatedSteps);
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
+        lastSentPayload = payload;
+        lastStreamingSentAt = Date.now();
+        if (consecutiveHeartbeatFailures > 0) {
+          console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
+        }
+        consecutiveHeartbeatFailures = 0;
+        return;
+      } catch (e) {
+        if (attempt < maxAttempts - 1) {
+          const delayMs = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 500);
+          await new Promise((r) => setTimeout(r, delayMs));
+        } else {
+          consecutiveHeartbeatFailures++;
+          console.error("Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+        }
       }
     }
+  } finally {
+    pingInProgress = false;
   }
 }
 
@@ -678,7 +692,7 @@ try {
     error: appendDiagnosticTail(
       err instanceof Error ? err.message : "Failed to run Claude CLI",
     ),
-    activityLog: "[]",
+    activityLog: JSON.stringify(accumulatedSteps),
   };
   try {
     await callMutationWithRetry(COMPLETION_MUTATION, errorArgs);

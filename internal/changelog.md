@@ -2,8 +2,8 @@
 
 ## Retry shallow session base fallback fetches quickly - 2026-03-18
 
-- **Why**: After switching regular sessions to a shallow base-branch fallback, one sandbox could fetch `staging` in under a second while another hung for four minutes on the same command. That points to transient sandbox fetch stalls, not consistently expensive work.
-- **Fail-fast fallback fetches**: `_daytona/sessions.ts` now gives the shallow fallback base fetch a short 45s timeout instead of waiting 240s on a single bad attempt.
+- **Why**: After switching regular sessions to a shallow base-branch fallback, one sandbox could fetch `staging` in about a second while another still sat on the same command for 45 seconds before retrying. That points to transient sandbox fetch stalls, not consistently expensive work.
+- **More aggressive fail-fast fallback fetches**: `_daytona/sessions.ts` now gives the shallow fallback base fetch a 15s timeout instead of waiting 45s on a single bad attempt.
 - **Targeted retries**: Regular session fallback fetches now retry a few times with short backoff when they fail with sandbox exec timeouts, so transient stalls no longer tank the whole session start as easily.
 
 ## Use ls-remote before fetching session branch - 2026-03-18

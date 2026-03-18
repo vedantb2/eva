@@ -82,7 +82,7 @@ async function fetchSessionBaseFallbackBranch(
         [baseBranch],
         {
           prune: false,
-          timeoutSeconds: 45,
+          timeoutSeconds: 15,
           shallow: true,
         },
       );

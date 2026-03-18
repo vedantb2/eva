@@ -6,6 +6,7 @@ import { workflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
 import { buildTaskDoneEvent } from "./taskWorkflow";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { buildProjectBranchName } from "./_projects/helpers";
 
 // --- Workflow ---
 
@@ -155,7 +156,9 @@ export const startTaskForBuild = internalMutation({
         repoId: task.repoId,
         installationId: args.installationId,
         projectId: args.projectId,
-        branchName: project.branchName ?? `eva/project-${args.projectId}`,
+        branchName:
+          project.branchName ??
+          buildProjectBranchName(args.projectId, project.branchVersion),
         baseBranch: project.baseBranch ?? "main",
         isFirstTaskOnBranch,
         model: task.model ?? repo.defaultModel,

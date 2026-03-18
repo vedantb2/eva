@@ -9,6 +9,17 @@ import type { Id, Doc } from "../_generated/dataModel";
 
 type ConversationMessage = Doc<"projectDetails">["conversationHistory"][number];
 
+export function buildProjectBranchName(
+  projectId: Id<"projects">,
+  branchVersion?: number,
+): string {
+  const version = branchVersion ?? 1;
+  if (version <= 1) {
+    return `eva/project-${projectId}`;
+  }
+  return `eva/project-${projectId}-v${version}`;
+}
+
 export const projectWithDetailsValidator = v.object({
   _id: v.id("projects"),
   _creationTime: v.number(),

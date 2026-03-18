@@ -345,6 +345,7 @@ export const projectFields = {
   scheduledBuildAt: v.optional(v.number()),
   scheduledBuildFunctionId: v.optional(v.id("_scheduled_functions")),
   lastBuildError: v.optional(v.string()),
+  branchVersion: v.optional(v.number()),
 };
 
 export const projectDetailsFields = {

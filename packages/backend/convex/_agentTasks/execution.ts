@@ -8,6 +8,7 @@ import {
   isFirstTaskOnBranch,
 } from "../functions";
 import { workflow } from "../workflowManager";
+import { buildProjectBranchName } from "../_projects/helpers";
 
 export const startExecution = authMutation({
   args: { id: v.id("agentTasks"), mode: v.optional(runModeValidator) },
@@ -52,8 +53,9 @@ export const startExecution = authMutation({
       throw new Error("Task already has an active execution");
     }
 
+    const project = task.projectId ? await ctx.db.get(task.projectId) : null;
+
     if (task.projectId) {
-      const project = await ctx.db.get(task.projectId);
       if (!project) {
         throw new Error("Project not found");
       }
@@ -99,9 +101,11 @@ export const startExecution = authMutation({
           repoId: task.repoId,
           installationId: repo.installationId,
           projectId: task.projectId,
-          branchName: task.projectId
-            ? `eva/project-${task.projectId}`
-            : undefined,
+          branchName:
+            task.projectId && project
+              ? (project.branchName ??
+                buildProjectBranchName(task.projectId, project.branchVersion))
+              : undefined,
           baseBranch: task.baseBranch,
           isFirstTaskOnBranch: firstOnBranch,
           model: task.model ?? repo.defaultModel,
@@ -137,7 +141,11 @@ export const startExecution = authMutation({
       repoId: task.repoId,
       installationId: repo.installationId,
       projectId: task.projectId,
-      branchName: task.projectId ? `eva/project-${task.projectId}` : undefined,
+      branchName:
+        task.projectId && project
+          ? (project.branchName ??
+            buildProjectBranchName(task.projectId, project.branchVersion))
+          : undefined,
       baseBranch: task.baseBranch,
       isFirstTaskOnBranch: firstOnBranch,
       model: task.model ?? repo.defaultModel,

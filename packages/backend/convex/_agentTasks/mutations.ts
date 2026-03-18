@@ -10,6 +10,7 @@ import {
   recomputeProjectPhase,
 } from "../functions";
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
+import { buildProjectBranchName } from "../_projects/helpers";
 
 export const update = authMutation({
   args: {
@@ -336,7 +337,7 @@ export const createBatchWithDependencies = authMutation({
         projectStartDate: now,
       });
       await ctx.db.patch(projectId, {
-        branchName: `eva/project-${projectId}`,
+        branchName: buildProjectBranchName(projectId),
       });
       for (const taskId of taskIds) {
         await ctx.db.patch(taskId, { projectId });

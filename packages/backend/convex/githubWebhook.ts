@@ -3,6 +3,7 @@ import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { createNotification } from "./notifications";
 import type { Id } from "./_generated/dataModel";
+import { buildProjectBranchName } from "./_projects/helpers";
 
 export const handlePrClosed = internalMutation({
   args: {
@@ -99,8 +100,27 @@ export const handlePrClosed = internalMutation({
     }
 
     if (task.projectId) {
+      const project = await ctx.db.get(task.projectId);
       const newPhase = args.merged ? "completed" : "cancelled";
-      await ctx.db.patch(task.projectId, { phase: newPhase });
+      if (args.merged && project) {
+        const nextVersion = (project.branchVersion ?? 1) + 1;
+        if (project.sandboxId) {
+          await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+            sandboxId: project.sandboxId,
+            repoId: project.repoId,
+          });
+        }
+        await ctx.db.patch(task.projectId, {
+          phase: newPhase,
+          sandboxId: undefined,
+          lastSandboxActivity: undefined,
+          branchVersion: nextVersion,
+          branchName: buildProjectBranchName(task.projectId, nextVersion),
+          prUrl: undefined,
+        });
+      } else {
+        await ctx.db.patch(task.projectId, { phase: newPhase });
+      }
     }
 
     await ctx.db.patch(eventId, {

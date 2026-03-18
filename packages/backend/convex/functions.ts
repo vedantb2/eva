@@ -128,19 +128,8 @@ export async function isFirstTaskOnBranch(
   projectId?: Id<"projects">,
 ): Promise<boolean> {
   if (projectId) {
-    const projectTasks = await db
-      .query("agentTasks")
-      .withIndex("by_project", (q) => q.eq("projectId", projectId))
-      .collect();
-    for (const pt of projectTasks) {
-      const successRun = await db
-        .query("agentRuns")
-        .withIndex("by_task_and_status", (q) =>
-          q.eq("taskId", pt._id).eq("status", "success"),
-        )
-        .first();
-      if (successRun) return false;
-    }
+    const project = await db.get(projectId);
+    if (project?.prUrl) return false;
     return true;
   }
   const successRun = await db

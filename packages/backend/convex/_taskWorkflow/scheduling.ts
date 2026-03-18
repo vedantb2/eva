@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { hasActiveRun, isFirstTaskOnBranch } from "../functions";
 import { isDaytonaNetworkIssue, buildQuickTaskRetryDelayMs } from "./recovery";
+import { buildProjectBranchName } from "../_projects/helpers";
 
 export const maybeScheduleQuickTaskRetry = internalMutation({
   args: {
@@ -125,6 +126,15 @@ export const executeScheduledTask = internalMutation({
       updatedAt: Date.now(),
     });
 
+    let branchName: string | undefined;
+    if (task.projectId) {
+      const project = await ctx.db.get(task.projectId);
+      branchName = project
+        ? (project.branchName ??
+          buildProjectBranchName(task.projectId, project.branchVersion))
+        : buildProjectBranchName(task.projectId);
+    }
+
     const workflowId = await workflow.start(
       ctx,
       internal.taskWorkflow.taskExecutionWorkflow,
@@ -134,9 +144,7 @@ export const executeScheduledTask = internalMutation({
         repoId: task.repoId,
         installationId: repo.installationId,
         projectId: task.projectId,
-        branchName: task.projectId
-          ? `eva/project-${task.projectId}`
-          : undefined,
+        branchName,
         baseBranch: task.baseBranch,
         isFirstTaskOnBranch: firstOnBranch,
         model: task.model,

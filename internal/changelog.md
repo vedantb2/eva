@@ -1,5 +1,11 @@
 # Changelog
 
+## Reduce false watchdog kills - 2026-03-18
+
+- **Why**: Watchdog was killing healthy runs that hit transient network blips. The 180s threshold combined with only 1 heartbeat retry meant brief connectivity issues could cascade into a kill.
+- **Threshold 180s → 300s**: Gives more room for transient issues without meaningfully delaying detection of truly dead runs.
+- **Heartbeat retry 1 → 3 with backoff**: `heartbeatPing` now retries 3 times with exponential backoff (1s, 2s + jitter) before giving up, matching the resilience of other callback functions.
+
 ## Persist activity log on watchdog kill - 2026-03-18
 
 - **Why**: When the watchdog killed a run (no heartbeat for 180s), the streaming activity was deleted without saving it to `agentRunActivityLogs`. This meant there was no way to trace what steps the agent completed before it died.

@@ -280,8 +280,8 @@ let consecutiveHeartbeatFailures = 0;
 async function heartbeatPing() {
   if (Date.now() - lastStreamingSentAt < 10000) return;
   const payload = JSON.stringify(accumulatedSteps);
-  let attempt = 0;
-  while (attempt <= 1) {
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
       lastSentPayload = payload;
@@ -292,8 +292,10 @@ async function heartbeatPing() {
       consecutiveHeartbeatFailures = 0;
       return;
     } catch (e) {
-      attempt++;
-      if (attempt > 1) {
+      if (attempt < maxAttempts - 1) {
+        const delayMs = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 500);
+        await new Promise((r) => setTimeout(r, delayMs));
+      } else {
         consecutiveHeartbeatFailures++;
         console.error("Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
       }

@@ -196,7 +196,11 @@ export function ProjectsClient() {
       {hasProjects && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="sm">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="hidden sm:inline-flex"
+            >
               <IconFilter size={16} />
               {visiblePhases.size === PROJECT_PHASES.length
                 ? "All Phases"
@@ -224,23 +228,29 @@ export function ProjectsClient() {
       {hasProjects && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="sm">
-              {sortField === "created" ? "Date" : "Title"}
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-8 w-8 sm:hidden"
+            >
+              <IconFilter size={16} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuRadioGroup
-              value={sortField}
-              onValueChange={(v) => {
-                if (isSortField(v)) setParams({ sort: v });
-              }}
-            >
-              {SORT_FIELDS.map((item) => (
-                <DropdownMenuRadioItem key={item.key} value={item.key}>
-                  {item.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
+            {PROJECT_PHASES.map((p) => {
+              const cfg = phaseConfig[p];
+              return (
+                <DropdownMenuCheckboxItem
+                  key={p}
+                  checked={visiblePhases.has(p)}
+                  onCheckedChange={() => handlePhaseToggle(p)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <cfg.icon size={16} className={cfg.text + " mr-2"} />
+                  <span className={cfg.text}>{cfg.label}</span>
+                </DropdownMenuCheckboxItem>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
@@ -273,7 +283,7 @@ export function ProjectsClient() {
         onClick={() => setIsCreating(true)}
       >
         <IconPlus size={16} />
-        New Project
+        <span className="hidden sm:inline">New Project</span>
       </Button>
     </div>
   );
@@ -306,7 +316,7 @@ export function ProjectsClient() {
               {view === "kanban" ? (
                 <motion.div
                   key="projects-kanban-view"
-                  className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar"
+                  className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar [&>*]:min-w-[220px] sm:[&>*]:min-w-0"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}

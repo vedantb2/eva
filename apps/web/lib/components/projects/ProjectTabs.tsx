@@ -114,8 +114,8 @@ export function ProjectTabs({
   }
 
   return (
-    <div className="h-full grid grid-cols-2">
-      <div className="overflow-y-auto scrollbar">
+    <div className="h-full grid grid-cols-1 md:grid-cols-2">
+      <div className="overflow-y-auto scrollbar min-h-0">
         <ProjectChatTab
           projectId={projectId}
           projectPhase={projectPhase}
@@ -127,7 +127,7 @@ export function ProjectTabs({
           installationId={installationId}
         />
       </div>
-      <div className="overflow-y-auto scrollbar">
+      <div className="overflow-y-auto scrollbar min-h-0">
         <ProjectPlanTab
           projectId={projectId}
           projectPhase={projectPhase}

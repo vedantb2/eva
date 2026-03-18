@@ -92,7 +92,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
       childPadding={false}
       headerRight={
         !isDraftOrFinalized ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {project.prUrl && (
               <Button
                 variant="outline"
@@ -106,15 +106,17 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                   rel="noopener noreferrer"
                 >
                   <IconGitPullRequest size={16} />
-                  View PR
+                  <span className="hidden sm:inline">View PR</span>
                 </Link>
               </Button>
             )}
-            <ScheduleBuildPopover
-              projectId={typedProjectId}
-              scheduledBuildAt={project.scheduledBuildAt}
-              disabled={!isOwner || !!project.activeBuildWorkflowId}
-            />
+            <div className="hidden sm:block">
+              <ScheduleBuildPopover
+                projectId={typedProjectId}
+                scheduledBuildAt={project.scheduledBuildAt}
+                disabled={!isOwner || !!project.activeBuildWorkflowId}
+              />
+            </div>
             {project.activeBuildWorkflowId ? (
               <Button
                 size="sm"
@@ -127,7 +129,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                 ) : (
                   <IconPlayerStop size={16} />
                 )}
-                Stop Build
+                <span className="hidden sm:inline">Stop Build</span>
               </Button>
             ) : (
               <Tooltip>
@@ -139,7 +141,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                       disabled={!isOwner || !!project.scheduledBuildAt}
                     >
                       <IconHammer size={16} />
-                      Build Project
+                      <span className="hidden sm:inline">Build Project</span>
                     </Button>
                   </div>
                 </TooltipTrigger>

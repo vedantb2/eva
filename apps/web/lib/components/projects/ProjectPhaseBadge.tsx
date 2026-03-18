@@ -6,15 +6,22 @@ import {
   IconCheck,
   IconClock,
   IconCircleCheck,
+  IconCircleX,
 } from "@tabler/icons-react";
 
-export type ProjectPhase = "draft" | "finalized" | "active" | "completed";
+export type ProjectPhase =
+  | "draft"
+  | "finalized"
+  | "active"
+  | "completed"
+  | "cancelled";
 
 export const PROJECT_PHASES: ProjectPhase[] = [
   "draft",
   "finalized",
   "active",
   "completed",
+  "cancelled",
 ];
 
 export const phaseConfig: Record<
@@ -54,6 +61,13 @@ export const phaseConfig: Record<
     text: "text-status-done",
     label: "Completed",
     icon: IconCircleCheck,
+  },
+  cancelled: {
+    bg: "bg-status-cancelled-bg",
+    bar: "bg-status-cancelled-bar",
+    text: "text-status-cancelled",
+    label: "Cancelled",
+    icon: IconCircleX,
   },
 };
 

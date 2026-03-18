@@ -26,9 +26,14 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 interface QuickTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
+  projectId?: Id<"projects">;
 }
 
-export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
+export function QuickTaskModal({
+  isOpen,
+  onClose,
+  projectId,
+}: QuickTaskModalProps) {
   const { repo } = useRepo();
   const defaultBranch = repo.defaultBaseBranch ?? "main";
   const [title, setTitle] = useState("");
@@ -64,6 +69,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
         title: title.trim() || undefined,
         description: description.trim() || undefined,
         baseBranch,
+        projectId,
       });
     }
     resetForm();
@@ -76,6 +82,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
     title,
     description,
     baseBranch,
+    projectId,
     resetForm,
     onClose,
   ]);
@@ -100,6 +107,7 @@ export function QuickTaskModal({ isOpen, onClose }: QuickTaskModalProps) {
           description: description.trim() || undefined,
           baseBranch,
           model: repo.defaultModel,
+          projectId,
         });
       }
       resetForm();

@@ -9,6 +9,7 @@ import {
 } from "./chain-of-thought";
 import { cn } from "../utils/cn";
 import { Spinner } from "../ui/spinner";
+import { Shimmer } from "./shimmer";
 import {
   FileSearchIcon,
   PencilIcon,
@@ -20,10 +21,21 @@ import {
   SearchIcon,
   WorkflowIcon,
   BookOpenIcon,
-  BrainIcon,
   WrenchIcon,
 } from "lucide-react";
 import { memo, useState, useEffect, useRef } from "react";
+
+function EvaThinkingIcon({ className }: { className?: string }) {
+  return (
+    <img
+      src="/icon.png"
+      alt="Eva"
+      width={16}
+      height={16}
+      className={cn("rounded-full", className)}
+    />
+  );
+}
 
 export interface ActivityStep {
   type:
@@ -55,7 +67,7 @@ const stepConfig = {
   web_search: { icon: SearchIcon, defaultLabel: "Web search" },
   subtask: { icon: WorkflowIcon, defaultLabel: "Ran agent" },
   notebook: { icon: BookOpenIcon, defaultLabel: "Edited notebook" },
-  thinking: { icon: BrainIcon, defaultLabel: "Thinking..." },
+  thinking: { icon: EvaThinkingIcon, defaultLabel: "Thinking..." },
   tool: { icon: WrenchIcon, defaultLabel: "Used tool" },
 };
 
@@ -73,9 +85,13 @@ const ActivityStepItem = memo(({ step, isLast }: ActivityStepItemProps) => {
       label={
         <div className="flex items-center gap-2">
           {step.status === "active" && <Spinner size="sm" />}
-          <span className={step.status === "active" ? "font-medium" : ""}>
-            {step.label}
-          </span>
+          {step.status === "active" ? (
+            <Shimmer as="span" duration={2.5} spread={1.5}>
+              {step.label}
+            </Shimmer>
+          ) : (
+            <span>{step.label}</span>
+          )}
         </div>
       }
       description={step.detail}
@@ -106,9 +122,9 @@ export function useElapsedSeconds(
       setElapsed(0);
       return;
     }
-    setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
     const id = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+      setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
     }, 1000);
     return () => clearInterval(id);
   }, [active, startedAt]);
@@ -159,8 +175,12 @@ export const ActivitySteps = memo(
           : null;
     const headerLabel = isStreaming
       ? name
-        ? `${name} is cooking... (${stepsText})`
-        : `Cooking... (${stepsText})`
+        ? timeText
+          ? `${name} is cooking... (${stepsText} · ${timeText})`
+          : `${name} is cooking... (${stepsText})`
+        : timeText
+          ? `Cooking... (${stepsText} · ${timeText})`
+          : `Cooking... (${stepsText})`
       : name
         ? timeText
           ? `${name} cooked ${stepsText} in ${timeText}`
@@ -176,7 +196,15 @@ export const ActivitySteps = memo(
         className={cn("text-sm", className)}
         {...props}
       >
-        <ChainOfThoughtHeader icon={icon}>{headerLabel}</ChainOfThoughtHeader>
+        <ChainOfThoughtHeader icon={icon}>
+          {isStreaming ? (
+            <Shimmer as="span" duration={2.5} spread={1.5}>
+              {headerLabel}
+            </Shimmer>
+          ) : (
+            headerLabel
+          )}
+        </ChainOfThoughtHeader>
         <ChainOfThoughtContentArea>
           <div
             ref={scrollContainerRef}

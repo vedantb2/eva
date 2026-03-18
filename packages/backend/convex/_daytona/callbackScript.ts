@@ -12,10 +12,11 @@ const RUN_ID = process.env.RUN_ID || null;
 const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 const MODEL = process.env.CLAUDE_MODEL || "opus";
-const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep,Skill";
+const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 const WORK_DIR = "/workspace/repo";
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
+const FIRST_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
 const SCRIPT_STARTED_AT = Date.now();
@@ -143,6 +144,12 @@ function toolCallToStep(name, input) {
     case "Edit": return { type: "edit", label: "Editing file...", detail: path || undefined, status: "active" };
     case "Bash": return { type: "bash", label: "Running command...", detail: input.command ? String(input.command).slice(0, 300) : undefined, status: "active" };
     case "Skill": return { type: "tool", label: "Using Skill...", detail: input.skill ? String(input.skill) : undefined, status: "active" };
+    case "WebFetch": return { type: "web_fetch", label: "Fetching URL...", detail: input.url ? String(input.url) : undefined, status: "active" };
+    case "WebSearch": return { type: "web_search", label: "Searching web...", detail: input.query ? String(input.query) : undefined, status: "active" };
+    case "NotebookEdit": return { type: "notebook", label: "Editing notebook...", detail: input.notebook_path ? shortenPath(String(input.notebook_path)) : undefined, status: "active" };
+    case "Agent": return { type: "subtask", label: "Running agent...", detail: input.description ? String(input.description) : undefined, status: "active" };
+    case "TodoWrite": return { type: "tool", label: "Updating tasks...", status: "active" };
+    case "TodoRead": return { type: "tool", label: "Reading tasks...", status: "active" };
     default: return { type: "tool", label: "Using " + name + "...", status: "active" };
   }
 }
@@ -153,6 +160,7 @@ const completedLabels = {
   "Starting Claude...": "Started Claude",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
+  "Writing response...": "Wrote response",
   "Finalizing response...": "Finalized response",
   "Reading file...": "Read file",
   "Searching files...": "Searched files",
@@ -161,6 +169,12 @@ const completedLabels = {
   "Editing file...": "Edited file",
   "Running command...": "Ran command",
   "Using Skill...": "Used Skill",
+  "Fetching URL...": "Fetched URL",
+  "Searching web...": "Searched web",
+  "Editing notebook...": "Edited notebook",
+  "Running agent...": "Ran agent",
+  "Updating tasks...": "Updated tasks",
+  "Reading tasks...": "Read tasks",
 };
 
 function markLastComplete() {
@@ -193,8 +207,12 @@ function parseStreamEvent(line) {
         added = true;
       } else if (block.type === "thinking" && block.thinking) {
         markLastComplete();
-        const preview = String(block.thinking).split("\\n")[0].slice(0, 500);
-        accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: preview, status: "active" });
+        accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: String(block.thinking), status: "active" });
+        lastStepType = "thinking";
+        added = true;
+      } else if (block.type === "text" && block.text) {
+        markLastComplete();
+        accumulatedSteps.push({ type: "thinking", label: "Writing response...", detail: String(block.text), status: "active" });
         lastStepType = "thinking";
         added = true;
       }
@@ -224,52 +242,78 @@ try {
 let rawOutput = "";
 let lastProcessed = 0;
 let lastStreamingSentAt = Date.now();
+let lastSentPayload = "";
+let parsedStreamEventCount = 0;
 
+let flushInProgress = false;
 async function flushStreaming() {
+  if (flushInProgress) return;
   if (rawOutput.length <= lastProcessed) return;
-  const pending = rawOutput.slice(lastProcessed);
-  const lastNewline = pending.lastIndexOf("\\n");
-  if (lastNewline === -1) return;
-  lastProcessed += lastNewline + 1;
-  let hasNew = false;
-  for (const line of pending.slice(0, lastNewline).split("\\n")) {
-    const clean = line.trim();
-    if (!clean) continue;
-    if (parseStreamEvent(clean)) hasNew = true;
-  }
-  if (hasNew) {
-    try {
-      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
-      lastStreamingSentAt = Date.now();
-      consecutiveHeartbeatFailures = 0;
-    } catch (e) {
-      consecutiveHeartbeatFailures++;
-      console.error("flushStreaming failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+  flushInProgress = true;
+  try {
+    const pending = rawOutput.slice(lastProcessed);
+    const lastNewline = pending.lastIndexOf("\\n");
+    if (lastNewline === -1) return;
+    lastProcessed += lastNewline + 1;
+    let hasNew = false;
+    for (const line of pending.slice(0, lastNewline).split("\\n")) {
+      const clean = line.trim();
+      if (!clean) continue;
+      if (parseStreamEvent(clean)) {
+        hasNew = true;
+        parsedStreamEventCount++;
+      }
     }
+    if (hasNew) {
+      const payload = JSON.stringify(accumulatedSteps);
+      if (payload === lastSentPayload) return;
+      try {
+        await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
+        lastSentPayload = payload;
+        lastStreamingSentAt = Date.now();
+        consecutiveHeartbeatFailures = 0;
+      } catch (e) {
+        consecutiveHeartbeatFailures++;
+        console.error("flushStreaming failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+      }
+    }
+  } finally {
+    flushInProgress = false;
   }
 }
 
 let consecutiveHeartbeatFailures = 0;
 
+let pingInProgress = false;
 async function heartbeatPing() {
+  if (pingInProgress) return;
   if (Date.now() - lastStreamingSentAt < 10000) return;
-  let attempt = 0;
-  while (attempt <= 1) {
-    try {
-      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
-      lastStreamingSentAt = Date.now();
-      if (consecutiveHeartbeatFailures > 0) {
-        console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
-      }
-      consecutiveHeartbeatFailures = 0;
-      return;
-    } catch (e) {
-      attempt++;
-      if (attempt > 1) {
-        consecutiveHeartbeatFailures++;
-        console.error("Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+  pingInProgress = true;
+  try {
+    const payload = JSON.stringify(accumulatedSteps);
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
+        lastSentPayload = payload;
+        lastStreamingSentAt = Date.now();
+        if (consecutiveHeartbeatFailures > 0) {
+          console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
+        }
+        consecutiveHeartbeatFailures = 0;
+        return;
+      } catch (e) {
+        if (attempt < maxAttempts - 1) {
+          const delayMs = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 500);
+          await new Promise((r) => setTimeout(r, delayMs));
+        } else {
+          consecutiveHeartbeatFailures++;
+          console.error("Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
+        }
       }
     }
+  } finally {
+    pingInProgress = false;
   }
 }
 
@@ -293,6 +337,7 @@ async function initialHeartbeat() {
 }
 await initialHeartbeat()
   .then(() => {
+    lastSentPayload = JSON.stringify(accumulatedSteps);
     lastStreamingSentAt = Date.now();
     callbackReady = true;
     try {
@@ -307,7 +352,8 @@ if (!callbackReady) {
   process.exit(1);
 }
 
-const interval = setInterval(flushStreaming, 500);
+// TODO: reduce back to 500ms once we move to a more efficient streaming transport
+const interval = setInterval(flushStreaming, 2000);
 const heartbeatInterval = setInterval(heartbeatPing, 10000);
 let streamingLoopsStopped = false;
 
@@ -388,14 +434,38 @@ function extractResultEvent(output) {
   return resultEvent;
 }
 
-function buildErrorMessage(code, timedOutForMaxRuntime, timedOutForNoOutput) {
+function buildErrorMessage(
+  code,
+  timedOutForMaxRuntime,
+  timedOutForNoOutput,
+  timedOutForFirstEvent,
+) {
   if (timedOutForMaxRuntime) {
     return "Claude CLI terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
+  }
+  if (timedOutForFirstEvent) {
+    return "Claude CLI produced no parseable stream-json events within " + FIRST_EVENT_TIMEOUT_MS + "ms";
   }
   if (timedOutForNoOutput) {
     return "Claude CLI terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms";
   }
   return "Claude CLI exited with code " + code;
+}
+
+function appendDiagnosticTail(message) {
+  const details = [];
+  const stdoutTail = rawOutput.slice(-1500).trim();
+  const stderrTail = stderrOutput.slice(-1500).trim();
+  if (stdoutTail) {
+    details.push("stdout tail:\\n" + stdoutTail);
+  }
+  if (stderrTail) {
+    details.push("stderr tail:\\n" + stderrTail);
+  }
+  if (details.length === 0) {
+    return message;
+  }
+  return message + "\\n\\n" + details.join("\\n\\n");
 }
 
 async function uploadMediaFile(filePath, mimeType) {
@@ -431,12 +501,26 @@ async function runClaudeAttempt(includeSessionId) {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let attemptOutput = "";
+    const attemptStartedAt = Date.now();
+    const parsedEventsAtStart = parsedStreamEventCount;
     let lastStdoutAt = Date.now();
     let timedOutForNoOutput = false;
     let timedOutForMaxRuntime = false;
+    let timedOutForFirstEvent = false;
     const noOutputTimer = setInterval(() => {
       if (Date.now() - SCRIPT_STARTED_AT > MAX_TOTAL_RUNTIME_MS) {
         timedOutForMaxRuntime = true;
+        try { child.kill("SIGTERM"); } catch {}
+        setTimeout(() => {
+          try { child.kill("SIGKILL"); } catch {}
+        }, 2000);
+        return;
+      }
+      if (
+        parsedStreamEventCount === parsedEventsAtStart &&
+        Date.now() - attemptStartedAt > FIRST_EVENT_TIMEOUT_MS
+      ) {
+        timedOutForFirstEvent = true;
         try { child.kill("SIGTERM"); } catch {}
         setTimeout(() => {
           try { child.kill("SIGKILL"); } catch {}
@@ -469,6 +553,7 @@ async function runClaudeAttempt(includeSessionId) {
         output: attemptOutput,
         timedOutForNoOutput,
         timedOutForMaxRuntime,
+        timedOutForFirstEvent,
       });
     });
     child.on("error", (err) => {
@@ -485,6 +570,7 @@ try {
   let finalCode = firstAttempt.code;
   let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
   let finalTimedOutForMaxRuntime = Boolean(firstAttempt.timedOutForMaxRuntime);
+  let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   const shouldRetryWithoutSession =
     Boolean(process.env.CLAUDE_SESSION_ID) &&
@@ -505,6 +591,7 @@ try {
     finalCode = secondAttempt.code;
     finalTimedOutForNoOutput = Boolean(secondAttempt.timedOutForNoOutput);
     finalTimedOutForMaxRuntime = Boolean(secondAttempt.timedOutForMaxRuntime);
+    finalTimedOutForFirstEvent = Boolean(secondAttempt.timedOutForFirstEvent);
     finalResultEvent = extractResultEvent(secondAttempt.output);
   }
 
@@ -565,8 +652,14 @@ try {
   if (finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;
   } else if (finalCode !== 0) {
-    errorValue = buildErrorMessage(finalCode, finalTimedOutForMaxRuntime, finalTimedOutForNoOutput);
-    if (stderrOutput) errorValue += "\\n" + stderrOutput.slice(-500);
+    errorValue = appendDiagnosticTail(
+      buildErrorMessage(
+        finalCode,
+        finalTimedOutForMaxRuntime,
+        finalTimedOutForNoOutput,
+        finalTimedOutForFirstEvent,
+      ),
+    );
   }
 
   for (const step of accumulatedSteps) step.status = "complete";
@@ -596,8 +689,10 @@ try {
     ...(RUN_ID ? { runId: RUN_ID } : {}),
     success: false,
     result: null,
-    error: err instanceof Error ? err.message : "Failed to run Claude CLI",
-    activityLog: "[]",
+    error: appendDiagnosticTail(
+      err instanceof Error ? err.message : "Failed to run Claude CLI",
+    ),
+    activityLog: JSON.stringify(accumulatedSteps),
   };
   try {
     await callMutationWithRetry(COMPLETION_MUTATION, errorArgs);

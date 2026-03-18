@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Spinner } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
+import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { DesignChatPanel } from "./_components/DesignChatPanel";
 import {
   DesignPreviewPanel,
@@ -106,28 +107,36 @@ export function DesignDetailClient({
   const isArchived = session.archived === true;
 
   return (
-    <div className="flex h-full flex-col md:flex-row">
-      <DesignChatPanel
-        designSessionId={designSessionId}
-        title={session.title}
-        isArchived={isArchived}
-        isSandboxActive={isSandboxActive}
-        isSandboxToggling={isSandboxStarting || isStopPending}
-        isExecuting={lastAssistantHasNoContent}
-        onSandboxToggle={handleSandboxToggle}
-        repoId={session.repoId}
-      />
-      <DesignPreviewPanel
-        previewUrl={previewUrl}
-        sandboxRunning={isSandboxActive}
-        isArchived={isArchived}
-        isExecuting={lastAssistantHasNoContent}
-        latestVariations={latestVariations}
-        selectedVariationIndex={session.selectedVariationIndex}
-        isSandboxStarting={isSandboxStarting}
-        onStartSandbox={() => handleSandboxToggle("start")}
-        onSelectVariation={handleSelectVariation}
-      />
-    </div>
+    <ResizablePanelLayout
+      leftPanel={() => (
+        <DesignChatPanel
+          designSessionId={designSessionId}
+          title={session.title}
+          isArchived={isArchived}
+          isSandboxActive={isSandboxActive}
+          isSandboxToggling={isSandboxStarting || isStopPending}
+          isExecuting={lastAssistantHasNoContent}
+          onSandboxToggle={handleSandboxToggle}
+          repoId={session.repoId}
+        />
+      )}
+      rightPanel={
+        <DesignPreviewPanel
+          previewUrl={previewUrl}
+          sandboxRunning={isSandboxActive}
+          isArchived={isArchived}
+          isExecuting={lastAssistantHasNoContent}
+          latestVariations={latestVariations}
+          selectedVariationIndex={session.selectedVariationIndex}
+          isSandboxStarting={isSandboxStarting}
+          onStartSandbox={() => handleSandboxToggle("start")}
+          onSelectVariation={handleSelectVariation}
+        />
+      }
+      leftDefaultSize="40%"
+      leftMinWidthPx={280}
+      rightMinWidthPx={300}
+      collapseCookieName="design-preview-collapsed"
+    />
   );
 }

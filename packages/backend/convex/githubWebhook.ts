@@ -3,6 +3,7 @@ import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { createNotification } from "./notifications";
 import type { Id } from "./_generated/dataModel";
+import { buildProjectBranchName } from "./_projects/helpers";
 
 export const handlePrClosed = internalMutation({
   args: {
@@ -39,67 +40,86 @@ export const handlePrClosed = internalMutation({
     const newStatus = args.merged ? "done" : "cancelled";
     const now = Date.now();
 
-    await ctx.db.patch(task._id, {
-      status: newStatus,
-      updatedAt: now,
-    });
-
-    if (task.scheduledFunctionId) {
-      try {
-        await ctx.scheduler.cancel(task.scheduledFunctionId);
-      } catch {
-        // may have already fired
-      }
-      await ctx.db.patch(task._id, {
-        scheduledAt: undefined,
-        scheduledFunctionId: undefined,
-      });
-    }
-
-    const notifyUsers = new Set(
-      [task.createdBy, task.assignedTo].filter(
-        (id): id is Id<"users"> => id !== undefined,
-      ),
-    );
-    const notificationTitle = args.merged
-      ? `PR merged for "${task.title}"`
-      : `PR closed for "${task.title}"`;
-    const notificationMessage = args.merged
-      ? `GitHub merged ${args.prUrl}. Task moved to done.`
-      : `GitHub closed ${args.prUrl} without merge. Task moved to cancelled.`;
-    for (const userId of notifyUsers) {
-      await createNotification(ctx, {
-        userId,
-        type: args.merged ? "task_complete" : "system",
-        title: notificationTitle,
-        message: notificationMessage,
-        repoId: task.repoId,
-        projectId: task.projectId,
-        taskId: task._id,
-      });
-    }
-
-    const commentText = args.merged
-      ? "PR was merged on GitHub. Task moved to done."
-      : "PR was closed without merging on GitHub. Task moved to cancelled.";
-    await ctx.runMutation(internal.taskComments.createSystemComment, {
-      taskId: task._id,
-      content: commentText,
-    });
-
-    if (task.projectId && newStatus === "done") {
-      const project = await ctx.db.get(task.projectId);
-      if (project && project.phase !== "completed") {
-        const projectTasks = await ctx.db
+    const tasksToUpdate = task.projectId
+      ? await ctx.db
           .query("agentTasks")
           .withIndex("by_project", (q) => q.eq("projectId", task.projectId))
-          .collect();
-        const allDone = projectTasks.every((t) =>
-          t._id === task._id ? true : t.status === "done",
-        );
-        if (allDone) {
-          await ctx.db.patch(task.projectId, { phase: "completed" });
+          .collect()
+      : [task];
+
+    for (const t of tasksToUpdate) {
+      if (t.status === "done" || t.status === "cancelled") continue;
+
+      await ctx.db.patch(t._id, {
+        status: newStatus,
+        updatedAt: now,
+      });
+
+      if (t.scheduledFunctionId) {
+        try {
+          await ctx.scheduler.cancel(t.scheduledFunctionId);
+        } catch {
+          // may have already fired
         }
+        await ctx.db.patch(t._id, {
+          scheduledAt: undefined,
+          scheduledFunctionId: undefined,
+        });
+      }
+
+      const notifyUsers = new Set(
+        [t.createdBy, t.assignedTo].filter(
+          (id): id is Id<"users"> => id !== undefined,
+        ),
+      );
+      const notificationTitle = args.merged
+        ? `PR merged — "${t.title}" moved to done`
+        : `PR closed — "${t.title}" moved to cancelled`;
+      const notificationMessage = args.merged
+        ? `GitHub merged ${args.prUrl}. Task moved to done.`
+        : `GitHub closed ${args.prUrl} without merge. Task moved to cancelled.`;
+      for (const userId of notifyUsers) {
+        await createNotification(ctx, {
+          userId,
+          type: args.merged ? "task_complete" : "system",
+          title: notificationTitle,
+          message: notificationMessage,
+          repoId: t.repoId,
+          projectId: t.projectId,
+          taskId: t._id,
+        });
+      }
+
+      const commentText = args.merged
+        ? "PR was merged on GitHub. Task moved to done."
+        : "PR was closed without merging on GitHub. Task moved to cancelled.";
+      await ctx.runMutation(internal.taskComments.createSystemComment, {
+        taskId: t._id,
+        content: commentText,
+      });
+    }
+
+    if (task.projectId) {
+      const project = await ctx.db.get(task.projectId);
+      const newPhase = args.merged ? "completed" : "cancelled";
+      if (args.merged && project) {
+        const nextVersion = (project.branchVersion ?? 1) + 1;
+        if (project.sandboxId) {
+          await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+            sandboxId: project.sandboxId,
+            repoId: project.repoId,
+          });
+        }
+        await ctx.db.patch(task.projectId, {
+          phase: newPhase,
+          sandboxId: undefined,
+          lastSandboxActivity: undefined,
+          branchVersion: nextVersion,
+          branchName: buildProjectBranchName(task.projectId, nextVersion),
+          prUrl: undefined,
+        });
+      } else {
+        await ctx.db.patch(task.projectId, { phase: newPhase });
       }
     }
 

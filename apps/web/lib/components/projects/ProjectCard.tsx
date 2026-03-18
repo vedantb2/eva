@@ -21,7 +21,6 @@ import {
   Textarea,
 } from "@conductor/ui";
 import { ProjectProgressBar } from "./ProjectProgressBar";
-import { ProjectCardModal } from "./ProjectCardModal";
 
 interface ProjectCardProps {
   projectId: Id<"projects">;
@@ -32,10 +31,11 @@ interface ProjectCardProps {
   branchName?: string;
   repoFullName: string;
   createdAt: number;
-  projectUrl: string;
   accentColor: string;
   members?: Array<Id<"users">>;
   projectLead?: Id<"users">;
+  isActive?: boolean;
+  onClick?: () => void;
   onDelete: () => void;
 }
 
@@ -47,14 +47,13 @@ export function ProjectCard({
   rawInput,
   branchName,
   repoFullName,
-  createdAt,
-  projectUrl,
   accentColor,
   members,
   projectLead,
+  isActive,
+  onClick,
   onDelete,
 }: ProjectCardProps) {
-  const [modalOpen, setModalOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
   const [editDescription, setEditDescription] = useState(description ?? "");
@@ -79,7 +78,13 @@ export function ProjectCard({
   const hiddenCount = allAvatarIds.length - MAX_AVATARS;
 
   const cardContent = (
-    <div className="group relative shrink-0 overflow-hidden rounded-lg bg-card/88 transition-[transform,background-color] duration-200 hover:-translate-y-[1px] hover:bg-card hover:z-10">
+    <div
+      className={`group relative shrink-0 overflow-hidden rounded-lg transition-[transform,background-color] duration-200 ${
+        isActive
+          ? "bg-primary/5 ring-1 ring-primary/30"
+          : "bg-card/88 hover:-translate-y-[1px] hover:bg-card hover:z-10"
+      }`}
+    >
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div
         className={`absolute inset-y-2 left-0 w-1 rounded-r-full ${accentColor}`}
@@ -88,12 +93,11 @@ export function ProjectCard({
         role="button"
         tabIndex={0}
         className="relative z-[1] block w-full cursor-pointer p-2 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-        onClick={() => setModalOpen(true)}
+        onClick={onClick}
         onKeyDown={(event) => {
-          if (event.key === "Enter") setModalOpen(true);
-          if (event.key === " ") {
+          if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            setModalOpen(true);
+            onClick?.();
           }
         }}
       >
@@ -172,13 +176,6 @@ export function ProjectCard({
           </form>
         </DialogContent>
       </Dialog>
-      <ProjectCardModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        projectId={projectId}
-        createdAt={createdAt}
-        projectUrl={projectUrl}
-      />
     </div>
   );
 

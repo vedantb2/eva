@@ -1,4 +1,10 @@
-export { list, get, getTaskCount, getTaskProgress } from "./_projects/queries";
+export {
+  list,
+  get,
+  getTaskCount,
+  getTaskProgress,
+  countBuilding,
+} from "./_projects/queries";
 
 export {
   create,

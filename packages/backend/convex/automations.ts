@@ -80,6 +80,7 @@ export const update = authMutation({
     cronSchedule: v.optional(v.string()),
     model: v.optional(claudeModelValidator),
     enabled: v.optional(v.boolean()),
+    readOnly: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -95,6 +96,7 @@ export const update = authMutation({
     if (args.cronSchedule !== undefined) patch.cronSchedule = args.cronSchedule;
     if (args.model !== undefined) patch.model = args.model;
     if (args.enabled !== undefined) patch.enabled = args.enabled;
+    if (args.readOnly !== undefined) patch.readOnly = args.readOnly;
 
     const newSchedule = args.cronSchedule ?? automation.cronSchedule;
     const newEnabled =
@@ -244,6 +246,75 @@ export const triggerAutomation = internalMutation({
         model: automation.model ?? repo.defaultModel ?? "sonnet",
         rootDirectory: repo.rootDirectory ?? "",
         userId: automation.createdBy,
+        readOnly: automation.readOnly === true,
+      },
+    );
+
+    await ctx.db.patch(runId, {
+      activeWorkflowId: String(workflowId),
+    });
+
+    return null;
+  },
+});
+
+export const runNow = authMutation({
+  args: { automationId: v.id("automations") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const automation = await ctx.db.get(args.automationId);
+    if (!automation) throw new Error("Automation not found");
+    if (!(await hasRepoAccess(ctx.db, automation.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    if (!automation.description) {
+      throw new Error("Automation has no description/prompt configured");
+    }
+
+    const repo = await ctx.db.get(automation.repoId);
+    if (!repo) throw new Error("Repo not found");
+
+    const lastRun = await ctx.db
+      .query("automationRuns")
+      .withIndex("by_automation", (q) =>
+        q.eq("automationId", args.automationId),
+      )
+      .order("desc")
+      .first();
+
+    if (
+      lastRun &&
+      (lastRun.status === "queued" || lastRun.status === "running")
+    ) {
+      throw new Error("A run is already in progress");
+    }
+
+    const now = Date.now();
+    const runId = await ctx.db.insert("automationRuns", {
+      automationId: args.automationId,
+      repoId: automation.repoId,
+      status: "queued",
+      startedAt: now,
+      acknowledged: false,
+    });
+
+    const branchName = `eva/automation-${String(args.automationId)}`;
+
+    const workflowId = await workflow.start(
+      ctx,
+      internal.automationWorkflow.automationExecutionWorkflow,
+      {
+        runId,
+        automationId: args.automationId,
+        repoId: automation.repoId,
+        installationId: repo.installationId,
+        branchName,
+        description: automation.description,
+        title: automation.title,
+        model: automation.model ?? repo.defaultModel ?? "sonnet",
+        rootDirectory: repo.rootDirectory ?? "",
+        userId: automation.createdBy,
+        readOnly: automation.readOnly === true,
       },
     );
 
@@ -314,13 +385,51 @@ export const clearRunWorkflow = internalMutation({
   },
 });
 
+export const cancelRun = authMutation({
+  args: { runId: v.id("automationRuns") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) throw new Error("Run not found");
+    const automation = await ctx.db.get(run.automationId);
+    if (!automation) throw new Error("Automation not found");
+    if (!(await hasRepoAccess(ctx.db, automation.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+
+    if (run.activeWorkflowId) {
+      try {
+        await workflow.cancel(ctx, run.activeWorkflowId as WorkflowId);
+      } catch {}
+    }
+
+    await ctx.db.patch(args.runId, {
+      status: "error",
+      error: "Cancelled by user",
+      finishedAt: Date.now(),
+      activeWorkflowId: undefined,
+    });
+
+    const streamingEntityId = `automation-run-${String(args.runId)}`;
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
+      .first();
+    if (streaming) await ctx.db.delete(streaming._id);
+
+    return null;
+  },
+});
+
 export const handleCompletion = authMutation({
   args: {
     automationRunId: v.id("automationRuns"),
+    runId: v.optional(v.string()),
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    rawResultEvent: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -337,6 +446,18 @@ export const handleCompletion = authMutation({
         activityLog: args.activityLog,
       },
     });
+
+    const automation = await ctx.db.get(run.automationId);
+    if (automation) {
+      await ctx.db.insert("logs", {
+        entityType: "automation",
+        entityId: String(args.automationRunId),
+        entityTitle: automation.title,
+        rawResultEvent: args.rawResultEvent,
+        repoId: run.repoId,
+        createdAt: Date.now(),
+      });
+    }
 
     return null;
   },

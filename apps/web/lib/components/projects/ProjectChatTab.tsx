@@ -204,7 +204,7 @@ export function ProjectChatTab({
 
   if (!hasStarted && !isLocked) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+      <div className="flex flex-col items-center justify-center h-full p-4 sm:p-8 text-center">
         <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center mb-4">
           <IconPlayerPlay size={32} className="text-primary" />
         </div>
@@ -318,7 +318,7 @@ export function ProjectChatTab({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="p-4 space-y-3">
+      <div className="p-3 sm:p-4 space-y-3">
         {showQuestion && (
           <MultipleChoiceQuestion
             question={currentQuestion.question}

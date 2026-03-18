@@ -42,7 +42,8 @@ export const summarizeSessionWorkflow = workflow.define({
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,
-      entityId: `summary:${args.sessionId}`,
+      entityId: args.sessionId,
+      streamingEntityId: `summary:${args.sessionId}`,
       prompt: sessionData.prompt,
       userId: args.userId,
       completionMutation: "summarizeWorkflow:handleCompletion",

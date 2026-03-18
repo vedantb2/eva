@@ -10,6 +10,7 @@ import {
   recomputeProjectPhase,
 } from "../functions";
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
+import { buildProjectBranchName } from "../_projects/helpers";
 
 export const update = authMutation({
   args: {
@@ -157,6 +158,7 @@ export const createQuickTask = authMutation({
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     model: v.optional(claudeModelValidator),
+    projectId: v.optional(v.id("projects")),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -165,6 +167,20 @@ export const createQuickTask = authMutation({
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repo not found");
     const now = Date.now();
+    let taskNumber: number | undefined;
+    if (args.projectId) {
+      const existingTasks = await ctx.db
+        .query("agentTasks")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect();
+      let maxTaskNumber = 0;
+      for (const t of existingTasks) {
+        if (t.taskNumber !== undefined && t.taskNumber > maxTaskNumber) {
+          maxTaskNumber = t.taskNumber;
+        }
+      }
+      taskNumber = maxTaskNumber + 1;
+    }
     return await ctx.db.insert("agentTasks", {
       title: args.title,
       description: args.description,
@@ -175,6 +191,8 @@ export const createQuickTask = authMutation({
       createdBy: ctx.userId,
       baseBranch: args.baseBranch ?? repo.defaultBaseBranch ?? "main",
       model: args.model ?? repo.defaultModel,
+      projectId: args.projectId,
+      taskNumber,
     });
   },
 });
@@ -334,7 +352,7 @@ export const createBatchWithDependencies = authMutation({
         projectStartDate: now,
       });
       await ctx.db.patch(projectId, {
-        branchName: `eva/project-${projectId}`,
+        branchName: buildProjectBranchName(projectId),
       });
       for (const taskId of taskIds) {
         await ctx.db.patch(taskId, { projectId });
@@ -342,6 +360,33 @@ export const createBatchWithDependencies = authMutation({
     }
 
     return { taskIds, projectId };
+  },
+});
+
+export const reorderProjectTasks = authMutation({
+  args: {
+    projectId: v.id("projects"),
+    taskIds: v.array(v.id("agentTasks")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      throw new Error("Project not found");
+    const now = Date.now();
+    const existingNumbers: number[] = [];
+    for (const taskId of args.taskIds) {
+      const task = await ctx.db.get(taskId);
+      existingNumbers.push(task?.taskNumber ?? 0);
+    }
+    const sortedNumbers = [...existingNumbers].sort((a, b) => a - b);
+    for (let i = 0; i < args.taskIds.length; i++) {
+      await ctx.db.patch(args.taskIds[i], {
+        taskNumber: sortedNumbers[i],
+        updatedAt: now,
+      });
+    }
+    return null;
   },
 });
 

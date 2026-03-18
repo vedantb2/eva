@@ -1,4 +1,4 @@
-export { list, listArchived, get } from "./_sessions/queries";
+export { list, listArchived, get, countActive } from "./_sessions/queries";
 
 export {
   create,

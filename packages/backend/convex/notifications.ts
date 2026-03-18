@@ -97,7 +97,7 @@ export const list = authQuery({
       .query("notifications")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .order("desc")
-      .collect();
+      .take(100);
   },
 });
 
@@ -120,7 +120,7 @@ export const countUnread = authQuery({
       .withIndex("by_user_and_read", (q) =>
         q.eq("userId", ctx.userId).eq("read", false),
       )
-      .collect();
+      .take(100);
     return unread.length;
   },
 });
@@ -132,7 +132,9 @@ export const markAsRead = authMutation({
     const notification = await ctx.db.get(args.id);
     if (!notification || notification.userId !== ctx.userId)
       throw new Error("Not found");
-    await ctx.db.patch(args.id, { read: true });
+    if (!notification.read) {
+      await ctx.db.patch(args.id, { read: true });
+    }
     return null;
   },
 });

@@ -1,5 +1,84 @@
 # Changelog
 
+## Restore remote session branch on sandbox recreate - 2026-03-18
+
+- **Why**: Session startup must restore prior work when a sandbox is recreated. Fetching only the base branch made fresh sandboxes recreate the session branch from base, which could make an existing remote session branch appear blank.
+- **Restore branch-first sync**: `_daytona/sessions.ts` now syncs the session branch and base branch again so checkout can recover `origin/<session-branch>` when it exists and still fall back to base when it does not.
+- **Revert global shallow branch fetch**: `_daytona/git.ts` no longer forces `--depth=1` for all branch-targeted fetches. That keeps merge-based paths like design/task branch setup on the safer full-history behavior.
+
+## Optimize sandbox git operations for faster startup - 2026-03-18
+
+- **Why**: Session sandbox startup was slow and timing out. Each `exec()` is a Daytona API round trip, and git commands were split across too many sequential calls.
+- **Eliminate redundant `configureGitHubOrigin` exec from fetches**: `fetchOrigin` and `fetchBranchRefs` were doing a separate exec call to set the remote URL before every fetch, but the fetch already passes auth via `-c http.extraheader`. Removed the extra round trip.
+- **Batch refspecs into single fetch**: Multiple branches fetched in one `git fetch` call instead of sequential per-branch fetches.
+- **Combine `checkoutSessionBranch`**: Stash + checkout collapsed from 2 exec calls → 1.
+- **Combine `setupBranch`**: Stash+checkout combined, both merges combined. 6 exec calls → 4.
+- **Combine `installDependencies` for pnpm**: `npm install -g pnpm` + `pnpm install` combined into 1 exec call.
+- **Shallow clone for fresh repos**: `git clone --depth 1` for non-snapshot sandboxes. Full history isn't needed for coding sessions.
+
+## Reduce false watchdog kills - 2026-03-18
+
+- **Why**: Watchdog was killing healthy runs that hit transient network blips. The 180s threshold combined with only 1 heartbeat retry meant brief connectivity issues could cascade into a kill.
+- **Threshold 180s → 300s**: Gives more room for transient issues without meaningfully delaying detection of truly dead runs.
+- **Heartbeat retry 1 → 3 with backoff**: `heartbeatPing` now retries 3 times with exponential backoff (1s, 2s + jitter) before giving up, matching the resilience of other callback functions.
+
+## Persist activity log on watchdog kill - 2026-03-18
+
+- **Why**: When the watchdog killed a run (no heartbeat for 180s), the streaming activity was deleted without saving it to `agentRunActivityLogs`. This meant there was no way to trace what steps the agent completed before it died.
+- **Snapshot before clear**: `cleanUpStaleRun` and `handleStaleRun` now call `snapshotStreamingActivityToLog` to persist the current streaming activity into `agentRunActivityLogs` before deleting it. The UI already renders `RunActivityLog` for errored runs — it just had no data until now.
+
+## Harden branch sync to avoid startup timeouts - 2026-03-18
+
+- **Why**: Runs were still freezing on `Syncing repository...` because branch-scoped sync could block on expensive prune behavior and failed hard when a task branch did not yet exist remotely.
+- **Missing-branch tolerance**: Branch ref sync now fetches refs one-by-one and ignores missing remote refs, so first-run branches can still proceed to branch creation instead of failing setup.
+- **Lower-latency sync**: Branch sync no longer prunes and now uses a shorter timeout window, reducing long fetch calls that were exceeding the sandbox action budget.
+- **Better branch targeting**: Sandbox prep now syncs base branch (or `main` fallback) before task branch to prioritize refs that are guaranteed to exist.
+- **Retry hardening**: Sandbox setup now treats timed-out sandbox exec calls as retryable setup failures, so transient sync stalls can self-recover instead of immediately failing the run.
+- **Branch setup resilience**: `setupBranch` no longer hard-fails sandbox startup when the initial upstream `git push -u` call times out; upstream push is now best-effort during setup so the run can proceed.
+
+## Scope sandbox git sync to required refs - 2026-03-18
+
+- **Why**: Task runs were timing out in the `Syncing repository...` phase because snapshot sandboxes still did a full `git fetch --prune origin` before branch prep. On larger repos that meant paying for every remote ref even when the workflow only needed one feature branch or was going to fetch the base branch in a later step anyway.
+- **Ref-scoped sync**: `_daytona/git.ts` now supports explicit sync strategies (`none`, `branches`, `all`). Branch-targeted sync fetches only the required remote refs into `origin/*` instead of every branch and tag.
+- **Workflow prep**: `_daytona/execution.ts` now skips the initial sync entirely when sandbox prep does not need remote refs yet, and only prefetches the feature branch when later setup may need `origin/<branch>`.
+- **Session/design sandboxes**: `_daytona/sessions.ts` now requests only the active feature branch + base branch refs, and no longer does an extra full fetch on fresh session sandbox creation.
+
+## Make MCP token minting non-fatal for task launches - 2026-03-18
+
+- **Why**: Runs could fail before Claude even started when the MCP service returned transient errors like HTTP 502 during sandbox token minting. That turned an optional integration dependency into a hard blocker for quick tasks and project builds.
+- **Retry + degrade gracefully**: `mcpTokenMinter.ts` now retries transient mint failures a few times, and `_daytona/helpers.ts` now continues launching the sandbox without MCP config if minting still fails. This keeps task execution alive while preserving MCP when the service is healthy.
+
+## Convex performance audit — quick wins - 2026-03-18
+
+- **streaming.set/internalSet**: Skip patch when `currentActivity` unchanged. During AI streaming this fires constantly — every no-op write invalidated all `streaming.get` subscribers for no reason.
+- **Analytics → one-shot reads**: All analytics queries (`getImpactStats`, `getActivityTimeline`, `getActivityHeatmap`, `getLeaderboard`, `getActiveUsers`) switched from reactive `useQuery` to one-shot `ConvexHttpClient` via new `useOneShotQuery` hook. These queries do full table scans across sessions/tasks/runs — maintaining persistent subscriptions meant every write to any of those tables re-ran the entire scan. Stats pages don't need live-second freshness.
+- **notifications.list**: Capped at 100 results (was unbounded `.collect()`).
+- **notifications.countUnread**: Capped at 100 (was `.collect()` just to return `.length`).
+- **notifications.markAsRead**: Skip patch when already `read: true`.
+- **logs.listByRepo**: Push `startTime` filter into `by_repo_and_created` index range (`.gte("createdAt", startTime)`) instead of scanning all logs then JS-filtering.
+
+## Harden sandbox startup, heartbeats, and base-branch sync - 2026-03-18
+
+- **Why**: Scheduled project builds and task runs were failing from multiple adjacent weaknesses instead of one bug: long base-branch prep could outlive the normal watchdog window, checkout was redundantly hitting GitHub a second time after fetch, unchanged activity did not actually refresh heartbeats, and Claude startup could sit on `Starting Claude...` if stdout never became parseable stream-json.
+- **Startup/watchdog hardening**: `checkStaleRuns` now treats the full sandbox-prep label set as startup work, not just the literal `Starting sandbox...` marker. This keeps long repo prep on the intended startup threshold across the workflow-step path instead of killing runs mid-fetch or mid-checkout.
+- **Base branch sync fix**: Replaced `git pull --ff-only origin <branch>` with a local fast-forward merge against the already-fetched `origin/<branch>` in both sandbox prep codepaths. This removes duplicate network work and turns checkout into a short local operation after fetch succeeds.
+- **Heartbeat fix**: Callback heartbeats now refresh `streamingActivity.lastUpdatedAt` even when the visible activity payload has not changed, so long-running tool calls no longer look stale to the watchdog.
+- **Claude startup robustness**: Removed `--verbose` from the background Claude CLI stream-json path, added an explicit first-parseable-event timeout, and now include stdout/stderr tails in callback failures so stuck starts fail fast with actionable diagnostics instead of hanging on `Starting Claude...`.
+
+## Fix automations stuck on running + add manual run, stop, read-only mode - 2026-03-17
+
+- **Root cause fix:** `handleCompletion` was missing `runId` in its args validator. The sandbox callback sends `runId` as an extra field, which Convex rejects — causing the completion event to never fire and the workflow to hang at `awaitEvent` forever.
+- **Run Now button:** Users can manually trigger automation runs without waiting for the cron schedule.
+- **Stop button:** Users can cancel running automations (cancels workflow, cleans up streaming activity).
+- **Live streaming activity:** Run history now shows real-time steps during execution via `streaming.get`, and completed activity logs after runs finish.
+- **Read-only / Report Only mode:** New toggle in automation settings. When enabled, Claude analyzes the codebase and returns a report without making code changes, creating branches, or PRs. Uses restricted tool set (no Write/Edit) and a dedicated read-only prompt.
+
+## Granular Sandbox Preparation Steps - 2026-03-17
+
+Split the monolithic `prepareSandbox` action into 4 granular actions (`createOrResumeSandbox`, `fetchBaseBranch`, `checkoutBaseBranch`, `setupSandboxBranch`) for workflow callers that use `baseBranch`. Each operation now runs as its own workflow step with an independent 10-minute action budget. Also bumped all git fetch timeouts to 240s.
+
+**Why:** `git fetch` on repos like vmem was exceeding the 120s exec timeout within the monolithic action, causing the entire sandbox preparation to fail. Breaking into separate steps gives each operation its own timeout budget and enables per-step retries via the workflow component.
+
 ## Fix quick tasks → project → build workflow - 2026-03-14
 
 - `createFromTasks` now sets `baseBranch` from repo defaults — previously omitted, causing builds to silently target wrong base branch

@@ -67,12 +67,28 @@ export async function upsertActivityLog(
   }
 }
 
+export async function snapshotStreamingActivityToLog(
+  ctx: MutationCtx,
+  entityId: string,
+  runId: Id<"agentRuns">,
+): Promise<void> {
+  const streaming = await ctx.db
+    .query("streamingActivity")
+    .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+    .first();
+  if (streaming?.currentActivity) {
+    await upsertActivityLog(ctx, runId, streaming.currentActivity);
+  }
+}
+
 export function buildRunResultSummary(
   success: boolean,
   prUrl: string | null,
   projectId: Id<"projects"> | undefined,
+  claudeResult?: string,
 ): string | undefined {
   if (!success) return undefined;
+  if (claudeResult) return claudeResult;
   if (prUrl) return projectId ? "Created project PR" : "Created task PR";
   return projectId
     ? "Pushed commit to project branch"
@@ -88,6 +104,7 @@ export async function finalizeRunStatus(
     error: string | null;
     prUrl: string | null;
     exitReason?: string;
+    claudeResult?: string;
   },
 ): Promise<void> {
   const run = await ctx.db.get(params.runId);
@@ -100,6 +117,7 @@ export async function finalizeRunStatus(
       params.success,
       params.prUrl,
       params.projectId,
+      params.claudeResult,
     ),
     prUrl: params.prUrl ?? undefined,
     error: params.success ? undefined : (params.error ?? "Unknown error"),

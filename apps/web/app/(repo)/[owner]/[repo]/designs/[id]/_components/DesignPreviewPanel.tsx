@@ -70,7 +70,7 @@ export function DesignPreviewPanel({
 
   if (latestVariations.length === 0) {
     return (
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex flex-col min-w-0 h-full">
         <div className="flex items-center justify-center h-full text-muted-foreground">
           <p className="text-sm">
             {isExecuting
@@ -83,7 +83,7 @@ export function DesignPreviewPanel({
   }
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col min-w-0">
+    <div ref={containerRef} className="flex flex-col min-w-0 h-full">
       <Tabs
         value={tab}
         onValueChange={(v) => {
@@ -93,7 +93,21 @@ export function DesignPreviewPanel({
         }}
         className="flex flex-col h-full"
       >
-        <div className="flex items-center gap-1 px-2 py-1.5 pb-2 mb-2 sm:gap-2 sm:px-4 sm:py-2 flex-wrap">
+        <div className="relative flex items-end px-2 pt-1.5 bg-secondary/50">
+          <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none">
+            {latestVariations.map((_, i) => (
+              <TabsTrigger
+                key={i}
+                value={String(i)}
+                className="relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary"
+              >
+                Design {String.fromCharCode(65 + i)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
+        </div>
+        <div className="flex items-center gap-1 px-2 py-1.5 shrink-0">
           <Tabs
             value={view}
             onValueChange={(v) => {
@@ -111,13 +125,6 @@ export function DesignPreviewPanel({
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <TabsList className="h-8">
-            {latestVariations.map((_, i) => (
-              <TabsTrigger key={i} value={String(i)} className="text-xs px-3">
-                Design {String.fromCharCode(65 + i)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
           <PreviewNavBar
             previewUrl={previewUrl}
             iframeRef={activeIframeRef}
@@ -181,7 +188,7 @@ export function DesignPreviewPanel({
             </div>
           </TabsContent>
         ))}
-        <div className="flex items-center justify-between gap-2 px-2 py-2 pt-2 mt-2 sm:gap-3 sm:px-4">
+        <div className="flex items-center justify-between gap-2 px-3 py-2 shrink-0">
           {!isArchived && (
             <Button
               size="sm"

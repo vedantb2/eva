@@ -25,10 +25,12 @@ export const set = authMutation({
       .first();
     const now = Date.now();
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        currentActivity: args.currentActivity,
-        lastUpdatedAt: now,
-      });
+      if (existing.currentActivity !== args.currentActivity) {
+        await ctx.db.patch(existing._id, {
+          currentActivity: args.currentActivity,
+          lastUpdatedAt: now,
+        });
+      }
     } else {
       await ctx.db.insert("streamingActivity", {
         entityId: args.entityId,
@@ -63,10 +65,12 @@ export const internalSet = internalMutation({
       .first();
     const now = Date.now();
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        currentActivity: args.currentActivity,
-        lastUpdatedAt: now,
-      });
+      if (existing.currentActivity !== args.currentActivity) {
+        await ctx.db.patch(existing._id, {
+          currentActivity: args.currentActivity,
+          lastUpdatedAt: now,
+        });
+      }
     } else {
       await ctx.db.insert("streamingActivity", {
         entityId: args.entityId,

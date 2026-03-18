@@ -269,9 +269,12 @@ export const updateMcpRootPrompt = authMutation({
       }
     }
 
-    await ctx.db.patch(args.repoId, {
-      mcpRootPrompt: args.mcpRootPrompt,
-    });
+    const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
+    for (const siblingId of siblingIds) {
+      await ctx.db.patch(siblingId, {
+        mcpRootPrompt: args.mcpRootPrompt,
+      });
+    }
     return null;
   },
 });

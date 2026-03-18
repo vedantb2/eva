@@ -24,6 +24,7 @@ interface ProjectsListViewProps {
   projectsByPhase: Record<ProjectPhase, Project[]>;
   visiblePhases: Set<ProjectPhase>;
   basePath: string;
+  onOpenProject: (id: string) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
 
@@ -31,11 +32,11 @@ export function ProjectsListView({
   projectsByPhase,
   visiblePhases,
   basePath,
+  onOpenProject,
   onDelete,
 }: ProjectsListViewProps) {
   const { owner, name } = useRepo();
   const [openSections, setOpenSections] = useState<Set<ProjectPhase>>(() => {
-    // Default to only non-empty sections open; fall back to all if everything is empty.
     const nonEmpty = new Set(
       PROJECT_PHASES.filter((p) => (projectsByPhase[p] ?? []).length > 0),
     );
@@ -103,10 +104,10 @@ export function ProjectsListView({
                         branchName={project.branchName}
                         repoFullName={`${owner}/${name}`}
                         createdAt={project._creationTime}
-                        projectUrl={`${basePath}/projects/${project._id}`}
                         accentColor={phaseConfig[phase].bar}
                         members={project.members}
                         projectLead={project.projectLead}
+                        onClick={() => onOpenProject(project._id)}
                         onDelete={() => onDelete(project._id, project.title)}
                       />
                     ))}

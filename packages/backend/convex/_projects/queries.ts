@@ -54,6 +54,19 @@ export const getTaskCount = authQuery({
   },
 });
 
+export const countBuilding = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return 0;
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    return projects.filter((p) => p.activeBuildWorkflowId !== undefined).length;
+  },
+});
+
 export const getTaskProgress = authQuery({
   args: { projectId: v.id("projects") },
   returns: v.object({

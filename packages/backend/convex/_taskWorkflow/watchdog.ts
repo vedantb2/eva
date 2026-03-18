@@ -15,12 +15,67 @@ import {
   clearStreamingActivity,
   getTaskAuditStreamingEntityId,
   getTaskRunStreamingEntityId,
+  snapshotStreamingActivityToLog,
 } from "./helpers";
+
+const SANDBOX_STARTUP_LABELS = new Set([
+  "Starting sandbox...",
+  "Creating sandbox...",
+  "Resuming sandbox...",
+  "Syncing repository...",
+  "Cloning repository...",
+  "Installing dependencies...",
+  "Fetching base branch...",
+  "Checking out base branch...",
+  "Setting up branch...",
+  "Starting desktop...",
+  "Retrying sandbox setup...",
+]);
+
+type StreamingStep = {
+  label?: string;
+  status?: string;
+};
+
+function getActiveStreamingLabels(
+  currentActivity: string | undefined,
+): string[] {
+  if (!currentActivity) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(currentActivity);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.flatMap((item) => {
+      if (
+        item &&
+        typeof item === "object" &&
+        "label" in item &&
+        "status" in item &&
+        typeof item.label === "string" &&
+        typeof item.status === "string" &&
+        item.status === "active"
+      ) {
+        const step: StreamingStep = item;
+        return step.label ? [step.label] : [];
+      }
+      return [];
+    });
+  } catch {
+    return [];
+  }
+}
 
 function isSandboxStartupActivity(
   currentActivity: string | undefined,
 ): boolean {
   if (!currentActivity) {
+    return true;
+  }
+  const activeLabels = getActiveStreamingLabels(currentActivity);
+  if (activeLabels.some((label) => SANDBOX_STARTUP_LABELS.has(label))) {
     return true;
   }
   return currentActivity.includes('"Starting sandbox..."');
@@ -196,6 +251,11 @@ export const handleStaleRun = internalMutation({
       }
     }
 
+    await snapshotStreamingActivityToLog(
+      ctx,
+      getTaskRunStreamingEntityId(args.runId),
+      args.runId,
+    );
     await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(args.runId));
     await clearStreamingActivity(ctx, String(args.taskId));
     await clearStreamingActivity(

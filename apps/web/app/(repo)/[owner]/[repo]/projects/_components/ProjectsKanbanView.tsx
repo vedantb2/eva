@@ -16,7 +16,7 @@ interface ProjectsKanbanViewProps {
   visiblePhases: Set<ProjectPhase>;
   owner: string;
   name: string;
-  basePath: string;
+  onOpenProject: (id: string) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
 
@@ -25,7 +25,7 @@ export function ProjectsKanbanView({
   visiblePhases,
   owner,
   name,
-  basePath,
+  onOpenProject,
   onDelete,
 }: ProjectsKanbanViewProps) {
   return (
@@ -51,10 +51,10 @@ export function ProjectsKanbanView({
                 branchName={project.branchName}
                 repoFullName={`${owner}/${name}`}
                 createdAt={project._creationTime}
-                projectUrl={`${basePath}/projects/${project._id}`}
                 accentColor={phaseConfig[phase].bar}
                 members={project.members}
                 projectLead={project.projectLead}
+                onClick={() => onOpenProject(project._id)}
                 onDelete={() => onDelete(project._id, project.title)}
               />
             ))}

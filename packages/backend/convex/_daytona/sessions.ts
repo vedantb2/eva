@@ -12,16 +12,20 @@ import {
   errorMessage,
 } from "./helpers";
 import {
-  fetchOrigin,
   syncRepo,
   setupBranch,
   checkoutSessionBranch,
   createSandboxAndPrepareRepo,
+  createBranchSyncStrategy,
   SESSION_LIFECYCLE,
 } from "./git";
 import { ensureSessionClaudeVolume } from "./volumes";
 import { startSessionServices } from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
+
+function getSessionSyncStrategy(branchName: string, baseBranch: string) {
+  return createBranchSyncStrategy([branchName, baseBranch]);
+}
 
 async function tryReuseSandbox(
   daytona: Daytona,
@@ -60,6 +64,10 @@ export const startSessionSandbox = internalAction({
         id: args.repoId,
       });
       const rootDir = repo?.rootDirectory ?? "";
+      const syncStrategy = getSessionSyncStrategy(
+        args.branchName,
+        args.baseBranch,
+      );
 
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
@@ -74,6 +82,7 @@ export const startSessionSandbox = internalAction({
             args.installationId,
             args.repoOwner,
             args.repoName,
+            syncStrategy,
           );
           await checkoutSessionBranch(
             sandbox,
@@ -105,16 +114,11 @@ export const startSessionSandbox = internalAction({
         SESSION_LIFECYCLE,
         snapshotName,
         await ensureSessionClaudeVolume(daytona, args.sessionId),
+        undefined,
+        undefined,
+        syncStrategy,
       );
       const sandbox = prepared.sandbox;
-      await fetchOrigin(
-        sandbox,
-        args.installationId,
-        args.repoOwner,
-        args.repoName,
-        undefined,
-        { prune: false, timeoutSeconds: 60 },
-      );
       await checkoutSessionBranch(sandbox, args.branchName, args.baseBranch);
       const { port: devPort, devCommand } = await startSessionServices(
         sandbox,
@@ -162,6 +166,10 @@ export const startDesignSandbox = internalAction({
         id: args.repoId,
       });
       const rootDir = repo?.rootDirectory ?? "";
+      const syncStrategy = getSessionSyncStrategy(
+        args.branchName,
+        args.baseBranch,
+      );
 
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
@@ -181,6 +189,7 @@ export const startDesignSandbox = internalAction({
             args.installationId,
             args.repoOwner,
             args.repoName,
+            syncStrategy,
           );
           await setupBranch(sandbox, args.branchName, args.baseBranch);
           const { port: devPort, devCommand } = await startSessionServices(
@@ -208,6 +217,9 @@ export const startDesignSandbox = internalAction({
         SESSION_LIFECYCLE,
         snapshotName,
         designVolumeMounts,
+        undefined,
+        undefined,
+        syncStrategy,
       );
       const sandbox = prepared.sandbox;
       await setupBranch(sandbox, args.branchName, args.baseBranch);

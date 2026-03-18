@@ -6,29 +6,25 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
-import { ProjectChatArea } from "./ProjectChatArea";
-import { ProjectTaskDetailPanel } from "./ProjectTaskDetailPanel";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 import { PlanContextPanel } from "./PlanContextPanel";
+import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import {
   IconChecklist,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
-  IconMessageCircle,
-  IconX,
-  IconGitPullRequest,
+  IconPlus,
 } from "@tabler/icons-react";
 import { Button } from "@conductor/ui";
-import Link from "next/link";
+import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 
 interface Project {
   _id: Id<"projects">;
   title: string;
   description?: string;
   branchName?: string;
-  prUrl?: string;
   sandboxId?: string;
-  phase: "draft" | "finalized" | "active" | "completed";
+  phase: "draft" | "finalized" | "active" | "completed" | "cancelled";
   rawInput: string;
   generatedSpec?: string;
   conversationHistory: Array<{
@@ -46,7 +42,6 @@ interface ProjectActiveLayoutProps {
     role: "user" | "assistant";
     content: string;
   }>;
-  prUrl?: string;
 }
 
 export function ProjectActiveLayout({
@@ -55,11 +50,10 @@ export function ProjectActiveLayout({
   basePath,
   generatedSpec,
   conversationHistory,
-  prUrl,
 }: ProjectActiveLayoutProps) {
   const cleanupTriggeredRef = useRef(false);
   const [tasksCollapsed, setTasksCollapsed] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
     null,
   );
@@ -69,7 +63,7 @@ export function ProjectActiveLayout({
 
   useEffect(() => {
     if (
-      project.phase === "completed" &&
+      (project.phase === "completed" || project.phase === "cancelled") &&
       project.sandboxId &&
       !cleanupTriggeredRef.current
     ) {
@@ -78,21 +72,24 @@ export function ProjectActiveLayout({
     }
   }, [project.phase, project.sandboxId, project._id, clearProjectSandbox]);
 
-  const selectedTask = tasks?.find((t) => t._id === selectedTaskId) ?? null;
-
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden bg-background">
+    <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden bg-background">
       <div
-        className={`${tasksCollapsed ? "w-8" : "w-1/4"} h-full flex flex-col overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+        className={`${tasksCollapsed ? "w-full md:w-8 h-8 md:h-full" : "w-full md:w-1/3 lg:w-1/4 h-1/3 md:h-full"} flex flex-col overflow-hidden transition-[width,height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] shrink-0`}
       >
         <div
           className={`flex items-center ${tasksCollapsed ? "justify-center" : "justify-between"}`}
         >
           {!tasksCollapsed && (
-            <div className="flex flex-row items-center gap-1 mx-auto text-primary">
-              <IconChecklist size={14} />
-              <p className="text-sm font-semibold">Tasks</p>
-            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mx-auto text-primary"
+              onClick={() => setCreateTaskOpen(true)}
+            >
+              <IconPlus size={14} />
+              Create Task
+            </Button>
           )}
           <Button
             size="icon"
@@ -125,31 +122,12 @@ export function ProjectActiveLayout({
                   onSelectTask={setSelectedTaskId}
                 />
               </div>
-              {(generatedSpec || prUrl) && (
+              {generatedSpec && (
                 <div className="pt-6 p-2 flex justify-center gap-2">
-                  {prUrl && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="rounded-full"
-                      asChild
-                    >
-                      <Link
-                        href={prUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <IconGitPullRequest size={14} />
-                        <span className="text-xs">PR</span>
-                      </Link>
-                    </Button>
-                  )}
-                  {generatedSpec && (
-                    <PlanContextPanel
-                      generatedSpec={generatedSpec}
-                      conversationHistory={conversationHistory}
-                    />
-                  )}
+                  <PlanContextPanel
+                    generatedSpec={generatedSpec}
+                    conversationHistory={conversationHistory}
+                  />
                 </div>
               )}
             </motion.div>
@@ -157,13 +135,13 @@ export function ProjectActiveLayout({
         </AnimatePresence>
       </div>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {selectedTask ? (
-          <ProjectTaskDetailPanel
-            taskId={selectedTask._id}
-            onOpenChat={() => setChatOpen(true)}
+        {selectedTaskId ? (
+          <TaskDetailInline
+            taskId={selectedTaskId}
+            onClose={() => setSelectedTaskId(null)}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+          <div className="flex flex-col items-center justify-center h-full text-center gap-2 p-4">
             <IconChecklist size={32} className="text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
               Select a task to view details
@@ -171,46 +149,11 @@ export function ProjectActiveLayout({
           </div>
         )}
       </div>
-      <AnimatePresence initial={false}>
-        {chatOpen && (
-          <motion.div
-            key="project-chat-side-panel"
-            className="w-1/4 h-full flex flex-col overflow-hidden pl-6"
-            initial={{ opacity: 0, x: 16 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 16 }}
-            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="flex items-center justify-between px-2 py-1">
-              <div className="flex flex-row gap-1 items-center text-primary">
-                <IconMessageCircle size={14} />
-                <p className="text-sm font-semibold">Chat</p>
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="motion-press h-7 w-7 text-muted-foreground hover:scale-[1.03] active:scale-[0.97]"
-                onClick={() => setChatOpen(false)}
-              >
-                <IconX size={14} />
-              </Button>
-            </div>
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <ProjectChatArea
-                projectId={projectId}
-                conversationHistory={project.conversationHistory}
-                selectedTaskTitle={selectedTask?.title}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {!chatOpen && (
-        <div
-          className="w-0 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-          aria-hidden
-        />
-      )}
+      <QuickTaskModal
+        isOpen={createTaskOpen}
+        onClose={() => setCreateTaskOpen(false)}
+        projectId={projectId}
+      />
     </div>
   );
 }

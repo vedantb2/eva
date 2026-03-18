@@ -30,6 +30,7 @@ export const saveDraft = authMutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
+    projectId: v.optional(v.id("projects")),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -64,6 +65,7 @@ export const saveDraft = authMutation({
       updatedAt: now,
       createdBy: ctx.userId,
       baseBranch: args.baseBranch,
+      projectId: args.projectId,
     });
   },
 });

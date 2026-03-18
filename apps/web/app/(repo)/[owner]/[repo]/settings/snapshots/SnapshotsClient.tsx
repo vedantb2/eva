@@ -222,6 +222,12 @@ export function SnapshotsClient() {
                         <BuildStatusBadge status={lastBuild.status} />
                       </p>
                     </div>
+                    <div>
+                      <span className="text-muted-foreground">Warmup</span>
+                      <p className="mt-0.5">
+                        <WarmupStatusBadge status={lastBuild.warmupStatus} />
+                      </p>
+                    </div>
                   </>
                 )}
               </div>
@@ -265,6 +271,7 @@ export function SnapshotsClient() {
                       </th>
                       <th className="px-2 py-2 font-medium sm:px-4">Trigger</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Status</th>
+                      <th className="px-2 py-2 font-medium sm:px-4">Warmup</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -329,6 +336,8 @@ function BuildRow({
     workflowRunId?: number;
     startedAt: number;
     completedAt?: number;
+    warmupStatus?: "pending" | "success" | "error";
+    warmupError?: string;
   };
   isExpanded: boolean;
   duration: string;
@@ -362,13 +371,21 @@ function BuildRow({
         <td className="px-2 py-2 sm:px-4">
           <BuildStatusBadge status={build.status} />
         </td>
+        <td className="px-2 py-2 sm:px-4">
+          <WarmupStatusBadge status={build.warmupStatus} />
+        </td>
       </tr>
       {isExpanded && (
         <tr>
-          <td colSpan={5} className="px-4 py-3">
+          <td colSpan={6} className="px-4 py-3">
             {build.error && (
               <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {build.error}
+              </div>
+            )}
+            {build.warmupError && (
+              <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                Warmup failed: {build.warmupError}
               </div>
             )}
             {runUrl && (
@@ -424,6 +441,38 @@ function BuildStatusBadge({
     <span className="inline-flex items-center gap-1 text-destructive">
       <IconX size={12} />
       Error
+    </span>
+  );
+}
+
+function WarmupStatusBadge({
+  status,
+}: {
+  status?: "pending" | "success" | "error";
+}) {
+  if (!status) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  if (status === "pending") {
+    return (
+      <span className="inline-flex items-center gap-1 text-blue-500">
+        <IconClock size={12} />
+        Pending
+      </span>
+    );
+  }
+  if (status === "success") {
+    return (
+      <span className="inline-flex items-center gap-1 text-green-500">
+        <IconCheck size={12} />
+        Warmed
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-destructive">
+      <IconX size={12} />
+      Failed
     </span>
   );
 }

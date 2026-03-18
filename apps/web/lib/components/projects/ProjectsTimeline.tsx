@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import {
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+  useEffect,
+  useSyncExternalStore,
+} from "react";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
@@ -22,8 +29,25 @@ import {
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
 const DAY_MS = 86_400_000;
-const LABEL_WIDTH = 208;
+const LABEL_WIDTH_SM = 140;
+const LABEL_WIDTH_DEFAULT = 208;
 const ROW_HEIGHT = 42;
+
+const SM_BREAKPOINT = 640;
+const smQuery =
+  typeof window !== "undefined"
+    ? window.matchMedia(`(min-width: ${SM_BREAKPOINT}px)`)
+    : null;
+function subscribeSmQuery(cb: () => void) {
+  smQuery?.addEventListener("change", cb);
+  return () => smQuery?.removeEventListener("change", cb);
+}
+function getSmSnapshot() {
+  return smQuery?.matches ?? true;
+}
+function getSmServerSnapshot() {
+  return true;
+}
 const MIN_PX_PER_DAY = 8;
 const MAX_PX_PER_DAY = 80;
 const DEFAULT_PX_PER_DAY = 24;
@@ -50,6 +74,13 @@ export function ProjectsTimeline({
 }: ProjectsTimelineProps) {
   const [selectedProjectId, setSelectedProjectId] =
     useState<Id<"projects"> | null>(null);
+
+  const isSmUp = useSyncExternalStore(
+    subscribeSmQuery,
+    getSmSnapshot,
+    getSmServerSnapshot,
+  );
+  const LABEL_WIDTH = isSmUp ? LABEL_WIDTH_DEFAULT : LABEL_WIDTH_SM;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [pxPerDay, setPxPerDay] = useState(DEFAULT_PX_PER_DAY);
@@ -118,7 +149,7 @@ export function ProjectsTimeline({
       const maxScroll = Math.max(0, width - viewportWidth);
       return Math.min(Math.max(0, next), maxScroll);
     },
-    [totalWidth],
+    [totalWidth, LABEL_WIDTH],
   );
 
   const setClampedScroll = useCallback(
@@ -139,7 +170,7 @@ export function ProjectsTimeline({
       containerRef.current.clientWidth - LABEL_WIDTH,
     );
     setClampedScroll(todayOffset - viewWidth / 2);
-  }, [originDate, pxPerDay, setClampedScroll, totalSpanDays]);
+  }, [originDate, pxPerDay, setClampedScroll, totalSpanDays, LABEL_WIDTH]);
 
   const setZoom = useCallback(
     (nextZoom: number, anchorX?: number) => {
@@ -164,7 +195,7 @@ export function ProjectsTimeline({
       setPxPerDay(clampedZoom);
       setClampedScroll(nextScroll, nextTotalWidth);
     },
-    [pxPerDay, scrollLeft, setClampedScroll, totalSpanDays],
+    [pxPerDay, scrollLeft, setClampedScroll, totalSpanDays, LABEL_WIDTH],
   );
 
   useEffect(() => {
@@ -221,7 +252,7 @@ export function ProjectsTimeline({
         right: prev.right + EDGE_EXPAND_DAYS,
       }));
     }
-  }, [pxPerDay, scrollLeft, totalSpanDays, totalWidth]);
+  }, [pxPerDay, scrollLeft, totalSpanDays, totalWidth, LABEL_WIDTH]);
 
   const monthLabels = useMemo(() => {
     if (totalSpanDays === 0) return [];
@@ -312,7 +343,7 @@ export function ProjectsTimeline({
       const delta = e.deltaY > 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
       setZoom(pxPerDay * delta, viewportX);
     },
-    [pxPerDay, setClampedScroll, setZoom],
+    [pxPerDay, setClampedScroll, setZoom, LABEL_WIDTH],
   );
 
   const finishDrag = useCallback((pointerId?: number) => {
@@ -615,7 +646,7 @@ export function ProjectsTimeline({
                 {withoutDates.length}
               </span>
             </div>
-            <div className="grid gap-1.5 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {withoutDates.map((project) => {
                 const phase = project.phase as ProjectPhase;
                 const config = phaseConfig[phase];

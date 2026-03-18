@@ -53,6 +53,7 @@ interface QuickTaskCardProps {
   title: string;
   description?: string;
   status: TaskStatus;
+  taskNumber?: number;
   scheduledAt?: number;
   tags?: string[];
   createdBy?: Id<"users">;
@@ -71,6 +72,7 @@ export function QuickTaskCard({
   title,
   description,
   status,
+  taskNumber,
   scheduledAt,
   tags,
   createdBy,
@@ -140,6 +142,11 @@ export function QuickTaskCard({
           )}
           <div className="min-w-0 flex-1">
             <h4 className="line-clamp-1 text-sm font-semibold leading-5 text-foreground">
+              {taskNumber !== undefined && (
+                <span className="text-muted-foreground font-mono mr-1.5">
+                  #{taskNumber}
+                </span>
+              )}
               {title}
             </h4>
 

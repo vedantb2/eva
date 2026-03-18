@@ -49,6 +49,7 @@ export const phaseValidator = v.union(
   v.literal("finalized"),
   v.literal("active"),
   v.literal("completed"),
+  v.literal("cancelled"),
 );
 
 export const indexingStatusValidator = v.union(
@@ -143,6 +144,12 @@ export const snapshotBuildStatusValidator = v.union(
 export const snapshotBuildTriggerValidator = v.union(
   v.literal("cron"),
   v.literal("manual"),
+);
+
+export const snapshotWarmupStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("success"),
+  v.literal("error"),
 );
 
 export const teamMemberRoleValidator = v.union(
@@ -338,6 +345,7 @@ export const projectFields = {
   scheduledBuildAt: v.optional(v.number()),
   scheduledBuildFunctionId: v.optional(v.id("_scheduled_functions")),
   lastBuildError: v.optional(v.string()),
+  branchVersion: v.optional(v.number()),
 };
 
 export const projectDetailsFields = {
@@ -353,6 +361,7 @@ export const automationFields = {
   cronSchedule: v.string(),
   model: v.optional(claudeModelValidator),
   enabled: v.boolean(),
+  readOnly: v.optional(v.boolean()),
   cronJobId: v.optional(v.string()),
   createdBy: v.id("users"),
   createdAt: v.number(),

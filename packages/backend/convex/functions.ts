@@ -62,7 +62,8 @@ export async function recomputeProjectPhase(
   if (
     project.phase !== "active" &&
     project.phase !== "completed" &&
-    project.phase !== "finalized"
+    project.phase !== "finalized" &&
+    project.phase !== "cancelled"
   )
     return;
   const tasks = await db
@@ -80,6 +81,8 @@ export async function recomputeProjectPhase(
   if (allDone && project.phase !== "completed") {
     await db.patch(projectId, { phase: "completed" });
   } else if (anyActive && project.phase === "completed") {
+    await db.patch(projectId, { phase: "active" });
+  } else if (anyActive && project.phase === "cancelled") {
     await db.patch(projectId, { phase: "active" });
   } else if (anyActive && project.phase === "finalized") {
     await db.patch(projectId, { phase: "active" });
@@ -125,19 +128,8 @@ export async function isFirstTaskOnBranch(
   projectId?: Id<"projects">,
 ): Promise<boolean> {
   if (projectId) {
-    const projectTasks = await db
-      .query("agentTasks")
-      .withIndex("by_project", (q) => q.eq("projectId", projectId))
-      .collect();
-    for (const pt of projectTasks) {
-      const successRun = await db
-        .query("agentRuns")
-        .withIndex("by_task_and_status", (q) =>
-          q.eq("taskId", pt._id).eq("status", "success"),
-        )
-        .first();
-      if (successRun) return false;
-    }
+    const project = await db.get(projectId);
+    if (project?.prUrl) return false;
     return true;
   }
   const successRun = await db

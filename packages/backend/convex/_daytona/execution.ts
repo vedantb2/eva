@@ -175,11 +175,6 @@ export const prepareSandbox = internalAction({
     const sessionVolumeMounts = args.sessionPersistenceId
       ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
       : undefined;
-    const syncStrategy = getSandboxPrepSyncStrategy(
-      args.branchName,
-      args.baseBranch,
-    );
-
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
@@ -210,7 +205,7 @@ export const prepareSandbox = internalAction({
             sessionVolumeMounts,
             attachRunSandbox,
             emitProgress,
-            syncStrategy,
+            { mode: "none" },
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -226,7 +221,7 @@ export const prepareSandbox = internalAction({
             snapshotName,
             sessionVolumeMounts,
             emitProgress,
-            syncStrategy,
+            { mode: "none" },
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;

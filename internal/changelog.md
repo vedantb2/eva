@@ -4,7 +4,8 @@
 
 - **Why**: Concurrent quick tasks were still failing even after the session-specific fixes because the workflow fetched `staging + task branch` during `createOrResumeSandbox`, then immediately fetched/check out base and set up the branch again in later steps. That duplicated the most contention-prone git work right at sandbox creation.
 - **Workflow-level simplification**: `_daytona/prepareSandboxSteps.ts` now creates or resumes the sandbox without passing branch/base refs into `createOrResumeSandbox`, so snapshot sandbox acquisition skips the redundant upfront branch sync.
-- **Preserves task setup semantics**: Quick tasks still fetch the base branch, check it out, and run `setupSandboxBranch` exactly as before; they just stop doing the same ref sync twice.
+- **Shared prepare path simplified too**: `_daytona/execution.ts` now makes the generic `prepareSandbox` action acquire sandboxes with `syncStrategy=none`, then relies on its existing explicit fetch/check out/setup steps afterward. That removes the same duplicated sync from other branch-aware sandbox starters that use `prepareSandbox`.
+- **Preserves task setup semantics**: Quick tasks and other `prepareSandbox` callers still fetch the base branch, check it out, and run branch setup exactly as before; they just stop doing the same ref sync twice.
 
 ## Retry session-branch existence probes quickly - 2026-03-18
 

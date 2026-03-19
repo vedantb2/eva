@@ -1,5 +1,11 @@
 # Changelog
 
+## Remove redundant branch sync from quick-task sandbox creation - 2026-03-19
+
+- **Why**: Concurrent quick tasks were still failing even after the session-specific fixes because the workflow fetched `staging + task branch` during `createOrResumeSandbox`, then immediately fetched/check out base and set up the branch again in later steps. That duplicated the most contention-prone git work right at sandbox creation.
+- **Workflow-level simplification**: `_daytona/prepareSandboxSteps.ts` now creates or resumes the sandbox without passing branch/base refs into `createOrResumeSandbox`, so snapshot sandbox acquisition skips the redundant upfront branch sync.
+- **Preserves task setup semantics**: Quick tasks still fetch the base branch, check it out, and run `setupSandboxBranch` exactly as before; they just stop doing the same ref sync twice.
+
 ## Retry session-branch existence probes quickly - 2026-03-18
 
 - **Why**: Concurrent session starts could still fail with `Sandbox exec (30s) timed out after 45000ms` before reaching checkout or the base-branch fallback. The remaining 30s session-path probe was `git ls-remote` for the remote session branch, which can also stall transiently under concurrency.

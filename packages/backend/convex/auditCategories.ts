@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import { authQuery, authMutation } from "./functions";
 import { internalQuery } from "./_generated/server";
 import { resolveCanonicalRepoId } from "./_githubRepos/helpers";
-import type { Id } from "./_generated/dataModel";
 
 export const listByRepo = authQuery({
   args: { repoId: v.id("githubRepos") },
@@ -15,16 +14,25 @@ export const listByRepo = authQuery({
       description: v.string(),
       enabled: v.boolean(),
       appId: v.optional(v.id("githubRepos")),
-      disabledForAppIds: v.optional(v.array(v.id("githubRepos"))),
       createdAt: v.number(),
     }),
   ),
   handler: async (ctx, args) => {
     const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
-    return await ctx.db
+    const rows = await ctx.db
       .query("auditCategories")
       .withIndex("by_repo", (q) => q.eq("repoId", canonicalId))
       .collect();
+    return rows.map((row) => ({
+      _id: row._id,
+      _creationTime: row._creationTime,
+      repoId: row.repoId,
+      name: row.name,
+      description: row.description,
+      enabled: row.enabled,
+      appId: row.appId,
+      createdAt: row.createdAt,
+    }));
   },
 });
 
@@ -65,19 +73,7 @@ export const listEnabledForContext = internalQuery({
         if (!c.enabled) return false;
         const isRepoLevel = c.appId === undefined;
         const isForThisApp = c.appId !== undefined && c.appId === args.appId;
-
-        if (isRepoLevel) {
-          if (
-            args.appId &&
-            c.disabledForAppIds &&
-            c.disabledForAppIds.includes(args.appId)
-          ) {
-            return false;
-          }
-          return true;
-        }
-
-        return isForThisApp;
+        return isRepoLevel || isForThisApp;
       })
       .map((c) => ({ name: c.name, description: c.description }));
   },
@@ -134,33 +130,6 @@ export const toggleEnabled = authMutation({
     if (!category) throw new Error("Category not found");
 
     await ctx.db.patch(args.id, { enabled: args.enabled });
-    return null;
-  },
-});
-
-export const toggleDisabledForApp = authMutation({
-  args: {
-    id: v.id("auditCategories"),
-    appId: v.id("githubRepos"),
-    disabled: v.boolean(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const category = await ctx.db.get(args.id);
-    if (!category) throw new Error("Category not found");
-    if (category.appId !== undefined) {
-      throw new Error(
-        "Can only toggle app overrides for repo-level categories",
-      );
-    }
-
-    const current: Array<Id<"githubRepos">> = category.disabledForAppIds ?? [];
-
-    const updated = args.disabled
-      ? [...new Set([...current, args.appId])]
-      : current.filter((id) => id !== args.appId);
-
-    await ctx.db.patch(args.id, { disabledForAppIds: updated });
     return null;
   },
 });

@@ -9,7 +9,6 @@ export const serverEnv = createEnv({
     DAYTONA_API_KEY: z.string().min(1),
     AGENT_AUTH_SECRET: z.string().optional(),
     AGENT_CLERK_USER_ID: z.string().optional(),
-    FAKE_AUTH: z.string().optional(),
   },
   experimental__runtimeEnv: process.env,
 });

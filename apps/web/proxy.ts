@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { serverEnv } from "@/env/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -24,8 +25,8 @@ export const proxy = clerkMiddleware(
   async (auth, req) => {
     const { userId, redirectToSignIn } = await auth();
 
-    if (req.nextUrl.pathname === "/" && !userId && process.env.FAKE_AUTH) {
-      const secret = process.env.AGENT_AUTH_SECRET;
+    if (req.nextUrl.pathname === "/" && !userId && serverEnv.FAKE_AUTH) {
+      const secret = serverEnv.AGENT_AUTH_SECRET;
       if (secret) {
         const loginUrl = new URL("/api/auth/agent-login", req.url);
         loginUrl.searchParams.set("secret", secret);

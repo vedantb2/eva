@@ -139,7 +139,7 @@ if the user asks you to run a migration, you need to add a migration function to
 
 never run npx convex dev or npx convex deploy - use `npx convex codegen --typecheck enable` to typecheck
 
-if you are using the agent-browser skill, navigate to `/` to auto sign in as the agent user.
+if you are using the agent-browser skill, navigate to `/?agent` to auto sign in as the agent user.
 
 Audit:
 

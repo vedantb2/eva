@@ -28,6 +28,7 @@ export const proxy = clerkMiddleware(
     if (
       req.nextUrl.pathname === "/" &&
       !userId &&
+      req.nextUrl.searchParams.has("agent") &&
       serverEnv.AGENT_CLERK_USER_ID
     ) {
       const loginUrl = new URL("/api/auth/agent-login", req.url);

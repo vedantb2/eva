@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { serverEnv } from "@/env/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -27,14 +28,11 @@ export const proxy = clerkMiddleware(
     if (
       req.nextUrl.pathname === "/" &&
       !userId &&
-      req.nextUrl.searchParams.has("agent")
+      req.nextUrl.searchParams.has("agent") &&
+      serverEnv.AGENT_CLERK_USER_ID
     ) {
-      const secret = process.env.AGENT_AUTH_SECRET;
-      if (secret) {
-        const loginUrl = new URL("/api/auth/agent-login", req.url);
-        loginUrl.searchParams.set("secret", secret);
-        return NextResponse.redirect(loginUrl);
-      }
+      const loginUrl = new URL("/api/auth/agent-login", req.url);
+      return NextResponse.redirect(loginUrl);
     }
 
     if (req.nextUrl.pathname === "/" && userId) {

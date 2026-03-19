@@ -24,11 +24,7 @@ export const proxy = clerkMiddleware(
   async (auth, req) => {
     const { userId, redirectToSignIn } = await auth();
 
-    if (
-      req.nextUrl.pathname === "/" &&
-      !userId &&
-      req.nextUrl.searchParams.has("agent")
-    ) {
+    if (req.nextUrl.pathname === "/" && !userId && process.env.FAKE_AUTH) {
       const secret = process.env.AGENT_AUTH_SECRET;
       if (secret) {
         const loginUrl = new URL("/api/auth/agent-login", req.url);

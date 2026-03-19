@@ -31,7 +31,6 @@ import {
   IconUser,
   IconCalendarEvent,
   IconCalendarDue,
-  IconAlertTriangle,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
@@ -198,19 +197,6 @@ export function ProjectDetailInline({
                 updateProject({
                   id: projectId,
                   projectEndDate: date ?? undefined,
-                })
-              }
-            />
-
-            <DatePickerField
-              label="Deadline"
-              icon={IconAlertTriangle}
-              iconClassName="text-destructive"
-              value={project.deadline}
-              onChange={(date) =>
-                updateProject({
-                  id: projectId,
-                  deadline: date ?? undefined,
                 })
               }
             />

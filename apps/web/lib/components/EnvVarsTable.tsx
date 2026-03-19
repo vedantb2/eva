@@ -218,8 +218,12 @@ export function EnvVarsTable({
   };
 
   const parsedPreview = parseEnvVars(bulkText);
-  const sandboxVars = vars?.filter((v) => !v.sandboxExclude) ?? [];
-  const excludedVars = vars?.filter((v) => v.sandboxExclude) ?? [];
+  const sandboxVars = (vars?.filter((v) => !v.sandboxExclude) ?? []).sort(
+    (a, b) => a.key.localeCompare(b.key),
+  );
+  const excludedVars = (vars?.filter((v) => v.sandboxExclude) ?? []).sort(
+    (a, b) => a.key.localeCompare(b.key),
+  );
   const showTable = (vars && vars.length > 0) || adding;
 
   const renderRow = (v: EnvVar) => (

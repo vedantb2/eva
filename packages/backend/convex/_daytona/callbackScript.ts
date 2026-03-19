@@ -407,6 +407,20 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
   }
 }
 
+async function saveProofFailureMessageIfNeeded(message) {
+  if (ENTITY_ID_FIELD !== "taskId") {
+    return;
+  }
+  try {
+    await callMutationWithRetry("taskProof:saveMessage", {
+      taskId: ENTITY_ID,
+      message,
+    }, 2);
+  } catch (error) {
+    console.error("Failed to record proof persistence error:", error);
+  }
+}
+
 const INSTALLATION_ID = process.env.INSTALLATION_ID;
 if (INSTALLATION_ID && CONVEX_URL && CONVEX_TOKEN) {
   try {
@@ -688,6 +702,11 @@ try {
       await persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFileName);
     } catch (e) {
       console.error("Failed to persist task proof:", e);
+      const proofError =
+        e instanceof Error ? e.message : String(e);
+      await saveProofFailureMessageIfNeeded(
+        "Proof capture failed after completion: " + proofError,
+      );
     }
     await stopStreamingLoops();
   } catch (e) {

@@ -1,5 +1,12 @@
 # Changelog
 
+## Retry split sandbox git steps and design snapshot installs - 2026-03-19
+
+- **Why**: Even after removing redundant startup sync, quick-task sandbox prep still depended on separate `fetch base`, `checkout base`, and `setup branch` workflow actions with no local retry policy, and design sandboxes still had a single-shot snapshot install step that could be slow or flaky.
+- **Split git step retries**: `_daytona/prepareSandboxSteps.ts` now gives `fetchBaseBranch`, `checkoutBaseBranch`, and `setupSandboxBranch` explicit workflow retries so transient git/setup failures do not immediately fail the whole run.
+- **Design install retries**: `_daytona/sessions.ts` now detects the package manager for snapshot-backed design sandboxes and retries dependency installation a few times on timeout/network-style failures instead of assuming one `pnpm install` attempt will always succeed.
+- **Proof failure visibility**: `_daytona/callbackScript.ts` now records a task-proof message when proof persistence fails after completion, so those issues stay visible without blocking a successful run from finishing.
+
 ## Complete runs before proof upload and make finalization explicit - 2026-03-19
 
 - **Why**: Tasks could finish real work, then stall in the post-response callback path long enough for the watchdog to kill them. The completion event, proof upload, and finalization heartbeat were too tightly coupled, and the watchdog had to infer finalization from streaming text.

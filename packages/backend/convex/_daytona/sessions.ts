@@ -21,7 +21,7 @@ import {
   SESSION_LIFECYCLE,
 } from "./git";
 import { ensureSessionClaudeVolume } from "./volumes";
-import { startSessionServices } from "./devServer";
+import { detectPackageManager, startSessionServices } from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 
 function formatDurationMs(durationMs: number): string {
@@ -59,7 +59,15 @@ function getSessionSyncStrategy(branchName: string, baseBranch: string) {
 
 function isRetryableSessionFetchError(message: string): boolean {
   const lower = message.toLowerCase();
-  return lower.includes("sandbox exec") && lower.includes("timed out");
+  return (
+    (lower.includes("sandbox exec") && lower.includes("timed out")) ||
+    lower.includes("fetch failed") ||
+    lower.includes("econnreset") ||
+    lower.includes("econnrefused") ||
+    lower.includes("etimedout") ||
+    lower.includes("socket hang up") ||
+    lower.includes("network")
+  );
 }
 
 async function checkRemoteBranchExistsWithRetry(
@@ -228,6 +236,46 @@ async function syncDesignRefsForSetup(
       ? `syncDesignRefsForSetup fetched base and existing design branch (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`
       : `syncDesignRefsForSetup fetched base branch only (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
   );
+}
+
+async function installSnapshotDependenciesWithRetry(
+  sandbox: Sandbox,
+  rootDir: string,
+): Promise<void> {
+  const maxAttempts = 3;
+  const pm = await detectPackageManager(sandbox, rootDir);
+  const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
+  const installCommand =
+    pm === "pnpm"
+      ? `npm install -g pnpm && cd ${dir} && pnpm install`
+      : pm === "yarn"
+        ? `cd ${dir} && yarn install`
+        : `cd ${dir} && npm install`;
+  const timeoutSeconds = pm === "pnpm" ? 240 : 180;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await exec(sandbox, installCommand, timeoutSeconds);
+      if (attempt > 1) {
+        logSession(
+          `installSnapshotDependenciesWithRetry recovered on retry ${attempt}/${maxAttempts} (rootDir=${rootDir || "."}, pm=${pm})`,
+        );
+      }
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const canRetry =
+        attempt < maxAttempts && isRetryableSessionFetchError(message);
+      if (!canRetry) {
+        throw error;
+      }
+      const delayMs = 1000 * attempt;
+      logSession(
+        `installSnapshotDependenciesWithRetry retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, rootDir=${rootDir || "."}, pm=${pm}): ${message}`,
+      );
+      await sleep(delayMs);
+    }
+  }
 }
 
 async function tryReuseSandbox(
@@ -507,7 +555,7 @@ export const startDesignSandbox = internalAction({
       );
       await setupBranch(sandbox, args.branchName, args.baseBranch);
       if (prepared.usedSnapshot) {
-        await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 240);
+        await installSnapshotDependenciesWithRetry(sandbox, rootDir);
       }
       const { port: devPort, devCommand } = await startSessionServices(
         sandbox,

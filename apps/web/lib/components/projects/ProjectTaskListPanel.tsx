@@ -161,12 +161,9 @@ export function ProjectTaskListPanel({
 
     const projectId = todoTasks[0]?.projectId;
     if (projectId) {
-      const allTaskIds = tasks
-        .filter((t) => t.status !== "todo")
-        .map((t) => t._id);
       reorderTasks({
         projectId,
-        taskIds: [...newOrder, ...allTaskIds],
+        taskIds: newOrder,
       }).then(() => {
         setLocalTodoOrder(null);
       });

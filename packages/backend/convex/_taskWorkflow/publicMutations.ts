@@ -40,7 +40,12 @@ export const handleCompletion = authMutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     const workflowId = await getActiveWorkflowId(ctx, args.taskId);
-    if (!task || !workflowId) return null;
+    if (!task) {
+      throw new Error("Task not found while handling completion");
+    }
+    if (!workflowId) {
+      throw new Error("Active workflow missing while handling completion");
+    }
 
     const runs = await ctx.db
       .query("agentRuns")
@@ -49,7 +54,9 @@ export const handleCompletion = authMutation({
     const latestRunningRun = runs
       .filter((run) => run.status === "running")
       .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0];
-    if (!latestRunningRun) return null;
+    if (!latestRunningRun) {
+      throw new Error("No running run found while handling completion");
+    }
 
     if (args.runId) {
       const callbackRun = await ctx.db.get(args.runId);
@@ -59,7 +66,7 @@ export const handleCompletion = authMutation({
         callbackRun.status !== "running" ||
         latestRunningRun._id !== args.runId
       ) {
-        return null;
+        throw new Error("Completion callback run did not match active run");
       }
     }
 
@@ -74,8 +81,10 @@ export const handleCompletion = authMutation({
           activityLog: args.activityLog,
         },
       });
-    } catch {
-      return null;
+    } catch (error) {
+      throw new Error(
+        `Failed to deliver completion event: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     if (task.repoId) {
@@ -106,7 +115,11 @@ export const handleAuditCompletion = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const workflowId = await getActiveWorkflowId(ctx, args.taskId);
-    if (!workflowId) return null;
+    if (!workflowId) {
+      throw new Error(
+        "Active workflow missing while handling audit completion",
+      );
+    }
 
     const audits = await ctx.db
       .query("audits")
@@ -115,10 +128,14 @@ export const handleAuditCompletion = authMutation({
     const latestRunningAudit = audits
       .filter((audit) => audit.status === "running")
       .sort((a, b) => b.createdAt - a.createdAt)[0];
-    if (!latestRunningAudit) return null;
+    if (!latestRunningAudit) {
+      throw new Error("No running audit found while handling completion");
+    }
 
     if (args.runId && latestRunningAudit.runId !== args.runId) {
-      return null;
+      throw new Error(
+        "Audit completion callback run did not match active audit",
+      );
     }
 
     try {
@@ -132,8 +149,10 @@ export const handleAuditCompletion = authMutation({
           activityLog: args.activityLog,
         },
       });
-    } catch {
-      return null;
+    } catch (error) {
+      throw new Error(
+        `Failed to deliver audit completion event: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     const task = await ctx.db.get(args.taskId);
@@ -165,7 +184,11 @@ export const handleAuditFixCompletion = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const workflowId = await getActiveWorkflowId(ctx, args.taskId);
-    if (!workflowId) return null;
+    if (!workflowId) {
+      throw new Error(
+        "Active workflow missing while handling audit-fix completion",
+      );
+    }
 
     try {
       await workflow.sendEvent(ctx, {
@@ -178,8 +201,10 @@ export const handleAuditFixCompletion = authMutation({
           activityLog: args.activityLog,
         },
       });
-    } catch {
-      return null;
+    } catch (error) {
+      throw new Error(
+        `Failed to deliver audit-fix completion event: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     return null;

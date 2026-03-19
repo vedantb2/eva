@@ -116,16 +116,20 @@ async function callStreamingHeartbeat(entityId, currentActivity) {
   if (!CONVEX_SITE_URL || !STREAMING_HMAC) {
     return await callMutation("streaming:set", { entityId, currentActivity });
   }
-  const res = await fetchWithTimeout(CONVEX_SITE_URL + "/api/streaming/heartbeat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ entityId, hmac: STREAMING_HMAC, currentActivity }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
+  try {
+    const res = await fetchWithTimeout(CONVEX_SITE_URL + "/api/streaming/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entityId, hmac: STREAMING_HMAC, currentActivity }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
+    }
+    return res.json();
+  } catch {
+    return await callMutation("streaming:set", { entityId, currentActivity });
   }
-  return res.json();
 }
 
 function shortenPath(p) {

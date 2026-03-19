@@ -18,13 +18,7 @@ import {
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
 
-import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  cn,
-} from "@conductor/ui";
+import { Button, cn } from "@conductor/ui";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -110,9 +104,7 @@ export function ProjectsTimeline({
       }
 
       const allDates = dated.flatMap((project) => {
-        const dates = [project.projectStartDate!, project.projectEndDate!];
-        if (project.deadline) dates.push(project.deadline);
-        return dates;
+        return [project.projectStartDate!, project.projectEndDate!];
       });
       const today = Date.now();
       const minDate = Math.min(...allDates, today);
@@ -523,9 +515,6 @@ export function ProjectsTimeline({
                     1,
                     Math.round((end - start) / DAY_MS) + 1,
                   );
-                  const deadlineX = project.deadline
-                    ? ((project.deadline - originDate) / DAY_MS) * pxPerDay
-                    : null;
                   const showRangeLabel = barWidth > 74;
                   const showDuration = barWidth > 126;
 
@@ -602,23 +591,6 @@ export function ProjectsTimeline({
                               </span>
                             )}
                           </button>
-                          {deadlineX !== null && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div
-                                  className="absolute inset-y-0 z-20 transition-[left] duration-200 ease-out"
-                                  style={{ left: deadlineX }}
-                                >
-                                  <div className="absolute inset-y-0 left-0 w-px bg-destructive/60" />
-                                  <div className="absolute left-1/2 top-1.5 h-2.5 w-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-destructive" />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs">
-                                Deadline:{" "}
-                                {dayjs(project.deadline).format("MMM D, YYYY")}
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
                         </div>
                       </div>
                     </div>

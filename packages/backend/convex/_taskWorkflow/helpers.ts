@@ -112,6 +112,7 @@ export async function finalizeRunStatus(
 
   await ctx.db.patch(params.runId, {
     status: params.success ? "success" : "error",
+    finalizingAt: undefined,
     finishedAt: Date.now(),
     resultSummary: buildRunResultSummary(
       params.success,

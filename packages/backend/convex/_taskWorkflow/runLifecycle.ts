@@ -32,6 +32,7 @@ export const updateRunToRunning = internalMutation({
       status: "running",
       repoId: args.repoId,
       startedAt,
+      finalizingAt: undefined,
     });
     await ctx.db.patch(args.taskId, {
       status: "in_progress",

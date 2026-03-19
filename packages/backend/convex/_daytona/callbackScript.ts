@@ -114,6 +114,16 @@ async function callStreamingHeartbeat(entityId, currentActivity) {
   return await callMutation("streaming:set", { entityId, currentActivity });
 }
 
+async function markRunFinalizingIfNeeded() {
+  if (!RUN_ID || ENTITY_ID_FIELD !== "taskId") {
+    return;
+  }
+  await callMutationWithRetry("taskWorkflow:markRunFinalizing", {
+    taskId: ENTITY_ID,
+    runId: RUN_ID,
+  });
+}
+
 function shortenPath(p) {
   const parts = p.replace(/\\\\\\\\/g, "/").split("/");
   if (parts.length <= 4) return parts.join("/");
@@ -372,6 +382,31 @@ for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
   }
 }
 
+async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFileName) {
+  if (videoStorageId || imageStorageId) {
+    if (ENTITY_ID_FIELD === "taskId") {
+      const storageId = videoStorageId || imageStorageId;
+      await callMutationWithRetry("taskProof:save", {
+        taskId: ENTITY_ID,
+        storageId,
+        fileName: lastFileName,
+      }, 3);
+      return;
+    }
+    const mediaArgs = { parentId: ENTITY_ID };
+    if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
+    if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
+    await callActionWithRetry("screenshots:attachMedia", mediaArgs, 3);
+    return;
+  }
+  if (ENTITY_ID_FIELD === "taskId") {
+    await callMutationWithRetry("taskProof:saveMessage", {
+      taskId: ENTITY_ID,
+      message: "No UI changes",
+    }, 3);
+  }
+}
+
 const INSTALLATION_ID = process.env.INSTALLATION_ID;
 if (INSTALLATION_ID && CONVEX_URL && CONVEX_TOKEN) {
   try {
@@ -582,56 +617,10 @@ try {
   }
 
   await setFinalizingState();
-
-  let videoStorageId = null;
-  let imageStorageId = null;
-  let lastFileName = null;
-  const recDir = WORK_DIR + "/recordings";
-  if (existsSync(recDir)) {
-    for (const file of readdirSync(recDir)) {
-      if (!/\\.(webm|mp4|mov|avi)$/i.test(file)) continue;
-      const fp = recDir + "/" + file;
-      const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
-      try {
-        videoStorageId = await uploadMediaFile(fp, mimeType);
-        lastFileName = file;
-      } catch {}
-      try { unlinkSync(fp); } catch {}
-    }
-  }
-  if (!videoStorageId) {
-    const ssDir = WORK_DIR + "/screenshots";
-    if (existsSync(ssDir)) {
-      for (const file of readdirSync(ssDir)) {
-        if (!/\\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
-        const fp = ssDir + "/" + file;
-        const ext = file.split(".").pop().toLowerCase();
-        const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
-        const mimeType = mimeMap[ext] || "image/png";
-        try {
-          imageStorageId = await uploadMediaFile(fp, mimeType);
-          lastFileName = file;
-        } catch {}
-        try { unlinkSync(fp); } catch {}
-      }
-    }
-  }
-  if (videoStorageId || imageStorageId) {
-    try {
-      if (ENTITY_ID_FIELD === "taskId") {
-        const storageId = videoStorageId || imageStorageId;
-        await callMutationWithRetry("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName }, 3);
-      } else {
-        const mediaArgs = { parentId: ENTITY_ID };
-        if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
-        if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
-        await callActionWithRetry("screenshots:attachMedia", mediaArgs, 3);
-      }
-    } catch {}
-  } else if (ENTITY_ID_FIELD === "taskId") {
-    try {
-      await callMutationWithRetry("taskProof:saveMessage", { taskId: ENTITY_ID, message: "No UI changes" }, 3);
-    } catch {}
+  try {
+    await markRunFinalizingIfNeeded();
+  } catch (e) {
+    console.error("Failed to mark run finalizing:", e);
   }
 
   let errorValue = null;
@@ -662,6 +651,44 @@ try {
   };
   try {
     await callMutationWithRetry(COMPLETION_MUTATION, completionArgs);
+    let videoStorageId = null;
+    let imageStorageId = null;
+    let lastFileName = null;
+    const recDir = WORK_DIR + "/recordings";
+    if (existsSync(recDir)) {
+      for (const file of readdirSync(recDir)) {
+        if (!/\\.(webm|mp4|mov|avi)$/i.test(file)) continue;
+        const fp = recDir + "/" + file;
+        const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
+        try {
+          videoStorageId = await uploadMediaFile(fp, mimeType);
+          lastFileName = file;
+        } catch {}
+        try { unlinkSync(fp); } catch {}
+      }
+    }
+    if (!videoStorageId) {
+      const ssDir = WORK_DIR + "/screenshots";
+      if (existsSync(ssDir)) {
+        for (const file of readdirSync(ssDir)) {
+          if (!/\\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
+          const fp = ssDir + "/" + file;
+          const ext = file.split(".").pop().toLowerCase();
+          const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
+          const mimeType = mimeMap[ext] || "image/png";
+          try {
+            imageStorageId = await uploadMediaFile(fp, mimeType);
+            lastFileName = file;
+          } catch {}
+          try { unlinkSync(fp); } catch {}
+        }
+      }
+    }
+    try {
+      await persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFileName);
+    } catch (e) {
+      console.error("Failed to persist task proof:", e);
+    }
     await stopStreamingLoops();
   } catch (e) {
     console.error("Failed to send completion:", e);

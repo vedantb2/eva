@@ -263,6 +263,7 @@ export const agentRunFields = {
   status: runStatusValidator,
   logs: v.array(logEntryValidator),
   startedAt: v.optional(v.number()),
+  finalizingAt: v.optional(v.number()),
   finishedAt: v.optional(v.number()),
   resultSummary: v.optional(v.string()),
   prUrl: v.optional(v.string()),

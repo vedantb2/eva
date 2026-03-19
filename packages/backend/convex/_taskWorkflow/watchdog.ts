@@ -147,10 +147,14 @@ export const checkStaleRuns = internalMutation({
     const startupStillInProgress = isSandboxStartupActivity(
       streaming?.currentActivity,
     );
-    const finishingInProgress = isFinalizingActivity(
-      streaming?.currentActivity,
+    const finishingInProgress =
+      run.finalizingAt !== undefined ||
+      isFinalizingActivity(streaming?.currentActivity);
+    const lastActivity = Math.max(
+      streaming?.lastUpdatedAt ?? 0,
+      run.startedAt ?? 0,
+      run.finalizingAt ?? 0,
     );
-    const lastActivity = streaming?.lastUpdatedAt ?? run.startedAt ?? 0;
     const staleThresholdMs = startupStillInProgress
       ? STALE_NO_SANDBOX_THRESHOLD_MS
       : finishingInProgress

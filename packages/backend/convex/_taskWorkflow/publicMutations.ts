@@ -26,6 +26,31 @@ async function getActiveWorkflowId(
   return task.activeWorkflowId as WorkflowId;
 }
 
+export const markRunFinalizing = authMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) {
+      throw new Error("Task not found while marking run finalizing");
+    }
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.taskId !== args.taskId) {
+      throw new Error("Run not found while marking run finalizing");
+    }
+    if (run.status !== "running") {
+      return null;
+    }
+    await ctx.db.patch(args.runId, {
+      finalizingAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 export const handleCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -241,6 +266,7 @@ export const cancelExecution = authMutation({
     if (run) {
       await ctx.db.patch(run._id, {
         status: "error",
+        finalizingAt: undefined,
         error: "Cancelled by user",
         finishedAt: Date.now(),
       });

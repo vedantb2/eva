@@ -1,5 +1,12 @@
 # Changelog
 
+## Complete runs before proof upload and make finalization explicit - 2026-03-19
+
+- **Why**: Tasks could finish real work, then stall in the post-response callback path long enough for the watchdog to kill them. The completion event, proof upload, and finalization heartbeat were too tightly coupled, and the watchdog had to infer finalization from streaming text.
+- **Completion first, proof second**: `_daytona/callbackScript.ts` now marks task runs as finalizing, sends the completion mutation first, and only then performs best-effort proof/media persistence. That prevents screenshot/video upload delays from blocking workflow completion.
+- **Explicit finalizing run state**: `agentRuns` now tracks `finalizingAt`, `_taskWorkflow/publicMutations.ts` exposes `markRunFinalizing`, and `_taskWorkflow/watchdog.ts` uses that timestamp directly when deciding whether a run is in finalization.
+- **Design sandbox prep simplified safely**: `_daytona/sessions.ts` now gives design sandboxes the same “create with no upfront sync, then fetch only needed refs before setup” treatment, while keeping full-history fetches for the merge-based design branch setup path.
+
 ## Harden finalization heartbeats and completion callbacks - 2026-03-19
 
 - **Why**: Some tasks were visibly finishing work and even pushing branches, then getting killed by the watchdog during `Finalizing response...`. That points to failures in the post-response callback path rather than the agent work itself.

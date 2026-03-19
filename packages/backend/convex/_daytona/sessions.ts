@@ -12,7 +12,6 @@ import {
   sleep,
 } from "./helpers";
 import {
-  syncRepo,
   setupBranch,
   checkoutSessionBranch,
   createSandboxAndPrepareRepo,
@@ -63,7 +62,7 @@ function isRetryableSessionFetchError(message: string): boolean {
   return lower.includes("sandbox exec") && lower.includes("timed out");
 }
 
-async function checkSessionBranchExistsWithRetry(
+async function checkRemoteBranchExistsWithRetry(
   sandbox: Sandbox,
   installationId: number,
   repoOwner: string,
@@ -83,7 +82,7 @@ async function checkSessionBranchExistsWithRetry(
       );
       if (attempt > 1) {
         logSession(
-          `checkSessionBranchExistsWithRetry recovered on retry ${attempt}/${maxAttempts} (repo=${repoOwner}/${repoName}, branch=${branchName})`,
+          `checkRemoteBranchExistsWithRetry recovered on retry ${attempt}/${maxAttempts} (repo=${repoOwner}/${repoName}, branch=${branchName})`,
         );
       }
       return exists;
@@ -96,7 +95,7 @@ async function checkSessionBranchExistsWithRetry(
       }
       const delayMs = 1000 * attempt;
       logSession(
-        `checkSessionBranchExistsWithRetry retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branch=${branchName}): ${message}`,
+        `checkRemoteBranchExistsWithRetry retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branch=${branchName}): ${message}`,
       );
       await sleep(delayMs);
     }
@@ -157,7 +156,7 @@ async function syncSessionRefsForRestore(
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const sessionBranchExists = await checkSessionBranchExistsWithRetry(
+  const sessionBranchExists = await checkRemoteBranchExistsWithRetry(
     sandbox,
     installationId,
     repoOwner,
@@ -192,6 +191,42 @@ async function syncSessionRefsForRestore(
     repoName,
     branchName,
     baseBranch,
+  );
+}
+
+async function syncDesignRefsForSetup(
+  sandbox: Sandbox,
+  installationId: number,
+  repoOwner: string,
+  repoName: string,
+  branchName: string,
+  baseBranch: string,
+): Promise<void> {
+  const designBranchExists = await checkRemoteBranchExistsWithRetry(
+    sandbox,
+    installationId,
+    repoOwner,
+    repoName,
+    branchName,
+  );
+  const branchNames = designBranchExists
+    ? [baseBranch, branchName]
+    : [baseBranch];
+  await fetchBranchRefs(
+    sandbox,
+    installationId,
+    repoOwner,
+    repoName,
+    branchNames,
+    {
+      prune: false,
+      timeoutSeconds: 240,
+    },
+  );
+  logSession(
+    designBranchExists
+      ? `syncDesignRefsForSetup fetched base and existing design branch (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`
+      : `syncDesignRefsForSetup fetched base branch only (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
   );
 }
 
@@ -410,11 +445,6 @@ export const startDesignSandbox = internalAction({
         id: args.repoId,
       });
       const rootDir = repo?.rootDirectory ?? "";
-      const syncStrategy = getSessionSyncStrategy(
-        args.branchName,
-        args.baseBranch,
-      );
-
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
@@ -428,12 +458,13 @@ export const startDesignSandbox = internalAction({
         args.existingSandboxId,
         async (sandbox) => {
           await exec(sandbox, "echo 1", 5);
-          await syncRepo(
+          await syncDesignRefsForSetup(
             sandbox,
             args.installationId,
             args.repoOwner,
             args.repoName,
-            syncStrategy,
+            args.branchName,
+            args.baseBranch,
           );
           await setupBranch(sandbox, args.branchName, args.baseBranch);
           const { port: devPort, devCommand } = await startSessionServices(
@@ -463,9 +494,17 @@ export const startDesignSandbox = internalAction({
         designVolumeMounts,
         undefined,
         undefined,
-        syncStrategy,
+        { mode: "none" },
       );
       const sandbox = prepared.sandbox;
+      await syncDesignRefsForSetup(
+        sandbox,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        args.branchName,
+        args.baseBranch,
+      );
       await setupBranch(sandbox, args.branchName, args.baseBranch);
       if (prepared.usedSnapshot) {
         await exec(sandbox, `cd ${WORKSPACE_DIR} && pnpm install`, 240);

@@ -115,6 +115,7 @@ export async function cleanUpStaleRun(
 
   await ctx.db.patch(params.runId, {
     status: "error",
+    finalizingAt: undefined,
     error: params.errorMessage,
     finishedAt: Date.now(),
     exitReason: params.exitReason,

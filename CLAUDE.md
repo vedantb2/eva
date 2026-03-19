@@ -139,7 +139,7 @@ if the user asks you to run a migration, you need to add a migration function to
 
 never run npx convex dev or npx convex deploy - use `npx convex codegen --typecheck enable` to typecheck
 
-if you are using the agent-browser skill, the FAKE_AUTH_ENABLED env var enables automatic login as the Eva user when visiting the root route. If FAKE_AUTH_ENABLED is set, navigating to `/` while unauthenticated will auto-sign in as the agent user — no special query params needed.
+if you are using the agent-browser skill, set AGENT_CLERK_USER_ID in .env.local to enable automatic agent login. When set, navigating to `/` while unauthenticated will auto-sign in as that Clerk user — no special query params or secrets needed.
 
 Audit:
 

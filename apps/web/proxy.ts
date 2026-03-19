@@ -28,14 +28,10 @@ export const proxy = clerkMiddleware(
     if (
       req.nextUrl.pathname === "/" &&
       !userId &&
-      serverEnv.FAKE_AUTH_ENABLED
+      serverEnv.AGENT_CLERK_USER_ID
     ) {
-      const secret = serverEnv.AGENT_AUTH_SECRET;
-      if (secret) {
-        const loginUrl = new URL("/api/auth/agent-login", req.url);
-        loginUrl.searchParams.set("secret", secret);
-        return NextResponse.redirect(loginUrl);
-      }
+      const loginUrl = new URL("/api/auth/agent-login", req.url);
+      return NextResponse.redirect(loginUrl);
     }
 
     if (req.nextUrl.pathname === "/" && userId) {

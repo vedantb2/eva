@@ -10,6 +10,7 @@ import {
   IconRefresh,
   IconMaximize,
   IconExternalLink,
+  IconPlayerStop,
 } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
@@ -141,6 +142,20 @@ export function DesktopPanel({
     launchChromeInDesktop,
   ]);
 
+  const stopDesktop = useCallback(async () => {
+    if (!sandboxId) return;
+    stopPolling();
+    setDesktopState("idle");
+    setUrl(null);
+    setError(null);
+    desktopCache.clear(sessionId);
+    try {
+      await toggleDesktopServer({ sandboxId, repoId, action: "stop" });
+    } catch {
+      // best-effort stop
+    }
+  }, [sandboxId, stopPolling, sessionId, toggleDesktopServer, repoId]);
+
   useEffect(() => {
     if (isActive && sandboxId && desktopState === "idle") {
       const cached = desktopCache.get(sessionId);
@@ -212,6 +227,14 @@ export function DesktopPanel({
             <a href={url} target="_blank" rel="noopener noreferrer">
               <IconExternalLink className="w-4 h-4" />
             </a>
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8 text-destructive hover:bg-destructive/10"
+            onClick={stopDesktop}
+          >
+            <IconPlayerStop className="w-4 h-4" />
           </Button>
         </div>
       )}

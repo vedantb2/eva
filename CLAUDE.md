@@ -130,21 +130,10 @@ Philosophy
 This codebase will outlive you. Every shortcut becomes someone else's burden. Every ack compounds into technical debt that slows the whole team down.
 ou are not just writing code. You are shaping the future of this project. The atterns you establish will be copied. The corners you cut will be cut again. Fight entropy. Leave the codebase better than you found it.
 
-the sandboxed app is a different codebase. this current codebase is a platform for  
- managing other codebases and running them remotely.
+the sandboxed app is a different codebase. this current codebase is a platform for managing other codebases and running them remotely.
 
 stop adding usestate's useref's for everything, this is the easy way out for every problem which is bad practice, first think of the best way to do this before resorting to those options
 
 if the user asks you to run a migration, you need to add a migration function to clear the documents with that field in the db, then you run it, then you can get rid of the fields from the schema, then cleanup the migration function
 
-never run npx convex dev or npx convex deploy - use `npx convex codegen --typecheck enable` to typecheck
-
 if you are using the agent-browser skill, navigate to `/?agent` to auto sign in as the agent user.
-
-Audit:
-
-- After committing, run `/audit` to check code quality, accessibility, and test coverage
-- If `/audit` makes any code changes (via /simplify), commit them with `audit: <description of changes>`
-- Audit output uses flexible `sections` format: `{ sections: [{ name: string, results: [{ requirement, passed, detail }] }], summary: string }`
-- Sections are dynamic — new audit categories can be added without schema changes
-- Individual audits can be run directly: `/audit-accessibility`, `/audit-code-review`, `/audit-testing`

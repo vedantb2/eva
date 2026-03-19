@@ -226,7 +226,10 @@ export function QuickTaskCard({
                       {siblingApps.map((app) => (
                         <DropdownMenuItem
                           key={app._id}
-                          onClick={() => setMoveTarget(app._id)}
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            setMoveTarget(app._id);
+                          }}
                         >
                           {app.appName}
                         </DropdownMenuItem>
@@ -236,7 +239,10 @@ export function QuickTaskCard({
                 )}
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
-                  onClick={() => setShowDeleteConfirm(true)}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setShowDeleteConfirm(true);
+                  }}
                 >
                   <IconTrash size={16} />
                   Delete
@@ -270,7 +276,10 @@ export function QuickTaskCard({
                 {siblingApps.map((app) => (
                   <ContextMenuItem
                     key={app._id}
-                    onClick={() => setMoveTarget(app._id)}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setMoveTarget(app._id);
+                    }}
                   >
                     {app.appName}
                   </ContextMenuItem>
@@ -280,7 +289,10 @@ export function QuickTaskCard({
           )}
           <ContextMenuItem
             className="text-destructive focus:text-destructive"
-            onClick={() => setShowDeleteConfirm(true)}
+            onSelect={(e) => {
+              e.preventDefault();
+              setShowDeleteConfirm(true);
+            }}
           >
             <IconTrash size={16} />
             Delete

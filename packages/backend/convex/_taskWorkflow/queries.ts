@@ -91,19 +91,7 @@ export const getTaskData = internalQuery({
         if (!c.enabled) return false;
         const isRepoLevel = c.appId === undefined;
         const isForThisApp = c.appId !== undefined && c.appId === appId;
-
-        if (isRepoLevel) {
-          if (
-            appId &&
-            c.disabledForAppIds &&
-            c.disabledForAppIds.includes(appId)
-          ) {
-            return false;
-          }
-          return true;
-        }
-
-        return isForThisApp;
+        return isRepoLevel || isForThisApp;
       })
       .map((c) => ({ name: c.name, description: c.description }));
 

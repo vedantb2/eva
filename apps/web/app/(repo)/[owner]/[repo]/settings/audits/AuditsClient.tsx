@@ -6,7 +6,6 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Checkbox } from "@conductor/ui";
 import { IconTrash } from "@tabler/icons-react";
-import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { AddCategoryForm } from "./_components/AddCategoryForm";
 
@@ -18,9 +17,6 @@ export function AuditsClient() {
   const { repo, repoId } = useRepo();
   const categories = useQuery(api.auditCategories.listByRepo, { repoId });
   const toggleEnabled = useMutation(api.auditCategories.toggleEnabled);
-  const toggleDisabledForApp = useMutation(
-    api.auditCategories.toggleDisabledForApp,
-  );
   const removeCategory = useMutation(api.auditCategories.remove);
 
   if (!categories) return null;
@@ -38,8 +34,9 @@ export function AuditsClient() {
           <div>
             <h3 className="text-sm font-medium">Repo-level Audits</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              These audits run for all tasks across the repo
-              {isApp ? " and are inherited by this app." : "."}
+              {isApp
+                ? "These audits are managed at the repo level and apply to all apps."
+                : "These audits run for all tasks across the repo and all apps."}
             </p>
           </div>
 
@@ -47,19 +44,7 @@ export function AuditsClient() {
             <div className="grid gap-2">
               {repoCategories.map((category) =>
                 isApp ? (
-                  <CategoryRow
-                    key={category._id}
-                    category={category}
-                    isInherited
-                    appId={repoId}
-                    onToggle={(disabled) =>
-                      toggleDisabledForApp({
-                        id: category._id,
-                        appId: repoId,
-                        disabled,
-                      })
-                    }
-                  />
+                  <ReadOnlyCategoryRow key={category._id} category={category} />
                 ) : (
                   <CategoryRow
                     key={category._id}
@@ -80,7 +65,7 @@ export function AuditsClient() {
             </p>
           )}
 
-          <AddCategoryForm repoId={repo.parentRepoId ?? repoId} />
+          {!isApp && <AddCategoryForm repoId={repo.parentRepoId ?? repoId} />}
         </div>
 
         {isApp && (
@@ -115,53 +100,48 @@ export function AuditsClient() {
   );
 }
 
-type CategoryRowProps =
-  | {
-      isInherited: true;
-      category: Category;
-      appId: Id<"githubRepos">;
-      onToggle: (disabled: boolean) => void;
-      onRemove?: never;
-    }
-  | {
-      isInherited?: false;
-      category: Category;
-      onToggle: (enabled: boolean) => void;
-      onRemove: () => void;
-      appId?: never;
-    };
+function ReadOnlyCategoryRow({ category }: { category: Category }) {
+  return (
+    <div className="flex items-start gap-3 rounded-md bg-muted/40 p-3 opacity-60">
+      <Checkbox checked={category.enabled} disabled className="mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium">{category.name}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+          {category.description}
+        </p>
+      </div>
+    </div>
+  );
+}
 
-function CategoryRow(props: CategoryRowProps) {
-  const isDisabled = props.isInherited
-    ? (props.category.disabledForAppIds?.includes(props.appId) ?? false)
-    : false;
-  const checked = props.isInherited ? !isDisabled : props.category.enabled;
-
+function CategoryRow({
+  category,
+  onToggle,
+  onRemove,
+}: {
+  category: Category;
+  onToggle: (enabled: boolean) => void;
+  onRemove: () => void;
+}) {
   return (
     <div className="flex items-start gap-3 rounded-md bg-muted/40 p-3">
       <Checkbox
-        checked={checked}
-        onCheckedChange={(value) =>
-          props.isInherited
-            ? props.onToggle(value !== true)
-            : props.onToggle(value === true)
-        }
+        checked={category.enabled}
+        onCheckedChange={(value) => onToggle(value === true)}
         className="mt-0.5"
       />
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium">{props.category.name}</p>
+        <p className="text-xs font-medium">{category.name}</p>
         <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
-          {props.category.description}
+          {category.description}
         </p>
       </div>
-      {!props.isInherited && (
-        <button
-          onClick={props.onRemove}
-          className="text-muted-foreground hover:text-destructive transition-colors p-1"
-        >
-          <IconTrash size={14} />
-        </button>
-      )}
+      <button
+        onClick={onRemove}
+        className="text-muted-foreground hover:text-destructive transition-colors p-1"
+      >
+        <IconTrash size={14} />
+      </button>
     </div>
   );
 }

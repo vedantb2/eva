@@ -3,7 +3,7 @@
 ## Harden finalization heartbeats and completion callbacks - 2026-03-19
 
 - **Why**: Some tasks were visibly finishing work and even pushing branches, then getting killed by the watchdog during `Finalizing response...`. That points to failures in the post-response callback path rather than the agent work itself.
-- **Heartbeat fallback**: `_daytona/callbackScript.ts` now falls back to the regular `streaming:set` mutation when the streaming heartbeat endpoint fails, so watchdog heartbeats can keep landing during finalization even if the faster heartbeat route is flaky.
+- **Single heartbeat path**: `_daytona/callbackScript.ts` now sends streaming heartbeats directly through the regular `streaming:set` mutation instead of a separate `/api/streaming/heartbeat` endpoint, and the old HMAC heartbeat route/env plumbing has been removed from `_daytona/helpers.ts` and `http.ts`.
 - **No more silent completion no-ops**: `_taskWorkflow/publicMutations.ts` now throws when task/audit completion callbacks cannot actually target the active workflow or active run, instead of silently returning `null`. That lets the callback script retry instead of incorrectly treating a dropped completion event as success.
 
 ## Remove redundant branch sync from quick-task sandbox creation - 2026-03-19

@@ -1,17 +1,10 @@
 "use node";
-
-import { createHmac } from "node:crypto";
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { resolveDaytonaApiKey } from "../envVarResolver";
 import { launchScript } from "./launch";
-
-function computeStreamingHmac(entityId: string): string {
-  const secret = process.env.ENCRYPTION_KEY ?? "";
-  return createHmac("sha256", secret).update(entityId).digest("hex");
-}
 
 export const WORKSPACE_DIR = "/workspace/repo";
 export const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
@@ -167,9 +160,6 @@ export async function signAndLaunchScript(
     );
   }
 
-  const streamingEntityId = opts.extraEnvVars?.STREAMING_ENTITY_ID ?? entityId;
-  const streamingHmac = computeStreamingHmac(streamingEntityId);
-  const convexSiteUrl = process.env.CONVEX_SITE_URL ?? "";
   const mcpBaseUrl = mcpToken ? (process.env.MCP_BASE_URL ?? "") : "";
 
   await launchScript(
@@ -181,11 +171,7 @@ export async function signAndLaunchScript(
     entityId,
     {
       ...opts,
-      extraEnvVars: {
-        ...opts.extraEnvVars,
-        STREAMING_HMAC: streamingHmac,
-        CONVEX_SITE_URL: convexSiteUrl,
-      },
+      extraEnvVars: opts.extraEnvVars,
       mcpToken: mcpToken?.token,
       mcpBaseUrl,
     },

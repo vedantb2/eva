@@ -1,5 +1,11 @@
 # Changelog
 
+## Bake core git and shell tooling into Daytona snapshots - 2026-03-20
+
+- **Why**: Snapshot sandboxes are the normal execution path, so missing core CLI tools inside the image still show up as runtime flakiness or slower fallback behavior even when sandbox startup itself is healthy.
+- **Tooling parity**: `rebuild-snapshot.yml` now installs `jq`, `ripgrep`, `fd`, `git-lfs`, and `gh` in the base image so agent prompts and sandbox debugging tools are available immediately without ad hoc installs.
+- **More deterministic dependency layer**: Snapshot builds now use `pnpm install --frozen-lockfile`, which keeps the baked dependency state aligned with the committed lockfile and avoids silently drifting snapshot contents.
+
 ## Restore full git history for snapshot-backed automation reviews - 2026-03-20
 
 - **Why**: Read-only automations that run from Daytona snapshots started misreporting repo history after the sandbox-prep simplification removed an accidental extra sync. The snapshots themselves were also being built from shallow GitHub Actions checkouts, so review/report automations could end up seeing only the tip commit.

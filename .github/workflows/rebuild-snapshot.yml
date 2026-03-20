@@ -32,12 +32,10 @@ jobs:
           RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
           RUN git lfs install --system
           RUN npm install -g @anthropic-ai/claude-code agent-browser convex
-          RUN npx playwright install-deps chromium
           RUN curl -fsSL https://code-server.dev/install.sh | sh
 
           RUN useradd -m -s /bin/bash eva && mkdir -p /workspace && chown eva:eva /workspace
           USER eva
-          RUN npx playwright install chromium
           WORKDIR /workspace
 
           RUN mkdir -p /home/eva/.claude/plugins/marketplaces

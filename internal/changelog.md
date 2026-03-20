@@ -1,5 +1,10 @@
 # Changelog
 
+## Remove Playwright browser bootstrap from snapshots - 2026-03-20
+
+- **Why**: The current `agent-browser` runtime is now a native Rust CLI and no longer needs a Playwright-managed Chromium download in our snapshot image. Keeping the old Playwright browser bootstrap adds image weight and rebuild time without helping the backend runtime path.
+- **Snapshot simplification**: `rebuild-snapshot.yml` now removes the Playwright Chromium install step and leaves the Playwright Linux dependency step commented out as a rollback lever while we validate that the native `agent-browser` + system Chrome path is sufficient.
+
 ## Bake core git and shell tooling into Daytona snapshots - 2026-03-20
 
 - **Why**: Snapshot sandboxes are the normal execution path, so missing core CLI tools inside the image still show up as runtime flakiness or slower fallback behavior even when sandbox startup itself is healthy.

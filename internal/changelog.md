@@ -1,5 +1,10 @@
 # Changelog
 
+## Restore full git history for snapshot-backed automation reviews - 2026-03-20
+
+- **Why**: Read-only automations that run from Daytona snapshots started misreporting repo history after the sandbox-prep simplification removed an accidental extra sync. The snapshots themselves were also being built from shallow GitHub Actions checkouts, so review/report automations could end up seeing only the tip commit.
+- **Snapshot source history**: `rebuild-snapshot.yml` now checks out the repo with full git history before copying it into the snapshot image, so newly built snapshots preserve the real commit graph instead of a depth-1 checkout.
+
 ## Automation findings → task creation - 2026-03-20
 
 - **Why**: Read-only automations produced free-form markdown reports with no way to act on individual findings. Users had no control over which issues got fixed — they either ran in implementation mode (fixes everything) or report mode (fixes nothing).

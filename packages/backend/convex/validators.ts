@@ -354,6 +354,23 @@ export const projectDetailsFields = {
   generatedSpec: v.optional(v.string()),
 };
 
+export const findingSeverityValidator = v.union(
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high"),
+  v.literal("critical"),
+);
+
+export const automationFindingValidator = v.object({
+  id: v.string(),
+  title: v.string(),
+  description: v.string(),
+  severity: findingSeverityValidator,
+  filePaths: v.optional(v.array(v.string())),
+  suggestedFix: v.optional(v.string()),
+  taskId: v.optional(v.id("agentTasks")),
+});
+
 export const automationFields = {
   repoId: v.id("githubRepos"),
   title: v.string(),
@@ -362,6 +379,7 @@ export const automationFields = {
   model: v.optional(claudeModelValidator),
   enabled: v.boolean(),
   readOnly: v.optional(v.boolean()),
+  actionsEnabled: v.optional(v.boolean()),
   cronJobId: v.optional(v.string()),
   createdBy: v.id("users"),
   createdAt: v.number(),
@@ -381,6 +399,7 @@ export const automationRunFields = {
   sandboxId: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
   activityLog: v.optional(v.string()),
+  findings: v.optional(v.array(automationFindingValidator)),
 };
 
 export const messageFields = {

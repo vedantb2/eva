@@ -10,9 +10,9 @@ import { AutomationClient } from "./AutomationClient";
 export default function AutomationPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string; owner: string; repo: string }>;
 }) {
-  const { id } = use(params);
+  const { id, owner, repo } = use(params);
   const automation = useQuery(api.automations.get, {
     id: id as Id<"automations">,
   });
@@ -33,5 +33,11 @@ export default function AutomationPage({
     );
   }
 
-  return <AutomationClient automation={automation} />;
+  return (
+    <AutomationClient
+      automation={automation}
+      repoOwner={owner}
+      repoName={repo}
+    />
+  );
 }

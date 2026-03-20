@@ -1,5 +1,12 @@
 # Changelog
 
+## Automation findings → task creation - 2026-03-20
+
+- **Why**: Read-only automations produced free-form markdown reports with no way to act on individual findings. Users had no control over which issues got fixed — they either ran in implementation mode (fixes everything) or report mode (fixes nothing).
+- **Structured findings**: When `actionsEnabled` is toggled on for a read-only automation, the prompt instructs Claude to output a JSON array of findings (title, description, severity, file paths, suggested fix). The workflow parses this and stores it on the `automationRuns` record.
+- **Finding → task conversion**: New `createTasksFromFindings` mutation lets users select specific findings via checkboxes and create quick tasks from them, with optional auto-execution. Each finding tracks whether a task was created from it.
+- **Settings UI**: New "Actions" toggle in automation settings (only visible when Report Only is enabled). Run history shows findings with checkboxes instead of raw markdown when findings are present, with fallback + warning banner if parsing fails.
+
 ## Retry split sandbox git steps and design snapshot installs - 2026-03-19
 
 - **Why**: Even after removing redundant startup sync, quick-task sandbox prep still depended on separate `fetch base`, `checkout base`, and `setup branch` workflow actions with no local retry policy, and design sandboxes still had a single-shot snapshot install step that could be slow or flaky.

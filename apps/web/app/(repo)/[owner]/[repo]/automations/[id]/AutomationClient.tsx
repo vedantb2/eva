@@ -27,6 +27,7 @@ import {
   cn,
 } from "@conductor/ui";
 import {
+  IconAlertTriangle,
   IconCheck,
   IconChevronDown,
   IconChevronRight,
@@ -34,6 +35,7 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
 } from "@tabler/icons-react";
+import { FindingsList } from "./_components/FindingsList";
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@/lib/utils/formatDuration";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
@@ -48,9 +50,15 @@ type Automation = Doc<"automations">;
 
 interface AutomationClientProps {
   automation: Automation;
+  repoOwner: string;
+  repoName: string;
 }
 
-export function AutomationClient({ automation }: AutomationClientProps) {
+export function AutomationClient({
+  automation,
+  repoOwner,
+  repoName,
+}: AutomationClientProps) {
   const updateAutomation = useMutation(api.automations.update);
   const runNow = useMutation(api.automations.runNow);
   const runs = useQuery(api.automations.listRuns, {
@@ -106,7 +114,12 @@ export function AutomationClient({ automation }: AutomationClientProps) {
         </TabsList>
 
         <TabsContent value="history">
-          <RunHistory runs={runs} />
+          <RunHistory
+            runs={runs}
+            actionsEnabled={automation.actionsEnabled === true}
+            repoOwner={repoOwner}
+            repoName={repoName}
+          />
         </TabsContent>
 
         <TabsContent value="settings">
@@ -117,7 +130,17 @@ export function AutomationClient({ automation }: AutomationClientProps) {
   );
 }
 
-function RunHistory({ runs }: { runs: Doc<"automationRuns">[] | undefined }) {
+function RunHistory({
+  runs,
+  actionsEnabled,
+  repoOwner,
+  repoName,
+}: {
+  runs: Doc<"automationRuns">[] | undefined;
+  actionsEnabled: boolean;
+  repoOwner: string;
+  repoName: string;
+}) {
   const acknowledgeRun = useMutation(api.automations.acknowledgeRun);
 
   if (runs === undefined) {
@@ -145,6 +168,9 @@ function RunHistory({ runs }: { runs: Doc<"automationRuns">[] | undefined }) {
         <RunAccordion
           key={run._id}
           run={run}
+          actionsEnabled={actionsEnabled}
+          repoOwner={repoOwner}
+          repoName={repoName}
           onAcknowledge={() => acknowledgeRun({ runId: run._id })}
         />
       ))}
@@ -154,9 +180,15 @@ function RunHistory({ runs }: { runs: Doc<"automationRuns">[] | undefined }) {
 
 function RunAccordion({
   run,
+  actionsEnabled,
+  repoOwner,
+  repoName,
   onAcknowledge,
 }: {
   run: Doc<"automationRuns">;
+  actionsEnabled: boolean;
+  repoOwner: string;
+  repoName: string;
   onAcknowledge: () => void;
 }) {
   const isActive = run.status === "running" || run.status === "queued";
@@ -276,15 +308,35 @@ function RunAccordion({
           {!isActive && completedSteps && (
             <ActivitySteps steps={completedSteps} />
           )}
-          {run.resultSummary && (
-            <div>
-              <Streamdown
-                className="text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-                plugins={summaryPlugins}
-              >
-                {run.resultSummary}
-              </Streamdown>
-            </div>
+          {actionsEnabled && run.findings && run.findings.length > 0 ? (
+            <FindingsList run={run} repoOwner={repoOwner} repoName={repoName} />
+          ) : (
+            <>
+              {actionsEnabled &&
+                run.resultSummary &&
+                !run.findings &&
+                run.status === "success" && (
+                  <div className="flex items-center gap-2 rounded-lg bg-yellow-500/10 px-3 py-2">
+                    <IconAlertTriangle
+                      size={14}
+                      className="shrink-0 text-yellow-600"
+                    />
+                    <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                      Could not parse findings from report
+                    </p>
+                  </div>
+                )}
+              {run.resultSummary && (
+                <div>
+                  <Streamdown
+                    className="text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                    plugins={summaryPlugins}
+                  >
+                    {run.resultSummary}
+                  </Streamdown>
+                </div>
+              )}
+            </>
           )}
           {run.error && (
             <div>
@@ -325,6 +377,9 @@ function SettingsForm({ automation }: { automation: Automation }) {
   const [cronSchedule, setCronSchedule] = useState(automation.cronSchedule);
   const [model, setModel] = useState<ClaudeModel>(automation.model ?? "sonnet");
   const [readOnly, setReadOnly] = useState(automation.readOnly === true);
+  const [actionsEnabled, setActionsEnabled] = useState(
+    automation.actionsEnabled === true,
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   const hasChanges =
@@ -332,7 +387,8 @@ function SettingsForm({ automation }: { automation: Automation }) {
     description !== automation.description ||
     cronSchedule !== automation.cronSchedule ||
     model !== (automation.model ?? "sonnet") ||
-    readOnly !== (automation.readOnly === true);
+    readOnly !== (automation.readOnly === true) ||
+    actionsEnabled !== (automation.actionsEnabled === true);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -344,6 +400,7 @@ function SettingsForm({ automation }: { automation: Automation }) {
         cronSchedule,
         model,
         readOnly,
+        actionsEnabled: readOnly ? actionsEnabled : false,
       });
     } finally {
       setIsSaving(false);
@@ -408,6 +465,34 @@ function SettingsForm({ automation }: { automation: Automation }) {
           </button>
         </div>
       </div>
+
+      {readOnly && (
+        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium">Actions</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Parse findings into actionable items you can convert to tasks
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActionsEnabled(!actionsEnabled)}
+              className={cn(
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                actionsEnabled ? "bg-emerald-500" : "bg-muted-foreground/30",
+              )}
+            >
+              <span
+                className={cn(
+                  "pointer-events-none block h-5 w-5 rounded-full bg-white transition-transform",
+                  actionsEnabled ? "translate-x-5" : "translate-x-0",
+                )}
+              />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Model</h3>

@@ -33,7 +33,7 @@ export async function createNotification(
     if (repo) {
       const baseHref = getRepoHref(repo.owner, repo.name, repo.rootDirectory);
       if (params.taskId && !params.projectId) {
-        href = `${baseHref}/quick-tasks/${params.taskId}`;
+        href = `${baseHref}/quick-tasks?taskId=${params.taskId}`;
       } else if (params.projectId) {
         href = `${baseHref}/projects/${params.projectId}`;
       } else {

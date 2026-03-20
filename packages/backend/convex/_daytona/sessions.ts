@@ -57,7 +57,7 @@ function getSessionSyncStrategy(branchName: string, baseBranch: string) {
   return createBranchSyncStrategy([branchName, baseBranch]);
 }
 
-function isRetryableSessionFetchError(message: string): boolean {
+function isRetryableSessionGitError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
     (lower.includes("sandbox exec") && lower.includes("timed out")) ||
@@ -97,7 +97,7 @@ async function checkRemoteBranchExistsWithRetry(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const canRetry =
-        attempt < maxAttempts && isRetryableSessionFetchError(message);
+        attempt < maxAttempts && isRetryableSessionGitError(message);
       if (!canRetry) {
         throw error;
       }
@@ -143,13 +143,44 @@ async function fetchSessionBaseFallbackBranch(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const canRetry =
-        attempt < maxAttempts && isRetryableSessionFetchError(message);
+        attempt < maxAttempts && isRetryableSessionGitError(message);
       if (!canRetry) {
         throw error;
       }
       const delayMs = 1000 * attempt;
       logSession(
         `fetchSessionBaseFallbackBranch retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch}): ${message}`,
+      );
+      await sleep(delayMs);
+    }
+  }
+}
+
+async function checkoutSessionBranchWithRetry(
+  sandbox: Sandbox,
+  branchName: string,
+  baseBranch: string,
+): Promise<void> {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await checkoutSessionBranch(sandbox, branchName, baseBranch);
+      if (attempt > 1) {
+        logSession(
+          `checkoutSessionBranchWithRetry recovered on retry ${attempt}/${maxAttempts} (branch=${branchName}, base=${baseBranch})`,
+        );
+      }
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const canRetry =
+        attempt < maxAttempts && isRetryableSessionGitError(message);
+      if (!canRetry) {
+        throw error;
+      }
+      const delayMs = 1000 * attempt;
+      logSession(
+        `checkoutSessionBranchWithRetry retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, branch=${branchName}, base=${baseBranch}): ${message}`,
       );
       await sleep(delayMs);
     }
@@ -265,7 +296,7 @@ async function installSnapshotDependenciesWithRetry(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const canRetry =
-        attempt < maxAttempts && isRetryableSessionFetchError(message);
+        attempt < maxAttempts && isRetryableSessionGitError(message);
       if (!canRetry) {
         throw error;
       }
@@ -358,7 +389,7 @@ export const startSessionSandbox = internalAction({
                   args.branchName,
                   args.baseBranch,
                 );
-                await checkoutSessionBranch(
+                await checkoutSessionBranchWithRetry(
                   sandbox,
                   args.branchName,
                   args.baseBranch,
@@ -433,7 +464,12 @@ export const startSessionSandbox = internalAction({
       await runLoggedSessionStep(
         "newSessionSandbox.checkoutSessionBranch",
         sandboxDetails,
-        () => checkoutSessionBranch(sandbox, args.branchName, args.baseBranch),
+        () =>
+          checkoutSessionBranchWithRetry(
+            sandbox,
+            args.branchName,
+            args.baseBranch,
+          ),
       );
       const { port: devPort, devCommand } = await runLoggedSessionStep(
         "newSessionSandbox.startSessionServices",

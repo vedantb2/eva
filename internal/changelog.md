@@ -1,5 +1,15 @@
 # Changelog
 
+## Normalize fresh snapshot repos before sandbox git operations - 2026-03-20
+
+- **Why**: Session startup was still timing out in `checkoutSessionBranch` even after the fetch-related fixes. The failing step was local git work after a successful fetch, which pointed to fresh snapshot sandboxes starting from a dirty worktree rather than a remote sync issue.
+- **Clean startup worktree**: `_daytona/git.ts` now hard-resets tracked files and removes non-ignored untracked files once for every newly created snapshot-backed sandbox before any sync, checkout, or branch-setup work runs. That keeps reuse behavior unchanged while preventing startup git commands from trying to stash snapshot dirt first.
+
+## Retry session branch checkout after transient sandbox exec stalls - 2026-03-20
+
+- **Why**: Session startup was still occasionally failing after the earlier fetch/probe fixes because the final `checkoutSessionBranch` step could hang in one sandbox attempt even when the ref sync had already succeeded. Retrying the whole session would usually work, which pointed to transient sandbox exec stalls rather than bad git state.
+- **Session checkout retries**: `_daytona/sessions.ts` now wraps `checkoutSessionBranch` in the same short-backoff retry policy already used for session branch probes and base fallback fetches, so first-run session startup is less likely to fail on a single bad checkout exec.
+
 ## Remove Playwright browser bootstrap from snapshots - 2026-03-20
 
 - **Why**: The current `agent-browser` runtime is now a native Rust CLI and no longer needs a Playwright-managed Chromium download in our snapshot image. Keeping the old Playwright browser bootstrap adds image weight and rebuild time without helping the backend runtime path.

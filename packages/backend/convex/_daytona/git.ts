@@ -351,6 +351,22 @@ export async function checkoutFetchedBaseBranch(
   });
 }
 
+export async function normalizeSnapshotWorktree(
+  sandbox: Sandbox,
+): Promise<void> {
+  await runLoggedGitStep(
+    "normalizeSnapshotWorktree",
+    WORKSPACE_DIR,
+    async () => {
+      await exec(
+        sandbox,
+        `cd ${WORKSPACE_DIR} && git reset --hard HEAD && git clean -fd`,
+        60,
+      );
+    },
+  );
+}
+
 async function installDependencies(
   sandbox: Sandbox,
   pm: string,
@@ -463,6 +479,7 @@ export async function createSandboxAndPrepareRepo(
           await onSandboxAcquired(sandbox);
         }
         if (snapshotName) {
+          await normalizeSnapshotWorktree(sandbox);
           if (syncStrategy.mode !== "none") {
             if (onProgress) await onProgress("Syncing repository...");
             await syncRepo(sandbox, installationId, owner, name, syncStrategy);

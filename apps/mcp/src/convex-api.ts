@@ -314,6 +314,22 @@ export async function resolveUserByClerkId(
   return null;
 }
 
+export async function ensureUserExists(
+  convexUrl: string,
+  clerkUserId: string,
+): Promise<string> {
+  const result = await runMutationAsUser(
+    convexUrl,
+    clerkUserId,
+    "auth:ensureUserExists",
+    {},
+  );
+  const parsed = z
+    .object({ userId: z.string(), wasCreated: z.boolean() })
+    .parse(result);
+  return parsed.userId;
+}
+
 export async function listUserRepos(
   convexUrl: string,
   deployKey: string,

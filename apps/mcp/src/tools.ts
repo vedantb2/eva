@@ -13,6 +13,7 @@ import {
   getRepoConvexCredentials,
   runMutationAsUser,
   resolveUserByClerkId,
+  ensureUserExists,
   type Repo,
 } from "./convex-api.js";
 
@@ -40,13 +41,9 @@ export function registerTools(
     userId: string;
   }> {
     const deployKey = await getDeployKey(convexUrl);
-    const userId = await resolveUserByClerkId(
-      convexUrl,
-      deployKey,
-      clerkUserId,
-    );
+    let userId = await resolveUserByClerkId(convexUrl, deployKey, clerkUserId);
     if (!userId) {
-      throw new Error("User not found. Ensure your Eva account exists.");
+      userId = await ensureUserExists(convexUrl, clerkUserId);
     }
     return { deployKey, userId };
   }

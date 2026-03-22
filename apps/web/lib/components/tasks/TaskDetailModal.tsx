@@ -18,6 +18,8 @@ import {
   IconMessagePlus,
   IconLoader2,
   IconClock,
+  IconChevronLeft,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import dayjs from "@conductor/shared/dates";
@@ -39,12 +41,16 @@ interface TaskDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   taskId: Id<"agentTasks">;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
 }
 
 export function TaskDetailModal({
   isOpen,
   onClose,
   taskId,
+  onNavigatePrev,
+  onNavigateNext,
 }: TaskDetailModalProps) {
   const {
     isLoading,
@@ -112,18 +118,40 @@ export function TaskDetailModal({
           className={`w-full ${modalWidthClass} max-h-[90vh] h-[85vh] overflow-hidden flex flex-col p-4 sm:p-6`}
         >
           <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg">
-              {isLoading ? (
-                <span className="text-muted-foreground">Loading...</span>
-              ) : (
-                <TaskHeader
-                  taskNumber={task?.taskNumber}
-                  title={task?.title}
-                  canEditTaskText={canEditTaskText}
-                  taskId={taskId}
-                />
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base sm:text-lg flex-1 min-w-0">
+                {isLoading ? (
+                  <span className="text-muted-foreground">Loading...</span>
+                ) : (
+                  <TaskHeader
+                    taskNumber={task?.taskNumber}
+                    title={task?.title}
+                    canEditTaskText={canEditTaskText}
+                    taskId={taskId}
+                  />
+                )}
+              </DialogTitle>
+              {(onNavigatePrev || onNavigateNext) && (
+                <div className="flex items-center gap-0.5 ml-2 shrink-0">
+                  <button
+                    onClick={onNavigatePrev}
+                    disabled={!onNavigatePrev}
+                    className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                    title="Previous task"
+                  >
+                    <IconChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={onNavigateNext}
+                    disabled={!onNavigateNext}
+                    className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                    title="Next task"
+                  >
+                    <IconChevronRight size={16} />
+                  </button>
+                </div>
               )}
-            </DialogTitle>
+            </div>
           </DialogHeader>
           {isLoading ? (
             <div className="flex-1 flex items-center justify-center">

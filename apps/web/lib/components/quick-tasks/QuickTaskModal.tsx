@@ -159,36 +159,25 @@ export function QuickTaskModal({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Title</label>
-            <Input
-              placeholder="What needs to be done?"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Description</label>
-            <Textarea
-              placeholder="Add more details (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={6}
-              className="min-h-[120px] max-h-[50vh] sm:min-h-[200px]"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Base Branch <span className="text-destructive">*</span>
-            </label>
-            <BranchSelect
-              value={baseBranch}
-              onValueChange={setBaseBranch}
-              placeholder="Select a branch"
-              className="h-10"
-            />
-          </div>
+          <Input
+            placeholder="What needs to be done?"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+          />
+          <Textarea
+            placeholder="Add more details (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={6}
+            className="min-h-[120px] max-h-[50vh] sm:min-h-[200px]"
+          />
+          <BranchSelect
+            value={baseBranch}
+            onValueChange={setBaseBranch}
+            placeholder="Select a base branch"
+            className="h-10"
+          />
         </div>
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           <div>

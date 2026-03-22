@@ -44,7 +44,7 @@ export function PageWrapper({
                 </Button>
               )}
               {title && (
-                <h1 className="truncate text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300">
+                <h1 className="min-w-0 whitespace-nowrap text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300">
                   {title}
                 </h1>
               )}

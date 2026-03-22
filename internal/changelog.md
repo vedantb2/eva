@@ -1,5 +1,119 @@
 # Changelog
 
+## Consolidate session startup and simplify branch-aware sandbox prep - 2026-03-20
+
+- **Why**: Sandbox startup logic had drifted across multiple overlapping paths. Sessions could start through both the dedicated session action and the generic `prepareSandbox` flow, branch-aware task prep was still checking out base before branch setup even though branch setup already handles base creation/merge, and timed-out git commands could leave stale git state behind for the next retry.
+- **One session prep path**: `_daytona/sessions.ts` now owns a reusable session sandbox preparation helper, and `sessionWorkflow.ts` uses that same path instead of the generic `prepareSandbox` action. That keeps session restore semantics, branch checkout behavior, and desktop startup aligned.
+- **Less duplicate branch work**: `_daytona/prepareSandboxSteps.ts` and `_daytona/execution.ts` now skip the explicit `checkout base branch` step when a branch setup step is going to run immediately afterward, which trims redundant git work from quick tasks, automations, and eval fix flows.
+- **Git timeout cleanup**: `_daytona/git.ts` now routes git commands through a shared helper that performs best-effort git process/lock cleanup after sandbox exec timeouts, so one bad timeout is less likely to contaminate the next retry in the same sandbox.
+
+## Normalize fresh snapshot repos before sandbox git operations - 2026-03-20
+
+- **Why**: Session startup was still timing out in `checkoutSessionBranch` even after the fetch-related fixes. The failing step was local git work after a successful fetch, which pointed to fresh snapshot sandboxes starting from a dirty worktree rather than a remote sync issue.
+- **Clean startup worktree**: `_daytona/git.ts` now hard-resets tracked files and removes non-ignored untracked files once for every newly created snapshot-backed sandbox before any sync, checkout, or branch-setup work runs. That keeps reuse behavior unchanged while preventing startup git commands from trying to stash snapshot dirt first.
+
+## Retry session branch checkout after transient sandbox exec stalls - 2026-03-20
+
+- **Why**: Session startup was still occasionally failing after the earlier fetch/probe fixes because the final `checkoutSessionBranch` step could hang in one sandbox attempt even when the ref sync had already succeeded. Retrying the whole session would usually work, which pointed to transient sandbox exec stalls rather than bad git state.
+- **Session checkout retries**: `_daytona/sessions.ts` now wraps `checkoutSessionBranch` in the same short-backoff retry policy already used for session branch probes and base fallback fetches, so first-run session startup is less likely to fail on a single bad checkout exec.
+
+## Remove Playwright browser bootstrap from snapshots - 2026-03-20
+
+- **Why**: The current `agent-browser` runtime is now a native Rust CLI and no longer needs a Playwright-managed Chromium download in our snapshot image. Keeping the old Playwright browser bootstrap adds image weight and rebuild time without helping the backend runtime path.
+- **Snapshot simplification**: `rebuild-snapshot.yml` now removes the Playwright Chromium install step and leaves the Playwright Linux dependency step commented out as a rollback lever while we validate that the native `agent-browser` + system Chrome path is sufficient.
+
+## Bake core git and shell tooling into Daytona snapshots - 2026-03-20
+
+- **Why**: Snapshot sandboxes are the normal execution path, so missing core CLI tools inside the image still show up as runtime flakiness or slower fallback behavior even when sandbox startup itself is healthy.
+- **Tooling parity**: `rebuild-snapshot.yml` now installs `jq`, `ripgrep`, `fd`, `git-lfs`, and `gh` in the base image so agent prompts and sandbox debugging tools are available immediately without ad hoc installs.
+- **More deterministic dependency layer**: Snapshot builds now use `pnpm install --frozen-lockfile`, which keeps the baked dependency state aligned with the committed lockfile and avoids silently drifting snapshot contents.
+
+## Restore full git history for snapshot-backed automation reviews - 2026-03-20
+
+- **Why**: Read-only automations that run from Daytona snapshots started misreporting repo history after the sandbox-prep simplification removed an accidental extra sync. The snapshots themselves were also being built from shallow GitHub Actions checkouts, so review/report automations could end up seeing only the tip commit.
+- **Snapshot source history**: `rebuild-snapshot.yml` now checks out the repo with full git history before copying it into the snapshot image, so newly built snapshots preserve the real commit graph instead of a depth-1 checkout.
+
+## Automation findings → task creation - 2026-03-20
+
+- **Why**: Read-only automations produced free-form markdown reports with no way to act on individual findings. Users had no control over which issues got fixed — they either ran in implementation mode (fixes everything) or report mode (fixes nothing).
+- **Structured findings**: When `actionsEnabled` is toggled on for a read-only automation, the prompt instructs Claude to output a JSON array of findings (title, description, severity, file paths, suggested fix). The workflow parses this and stores it on the `automationRuns` record.
+- **Finding → task conversion**: New `createTasksFromFindings` mutation lets users select specific findings via checkboxes and create quick tasks from them, with optional auto-execution. Each finding tracks whether a task was created from it.
+- **Settings UI**: New "Actions" toggle in automation settings (only visible when Report Only is enabled). Run history shows findings with checkboxes instead of raw markdown when findings are present, with fallback + warning banner if parsing fails.
+
+## Retry split sandbox git steps and design snapshot installs - 2026-03-19
+
+- **Why**: Even after removing redundant startup sync, quick-task sandbox prep still depended on separate `fetch base`, `checkout base`, and `setup branch` workflow actions with no local retry policy, and design sandboxes still had a single-shot snapshot install step that could be slow or flaky.
+- **Split git step retries**: `_daytona/prepareSandboxSteps.ts` now gives `fetchBaseBranch`, `checkoutBaseBranch`, and `setupSandboxBranch` explicit workflow retries so transient git/setup failures do not immediately fail the whole run.
+- **Design install retries**: `_daytona/sessions.ts` now detects the package manager for snapshot-backed design sandboxes and retries dependency installation a few times on timeout/network-style failures instead of assuming one `pnpm install` attempt will always succeed.
+- **Proof failure visibility**: `_daytona/callbackScript.ts` now records a task-proof message when proof persistence fails after completion, so those issues stay visible without blocking a successful run from finishing.
+
+## Complete runs before proof upload and make finalization explicit - 2026-03-19
+
+- **Why**: Tasks could finish real work, then stall in the post-response callback path long enough for the watchdog to kill them. The completion event, proof upload, and finalization heartbeat were too tightly coupled, and the watchdog had to infer finalization from streaming text.
+- **Completion first, proof second**: `_daytona/callbackScript.ts` now marks task runs as finalizing, sends the completion mutation first, and only then performs best-effort proof/media persistence. That prevents screenshot/video upload delays from blocking workflow completion.
+- **Explicit finalizing run state**: `agentRuns` now tracks `finalizingAt`, `_taskWorkflow/publicMutations.ts` exposes `markRunFinalizing`, and `_taskWorkflow/watchdog.ts` uses that timestamp directly when deciding whether a run is in finalization.
+- **Design sandbox prep simplified safely**: `_daytona/sessions.ts` now gives design sandboxes the same “create with no upfront sync, then fetch only needed refs before setup” treatment, while keeping full-history fetches for the merge-based design branch setup path.
+
+## Harden finalization heartbeats and completion callbacks - 2026-03-19
+
+- **Why**: Some tasks were visibly finishing work and even pushing branches, then getting killed by the watchdog during `Finalizing response...`. That points to failures in the post-response callback path rather than the agent work itself.
+- **Single heartbeat path**: `_daytona/callbackScript.ts` now sends streaming heartbeats directly through the regular `streaming:set` mutation instead of a separate `/api/streaming/heartbeat` endpoint, and the old HMAC heartbeat route/env plumbing has been removed from `_daytona/helpers.ts` and `http.ts`.
+- **No more silent completion no-ops**: `_taskWorkflow/publicMutations.ts` now throws when task/audit completion callbacks cannot actually target the active workflow or active run, instead of silently returning `null`. That lets the callback script retry instead of incorrectly treating a dropped completion event as success.
+
+## Remove redundant branch sync from quick-task sandbox creation - 2026-03-19
+
+- **Why**: Concurrent quick tasks were still failing even after the session-specific fixes because the workflow fetched `staging + task branch` during `createOrResumeSandbox`, then immediately fetched/check out base and set up the branch again in later steps. That duplicated the most contention-prone git work right at sandbox creation.
+- **Workflow-level simplification**: `_daytona/prepareSandboxSteps.ts` now creates or resumes the sandbox without passing branch/base refs into `createOrResumeSandbox`, so snapshot sandbox acquisition skips the redundant upfront branch sync.
+- **Shared prepare path simplified too**: `_daytona/execution.ts` now makes the generic `prepareSandbox` action acquire sandboxes with `syncStrategy=none`, then relies on its existing explicit fetch/check out/setup steps afterward. That removes the same duplicated sync from other branch-aware sandbox starters that use `prepareSandbox`.
+- **Preserves task setup semantics**: Quick tasks and other `prepareSandbox` callers still fetch the base branch, check it out, and run branch setup exactly as before; they just stop doing the same ref sync twice.
+
+## Retry session-branch existence probes quickly - 2026-03-18
+
+- **Why**: Concurrent session starts could still fail with `Sandbox exec (30s) timed out after 45000ms` before reaching checkout or the base-branch fallback. The remaining 30s session-path probe was `git ls-remote` for the remote session branch, which can also stall transiently under concurrency.
+- **Fail-fast probe timeout**: `_daytona/sessions.ts` now checks for the remote session branch with a 10s timeout per attempt instead of waiting a full 30s on one bad `ls-remote`.
+- **Targeted retries**: Session-only remote-branch existence checks now retry a few times with short backoff when the sandbox exec times out, matching the resilience already added to the shallow base-branch fallback fetch.
+
+## Retry shallow session base fallback fetches quickly - 2026-03-18
+
+- **Why**: After switching regular sessions to a shallow base-branch fallback, one sandbox could fetch `staging` in about a second while another still sat on the same command for 45 seconds before retrying. That points to transient sandbox fetch stalls, not consistently expensive work.
+- **More aggressive fail-fast fallback fetches**: `_daytona/sessions.ts` now gives the shallow fallback base fetch a 15s timeout instead of waiting 45s on a single bad attempt.
+- **Targeted retries**: Regular session fallback fetches now retry a few times with short backoff when they fail with sandbox exec timeouts, so transient stalls no longer tank the whole session start as easily.
+
+## Use ls-remote before fetching session branch - 2026-03-18
+
+- **Why**: Concurrent first-run session starts were still timing out while trying to fetch remote session branches that did not exist yet. We were paying full `git fetch` cost just to learn the branch was missing.
+- **Cheap existence probe**: `_daytona/git.ts` now exposes `remoteBranchExists`, which uses `git ls-remote --heads` to check for a remote session branch without downloading pack data.
+- **Session restore path updated**: `_daytona/sessions.ts` now checks whether the remote session branch exists first. Existing remote session branches are fetched shallowly for checkout; missing ones skip straight to the shallow base-branch fallback.
+
+## Make session fallback base fetch shallow - 2026-03-18
+
+- **Why**: Concurrent regular session starts were still getting stuck on the fallback base-branch fetch after the session-branch probe succeeded. That fallback only exists to give `checkoutSessionBranch` a base ref when the remote session branch does not exist yet, so it does not need full branch history.
+- **Session-only shallow fallback**: `_daytona/sessions.ts` now requests a shallow base-branch fetch for the regular session restore fallback path, while `_daytona/git.ts` keeps full-history branch fetches as the default for merge-sensitive task and design flows.
+- **Preserves restore behavior**: Sessions still restore from the remote session branch when it exists and still fall back to base when it does not, but the expensive fallback `staging` fetch now transfers less history.
+
+## Fetch session branch first on restore - 2026-03-18
+
+- **Why**: Regular session sandboxes were still spending too long in `fetchBranchRefs` because startup always fetched both the remote session branch and base branch up front, even though the base branch is only needed when the session branch does not exist remotely.
+- **Session-specific sync path**: `_daytona/sessions.ts` now fetches the session branch first for restore. If that remote branch exists, startup skips the base branch fetch entirely and goes straight to checkout. Only missing remote session branches fall back to fetching the base branch.
+- **Preserves restore semantics**: Recreated sessions still restore from `origin/<session-branch>` when available and still fall back to base for first-run sessions, but the common restore path now does less network work.
+
+## Add step-level session sandbox timing logs - 2026-03-18
+
+- **Why**: Session sandbox starts were still taking long enough that we were reasoning from timeouts instead of knowing the exact slow step. We need visibility into whether a delay is sandbox create, snapshot sync, branch checkout, or session-ready mutation.
+- **Session action timing**: `_daytona/sessions.ts` now logs start, completion, and failure timings for repo lookup, sandbox context resolution, sandbox reuse, volume attach, sandbox creation/prep, branch checkout, service detection, and ready/error mutations.
+- **Git helper timing**: `_daytona/git.ts` now logs timings for sandbox create, origin configuration, fetches, syncs, checkout, and branch setup so snapshot-backed session starts can be traced end-to-end from server logs.
+
+## Increase startup headroom for branch sync and snapshot install - 2026-03-18
+
+- **Why**: Sandbox startup was still failing with `Sandbox exec (120s) timed out after 135000ms` on valid long-running setup work. The remaining 120s caps were too aggressive for branch-scoped fetches on larger repos and snapshot-backed design-session reinstalls.
+- **Branch sync timeout 120s → 240s**: `_daytona/git.ts` now gives branch-targeted `syncRepo` the same larger timeout budget as other fetch-heavy startup paths.
+- **Snapshot design install timeout 120s → 240s**: `_daytona/sessions.ts` now gives the post-snapshot `pnpm install` step more room so design sandboxes do not fail purely because dependency relinking takes longer than two minutes.
+
+## Remove redundant origin reconfigure before local base checkout - 2026-03-18
+
+- **Why**: The split sandbox prep flow already reconfigured `origin` during `fetchBaseBranch`, then paid for another `configureGitHubOrigin` call in `checkoutBaseBranch` even though the checkout step only does a local fast-forward merge against `origin/<baseBranch>`.
+- **One less sandbox round trip**: `checkoutBaseBranch` now goes straight to the local checkout/merge step, shaving an extra `exec()` from workflows that use the granular base-branch path without changing git behavior.
+
 ## Restore remote session branch on sandbox recreate - 2026-03-18
 
 - **Why**: Session startup must restore prior work when a sandbox is recreated. Fetching only the base branch made fresh sandboxes recreate the session branch from base, which could make an existing remote session branch appear blank.

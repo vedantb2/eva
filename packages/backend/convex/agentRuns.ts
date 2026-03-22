@@ -231,6 +231,7 @@ export const complete = authMutation({
     const now = Date.now();
     await ctx.db.patch(args.id, {
       status: args.success ? "success" : "error",
+      finalizingAt: undefined,
       finishedAt: now,
       resultSummary: args.resultSummary,
       prUrl: args.prUrl,

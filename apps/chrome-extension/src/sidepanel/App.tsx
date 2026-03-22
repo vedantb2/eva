@@ -3,7 +3,6 @@ import {
   ClerkProvider,
   SignedIn,
   SignedOut,
-  SignInButton,
   useUser,
 } from "@clerk/chrome-extension";
 import {
@@ -57,6 +56,9 @@ if (!PUBLISHABLE_KEY) {
 }
 
 const EXTENSION_URL = chrome.runtime.getURL(".");
+const SYNC_HOST = import.meta.env.DEV
+  ? "http://localhost:3000"
+  : "https://eva-git-staging-vedantb.vercel.app";
 
 function getHostFromUrl(url: string): string | null {
   try {
@@ -844,6 +846,10 @@ function AuthenticatedApp() {
 }
 
 function SignInScreen() {
+  const handleOpenWebApp = () => {
+    chrome.tabs.create({ url: SYNC_HOST });
+  };
+
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground p-6">
       <div className="flex items-center gap-3 mb-8">
@@ -852,17 +858,13 @@ function SignInScreen() {
       </div>
 
       <p className="text-muted-foreground text-center mb-8 max-w-xs">
-        AI-powered assistant for asking questions and flagging issues in your
-        codebase.
+        Sign in on the Eva web app to use the extension. Your session will sync
+        automatically.
       </p>
 
-      <SignInButton mode="modal">
-        <Button size="lg">Sign in to continue</Button>
-      </SignInButton>
-
-      <p className="text-muted-foreground text-sm mt-6 text-center">
-        Sign in with your account to get started
-      </p>
+      <Button size="lg" onClick={handleOpenWebApp}>
+        Open Eva
+      </Button>
     </div>
   );
 }
@@ -874,6 +876,7 @@ export default function App() {
       afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`}
       signInFallbackRedirectUrl={`${EXTENSION_URL}/sidepanel.html`}
       signUpFallbackRedirectUrl={`${EXTENSION_URL}/sidepanel.html`}
+      syncHost={SYNC_HOST}
     >
       <ConvexProvider>
         <TooltipProvider>

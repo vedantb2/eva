@@ -65,6 +65,137 @@ Provide a clear, structured report answering the prompt. This is the only output
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+function buildActionableReportPrompt(
+  title: string,
+  description: string,
+  rootDirectory: string,
+): string {
+  return `You are in READ-ONLY / REPORT MODE with STRUCTURED FINDINGS. Do NOT modify any files, do NOT commit, do NOT push, do NOT create branches or PRs.
+
+## Automation: ${title}
+## Prompt: ${description}
+
+## Steps:
+1. Read and analyze the codebase to answer the prompt
+2. You may run read-only commands (e.g. grep, find, cat, ls, git log, git diff, npm test, npm run build) to gather information
+3. Identify discrete, actionable findings
+4. Output your findings as structured JSON (see format below)
+
+## Findings Output (REQUIRED):
+At the END of your response, output a JSON array of findings inside a fenced code block, preceded by the marker \`<!-- FINDINGS_JSON -->\`.
+
+Each finding must have:
+- \`title\`: short summary of the issue (1 line)
+- \`description\`: detailed explanation of the issue
+- \`severity\`: one of "low", "medium", "high", "critical"
+- \`filePaths\`: array of relevant file paths (optional but preferred)
+- \`suggestedFix\`: how to fix this issue (optional but preferred)
+
+Example:
+<!-- FINDINGS_JSON -->
+\`\`\`json
+[
+  {
+    "title": "Unhandled null reference in UserService",
+    "description": "The getUserById method does not handle the case where the user is not found, leading to a null reference error.",
+    "severity": "high",
+    "filePaths": ["src/services/UserService.ts"],
+    "suggestedFix": "Add a null check after the database query and return an appropriate error response."
+  }
+]
+\`\`\`
+
+You may include narrative text before the JSON block for context, but the JSON block MUST appear at the end.
+
+## Rules:
+- Do NOT edit, write, or create any files
+- Do NOT run git add, git commit, git push, or any git commands that modify state
+- Do NOT use agent-browser, take screenshots, or record videos
+- Do NOT run audits
+- Prefix shell commands with timeouts: \`timeout 60 npm run build\`, \`timeout 60 npm test\`
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+}
+
+interface ParsedFinding {
+  id: string;
+  title: string;
+  description: string;
+  severity: "low" | "medium" | "high" | "critical";
+  filePaths?: string[];
+  suggestedFix?: string;
+}
+
+type Severity = ParsedFinding["severity"];
+
+const VALID_SEVERITIES: Record<string, Severity> = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+  critical: "critical",
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseFindingsFromResult(resultText: string): ParsedFinding[] | null {
+  const markerIdx = resultText.indexOf("<!-- FINDINGS_JSON -->");
+  if (markerIdx === -1) return null;
+
+  const afterMarker = resultText.slice(markerIdx);
+  const jsonMatch = afterMarker.match(/```json\s*([\s\S]*?)```/);
+  if (!jsonMatch) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(jsonMatch[1].trim());
+    if (!Array.isArray(parsed)) return null;
+
+    const findings: ParsedFinding[] = [];
+    for (let i = 0; i < parsed.length; i++) {
+      const item: unknown = parsed[i];
+      if (!isRecord(item)) continue;
+
+      const title = item.title;
+      const description = item.description;
+      const severityRaw = item.severity;
+
+      if (typeof title !== "string" || typeof description !== "string")
+        continue;
+      if (typeof severityRaw !== "string") continue;
+
+      const severity = VALID_SEVERITIES[severityRaw];
+      if (!severity) continue;
+
+      const finding: ParsedFinding = {
+        id: `finding-${String(i)}`,
+        title,
+        description,
+        severity,
+      };
+
+      if (
+        Array.isArray(item.filePaths) &&
+        item.filePaths.every((fp: unknown) => typeof fp === "string")
+      ) {
+        const paths: string[] = [];
+        for (const fp of item.filePaths) {
+          if (typeof fp === "string") paths.push(fp);
+        }
+        finding.filePaths = paths;
+      }
+
+      if (typeof item.suggestedFix === "string") {
+        finding.suggestedFix = item.suggestedFix;
+      }
+
+      findings.push(finding);
+    }
+    return findings.length > 0 ? findings : null;
+  } catch {
+    return null;
+  }
+}
+
 export const automationExecutionWorkflow = workflow.define({
   args: {
     runId: v.id("automationRuns"),
@@ -78,11 +209,13 @@ export const automationExecutionWorkflow = workflow.define({
     rootDirectory: v.string(),
     userId: v.id("users"),
     readOnly: v.optional(v.boolean()),
+    actionsEnabled: v.optional(v.boolean()),
   },
   handler: async (step, args): Promise<void> => {
     let sandboxId: string | undefined;
     let completionPrUrl: string | null = null;
     const isReadOnly = args.readOnly === true;
+    const isActionable = isReadOnly && args.actionsEnabled === true;
 
     try {
       await step.runMutation(internal.automations.updateRunStatus, {
@@ -96,14 +229,24 @@ export const automationExecutionWorkflow = workflow.define({
       });
       if (!data) throw new Error("Automation data not found");
 
-      const prompt = isReadOnly
-        ? buildReadOnlyPrompt(args.title, args.description, args.rootDirectory)
-        : buildAutomationPrompt(
+      const prompt = isActionable
+        ? buildActionableReportPrompt(
             args.title,
             args.description,
-            args.branchName,
             args.rootDirectory,
-          );
+          )
+        : isReadOnly
+          ? buildReadOnlyPrompt(
+              args.title,
+              args.description,
+              args.rootDirectory,
+            )
+          : buildAutomationPrompt(
+              args.title,
+              args.description,
+              args.branchName,
+              args.rootDirectory,
+            );
 
       const streamingEntityId = `automation-run-${String(args.runId)}`;
 
@@ -176,6 +319,11 @@ export const automationExecutionWorkflow = workflow.define({
         );
       }
 
+      const findings =
+        isActionable && result.success
+          ? parseFindingsFromResult(result.result ?? "")
+          : null;
+
       await step.runMutation(internal.automations.updateRunStatus, {
         runId: args.runId,
         status: result.success ? "success" : "error",
@@ -183,6 +331,7 @@ export const automationExecutionWorkflow = workflow.define({
         resultSummary: result.result ?? undefined,
         prUrl: completionPrUrl ?? undefined,
         activityLog: result.activityLog ?? undefined,
+        findings: findings ?? undefined,
       });
 
       if (sandboxId) {

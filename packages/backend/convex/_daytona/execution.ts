@@ -6,7 +6,6 @@ import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
   exec,
-  WORKSPACE_DIR,
   resolveSandboxContext,
   getSandbox,
   sleep,
@@ -175,11 +174,6 @@ export const prepareSandbox = internalAction({
     const sessionVolumeMounts = args.sessionPersistenceId
       ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
       : undefined;
-    const syncStrategy = getSandboxPrepSyncStrategy(
-      args.branchName,
-      args.baseBranch,
-    );
-
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
@@ -210,7 +204,7 @@ export const prepareSandbox = internalAction({
             sessionVolumeMounts,
             attachRunSandbox,
             emitProgress,
-            syncStrategy,
+            { mode: "none" },
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -226,7 +220,7 @@ export const prepareSandbox = internalAction({
             snapshotName,
             sessionVolumeMounts,
             emitProgress,
-            syncStrategy,
+            { mode: "none" },
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
@@ -242,13 +236,10 @@ export const prepareSandbox = internalAction({
             args.baseBranch,
             { prune: false, timeoutSeconds: 240 },
           );
-          await exec(
-            sandbox,
-            `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
-            10,
-          );
-          await emitProgress("Checking out base branch...");
-          await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
+          if (!args.branchName) {
+            await emitProgress("Checking out base branch...");
+            await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
+          }
         }
 
         if (args.branchName) {
@@ -467,11 +458,6 @@ export const fetchBaseBranch = internalAction({
       args.baseBranch,
       { prune: false, timeoutSeconds: 240 },
     );
-    await exec(
-      sandbox,
-      `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
-      10,
-    );
     return null;
   },
 });
@@ -488,12 +474,6 @@ export const checkoutBaseBranch = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await configureGitHubOrigin(
-      sandbox,
-      args.installationId,
-      args.repoOwner,
-      args.repoName,
-    );
     await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
     return null;
   },

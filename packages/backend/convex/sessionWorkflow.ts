@@ -180,17 +180,17 @@ export const sessionExecuteWorkflow = workflow.define({
       sandboxId = validatedSandboxId;
     } else {
       const prepared = await step.runAction(
-        internal.daytona.prepareSandbox,
+        internal.daytona.prepareSessionSandbox,
         {
+          sessionId: args.sessionId,
+          existingSandboxId: data.sandboxId,
           installationId: args.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
-          branchName: data.branchName,
+          branchName: data.branchName ?? `eva/session-${args.sessionId}`,
           baseBranch: data.baseBranch,
           repoId: data.repoId,
-          sessionPersistenceId: args.sessionId,
           startDesktop: true,
-          streamingEntityId: args.sessionId,
         },
         { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
       );

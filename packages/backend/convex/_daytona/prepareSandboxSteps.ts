@@ -23,6 +23,10 @@ type PrepareSandboxArgs = {
   createRetry?: { maxAttempts: number; initialBackoffMs: number; base: number };
 };
 
+const STEP_RETRY = {
+  retry: { maxAttempts: 3, initialBackoffMs: 1000, base: 2 },
+};
+
 async function emitSteps(
   step: WorkflowCtx,
   streamingEntityId: string,
@@ -49,8 +53,6 @@ export async function prepareSandboxSteps(
       repoName: args.repoName,
       ephemeral: args.ephemeral,
       repoId: args.repoId,
-      branchName: args.branchName,
-      baseBranch: args.baseBranch,
       attachRunId: args.attachRunId,
       sessionPersistenceId: args.sessionPersistenceId,
       streamingEntityId: args.streamingEntityId,
@@ -71,44 +73,53 @@ export async function prepareSandboxSteps(
       { type: "tool", label: "Fetching base branch...", status: "active" },
     ]);
 
-    await step.runAction(internal.daytona.fetchBaseBranch, {
-      sandboxId,
-      installationId: args.installationId,
-      repoOwner: args.repoOwner,
-      repoName: args.repoName,
-      baseBranch: args.baseBranch,
-      repoId: args.repoId,
-    });
+    await step.runAction(
+      internal.daytona.fetchBaseBranch,
+      {
+        sandboxId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        baseBranch: args.baseBranch,
+        repoId: args.repoId,
+      },
+      STEP_RETRY,
+    );
 
     completedSteps.push({
       type: "tool",
       label: "Fetching base branch...",
       status: "complete",
     });
+    if (!args.branchName) {
+      await emitSteps(step, args.streamingEntityId, [
+        ...completedSteps,
+        {
+          type: "tool",
+          label: "Checking out base branch...",
+          status: "active",
+        },
+      ]);
 
-    await emitSteps(step, args.streamingEntityId, [
-      ...completedSteps,
-      {
+      await step.runAction(
+        internal.daytona.checkoutBaseBranch,
+        {
+          sandboxId,
+          installationId: args.installationId,
+          repoOwner: args.repoOwner,
+          repoName: args.repoName,
+          baseBranch: args.baseBranch,
+          repoId: args.repoId,
+        },
+        STEP_RETRY,
+      );
+
+      completedSteps.push({
         type: "tool",
         label: "Checking out base branch...",
-        status: "active",
-      },
-    ]);
-
-    await step.runAction(internal.daytona.checkoutBaseBranch, {
-      sandboxId,
-      installationId: args.installationId,
-      repoOwner: args.repoOwner,
-      repoName: args.repoName,
-      baseBranch: args.baseBranch,
-      repoId: args.repoId,
-    });
-
-    completedSteps.push({
-      type: "tool",
-      label: "Checking out base branch...",
-      status: "complete",
-    });
+        status: "complete",
+      });
+    }
   }
 
   if (args.branchName) {
@@ -117,15 +128,19 @@ export async function prepareSandboxSteps(
       { type: "tool", label: "Setting up branch...", status: "active" },
     ]);
 
-    await step.runAction(internal.daytona.setupSandboxBranch, {
-      sandboxId,
-      installationId: args.installationId,
-      repoOwner: args.repoOwner,
-      repoName: args.repoName,
-      branchName: args.branchName,
-      baseBranch: args.baseBranch ?? "main",
-      repoId: args.repoId,
-    });
+    await step.runAction(
+      internal.daytona.setupSandboxBranch,
+      {
+        sandboxId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        branchName: args.branchName,
+        baseBranch: args.baseBranch ?? "main",
+        repoId: args.repoId,
+      },
+      STEP_RETRY,
+    );
   }
 
   return sandboxId;

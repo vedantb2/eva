@@ -24,8 +24,6 @@ const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || 
 const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
 const CALLBACK_HTTP_RETRY_BASE_MS = 1000;
 const READY_FILE = "/tmp/run-design.ready";
-const STREAMING_HMAC = process.env.STREAMING_HMAC || "";
-const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || "";
 
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
 if (GH_TOKEN) {
@@ -113,19 +111,17 @@ async function callActionWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RE
 }
 
 async function callStreamingHeartbeat(entityId, currentActivity) {
-  if (!CONVEX_SITE_URL || !STREAMING_HMAC) {
-    return await callMutation("streaming:set", { entityId, currentActivity });
+  return await callMutation("streaming:set", { entityId, currentActivity });
+}
+
+async function markRunFinalizingIfNeeded() {
+  if (!RUN_ID || ENTITY_ID_FIELD !== "taskId") {
+    return;
   }
-  const res = await fetchWithTimeout(CONVEX_SITE_URL + "/api/streaming/heartbeat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ entityId, hmac: STREAMING_HMAC, currentActivity }),
+  await callMutationWithRetry("taskWorkflow:markRunFinalizing", {
+    taskId: ENTITY_ID,
+    runId: RUN_ID,
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
-  }
-  return res.json();
 }
 
 function shortenPath(p) {
@@ -386,6 +382,45 @@ for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
   }
 }
 
+async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFileName) {
+  if (videoStorageId || imageStorageId) {
+    if (ENTITY_ID_FIELD === "taskId") {
+      const storageId = videoStorageId || imageStorageId;
+      await callMutationWithRetry("taskProof:save", {
+        taskId: ENTITY_ID,
+        storageId,
+        fileName: lastFileName,
+      }, 3);
+      return;
+    }
+    const mediaArgs = { parentId: ENTITY_ID };
+    if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
+    if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
+    await callActionWithRetry("screenshots:attachMedia", mediaArgs, 3);
+    return;
+  }
+  if (ENTITY_ID_FIELD === "taskId") {
+    await callMutationWithRetry("taskProof:saveMessage", {
+      taskId: ENTITY_ID,
+      message: "No UI changes",
+    }, 3);
+  }
+}
+
+async function saveProofFailureMessageIfNeeded(message) {
+  if (ENTITY_ID_FIELD !== "taskId") {
+    return;
+  }
+  try {
+    await callMutationWithRetry("taskProof:saveMessage", {
+      taskId: ENTITY_ID,
+      message,
+    }, 2);
+  } catch (error) {
+    console.error("Failed to record proof persistence error:", error);
+  }
+}
+
 const INSTALLATION_ID = process.env.INSTALLATION_ID;
 if (INSTALLATION_ID && CONVEX_URL && CONVEX_TOKEN) {
   try {
@@ -596,56 +631,10 @@ try {
   }
 
   await setFinalizingState();
-
-  let videoStorageId = null;
-  let imageStorageId = null;
-  let lastFileName = null;
-  const recDir = WORK_DIR + "/recordings";
-  if (existsSync(recDir)) {
-    for (const file of readdirSync(recDir)) {
-      if (!/\\.(webm|mp4|mov|avi)$/i.test(file)) continue;
-      const fp = recDir + "/" + file;
-      const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
-      try {
-        videoStorageId = await uploadMediaFile(fp, mimeType);
-        lastFileName = file;
-      } catch {}
-      try { unlinkSync(fp); } catch {}
-    }
-  }
-  if (!videoStorageId) {
-    const ssDir = WORK_DIR + "/screenshots";
-    if (existsSync(ssDir)) {
-      for (const file of readdirSync(ssDir)) {
-        if (!/\\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
-        const fp = ssDir + "/" + file;
-        const ext = file.split(".").pop().toLowerCase();
-        const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
-        const mimeType = mimeMap[ext] || "image/png";
-        try {
-          imageStorageId = await uploadMediaFile(fp, mimeType);
-          lastFileName = file;
-        } catch {}
-        try { unlinkSync(fp); } catch {}
-      }
-    }
-  }
-  if (videoStorageId || imageStorageId) {
-    try {
-      if (ENTITY_ID_FIELD === "taskId") {
-        const storageId = videoStorageId || imageStorageId;
-        await callMutationWithRetry("taskProof:save", { taskId: ENTITY_ID, storageId, fileName: lastFileName }, 3);
-      } else {
-        const mediaArgs = { parentId: ENTITY_ID };
-        if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
-        if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
-        await callActionWithRetry("screenshots:attachMedia", mediaArgs, 3);
-      }
-    } catch {}
-  } else if (ENTITY_ID_FIELD === "taskId") {
-    try {
-      await callMutationWithRetry("taskProof:saveMessage", { taskId: ENTITY_ID, message: "No UI changes" }, 3);
-    } catch {}
+  try {
+    await markRunFinalizingIfNeeded();
+  } catch (e) {
+    console.error("Failed to mark run finalizing:", e);
   }
 
   let errorValue = null;
@@ -676,6 +665,49 @@ try {
   };
   try {
     await callMutationWithRetry(COMPLETION_MUTATION, completionArgs);
+    let videoStorageId = null;
+    let imageStorageId = null;
+    let lastFileName = null;
+    const recDir = WORK_DIR + "/recordings";
+    if (existsSync(recDir)) {
+      for (const file of readdirSync(recDir)) {
+        if (!/\\.(webm|mp4|mov|avi)$/i.test(file)) continue;
+        const fp = recDir + "/" + file;
+        const mimeType = file.endsWith(".mp4") ? "video/mp4" : "video/webm";
+        try {
+          videoStorageId = await uploadMediaFile(fp, mimeType);
+          lastFileName = file;
+        } catch {}
+        try { unlinkSync(fp); } catch {}
+      }
+    }
+    if (!videoStorageId) {
+      const ssDir = WORK_DIR + "/screenshots";
+      if (existsSync(ssDir)) {
+        for (const file of readdirSync(ssDir)) {
+          if (!/\\.(png|jpg|jpeg|gif|webp)$/i.test(file)) continue;
+          const fp = ssDir + "/" + file;
+          const ext = file.split(".").pop().toLowerCase();
+          const mimeMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
+          const mimeType = mimeMap[ext] || "image/png";
+          try {
+            imageStorageId = await uploadMediaFile(fp, mimeType);
+            lastFileName = file;
+          } catch {}
+          try { unlinkSync(fp); } catch {}
+        }
+      }
+    }
+    try {
+      await persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFileName);
+    } catch (e) {
+      console.error("Failed to persist task proof:", e);
+      const proofError =
+        e instanceof Error ? e.message : String(e);
+      await saveProofFailureMessageIfNeeded(
+        "Proof capture failed after completion: " + proofError,
+      );
+    }
     await stopStreamingLoops();
   } catch (e) {
     console.error("Failed to send completion:", e);

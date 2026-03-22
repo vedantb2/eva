@@ -26,4 +26,8 @@ export {
 
 export { launchAudit, launchAuditFix, runSessionAudit } from "./_daytona/audit";
 
-export { startSessionSandbox, startDesignSandbox } from "./_daytona/sessions";
+export {
+  startSessionSandbox,
+  prepareSessionSandbox,
+  startDesignSandbox,
+} from "./_daytona/sessions";

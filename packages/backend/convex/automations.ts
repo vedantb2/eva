@@ -6,6 +6,7 @@ import {
   claudeModelValidator,
   automationFields,
   automationRunFields,
+  automationFindingValidator,
   runStatusValidator,
 } from "./validators";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
@@ -81,6 +82,7 @@ export const update = authMutation({
     model: v.optional(claudeModelValidator),
     enabled: v.optional(v.boolean()),
     readOnly: v.optional(v.boolean()),
+    actionsEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -97,6 +99,8 @@ export const update = authMutation({
     if (args.model !== undefined) patch.model = args.model;
     if (args.enabled !== undefined) patch.enabled = args.enabled;
     if (args.readOnly !== undefined) patch.readOnly = args.readOnly;
+    if (args.actionsEnabled !== undefined)
+      patch.actionsEnabled = args.actionsEnabled;
 
     const newSchedule = args.cronSchedule ?? automation.cronSchedule;
     const newEnabled =
@@ -247,6 +251,7 @@ export const triggerAutomation = internalMutation({
         rootDirectory: repo.rootDirectory ?? "",
         userId: automation.createdBy,
         readOnly: automation.readOnly === true,
+        actionsEnabled: automation.actionsEnabled === true,
       },
     );
 
@@ -315,6 +320,7 @@ export const runNow = authMutation({
         rootDirectory: repo.rootDirectory ?? "",
         userId: automation.createdBy,
         readOnly: automation.readOnly === true,
+        actionsEnabled: automation.actionsEnabled === true,
       },
     );
 
@@ -358,6 +364,7 @@ export const updateRunStatus = internalMutation({
     resultSummary: v.optional(v.string()),
     prUrl: v.optional(v.string()),
     activityLog: v.optional(v.string()),
+    findings: v.optional(v.array(automationFindingValidator)),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -368,6 +375,7 @@ export const updateRunStatus = internalMutation({
       patch.resultSummary = args.resultSummary;
     if (args.prUrl !== undefined) patch.prUrl = args.prUrl;
     if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
+    if (args.findings !== undefined) patch.findings = args.findings;
     if (args.status === "success" || args.status === "error") {
       patch.finishedAt = Date.now();
     }
@@ -456,6 +464,150 @@ export const handleCompletion = authMutation({
         rawResultEvent: args.rawResultEvent,
         repoId: run.repoId,
         createdAt: Date.now(),
+      });
+    }
+
+    return null;
+  },
+});
+
+export const createTasksFromFindings = authMutation({
+  args: {
+    runId: v.id("automationRuns"),
+    findingIds: v.array(v.string()),
+    autoRun: v.boolean(),
+  },
+  returns: v.array(v.id("agentTasks")),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) throw new Error("Run not found");
+    if (!run.findings) throw new Error("Run has no findings");
+
+    const automation = await ctx.db.get(run.automationId);
+    if (!automation) throw new Error("Automation not found");
+    if (!(await hasRepoAccess(ctx.db, automation.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+
+    const repo = await ctx.db.get(automation.repoId);
+    if (!repo) throw new Error("Repo not found");
+
+    const selectedIds = new Set(args.findingIds);
+    const updatedFindings = [...run.findings];
+    const taskIds: Id<"agentTasks">[] = [];
+    const now = Date.now();
+
+    for (let i = 0; i < updatedFindings.length; i++) {
+      const finding = updatedFindings[i];
+      if (!selectedIds.has(finding.id) || finding.taskId) continue;
+
+      const descriptionParts = [finding.description];
+      if (finding.filePaths && finding.filePaths.length > 0) {
+        descriptionParts.push(`\nFiles: ${finding.filePaths.join(", ")}`);
+      }
+      if (finding.suggestedFix) {
+        descriptionParts.push(`\nSuggested fix: ${finding.suggestedFix}`);
+      }
+
+      const taskId = await ctx.db.insert("agentTasks", {
+        title: finding.title,
+        description: descriptionParts.join(""),
+        repoId: automation.repoId,
+        status: "todo",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: ctx.userId,
+        baseBranch: repo.defaultBaseBranch ?? "main",
+        model: automation.model ?? repo.defaultModel,
+      });
+
+      updatedFindings[i] = { ...finding, taskId };
+      taskIds.push(taskId);
+    }
+
+    await ctx.db.patch(args.runId, { findings: updatedFindings });
+
+    if (args.autoRun) {
+      for (const taskId of taskIds) {
+        await ctx.scheduler.runAfter(0, internal.automations.autoStartTask, {
+          taskId,
+          userId: ctx.userId,
+        });
+      }
+    }
+
+    return taskIds;
+  },
+});
+
+export const autoStartTask = internalMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    userId: v.id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+    if (!task.repoId) throw new Error("Task has no repository");
+
+    const repo = await ctx.db.get(task.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const existingRuns = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    if (
+      existingRuns.some((r) => r.status === "queued" || r.status === "running")
+    ) {
+      return null;
+    }
+
+    const runId = await ctx.db.insert("agentRuns", {
+      taskId: args.taskId,
+      status: "queued",
+      logs: [],
+      startedAt: Date.now(),
+    });
+
+    await ctx.db.patch(args.taskId, {
+      status: "in_progress",
+      updatedAt: Date.now(),
+    });
+
+    try {
+      const workflowId = await workflow.start(
+        ctx,
+        internal.taskWorkflow.taskExecutionWorkflow,
+        {
+          runId,
+          taskId: args.taskId,
+          repoId: task.repoId,
+          installationId: repo.installationId,
+          baseBranch: task.baseBranch,
+          isFirstTaskOnBranch: true,
+          model: task.model ?? repo.defaultModel,
+          userId: args.userId,
+        },
+      );
+
+      await ctx.db.patch(args.taskId, {
+        activeWorkflowId: String(workflowId),
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to start workflow";
+      await ctx.db.patch(runId, {
+        status: "error",
+        error: message,
+        finishedAt: Date.now(),
+        exitReason: "workflow_start_failed",
+      });
+      await ctx.db.patch(args.taskId, {
+        status: "todo",
+        activeWorkflowId: undefined,
+        updatedAt: Date.now(),
       });
     }
 

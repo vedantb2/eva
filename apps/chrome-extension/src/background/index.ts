@@ -1,4 +1,11 @@
+import { createClerkClient } from "@clerk/chrome-extension/background";
 import { sendExtensionMessage, sendTabMessage } from "../shared/messaging";
+
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+if (typeof PUBLISHABLE_KEY === "string" && PUBLISHABLE_KEY.length > 0) {
+  void createClerkClient({ publishableKey: PUBLISHABLE_KEY });
+}
 
 let capturedContext: unknown = null;
 

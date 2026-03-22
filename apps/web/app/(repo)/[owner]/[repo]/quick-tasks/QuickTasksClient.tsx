@@ -25,7 +25,12 @@ import {
   projectFilterParser,
   taskIdParser,
 } from "@/lib/search-params";
-import { IconChecklist, IconChevronRight } from "@tabler/icons-react";
+import {
+  IconChecklist,
+  IconChevronRight,
+  IconChevronLeft,
+} from "@tabler/icons-react";
+import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
 import {
   QuickTasksBulkBar,
@@ -134,6 +139,44 @@ export function QuickTasksClient() {
     return tasks.find((t) => t._id === typedSelectedTaskId);
   }, [typedSelectedTaskId, tasks]);
 
+  const orderedTasks = useMemo(() => {
+    const byStatus = new Map<string, typeof quickTasks>();
+    for (const task of quickTasks) {
+      const list = byStatus.get(task.status) ?? [];
+      list.push(task);
+      byStatus.set(task.status, list);
+    }
+    const result: typeof quickTasks = [];
+    for (const status of TASK_STATUSES) {
+      const group = byStatus.get(status);
+      if (group) {
+        group.sort((a, b) => b.createdAt - a.createdAt);
+        result.push(...group);
+      }
+    }
+    return result;
+  }, [quickTasks]);
+
+  const { prevTaskId, nextTaskId } = useMemo(() => {
+    if (!typedSelectedTaskId || orderedTasks.length === 0) {
+      return { prevTaskId: null, nextTaskId: null };
+    }
+    const idx = orderedTasks.findIndex((t) => t._id === typedSelectedTaskId);
+    if (idx === -1) return { prevTaskId: null, nextTaskId: null };
+    return {
+      prevTaskId: idx > 0 ? orderedTasks[idx - 1]._id : null,
+      nextTaskId:
+        idx < orderedTasks.length - 1 ? orderedTasks[idx + 1]._id : null,
+    };
+  }, [typedSelectedTaskId, orderedTasks]);
+
+  const handleNavigatePrev = () => {
+    if (prevTaskId) setParams({ taskId: prevTaskId });
+  };
+  const handleNavigateNext = () => {
+    if (nextTaskId) setParams({ taskId: nextTaskId });
+  };
+
   useHotkey("Alt+N", (e) => {
     e.preventDefault();
     setIsCreating(true);
@@ -175,7 +218,26 @@ export function QuickTasksClient() {
         fillHeight
         childPadding={false}
         headerRight={
-          isListDetailView ? undefined : (
+          isListDetailView ? (
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={handleNavigatePrev}
+                disabled={!prevTaskId}
+                className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                title="Previous task"
+              >
+                <IconChevronLeft size={16} />
+              </button>
+              <button
+                onClick={handleNavigateNext}
+                disabled={!nextTaskId}
+                className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                title="Next task"
+              >
+                <IconChevronRight size={16} />
+              </button>
+            </div>
+          ) : (
             <QuickTasksToolbar
               view={view}
               onViewChange={(v: "kanban" | "list") => setParams({ view: v })}
@@ -302,6 +364,8 @@ export function QuickTasksClient() {
           isOpen={!!typedSelectedTaskId}
           onClose={handleTaskClose}
           taskId={typedSelectedTaskId}
+          onNavigatePrev={prevTaskId ? handleNavigatePrev : undefined}
+          onNavigateNext={nextTaskId ? handleNavigateNext : undefined}
         />
       )}
     </>

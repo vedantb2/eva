@@ -12,13 +12,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Generate Dockerfile
         run: |
           cat > Dockerfile.snapshot <<'EOF'
           FROM node:20-bookworm
 
-          RUN apt-get update && apt-get install -y git curl
+          RUN apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh
           RUN apt-get install -y xvfb xfce4 xfce4-terminal x11vnc novnc dbus-x11 x11-utils \
               libx11-6 libxrandr2 libxext6 libxrender1 libxfixes3 libxss1 libxtst6 libxi6
           RUN apt-get install -y wget gnupg \
@@ -27,13 +29,13 @@ jobs:
               && apt-get update && apt-get install -y google-chrome-stable \
               && rm -rf /var/lib/apt/lists/*
           RUN corepack enable
+          RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
+          RUN git lfs install --system
           RUN npm install -g @anthropic-ai/claude-code agent-browser convex
-          RUN npx playwright install-deps chromium
           RUN curl -fsSL https://code-server.dev/install.sh | sh
 
           RUN useradd -m -s /bin/bash eva && mkdir -p /workspace && chown eva:eva /workspace
           USER eva
-          RUN npx playwright install chromium
           WORKDIR /workspace
 
           RUN mkdir -p /home/eva/.claude/plugins/marketplaces
@@ -48,7 +50,7 @@ jobs:
 
           COPY --chown=eva:eva . /workspace/repo
           WORKDIR /workspace/repo
-          RUN pnpm install
+          RUN pnpm install --frozen-lockfile
           EOF
 
           echo "=== Generated Dockerfile ==="

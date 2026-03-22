@@ -91,34 +91,35 @@ export async function prepareSandboxSteps(
       label: "Fetching base branch...",
       status: "complete",
     });
+    if (!args.branchName) {
+      await emitSteps(step, args.streamingEntityId, [
+        ...completedSteps,
+        {
+          type: "tool",
+          label: "Checking out base branch...",
+          status: "active",
+        },
+      ]);
 
-    await emitSteps(step, args.streamingEntityId, [
-      ...completedSteps,
-      {
+      await step.runAction(
+        internal.daytona.checkoutBaseBranch,
+        {
+          sandboxId,
+          installationId: args.installationId,
+          repoOwner: args.repoOwner,
+          repoName: args.repoName,
+          baseBranch: args.baseBranch,
+          repoId: args.repoId,
+        },
+        STEP_RETRY,
+      );
+
+      completedSteps.push({
         type: "tool",
         label: "Checking out base branch...",
-        status: "active",
-      },
-    ]);
-
-    await step.runAction(
-      internal.daytona.checkoutBaseBranch,
-      {
-        sandboxId,
-        installationId: args.installationId,
-        repoOwner: args.repoOwner,
-        repoName: args.repoName,
-        baseBranch: args.baseBranch,
-        repoId: args.repoId,
-      },
-      STEP_RETRY,
-    );
-
-    completedSteps.push({
-      type: "tool",
-      label: "Checking out base branch...",
-      status: "complete",
-    });
+        status: "complete",
+      });
+    }
   }
 
   if (args.branchName) {

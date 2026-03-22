@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
+import type { DataModel, Id } from "../_generated/dataModel";
 import {
   exec,
   WORKSPACE_DIR,
@@ -23,6 +24,8 @@ import {
 import { ensureSessionClaudeVolume } from "./volumes";
 import { detectPackageManager, startSessionServices } from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
+import type { GenericActionCtx } from "convex/server";
+import { startDesktopWithChrome } from "./desktop";
 
 function formatDurationMs(durationMs: number): string {
   return `${durationMs}ms`;
@@ -324,6 +327,174 @@ async function tryReuseSandbox(
   }
 }
 
+type SessionSandboxPreparationArgs = {
+  sessionId: Id<"sessions">;
+  existingSandboxId: string | undefined;
+  installationId: number;
+  repoOwner: string;
+  repoName: string;
+  branchName: string;
+  baseBranch: string;
+  repoId: Id<"githubRepos">;
+  startDesktop: boolean;
+};
+
+type PreparedSessionSandbox = {
+  sandbox: Sandbox;
+  isNew: boolean;
+  usedSnapshot: boolean;
+  sandboxDetails: string;
+  branchName: string;
+  devPort: number;
+  devCommand: string;
+};
+
+async function prepareSessionSandboxInternal(
+  ctx: GenericActionCtx<DataModel>,
+  args: SessionSandboxPreparationArgs,
+): Promise<PreparedSessionSandbox> {
+  const actionDetails = `sessionId=${args.sessionId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
+  const repo = await runLoggedSessionStep(
+    "loadSessionRepo",
+    actionDetails,
+    () =>
+      ctx.runQuery(internal.githubRepos.getInternal, {
+        id: args.repoId,
+      }),
+  );
+  const rootDir = repo?.rootDirectory ?? "";
+  const syncStrategy = getSessionSyncStrategy(args.branchName, args.baseBranch);
+
+  const { daytona, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
+    "resolveSessionSandboxContext",
+    actionDetails,
+    () => resolveSandboxContext(ctx, args.repoId),
+  );
+  logSession(
+    `prepareSessionSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."}, syncStrategy=${syncStrategy.mode === "branches" ? syncStrategy.branchNames.join(",") : syncStrategy.mode})`,
+  );
+
+  let reusedResult: PreparedSessionSandbox | null = null;
+  const reused = await runLoggedSessionStep(
+    "tryReuseSessionSandbox",
+    actionDetails,
+    () =>
+      tryReuseSandbox(daytona, args.existingSandboxId, async (sandbox) => {
+        const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
+        await runLoggedSessionStep(
+          "reuseSessionSandbox.prepare",
+          sandboxDetails,
+          async () => {
+            await ensureSandboxRunning(sandbox);
+            await syncSessionRefsForRestore(
+              sandbox,
+              args.installationId,
+              args.repoOwner,
+              args.repoName,
+              args.branchName,
+              args.baseBranch,
+            );
+            await checkoutSessionBranchWithRetry(
+              sandbox,
+              args.branchName,
+              args.baseBranch,
+            );
+          },
+        );
+        const { port: devPort, devCommand } = await runLoggedSessionStep(
+          "reuseSessionSandbox.startSessionServices",
+          sandboxDetails,
+          () => startSessionServices(sandbox, rootDir),
+        );
+        if (args.startDesktop) {
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.startDesktop",
+            sandboxDetails,
+            () => startDesktopWithChrome(sandbox),
+          );
+        }
+        reusedResult = {
+          sandbox,
+          isNew: false,
+          usedSnapshot: false,
+          sandboxDetails,
+          branchName: args.branchName,
+          devPort,
+          devCommand,
+        };
+      }),
+  );
+  if (reused && reusedResult) {
+    return reusedResult;
+  }
+
+  const sessionVolumeMounts = await runLoggedSessionStep(
+    "ensureSessionClaudeVolume",
+    actionDetails,
+    () => ensureSessionClaudeVolume(daytona, args.sessionId),
+  );
+  const prepared = await runLoggedSessionStep(
+    "createSessionSandboxAndPrepareRepo",
+    `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
+    () =>
+      createSandboxAndPrepareRepo(
+        daytona,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        sandboxEnvVars,
+        SESSION_LIFECYCLE,
+        snapshotName,
+        sessionVolumeMounts,
+        undefined,
+        undefined,
+        { mode: "none" },
+      ),
+  );
+  const sandbox = prepared.sandbox;
+  const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
+  await runLoggedSessionStep(
+    "newSessionSandbox.syncSessionRefsForRestore",
+    sandboxDetails,
+    () =>
+      syncSessionRefsForRestore(
+        sandbox,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        args.branchName,
+        args.baseBranch,
+      ),
+  );
+  await runLoggedSessionStep(
+    "newSessionSandbox.checkoutSessionBranch",
+    sandboxDetails,
+    () =>
+      checkoutSessionBranchWithRetry(sandbox, args.branchName, args.baseBranch),
+  );
+  const { port: devPort, devCommand } = await runLoggedSessionStep(
+    "newSessionSandbox.startSessionServices",
+    sandboxDetails,
+    () => startSessionServices(sandbox, rootDir),
+  );
+  if (args.startDesktop) {
+    await runLoggedSessionStep(
+      "newSessionSandbox.startDesktop",
+      sandboxDetails,
+      () => startDesktopWithChrome(sandbox),
+    );
+  }
+  return {
+    sandbox,
+    isNew: true,
+    usedSnapshot: prepared.usedSnapshot,
+    sandboxDetails,
+    branchName: args.branchName,
+    devPort,
+    devCommand,
+  };
+}
+
 export const startSessionSandbox = internalAction({
   args: {
     sessionId: v.id("sessions"),
@@ -344,155 +515,35 @@ export const startSessionSandbox = internalAction({
       if (!args.repoId) {
         throw new Error("repoId is required for startSessionSandbox");
       }
-      const repoId = args.repoId;
-
-      const repo = await runLoggedSessionStep(
-        "loadSessionRepo",
-        actionDetails,
-        () =>
-          ctx.runQuery(internal.githubRepos.getInternal, {
-            id: repoId,
-          }),
-      );
-      const rootDir = repo?.rootDirectory ?? "";
-      const syncStrategy = getSessionSyncStrategy(
-        args.branchName,
-        args.baseBranch,
-      );
-
-      const { daytona, sandboxEnvVars, snapshotName } =
-        await runLoggedSessionStep(
-          "resolveSessionSandboxContext",
-          actionDetails,
-          () => resolveSandboxContext(ctx, repoId),
-        );
-      logSession(
-        `startSessionSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."}, syncStrategy=${syncStrategy.mode === "branches" ? syncStrategy.branchNames.join(",") : syncStrategy.mode})`,
-      );
-
-      const reused = await runLoggedSessionStep(
-        "tryReuseSessionSandbox",
-        actionDetails,
-        () =>
-          tryReuseSandbox(daytona, args.existingSandboxId, async (sandbox) => {
-            const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.prepare",
-              sandboxDetails,
-              async () => {
-                await ensureSandboxRunning(sandbox);
-                await syncSessionRefsForRestore(
-                  sandbox,
-                  args.installationId,
-                  args.repoOwner,
-                  args.repoName,
-                  args.branchName,
-                  args.baseBranch,
-                );
-                await checkoutSessionBranchWithRetry(
-                  sandbox,
-                  args.branchName,
-                  args.baseBranch,
-                );
-              },
-            );
-            const { port: devPort, devCommand } = await runLoggedSessionStep(
-              "reuseSessionSandbox.startSessionServices",
-              sandboxDetails,
-              () => startSessionServices(sandbox, rootDir),
-            );
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.sandboxReady",
-              sandboxDetails,
-              () =>
-                ctx.runMutation(internal.sessions.sandboxReady, {
-                  sessionId: args.sessionId,
-                  sandboxId: sandbox.id,
-                  branchName: args.branchName,
-                  isNew: false,
-                  devPort,
-                  devCommand,
-                }),
-            );
-          }),
-      );
-      if (reused) {
-        logSession(
-          `startSessionSandbox reused existing sandbox in ${formatDurationMs(Date.now() - actionStartedAt)} (${actionDetails}, sandboxId=${reused.id})`,
-        );
-        return null;
-      }
-
-      const sessionVolumeMounts = await runLoggedSessionStep(
-        "ensureSessionClaudeVolume",
-        actionDetails,
-        () => ensureSessionClaudeVolume(daytona, args.sessionId),
-      );
-      const prepared = await runLoggedSessionStep(
-        "createSessionSandboxAndPrepareRepo",
-        `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
-        () =>
-          createSandboxAndPrepareRepo(
-            daytona,
-            args.installationId,
-            args.repoOwner,
-            args.repoName,
-            sandboxEnvVars,
-            SESSION_LIFECYCLE,
-            snapshotName,
-            sessionVolumeMounts,
-            undefined,
-            undefined,
-            { mode: "none" },
-          ),
-      );
-      const sandbox = prepared.sandbox;
-      const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
+      const prepared = await prepareSessionSandboxInternal(ctx, {
+        sessionId: args.sessionId,
+        existingSandboxId: args.existingSandboxId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        branchName: args.branchName,
+        baseBranch: args.baseBranch,
+        repoId: args.repoId,
+        startDesktop: false,
+      });
       await runLoggedSessionStep(
-        "newSessionSandbox.syncSessionRefsForRestore",
-        sandboxDetails,
-        () =>
-          syncSessionRefsForRestore(
-            sandbox,
-            args.installationId,
-            args.repoOwner,
-            args.repoName,
-            args.branchName,
-            args.baseBranch,
-          ),
-      );
-      await runLoggedSessionStep(
-        "newSessionSandbox.checkoutSessionBranch",
-        sandboxDetails,
-        () =>
-          checkoutSessionBranchWithRetry(
-            sandbox,
-            args.branchName,
-            args.baseBranch,
-          ),
-      );
-      const { port: devPort, devCommand } = await runLoggedSessionStep(
-        "newSessionSandbox.startSessionServices",
-        sandboxDetails,
-        () => startSessionServices(sandbox, rootDir),
-      );
-
-      await runLoggedSessionStep(
-        "newSessionSandbox.sandboxReady",
-        sandboxDetails,
+        prepared.isNew
+          ? "newSessionSandbox.sandboxReady"
+          : "reuseSessionSandbox.sandboxReady",
+        prepared.sandboxDetails,
         () =>
           ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
-            sandboxId: sandbox.id,
-            branchName: args.branchName,
-            isNew: true,
-            usedSnapshot: prepared.usedSnapshot,
-            devPort,
-            devCommand,
+            sandboxId: prepared.sandbox.id,
+            branchName: prepared.branchName,
+            isNew: prepared.isNew,
+            usedSnapshot: prepared.isNew ? prepared.usedSnapshot : undefined,
+            devPort: prepared.devPort,
+            devCommand: prepared.devCommand,
           }),
       );
       logSession(
-        `startSessionSandbox completed in ${formatDurationMs(Date.now() - actionStartedAt)} (${sandboxDetails})`,
+        `startSessionSandbox completed in ${formatDurationMs(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
     } catch (e) {
       console.error(
@@ -504,6 +555,35 @@ export const startSessionSandbox = internalAction({
       });
     }
     return null;
+  },
+});
+
+export const prepareSessionSandbox = internalAction({
+  args: {
+    sessionId: v.id("sessions"),
+    existingSandboxId: v.optional(v.string()),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+    startDesktop: v.optional(v.boolean()),
+  },
+  returns: v.object({ sandboxId: v.string() }),
+  handler: async (ctx, args) => {
+    const prepared = await prepareSessionSandboxInternal(ctx, {
+      sessionId: args.sessionId,
+      existingSandboxId: args.existingSandboxId,
+      installationId: args.installationId,
+      repoOwner: args.repoOwner,
+      repoName: args.repoName,
+      branchName: args.branchName,
+      baseBranch: args.baseBranch,
+      repoId: args.repoId,
+      startDesktop: args.startDesktop === true,
+    });
+    return { sandboxId: prepared.sandbox.id };
   },
 });
 

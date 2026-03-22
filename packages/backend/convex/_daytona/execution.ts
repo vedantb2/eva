@@ -6,7 +6,6 @@ import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
   exec,
-  WORKSPACE_DIR,
   resolveSandboxContext,
   getSandbox,
   sleep,
@@ -237,13 +236,10 @@ export const prepareSandbox = internalAction({
             args.baseBranch,
             { prune: false, timeoutSeconds: 240 },
           );
-          await exec(
-            sandbox,
-            `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
-            10,
-          );
-          await emitProgress("Checking out base branch...");
-          await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
+          if (!args.branchName) {
+            await emitProgress("Checking out base branch...");
+            await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
+          }
         }
 
         if (args.branchName) {
@@ -461,11 +457,6 @@ export const fetchBaseBranch = internalAction({
       args.repoName,
       args.baseBranch,
       { prune: false, timeoutSeconds: 240 },
-    );
-    await exec(
-      sandbox,
-      `cd ${WORKSPACE_DIR} && git stash --include-untracked 2>/dev/null || true`,
-      10,
     );
     return null;
   },

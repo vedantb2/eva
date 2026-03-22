@@ -30,6 +30,7 @@ import {
   IconChevronRight,
   IconChevronLeft,
 } from "@tabler/icons-react";
+import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
 import {
   QuickTasksBulkBar,
@@ -138,17 +139,36 @@ export function QuickTasksClient() {
     return tasks.find((t) => t._id === typedSelectedTaskId);
   }, [typedSelectedTaskId, tasks]);
 
+  const orderedTasks = useMemo(() => {
+    const byStatus = new Map<string, typeof quickTasks>();
+    for (const task of quickTasks) {
+      const list = byStatus.get(task.status) ?? [];
+      list.push(task);
+      byStatus.set(task.status, list);
+    }
+    const result: typeof quickTasks = [];
+    for (const status of TASK_STATUSES) {
+      const group = byStatus.get(status);
+      if (group) {
+        group.sort((a, b) => b.createdAt - a.createdAt);
+        result.push(...group);
+      }
+    }
+    return result;
+  }, [quickTasks]);
+
   const { prevTaskId, nextTaskId } = useMemo(() => {
-    if (!typedSelectedTaskId || quickTasks.length === 0) {
+    if (!typedSelectedTaskId || orderedTasks.length === 0) {
       return { prevTaskId: null, nextTaskId: null };
     }
-    const idx = quickTasks.findIndex((t) => t._id === typedSelectedTaskId);
+    const idx = orderedTasks.findIndex((t) => t._id === typedSelectedTaskId);
     if (idx === -1) return { prevTaskId: null, nextTaskId: null };
     return {
-      prevTaskId: idx > 0 ? quickTasks[idx - 1]._id : null,
-      nextTaskId: idx < quickTasks.length - 1 ? quickTasks[idx + 1]._id : null,
+      prevTaskId: idx > 0 ? orderedTasks[idx - 1]._id : null,
+      nextTaskId:
+        idx < orderedTasks.length - 1 ? orderedTasks[idx + 1]._id : null,
     };
-  }, [typedSelectedTaskId, quickTasks]);
+  }, [typedSelectedTaskId, orderedTasks]);
 
   const handleNavigatePrev = () => {
     if (prevTaskId) setParams({ taskId: prevTaskId });
@@ -190,24 +210,6 @@ export function QuickTasksClient() {
                 {selectedTask?.taskNumber ? `#${selectedTask.taskNumber}` : ""}
                 {selectedTask?.title ? ` ${selectedTask.title}` : ""}
               </span>
-              <div className="flex items-center gap-0.5 ml-2">
-                <button
-                  onClick={handleNavigatePrev}
-                  disabled={!prevTaskId}
-                  className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                  title="Previous task"
-                >
-                  <IconChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={handleNavigateNext}
-                  disabled={!nextTaskId}
-                  className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                  title="Next task"
-                >
-                  <IconChevronRight size={16} />
-                </button>
-              </div>
             </div>
           ) : (
             "Quick Tasks"
@@ -216,7 +218,26 @@ export function QuickTasksClient() {
         fillHeight
         childPadding={false}
         headerRight={
-          isListDetailView ? undefined : (
+          isListDetailView ? (
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={handleNavigatePrev}
+                disabled={!prevTaskId}
+                className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                title="Previous task"
+              >
+                <IconChevronLeft size={16} />
+              </button>
+              <button
+                onClick={handleNavigateNext}
+                disabled={!nextTaskId}
+                className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                title="Next task"
+              >
+                <IconChevronRight size={16} />
+              </button>
+            </div>
+          ) : (
             <QuickTasksToolbar
               view={view}
               onViewChange={(v: "kanban" | "list") => setParams({ view: v })}

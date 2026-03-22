@@ -187,7 +187,7 @@ export const sessionExecuteWorkflow = workflow.define({
           installationId: args.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
-          branchName: data.branchName,
+          branchName: data.branchName ?? `eva/session-${args.sessionId}`,
           baseBranch: data.baseBranch,
           repoId: data.repoId,
           startDesktop: true,

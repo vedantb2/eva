@@ -1,5 +1,12 @@
 # Changelog
 
+## Consolidate session startup and simplify branch-aware sandbox prep - 2026-03-20
+
+- **Why**: Sandbox startup logic had drifted across multiple overlapping paths. Sessions could start through both the dedicated session action and the generic `prepareSandbox` flow, branch-aware task prep was still checking out base before branch setup even though branch setup already handles base creation/merge, and timed-out git commands could leave stale git state behind for the next retry.
+- **One session prep path**: `_daytona/sessions.ts` now owns a reusable session sandbox preparation helper, and `sessionWorkflow.ts` uses that same path instead of the generic `prepareSandbox` action. That keeps session restore semantics, branch checkout behavior, and desktop startup aligned.
+- **Less duplicate branch work**: `_daytona/prepareSandboxSteps.ts` and `_daytona/execution.ts` now skip the explicit `checkout base branch` step when a branch setup step is going to run immediately afterward, which trims redundant git work from quick tasks, automations, and eval fix flows.
+- **Git timeout cleanup**: `_daytona/git.ts` now routes git commands through a shared helper that performs best-effort git process/lock cleanup after sandbox exec timeouts, so one bad timeout is less likely to contaminate the next retry in the same sandbox.
+
 ## Normalize fresh snapshot repos before sandbox git operations - 2026-03-20
 
 - **Why**: Session startup was still timing out in `checkoutSessionBranch` even after the fetch-related fixes. The failing step was local git work after a successful fetch, which pointed to fresh snapshot sandboxes starting from a dirty worktree rather than a remote sync issue.

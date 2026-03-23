@@ -852,42 +852,6 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.1)
-      '@fontsource-variable/dm-sans':
-        specifier: ^5.0.0
-        version: 5.2.8
-      '@fontsource-variable/figtree':
-        specifier: ^5.0.0
-        version: 5.2.10
-      '@fontsource-variable/inter':
-        specifier: ^5.0.0
-        version: 5.2.8
-      '@fontsource-variable/nunito':
-        specifier: ^5.0.0
-        version: 5.2.7
-      '@fontsource-variable/outfit':
-        specifier: ^5.0.0
-        version: 5.2.8
-      '@fontsource-variable/plus-jakarta-sans':
-        specifier: ^5.0.0
-        version: 5.2.8
-      '@fontsource-variable/source-serif-4':
-        specifier: ^5.0.0
-        version: 5.2.9
-      '@fontsource-variable/space-grotesk':
-        specifier: ^5.0.0
-        version: 5.2.10
-      '@fontsource/geist-sans':
-        specifier: ^5.0.0
-        version: 5.2.5
-      '@fontsource/ibm-plex-sans':
-        specifier: ^5.0.0
-        version: 5.2.8
-      '@fontsource/poppins':
-        specifier: ^5.0.0
-        version: 5.2.7
-      '@fontsource/roboto':
-        specifier: ^5.0.0
-        version: 5.2.10
       '@heroui/react':
         specifier: ^2.7.8
         version: 2.8.8(@types/react@19.0.10)(framer-motion@12.33.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.2))
@@ -3057,42 +3021,6 @@ packages:
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
-
-  '@fontsource-variable/dm-sans@5.2.8':
-    resolution: {integrity: sha512-AxkvMTvNWgfrmlyjiV05vlHYJa+nRQCf1EfvIrQAPBpFJW0O9VTz7oAFr9S3lvbWdmnFoBk7yFqQL86u64nl2g==}
-
-  '@fontsource-variable/figtree@5.2.10':
-    resolution: {integrity: sha512-a5Gumbpy3mdd+Yg31g6Qb7CmjYbrfyutJa3bWfP5q8A4GclIOwX7mI+ZuSHsJnw/mHvW6r9oh1AHJcJTIxK4JA==}
-
-  '@fontsource-variable/inter@5.2.8':
-    resolution: {integrity: sha512-kOfP2D+ykbcX/P3IFnokOhVRNoTozo5/JxhAIVYLpea/UBmCQ/YWPBfWIDuBImXX/15KH+eKh4xpEUyS2sQQGQ==}
-
-  '@fontsource-variable/nunito@5.2.7':
-    resolution: {integrity: sha512-2N8QhatkyKgSUbAGZO2FYLioxA32+RyI1EplVLawbpkGjUeui9Qg9VMrpkCaik1ydjFjfLV+kzQ0cGEsMrMenQ==}
-
-  '@fontsource-variable/outfit@5.2.8':
-    resolution: {integrity: sha512-4oUDCZx/Tcz6HZP423w/niqEH31Gks5IsqHV2ZZz1qKHaVIZdj2f0/S1IK2n8jl6Xo0o3N+3RjNHlV9R73ozQA==}
-
-  '@fontsource-variable/plus-jakarta-sans@5.2.8':
-    resolution: {integrity: sha512-iQecBizIdZxezODNHzOn4SvvRMrZL/S8k4MEXGDynCmUrImVW0VmX+tIAMqnADwH4haXlHSXqMgU6+kcfBQJdw==}
-
-  '@fontsource-variable/source-serif-4@5.2.9':
-    resolution: {integrity: sha512-PPcxjLFk/fS0WHg79pDM2YNvz61kC+oYZ5cWZZyCS0DHpJncmuYOuiZAsvj4tDxlWPBEvxxcRLQQNmSaRbPkqw==}
-
-  '@fontsource-variable/space-grotesk@5.2.10':
-    resolution: {integrity: sha512-yJQO/o35/hAP3CFnpdFTwQku2yzJOae2HIpBmqkOVoxhhXJaQP3g+b6Jrz7u+eI7A5ZdCIf88uMWpBJdFiGr5w==}
-
-  '@fontsource/geist-sans@5.2.5':
-    resolution: {integrity: sha512-anllOHyJbElRs9fV15TeDRqAeb1IKm4bSknPl6ZMoyPTx1BBy7logudcUwpNjmQLkzn4Q0JGQLRCUKJYoyST6A==}
-
-  '@fontsource/ibm-plex-sans@5.2.8':
-    resolution: {integrity: sha512-eztSXjDhPhcpxNIiGTgMebdLP9qS4rWkysuE1V7c+DjOR0qiezaiDaTwQE7bTnG5HxAY/8M43XKDvs3cYq6ZYQ==}
-
-  '@fontsource/poppins@5.2.7':
-    resolution: {integrity: sha512-6uQyPmseo4FgI97WIhA4yWRlNaoLk4vSDK/PyRwdqqZb5zAEuc+Kunt8JTMcsHYUEGYBtN15SNkMajMdqUSUmg==}
-
-  '@fontsource/roboto@5.2.10':
-    resolution: {integrity: sha512-8HlA5FtSfz//oFSr2eL7GFXAiE7eIkcGOtx7tjsLKq+as702x9+GU7K95iDeWFapHC4M2hv9RrpXKRTGGBI8Zg==}
 
   '@formatjs/ecma402-abstract@2.3.6':
     resolution: {integrity: sha512-HJnTFeRM2kVFVr5gr5kH1XP6K0JcJtE7Lzvtr3FS/so5f1kpsqqqxy5JF+FRaO6H2qmcMfAUIox7AJteieRtVw==}
@@ -16551,30 +16479,6 @@ snapshots:
       tabbable: 6.4.0
 
   '@floating-ui/utils@0.2.10': {}
-
-  '@fontsource-variable/dm-sans@5.2.8': {}
-
-  '@fontsource-variable/figtree@5.2.10': {}
-
-  '@fontsource-variable/inter@5.2.8': {}
-
-  '@fontsource-variable/nunito@5.2.7': {}
-
-  '@fontsource-variable/outfit@5.2.8': {}
-
-  '@fontsource-variable/plus-jakarta-sans@5.2.8': {}
-
-  '@fontsource-variable/source-serif-4@5.2.9': {}
-
-  '@fontsource-variable/space-grotesk@5.2.10': {}
-
-  '@fontsource/geist-sans@5.2.5': {}
-
-  '@fontsource/ibm-plex-sans@5.2.8': {}
-
-  '@fontsource/poppins@5.2.7': {}
-
-  '@fontsource/roboto@5.2.10': {}
 
   '@formatjs/ecma402-abstract@2.3.6':
     dependencies:

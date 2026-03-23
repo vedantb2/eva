@@ -6,7 +6,7 @@ import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource-variable/outfit";
 import "@fontsource-variable/nunito";
 import "@fontsource-variable/figtree";
-import "@fontsource-variable/geist-sans";
+import "@fontsource/geist-sans";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";

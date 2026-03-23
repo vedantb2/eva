@@ -421,13 +421,13 @@ async function saveProofFailureMessageIfNeeded(message) {
   }
 }
 
-const INSTALLATION_ID = process.env.INSTALLATION_ID;
-if (INSTALLATION_ID && CONVEX_URL && CONVEX_TOKEN) {
+const REPO_ID = process.env.REPO_ID;
+if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {
   try {
     const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + CONVEX_TOKEN },
-      body: JSON.stringify({ path: "github:getInstallationTokenAction", args: { installationId: Number(INSTALLATION_ID) }, format: "json" }),
+      body: JSON.stringify({ path: "github:getInstallationTokenAction", args: { repoId: REPO_ID }, format: "json" }),
     });
     if (res.ok) {
       const data = await res.json();

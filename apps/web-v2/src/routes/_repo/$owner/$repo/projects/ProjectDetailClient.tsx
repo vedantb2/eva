@@ -165,7 +165,6 @@ export function ProjectDetailClient() {
             streamingActivity={streaming?.currentActivity}
             basePath={basePath}
             repoId={repo._id}
-            installationId={repo.installationId}
           />
         ) : (
           <ProjectActiveLayout
@@ -210,7 +209,6 @@ export function ProjectDetailClient() {
                 try {
                   await startBuild({
                     projectId: typedProjectId,
-                    installationId: repo.installationId,
                   });
                   setIsBuildModalOpen(false);
                 } finally {

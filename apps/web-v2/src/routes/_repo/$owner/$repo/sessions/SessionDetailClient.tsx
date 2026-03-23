@@ -8,12 +8,8 @@ import { Spinner } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 
-export function SessionDetailClient({
-  sessionId,
-}: {
-  sessionId: string;
-}) {
-  const { installationId, repo } = useRepo();
+export function SessionDetailClient({ sessionId }: { sessionId: string }) {
+  const { repo } = useRepo();
   const typedSessionId = sessionId as Id<"sessions">;
   const session = useQuery(api.sessions.get, { id: typedSessionId });
   const messages = useQuery(api.messages.listByParent, {
@@ -40,7 +36,6 @@ export function SessionDetailClient({
     if (action === "start") {
       await startSandboxMutation({
         sessionId: typedSessionId,
-        installationId,
       });
     } else {
       setIsStopPending(true);

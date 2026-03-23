@@ -437,12 +437,14 @@ export const startGenerate = authMutation({
     question: v.string(),
     repoId: v.id("githubRepos"),
     model: v.string(),
-    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const rq = await ctx.db.get(args.queryId);
     if (!rq) throw new Error("Research query not found");
+
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
 
     const workflowId = await workflow.start(
       ctx,
@@ -453,7 +455,7 @@ export const startGenerate = authMutation({
         repoId: args.repoId,
         model: args.model,
         userId: ctx.userId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
       },
     );
 
@@ -478,12 +480,14 @@ export const startConfirm = authMutation({
     messageId: v.id("messages"),
     question: v.string(),
     repoId: v.id("githubRepos"),
-    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const rq = await ctx.db.get(args.queryId);
     if (!rq) throw new Error("Research query not found");
+
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
 
     const workflowId = await workflow.start(
       ctx,
@@ -495,7 +499,7 @@ export const startConfirm = authMutation({
         question: args.question,
         repoId: args.repoId,
         userId: ctx.userId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
       },
     );
 

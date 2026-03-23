@@ -31,7 +31,6 @@ import { searchParser } from "@/lib/search-params";
 interface DocsSidebarProps {
   repoId: Id<"githubRepos">;
   basePath: string;
-  installationId: number;
   pathname: string;
   onNavigate?: () => void;
   createRequestId?: number;
@@ -40,7 +39,6 @@ interface DocsSidebarProps {
 export function DocsSidebar({
   repoId,
   basePath,
-  installationId,
   pathname,
   onNavigate,
   createRequestId,
@@ -142,7 +140,6 @@ export function DocsSidebar({
       await startPrdParse({
         docId: id,
         prdContent,
-        installationId,
       });
     } catch (error) {
       console.error("PRD upload failed", error);

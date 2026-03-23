@@ -23,7 +23,6 @@ import { branchParser, searchParser } from "@/lib/search-params";
 interface TestingArenaSidebarProps {
   repoId: Id<"githubRepos">;
   basePath: string;
-  installationId: number;
   pathname: string;
   onNavigate?: () => void;
   createRequestId?: number;
@@ -32,7 +31,6 @@ interface TestingArenaSidebarProps {
 export function TestingArenaSidebar({
   repoId,
   basePath,
-  installationId,
   pathname,
   onNavigate,
   createRequestId,
@@ -68,7 +66,6 @@ export function TestingArenaSidebar({
         await startEvaluation({
           docId: doc._id,
           repoId,
-          installationId,
           branchName: branch !== "main" ? branch : undefined,
         });
       }

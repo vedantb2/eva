@@ -1,5 +1,12 @@
 # Changelog
 
+## Remove installationId from client-facing API surface - 2026-03-23
+
+- **Why**: Two deployments (work + personal) share the same GitHub App credentials. Public mutations/actions accepted `installationId` directly from the client without DB validation, allowing any authenticated user to request GitHub tokens for arbitrary installations — cross-deployment leakage.
+- **Fix**: All public functions now derive `installationId` server-side from the entity's `repoId` → `repo.installationId`. Removed `installationId` from args of 14 public mutations/actions. Setup-flow functions (`listRepos`, `listBranches`, `detectMonorepoApps`, `createRepo`) keep `installationId` since no repo record exists yet.
+- **Sandbox callback**: Updated callback script to use `REPO_ID` env var (now injected via `resolveSandboxContext`) instead of `INSTALLATION_ID` for token refresh.
+- **Scope**: Backend (`packages/backend/convex/`), both frontends (`apps/web-v2/`, `apps/web/`).
+
 ## Consolidate session startup and simplify branch-aware sandbox prep - 2026-03-20
 
 - **Why**: Sandbox startup logic had drifted across multiple overlapping paths. Sessions could start through both the dedicated session action and the generic `prepareSandbox` flow, branch-aware task prep was still checking out base before branch setup even though branch setup already handles base creation/merge, and timed-out git commands could leave stale git state behind for the next retry.

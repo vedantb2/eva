@@ -287,12 +287,14 @@ export const startInterview = authMutation({
     previousAnswers: v.array(
       v.object({ question: v.string(), answer: v.string() }),
     ),
-    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.docId);
     if (!doc) throw new Error("Doc not found");
+
+    const repo = await ctx.db.get(doc.repoId);
+    if (!repo) throw new Error("Repository not found");
 
     const workflowId = await workflow.start(
       ctx,
@@ -302,7 +304,7 @@ export const startInterview = authMutation({
         docTitle: args.docTitle,
         previousAnswers: args.previousAnswers,
         userId: ctx.userId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
       },
     );
 
@@ -498,12 +500,14 @@ export const startGenerate = authMutation({
     previousAnswers: v.array(
       v.object({ question: v.string(), answer: v.string() }),
     ),
-    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.docId);
     if (!doc) throw new Error("Doc not found");
+
+    const repo = await ctx.db.get(doc.repoId);
+    if (!repo) throw new Error("Repository not found");
 
     const workflowId = await workflow.start(
       ctx,
@@ -513,7 +517,7 @@ export const startGenerate = authMutation({
         docTitle: args.docTitle,
         previousAnswers: args.previousAnswers,
         userId: ctx.userId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
       },
     );
 

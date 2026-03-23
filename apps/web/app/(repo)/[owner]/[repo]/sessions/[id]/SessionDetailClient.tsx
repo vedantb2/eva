@@ -7,7 +7,6 @@ import { useCallback, useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
-import { useRepo } from "@/lib/contexts/RepoContext";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 
 export function SessionDetailClient({
@@ -15,7 +14,6 @@ export function SessionDetailClient({
 }: {
   sessionId: Id<"sessions">;
 }) {
-  const { installationId, repo } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
   const messages = useQuery(api.messages.listByParent, {
     parentId: sessionId,
@@ -41,7 +39,6 @@ export function SessionDetailClient({
     if (action === "start") {
       await startSandboxMutation({
         sessionId,
-        installationId,
       });
     } else {
       setIsStopPending(true);

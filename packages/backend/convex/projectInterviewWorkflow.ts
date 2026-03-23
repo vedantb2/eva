@@ -299,12 +299,14 @@ export const startInterview = authMutation({
       v.object({ question: v.string(), answer: v.string() }),
     ),
     rejectionReason: v.optional(v.string()),
-    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
+
+    const repo = await ctx.db.get(project.repoId);
+    if (!repo) throw new Error("Repository not found");
 
     const workflowId = await workflow.start(
       ctx,
@@ -315,7 +317,7 @@ export const startInterview = authMutation({
         previousAnswers: args.previousAnswers,
         rejectionReason: args.rejectionReason,
         userId: ctx.userId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
       },
     );
 

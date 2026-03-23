@@ -41,9 +41,7 @@ import { UITestingPanel } from "./UITestingPanel";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 
-export const Route = createFileRoute(
-  "/_repo/$owner/$repo/testing-arena/$id",
-)({
+export const Route = createFileRoute("/_repo/$owner/$repo/testing-arena/$id")({
   component: TestingArenaDetailRoute,
 });
 
@@ -382,7 +380,6 @@ function TestingArenaDetailRoute() {
       await startEvaluation({
         docId: doc._id,
         repoId: repo._id,
-        installationId: repo.installationId,
         branchName: branch !== "main" ? branch : undefined,
       });
     } finally {

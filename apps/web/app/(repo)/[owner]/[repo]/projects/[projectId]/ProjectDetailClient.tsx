@@ -37,7 +37,7 @@ interface ProjectDetailClientProps {
 }
 
 export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
-  const { basePath, repo, installationId } = useRepo();
+  const { basePath, repo } = useRepo();
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const [isStartingBuild, setIsStartingBuild] = useState(false);
@@ -170,7 +170,6 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             streamingActivity={streaming?.currentActivity}
             basePath={basePath}
             repoId={repo._id}
-            installationId={repo.installationId}
           />
         ) : (
           <ProjectActiveLayout
@@ -215,7 +214,6 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                 try {
                   await startBuild({
                     projectId: typedProjectId,
-                    installationId: repo.installationId,
                   });
                   setIsBuildModalOpen(false);
                 } finally {

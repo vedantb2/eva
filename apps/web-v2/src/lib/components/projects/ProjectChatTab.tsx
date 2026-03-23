@@ -34,7 +34,6 @@ interface ProjectChatTabProps {
   onSpecGenerated?: (spec: string) => void;
   onClear?: () => void;
   repoId: Id<"githubRepos">;
-  installationId: number;
 }
 
 interface AnswerRecord {
@@ -61,7 +60,6 @@ export function ProjectChatTab({
   onSpecGenerated,
   onClear,
   repoId,
-  installationId,
 }: ProjectChatTabProps) {
   const addMessageDb = useMutation(api.projects.addMessage);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
@@ -134,10 +132,9 @@ export function ProjectChatTab({
         projectId: projectId,
         featureDescription: rawInput,
         previousAnswers: currentAnswers,
-        installationId,
       });
     },
-    [projectId, installationId, rawInput, startProjectInterview],
+    [projectId, rawInput, startProjectInterview],
   );
 
   const handleStartInterview = () => {

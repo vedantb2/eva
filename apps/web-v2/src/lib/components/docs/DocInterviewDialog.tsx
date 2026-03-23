@@ -50,7 +50,6 @@ interface DocInterviewDialogProps {
   doc: Doc;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  installationId: number;
   readOnly?: boolean;
 }
 
@@ -58,7 +57,6 @@ export function DocInterviewDialog({
   doc,
   open,
   onOpenChange,
-  installationId,
   readOnly,
 }: DocInterviewDialogProps) {
   const addMessage = useMutation(api.docs.addInterviewMessage);
@@ -116,22 +114,13 @@ export function DocInterviewDialog({
             docId: doc._id,
             docTitle: doc.title,
             previousAnswers: answers,
-            installationId,
           });
         }
       } catch {
         // not generated content
       }
     }
-  }, [
-    messages,
-    onOpenChange,
-    answers,
-    doc._id,
-    doc.title,
-    installationId,
-    startDocGenerate,
-  ]);
+  }, [messages, onOpenChange, answers, doc._id, doc.title, startDocGenerate]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -152,10 +141,9 @@ export function DocInterviewDialog({
         docId: doc._id,
         docTitle: doc.title,
         previousAnswers: currentAnswers,
-        installationId,
       });
     },
-    [doc._id, doc.title, installationId, startDocInterview],
+    [doc._id, doc.title, startDocInterview],
   );
 
   const handleAnswer = async (answer: string) => {

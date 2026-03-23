@@ -198,10 +198,9 @@ export function ChatPanel({
         mode: sendMode,
         model: sendModel,
         responseLength: sendResponseLength,
-        installationId: repo.installationId,
       });
     },
-    [repo.installationId, startExecution, sessionId],
+    [startExecution, sessionId],
   );
 
   const handleSend = async (text: string) => {
@@ -229,7 +228,6 @@ export function ChatPanel({
     try {
       await startSummarize({
         sessionId,
-        installationId: repo.installationId,
       });
     } finally {
       setIsSummarizing(false);

@@ -5,7 +5,6 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Spinner } from "@conductor/ui";
-import { useRepo } from "@/lib/contexts/RepoContext";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { DesignChatPanel } from "./_components/DesignChatPanel";
@@ -23,7 +22,6 @@ export function DesignDetailClient({
   const messages = useQuery(api.messages.listByParent, {
     parentId: designSessionId,
   });
-  const { repo } = useRepo();
   const selectVariation = useMutation(api.designSessions.selectVariation);
   const startSandboxMutation = useMutation(api.designSessions.startSandbox);
   const stopSandboxMutation = useMutation(api.designSessions.stopSandbox);
@@ -71,7 +69,6 @@ export function DesignDetailClient({
     if (action === "start") {
       await startSandboxMutation({
         id: designSessionId,
-        installationId: repo.installationId,
       });
     } else {
       setIsStopPending(true);

@@ -1,0 +1,53 @@
+"use client";
+
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@conductor/ui";
+import { IconLoader2 } from "@tabler/icons-react";
+
+export function StopConfirmDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  isStopping,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+  isStopping: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Stop Execution</DialogTitle>
+        </DialogHeader>
+        <p className="text-muted-foreground">
+          This will stop the agent mid-execution. Any uncommitted progress on
+          this run will be lost.
+        </p>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              onOpenChange(false);
+              onConfirm();
+            }}
+            disabled={isStopping}
+          >
+            {isStopping && <IconLoader2 size={16} className="animate-spin" />}
+            Stop Execution
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

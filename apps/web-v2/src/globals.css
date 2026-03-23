@@ -1,0 +1,369 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Geist Sans";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/Geist-Variable.woff2") format("woff2");
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --background: 255 255 255;
+    --app-shell: 235 239 238;
+    --foreground: 28 33 35;
+    --shell-gradient-start: 246 249 248;
+    --shell-gradient-mid: 239 244 243;
+    --shell-gradient-end: 232 238 236;
+    --ambient-1: 18 165 148;
+    --ambient-2: 37 99 235;
+    --grid-line: 125 138 145;
+    --card: 255 255 255;
+    --card-foreground: 24 28 31;
+    --popover: 255 255 255;
+    --popover-foreground: 24 28 31;
+    --primary: 13 132 120;
+    --primary-foreground: 255 255 255;
+    --secondary: 242 246 245;
+    --secondary-foreground: 35 47 45;
+    --muted: 239 244 243;
+    --muted-foreground: 102 112 118;
+    --accent: 224 240 236;
+    --accent-foreground: 10 90 81;
+    --destructive: 220 38 38;
+    --destructive-foreground: 255 255 255;
+    --success: 15 130 58;
+    --success-foreground: 255 255 255;
+    --warning: 170 90 4;
+    --warning-foreground: 255 255 255;
+    --border: 199 209 207;
+    --input: 199 209 207;
+    --ring: 13 132 120;
+    --chart-1: 13 132 120;
+    --chart-2: 20 184 166;
+    --chart-3: 170 90 4;
+    --chart-4: 225 29 72;
+    --chart-5: 5 150 105;
+    --warning-bg: 255 247 237;
+    --success-bg: 240 253 244;
+    --status-progress: 161 98 7;
+    --status-progress-bg: 254 240 138;
+    --status-progress-subtle: 255 251 235;
+    --status-progress-bar: 250 204 21;
+    --status-business-review: 194 65 12;
+    --status-business-review-bg: 254 215 170;
+    --status-business-review-subtle: 255 247 237;
+    --status-business-review-bar: 251 146 60;
+    --status-code-review: 126 34 206;
+    --status-code-review-bg: 233 213 255;
+    --status-code-review-subtle: 243 232 255;
+    --status-code-review-bar: 192 132 252;
+    --status-done: 21 128 61;
+    --status-done-bg: 187 247 208;
+    --status-done-subtle: 240 253 244;
+    --status-done-bar: 74 222 128;
+    --status-cancelled: 107 114 128;
+    --status-cancelled-bg: 229 231 235;
+    --status-cancelled-subtle: 249 250 251;
+    --status-cancelled-bar: 156 163 175;
+    --sidebar: 242 246 245;
+    --sidebar-foreground: 24 28 31;
+    --sidebar-primary: 13 132 120;
+    --sidebar-primary-foreground: 255 255 255;
+    --sidebar-accent: 255 255 255;
+    --sidebar-accent-foreground: 10 90 81;
+    --sidebar-border: 214 223 221;
+    --sidebar-ring: 13 132 120;
+    --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+    --font-mono: Menlo, monospace;
+    --radius: 0.5rem;
+    --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 8% / 0.09);
+    --shadow-xs: 0px 2px 6px -2px hsl(0 0% 8% / 0.12);
+    --shadow-sm:
+      0px 4px 14px -6px hsl(0 0% 8% / 0.22), 0px 2px 4px -2px hsl(0 0% 8% / 0.1);
+    --shadow:
+      0px 8px 24px -14px hsl(0 0% 8% / 0.28),
+      0px 4px 8px -4px hsl(0 0% 8% / 0.14);
+    --shadow-md:
+      0px 14px 30px -16px hsl(0 0% 8% / 0.34),
+      0px 6px 14px -8px hsl(0 0% 8% / 0.18);
+    --shadow-lg:
+      0px 20px 40px -20px hsl(0 0% 8% / 0.42),
+      0px 10px 20px -12px hsl(0 0% 8% / 0.2);
+    --shadow-xl:
+      0px 26px 52px -24px hsl(0 0% 8% / 0.46),
+      0px 14px 28px -18px hsl(0 0% 8% / 0.22);
+    --shadow-2xl: 0px 36px 64px -30px hsl(0 0% 8% / 0.52);
+    --tracking-normal: -0.012em;
+    --motion-fast: 150ms;
+    --motion-base: 220ms;
+    --motion-slow: 320ms;
+    --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --motion-ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .dark {
+    color-scheme: dark;
+    --background: 22 25 27;
+    --app-shell: 9 12 13;
+    --foreground: 227 232 231;
+    --shell-gradient-start: 8 10 11;
+    --shell-gradient-mid: 11 14 15;
+    --shell-gradient-end: 15 19 20;
+    --ambient-1: 52 199 181;
+    --ambient-2: 59 130 246;
+    --grid-line: 74 83 89;
+    --card: 24 27 28;
+    --card-foreground: 227 232 231;
+    --popover: 22 25 26;
+    --popover-foreground: 227 232 231;
+    --primary: 52 199 181;
+    --primary-foreground: 8 23 20;
+    --secondary: 30 34 35;
+    --secondary-foreground: 214 222 220;
+    --muted: 27 31 32;
+    --muted-foreground: 148 162 160;
+    --accent: 34 47 44;
+    --accent-foreground: 214 233 228;
+    --destructive: 248 113 113;
+    --destructive-foreground: 255 255 255;
+    --success: 74 222 128;
+    --success-foreground: 8 20 13;
+    --warning: 251 191 36;
+    --warning-foreground: 26 19 4;
+    --border: 54 62 64;
+    --input: 54 62 64;
+    --ring: 52 199 181;
+    --chart-1: 52 199 181;
+    --chart-2: 20 184 166;
+    --chart-3: 251 191 36;
+    --chart-4: 251 113 133;
+    --chart-5: 45 212 191;
+    --warning-bg: 47 35 20;
+    --success-bg: 18 44 30;
+    --status-progress: 250 204 21;
+    --status-progress-bg: 71 50 12;
+    --status-progress-subtle: 44 35 17;
+    --status-progress-bar: 245 158 11;
+    --status-business-review: 251 146 60;
+    --status-business-review-bg: 78 39 14;
+    --status-business-review-subtle: 56 34 21;
+    --status-business-review-bar: 249 115 22;
+    --status-code-review: 192 132 252;
+    --status-code-review-bg: 59 26 89;
+    --status-code-review-subtle: 30 24 44;
+    --status-code-review-bar: 168 85 247;
+    --status-done: 74 222 128;
+    --status-done-bg: 23 58 36;
+    --status-done-subtle: 16 43 28;
+    --status-done-bar: 34 197 94;
+    --status-cancelled: 156 163 175;
+    --status-cancelled-bg: 55 65 81;
+    --status-cancelled-subtle: 31 41 55;
+    --status-cancelled-bar: 107 114 128;
+    --sidebar: 9 11 12;
+    --sidebar-foreground: 207 216 214;
+    --sidebar-primary: 52 199 181;
+    --sidebar-primary-foreground: 8 23 20;
+    --sidebar-accent: 28 33 34;
+    --sidebar-accent-foreground: 228 242 238;
+    --sidebar-border: 47 55 57;
+    --sidebar-ring: 52 199 181;
+    --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+    --font-mono: Menlo, monospace;
+    --radius: 0.5rem;
+    --shadow-2xs: 0px 2px 6px -2px hsl(0 0% 0% / 0.24);
+    --shadow-xs: 0px 4px 10px -4px hsl(0 0% 0% / 0.28);
+    --shadow-sm:
+      0px 10px 24px -14px hsl(0 0% 0% / 0.55),
+      0px 5px 10px -8px hsl(0 0% 0% / 0.35);
+    --shadow:
+      0px 18px 34px -20px hsl(0 0% 0% / 0.65),
+      0px 8px 14px -10px hsl(0 0% 0% / 0.4);
+    --shadow-md:
+      0px 24px 42px -24px hsl(0 0% 0% / 0.7),
+      0px 12px 20px -14px hsl(0 0% 0% / 0.48);
+    --shadow-lg:
+      0px 30px 54px -26px hsl(0 0% 0% / 0.75),
+      0px 16px 26px -16px hsl(0 0% 0% / 0.55);
+    --shadow-xl:
+      0px 38px 64px -28px hsl(0 0% 0% / 0.82),
+      0px 20px 32px -18px hsl(0 0% 0% / 0.6);
+    --shadow-2xl: 0px 48px 80px -32px hsl(0 0% 0% / 0.92);
+  }
+  * {
+    @apply border-border;
+  }
+  html,
+  body {
+    min-height: 100%;
+  }
+  body {
+    @apply text-foreground antialiased;
+    letter-spacing: var(--tracking-normal);
+    position: relative;
+    isolation: isolate;
+    background-color: rgb(var(--background));
+  }
+  body::before {
+    content: "";
+    pointer-events: none;
+    position: fixed;
+    inset: -20% -10%;
+    z-index: -2;
+    background:
+      radial-gradient(
+        48rem 38rem at 6% 2%,
+        rgb(var(--ambient-1) / 0.18),
+        transparent 65%
+      ),
+      radial-gradient(
+        36rem 32rem at 94% 0%,
+        rgb(var(--ambient-2) / 0.16),
+        transparent 64%
+      ),
+      linear-gradient(
+        180deg,
+        rgb(var(--shell-gradient-start)) 0%,
+        rgb(var(--shell-gradient-mid)) 46%,
+        rgb(var(--shell-gradient-end)) 100%
+      );
+  }
+  body::after {
+    content: "";
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    opacity: 0.32;
+    background-image:
+      linear-gradient(
+        to right,
+        rgb(var(--grid-line) / 0.12) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        rgb(var(--grid-line) / 0.12) 1px,
+        transparent 1px
+      );
+    background-size: 28px 28px;
+    mask-image: linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.5) 0%,
+      rgb(0 0 0 / 0.16) 40%,
+      transparent 100%
+    );
+  }
+  main {
+    position: relative;
+  }
+  ::selection {
+    background: rgb(var(--primary) / 0.22);
+    color: rgb(var(--foreground));
+  }
+}
+
+@layer components {
+  .ui-surface {
+    @apply rounded-lg border border-border/65 bg-card/80 shadow-sm;
+  }
+  .ui-surface-strong {
+    @apply rounded-lg border border-border/80 bg-card/95 shadow-md;
+  }
+  .ui-surface-interactive {
+    @apply ui-surface motion-base hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md;
+  }
+  .ui-panel {
+    @apply ui-surface p-4 md:p-5;
+  }
+}
+
+@layer utilities {
+  .bg-app-shell {
+    background-color: rgb(var(--app-shell));
+  }
+
+  .motion-base {
+    transition-property:
+      color, background-color, border-color, box-shadow, transform, opacity;
+    transition-duration: var(--motion-base);
+    transition-timing-function: var(--motion-ease-out);
+  }
+
+  .motion-emphasized {
+    transition-property: transform, opacity, box-shadow;
+    transition-duration: var(--motion-base);
+    transition-timing-function: var(--motion-ease-emphasized);
+  }
+
+  .motion-press {
+    transition-property: transform;
+    transition-duration: var(--motion-fast);
+    transition-timing-function: var(--motion-ease-out);
+  }
+
+  .scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
+  }
+  .scrollbar:hover {
+    scrollbar-color: rgb(var(--muted-foreground) / 0.55) transparent;
+  }
+  .scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(var(--muted-foreground) / 0.32);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+  }
+  .scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--muted-foreground) / 0.52);
+    background-clip: padding-box;
+  }
+}
+
+/* Animated border for in-progress quick task cards */
+@property --qt-border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes qt-border-spin {
+  to {
+    --qt-border-angle: 360deg;
+  }
+}
+
+.qt-in-progress-border {
+  --qt-border-angle: 0deg;
+  animation: qt-border-spin 2.5s linear infinite;
+  background-image: conic-gradient(
+    from var(--qt-border-angle),
+    transparent 0%,
+    rgb(var(--status-progress-bar) / 0.85) 12%,
+    transparent 25%
+  );
+}
+
+/* Temporarily disabled to allow full animations during development.
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+*/

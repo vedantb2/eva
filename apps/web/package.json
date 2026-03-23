@@ -10,8 +10,6 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "^2.1.6",
-    "@anthropic-ai/sdk": "^0.71.2",
     "@clerk/backend": "^2.29.5",
     "@clerk/nextjs": "^6.24.0",
     "@conductor/backend": "workspace:*",
@@ -23,7 +21,6 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@heroui/react": "^2.7.8",
     "@hookform/resolvers": "^4.1.2",
     "@pierre/diffs": "^1.0.11",
     "@radix-ui/react-accordion": "^1.2.12",

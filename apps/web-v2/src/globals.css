@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Geist Sans";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/Geist-Variable.woff2") format("woff2");
+}
+
 @layer base {
   :root {
     color-scheme: light;

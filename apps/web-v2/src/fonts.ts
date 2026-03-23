@@ -1,20 +1,2 @@
-import "@fontsource-variable/inter";
-import "@fontsource-variable/dm-sans";
-import "@fontsource-variable/space-grotesk";
-import "@fontsource-variable/source-serif-4";
-import "@fontsource-variable/plus-jakarta-sans";
-import "@fontsource-variable/outfit";
-import "@fontsource-variable/nunito";
-import "@fontsource-variable/figtree";
-import "@fontsource/geist-sans";
-import "@fontsource/roboto/400.css";
-import "@fontsource/roboto/500.css";
-import "@fontsource/roboto/700.css";
-import "@fontsource/poppins/400.css";
-import "@fontsource/poppins/500.css";
-import "@fontsource/poppins/600.css";
-import "@fontsource/poppins/700.css";
-import "@fontsource/ibm-plex-sans/400.css";
-import "@fontsource/ibm-plex-sans/500.css";
-import "@fontsource/ibm-plex-sans/600.css";
-import "@fontsource/ibm-plex-sans/700.css";
+// Geist Sans variable font is loaded via @font-face in globals.css
+// All other fonts are loaded via Google Fonts CDN in index.html

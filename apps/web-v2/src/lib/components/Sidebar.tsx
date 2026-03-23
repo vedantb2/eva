@@ -1,6 +1,7 @@
 "use client";
 
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { decodeRepoParam } from "@/lib/utils/repoUrl";
 import { UserButton, useUser } from "@clerk/clerk-react";
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
@@ -159,11 +160,12 @@ export function Sidebar() {
         isRepoRoute: false,
       };
     }
+    const decoded = decodeRepoParam(n);
     return {
       repoBasePath: `/${o}/${n}`,
       owner: o,
-      repoName: n,
-      appName: undefined,
+      repoName: decoded.name,
+      appName: decoded.appName,
       isRepoRoute: true,
     };
   }, [pathname]);

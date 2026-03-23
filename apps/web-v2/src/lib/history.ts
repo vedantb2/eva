@@ -84,45 +84,40 @@ function toDisplayHref(href: string): string {
   return href;
 }
 
-function parseHref(
-  href: string,
-  state: Record<string, unknown>,
-): {
-  href: string;
-  pathname: string;
-  hash: string;
-  search: string;
-  state: Record<string, unknown>;
-} {
-  const hashIndex = href.indexOf("#");
-  const searchIndex = href.indexOf("?");
-  return {
-    href,
-    pathname: href.substring(
-      0,
-      hashIndex > 0
-        ? searchIndex > 0
-          ? Math.min(hashIndex, searchIndex)
-          : hashIndex
-        : searchIndex > 0
-          ? searchIndex
-          : href.length,
-    ),
-    hash: hashIndex > -1 ? href.substring(hashIndex) : "",
-    search:
-      searchIndex > -1
-        ? href.slice(searchIndex, hashIndex === -1 ? undefined : hashIndex)
-        : "",
-    state,
-  };
-}
-
 export function createAppHistory() {
   return createBrowserHistory({
     parseLocation() {
       const raw = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       const internal = toInternalHref(raw);
-      return parseHref(internal, window.history.state ?? {});
+
+      const hashIndex = internal.indexOf("#");
+      const searchIndex = internal.indexOf("?");
+      const pathEnd =
+        hashIndex > 0
+          ? searchIndex > 0
+            ? Math.min(hashIndex, searchIndex)
+            : hashIndex
+          : searchIndex > 0
+            ? searchIndex
+            : internal.length;
+
+      return {
+        href: internal,
+        pathname: internal.substring(0, pathEnd),
+        hash: hashIndex > -1 ? internal.substring(hashIndex) : "",
+        search:
+          searchIndex > -1
+            ? internal.slice(
+                searchIndex,
+                hashIndex === -1 ? undefined : hashIndex,
+              )
+            : "",
+        state: window.history.state ?? {
+          __TSR_index: 0,
+          key: "",
+          __TSR_key: "",
+        },
+      };
     },
     createHref(href) {
       return toDisplayHref(href);

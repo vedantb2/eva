@@ -119,7 +119,7 @@ export function SetupBanner() {
           <Button variant="outline" onClick={() => setDismissed(true)}>
             Dismiss
           </Button>
-          <Link to={`/teams/${team._id}`}>
+          <Link to="/teams/$teamId" params={{ teamId: team._id }}>
             <Button>Configure Team Settings</Button>
           </Link>
         </DialogFooter>

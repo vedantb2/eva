@@ -1,6 +1,6 @@
 "use client";
 
-import { Link } from "@tanstack/react-router";
+import { DynamicLink } from "@/lib/components/DynamicLink";
 import type { Id } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
 import { cn } from "@conductor/ui";
@@ -61,7 +61,7 @@ export function SidebarSessionItem({
   const statusStyle = STATUS_STYLES[status];
 
   return (
-    <Link
+    <DynamicLink
       to={href}
       onClick={onNavigate}
       className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
@@ -88,6 +88,6 @@ export function SidebarSessionItem({
           {compactTimeAgo(timestamp)}
         </span>
       </div>
-    </Link>
+    </DynamicLink>
   );
 }

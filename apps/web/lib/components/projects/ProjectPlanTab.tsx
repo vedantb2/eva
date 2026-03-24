@@ -21,7 +21,6 @@ interface ProjectPlanTabProps {
   generatedSpec: string | undefined;
   basePath: string;
   repoId: Id<"githubRepos">;
-  installationId: number;
   onRejectSpec: (reason: string) => void;
 }
 

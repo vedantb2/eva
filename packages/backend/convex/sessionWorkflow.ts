@@ -477,7 +477,6 @@ export const startExecute = authMutation({
     mode: sessionModeValidator,
     model: v.string(),
     responseLength: v.string(),
-    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -493,6 +492,9 @@ export const startExecute = authMutation({
       throw new Error(`Unsupported mode: ${args.mode}`);
     }
 
+    const repo = await ctx.db.get(session.repoId);
+    if (!repo) throw new Error("Repository not found");
+
     const workflowId = await workflow.start(
       ctx,
       internal.sessionWorkflow.sessionExecuteWorkflow,
@@ -503,7 +505,7 @@ export const startExecute = authMutation({
         model: args.model,
         responseLength: args.responseLength,
         userId: ctx.userId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
       },
     );
 

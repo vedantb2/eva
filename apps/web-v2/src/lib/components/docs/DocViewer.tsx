@@ -36,7 +36,7 @@ import {
   IconExternalLink,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
-import { useRepo } from "@/lib/contexts/RepoContext";
+
 import { DocInterviewDialog } from "./DocInterviewDialog";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 
@@ -93,7 +93,6 @@ export function DocViewer({ doc }: { doc: Doc }) {
 }
 
 function DocEditor({ doc }: { doc: Doc }) {
-  const { installationId } = useRepo();
   const streaming = useQuery(api.streaming.get, { entityId: doc._id });
   const streamingSteps = parseActivitySteps(streaming?.currentActivity);
   const [interviewOpen, setInterviewOpen] = useState(false);
@@ -184,7 +183,6 @@ function DocEditor({ doc }: { doc: Doc }) {
     try {
       await startTestGenMutation({
         docId: doc._id,
-        installationId,
       });
     } finally {
       setIsTriggeringTestGen(false);
@@ -247,13 +245,11 @@ function DocEditor({ doc }: { doc: Doc }) {
         doc={doc}
         open={interviewOpen}
         onOpenChange={setInterviewOpen}
-        installationId={installationId}
       />
       <DocInterviewDialog
         doc={doc}
         open={historyOpen}
         onOpenChange={setHistoryOpen}
-        installationId={installationId}
         readOnly
       />
       {streaming && (

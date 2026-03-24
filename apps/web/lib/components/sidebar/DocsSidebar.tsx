@@ -5,7 +5,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   Button,
   ContextMenu,
@@ -31,7 +30,6 @@ import { searchParser } from "@/lib/search-params";
 interface DocsSidebarProps {
   repoId: Id<"githubRepos">;
   basePath: string;
-  installationId: number;
   pathname: string;
   onNavigate?: () => void;
   createRequestId?: number;
@@ -40,7 +38,6 @@ interface DocsSidebarProps {
 export function DocsSidebar({
   repoId,
   basePath,
-  installationId,
   pathname,
   onNavigate,
   createRequestId,
@@ -142,7 +139,6 @@ export function DocsSidebar({
       await startPrdParse({
         docId: id,
         prdContent,
-        installationId,
       });
     } catch (error) {
       console.error("PRD upload failed", error);
@@ -250,18 +246,18 @@ export function DocsSidebar({
                 <ContextMenu key={doc._id}>
                   <ContextMenuTrigger asChild>
                     <div
+                      onClick={() => {
+                        router.push(href);
+                        onNavigate?.();
+                      }}
                       className={cn(
-                        "group mx-1 rounded-md px-3 py-3.5 transition-colors",
+                        "group mx-1 rounded-md px-3 py-3.5 transition-colors cursor-pointer",
                         isSelected
                           ? "bg-sidebar-accent text-sidebar-primary"
                           : "text-sidebar-foreground hover:bg-sidebar-accent/70",
                       )}
                     >
-                      <Link
-                        href={href}
-                        onClick={onNavigate}
-                        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
-                      >
+                      <div className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40">
                         <span
                           className={cn(
                             "block truncate text-sm",
@@ -273,7 +269,7 @@ export function DocsSidebar({
                         <span className="text-xs text-muted-foreground">
                           {dayjs(doc.updatedAt ?? doc._creationTime).fromNow()}
                         </span>
-                      </Link>
+                      </div>
                     </div>
                   </ContextMenuTrigger>
                   <ContextMenuContent>

@@ -292,7 +292,6 @@ export const triggerExecution = authMutation({
     runId: v.id("agentRuns"),
     taskId: v.id("agentTasks"),
     repoId: v.id("githubRepos"),
-    installationId: v.number(),
     projectId: v.optional(v.id("projects")),
     branchName: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
@@ -313,6 +312,9 @@ export const triggerExecution = authMutation({
       return null;
     }
 
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
     const workflowId = await workflow.start(
       ctx,
       internal.taskWorkflow.taskExecutionWorkflow,
@@ -320,7 +322,7 @@ export const triggerExecution = authMutation({
         runId: args.runId,
         taskId: args.taskId,
         repoId: args.repoId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
         projectId: args.projectId,
         branchName: args.branchName,
         baseBranch: args.baseBranch,

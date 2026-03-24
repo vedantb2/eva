@@ -17,7 +17,6 @@ interface ProjectTabsProps {
   streamingActivity?: string;
   basePath: string;
   repoId: Id<"githubRepos">;
-  installationId: number;
 }
 
 export function ProjectTabs({
@@ -29,7 +28,6 @@ export function ProjectTabs({
   streamingActivity,
   basePath,
   repoId,
-  installationId,
 }: ProjectTabsProps) {
   const [pendingSpec, setPendingSpec] = useState<string | null>(null);
   const updateProject = useMutation(api.projects.update);
@@ -78,14 +76,12 @@ export function ProjectTabs({
         featureDescription: rawInput,
         previousAnswers: answersFromHistory,
         rejectionReason: reason,
-        installationId,
       });
 
       setPendingSpec(null);
     },
     [
       projectId,
-      installationId,
       rawInput,
       updateProject,
       addMessageDb,
@@ -108,7 +104,6 @@ export function ProjectTabs({
         onSpecGenerated={handleSpecGenerated}
         onClear={handleClear}
         repoId={repoId}
-        installationId={installationId}
       />
     );
   }
@@ -124,7 +119,6 @@ export function ProjectTabs({
           onSpecGenerated={handleSpecGenerated}
           onClear={handleClear}
           repoId={repoId}
-          installationId={installationId}
         />
       </div>
       <div className="overflow-y-auto scrollbar min-h-0">
@@ -134,7 +128,6 @@ export function ProjectTabs({
           generatedSpec={specToShow}
           basePath={basePath}
           repoId={repoId}
-          installationId={installationId}
           onRejectSpec={handleRejectSpec}
         />
       </div>

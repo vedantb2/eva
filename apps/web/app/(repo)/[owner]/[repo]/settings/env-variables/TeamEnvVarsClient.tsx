@@ -3,12 +3,13 @@
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import { Card, CardContent } from "@conductor/ui";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { IconUsers } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EnvVarsTable } from "@/lib/components/EnvVarsTable";
 
 export function TeamEnvVarsClient() {
+  const router = useRouter();
   const { repo } = useRepo();
 
   const team = useQuery(
@@ -79,13 +80,12 @@ export function TeamEnvVarsClient() {
           Team: <span className="font-medium">{team.name}</span>
         </p>
         <span className="text-muted-foreground">•</span>
-        <Link
-          href={`/teams/${team._id}`}
-          target="_blank"
-          className="text-sm text-primary hover:underline"
+        <span
+          onClick={() => window.open(`/teams/${team._id}`, "_blank")}
+          className="text-sm text-primary hover:underline cursor-pointer"
         >
           Manage team variables →
-        </Link>
+        </span>
       </div>
     </div>
   );

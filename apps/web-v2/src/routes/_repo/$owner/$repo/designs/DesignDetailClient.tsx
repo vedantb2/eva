@@ -17,7 +17,6 @@ export function DesignDetailClient({
 }: {
   designSessionId: Id<"designSessions">;
 }) {
-
   const session = useQuery(api.designSessions.get, { id: designSessionId });
   const messages = useQuery(api.messages.listByParent, {
     parentId: designSessionId,
@@ -70,7 +69,6 @@ export function DesignDetailClient({
     if (action === "start") {
       await startSandboxMutation({
         id: designSessionId,
-        installationId: repo.installationId,
       });
     } else {
       setIsStopPending(true);

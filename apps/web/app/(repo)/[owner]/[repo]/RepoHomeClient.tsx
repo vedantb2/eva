@@ -20,7 +20,6 @@ import {
   IconUsers,
   IconChecklist,
 } from "@tabler/icons-react";
-import Image from "next/image";
 import {
   repoStatsRangeOptions,
   isRepoStatsRange,
@@ -76,7 +75,7 @@ export function RepoHomeClient() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 w-max">
-                <Image
+                <img
                   src="/icon.png"
                   alt="Eva"
                   width={30}

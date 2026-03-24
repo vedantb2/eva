@@ -13,7 +13,7 @@ import {
   Button,
 } from "@conductor/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const REQUIRED_KEYS: Array<{
   key: string;
@@ -33,6 +33,7 @@ const REQUIRED_KEYS: Array<{
 ];
 
 export function SetupBanner() {
+  const router = useRouter();
   const { repo } = useRepo();
   const [dismissed, setDismissed] = useState(false);
 
@@ -119,9 +120,9 @@ export function SetupBanner() {
           <Button variant="outline" onClick={() => setDismissed(true)}>
             Dismiss
           </Button>
-          <Link href={`/teams/${team._id}`}>
-            <Button>Configure Team Settings</Button>
-          </Link>
+          <Button onClick={() => router.push(`/teams/${team._id}`)}>
+            Configure Team Settings
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

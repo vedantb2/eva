@@ -608,7 +608,6 @@ export function Sidebar() {
                             <DocsSidebar
                               repoId={repo._id}
                               basePath={repoBasePath}
-                              installationId={repo.installationId}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                             />
@@ -616,7 +615,6 @@ export function Sidebar() {
                             <TestingArenaSidebar
                               repoId={repo._id}
                               basePath={repoBasePath}
-                              installationId={repo.installationId}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                             />

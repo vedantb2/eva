@@ -5,7 +5,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   Button,
   Dialog,
@@ -97,10 +96,12 @@ export function AutomationsSidebar({
                       : "text-sidebar-foreground hover:bg-sidebar-accent/70",
                   )}
                 >
-                  <Link
-                    href={href}
-                    onClick={onNavigate}
-                    className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                  <div
+                    onClick={() => {
+                      router.push(href);
+                      onNavigate?.();
+                    }}
+                    className="block cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                   >
                     <div className="flex items-center gap-2">
                       <span
@@ -123,7 +124,7 @@ export function AutomationsSidebar({
                     <span className="text-xs text-muted-foreground">
                       {dayjs(automation.updatedAt).fromNow()}
                     </span>
-                  </Link>
+                  </div>
                 </div>
               );
             })}

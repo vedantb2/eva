@@ -84,16 +84,10 @@ Component Structure:
 
 Next.js:
 
-- Default to Server Components.
-- Client Components are only allowed when:
-  - Using state
-  - Using effects
-  - Handling user interaction
-  - Using Convex live queries/mutations
-- Never move logic to the client unless strictly required.
-- Data fetching should live in Server Components unless Convex live data is required.
+- This is a client-first app. SSR/SSG is not used. All components are client components.
+- Never use `Link` from `next/link` — it adds prefetching/SSR overhead we don't need. Use `useRouter` from `next/navigation` and `router.push()` instead.
+- Never use `Image` from `next/image` — the image optimization server is unnecessary overhead. Use plain `<img>` tags instead.
 - When using Convex:
-  - Keep `page.tsx` as a Server Component.
   - Extract interactive/live logic into child Client Components.
 
 Nuqs:

@@ -10,7 +10,7 @@ function SettingsRedirect() {
   const { owner, repo } = Route.useParams();
   useEffect(() => {
     navigate({
-      to: "/_repo/$owner/$repo/settings/config",
+      to: "/$owner/$repo/settings/config",
       params: { owner, repo },
       replace: true,
     });

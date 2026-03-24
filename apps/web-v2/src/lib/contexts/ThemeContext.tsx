@@ -70,8 +70,8 @@ export function resolveCustomTheme(custom: CustomTheme): ResolvedCustomTheme {
 }
 
 interface ThemeContextType {
-  theme: string;
-  setTheme: (theme: string) => void;
+  theme: "light" | "dark" | "system";
+  setTheme: (theme: "light" | "dark" | "system") => void;
   toggleTheme: () => void;
   mounted: boolean;
   customTheme: CustomTheme;
@@ -457,7 +457,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [syncedCustomTheme, theme]);
 
   const setTheme = useCallback(
-    (next: string) => {
+    (next: "light" | "dark" | "system") => {
       setNextTheme(next);
       if (next === "light" || next === "dark") {
         setThemeMutation({ theme: next });

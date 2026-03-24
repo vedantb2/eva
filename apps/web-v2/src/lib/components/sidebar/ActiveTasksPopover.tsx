@@ -11,7 +11,7 @@ import { api } from "@conductor/backend";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import { IconListCheck } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
-import { Link } from "@tanstack/react-router";
+import { DynamicLink } from "@/lib/components/DynamicLink";
 
 interface ActiveTasksBadgeProps {
   repoId: Id<"githubRepos">;
@@ -65,7 +65,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
           </div>
           <div className="space-y-1">
             {tasks.map((task) => (
-              <Link
+              <DynamicLink
                 key={task._id}
                 to={`${basePath}/quick-tasks?taskId=${task._id}`}
                 className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
@@ -83,7 +83,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
                   </div>
                   <TaskStatusBadge status={task.status} />
                 </div>
-              </Link>
+              </DynamicLink>
             ))}
           </div>
         </div>

@@ -1,7 +1,5 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { useMemo, useState } from "react";
@@ -355,11 +353,12 @@ export function Sidebar() {
         >
           <IconMenu2 size={20} className="text-muted-foreground" />
         </Button>
-        <Link
-          href="/home"
+        <div
+          // href="/home"
+          onClick={() => router.push("/home")}
           className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
         >
-          <Image
+          <img
             src="/icon.png"
             alt="Eva"
             width={22}
@@ -369,7 +368,7 @@ export function Sidebar() {
           <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
             Eva
           </span>
-        </Link>
+        </div>
         <Button size="icon" variant="ghost" onClick={toggleTheme}>
           {theme === "dark" ? (
             <IconSun size={18} className="text-muted-foreground" />
@@ -479,11 +478,12 @@ export function Sidebar() {
                   ) : (
                     <>
                       {!collapsed && (
-                        <Link
-                          href="/home"
+                        <div
+                          // href="/home"
+                          onClick={() => router.push("/home")}
                           className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
                         >
-                          <Image
+                          <img
                             src="/icon.png"
                             alt="Eva"
                             width={30}
@@ -493,14 +493,17 @@ export function Sidebar() {
                           <span className="text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
                             Eva
                           </span>
-                        </Link>
+                        </div>
                       )}
 
                       <div className="flex items-center gap-1">
                         {isRepoRoute && repoBasePath && !collapsed && (
-                          <Link
-                            href={repoBasePath}
-                            onClick={closeMobileSidebar}
+                          <div
+                            // href={repoBasePath}
+                            onClick={() => {
+                              router.push(repoBasePath);
+                              closeMobileSidebar();
+                            }}
                           >
                             <Button
                               size="icon"
@@ -517,7 +520,7 @@ export function Sidebar() {
                                 }
                               />
                             </Button>
-                          </Link>
+                          </div>
                         )}
                         <Button
                           size="icon"
@@ -613,7 +616,6 @@ export function Sidebar() {
                             <DocsSidebar
                               repoId={repo._id}
                               basePath={repoBasePath}
-                              installationId={repo.installationId}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                             />
@@ -621,7 +623,6 @@ export function Sidebar() {
                             <TestingArenaSidebar
                               repoId={repo._id}
                               basePath={repoBasePath}
-                              installationId={repo.installationId}
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                             />
@@ -705,9 +706,10 @@ export function Sidebar() {
                                           key={item.name}
                                           className="relative"
                                         >
-                                          <Link
-                                            href={item.href}
+                                          <div
+                                            // href={item.href}
                                             onClick={() => {
+                                              router.push(item.href);
                                               setContextSidebarMode(
                                                 contextMode,
                                               );
@@ -740,7 +742,7 @@ export function Sidebar() {
                                                 }
                                               />
                                             )}
-                                          </Link>
+                                          </div>
                                           <Button
                                             size="icon-sm"
                                             variant="ghost"
@@ -764,10 +766,11 @@ export function Sidebar() {
                                     }
 
                                     return (
-                                      <Link
+                                      <div
                                         key={item.name}
-                                        href={item.href}
+                                        // href={item.href}
                                         onClick={() => {
+                                          router.push(item.href);
                                           if (contextMode) {
                                             setContextSidebarMode(contextMode);
                                           }
@@ -808,7 +811,7 @@ export function Sidebar() {
                                               repoId={repo._id}
                                             />
                                           )}
-                                      </Link>
+                                      </div>
                                     );
                                   })}
                                 </div>

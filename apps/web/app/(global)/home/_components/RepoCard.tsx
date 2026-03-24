@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMutation } from "convex/react";
 import { motion } from "motion/react";
 import { api } from "@conductor/backend";
@@ -20,6 +19,7 @@ import {
   IconFolders,
   IconEyeOff,
 } from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
 
 export type Repo = FunctionReturnType<typeof api.githubRepos.list>[number];
 
@@ -33,6 +33,7 @@ export function RepoCard({
   onManageApps: () => void;
 }) {
   const toggleHidden = useMutation(api.githubRepos.toggleHidden);
+  const router = useRouter();
   return (
     <motion.div
       key={repo._id}
@@ -47,8 +48,10 @@ export function RepoCard({
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div className="group/card relative">
-            <Link
-              href={repoHref(repo.owner, repo.name, repo.rootDirectory)}
+            <div
+              onClick={() =>
+                router.push(repoHref(repo.owner, repo.name, repo.rootDirectory))
+              }
               className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
             >
               <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
@@ -81,7 +84,7 @@ export function RepoCard({
                   )}
                 </CardContent>
               </Card>
-            </Link>
+            </div>
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>

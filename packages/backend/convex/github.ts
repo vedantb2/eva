@@ -23,14 +23,18 @@ function getAppOctokit(): Octokit {
 }
 
 export const getInstallationTokenAction = action({
-  args: { installationId: v.number() },
+  args: { repoId: v.id("githubRepos") },
   returns: v.object({ token: v.string() }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Not authenticated");
     }
-    const token = await getInstallationToken(args.installationId);
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: args.repoId,
+    });
+    if (!repo) throw new Error("Repository not found");
+    const token = await getInstallationToken(repo.installationId);
     return { token };
   },
 });

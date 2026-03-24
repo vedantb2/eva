@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Id } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
 import { cn } from "@conductor/ui";
@@ -57,14 +57,17 @@ export function SidebarSessionItem({
   isSelected,
   onNavigate,
 }: SidebarSessionItemProps) {
+  const router = useRouter();
   const timestamp = updatedAt ?? createdAt;
   const statusStyle = STATUS_STYLES[status];
 
   return (
-    <Link
-      href={href}
-      onClick={onNavigate}
-      className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+    <div
+      onClick={() => {
+        router.push(href);
+        onNavigate?.();
+      }}
+      className="block rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
     >
       <div className="flex items-center justify-between gap-2">
         <h3
@@ -88,6 +91,6 @@ export function SidebarSessionItem({
           {compactTimeAgo(timestamp)}
         </span>
       </div>
-    </Link>
+    </div>
   );
 }

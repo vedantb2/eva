@@ -207,7 +207,6 @@ export const updateSandbox = internalMutation({
 export const startSandbox = authMutation({
   args: {
     id: v.id("designSessions"),
-    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -224,7 +223,7 @@ export const startSandbox = authMutation({
     await ctx.scheduler.runAfter(0, internal.daytona.startDesignSandbox, {
       designSessionId: args.id,
       existingSandboxId: session.sandboxId,
-      installationId: args.installationId,
+      installationId: repo.installationId,
       repoOwner: repo.owner,
       repoName: repo.name,
       branchName,

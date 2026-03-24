@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
@@ -179,10 +178,12 @@ export function AnalyseSidebar({
                                 : "text-sidebar-foreground hover:bg-sidebar-accent/70",
                             )}
                           >
-                            <Link
-                              href={`${baseUrl}/query/${query._id}`}
-                              onClick={onNavigate}
-                              className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                            <div
+                              onClick={() => {
+                                router.push(`${baseUrl}/query/${query._id}`);
+                                onNavigate?.();
+                              }}
+                              className="block cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <h3
@@ -204,7 +205,7 @@ export function AnalyseSidebar({
                                   {dayjs(query.updatedAt).fromNow()}
                                 </span>
                               </div>
-                            </Link>
+                            </div>
                           </div>
                         </ContextMenuTrigger>
                         <ContextMenuContent>
@@ -233,11 +234,13 @@ export function AnalyseSidebar({
                 Resources
               </p>
               <div className="space-y-1">
-                <Link
-                  href={`${baseUrl}/saved-queries`}
-                  onClick={onNavigate}
+                <div
+                  onClick={() => {
+                    router.push(`${baseUrl}/saved-queries`);
+                    onNavigate?.();
+                  }}
                   className={cn(
-                    "mx-1 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+                    "mx-1 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors cursor-pointer",
                     isSavedQueriesPage
                       ? "bg-sidebar-accent font-medium text-sidebar-primary"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
@@ -245,12 +248,14 @@ export function AnalyseSidebar({
                 >
                   <IconBookmark size={14} />
                   <span>Saved queries</span>
-                </Link>
-                <Link
-                  href={`${baseUrl}/routines`}
-                  onClick={onNavigate}
+                </div>
+                <div
+                  onClick={() => {
+                    router.push(`${baseUrl}/routines`);
+                    onNavigate?.();
+                  }}
                   className={cn(
-                    "mx-1 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+                    "mx-1 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors cursor-pointer",
                     isRoutinesPage
                       ? "bg-sidebar-accent font-medium text-sidebar-primary"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
@@ -258,12 +263,14 @@ export function AnalyseSidebar({
                 >
                   <IconRefresh size={14} />
                   <span>Routines</span>
-                </Link>
-                <Link
-                  href={`${baseUrl}/files`}
-                  onClick={onNavigate}
+                </div>
+                <div
+                  onClick={() => {
+                    router.push(`${baseUrl}/files`);
+                    onNavigate?.();
+                  }}
                   className={cn(
-                    "mx-1 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+                    "mx-1 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors cursor-pointer",
                     isFilesPage
                       ? "bg-sidebar-accent font-medium text-sidebar-primary"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
@@ -271,7 +278,7 @@ export function AnalyseSidebar({
                 >
                   <IconFolder size={14} />
                   <span>Files</span>
-                </Link>
+                </div>
               </div>
             </div>
           </div>

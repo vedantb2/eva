@@ -1,6 +1,7 @@
 "use client";
 
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
+import { DynamicLink } from "@/lib/components/DynamicLink";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@conductor/backend";
@@ -178,7 +179,7 @@ export function AnalyseSidebar({
                                 : "text-sidebar-foreground hover:bg-sidebar-accent/70",
                             )}
                           >
-                            <Link
+                            <DynamicLink
                               to={`${baseUrl}/query/${query._id}`}
                               onClick={onNavigate}
                               className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
@@ -203,7 +204,7 @@ export function AnalyseSidebar({
                                   {dayjs(query.updatedAt).fromNow()}
                                 </span>
                               </div>
-                            </Link>
+                            </DynamicLink>
                           </div>
                         </ContextMenuTrigger>
                         <ContextMenuContent>
@@ -232,7 +233,7 @@ export function AnalyseSidebar({
                 Resources
               </p>
               <div className="space-y-1">
-                <Link
+                <DynamicLink
                   to={`${baseUrl}/saved-queries`}
                   onClick={onNavigate}
                   className={cn(
@@ -244,8 +245,8 @@ export function AnalyseSidebar({
                 >
                   <IconBookmark size={14} />
                   <span>Saved queries</span>
-                </Link>
-                <Link
+                </DynamicLink>
+                <DynamicLink
                   to={`${baseUrl}/routines`}
                   onClick={onNavigate}
                   className={cn(
@@ -257,8 +258,8 @@ export function AnalyseSidebar({
                 >
                   <IconRefresh size={14} />
                   <span>Routines</span>
-                </Link>
-                <Link
+                </DynamicLink>
+                <DynamicLink
                   to={`${baseUrl}/files`}
                   onClick={onNavigate}
                   className={cn(
@@ -270,7 +271,7 @@ export function AnalyseSidebar({
                 >
                   <IconFolder size={14} />
                   <span>Files</span>
-                </Link>
+                </DynamicLink>
               </div>
             </div>
           </div>

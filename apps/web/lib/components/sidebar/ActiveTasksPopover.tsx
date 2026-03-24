@@ -11,7 +11,7 @@ import { api } from "@conductor/backend";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import { IconListCheck } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface ActiveTasksBadgeProps {
   repoId: Id<"githubRepos">;
@@ -19,6 +19,7 @@ interface ActiveTasksBadgeProps {
 }
 
 export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
+  const router = useRouter();
   const allTasks = useQuery(api.agentTasks.getActiveTasks, { repoId });
   const tasks =
     allTasks?.filter((t) => t.status === "in_progress" && !t.projectId) ?? [];
@@ -65,10 +66,12 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
           </div>
           <div className="space-y-1">
             {tasks.map((task) => (
-              <Link
+              <div
                 key={task._id}
-                href={`${basePath}/quick-tasks?taskId=${task._id}`}
-                className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                onClick={() =>
+                  router.push(`${basePath}/quick-tasks?taskId=${task._id}`)
+                }
+                className="block rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 <div className="flex items-center justify-between rounded-lg p-2.5 transition-colors hover:bg-muted/60">
                   <div className="min-w-0 flex-1">
@@ -83,7 +86,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
                   </div>
                   <TaskStatusBadge status={task.status} />
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </div>

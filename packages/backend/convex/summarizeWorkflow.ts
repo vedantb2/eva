@@ -183,7 +183,6 @@ export const handleCompletion = authMutation({
 export const startSummarize = authMutation({
   args: {
     sessionId: v.id("sessions"),
-    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -191,13 +190,16 @@ export const startSummarize = authMutation({
     if (!session) throw new Error("Session not found");
     if (session.userId !== ctx.userId) throw new Error("Not authorized");
 
+    const repo = await ctx.db.get(session.repoId);
+    if (!repo) throw new Error("Repository not found");
+
     const workflowId = await workflow.start(
       ctx,
       internal.summarizeWorkflow.summarizeSessionWorkflow,
       {
         sessionId: args.sessionId,
         userId: ctx.userId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
       },
     );
 

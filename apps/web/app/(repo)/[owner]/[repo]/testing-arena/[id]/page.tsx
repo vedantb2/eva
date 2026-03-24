@@ -381,7 +381,6 @@ export default function TestingArenaDocPage({
       await startEvaluation({
         docId: doc._id,
         repoId: repo._id,
-        installationId: repo.installationId,
         branchName: branch !== "main" ? branch : undefined,
       });
     } finally {

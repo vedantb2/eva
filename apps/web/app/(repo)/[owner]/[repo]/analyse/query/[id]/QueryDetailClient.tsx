@@ -40,7 +40,6 @@ export function QueryDetailClient({ queryId }: QueryDetailClientProps) {
         queryId={queryId}
         title={researchQuery.title}
         repoId={repo._id}
-        installationId={repo.installationId}
       />
       <QuerySavedSidebar repoId={repo._id} />
     </div>

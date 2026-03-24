@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -271,11 +270,13 @@ export function SessionListSidebar<T extends SessionItem>({
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.15 }}
                     >
-                      <Link
-                        href={`${baseUrl}/${session._id}`}
-                        onClick={onNavigate}
+                      <div
+                        onClick={() => {
+                          router.push(`${baseUrl}/${session._id}`);
+                          onNavigate?.();
+                        }}
                         className={cn(
-                          "mx-1 block rounded-md px-3 py-2 transition-all duration-200",
+                          "mx-1 block rounded-md px-3 py-2 transition-all duration-200 cursor-pointer",
                           isSelected
                             ? "bg-sidebar-accent text-sidebar-primary"
                             : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50",
@@ -287,7 +288,7 @@ export function SessionListSidebar<T extends SessionItem>({
                             session.updatedAt ?? session._creationTime,
                           ).fromNow()}
                         </span>
-                      </Link>
+                      </div>
                     </motion.div>
                   );
                 })}

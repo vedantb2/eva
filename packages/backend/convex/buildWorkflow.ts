@@ -200,7 +200,6 @@ export const completeBuild = internalMutation({
 export const startBuild = authMutation({
   args: {
     projectId: v.id("projects"),
-    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -212,13 +211,16 @@ export const startBuild = authMutation({
       throw new Error("Project already has an active build");
     }
 
+    const repo = await ctx.db.get(project.repoId);
+    if (!repo) throw new Error("Repository not found");
+
     const workflowId = await workflow.start(
       ctx,
       internal.buildWorkflow.buildProjectWorkflow,
       {
         projectId: args.projectId,
         userId: ctx.userId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
       },
     );
 

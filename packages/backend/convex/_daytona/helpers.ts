@@ -108,7 +108,11 @@ export async function resolveSandboxContext(
     { repoId },
   );
   const snapshotName = repoSnapshot?.snapshotName;
-  return { daytona, sandboxEnvVars, snapshotName };
+  return {
+    daytona,
+    sandboxEnvVars: { ...sandboxEnvVars, REPO_ID: repoId },
+    snapshotName,
+  };
 }
 
 export async function getSandbox(

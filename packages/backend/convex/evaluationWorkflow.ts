@@ -541,11 +541,13 @@ export const startEvaluation = authMutation({
   args: {
     docId: v.id("docs"),
     repoId: v.id("githubRepos"),
-    installationId: v.number(),
     branchName: v.optional(v.string()),
   },
   returns: v.id("evaluationReports"),
   handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
     const now = Date.now();
     const reportId = await ctx.db.insert("evaluationReports", {
       repoId: args.repoId,
@@ -563,7 +565,7 @@ export const startEvaluation = authMutation({
         reportId,
         docId: args.docId,
         userId: ctx.userId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
         branchName: args.branchName,
       },
     );

@@ -1,6 +1,7 @@
 "use client";
 
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
+import { DynamicLink } from "@/lib/components/DynamicLink";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Id } from "@conductor/backend";
@@ -210,7 +211,7 @@ export function SessionListSidebar<T extends SessionItem>({
                         )}
                       >
                         <SidebarSessionItem
-                          to={`${baseUrl}/${session._id}`}
+                          href={`${baseUrl}/${session._id}`}
                           title={session.title}
                           userId={session.userId}
                           createdAt={session._creationTime}
@@ -270,7 +271,7 @@ export function SessionListSidebar<T extends SessionItem>({
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.15 }}
                     >
-                      <Link
+                      <DynamicLink
                         to={`${baseUrl}/${session._id}`}
                         onClick={onNavigate}
                         className={cn(
@@ -286,7 +287,7 @@ export function SessionListSidebar<T extends SessionItem>({
                             session.updatedAt ?? session._creationTime,
                           ).fromNow()}
                         </span>
-                      </Link>
+                      </DynamicLink>
                     </motion.div>
                   );
                 })}

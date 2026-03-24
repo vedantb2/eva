@@ -36,14 +36,12 @@ interface QueryConversationProps {
   queryId: Id<"researchQueries">;
   title: string;
   repoId: Id<"githubRepos">;
-  installationId: number;
 }
 
 export function QueryConversation({
   queryId,
   title,
   repoId,
-  installationId,
 }: QueryConversationProps) {
   const messages = useQuery(api.messages.listByParent, { parentId: queryId });
   const streaming = useQuery(api.streaming.get, { entityId: queryId });
@@ -100,7 +98,6 @@ export function QueryConversation({
         question: text.trim(),
         repoId,
         model,
-        installationId,
       });
     } finally {
       setIsSending(false);
@@ -118,7 +115,6 @@ export function QueryConversation({
       messageId,
       question,
       repoId,
-      installationId,
     });
   };
 

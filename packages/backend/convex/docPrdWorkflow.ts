@@ -241,12 +241,14 @@ export const startPrdParse = authMutation({
   args: {
     docId: v.id("docs"),
     prdContent: v.string(),
-    installationId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.docId);
     if (!doc) throw new Error("Doc not found");
+
+    const repo = await ctx.db.get(doc.repoId);
+    if (!repo) throw new Error("Repository not found");
 
     const workflowId = await workflow.start(
       ctx,
@@ -255,7 +257,7 @@ export const startPrdParse = authMutation({
         docId: args.docId,
         prdContent: args.prdContent,
         userId: ctx.userId,
-        installationId: args.installationId,
+        installationId: repo.installationId,
       },
     );
 

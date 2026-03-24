@@ -15,7 +15,6 @@ import {
   IconFileText,
   IconFlask,
   IconHammer,
-  IconHome,
   IconInbox,
   IconLayoutKanban,
   IconLayoutSidebarLeftCollapse,
@@ -30,7 +29,6 @@ import {
   IconTerminal2,
   IconTestPipe,
   IconTool,
-  IconUsers,
   IconX,
 } from "@tabler/icons-react";
 import { api } from "@conductor/backend";
@@ -47,6 +45,7 @@ import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSideba
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoSwitcher } from "@/lib/components/RepoSwitcher";
 import { AppSwitcher } from "@/lib/components/AppSwitcher";
+import { RootSidebarContent } from "@/lib/components/sidebar/RootSidebarContent";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
@@ -280,7 +279,6 @@ export function Sidebar() {
 
   const isMonorepo = monorepoApps.length > 0;
 
-  const { openSearch } = useSearch();
   const { theme, toggleTheme } = useThemeContext();
 
   const handleRepoSwitch = (selectedOwner: string, selectedName: string) => {
@@ -477,43 +475,37 @@ export function Sidebar() {
                   ) : (
                     <>
                       {!collapsed && (
-                        <Link
-                          to="/home"
-                          className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
-                        >
-                          <img
-                            src="/icon.png"
-                            alt="Eva"
-                            width={30}
-                            height={30}
-                            className="rounded-lg"
-                          />
-                          <span className="text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
-                            Eva
-                          </span>
-                        </Link>
+                        <div className="flex min-w-0 items-center gap-2">
+                          {isRepoRoute && (
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              onClick={() => navigate({ to: "/home" })}
+                              className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97]"
+                              title="Back to home"
+                            >
+                              <IconChevronLeft size={16} />
+                            </Button>
+                          )}
+                          <Link
+                            to="/home"
+                            className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
+                          >
+                            <img
+                              src="/icon.png"
+                              alt="Eva"
+                              width={30}
+                              height={30}
+                              className="rounded-lg"
+                            />
+                            <span className="text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
+                              Eva
+                            </span>
+                          </Link>
+                        </div>
                       )}
 
                       <div className="flex items-center gap-1">
-                        {isRepoRoute && repoBasePath && !collapsed && (
-                          <Link to={repoBasePath} onClick={closeMobileSidebar}>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="motion-press hover:scale-[1.03] active:scale-[0.97]"
-                              title="Home"
-                            >
-                              <IconHome
-                                size={18}
-                                className={
-                                  pathname === repoBasePath
-                                    ? "text-sidebar-primary"
-                                    : "text-muted-foreground"
-                                }
-                              />
-                            </Button>
-                          </Link>
-                        )}
                         <Button
                           size="icon"
                           variant="ghost"
@@ -557,16 +549,12 @@ export function Sidebar() {
               )}
             >
               <div className="space-y-4">
-                {!isRepoRoute && !collapsed && repos && repos.length > 0 && (
-                  <div className="space-y-2">
-                    <RepoSwitcher
-                      repos={repos}
-                      currentOwner={null}
-                      currentName={null}
-                      onSelect={handleRepoSwitch}
-                      className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
-                    />
-                  </div>
+                {!isRepoRoute && (
+                  <RootSidebarContent
+                    collapsed={collapsed}
+                    navItemClass={navItemClass}
+                    onNavigate={closeMobileSidebar}
+                  />
                 )}
 
                 {isRepoRoute && repoBasePath && (
@@ -841,15 +829,7 @@ export function Sidebar() {
                     {user?.fullName || user?.firstName || "User"}
                   </p>
                 )}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-muted-foreground hover:text-sidebar-foreground"
-                  title="Search"
-                  onClick={openSearch}
-                >
-                  <IconSearch size={16} />
-                </Button>
+                {isRepoRoute && <SidebarSearchButton />}
 
                 <Button
                   size="icon"
@@ -870,5 +850,20 @@ export function Sidebar() {
         </div>
       </aside>
     </>
+  );
+}
+
+function SidebarSearchButton() {
+  const { openSearch } = useSearch();
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="text-muted-foreground hover:text-sidebar-foreground"
+      title="Search"
+      onClick={openSearch}
+    >
+      <IconSearch size={16} />
+    </Button>
   );
 }

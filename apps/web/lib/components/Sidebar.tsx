@@ -425,23 +425,23 @@ export function Sidebar() {
                   {showContextSidebar ? (
                     <>
                       {!collapsed && (
-                        <div className="flex min-w-0 items-center gap-2">
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            onClick={() => setContextSidebarMode("main")}
-                            className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97]"
-                            title="Back to main sidebar"
-                          >
-                            <IconChevronLeft size={16} />
-                          </Button>
-                          <span className="truncate text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
-                            {contextSidebarTitle}
-                          </span>
-                        </div>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => setContextSidebarMode("main")}
+                          className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.97]"
+                          title="Back to main sidebar"
+                        >
+                          <IconChevronLeft size={16} />
+                        </Button>
+                      )}
+                      {!collapsed && (
+                        <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-foreground">
+                          {contextSidebarTitle}
+                        </span>
                       )}
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex shrink-0 items-center gap-1">
                         <Button
                           size="icon"
                           variant="ghost"
@@ -475,34 +475,32 @@ export function Sidebar() {
                     </>
                   ) : (
                     <>
+                      {!collapsed && isRepoRoute && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => router.push("/home")}
+                          className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.97]"
+                          title="Back to home"
+                        >
+                          <IconChevronLeft size={16} />
+                        </Button>
+                      )}
                       {!collapsed && (
-                        <div className="flex min-w-0 items-center gap-2">
-                          {isRepoRoute && (
-                            <Button
-                              size="icon-sm"
-                              variant="ghost"
-                              onClick={() => router.push("/home")}
-                              className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97]"
-                              title="Back to home"
-                            >
-                              <IconChevronLeft size={16} />
-                            </Button>
-                          )}
-                          <div
-                            onClick={() => router.push("/home")}
-                            className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
-                          >
-                            <img
-                              src="/icon.png"
-                              alt="Eva"
-                              width={30}
-                              height={30}
-                              className="rounded-lg"
-                            />
-                            <span className="text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
-                              Eva
-                            </span>
-                          </div>
+                        <div
+                          onClick={() => router.push("/home")}
+                          className="inline-flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
+                        >
+                          <img
+                            src="/icon.png"
+                            alt="Eva"
+                            width={30}
+                            height={30}
+                            className="shrink-0 rounded-lg"
+                          />
+                          <span className="truncate text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
+                            Eva
+                          </span>
                         </div>
                       )}
 

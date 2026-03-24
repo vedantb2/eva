@@ -43,7 +43,6 @@ import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoSwitcher } from "@/lib/components/RepoSwitcher";
-import { AppSwitcher } from "@/lib/components/AppSwitcher";
 import { RootSidebarContent } from "@/lib/components/sidebar/RootSidebarContent";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
@@ -270,45 +269,24 @@ export function Sidebar() {
     [repoBasePath, isRepoRoute],
   );
 
-  const monorepoApps = useMemo(() => {
-    if (!repos || !owner || !repoName) return [];
-    return repos.filter(
-      (r) => r.owner === owner && r.name === repoName && r.rootDirectory,
-    );
-  }, [repos, owner, repoName]);
-
-  const isMonorepo = monorepoApps.length > 0;
-
   const { theme, toggleTheme } = useThemeContext();
 
-  const handleRepoSwitch = (selectedOwner: string, selectedName: string) => {
-    if (selectedOwner === owner && selectedName === repoName) return;
-    const matchingApps = (repos ?? []).filter(
-      (r) =>
-        r.owner === selectedOwner && r.name === selectedName && r.rootDirectory,
-    );
+  const handleRepoSwitch = (
+    selectedOwner: string,
+    selectedName: string,
+    rootDirectory?: string,
+  ) => {
     const subPath = repoBasePath ? pathname.slice(repoBasePath.length) : "";
     const segments = subPath.split("/").filter(Boolean);
     const preservePath =
       segments.length > 0 && KNOWN_SUB_PAGES.has(segments[0]) ? subPath : "";
-    if (matchingApps.length > 0) {
-      const firstApp = matchingApps[0];
-      const appSlug = firstApp.rootDirectory?.split("/").pop();
+    if (rootDirectory) {
+      const appSlug = rootDirectory.split("/").pop();
       router.push(
         `/${selectedOwner}/${selectedName}/${appSlug}${preservePath}`,
       );
     } else {
       router.push(`/${selectedOwner}/${selectedName}${preservePath}`);
-    }
-  };
-
-  const handleAppSwitch = (selectedHref: string) => {
-    if (selectedHref !== repoBasePath) {
-      const subPath = repoBasePath ? pathname.slice(repoBasePath.length) : "";
-      const segments = subPath.split("/").filter(Boolean);
-      const preservePath =
-        segments.length > 0 && KNOWN_SUB_PAGES.has(segments[0]) ? subPath : "";
-      router.push(`${selectedHref}${preservePath}`);
     }
   };
 
@@ -628,23 +606,14 @@ export function Sidebar() {
                       ) : (
                         <div className="space-y-4">
                           {!collapsed && (
-                            <div className="space-y-1.5">
-                              <RepoSwitcher
-                                repos={repos ?? []}
-                                currentOwner={owner}
-                                currentName={repoName}
-                                onSelect={handleRepoSwitch}
-                                className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
-                              />
-                              {isMonorepo && (
-                                <AppSwitcher
-                                  apps={monorepoApps}
-                                  currentValue={repoBasePath}
-                                  onValueChange={handleAppSwitch}
-                                  className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
-                                />
-                              )}
-                            </div>
+                            <RepoSwitcher
+                              repos={repos ?? []}
+                              currentOwner={owner}
+                              currentName={repoName}
+                              currentAppName={appName}
+                              onSelect={handleRepoSwitch}
+                              className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
+                            />
                           )}
 
                           <div className="space-y-2">

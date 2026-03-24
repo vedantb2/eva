@@ -1,11 +1,12 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "outputDirectory": ".",
+  "fluid": true,
   "functions": {
     "api/index.ts": {
       "memory": 256,
-      "maxDuration": 60,
-      "fluid": true
+      "maxDuration": 300
     }
   },
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }]

@@ -7,34 +7,54 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Button, Checkbox, Spinner } from "@conductor/ui";
 import { IconRefresh } from "@tabler/icons-react";
 
-type AvailableRepo = {
+type RepoEntry = {
   owner: string;
   name: string;
-  githubId: number;
-  private: boolean;
 };
+
+function dedupeRepos(
+  dbRepos: Array<{ owner: string; name: string }>,
+  githubRepos: Array<{ owner: string; name: string }> | undefined,
+): Array<RepoEntry> {
+  const seen = new Set<string>();
+  const result: Array<RepoEntry> = [];
+
+  const all = githubRepos ? [...dbRepos, ...githubRepos] : dbRepos;
+
+  for (const repo of all) {
+    const key = `${repo.owner}/${repo.name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({ owner: repo.owner, name: repo.name });
+  }
+
+  return result;
+}
 
 export function SyncSettingsClient() {
   const syncSettings = useQuery(api.syncSettings.list);
+  const dbRepos = useQuery(api.githubRepos.list, { includeHidden: true });
   const setSyncSetting = useMutation(api.syncSettings.set);
   const bulkSetSyncSettings = useMutation(api.syncSettings.bulkSet);
   const listAvailableRepos = useAction(api.github.listAllAvailableRepos);
 
   const [fetching, setFetching] = useState(false);
-  const [availableRepos, setAvailableRepos] = useState<
-    Array<AvailableRepo> | undefined
+  const [githubRepos, setGithubRepos] = useState<
+    Array<{ owner: string; name: string }> | undefined
   >(undefined);
 
-  const handleFetchRepos = async () => {
+  const handleRefreshFromGithub = async () => {
     setFetching(true);
     try {
       const repos = await listAvailableRepos();
-      setAvailableRepos(repos);
+      setGithubRepos(repos);
     } catch (err) {
       console.error("Failed to fetch repos:", err);
     }
     setFetching(false);
   };
+
+  const repos = dbRepos ? dedupeRepos(dbRepos, githubRepos) : [];
 
   const disabledSet = new Set(
     (syncSettings ?? [])
@@ -49,18 +69,16 @@ export function SyncSettingsClient() {
     void setSyncSetting({ owner, name, enabled });
   };
 
-  const groupedRepos = availableRepos
-    ? availableRepos.reduce<Record<string, Array<AvailableRepo>>>(
-        (groups, repo) => {
-          if (!groups[repo.owner]) {
-            groups[repo.owner] = [];
-          }
-          groups[repo.owner].push(repo);
-          return groups;
-        },
-        {},
-      )
-    : {};
+  const groupedRepos = repos.reduce<Record<string, Array<RepoEntry>>>(
+    (groups, repo) => {
+      if (!groups[repo.owner]) {
+        groups[repo.owner] = [];
+      }
+      groups[repo.owner].push(repo);
+      return groups;
+    },
+    {},
+  );
 
   const owners = Object.keys(groupedRepos).sort();
 
@@ -91,39 +109,33 @@ export function SyncSettingsClient() {
           size="sm"
           variant="outline"
           disabled={fetching}
-          onClick={handleFetchRepos}
+          onClick={handleRefreshFromGithub}
           className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.99]"
         >
           <IconRefresh size={16} className={fetching ? "animate-spin" : ""} />
-          <span className="hidden sm:inline">
-            {availableRepos ? "Refresh" : "Fetch Repos"}
-          </span>
+          <span className="hidden sm:inline">Refresh from GitHub</span>
         </Button>
       }
     >
-      {syncSettings === undefined ? (
+      {syncSettings === undefined || dbRepos === undefined ? (
         <div className="flex items-center justify-center py-20">
           <Spinner size="md" />
         </div>
-      ) : availableRepos === undefined ? (
+      ) : repos.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-muted-foreground">
           <p className="text-sm">
-            Fetch available repos from GitHub to configure sync settings.
+            No repos found. Sync your repos first, or fetch from GitHub to
+            discover new ones.
           </p>
           <Button
             size="sm"
             variant="outline"
             disabled={fetching}
-            onClick={handleFetchRepos}
+            onClick={handleRefreshFromGithub}
           >
             <IconRefresh size={16} className={fetching ? "animate-spin" : ""} />
-            Fetch Repos
+            Fetch from GitHub
           </Button>
-        </div>
-      ) : availableRepos.length === 0 ? (
-        <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
-          No repos found. Make sure the GitHub App is installed on your
-          repositories.
         </div>
       ) : (
         <div className="space-y-6">
@@ -159,7 +171,7 @@ function OwnerGroup({
   onToggleRepo,
 }: {
   owner: string;
-  repos: Array<AvailableRepo>;
+  repos: Array<RepoEntry>;
   allEnabled: boolean;
   someEnabled: boolean;
   isRepoEnabled: (owner: string, name: string) => boolean;
@@ -196,11 +208,6 @@ function OwnerGroup({
                 }
               />
               <span className="text-xs">{repo.name}</span>
-              {repo.private && (
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                  private
-                </span>
-              )}
             </label>
           );
         })}

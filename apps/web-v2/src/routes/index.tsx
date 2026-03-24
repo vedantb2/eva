@@ -11,8 +11,11 @@ import { useEffect } from "react";
 const isProduction = clientEnv.VITE_ENV === "production";
 
 export const Route = createFileRoute("/")({
-  validateSearch: (search: Record<string, string>) => ({
-    agent: search.agent === "" || search.agent === "true" ? true : undefined,
+  validateSearch: (search: Record<string, unknown>) => ({
+    agent:
+      search.agent === "" || search.agent === "true" || search.agent === true
+        ? true
+        : undefined,
   }),
   component: LandingPage,
 });

@@ -436,7 +436,7 @@ export function Sidebar() {
                         </Button>
                       )}
                       {!collapsed && (
-                        <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-foreground">
+                        <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary">
                           {contextSidebarTitle}
                         </span>
                       )}
@@ -451,9 +451,9 @@ export function Sidebar() {
                           <IconX size={18} className="text-muted-foreground" />
                         </Button>
                         <Button
-                          size="icon"
+                          size="icon-sm"
                           variant="ghost"
-                          className="motion-press hidden lg:inline-flex hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.97]"
                           onClick={() => setCollapsed(!collapsed)}
                           title={
                             collapsed ? "Expand sidebar" : "Collapse sidebar"
@@ -461,12 +461,12 @@ export function Sidebar() {
                         >
                           {collapsed ? (
                             <IconLayoutSidebarLeftCollapseFilled
-                              size={18}
+                              size={16}
                               className="text-sidebar-primary"
                             />
                           ) : (
                             <IconLayoutSidebarLeftCollapse
-                              size={18}
+                              size={16}
                               className="text-sidebar-primary"
                             />
                           )}
@@ -514,9 +514,9 @@ export function Sidebar() {
                           <IconX size={18} className="text-muted-foreground" />
                         </Button>
                         <Button
-                          size="icon"
+                          size="icon-sm"
                           variant="ghost"
-                          className="motion-press hidden lg:inline-flex hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.97]"
                           onClick={() => setCollapsed(!collapsed)}
                           title={
                             collapsed ? "Expand sidebar" : "Collapse sidebar"
@@ -524,12 +524,12 @@ export function Sidebar() {
                         >
                           {collapsed ? (
                             <IconLayoutSidebarLeftCollapseFilled
-                              size={18}
+                              size={16}
                               className="text-sidebar-primary"
                             />
                           ) : (
                             <IconLayoutSidebarLeftCollapse
-                              size={18}
+                              size={16}
                               className="text-sidebar-primary"
                             />
                           )}

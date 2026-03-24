@@ -1,7 +1,7 @@
 "use client";
 
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { decodeRepoParam } from "@/lib/utils/repoUrl";
+import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
 import { UserButton, useUser } from "@clerk/clerk-react";
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
@@ -280,14 +280,8 @@ export function Sidebar() {
     const segments = subPath.split("/").filter(Boolean);
     const preservePath =
       segments.length > 0 && KNOWN_SUB_PAGES.has(segments[0]) ? subPath : "";
-    if (rootDirectory) {
-      const appSlug = rootDirectory.split("/").pop();
-      navigate({
-        to: `/${selectedOwner}/${selectedName}/${appSlug}${preservePath}`,
-      });
-    } else {
-      navigate({ to: `/${selectedOwner}/${selectedName}${preservePath}` });
-    }
+    const base = repoHrefUtil(selectedOwner, selectedName, rootDirectory);
+    navigate({ to: `${base}${preservePath}` });
   };
 
   const navItemClass = (isActive: boolean) =>

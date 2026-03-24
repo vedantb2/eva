@@ -11,7 +11,6 @@ import {
   CollapsibleContent,
   ReasoningTrigger,
 } from "@conductor/ui";
-import Image from "next/image";
 import { UserInitials } from "@conductor/shared";
 import type { Id } from "@conductor/backend";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
@@ -35,7 +34,7 @@ export function ChatMessage({
   const isUser = role === "user";
 
   const evaIcon = (
-    <Image
+    <img
       src="/icon.png"
       alt="Eva"
       width={20}

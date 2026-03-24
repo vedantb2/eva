@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { IconMoon, IconSun } from "@tabler/icons-react";
@@ -33,7 +32,7 @@ export function TopNavBar() {
             onClick={() => router.push("/home")}
             className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer"
           >
-            <Image
+            <img
               src="/icon.png"
               alt="Eva"
               width={30}

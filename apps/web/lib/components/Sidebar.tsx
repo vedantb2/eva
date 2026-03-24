@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { useMemo, useState } from "react";
@@ -359,7 +358,7 @@ export function Sidebar() {
           onClick={() => router.push("/home")}
           className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
         >
-          <Image
+          <img
             src="/icon.png"
             alt="Eva"
             width={22}
@@ -484,7 +483,7 @@ export function Sidebar() {
                           onClick={() => router.push("/home")}
                           className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
                         >
-                          <Image
+                          <img
                             src="/icon.png"
                             alt="Eva"
                             width={30}

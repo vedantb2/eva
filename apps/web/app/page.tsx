@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Button } from "@conductor/ui";
 
@@ -9,7 +8,7 @@ export default function LandingPage() {
     <div className="flex min-h-screen items-center justify-center">
       <div className="flex flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-4">
-          <Image
+          <img
             src="/icon.png"
             alt="Eva"
             width={80}

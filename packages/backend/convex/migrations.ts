@@ -438,7 +438,10 @@ export const deleteNonEvalucomRepos = internalMutation({
   returns: v.object({ reposScheduled: v.number() }),
   handler: async (ctx) => {
     const allRepos = await ctx.db.query("githubRepos").collect();
-    const targets = allRepos.filter((r) => r.owner !== "evalucom");
+    const targets = allRepos.filter(
+      (r) =>
+        r.owner !== "evalucom" && !(r.owner === "vedantb2" && r.name === "eva"),
+    );
 
     console.log(
       `[cleanup] Scheduling deletion for ${targets.length} non-evalucom repos`,
@@ -462,7 +465,10 @@ export const deleteEvalucomRepos = internalMutation({
   returns: v.object({ reposScheduled: v.number() }),
   handler: async (ctx) => {
     const allRepos = await ctx.db.query("githubRepos").collect();
-    const targets = allRepos.filter((r) => r.owner === "evalucom");
+    const targets = allRepos.filter(
+      (r) =>
+        r.owner === "evalucom" || (r.owner === "vedantb2" && r.name === "eva"),
+    );
 
     console.log(
       `[cleanup] Scheduling deletion for ${targets.length} evalucom repos`,

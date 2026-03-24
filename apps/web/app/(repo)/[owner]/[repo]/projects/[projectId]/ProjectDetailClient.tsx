@@ -28,7 +28,7 @@ import {
   IconPlayerStop,
   IconLoader2,
 } from "@tabler/icons-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 
@@ -37,6 +37,7 @@ interface ProjectDetailClientProps {
 }
 
 export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
+  const router = useRouter();
   const { basePath, repo } = useRepo();
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
@@ -98,16 +99,10 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                 variant="outline"
                 size="sm"
                 className="rounded-full"
-                asChild
+                onClick={() => window.open(project.prUrl, "_blank")}
               >
-                <Link
-                  href={project.prUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <IconGitPullRequest size={16} />
-                  <span className="hidden sm:inline">View PR</span>
-                </Link>
+                <IconGitPullRequest size={16} />
+                <span className="hidden sm:inline">View PR</span>
               </Button>
             )}
             <div className="hidden sm:block">

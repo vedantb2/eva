@@ -11,7 +11,7 @@ import { api } from "@conductor/backend";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import { IconListCheck } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface ActiveTasksAccordionProps {
   repoId?: Id<"githubRepos">;
@@ -22,6 +22,7 @@ export function ActiveTasksAccordion({
   repoId,
   basePath,
 }: ActiveTasksAccordionProps) {
+  const router = useRouter();
   const allTasks = useQuery(api.agentTasks.getActiveTasks, { repoId });
   const tasks = allTasks?.filter((t) => t.status === "in_progress") ?? [];
 
@@ -58,10 +59,10 @@ export function ActiveTasksAccordion({
           <AccordionContent className="px-0 pb-0">
             <div className="space-y-1 px-3">
               {tasks.map((task) => (
-                <Link
+                <div
                   key={task._id}
-                  href={getTaskLink(task)}
-                  className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                  onClick={() => router.push(getTaskLink(task))}
+                  className="block rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                 >
                   <div className="flex items-center justify-between rounded-lg p-2.5 transition-colors hover:bg-sidebar-accent/50">
                     <div className="flex-1 min-w-0">
@@ -76,7 +77,7 @@ export function ActiveTasksAccordion({
                     </div>
                     <TaskStatusBadge status={task.status} />
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           </AccordionContent>

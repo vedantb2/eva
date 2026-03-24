@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { Button, cn } from "@conductor/ui";
@@ -11,6 +10,7 @@ import { useThemeContext } from "@/lib/contexts/ThemeContext";
 
 export function TopNavBar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, toggleTheme, mounted } = useThemeContext();
 
   const isReposRoute = pathname === "/home" || pathname.startsWith("/setup");
@@ -29,9 +29,9 @@ export function TopNavBar() {
     <header className="sticky top-0 z-30 bg-background/95">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3 sm:gap-6">
-          <Link
-            href="/home"
-            className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5"
+          <div
+            onClick={() => router.push("/home")}
+            className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer"
           >
             <Image
               src="/icon.png"
@@ -43,24 +43,24 @@ export function TopNavBar() {
             <span className="text-lg font-semibold tracking-[-0.02em]">
               Eva
             </span>
-          </Link>
+          </div>
 
           <nav className="flex items-center gap-1 sm:gap-2">
             {tabs.map((tab) => (
-              <Link key={tab.href} href={tab.href}>
-                <Button
-                  size="sm"
-                  variant={tab.active ? "secondary" : "ghost"}
-                  className={cn(
-                    "h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm",
-                    tab.active
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                </Button>
-              </Link>
+              <Button
+                key={tab.href}
+                size="sm"
+                variant={tab.active ? "secondary" : "ghost"}
+                onClick={() => router.push(tab.href)}
+                className={cn(
+                  "h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm",
+                  tab.active
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {tab.label}
+              </Button>
             ))}
           </nav>
         </div>

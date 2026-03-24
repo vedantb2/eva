@@ -19,9 +19,10 @@ import {
   DialogFooter,
 } from "@conductor/ui";
 import { IconPlus, IconUsers } from "@tabler/icons-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export function TeamsClient() {
+  const router = useRouter();
   const teams = useQuery(api.teams.list) ?? [];
   const createTeam = useMutation(api.teams.create);
 
@@ -134,7 +135,11 @@ export function TeamsClient() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {teams.map((team) => (
-          <Link key={team._id} href={`/teams/${team._id}`}>
+          <div
+            key={team._id}
+            onClick={() => router.push(`/teams/${team._id}`)}
+            className="cursor-pointer"
+          >
             <Card className="h-full transition-colors hover:bg-accent/50">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -150,7 +155,7 @@ export function TeamsClient() {
                 </div>
               </CardHeader>
             </Card>
-          </Link>
+          </div>
         ))}
       </div>
 

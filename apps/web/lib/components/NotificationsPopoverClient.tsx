@@ -16,7 +16,6 @@ import {
 } from "@conductor/ui";
 import { IconBell, IconChecks, IconBellOff } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
-import Link from "next/link";
 import {
   typeConfig,
   NotificationIcon,
@@ -134,13 +133,15 @@ export function NotificationsPopoverClient() {
           )}
         </div>
         <div className="border-t px-4 py-2">
-          <Link
-            href="/inbox"
-            onClick={() => popover.onClose()}
-            className="text-sm text-primary hover:underline"
+          <span
+            onClick={() => {
+              popover.onClose();
+              router.push("/inbox");
+            }}
+            className="text-sm text-primary hover:underline cursor-pointer"
           >
             View all
-          </Link>
+          </span>
         </div>
       </PopoverContent>
     </Popover>

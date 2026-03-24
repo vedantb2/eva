@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   IconKey,
   IconCamera,
@@ -24,6 +24,7 @@ export function SettingsSidebar({
   pathname,
   onNavigate,
 }: SettingsSidebarProps) {
+  const router = useRouter();
   const baseUrl = `${basePath}/settings`;
 
   const navigation = [
@@ -42,12 +43,14 @@ export function SettingsSidebar({
       {navigation.map((item) => {
         const isActive = pathname.startsWith(item.href);
         return (
-          <Link
+          <div
             key={item.name}
-            href={item.href}
-            onClick={onNavigate}
+            onClick={() => {
+              router.push(item.href);
+              onNavigate?.();
+            }}
             className={cn(
-              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors cursor-pointer",
               isActive
                 ? "bg-sidebar-accent font-medium text-sidebar-primary"
                 : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
@@ -55,7 +58,7 @@ export function SettingsSidebar({
           >
             <item.icon size={14} />
             <span>{item.name}</span>
-          </Link>
+          </div>
         );
       })}
     </div>

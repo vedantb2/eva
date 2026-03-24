@@ -58,7 +58,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useQueryState } from "nuqs";
 import { sessionModeParser } from "@/lib/search-params";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -129,6 +129,7 @@ export function ChatPanel({
   sandboxCollapsed,
   onToggleSandbox,
 }: ChatPanelProps) {
+  const router = useRouter();
   const { repo } = useRepo();
   const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
@@ -354,7 +355,10 @@ export function ChatPanel({
         )}
       </Button>
       {prUrl ? (
-        <Link href={prUrl} target="_blank">
+        <div
+          onClick={() => window.open(prUrl, "_blank")}
+          className="cursor-pointer"
+        >
           <Badge
             variant="outline"
             className="motion-base gap-1 cursor-pointer hover:scale-[1.01]"
@@ -362,7 +366,7 @@ export function ChatPanel({
             <IconGitPullRequest size={12} />
             View PR
           </Badge>
-        </Link>
+        </div>
       ) : branchName ? (
         <Button
           size="sm"

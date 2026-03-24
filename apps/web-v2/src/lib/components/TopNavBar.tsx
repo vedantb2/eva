@@ -50,7 +50,7 @@ export function TopNavBar() {
                   size="sm"
                   variant={tab.active ? "secondary" : "ghost"}
                   className={cn(
-                    "h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm",
+                    "h-8 border-0 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm",
                     tab.active
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:text-foreground",

@@ -20,6 +20,7 @@ import { Route as RepoOwnerRepoRouteImport } from "./routes/_repo/$owner/$repo";
 import { Route as GlobalTeamsTeamIdRouteImport } from "./routes/_global/teams/$teamId";
 import { Route as GlobalSetupIdRouteImport } from "./routes/_global/setup/$id";
 import { Route as GlobalSettingsThemeRouteImport } from "./routes/_global/settings/theme";
+import { Route as GlobalSettingsSyncRouteImport } from "./routes/_global/settings/sync";
 import { Route as RepoOwnerRepoIndexRouteImport } from "./routes/_repo/$owner/$repo/index";
 import { Route as RepoOwnerRepoStatsRouteImport } from "./routes/_repo/$owner/$repo/stats";
 import { Route as RepoOwnerRepoQuickTasksRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks";
@@ -102,6 +103,11 @@ const GlobalSetupIdRoute = GlobalSetupIdRouteImport.update({
 const GlobalSettingsThemeRoute = GlobalSettingsThemeRouteImport.update({
   id: "/settings/theme",
   path: "/settings/theme",
+  getParentRoute: () => GlobalRoute,
+} as any);
+const GlobalSettingsSyncRoute = GlobalSettingsSyncRouteImport.update({
+  id: "/settings/sync",
+  path: "/settings/sync",
   getParentRoute: () => GlobalRoute,
 } as any);
 const RepoOwnerRepoIndexRoute = RepoOwnerRepoIndexRouteImport.update({
@@ -282,6 +288,7 @@ export interface FileRoutesByFullPath {
   "/agent-callback": typeof AgentCallbackRoute;
   "/home": typeof GlobalHomeRoute;
   "/inbox": typeof GlobalInboxRoute;
+  "/settings/sync": typeof GlobalSettingsSyncRoute;
   "/settings/theme": typeof GlobalSettingsThemeRoute;
   "/setup/$id": typeof GlobalSetupIdRoute;
   "/teams/$teamId": typeof GlobalTeamsTeamIdRoute;
@@ -323,6 +330,7 @@ export interface FileRoutesByTo {
   "/agent-callback": typeof AgentCallbackRoute;
   "/home": typeof GlobalHomeRoute;
   "/inbox": typeof GlobalInboxRoute;
+  "/settings/sync": typeof GlobalSettingsSyncRoute;
   "/settings/theme": typeof GlobalSettingsThemeRoute;
   "/setup/$id": typeof GlobalSetupIdRoute;
   "/teams/$teamId": typeof GlobalTeamsTeamIdRoute;
@@ -366,6 +374,7 @@ export interface FileRoutesById {
   "/agent-callback": typeof AgentCallbackRoute;
   "/_global/home": typeof GlobalHomeRoute;
   "/_global/inbox": typeof GlobalInboxRoute;
+  "/_global/settings/sync": typeof GlobalSettingsSyncRoute;
   "/_global/settings/theme": typeof GlobalSettingsThemeRoute;
   "/_global/setup/$id": typeof GlobalSetupIdRoute;
   "/_global/teams/$teamId": typeof GlobalTeamsTeamIdRoute;
@@ -409,6 +418,7 @@ export interface FileRouteTypes {
     | "/agent-callback"
     | "/home"
     | "/inbox"
+    | "/settings/sync"
     | "/settings/theme"
     | "/setup/$id"
     | "/teams/$teamId"
@@ -450,6 +460,7 @@ export interface FileRouteTypes {
     | "/agent-callback"
     | "/home"
     | "/inbox"
+    | "/settings/sync"
     | "/settings/theme"
     | "/setup/$id"
     | "/teams/$teamId"
@@ -492,6 +503,7 @@ export interface FileRouteTypes {
     | "/agent-callback"
     | "/_global/home"
     | "/_global/inbox"
+    | "/_global/settings/sync"
     | "/_global/settings/theme"
     | "/_global/setup/$id"
     | "/_global/teams/$teamId"
@@ -613,6 +625,13 @@ declare module "@tanstack/react-router" {
       path: "/settings/theme";
       fullPath: "/settings/theme";
       preLoaderRoute: typeof GlobalSettingsThemeRouteImport;
+      parentRoute: typeof GlobalRoute;
+    };
+    "/_global/settings/sync": {
+      id: "/_global/settings/sync";
+      path: "/settings/sync";
+      fullPath: "/settings/sync";
+      preLoaderRoute: typeof GlobalSettingsSyncRouteImport;
       parentRoute: typeof GlobalRoute;
     };
     "/_repo/$owner/$repo/": {
@@ -831,6 +850,7 @@ declare module "@tanstack/react-router" {
 interface GlobalRouteChildren {
   GlobalHomeRoute: typeof GlobalHomeRoute;
   GlobalInboxRoute: typeof GlobalInboxRoute;
+  GlobalSettingsSyncRoute: typeof GlobalSettingsSyncRoute;
   GlobalSettingsThemeRoute: typeof GlobalSettingsThemeRoute;
   GlobalSetupIdRoute: typeof GlobalSetupIdRoute;
   GlobalTeamsTeamIdRoute: typeof GlobalTeamsTeamIdRoute;
@@ -840,6 +860,7 @@ interface GlobalRouteChildren {
 const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalHomeRoute: GlobalHomeRoute,
   GlobalInboxRoute: GlobalInboxRoute,
+  GlobalSettingsSyncRoute: GlobalSettingsSyncRoute,
   GlobalSettingsThemeRoute: GlobalSettingsThemeRoute,
   GlobalSetupIdRoute: GlobalSetupIdRoute,
   GlobalTeamsTeamIdRoute: GlobalTeamsTeamIdRoute,

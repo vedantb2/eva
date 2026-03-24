@@ -26,6 +26,7 @@ import {
   agentRunFields,
   sessionFields,
   githubRepoFields,
+  syncSettingFields,
   projectFields,
   projectDetailsFields,
 } from "./validators";
@@ -372,6 +373,11 @@ const schema = defineSchema({
     .index("by_repo", ["repoId"])
     .index("by_repo_and_created", ["repoId", "createdAt"])
     .index("by_entity_type", ["entityType"]),
+
+  syncSettings: defineTable(syncSettingFields).index("by_owner_and_name", [
+    "owner",
+    "name",
+  ]),
 });
 
 export default schema;

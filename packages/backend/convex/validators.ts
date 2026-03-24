@@ -297,6 +297,12 @@ export const sessionFields = {
   devCommand: v.optional(v.string()),
 };
 
+export const syncSettingFields = {
+  owner: v.string(),
+  name: v.string(),
+  enabled: v.boolean(),
+};
+
 export const githubRepoFields = {
   owner: v.string(),
   name: v.string(),

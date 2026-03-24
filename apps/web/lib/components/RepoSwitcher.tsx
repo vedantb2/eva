@@ -14,6 +14,7 @@ import {
   IconFolder,
   IconSearch,
   IconSelector,
+  IconUser,
 } from "@tabler/icons-react";
 import type { Doc } from "@conductor/backend";
 
@@ -127,14 +128,26 @@ export function RepoSwitcher({
   const showAppsColumn = monorepoApps.length > 0;
 
   const displayLabel =
-    currentOwner && currentName ? currentName : "Select a repo";
+    currentOwner && currentName
+      ? currentAppName
+        ? `${currentName}/${currentAppName}`
+        : currentName
+      : "Select a repo";
+
+  const currentIsMonorepo = useMemo(() => {
+    if (!currentOwner || !currentName) return false;
+    return repos.some(
+      (r) =>
+        r.owner === currentOwner && r.name === currentName && r.rootDirectory,
+    );
+  }, [repos, currentOwner, currentName]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
     if (nextOpen) {
       setSearch("");
       setSelectedOwner(currentOwner);
-      setSelectedMonorepo(null);
+      setSelectedMonorepo(currentIsMonorepo ? currentName : null);
     }
   };
 
@@ -191,87 +204,113 @@ export function RepoSwitcher({
           />
         </div>
 
-        <div className="flex">
-          <div className="scrollbar w-[130px] shrink-0 overflow-y-auto bg-muted/30 py-1 pl-1">
-            {filteredOwners.map((ownerKey) => (
-              <div
-                key={ownerKey}
-                onClick={() => {
-                  setSelectedOwner(ownerKey);
-                  setSelectedMonorepo(null);
-                }}
-                className={itemClass(ownerKey === effectiveOwner)}
-              >
-                <span className="truncate">{ownerKey}</span>
-              </div>
-            ))}
-            {filteredOwners.length === 0 && (
-              <p className="px-2 py-3 text-xs text-muted-foreground">
-                No matches
-              </p>
-            )}
-          </div>
-
-          <div className="scrollbar min-w-0 flex-1 overflow-y-auto py-1 pl-1">
-            {visibleRepos.map((repo) => {
-              const isSelected =
-                repo.owner === currentOwner && repo.name === currentName;
-              const isMonorepo = repo.apps.length > 0;
-              const isMonorepoExpanded = selectedMonorepo === repo.name;
-
-              return (
+        <div className="flex px-3 pb-3">
+          <div className="w-[130px] shrink-0 bg-muted/30">
+            <p className="px-2 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Owner
+            </p>
+            <div className="scrollbar max-h-64 overflow-y-auto py-1 pl-1">
+              {filteredOwners.map((ownerKey) => (
                 <div
-                  key={`${repo.owner}/${repo.name}`}
-                  onClick={() => handleRepoClick(repo)}
-                  className={cn(
-                    itemClass(isSelected || isMonorepoExpanded),
-                    "justify-between",
-                  )}
+                  key={ownerKey}
+                  onMouseEnter={() => {
+                    setSelectedOwner(ownerKey);
+                    setSelectedMonorepo(null);
+                  }}
+                  className={itemClass(ownerKey === effectiveOwner)}
                 >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <IconBrandGithub
-                      size={14}
-                      className="shrink-0 text-muted-foreground"
-                    />
-                    <span className="truncate">{repo.name}</span>
-                  </div>
-                  {isMonorepo && (
-                    <IconChevronRight
-                      size={14}
-                      className="shrink-0 text-muted-foreground"
-                    />
-                  )}
+                  <IconUser
+                    size={14}
+                    className="shrink-0 text-muted-foreground"
+                  />
+                  <span className="truncate">{ownerKey}</span>
                 </div>
-              );
-            })}
-            {visibleRepos.length === 0 && (
-              <p className="px-2 py-3 text-xs text-muted-foreground">
-                No repos
-              </p>
-            )}
+              ))}
+              {filteredOwners.length === 0 && (
+                <p className="px-2 py-3 text-xs text-muted-foreground">
+                  No matches
+                </p>
+              )}
+            </div>
           </div>
 
-          {showAppsColumn && (
-            <div className="scrollbar w-[140px] shrink-0 overflow-y-auto bg-muted/30 py-1 pr-1">
-              {monorepoApps.map((app) => {
-                const appLabel =
-                  app.rootDirectory?.split("/").pop() ?? app.name;
-                const isSelected = currentAppName === appLabel;
+          <div className="min-w-0 flex-1">
+            <p className="px-2 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Codebase
+            </p>
+            <div className="scrollbar max-h-64 overflow-y-auto py-1 pl-1">
+              {visibleRepos.map((repo) => {
+                const isSelected =
+                  repo.owner === currentOwner && repo.name === currentName;
+                const isMonorepo = repo.apps.length > 0;
+                const isMonorepoExpanded = selectedMonorepo === repo.name;
 
                 return (
                   <div
-                    key={app._id}
-                    onClick={() => handleAppClick(app)}
-                    className={itemClass(isSelected)}
+                    key={`${repo.owner}/${repo.name}`}
+                    onClick={() => handleRepoClick(repo)}
+                    onMouseEnter={() => {
+                      if (isMonorepo) {
+                        setSelectedMonorepo(repo.name);
+                      } else {
+                        setSelectedMonorepo(null);
+                      }
+                    }}
+                    className={cn(
+                      itemClass(isSelected || isMonorepoExpanded),
+                      "justify-between",
+                    )}
                   >
-                    <IconFolder
-                      size={14}
-                      className="shrink-0 text-muted-foreground"
-                    />
-                    <span className="truncate">{appLabel}</span>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <IconBrandGithub
+                        size={14}
+                        className="shrink-0 text-muted-foreground"
+                      />
+                      <span className="truncate">{repo.name}</span>
+                    </div>
+                    {isMonorepo && (
+                      <IconChevronRight
+                        size={14}
+                        className="shrink-0 text-muted-foreground"
+                      />
+                    )}
                   </div>
                 );
               })}
+              {visibleRepos.length === 0 && (
+                <p className="px-2 py-3 text-xs text-muted-foreground">
+                  No repos
+                </p>
+              )}
+            </div>
+          </div>
+
+          {showAppsColumn && (
+            <div className="w-[140px] shrink-0 bg-muted/30">
+              <p className="px-2 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                App
+              </p>
+              <div className="scrollbar max-h-64 overflow-y-auto py-1 pr-1">
+                {monorepoApps.map((app) => {
+                  const appLabel =
+                    app.rootDirectory?.split("/").pop() ?? app.name;
+                  const isSelected = currentAppName === appLabel;
+
+                  return (
+                    <div
+                      key={app._id}
+                      onClick={() => handleAppClick(app)}
+                      className={itemClass(isSelected)}
+                    >
+                      <IconFolder
+                        size={14}
+                        className="shrink-0 text-muted-foreground"
+                      />
+                      <span className="truncate">{appLabel}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

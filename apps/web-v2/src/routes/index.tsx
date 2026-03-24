@@ -1,4 +1,8 @@
-import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  useNavigate,
+  useSearch,
+} from "@tanstack/react-router";
 import { useAuth, SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { Button } from "@conductor/ui";
 import { clientEnv } from "@/env/client";
@@ -27,9 +31,7 @@ function LandingPage() {
     }
 
     if (agent) {
-      console.log(
-        "[agent-auth] ?agent detected but HTTP action not built yet — skipping redirect",
-      );
+      window.location.href = `${clientEnv.VITE_CONVEX_SITE_URL}/api/auth/agent-login`;
     }
   }, [isLoaded, isSignedIn, agent, navigate]);
 

@@ -1,4 +1,5 @@
 import { httpRouter } from "convex/server";
+import { createClerkClient } from "@clerk/backend";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
@@ -284,6 +285,48 @@ http.route({
     }
 
     return new Response("OK", { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/api/auth/agent-login",
+  method: "GET",
+  handler: httpAction(async (_ctx, request) => {
+    const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+    const agentUserId = process.env.AGENT_CLERK_USER_ID;
+
+    if (!clerkSecretKey || !agentUserId) {
+      return Response.json(
+        {
+          error: "CLERK_SECRET_KEY and AGENT_CLERK_USER_ID must be configured",
+        },
+        { status: 500 },
+      );
+    }
+
+    const origin =
+      request.headers.get("Origin") ||
+      request.headers.get("Referer")?.replace(/\/$/, "") ||
+      null;
+
+    if (!origin) {
+      return Response.json(
+        { error: "Could not determine callback origin" },
+        { status: 400 },
+      );
+    }
+
+    const clerk = createClerkClient({ secretKey: clerkSecretKey });
+
+    const { token } = await clerk.signInTokens.createSignInToken({
+      userId: agentUserId,
+      expiresInSeconds: 60,
+    });
+
+    const callbackUrl = new URL("/agent-callback", origin);
+    callbackUrl.searchParams.set("ticket", token);
+
+    return Response.redirect(callbackUrl.toString(), 302);
   }),
 });
 

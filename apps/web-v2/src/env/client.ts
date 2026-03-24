@@ -6,6 +6,7 @@ export const clientEnv = createEnv({
   client: {
     VITE_CONVEX_URL: z.string().min(1),
     VITE_CLERK_PUBLISHABLE_KEY: z.string().min(1),
+    VITE_CONVEX_SITE_URL: z.string().min(1),
     VITE_ENV: z.enum(["development", "staging", "production"]),
   },
   runtimeEnv: import.meta.env,

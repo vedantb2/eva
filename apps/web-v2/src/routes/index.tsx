@@ -3,20 +3,19 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
+import { zodSearchValidator } from "@tanstack/router-zod-adapter";
 import { useAuth, SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { Button } from "@conductor/ui";
 import { clientEnv } from "@/env/client";
 import { useEffect } from "react";
+import { z } from "zod";
 
 const isProduction = clientEnv.VITE_ENV === "production";
 
 export const Route = createFileRoute("/")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    agent:
-      search.agent === "" || search.agent === "true" || search.agent === true
-        ? true
-        : undefined,
-  }),
+  validateSearch: zodSearchValidator(
+    z.object({ agent: z.boolean().optional() }),
+  ),
   component: LandingPage,
 });
 
@@ -34,7 +33,7 @@ function LandingPage() {
     }
 
     if (agent) {
-      window.location.href = `${clientEnv.VITE_CONVEX_SITE_URL}/api/auth/agent-login`;
+      window.location.href = "/api/auth/agent-login";
     }
   }, [isLoaded, isSignedIn, agent, navigate]);
 

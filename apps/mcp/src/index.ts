@@ -60,7 +60,7 @@ function queryToStringRecord(req: Request): Record<string, string> {
   return result;
 }
 
-const app = express();
+export const app = express();
 
 app.use((req: Request, _res: Response, next) => {
   console.log(`→ ${req.method} ${req.path}`);
@@ -235,11 +235,13 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
-const port = parseInt(process.env.PORT ?? "3001", 10);
-app.listen(port, () => {
-  console.log(`Convex MCP server listening on port ${port}`);
-  console.log(
-    `OAuth metadata: ${getBaseUrl()}/.well-known/oauth-authorization-server`,
-  );
-  console.log(`MCP endpoint: ${getBaseUrl()}/mcp`);
-});
+if (!process.env.VERCEL) {
+  const port = parseInt(process.env.PORT ?? "3001", 10);
+  app.listen(port, () => {
+    console.log(`Convex MCP server listening on port ${port}`);
+    console.log(
+      `OAuth metadata: ${getBaseUrl()}/.well-known/oauth-authorization-server`,
+    );
+    console.log(`MCP endpoint: ${getBaseUrl()}/mcp`);
+  });
+}

@@ -1,8 +1,28 @@
 "use client";
 
-import { TopNavBar } from "@/lib/components/TopNavBar";
 import { ClientProvider } from "@/lib/components/ClientProvider";
+import { Sidebar } from "@/lib/components/Sidebar";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
+import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
+
+function GlobalMainContent({ children }: { children: React.ReactNode }) {
+  const { collapsed } = useSidebar();
+  return (
+    <div
+      className={`relative flex min-h-screen flex-col pt-14 transition-[padding] duration-300 lg:pt-0 ${collapsed ? "lg:pl-20" : "lg:pl-64"}`}
+    >
+      <div className="relative flex flex-1 flex-col bg-background">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"
+        />
+        <div className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function GlobalLayout({
   children,
@@ -11,17 +31,11 @@ export default function GlobalLayout({
 }) {
   return (
     <ClientProvider>
-      <div className="relative min-h-screen bg-app-shell">
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-x-0 top-0 z-0 h-56 bg-gradient-to-b from-background/90 via-background/45 to-transparent"
-        />
-        <TopNavBar />
-        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {children}
-        </div>
+      <SidebarProvider>
+        <Sidebar />
+        <GlobalMainContent>{children}</GlobalMainContent>
         <NotificationToastStream />
-      </div>
+      </SidebarProvider>
     </ClientProvider>
   );
 }

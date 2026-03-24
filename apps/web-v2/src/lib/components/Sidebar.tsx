@@ -1,7 +1,7 @@
 "use client";
 
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { decodeRepoParam } from "@/lib/utils/repoUrl";
+import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
 import { UserButton, useUser } from "@clerk/clerk-react";
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
@@ -15,7 +15,6 @@ import {
   IconFileText,
   IconFlask,
   IconHammer,
-  IconHome,
   IconInbox,
   IconLayoutKanban,
   IconLayoutSidebarLeftCollapse,
@@ -30,7 +29,6 @@ import {
   IconTerminal2,
   IconTestPipe,
   IconTool,
-  IconUsers,
   IconX,
 } from "@tabler/icons-react";
 import { api } from "@conductor/backend";
@@ -46,7 +44,7 @@ import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
 import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSidebar";
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoSwitcher } from "@/lib/components/RepoSwitcher";
-import { AppSwitcher } from "@/lib/components/AppSwitcher";
+import { RootSidebarContent } from "@/lib/components/sidebar/RootSidebarContent";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
@@ -271,47 +269,19 @@ export function Sidebar() {
     [repoBasePath, isRepoRoute],
   );
 
-  const monorepoApps = useMemo(() => {
-    if (!repos || !owner || !repoName) return [];
-    return repos.filter(
-      (r) => r.owner === owner && r.name === repoName && r.rootDirectory,
-    );
-  }, [repos, owner, repoName]);
-
-  const isMonorepo = monorepoApps.length > 0;
-
-  const { openSearch } = useSearch();
   const { theme, toggleTheme } = useThemeContext();
 
-  const handleRepoSwitch = (selectedOwner: string, selectedName: string) => {
-    if (selectedOwner === owner && selectedName === repoName) return;
-    const matchingApps = (repos ?? []).filter(
-      (r) =>
-        r.owner === selectedOwner && r.name === selectedName && r.rootDirectory,
-    );
+  const handleRepoSwitch = (
+    selectedOwner: string,
+    selectedName: string,
+    rootDirectory?: string,
+  ) => {
     const subPath = repoBasePath ? pathname.slice(repoBasePath.length) : "";
     const segments = subPath.split("/").filter(Boolean);
     const preservePath =
       segments.length > 0 && KNOWN_SUB_PAGES.has(segments[0]) ? subPath : "";
-    if (matchingApps.length > 0) {
-      const firstApp = matchingApps[0];
-      const appSlug = firstApp.rootDirectory?.split("/").pop();
-      navigate({
-        to: `/${selectedOwner}/${selectedName}/${appSlug}${preservePath}`,
-      });
-    } else {
-      navigate({ to: `/${selectedOwner}/${selectedName}${preservePath}` });
-    }
-  };
-
-  const handleAppSwitch = (selectedHref: string) => {
-    if (selectedHref !== repoBasePath) {
-      const subPath = repoBasePath ? pathname.slice(repoBasePath.length) : "";
-      const segments = subPath.split("/").filter(Boolean);
-      const preservePath =
-        segments.length > 0 && KNOWN_SUB_PAGES.has(segments[0]) ? subPath : "";
-      navigate({ to: `${selectedHref}${preservePath}` });
-    }
+    const base = repoHrefUtil(selectedOwner, selectedName, rootDirectory);
+    navigate({ to: `${base}${preservePath}` });
   };
 
   const navItemClass = (isActive: boolean) =>
@@ -426,23 +396,23 @@ export function Sidebar() {
                   {showContextSidebar ? (
                     <>
                       {!collapsed && (
-                        <div className="flex min-w-0 items-center gap-2">
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            onClick={() => setContextSidebarMode("main")}
-                            className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97]"
-                            title="Back to main sidebar"
-                          >
-                            <IconChevronLeft size={16} />
-                          </Button>
-                          <span className="truncate text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
-                            {contextSidebarTitle}
-                          </span>
-                        </div>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => setContextSidebarMode("main")}
+                          className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.97]"
+                          title="Back to main sidebar"
+                        >
+                          <IconChevronLeft size={16} />
+                        </Button>
+                      )}
+                      {!collapsed && (
+                        <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary">
+                          {contextSidebarTitle}
+                        </span>
                       )}
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex shrink-0 items-center gap-1">
                         <Button
                           size="icon"
                           variant="ghost"
@@ -452,9 +422,9 @@ export function Sidebar() {
                           <IconX size={18} className="text-muted-foreground" />
                         </Button>
                         <Button
-                          size="icon"
+                          size="icon-sm"
                           variant="ghost"
-                          className="motion-press hidden lg:inline-flex hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.97]"
                           onClick={() => setCollapsed(!collapsed)}
                           title={
                             collapsed ? "Expand sidebar" : "Collapse sidebar"
@@ -462,12 +432,12 @@ export function Sidebar() {
                         >
                           {collapsed ? (
                             <IconLayoutSidebarLeftCollapseFilled
-                              size={18}
+                              size={16}
                               className="text-sidebar-primary"
                             />
                           ) : (
                             <IconLayoutSidebarLeftCollapse
-                              size={18}
+                              size={16}
                               className="text-sidebar-primary"
                             />
                           )}
@@ -476,44 +446,36 @@ export function Sidebar() {
                     </>
                   ) : (
                     <>
+                      {!collapsed && isRepoRoute && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => navigate({ to: "/home" })}
+                          className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.97]"
+                          title="Back to home"
+                        >
+                          <IconChevronLeft size={16} />
+                        </Button>
+                      )}
                       {!collapsed && (
                         <Link
                           to="/home"
-                          className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
+                          className="inline-flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
                         >
                           <img
                             src="/icon.png"
                             alt="Eva"
                             width={30}
                             height={30}
-                            className="rounded-lg"
+                            className="shrink-0 rounded-lg"
                           />
-                          <span className="text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
+                          <span className="truncate text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
                             Eva
                           </span>
                         </Link>
                       )}
 
                       <div className="flex items-center gap-1">
-                        {isRepoRoute && repoBasePath && !collapsed && (
-                          <Link to={repoBasePath} onClick={closeMobileSidebar}>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="motion-press hover:scale-[1.03] active:scale-[0.97]"
-                              title="Home"
-                            >
-                              <IconHome
-                                size={18}
-                                className={
-                                  pathname === repoBasePath
-                                    ? "text-sidebar-primary"
-                                    : "text-muted-foreground"
-                                }
-                              />
-                            </Button>
-                          </Link>
-                        )}
                         <Button
                           size="icon"
                           variant="ghost"
@@ -523,9 +485,9 @@ export function Sidebar() {
                           <IconX size={18} className="text-muted-foreground" />
                         </Button>
                         <Button
-                          size="icon"
+                          size="icon-sm"
                           variant="ghost"
-                          className="motion-press hidden lg:inline-flex hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.97]"
                           onClick={() => setCollapsed(!collapsed)}
                           title={
                             collapsed ? "Expand sidebar" : "Collapse sidebar"
@@ -533,12 +495,12 @@ export function Sidebar() {
                         >
                           {collapsed ? (
                             <IconLayoutSidebarLeftCollapseFilled
-                              size={18}
+                              size={16}
                               className="text-sidebar-primary"
                             />
                           ) : (
                             <IconLayoutSidebarLeftCollapse
-                              size={18}
+                              size={16}
                               className="text-sidebar-primary"
                             />
                           )}
@@ -557,16 +519,12 @@ export function Sidebar() {
               )}
             >
               <div className="space-y-4">
-                {!isRepoRoute && !collapsed && repos && repos.length > 0 && (
-                  <div className="space-y-2">
-                    <RepoSwitcher
-                      repos={repos}
-                      currentOwner={null}
-                      currentName={null}
-                      onSelect={handleRepoSwitch}
-                      className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
-                    />
-                  </div>
+                {!isRepoRoute && (
+                  <RootSidebarContent
+                    collapsed={collapsed}
+                    navItemClass={navItemClass}
+                    onNavigate={closeMobileSidebar}
+                  />
                 )}
 
                 {isRepoRoute && repoBasePath && (
@@ -641,23 +599,14 @@ export function Sidebar() {
                       ) : (
                         <div className="space-y-4">
                           {!collapsed && (
-                            <div className="space-y-1.5">
-                              <RepoSwitcher
-                                repos={repos ?? []}
-                                currentOwner={owner}
-                                currentName={repoName}
-                                onSelect={handleRepoSwitch}
-                                className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
-                              />
-                              {isMonorepo && (
-                                <AppSwitcher
-                                  apps={monorepoApps}
-                                  currentValue={repoBasePath}
-                                  onValueChange={handleAppSwitch}
-                                  className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
-                                />
-                              )}
-                            </div>
+                            <RepoSwitcher
+                              repos={repos ?? []}
+                              currentOwner={owner}
+                              currentName={repoName}
+                              currentAppName={appName}
+                              onSelect={handleRepoSwitch}
+                              className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
+                            />
                           )}
 
                           <div className="space-y-2">
@@ -841,15 +790,7 @@ export function Sidebar() {
                     {user?.fullName || user?.firstName || "User"}
                   </p>
                 )}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-muted-foreground hover:text-sidebar-foreground"
-                  title="Search"
-                  onClick={openSearch}
-                >
-                  <IconSearch size={16} />
-                </Button>
+                {isRepoRoute && <SidebarSearchButton />}
 
                 <Button
                   size="icon"
@@ -870,5 +811,20 @@ export function Sidebar() {
         </div>
       </aside>
     </>
+  );
+}
+
+function SidebarSearchButton() {
+  const { openSearch } = useSearch();
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="text-muted-foreground hover:text-sidebar-foreground"
+      title="Search"
+      onClick={openSearch}
+    >
+      <IconSearch size={16} />
+    </Button>
   );
 }

@@ -115,6 +115,7 @@ import type * as snapshotActions from "../snapshotActions.js";
 import type * as streaming from "../streaming.js";
 import type * as subtasks from "../subtasks.js";
 import type * as summarizeWorkflow from "../summarizeWorkflow.js";
+import type * as syncSettings from "../syncSettings.js";
 import type * as taskComments from "../taskComments.js";
 import type * as taskDependencies from "../taskDependencies.js";
 import type * as taskProof from "../taskProof.js";
@@ -244,6 +245,7 @@ declare const fullApi: ApiFromModules<{
   streaming: typeof streaming;
   subtasks: typeof subtasks;
   summarizeWorkflow: typeof summarizeWorkflow;
+  syncSettings: typeof syncSettings;
   taskComments: typeof taskComments;
   taskDependencies: typeof taskDependencies;
   taskProof: typeof taskProof;

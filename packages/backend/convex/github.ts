@@ -295,6 +295,52 @@ export const detectMonorepoApps = action({
   },
 });
 
+export const listAllAvailableRepos = action({
+  args: {},
+  returns: v.array(
+    v.object({
+      owner: v.string(),
+      name: v.string(),
+      githubId: v.number(),
+      private: v.boolean(),
+    }),
+  ),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const appOctokit = getAppOctokit();
+    const installations = await appOctokit.rest.apps.listInstallations();
+
+    const results: Array<{
+      owner: string;
+      name: string;
+      githubId: number;
+      private: boolean;
+    }> = [];
+
+    for (const installation of installations.data) {
+      const octokit = await getInstallationOctokit(installation.id);
+      const repos = await octokit.rest.apps.listReposAccessibleToInstallation({
+        per_page: 100,
+      });
+
+      for (const repo of repos.data.repositories) {
+        results.push({
+          owner: repo.owner.login,
+          name: repo.name,
+          githubId: repo.id,
+          private: repo.private,
+        });
+      }
+    }
+
+    return results;
+  },
+});
+
 export const syncRepos = action({
   args: {},
   returns: v.object({ success: v.boolean(), synced: v.number() }),
@@ -318,6 +364,11 @@ export const syncRepos = action({
       },
     );
 
+    const syncSettings = await ctx.runQuery(internal.syncSettings.listAll, {});
+    const disabledRepos = new Set(
+      syncSettings.filter((s) => !s.enabled).map((s) => `${s.owner}/${s.name}`),
+    );
+
     const appOctokit = getAppOctokit();
     const installations = await appOctokit.rest.apps.listInstallations();
 
@@ -335,6 +386,10 @@ export const syncRepos = action({
       });
 
       for (const repo of repos.data.repositories) {
+        if (disabledRepos.has(`${repo.owner.login}/${repo.name}`)) {
+          continue;
+        }
+
         const id = await ctx.runMutation(internal.githubRepos.upsert, {
           owner: repo.owner.login,
           name: repo.name,

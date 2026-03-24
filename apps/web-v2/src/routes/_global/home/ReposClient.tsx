@@ -6,7 +6,7 @@ import { api } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { repoHref } from "@/lib/utils/repoUrl";
 import { Button, Spinner } from "@conductor/ui";
-import { IconPlus, IconRefresh } from "@tabler/icons-react";
+import { IconPlus, IconRefresh, IconSettings } from "@tabler/icons-react";
 import { WelcomeBanner } from "./_components/WelcomeBanner";
 import { EmptyOnboarding } from "./_components/EmptyOnboarding";
 import { RepoGroup } from "./_components/RepoGroup";
@@ -73,6 +73,16 @@ export function ReposClient() {
       headerRight={
         <div className="flex items-center gap-2">
           {hasRepos && <HiddenReposSheet />}
+          {hasRepos && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/settings/sync" })}
+              className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.99]"
+            >
+              <IconSettings size={16} />
+            </Button>
+          )}
           {hasRepos && (
             <Button
               size="sm"

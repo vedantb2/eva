@@ -59,6 +59,7 @@ const KNOWN_SUB_PAGES = new Set([
   "testing-arena",
   "stats",
   "automations",
+  "inbox",
 ]);
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {

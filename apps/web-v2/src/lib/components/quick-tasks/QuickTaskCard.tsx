@@ -40,7 +40,7 @@ import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import dayjs from "@conductor/shared/dates";
+import dayjs, { compactRelativeTime } from "@conductor/shared/dates";
 import { useState } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
@@ -204,7 +204,7 @@ export function QuickTaskCard({
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[10px] text-muted-foreground">
-              {dayjs(createdAt).fromNow()}
+              {compactRelativeTime(createdAt)}
             </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

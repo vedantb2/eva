@@ -77,7 +77,8 @@ export function TeamEnvVarsClient() {
       <div className="flex items-center gap-2">
         <IconUsers size={16} className="text-muted-foreground" />
         <p className="text-sm">
-          Team: <span className="font-medium">{team.name}</span>
+          Team:{" "}
+          <span className="font-medium">{team.displayName ?? team.name}</span>
         </p>
         <span className="text-muted-foreground">•</span>
         <span

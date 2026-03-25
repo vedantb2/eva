@@ -144,7 +144,9 @@ export function TeamsClient() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                       <IconUsers size={16} className="text-primary" />
                     </div>
-                    <CardTitle className="text-base">{team.name}</CardTitle>
+                    <CardTitle className="text-base">
+                      {team.displayName ?? team.name}
+                    </CardTitle>
                   </div>
                   <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
                     {team.userRole}

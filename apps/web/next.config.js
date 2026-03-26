@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ["*"],
   turbopack: {
     resolveExtensions: [".ts", ".tsx", ".js", ".jsx"],
   },

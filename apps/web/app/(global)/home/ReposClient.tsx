@@ -52,9 +52,10 @@ export function ReposClient() {
 
   const groupedRepos = repos
     ? repos.reduce<Record<string, typeof repos>>((groups, repo) => {
-        const groupKey = repo.teamId
-          ? (teams.find((t) => t._id === repo.teamId)?.name ?? "Unknown Team")
-          : "Personal";
+        const team = repo.teamId
+          ? teams.find((t) => t._id === repo.teamId)
+          : undefined;
+        const groupKey = team ? (team.displayName ?? team.name) : "My Team";
         if (!groups[groupKey]) {
           groups[groupKey] = [];
         }
@@ -64,8 +65,8 @@ export function ReposClient() {
     : {};
 
   const groupNames = Object.keys(groupedRepos).sort((a, b) => {
-    if (a === "Personal") return -1;
-    if (b === "Personal") return 1;
+    if (a === "My Team") return -1;
+    if (b === "My Team") return 1;
     return a.localeCompare(b);
   });
 

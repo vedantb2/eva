@@ -43,7 +43,7 @@ export function TeamDetailClient({ teamId }: TeamDetailClientProps) {
   const isOwner = team.userRole === "owner";
 
   return (
-    <PageWrapper title={team.name}>
+    <PageWrapper title={team.displayName ?? team.name}>
       <Tabs
         value={tab}
         onValueChange={(v) => {

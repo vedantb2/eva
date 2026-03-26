@@ -34,7 +34,7 @@ export function TeamEnvVarsTab({ teamId, teamEnvVars }: TeamEnvVarsTabProps) {
       onToggleSandboxExclude={async (key, sandboxExclude) => {
         await toggleSandboxExclude({ teamId, key, sandboxExclude });
       }}
-      description="Team-level variables inherited by all repositories in this team."
+      description="Team-level variables inherited by all codebases in this team."
     />
   );
 }

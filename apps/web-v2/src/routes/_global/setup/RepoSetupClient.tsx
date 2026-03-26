@@ -126,7 +126,7 @@ export function RepoSetupClient({
         <div className="flex flex-col items-center justify-center py-20">
           <Spinner size="lg" className="mb-4" />
           <p className="text-muted-foreground">
-            {syncing ? "Adding repositories..." : "Loading repositories..."}
+            {syncing ? "Adding codebases..." : "Loading codebases..."}
           </p>
         </div>
       </Container>
@@ -139,7 +139,7 @@ export function RepoSetupClient({
         <div className="flex flex-col items-center justify-center py-20">
           <p className="text-destructive mb-4">{error}</p>
           <Button variant="secondary" onClick={() => navigate({ to: "/home" })}>
-            Back to Repositories
+            Back to Codebases
           </Button>
         </div>
       </Container>
@@ -153,7 +153,7 @@ export function RepoSetupClient({
           GitHub App Installed
         </h1>
         <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
-          Select which repositories you want to add to Eva.
+          Select which codebases you want to add to Eva.
         </p>
 
         <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">

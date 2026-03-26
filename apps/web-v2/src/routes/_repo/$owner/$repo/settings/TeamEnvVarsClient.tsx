@@ -46,7 +46,7 @@ export function TeamEnvVarsClient() {
     <div className="space-y-4">
       <EnvVarsTable
         vars={teamEnvVars}
-        description="Team-level variables inherited by all repositories in this team."
+        description="Team-level variables inherited by all codebases in this team."
         onUpsert={async (key, value, sandboxExclude) => {
           if (!repo.teamId) return;
           await upsertTeamVar({

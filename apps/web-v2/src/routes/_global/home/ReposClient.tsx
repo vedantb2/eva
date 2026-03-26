@@ -70,7 +70,7 @@ export function ReposClient() {
 
   return (
     <PageWrapper
-      title="Repositories"
+      title="Codebases"
       headerRight={
         <div className="flex items-center gap-2">
           {hasRepos && <HiddenReposSheet />}

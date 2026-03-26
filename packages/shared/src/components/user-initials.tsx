@@ -16,10 +16,22 @@ export function UserInitials({
 }) {
   const user = useQuery(api.users.get, { id: userId });
   if (!user) return null;
+  const firstLast =
+    `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase();
   const initials =
-    `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() ||
-    "?";
-  const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+    firstLast ||
+    (user.fullName
+      ? user.fullName
+          .split(/\s+/)
+          .map((w) => w[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2)
+      : "?");
+  const name =
+    `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+    user.fullName ||
+    "";
   const online = !!user.lastSeenAt && Date.now() - user.lastSeenAt < 120_000;
   const tooltip = online
     ? `${name} · Online`

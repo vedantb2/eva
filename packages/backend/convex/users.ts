@@ -19,6 +19,7 @@ export const get = authQuery({
     v.object({
       firstName: v.optional(v.string()),
       lastName: v.optional(v.string()),
+      fullName: v.optional(v.string()),
       lastSeenAt: v.optional(v.number()),
     }),
     v.null(),
@@ -29,6 +30,7 @@ export const get = authQuery({
     return {
       firstName: user.firstName,
       lastName: user.lastName,
+      fullName: user.fullName,
       lastSeenAt: user.lastSeenAt,
     };
   },

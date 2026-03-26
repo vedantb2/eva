@@ -31,6 +31,7 @@ import {
   IconTool,
   IconX,
 } from "@tabler/icons-react";
+import { clientEnv } from "@/env/client";
 import { api } from "@conductor/backend";
 import { Button, Spinner, cn } from "@conductor/ui";
 import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
@@ -176,99 +177,112 @@ export function Sidebar() {
     owner && repoName ? { owner, name: repoName, appName } : "skip",
   );
 
-  const repoNavigation = useMemo(
-    () =>
-      isRepoRoute && repoBasePath
-        ? [
-            {
-              label: "BUILD",
-              groupIcon: IconHammer,
-              items: [
-                {
-                  name: "Projects",
-                  href: `${repoBasePath}/projects`,
-                  icon: IconLayoutKanban,
-                },
-                {
-                  name: "Designs",
-                  href: `${repoBasePath}/designs`,
-                  icon: IconPalette,
-                },
-              ],
-            },
-            {
-              label: "FIX",
-              groupIcon: IconTool,
-              items: [
-                {
-                  name: "Quick Tasks",
-                  href: `${repoBasePath}/quick-tasks`,
-                  icon: IconChecklist,
-                },
-                {
-                  name: "Sessions",
-                  href: `${repoBasePath}/sessions`,
-                  icon: IconTerminal2,
-                },
-              ],
-            },
-            {
-              label: "TEST",
-              groupIcon: IconTestPipe,
-              items: [
-                {
-                  name: "Documents",
-                  href: `${repoBasePath}/docs`,
-                  icon: IconFileText,
-                },
-                {
-                  name: "Testing Arena",
-                  href: `${repoBasePath}/testing-arena`,
-                  icon: IconFlask,
-                },
-              ],
-            },
-            {
-              label: "DATA",
-              groupIcon: IconChartBar,
-              items: [
-                {
-                  name: "Analyse",
-                  href: `${repoBasePath}/analyse`,
-                  icon: IconBrain,
-                },
-              ],
-            },
-            {
-              label: "SETTINGS",
-              groupIcon: IconSettings,
-              items: [
-                {
-                  name: "Inbox",
-                  href: `${repoBasePath}/inbox`,
-                  icon: IconInbox,
-                },
-                {
-                  name: "Automations",
-                  href: `${repoBasePath}/automations`,
-                  icon: IconPlayerPlay,
-                },
-                {
-                  name: "Stats",
-                  href: `${repoBasePath}/stats`,
-                  icon: IconChartBar,
-                },
-                {
-                  name: "Settings",
-                  href: `${repoBasePath}/settings/config`,
-                  icon: IconSettings,
-                },
-              ],
-            },
-          ]
-        : [],
-    [repoBasePath, isRepoRoute],
-  );
+  const isDev = clientEnv.VITE_ENV === "development";
+
+  const repoNavigation = useMemo(() => {
+    if (!isRepoRoute || !repoBasePath) return [];
+    const allGroups = [
+      {
+        label: "BUILD",
+        groupIcon: IconHammer,
+        items: [
+          {
+            name: "Projects",
+            href: `${repoBasePath}/projects`,
+            icon: IconLayoutKanban,
+          },
+          {
+            name: "Designs",
+            href: `${repoBasePath}/designs`,
+            icon: IconPalette,
+            devOnly: true,
+          },
+        ],
+      },
+      {
+        label: "FIX",
+        groupIcon: IconTool,
+        items: [
+          {
+            name: "Quick Tasks",
+            href: `${repoBasePath}/quick-tasks`,
+            icon: IconChecklist,
+          },
+          {
+            name: "Sessions",
+            href: `${repoBasePath}/sessions`,
+            icon: IconTerminal2,
+          },
+        ],
+      },
+      {
+        label: "TEST",
+        groupIcon: IconTestPipe,
+        devOnly: true,
+        items: [
+          {
+            name: "Documents",
+            href: `${repoBasePath}/docs`,
+            icon: IconFileText,
+            devOnly: true,
+          },
+          {
+            name: "Testing Arena",
+            href: `${repoBasePath}/testing-arena`,
+            icon: IconFlask,
+            devOnly: true,
+          },
+        ],
+      },
+      {
+        label: "DATA",
+        groupIcon: IconChartBar,
+        devOnly: true,
+        items: [
+          {
+            name: "Analyse",
+            href: `${repoBasePath}/analyse`,
+            icon: IconBrain,
+            devOnly: true,
+          },
+        ],
+      },
+      {
+        label: "SETTINGS",
+        groupIcon: IconSettings,
+        items: [
+          {
+            name: "Inbox",
+            href: `${repoBasePath}/inbox`,
+            icon: IconInbox,
+          },
+          {
+            name: "Automations",
+            href: `${repoBasePath}/automations`,
+            icon: IconPlayerPlay,
+          },
+          {
+            name: "Stats",
+            href: `${repoBasePath}/stats`,
+            icon: IconChartBar,
+          },
+          {
+            name: "Settings",
+            href: `${repoBasePath}/settings/config`,
+            icon: IconSettings,
+          },
+        ],
+      },
+    ];
+    if (isDev) return allGroups;
+    return allGroups
+      .filter((g) => !g.devOnly)
+      .map((g) => ({
+        ...g,
+        items: g.items.filter((i) => !i.devOnly),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [repoBasePath, isRepoRoute, isDev]);
 
   const { theme, toggleTheme } = useThemeContext();
 

@@ -209,7 +209,6 @@ export function ChatPanel({
         mode: "ask",
         model,
         responseLength,
-        installationId: selectedRepo.installationId,
       });
     } catch (error) {
       await appendMessage({

@@ -23,8 +23,9 @@ function getPathFromUrl(fullUrl: string): string {
 function buildUrlWithPath(baseUrl: string, path: string): string {
   try {
     const parsed = new URL(baseUrl);
-    parsed.pathname = path.startsWith("/") ? path : `/${path}`;
-    return parsed.toString();
+    if (parsed.protocol === "http:") parsed.protocol = "https:";
+    const fullPath = path.startsWith("/") ? path : `/${path}`;
+    return `${parsed.origin}${fullPath}`;
   } catch {
     return baseUrl;
   }

@@ -75,6 +75,10 @@ export default defineConfig({
     react(),
     agentLoginPlugin(),
   ],
+  server: {
+    host: "0.0.0.0",
+    cors: false,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

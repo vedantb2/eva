@@ -1,28 +1,19 @@
-import {
-  createFileRoute,
-  useNavigate,
-  useSearch,
-} from "@tanstack/react-router";
-import { zodSearchValidator } from "@tanstack/router-zod-adapter";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth, SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { Button } from "@conductor/ui";
 import { clientEnv } from "@/env/client";
 import { useEffect } from "react";
-import { z } from "zod";
 
 const isProduction = clientEnv.VITE_ENV === "production";
 
 export const Route = createFileRoute("/")({
-  validateSearch: zodSearchValidator(
-    z.object({ agent: z.boolean().optional() }),
-  ),
   component: LandingPage,
 });
 
 function LandingPage() {
   const { isSignedIn, isLoaded } = useAuth();
   const navigate = useNavigate();
-  const { agent } = useSearch({ from: "/" });
+  const hasAgent = new URLSearchParams(window.location.search).has("agent");
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -32,10 +23,10 @@ function LandingPage() {
       return;
     }
 
-    if (agent) {
+    if (hasAgent) {
       window.location.href = "/api/auth/agent-login";
     }
-  }, [isLoaded, isSignedIn, agent, navigate]);
+  }, [isLoaded, isSignedIn, hasAgent, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

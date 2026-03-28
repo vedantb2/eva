@@ -74,16 +74,16 @@ export function QuickTasksBulkBar({
           transition={{ duration: 0.15, ease: "easeOut" }}
         >
           <TooltipProvider delayDuration={300}>
-            <div className="flex items-center gap-0.5 rounded-lg bg-foreground px-1.5 py-1 shadow-lg">
-              <div className="flex items-center px-2">
-                <span className="text-xs font-medium text-background tabular-nums">
+            <div className="flex items-center gap-1 rounded-xl bg-foreground px-2.5 py-2 shadow-lg">
+              <div className="flex items-center px-2.5">
+                <span className="text-sm font-medium text-background tabular-nums">
                   {selectedCount} selected
                 </span>
               </div>
 
               <Separator
                 orientation="vertical"
-                className="mx-1 h-4 bg-background/20"
+                className="mx-1.5 h-5 bg-background/20"
               />
 
               {actions.map((action) => (
@@ -91,14 +91,14 @@ export function QuickTasksBulkBar({
                   {action.destructive && (
                     <Separator
                       orientation="vertical"
-                      className="mx-1 h-4 bg-background/20"
+                      className="mx-1.5 h-5 bg-background/20"
                     />
                   )}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:pointer-events-none disabled:opacity-30 ${
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors disabled:pointer-events-none disabled:opacity-30 ${
                           action.destructive
                             ? "text-red-400 hover:bg-red-500/20 hover:text-red-300"
                             : "text-background/70 hover:bg-background/10 hover:text-background"
@@ -106,7 +106,7 @@ export function QuickTasksBulkBar({
                         onClick={() => onSetBulkAction(action.key)}
                         disabled={!hasSelection}
                       >
-                        <action.icon size={15} />
+                        <action.icon size={17} />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent
@@ -122,17 +122,17 @@ export function QuickTasksBulkBar({
 
               <Separator
                 orientation="vertical"
-                className="mx-1 h-4 bg-background/20"
+                className="mx-1.5 h-5 bg-background/20"
               />
 
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-background/70 transition-colors hover:bg-background/10 hover:text-background"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-background/70 transition-colors hover:bg-background/10 hover:text-background"
                     onClick={onExitSelect}
                   >
-                    <IconX size={15} />
+                    <IconX size={17} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs" sideOffset={8}>

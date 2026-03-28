@@ -5,8 +5,26 @@ import { AnimatePresence } from "motion/react";
 import { api } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { repoHref } from "@/lib/utils/repoUrl";
-import { Button, Spinner } from "@conductor/ui";
-import { IconPlus, IconRefresh, IconSettings } from "@tabler/icons-react";
+import {
+  Button,
+  Spinner,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@conductor/ui";
+import {
+  IconDots,
+  IconEyeOff,
+  IconPlus,
+  IconRefresh,
+  IconSettings,
+} from "@tabler/icons-react";
 import { WelcomeBanner } from "./_components/WelcomeBanner";
 import { EmptyOnboarding } from "./_components/EmptyOnboarding";
 import { RepoGroup } from "./_components/RepoGroup";
@@ -21,6 +39,8 @@ export function ReposClient() {
   const teams = useQuery(api.teams.list) ?? [];
   const syncRepos = useAction(api.github.syncRepos);
   const [syncing, setSyncing] = useState(false);
+  const [hiddenOpen, setHiddenOpen] = useState(false);
+  const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
   const [welcomeDismissed, setWelcomeDismissed] = useState(true);
 
   useEffect(() => {
@@ -73,31 +93,79 @@ export function ReposClient() {
       title="Codebases"
       headerRight={
         <div className="flex items-center gap-2">
-          {hasRepos && <HiddenReposSheet />}
           {hasRepos && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => navigate({ to: "/settings/sync" })}
-              className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.99]"
-            >
-              <IconSettings size={16} />
-            </Button>
-          )}
-          {hasRepos && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={syncing}
-              onClick={handleSync}
-              className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.99]"
-            >
-              <IconRefresh
-                size={16}
-                className={syncing ? "animate-spin" : ""}
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.99]"
+                  >
+                    <IconDots size={16} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => navigate({ to: "/settings/sync" })}
+                  >
+                    <IconSettings size={16} />
+                    Sync Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setHiddenOpen(true)}>
+                    <IconEyeOff size={16} />
+                    Hidden Codebases
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={syncing}
+                    onClick={() => setSyncConfirmOpen(true)}
+                  >
+                    <IconRefresh
+                      size={16}
+                      className={syncing ? "animate-spin" : ""}
+                    />
+                    {syncing ? "Syncing..." : "Sync Repos"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <HiddenReposSheet
+                open={hiddenOpen}
+                onOpenChange={setHiddenOpen}
               />
-              <span className="hidden sm:inline">Sync</span>
-            </Button>
+              <Dialog open={syncConfirmOpen} onOpenChange={setSyncConfirmOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Sync Repos</DialogTitle>
+                  </DialogHeader>
+                  <p className="text-sm text-muted-foreground">
+                    This will re-sync all repositories from GitHub. Continue?
+                  </p>
+                  <DialogFooter>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setSyncConfirmOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={syncing}
+                      onClick={() => {
+                        setSyncConfirmOpen(false);
+                        handleSync();
+                      }}
+                    >
+                      <IconRefresh
+                        size={16}
+                        className={syncing ? "animate-spin" : ""}
+                      />
+                      Sync
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
           )}
           <Button
             size="sm"

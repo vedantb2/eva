@@ -19,6 +19,7 @@ const RADIUS_OPTIONS: { value: RadiusSize; label: string }[] = [
   { value: "md", label: "Medium" },
   { value: "lg", label: "Large" },
   { value: "xl", label: "X-Large" },
+  { value: "full", label: "Full" },
 ];
 
 const LETTER_SPACING_OPTIONS: { value: LetterSpacing; label: string }[] = [
@@ -61,7 +62,9 @@ export function TypographySection({
                     ? "6px"
                     : value === "lg"
                       ? "10px"
-                      : "14px";
+                      : value === "xl"
+                        ? "14px"
+                        : "9999px";
 
             return (
               <OptionButton

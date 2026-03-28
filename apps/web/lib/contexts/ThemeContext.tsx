@@ -23,7 +23,7 @@ export type AccentColor =
   | "pink"
   | "indigo"
   | "red";
-export type RadiusSize = "none" | "sm" | "md" | "lg" | "xl";
+export type RadiusSize = "none" | "sm" | "md" | "lg" | "xl" | "full";
 export type FontFamily =
   | "inter"
   | "roboto"
@@ -355,6 +355,7 @@ const RADIUS_VALUES: Record<RadiusSize, string> = {
   md: "0.5rem",
   lg: "0.75rem",
   xl: "1rem",
+  full: "9999px",
 };
 
 export const LETTER_SPACING_VALUES: Record<

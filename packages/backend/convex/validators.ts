@@ -208,6 +208,7 @@ export const radiusValidator = v.union(
   v.literal("md"),
   v.literal("lg"),
   v.literal("xl"),
+  v.literal("full"),
 );
 
 export const fontFamilyValidator = v.union(

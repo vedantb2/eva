@@ -219,10 +219,11 @@ export const handleAuditFixCompletion = authMutation({
     });
 
     if (args.runId && args.activityLog) {
+      const runId = args.runId;
       const existing = await ctx.db
         .query("agentRunActivityLogs")
         .withIndex("by_run_and_type", (q) =>
-          q.eq("runId", args.runId).eq("type", "fix"),
+          q.eq("runId", runId).eq("type", "fix"),
         )
         .first();
 

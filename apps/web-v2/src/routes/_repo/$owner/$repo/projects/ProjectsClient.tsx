@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
+import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -20,7 +21,6 @@ import {
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
-import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
 import {
   IconLayoutKanban,
   IconPlus,
@@ -68,9 +68,8 @@ export function ProjectsClient() {
   const { repo, basePath, owner, name } = useRepo();
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const deleteProject = useMutation(api.projects.deleteCascade);
+  const navigate = useNavigate();
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] =
-    useState<Id<"projects"> | null>(null);
   const [{ q, phases, sort, dir, view }, setParams] = useQueryStates({
     q: searchParser,
     phases: phasesParser,
@@ -153,13 +152,8 @@ export function ProjectsClient() {
   };
 
   const handleOpenProject = (id: string) => {
-    setSelectedProjectId(id as Id<"projects">);
+    navigate({ to: `${basePath}/projects/${id}` });
   };
-
-  const selectedProject = useMemo(() => {
-    if (!selectedProjectId || !projects) return undefined;
-    return projects.find((p) => p._id === selectedProjectId);
-  }, [selectedProjectId, projects]);
 
   const toolbarContent = (
     <div className="flex items-center gap-1.5 sm:gap-2">
@@ -373,15 +367,6 @@ export function ProjectsClient() {
         onConfirm={handleDelete}
         isDeleting={isDeleting}
       />
-      {selectedProjectId && (
-        <ProjectCardModal
-          isOpen={!!selectedProjectId}
-          onClose={() => setSelectedProjectId(null)}
-          projectId={selectedProjectId}
-          createdAt={selectedProject?._creationTime ?? Date.now()}
-          projectUrl={`${basePath}/projects/${selectedProjectId}`}
-        />
-      )}
     </>
   );
 }

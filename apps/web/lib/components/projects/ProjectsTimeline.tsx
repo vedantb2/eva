@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useState,
   useMemo,
   useRef,
   useCallback,
@@ -12,11 +11,11 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import dayjs from "@conductor/shared/dates";
+import { useRouter } from "next/navigation";
 import {
   phaseConfig,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
-import { ProjectCardModal } from "@/lib/components/projects/ProjectCardModal";
 
 import { Button, cn } from "@conductor/ui";
 
@@ -66,8 +65,7 @@ export function ProjectsTimeline({
   projects,
   basePath,
 }: ProjectsTimelineProps) {
-  const [selectedProjectId, setSelectedProjectId] =
-    useState<Id<"projects"> | null>(null);
+  const router = useRouter();
 
   const isSmUp = useSyncExternalStore(
     subscribeSmQuery,
@@ -409,10 +407,13 @@ export function ProjectsTimeline({
     [finishDrag],
   );
 
-  const openProject = useCallback((projectId: Id<"projects">) => {
-    if (suppressClickRef.current) return;
-    setSelectedProjectId(projectId);
-  }, []);
+  const openProject = useCallback(
+    (projectId: Id<"projects">) => {
+      if (suppressClickRef.current) return;
+      router.push(`${basePath}/projects/${projectId}`);
+    },
+    [router, basePath],
+  );
 
   if (projects.length === 0) return null;
 
@@ -644,22 +645,6 @@ export function ProjectsTimeline({
           </div>
         )}
       </div>
-
-      {selectedProjectId &&
-        (() => {
-          const selectedProject = projects.find(
-            (p) => p._id === selectedProjectId,
-          );
-          return selectedProject ? (
-            <ProjectCardModal
-              isOpen
-              onClose={() => setSelectedProjectId(null)}
-              projectId={selectedProjectId}
-              createdAt={selectedProject._creationTime}
-              projectUrl={`${basePath}/projects/${selectedProjectId}`}
-            />
-          ) : null;
-        })()}
     </>
   );
 }

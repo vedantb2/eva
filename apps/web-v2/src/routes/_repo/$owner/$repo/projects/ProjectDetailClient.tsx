@@ -25,13 +25,16 @@ import {
   IconHammer,
   IconPlayerStop,
   IconLoader2,
+  IconChevronRight,
 } from "@tabler/icons-react";
+import { useNavigate } from "@tanstack/react-router";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 import { Route } from "./$projectId";
 
 export function ProjectDetailClient() {
   const { projectId } = Route.useParams();
+  const navigate = useNavigate();
   const { basePath, repo } = useRepo();
   const typedProjectId = projectId as Id<"projects">;
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
@@ -81,8 +84,21 @@ export function ProjectDetailClient() {
 
   return (
     <PageWrapper
-      title={project.title}
-      showBack
+      title={
+        <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
+          <button
+            onClick={() => navigate({ to: `${basePath}/projects` })}
+            className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
+          >
+            Projects
+          </button>
+          <IconChevronRight
+            size={14}
+            className="text-muted-foreground/50 flex-shrink-0"
+          />
+          <span className="truncate font-semibold">{project.title}</span>
+        </div>
+      }
       fillHeight
       childPadding={false}
       headerRight={

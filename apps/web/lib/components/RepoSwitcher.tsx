@@ -167,7 +167,7 @@ export function RepoSwitcher({
 
   const itemClass = (active: boolean) =>
     cn(
-      "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+      "flex cursor-pointer items-center gap-2 rounded-md px-3 py-2.5 text-sm transition-colors",
       active
         ? "bg-sidebar-primary/10 text-sidebar-primary"
         : "text-foreground/80 hover:bg-accent/60",
@@ -215,7 +215,13 @@ export function RepoSwitcher({
                   key={ownerKey}
                   onMouseEnter={() => {
                     setSelectedOwner(ownerKey);
-                    setSelectedMonorepo(null);
+                    const ownerRepos = filteredReposByOwner.get(ownerKey) ?? [];
+                    const firstMonorepo = ownerRepos.find(
+                      (r) => r.apps.length > 0,
+                    );
+                    setSelectedMonorepo(
+                      firstMonorepo ? firstMonorepo.name : null,
+                    );
                   }}
                   className={itemClass(ownerKey === effectiveOwner)}
                 >

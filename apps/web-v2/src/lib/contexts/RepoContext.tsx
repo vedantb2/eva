@@ -43,7 +43,7 @@ export function RepoProvider({
   });
 
   const basePath = appName
-    ? `/${owner}/${name}/${appName}`
+    ? `/${owner}/${name}--${appName}`
     : `/${owner}/${name}`;
 
   const value = useMemo(() => {

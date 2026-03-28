@@ -76,7 +76,7 @@ export function ProjectCardModal({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-auto">
+      <DialogContent className="w-full max-w-[calc(100vw-2rem)] md:max-w-[72rem] max-h-[90vh] h-[85vh] overflow-hidden flex flex-col p-4 sm:p-6">
         {!project ? (
           <div className="flex items-center justify-center min-h-[300px]">
             <Spinner size="lg" />
@@ -86,7 +86,7 @@ export function ProjectCardModal({
             <DialogHeader>
               <DialogTitle>{project.title}</DialogTitle>
             </DialogHeader>
-            <DialogBody>
+            <DialogBody className="flex-1 overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-6">
                 <div className="space-y-4">
                   {(project.description || project.rawInput) && (

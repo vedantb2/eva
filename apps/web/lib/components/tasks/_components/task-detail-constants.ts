@@ -6,12 +6,12 @@ export const GHOST_TRIGGER_CLASS =
 
 export const DEPLOYMENT_STATUS_CONFIG: Record<
   string,
-  { color: string; label: string }
+  { iconColor: string; label: string }
 > = {
-  deployed: { color: "bg-emerald-500", label: "Deployed" },
-  building: { color: "bg-amber-500 animate-pulse", label: "Building" },
-  error: { color: "bg-red-500", label: "Deploy failed" },
-  queued: { color: "bg-blue-500 animate-pulse", label: "Queued" },
+  deployed: { iconColor: "text-emerald-500", label: "Deployed" },
+  building: { iconColor: "text-amber-500 animate-pulse", label: "Building" },
+  error: { iconColor: "text-red-500", label: "Deploy failed" },
+  queued: { iconColor: "text-blue-500 animate-pulse", label: "Queued" },
 };
 
 export function capitalize(s: string): string {

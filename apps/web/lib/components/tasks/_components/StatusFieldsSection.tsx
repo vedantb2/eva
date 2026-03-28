@@ -27,7 +27,7 @@ import {
   IconTags,
   IconGitBranch,
   IconInfoCircle,
-  IconBrandVercel,
+  IconBrandVercelFilled,
 } from "@tabler/icons-react";
 import {
   statusConfig,
@@ -363,12 +363,12 @@ export function StatusFieldsSection({
 
       {latestDeployment?.deploymentStatus && (
         <div className="flex items-center h-10 rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
-          <IconBrandVercel size={14} className="text-muted-foreground" />
-          <span
-            className={`h-2 w-2 rounded-full shrink-0 ${
+          <IconBrandVercelFilled
+            size={14}
+            className={
               DEPLOYMENT_STATUS_CONFIG[latestDeployment.deploymentStatus]
-                ?.color ?? "bg-gray-500"
-            }`}
+                ?.iconColor ?? "text-muted-foreground"
+            }
           />
           <span>
             {DEPLOYMENT_STATUS_CONFIG[latestDeployment.deploymentStatus]

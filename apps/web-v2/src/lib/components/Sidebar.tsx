@@ -490,7 +490,12 @@ export function Sidebar() {
                         </Link>
                       )}
 
-                      <div className="flex items-center gap-1 ml-auto">
+                      <div
+                        className={cn(
+                          "flex items-center gap-1",
+                          collapsed ? "lg:mx-auto" : "ml-auto",
+                        )}
+                      >
                         <Button
                           size="icon"
                           variant="ghost"

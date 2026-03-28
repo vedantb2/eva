@@ -41,39 +41,16 @@ export async function createNotification(
       }
     }
   }
-  const message = buildNotificationMessage(
-    params.message,
-    params.projectId,
-    params.taskId,
-  );
   await ctx.db.insert("notifications", {
     userId: params.userId,
     type: params.type ?? "system",
     title: params.title,
-    message,
+    message: params.message,
     href,
     repoId: params.repoId,
     read: false,
     createdAt: Date.now(),
   });
-}
-
-function buildNotificationMessage(
-  message: string | undefined,
-  projectId: Id<"projects"> | undefined,
-  taskId: Id<"agentTasks"> | undefined,
-): string | undefined {
-  if (!taskId || projectId) {
-    return message;
-  }
-  const quickTaskIdMessage = `Quick task ID: ${taskId}`;
-  if (!message) {
-    return quickTaskIdMessage;
-  }
-  if (message.includes(quickTaskIdMessage)) {
-    return message;
-  }
-  return `${message} ${quickTaskIdMessage}`;
 }
 
 const notificationValidator = v.object({

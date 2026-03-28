@@ -348,8 +348,7 @@ if (!callbackReady) {
   process.exit(1);
 }
 
-// TODO: reduce back to 500ms once we move to a more efficient streaming transport
-const interval = setInterval(flushStreaming, 2000);
+const interval = setInterval(flushStreaming, 500);
 const heartbeatInterval = setInterval(heartbeatPing, 10000);
 let streamingLoopsStopped = false;
 

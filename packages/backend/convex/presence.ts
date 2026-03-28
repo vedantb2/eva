@@ -7,7 +7,7 @@ import { getCurrentUserId } from "./auth";
 
 const presence = new Presence(components.presence);
 
-const FIVE_MINUTES = 5 * 60 * 1000;
+const TWO_MINUTES = 2 * 60 * 1000;
 
 export const heartbeat = authMutation({
   args: {
@@ -30,7 +30,7 @@ export const heartbeat = authMutation({
     const user = await ctx.db.get(ctx.userId);
     if (
       user &&
-      (!user.lastSeenAt || Date.now() - user.lastSeenAt > FIVE_MINUTES)
+      (!user.lastSeenAt || Date.now() - user.lastSeenAt > TWO_MINUTES)
     ) {
       await ctx.db.patch(ctx.userId, { lastSeenAt: Date.now() });
     }

@@ -196,7 +196,7 @@ export function buildAuditPrompt(categories: AuditCategory[]): string {
   const sectionJson = categories
     .map(
       (s) =>
-        `    { "name": "${s.name}", "results": [{ "requirement": "...", "passed": true, "detail": "..." }] }`,
+        `    { "name": "${s.name}", "results": [{ "requirement": "...", "passed": true, "detail": "...", "severity": "medium" }] }`,
     )
     .join(",\n");
 
@@ -207,7 +207,13 @@ Focus ONLY on the changes in this branch — use git diff against the base branc
 ## Audit categories:
 ${sectionDescriptions}
 
-For each category, produce a list of findings. Each finding should have a requirement name, whether it passed, and a 1-sentence explanation.
+For each category, produce a list of findings. Each finding should have a requirement name, whether it passed, a 1-sentence explanation, and a severity level ("critical", "high", "medium", or "low").
+
+Severity guidelines:
+- **critical**: Security vulnerabilities, data loss risks, broken core functionality
+- **high**: Significant bugs, performance issues, accessibility violations
+- **medium**: Code quality issues, missing tests, minor bugs
+- **low**: Style issues, minor improvements, nice-to-haves
 
 When you are done, output ONLY valid JSON in this exact format:
 {

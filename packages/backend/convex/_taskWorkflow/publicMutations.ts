@@ -4,11 +4,7 @@ import type { WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "../workflowManager";
 import { authMutation, hasTaskAccess } from "../functions";
 import { claudeModelValidator } from "../validators";
-import {
-  taskCompleteEvent,
-  auditCompleteEvent,
-  auditFixCompleteEvent,
-} from "./events";
+import { taskCompleteEvent, auditCompleteEvent } from "./events";
 import {
   clearStreamingActivity,
   getTaskAuditStreamingEntityId,
@@ -208,27 +204,47 @@ export const handleAuditFixCompletion = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
-    if (!workflowId) {
-      throw new Error(
-        "Active workflow missing while handling audit-fix completion",
-      );
+    const audit = await ctx.db
+      .query("audits")
+      .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
+      .order("desc")
+      .first();
+
+    if (!audit || audit.fixStatus !== "fixing") return null;
+
+    const fixStatus = args.success ? "fix_completed" : "fix_error";
+    await ctx.db.patch(audit._id, {
+      fixStatus,
+      fixCompletedAt: Date.now(),
+    });
+
+    if (args.runId && args.activityLog) {
+      const existing = await ctx.db
+        .query("agentRunActivityLogs")
+        .withIndex("by_run_and_type", (q) =>
+          q.eq("runId", args.runId).eq("type", "fix"),
+        )
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          activityLog: args.activityLog,
+          updatedAt: Date.now(),
+        });
+      } else {
+        await ctx.db.insert("agentRunActivityLogs", {
+          runId: args.runId,
+          type: "fix",
+          activityLog: args.activityLog,
+          updatedAt: Date.now(),
+        });
+      }
     }
 
-    try {
-      await workflow.sendEvent(ctx, {
-        ...auditFixCompleteEvent,
-        workflowId,
-        value: {
-          success: args.success,
-          result: args.result,
-          error: args.error,
-          activityLog: args.activityLog,
-        },
-      });
-    } catch (error) {
-      throw new Error(
-        `Failed to deliver audit-fix completion event: ${error instanceof Error ? error.message : String(error)}`,
+    if (args.runId) {
+      await clearStreamingActivity(
+        ctx,
+        getTaskAuditStreamingEntityId(args.runId),
       );
     }
 

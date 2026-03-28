@@ -74,10 +74,18 @@ export const evalFixStatusValidator = v.union(
 
 export const themeValidator = v.union(v.literal("light"), v.literal("dark"));
 
+export const auditSeverityValidator = v.union(
+  v.literal("critical"),
+  v.literal("high"),
+  v.literal("medium"),
+  v.literal("low"),
+);
+
 export const evalResultValidator = v.object({
   requirement: v.string(),
   passed: v.boolean(),
   detail: v.string(),
+  severity: v.optional(auditSeverityValidator),
 });
 
 export const auditSectionValidator = v.object({

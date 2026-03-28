@@ -1,5 +1,16 @@
 # Changelog
 
+## User-driven audit fixes with severity badges - 2026-03-28
+
+- **Why**: Audit fixes were fully automatic — the workflow detected failures, applied fixes, and re-audited without user input. For quick tasks this removed control over what gets changed. Users should review audit results and choose which failures to fix.
+- **Workflow change**: Removed auto-fix and re-audit logic from `taskExecutionWorkflow`. Audit still runs automatically; failures are displayed but not acted on.
+- **New mutation**: `audits.runSelectedFixes` — accepts an audit ID and array of selected failures with severity. Sets `fixStatus=fixing`, spins up or reuses sandbox, launches fix agent with only the selected items.
+- **New action**: `daytona.launchSelectedAuditFixes` — validates/creates sandbox, builds fix prompt from selected failures, launches sonnet with write tools.
+- **Completion handler**: `handleAuditFixCompletion` now directly updates the audit record instead of sending a workflow event (since the workflow has already finished).
+- **Severity levels**: Audit results now include severity (critical/high/medium/low). Prompts instruct the auditor to classify findings. Parser defaults to "medium" for old data. UI shows color-coded severity badges (matching automation findings style) and sorts failures/results by severity (critical first).
+- **UI**: `AuditSection` shows checkboxes next to each failed requirement with severity badge, "Select all" toggle, and "Run Fixes (N)" button. Results sorted: failures before passes, then by severity within each group.
+- **Scope**: Backend validators + workflow + mutations + actions + parser, both frontends (web-v2 + web).
+
 ## Remove installationId from client-facing API surface - 2026-03-23
 
 - **Why**: Two deployments (work + personal) share the same GitHub App credentials. Public mutations/actions accepted `installationId` directly from the client without DB validation, allowing any authenticated user to request GitHub tokens for arbitrary installations — cross-deployment leakage.

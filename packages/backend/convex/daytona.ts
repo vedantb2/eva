@@ -24,7 +24,12 @@ export {
   launchChromeInDesktop,
 } from "./_daytona/services";
 
-export { launchAudit, launchAuditFix, runSessionAudit } from "./_daytona/audit";
+export {
+  launchAudit,
+  launchAuditFix,
+  launchSelectedAuditFixes,
+  runSessionAudit,
+} from "./_daytona/audit";
 
 export {
   startSessionSandbox,

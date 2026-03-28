@@ -2,16 +2,8 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { claudeModelValidator, runModeValidator } from "../validators";
-import {
-  taskCompleteEvent,
-  auditCompleteEvent,
-  auditFixCompleteEvent,
-} from "./events";
-import {
-  buildAuditPrompt,
-  buildAuditFixPrompt,
-  extractAuditFailures,
-} from "./prompts";
+import { taskCompleteEvent, auditCompleteEvent } from "./events";
+import { buildAuditPrompt } from "./prompts";
 import { buildPrBody } from "../taskWorkflowActions";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
@@ -192,79 +184,6 @@ export const taskExecutionWorkflow = workflow.define({
             activityLog: auditResult.activityLog,
           });
 
-          let finalAuditResult = auditResult;
-
-          if (auditResult.success && auditResult.result) {
-            const failures = extractAuditFailures(auditResult.result);
-            if (failures.length > 0) {
-              try {
-                await step.runMutation(internal.taskWorkflow.setFixStatus, {
-                  auditId,
-                  fixStatus: "fixing",
-                });
-
-                const fixPrompt = buildAuditFixPrompt(
-                  failures,
-                  data.branchName,
-                  data.rootDirectory,
-                );
-
-                await step.runAction(internal.daytona.launchAuditFix, {
-                  sandboxId,
-                  prompt: fixPrompt,
-                  taskId: String(args.taskId),
-                  runId: args.runId,
-                  userId: args.userId,
-                  repoId: args.repoId,
-                });
-
-                const fixResult = await step.awaitEvent(auditFixCompleteEvent);
-
-                await step.runMutation(internal.taskWorkflow.setFixStatus, {
-                  auditId,
-                  fixStatus: "fix_completed",
-                  activityLog: fixResult.activityLog,
-                });
-
-                const reAuditId = await step.runMutation(
-                  internal.taskWorkflow.createAudit,
-                  {
-                    taskId: args.taskId,
-                    runId: args.runId,
-                  },
-                );
-
-                await step.runAction(internal.daytona.launchAudit, {
-                  sandboxId,
-                  prompt: buildAuditPrompt(auditCategories),
-                  taskId: String(args.taskId),
-                  runId: args.runId,
-                  userId: args.userId,
-                  repoId: args.repoId,
-                });
-
-                const reAuditResult = await step.awaitEvent(auditCompleteEvent);
-
-                await step.runMutation(internal.taskWorkflow.saveAuditResult, {
-                  auditId: reAuditId,
-                  result: reAuditResult.result,
-                  error: reAuditResult.success
-                    ? undefined
-                    : (reAuditResult.error ?? "Re-audit failed"),
-                  activityLog: reAuditResult.activityLog,
-                });
-
-                finalAuditResult = reAuditResult;
-              } catch (fixErr) {
-                console.error("Audit fix step failed:", fixErr);
-                await step.runMutation(internal.taskWorkflow.setFixStatus, {
-                  auditId,
-                  fixStatus: "fix_error",
-                });
-              }
-            }
-          }
-
           if (completionPrUrl) {
             await step.runAction(
               internal.taskWorkflowActions.appendAuditToPullRequest,
@@ -273,10 +192,10 @@ export const taskExecutionWorkflow = workflow.define({
                 repoOwner: data.repoOwner,
                 repoName: data.repoName,
                 branchName: data.branchName,
-                auditResult: finalAuditResult.result,
-                auditError: finalAuditResult.success
+                auditResult: auditResult.result,
+                auditError: auditResult.success
                   ? null
-                  : (finalAuditResult.error ?? "Audit failed"),
+                  : (auditResult.error ?? "Audit failed"),
               },
             );
           }

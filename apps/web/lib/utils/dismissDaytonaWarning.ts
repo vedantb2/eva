@@ -6,8 +6,8 @@ export async function dismissDaytonaWarning(url: string): Promise<void> {
   try {
     await fetch(url, {
       method: "HEAD",
+      mode: "no-cors",
       headers: { "X-Daytona-Skip-Preview-Warning": "true" },
-      credentials: "include",
     });
     dismissed.add(origin);
   } catch {

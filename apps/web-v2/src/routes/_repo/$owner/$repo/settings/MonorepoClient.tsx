@@ -172,7 +172,7 @@ export function MonorepoClient() {
           <span className="font-medium text-foreground">
             {repo.owner}/{repo.name}
           </span>{" "}
-          for workspace apps and add them as separate repositories.
+          for workspace apps and add them as separate codebases.
         </p>
       </div>
 

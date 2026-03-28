@@ -74,7 +74,7 @@ export function TeamsClient() {
     <PageWrapper title="Teams">
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Manage your teams and collaborate on repositories
+          Manage your teams and collaborate on codebases
         </p>
         <Dialog open={createDialog.open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
@@ -144,7 +144,9 @@ export function TeamsClient() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                       <IconUsers size={16} className="text-primary" />
                     </div>
-                    <CardTitle className="text-base">{team.name}</CardTitle>
+                    <CardTitle className="text-base">
+                      {team.displayName ?? team.name}
+                    </CardTitle>
                   </div>
                   <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
                     {team.userRole}
@@ -162,7 +164,7 @@ export function TeamsClient() {
             <IconUsers size={48} className="mb-4 text-muted-foreground/50" />
             <p className="mb-2 text-sm font-medium">No teams yet</p>
             <p className="mb-4 text-xs text-muted-foreground">
-              Create a team to collaborate on repositories
+              Create a team to collaborate on codebases
             </p>
             <Button
               size="sm"

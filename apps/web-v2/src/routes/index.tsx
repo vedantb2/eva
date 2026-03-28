@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth, SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { Button } from "@conductor/ui";
 import { clientEnv } from "@/env/client";
@@ -7,16 +7,13 @@ import { useEffect } from "react";
 const isProduction = clientEnv.VITE_ENV === "production";
 
 export const Route = createFileRoute("/")({
-  validateSearch: (search: Record<string, string>) => ({
-    agent: search.agent === "" || search.agent === "true" ? true : undefined,
-  }),
   component: LandingPage,
 });
 
 function LandingPage() {
   const { isSignedIn, isLoaded } = useAuth();
   const navigate = useNavigate();
-  const { agent } = useSearch({ from: "/" });
+  const hasAgent = new URLSearchParams(window.location.search).has("agent");
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -26,12 +23,10 @@ function LandingPage() {
       return;
     }
 
-    if (agent) {
-      console.log(
-        "[agent-auth] ?agent detected but HTTP action not built yet — skipping redirect",
-      );
+    if (hasAgent) {
+      window.location.href = "/api/auth/agent-login";
     }
-  }, [isLoaded, isSignedIn, agent, navigate]);
+  }, [isLoaded, isSignedIn, hasAgent, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

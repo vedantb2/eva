@@ -87,7 +87,7 @@ function toDisplayHref(href: string): string {
 export function createAppHistory() {
   return createBrowserHistory({
     parseLocation() {
-      const raw = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const raw = `${decodeURIComponent(window.location.pathname)}${window.location.search}${window.location.hash}`;
       const internal = toInternalHref(raw);
 
       const hashIndex = internal.indexOf("#");

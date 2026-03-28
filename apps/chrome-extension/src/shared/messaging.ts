@@ -224,11 +224,7 @@ export type ExtensionMessage =
   | RequestAnnotationsMessage
   | RequestToolbarStateMessage;
 
-export const EVA_URL =
-  typeof chrome !== "undefined" &&
-  chrome.runtime?.getManifest?.()?.version_name === "development"
-    ? "http://localhost:3000"
-    : "https://eva-git-staging-vedantb.vercel.app";
+export const EVA_URL = import.meta.env.VITE_EVA_URL;
 
 export function isSessionId(value: unknown): value is Id<"sessions"> {
   return typeof value === "string" && value.length > 0;

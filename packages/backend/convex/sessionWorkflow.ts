@@ -3,7 +3,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { authMutation } from "./functions";
+import { authMutation, hasRepoAccess } from "./functions";
 import { sessionModeValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
@@ -444,7 +444,8 @@ export const handleCompletion = authMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session || !session.activeWorkflowId) return null;
-    if (session.userId !== ctx.userId) throw new Error("Not authorized");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
 
     await workflow.sendEvent(ctx, {
       ...sessionCompleteEvent,
@@ -482,7 +483,8 @@ export const startExecute = authMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
-    if (session.userId !== ctx.userId) throw new Error("Not authorized");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
 
     if (
       args.mode !== "ask" &&
@@ -531,7 +533,8 @@ export const cancelExecution = authMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
-    if (session.userId !== ctx.userId) throw new Error("Not authorized");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
 
     if (session.activeWorkflowId) {
       await workflow.cancel(ctx, session.activeWorkflowId as WorkflowId);

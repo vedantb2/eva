@@ -63,8 +63,8 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
           Connect your GitHub
         </h2>
         <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
-          Link your repositories to unlock Eva's AI tools for planning, coding,
-          and shipping features autonomously.
+          Link your codebases to unlock Eva's AI tools for planning, coding, and
+          shipping features autonomously.
         </p>
         <Button
           asChild

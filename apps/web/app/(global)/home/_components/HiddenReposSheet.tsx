@@ -34,7 +34,7 @@ export function HiddenReposSheet() {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Hidden Repositories</DialogTitle>
+          <DialogTitle>Hidden Codebases</DialogTitle>
         </DialogHeader>
         <div className="mt-2 space-y-2 max-h-96 overflow-y-auto">
           {hiddenRepos.map((repo) => (

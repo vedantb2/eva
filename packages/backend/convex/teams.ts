@@ -68,6 +68,7 @@ export const list = authQuery({
       _id: v.id("teams"),
       _creationTime: v.number(),
       name: v.string(),
+      displayName: v.string(),
       createdBy: v.id("users"),
       createdAt: v.number(),
       isPersonal: v.optional(v.boolean()),
@@ -84,8 +85,19 @@ export const list = authQuery({
     for (const membership of memberships) {
       const team = await ctx.db.get(membership.teamId);
       if (team) {
+        let displayName = team.name;
+        if (team.isPersonal) {
+          if (team.createdBy === ctx.userId) {
+            displayName = "My Team";
+          } else {
+            const owner = await ctx.db.get(team.createdBy);
+            const ownerName = owner?.firstName ?? owner?.fullName ?? "Unknown";
+            displayName = `${ownerName}'s Team`;
+          }
+        }
         teams.push({
           ...team,
+          displayName,
           userRole: membership.role,
         });
       }
@@ -102,6 +114,7 @@ export const get = authQuery({
       _id: v.id("teams"),
       _creationTime: v.number(),
       name: v.string(),
+      displayName: v.string(),
       createdBy: v.id("users"),
       createdAt: v.number(),
       isPersonal: v.optional(v.boolean()),
@@ -122,8 +135,20 @@ export const get = authQuery({
 
     if (!membership) return null;
 
+    let displayName = team.name;
+    if (team.isPersonal) {
+      if (team.createdBy === ctx.userId) {
+        displayName = "My Team";
+      } else {
+        const owner = await ctx.db.get(team.createdBy);
+        const ownerName = owner?.firstName ?? owner?.fullName ?? "Unknown";
+        displayName = `${ownerName}'s Team`;
+      }
+    }
+
     return {
       ...team,
+      displayName,
       userRole: membership.role,
     };
   },

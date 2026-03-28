@@ -19,8 +19,6 @@ import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
-  Reasoning,
-  ReasoningTrigger,
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -209,7 +207,6 @@ export function ChatPanel({
         mode: "ask",
         model,
         responseLength,
-        installationId: selectedRepo.installationId,
       });
     } catch (error) {
       await appendMessage({
@@ -409,33 +406,21 @@ export function ChatPanel({
                     }
                   >
                     {message.role === "assistant" && !message.content ? (
-                      (() => {
-                        const steps = parseActivitySteps(streamingActivity);
-                        return steps ? (
-                          <ActivitySteps
-                            steps={steps}
-                            isStreaming
-                            name="Eva"
-                            icon={evaIcon}
-                            startedAt={message.timestamp}
-                          />
-                        ) : (
-                          <Reasoning isStreaming defaultOpen>
-                            <ReasoningTrigger
-                              getThinkingMessage={(streaming) =>
-                                streaming ? "Working..." : "Processing complete"
-                              }
-                            />
-                            <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                              <pre className="whitespace-pre-wrap font-mono text-xs">
-                                {streamingActivity ||
-                                  message.activityLog ||
-                                  "Starting..."}
-                              </pre>
-                            </CollapsibleContent>
-                          </Reasoning>
-                        );
-                      })()
+                      <ActivitySteps
+                        steps={
+                          parseActivitySteps(streamingActivity) ?? [
+                            {
+                              type: "thinking",
+                              label: "Working...",
+                              status: "active",
+                            },
+                          ]
+                        }
+                        isStreaming
+                        name="Eva"
+                        icon={evaIcon}
+                        startedAt={message.timestamp}
+                      />
                     ) : (
                       <>
                         {message.role === "assistant" ? (
@@ -453,18 +438,7 @@ export function ChatPanel({
                                     startedAt={message.timestamp}
                                     duration={duration}
                                   />
-                                ) : (
-                                  <Reasoning defaultOpen={false}>
-                                    <ReasoningTrigger
-                                      getThinkingMessage={() => "View logs"}
-                                    />
-                                    <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                                      <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                                        {message.activityLog}
-                                      </pre>
-                                    </CollapsibleContent>
-                                  </Reasoning>
-                                );
+                                ) : null;
                               })()}
                             {"imageUrl" in message && message.imageUrl && (
                               <img
@@ -533,7 +507,6 @@ export function ChatPanel({
               <AIMessage from="assistant" className="max-w-full">
                 <MessageContent className="px-1 py-2">
                   {(() => {
-                    const steps = parseActivitySteps(streamingActivity);
                     const loadingEvaIcon = (
                       <img
                         src="/icons/icon.png"
@@ -542,27 +515,22 @@ export function ChatPanel({
                       />
                     );
                     const lastMsg = messages[messages.length - 1];
-                    return steps ? (
+                    return (
                       <ActivitySteps
-                        steps={steps}
+                        steps={
+                          parseActivitySteps(streamingActivity) ?? [
+                            {
+                              type: "thinking",
+                              label: "Working...",
+                              status: "active",
+                            },
+                          ]
+                        }
                         isStreaming
                         name="Eva"
                         icon={loadingEvaIcon}
                         startedAt={lastMsg.timestamp}
                       />
-                    ) : (
-                      <Reasoning isStreaming defaultOpen>
-                        <ReasoningTrigger
-                          getThinkingMessage={(streaming) =>
-                            streaming ? "Working..." : "Processing complete"
-                          }
-                        />
-                        <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                          <pre className="whitespace-pre-wrap font-mono text-xs">
-                            {streamingActivity || "Starting..."}
-                          </pre>
-                        </CollapsibleContent>
-                      </Reasoning>
                     );
                   })()}
                 </MessageContent>

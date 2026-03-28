@@ -34,28 +34,22 @@ export function AuditsClient() {
           <div>
             <h3 className="text-sm font-medium">Repo-level Audits</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {isApp
-                ? "These audits are managed at the repo level and apply to all apps."
-                : "These audits run for all tasks across the repo and all apps."}
+              These audits run for all tasks across the repo and all apps.
             </p>
           </div>
 
           {repoCategories.length > 0 && (
             <div className="grid gap-2">
-              {repoCategories.map((category) =>
-                isApp ? (
-                  <ReadOnlyCategoryRow key={category._id} category={category} />
-                ) : (
-                  <CategoryRow
-                    key={category._id}
-                    category={category}
-                    onToggle={(enabled) =>
-                      toggleEnabled({ id: category._id, enabled })
-                    }
-                    onRemove={() => removeCategory({ id: category._id })}
-                  />
-                ),
-              )}
+              {repoCategories.map((category) => (
+                <CategoryRow
+                  key={category._id}
+                  category={category}
+                  onToggle={(enabled) =>
+                    toggleEnabled({ id: category._id, enabled })
+                  }
+                  onRemove={() => removeCategory({ id: category._id })}
+                />
+              ))}
             </div>
           )}
 
@@ -65,7 +59,7 @@ export function AuditsClient() {
             </p>
           )}
 
-          {!isApp && <AddCategoryForm repoId={repo.parentRepoId ?? repoId} />}
+          <AddCategoryForm repoId={repo.parentRepoId ?? repoId} />
         </div>
 
         {isApp && (
@@ -97,20 +91,6 @@ export function AuditsClient() {
         )}
       </div>
     </PageWrapper>
-  );
-}
-
-function ReadOnlyCategoryRow({ category }: { category: Category }) {
-  return (
-    <div className="flex items-start gap-3 rounded-md bg-muted/40 p-3 opacity-60">
-      <Checkbox checked={category.enabled} disabled className="mt-0.5" />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium">{category.name}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
-          {category.description}
-        </p>
-      </div>
-    </div>
   );
 }
 

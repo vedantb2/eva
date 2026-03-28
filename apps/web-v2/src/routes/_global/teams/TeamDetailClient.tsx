@@ -43,7 +43,7 @@ export function TeamDetailClient({ teamId }: TeamDetailClientProps) {
   const isOwner = team.userRole === "owner";
 
   return (
-    <PageWrapper title={team.name}>
+    <PageWrapper title={team.displayName ?? team.name}>
       <Tabs
         value={tab}
         onValueChange={(v) => {
@@ -52,7 +52,7 @@ export function TeamDetailClient({ teamId }: TeamDetailClientProps) {
       >
         <TabsList className="mb-4">
           <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="repos">Repositories</TabsTrigger>
+          <TabsTrigger value="repos">Codebases</TabsTrigger>
           <TabsTrigger value="env">Environment Variables</TabsTrigger>
         </TabsList>
 

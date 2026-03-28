@@ -56,9 +56,6 @@ if (!PUBLISHABLE_KEY) {
 }
 
 const EXTENSION_URL = chrome.runtime.getURL(".");
-const SYNC_HOST = import.meta.env.DEV
-  ? "http://localhost:3000"
-  : "https://eva-git-staging-vedantb.vercel.app";
 
 function getHostFromUrl(url: string): string | null {
   try {
@@ -847,7 +844,7 @@ function AuthenticatedApp() {
 
 function SignInScreen() {
   const handleOpenWebApp = () => {
-    chrome.tabs.create({ url: SYNC_HOST });
+    chrome.tabs.create({ url: EVA_URL });
   };
 
   return (
@@ -876,7 +873,7 @@ export default function App() {
       afterSignOutUrl={`${EXTENSION_URL}/sidepanel.html`}
       signInFallbackRedirectUrl={`${EXTENSION_URL}/sidepanel.html`}
       signUpFallbackRedirectUrl={`${EXTENSION_URL}/sidepanel.html`}
-      syncHost={SYNC_HOST}
+      syncHost={EVA_URL}
     >
       <ConvexProvider>
         <TooltipProvider>

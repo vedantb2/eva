@@ -64,6 +64,7 @@ function isRetryableSessionGitError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
     (lower.includes("sandbox exec") && lower.includes("timed out")) ||
+    lower.includes("command execution timeout") ||
     lower.includes("fetch failed") ||
     lower.includes("econnreset") ||
     lower.includes("econnrefused") ||
@@ -89,7 +90,7 @@ async function checkRemoteBranchExistsWithRetry(
         repoOwner,
         repoName,
         branchName,
-        10,
+        20,
       );
       if (attempt > 1) {
         logSession(

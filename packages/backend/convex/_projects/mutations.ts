@@ -54,7 +54,7 @@ export const update = authMutation({
     branchName: v.optional(v.string()),
     generatedSpec: v.optional(v.string()),
     phase: v.optional(phaseValidator),
-    projectLead: v.optional(v.id("users")),
+    projectLead: v.optional(v.union(v.id("users"), v.null())),
     members: v.optional(v.array(v.id("users"))),
     projectStartDate: v.optional(v.number()),
     projectEndDate: v.optional(v.number()),
@@ -62,11 +62,14 @@ export const update = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    const { id, generatedSpec, ...fields } = args;
-    const updates: Record<string, string | number | Array<string>> = {};
+    const { id, generatedSpec, projectLead, ...fields } = args;
+    const updates: Record<string, string | number | Array<string> | undefined> =
+      {};
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) updates[key] = value;
     }
+    if (projectLead !== undefined)
+      updates.projectLead = projectLead ?? undefined;
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(args.id, updates);
     }

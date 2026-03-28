@@ -129,6 +129,10 @@ export function QuickTasksKanbanBoard({
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
             onToggleSelect={() => onToggleSelect(task._id)}
+            assignedTo={task.assignedTo}
+            model={task.model}
+            projectId={task.projectId}
+            repoId={task.repoId ?? repoId}
           />
         )}
         renderOverlay={(task) => (
@@ -147,6 +151,10 @@ export function QuickTasksKanbanBoard({
             siblingApps={siblingApps ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
+            assignedTo={task.assignedTo}
+            model={task.model}
+            projectId={task.projectId}
+            repoId={task.repoId ?? repoId}
           />
         )}
       />

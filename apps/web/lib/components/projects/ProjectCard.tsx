@@ -5,12 +5,25 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
-import { IconGitBranch, IconTrash, IconPencil } from "@tabler/icons-react";
+import {
+  IconGitBranch,
+  IconTrash,
+  IconPencil,
+  IconUserPlus,
+  IconClipboard,
+  IconCopy,
+} from "@tabler/icons-react";
 import {
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSub,
+  ContextMenuSubTrigger,
+  ContextMenuSubContent,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
   Button,
   Dialog,
   DialogContent,
@@ -20,6 +33,11 @@ import {
   Input,
   Textarea,
 } from "@conductor/ui";
+import {
+  phaseConfig,
+  PROJECT_PHASES,
+  type ProjectPhase,
+} from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 
 interface ProjectCardProps {
@@ -34,6 +52,7 @@ interface ProjectCardProps {
   accentColor: string;
   members?: Array<Id<"users">>;
   projectLead?: Id<"users">;
+  phase: ProjectPhase;
   isActive?: boolean;
   onClick?: () => void;
   onDelete: () => void;
@@ -50,6 +69,7 @@ export function ProjectCard({
   accentColor,
   members,
   projectLead,
+  phase,
   isActive,
   onClick,
   onDelete,
@@ -59,6 +79,7 @@ export function ProjectCard({
   const [editDescription, setEditDescription] = useState(description ?? "");
   const updateProject = useMutation(api.projects.update);
   const currentUserId = useQuery(api.auth.me);
+  const users = useQuery(api.users.listAll);
   const memberIds = [
     ...new Set(
       [projectLead, ...(members ?? [])].filter(
@@ -67,10 +88,8 @@ export function ProjectCard({
     ),
   ];
   const isOwner = currentUserId === userId;
-
-  const hasContextActions =
-    !!branchName || isOwner || currentUserId === undefined;
   const previewText = description ?? rawInput;
+  const PhaseIcon = phaseConfig[phase].icon;
 
   const MAX_AVATARS = 3;
   const allAvatarIds = memberIds.length > 0 ? memberIds : [userId];
@@ -179,14 +198,78 @@ export function ProjectCard({
     </div>
   );
 
-  if (!hasContextActions) {
-    return cardContent;
-  }
-
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{cardContent}</ContextMenuTrigger>
       <ContextMenuContent>
+        <ContextMenuSub>
+          <ContextMenuSubTrigger disabled={!isOwner}>
+            <PhaseIcon size={16} className={phaseConfig[phase].text} />
+            Phase
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent>
+            <ContextMenuRadioGroup
+              value={phase}
+              onValueChange={(value) => {
+                const matched = PROJECT_PHASES.find((p) => p === value);
+                if (!matched) return;
+                void updateProject({
+                  id: projectId,
+                  phase: matched,
+                });
+              }}
+            >
+              {PROJECT_PHASES.map((p) => {
+                const cfg = phaseConfig[p];
+                const Icon = cfg.icon;
+                return (
+                  <ContextMenuRadioItem key={p} value={p}>
+                    <Icon size={16} className={cfg.text} />
+                    {cfg.label}
+                  </ContextMenuRadioItem>
+                );
+              })}
+            </ContextMenuRadioGroup>
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+        <ContextMenuSub>
+          <ContextMenuSubTrigger disabled={!isOwner}>
+            <IconUserPlus size={16} />
+            Project Lead
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent>
+            <ContextMenuRadioGroup
+              value={projectLead ?? "none"}
+              onValueChange={(value) => {
+                if (value === "none") {
+                  void updateProject({ id: projectId, projectLead: null });
+                  return;
+                }
+                const matchedUser = (users ?? []).find((u) => u._id === value);
+                const leadId =
+                  currentUserId === value ? currentUserId : matchedUser?._id;
+                if (!leadId) return;
+                void updateProject({ id: projectId, projectLead: leadId });
+              }}
+            >
+              {currentUserId ? (
+                <>
+                  <ContextMenuRadioItem value={currentUserId}>
+                    Set myself as lead
+                  </ContextMenuRadioItem>
+                  <ContextMenuSeparator />
+                </>
+              ) : null}
+              <ContextMenuRadioItem value="none">No lead</ContextMenuRadioItem>
+              {(users ?? []).map((user) => (
+                <ContextMenuRadioItem key={user._id} value={user._id}>
+                  {user.fullName ?? user.firstName ?? "Unknown"}
+                </ContextMenuRadioItem>
+              ))}
+            </ContextMenuRadioGroup>
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+        <ContextMenuSeparator />
         {branchName ? (
           <ContextMenuItem asChild>
             <a
@@ -215,6 +298,26 @@ export function ProjectCard({
             </span>
           )}
         </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          onClick={() => {
+            void navigator.clipboard.writeText(title);
+          }}
+        >
+          <IconClipboard size={16} />
+          Copy title
+        </ContextMenuItem>
+        {branchName ? (
+          <ContextMenuItem
+            onClick={() => {
+              void navigator.clipboard.writeText(branchName);
+            }}
+          >
+            <IconCopy size={16} />
+            Copy branch name
+          </ContextMenuItem>
+        ) : null}
+        <ContextMenuSeparator />
         <ContextMenuItem
           className="text-destructive"
           disabled={!isOwner}

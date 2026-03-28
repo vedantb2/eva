@@ -230,6 +230,10 @@ export function QuickTasksListView({
                             isActive={selectedTaskId === task._id}
                             onToggleSelect={() => onToggleSelect(task._id)}
                             siblingApps={siblingApps ?? undefined}
+                            assignedTo={task.assignedTo}
+                            model={task.model}
+                            projectId={task.projectId}
+                            repoId={task.repoId ?? repoId}
                           />
                         ))}
                       </div>

@@ -1,5 +1,14 @@
 # Changelog
 
+## Rich right-click context menus for project & task cards - 2026-03-28
+
+- **Why**: Context menus were bare-bones (2-3 options). Users needed Linear-style quick access to change fields without opening detail views.
+- **QuickTaskCard menu**: Status (radio submenu), Assignee (radio submenu with "Assign to me"), Model (radio submenu, locked after execution), Project (radio submenu), Move to app, Copy title, Copy task link, Delete.
+- **ProjectCard menu**: Phase (radio submenu), Project Lead (radio submenu with "Set myself"), View Branch, Edit Details, Copy title, Copy branch name, Delete. Phase/Lead disabled for non-owners.
+- **Uses**: `ContextMenuRadioGroup`/`ContextMenuRadioItem` primitives that existed in the UI package but were never used.
+- **Parent updates**: All card parents now pass new props (assignedTo, model, projectId, repoId for tasks; phase for projects).
+- **Scope**: Both apps/web and apps/web-v2 — QuickTaskCard, ProjectCard, and their parent components.
+
 ## User-driven audit fixes with severity badges - 2026-03-28
 
 - **Why**: Audit fixes were fully automatic — the workflow detected failures, applied fixes, and re-audited without user input. For quick tasks this removed control over what gets changed. Users should review audit results and choose which failures to fix.

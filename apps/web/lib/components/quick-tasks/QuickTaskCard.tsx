@@ -8,6 +8,9 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
   ContextMenuSub,
   ContextMenuSubContent,
   ContextMenuSubTrigger,
@@ -15,6 +18,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -24,25 +30,29 @@ import {
   TooltipTrigger,
 } from "@conductor/ui";
 import type { Id } from "@conductor/backend";
+import { api } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { UserInitials } from "@conductor/shared";
 import {
   IconArrowMoveRight,
+  IconBrain,
+  IconClipboard,
   IconClock,
   IconDots,
   IconFolder,
+  IconLink,
   IconTag,
   IconTrash,
+  IconUserPlus,
 } from "@tabler/icons-react";
-import { useQuery } from "convex/react";
-import { api } from "@conductor/backend";
+import { useMutation, useQuery } from "convex/react";
 import {
   statusConfig,
+  TASK_STATUSES,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import dayjs, { compactRelativeTime } from "@conductor/shared/dates";
 import { useState } from "react";
-import { useRepo } from "@/lib/contexts/RepoContext";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
 import { MoveTaskDialog } from "./_components/MoveTaskDialog";
 
@@ -65,7 +75,17 @@ interface QuickTaskCardProps {
   isSelected?: boolean;
   isActive?: boolean;
   onToggleSelect?: () => void;
+  assignedTo?: Id<"users">;
+  model?: string;
+  projectId?: Id<"projects">;
+  repoId?: Id<"githubRepos">;
 }
+
+const MODEL_OPTIONS = [
+  { value: "opus", label: "Opus" },
+  { value: "sonnet", label: "Sonnet" },
+  { value: "haiku", label: "Haiku" },
+] as const;
 
 export function QuickTaskCard({
   id,
@@ -84,6 +104,10 @@ export function QuickTaskCard({
   isSelected,
   isActive,
   onToggleSelect,
+  assignedTo,
+  model,
+  projectId,
+  repoId,
 }: QuickTaskCardProps) {
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
   const hasError = runs?.[0]?.status === "error";
@@ -95,8 +119,378 @@ export function QuickTaskCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [moveTarget, setMoveTarget] = useState<Id<"githubRepos"> | null>(null);
 
+  const updateStatus = useMutation(api.agentTasks.updateStatus);
+  const updateTask = useMutation(api.agentTasks.update);
+  const users = useQuery(api.users.listAll);
+  const projects = useQuery(api.projects.list, repoId ? { repoId } : "skip");
+  const currentUserId = useQuery(api.auth.me);
+
   const moveTargetAppName =
     siblingApps?.find((a) => a._id === moveTarget)?.appName ?? "";
+
+  const StatusIcon = statusConfig[status].icon;
+
+  const contextMenuItems = (
+    <>
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <StatusIcon size={16} />
+          Status
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          <ContextMenuRadioGroup
+            value={status}
+            onValueChange={(value) => {
+              const matched = TASK_STATUSES.find((s) => s === value);
+              if (!matched) return;
+              updateStatus({ id, status: matched });
+            }}
+          >
+            {TASK_STATUSES.map((s) => {
+              const cfg = statusConfig[s];
+              const Icon = cfg.icon;
+              return (
+                <ContextMenuRadioItem key={s} value={s}>
+                  <Icon size={16} className={cfg.text} />
+                  {cfg.label}
+                </ContextMenuRadioItem>
+              );
+            })}
+          </ContextMenuRadioGroup>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <IconUserPlus size={16} />
+          Assignee
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          <ContextMenuRadioGroup
+            value={assignedTo ?? "unassigned"}
+            onValueChange={(value) => {
+              if (value === "unassigned") {
+                updateTask({ id, assignedTo: null });
+              } else {
+                const matchedUser = (users ?? []).find((u) => u._id === value);
+                const userId =
+                  currentUserId === value ? currentUserId : matchedUser?._id;
+                if (!userId) return;
+                updateTask({ id, assignedTo: userId });
+              }
+            }}
+          >
+            {currentUserId && (
+              <ContextMenuRadioItem value={currentUserId}>
+                Assign to me
+              </ContextMenuRadioItem>
+            )}
+            <ContextMenuSeparator />
+            <ContextMenuRadioItem value="unassigned">
+              Unassigned
+            </ContextMenuRadioItem>
+            {users?.map((user) => (
+              <ContextMenuRadioItem key={user._id} value={user._id}>
+                {user.fullName ?? user.firstName ?? "Unknown"}
+              </ContextMenuRadioItem>
+            ))}
+          </ContextMenuRadioGroup>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+
+      <ContextMenuSub>
+        <ContextMenuSubTrigger disabled={status !== "todo"}>
+          <IconBrain size={16} />
+          Model
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          <ContextMenuRadioGroup
+            value={model ?? "sonnet"}
+            onValueChange={(value) => {
+              const matched = MODEL_OPTIONS.find((m) => m.value === value);
+              if (!matched) return;
+              updateTask({ id, model: matched.value });
+            }}
+          >
+            {MODEL_OPTIONS.map((m) => (
+              <ContextMenuRadioItem key={m.value} value={m.value}>
+                {m.label}
+              </ContextMenuRadioItem>
+            ))}
+          </ContextMenuRadioGroup>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <IconFolder size={16} />
+          Project
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          <ContextMenuRadioGroup
+            value={projectId ?? "none"}
+            onValueChange={(value) => {
+              if (value === "none") {
+                updateTask({ id, projectId: null });
+              } else {
+                const matched = (projects ?? []).find((p) => p._id === value);
+                if (!matched) return;
+                updateTask({ id, projectId: matched._id });
+              }
+            }}
+          >
+            <ContextMenuRadioItem value="none">No project</ContextMenuRadioItem>
+            {projects?.map((project) => (
+              <ContextMenuRadioItem key={project._id} value={project._id}>
+                {project.title}
+              </ContextMenuRadioItem>
+            ))}
+          </ContextMenuRadioGroup>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+
+      <ContextMenuSeparator />
+
+      {siblingApps && siblingApps.length > 0 && (
+        <>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
+              <IconArrowMoveRight size={16} />
+              Move to app
+            </ContextMenuSubTrigger>
+            <ContextMenuSubContent>
+              {siblingApps.map((app) => (
+                <ContextMenuItem
+                  key={app._id}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setMoveTarget(app._id);
+                  }}
+                >
+                  {app.appName}
+                </ContextMenuItem>
+              ))}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+          <ContextMenuSeparator />
+        </>
+      )}
+
+      <ContextMenuItem
+        onSelect={() => {
+          navigator.clipboard.writeText(title);
+        }}
+      >
+        <IconClipboard size={16} />
+        Copy title
+      </ContextMenuItem>
+      <ContextMenuItem
+        onSelect={() => {
+          navigator.clipboard.writeText(
+            window.location.origin + window.location.pathname,
+          );
+        }}
+      >
+        <IconLink size={16} />
+        Copy task link
+      </ContextMenuItem>
+
+      <ContextMenuSeparator />
+
+      <ContextMenuItem
+        className="text-destructive focus:text-destructive"
+        onSelect={(e) => {
+          e.preventDefault();
+          setShowDeleteConfirm(true);
+        }}
+      >
+        <IconTrash size={16} />
+        Delete
+      </ContextMenuItem>
+    </>
+  );
+
+  const dropdownMenuItems = (
+    <>
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <StatusIcon size={16} />
+          Status
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>
+          <DropdownMenuRadioGroup
+            value={status}
+            onValueChange={(value) => {
+              const matched = TASK_STATUSES.find((s) => s === value);
+              if (!matched) return;
+              updateStatus({ id, status: matched });
+            }}
+          >
+            {TASK_STATUSES.map((s) => {
+              const cfg = statusConfig[s];
+              const Icon = cfg.icon;
+              return (
+                <DropdownMenuRadioItem key={s} value={s}>
+                  <Icon size={16} className={cfg.text} />
+                  {cfg.label}
+                </DropdownMenuRadioItem>
+              );
+            })}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <IconUserPlus size={16} />
+          Assignee
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>
+          <DropdownMenuRadioGroup
+            value={assignedTo ?? "unassigned"}
+            onValueChange={(value) => {
+              if (value === "unassigned") {
+                updateTask({ id, assignedTo: null });
+              } else {
+                const matchedUser = (users ?? []).find((u) => u._id === value);
+                const userId =
+                  currentUserId === value ? currentUserId : matchedUser?._id;
+                if (!userId) return;
+                updateTask({ id, assignedTo: userId });
+              }
+            }}
+          >
+            {currentUserId && (
+              <DropdownMenuRadioItem value={currentUserId}>
+                Assign to me
+              </DropdownMenuRadioItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioItem value="unassigned">
+              Unassigned
+            </DropdownMenuRadioItem>
+            {users?.map((user) => (
+              <DropdownMenuRadioItem key={user._id} value={user._id}>
+                {user.fullName ?? user.firstName ?? "Unknown"}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger disabled={status !== "todo"}>
+          <IconBrain size={16} />
+          Model
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>
+          <DropdownMenuRadioGroup
+            value={model ?? "sonnet"}
+            onValueChange={(value) => {
+              const matched = MODEL_OPTIONS.find((m) => m.value === value);
+              if (!matched) return;
+              updateTask({ id, model: matched.value });
+            }}
+          >
+            {MODEL_OPTIONS.map((m) => (
+              <DropdownMenuRadioItem key={m.value} value={m.value}>
+                {m.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <IconFolder size={16} />
+          Project
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>
+          <DropdownMenuRadioGroup
+            value={projectId ?? "none"}
+            onValueChange={(value) => {
+              if (value === "none") {
+                updateTask({ id, projectId: null });
+              } else {
+                const matched = (projects ?? []).find((p) => p._id === value);
+                if (!matched) return;
+                updateTask({ id, projectId: matched._id });
+              }
+            }}
+          >
+            <DropdownMenuRadioItem value="none">
+              No project
+            </DropdownMenuRadioItem>
+            {projects?.map((project) => (
+              <DropdownMenuRadioItem key={project._id} value={project._id}>
+                {project.title}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+
+      <DropdownMenuSeparator />
+
+      {siblingApps && siblingApps.length > 0 && (
+        <>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <IconArrowMoveRight size={16} />
+              Move to app
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {siblingApps.map((app) => (
+                <DropdownMenuItem
+                  key={app._id}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setMoveTarget(app._id);
+                  }}
+                >
+                  {app.appName}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuSeparator />
+        </>
+      )}
+
+      <DropdownMenuItem
+        onSelect={() => {
+          navigator.clipboard.writeText(title);
+        }}
+      >
+        <IconClipboard size={16} />
+        Copy title
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onSelect={() => {
+          navigator.clipboard.writeText(
+            window.location.origin + window.location.pathname,
+          );
+        }}
+      >
+        <IconLink size={16} />
+        Copy task link
+      </DropdownMenuItem>
+
+      <DropdownMenuSeparator />
+
+      <DropdownMenuItem
+        className="text-destructive focus:text-destructive"
+        onSelect={(e) => {
+          e.preventDefault();
+          setShowDeleteConfirm(true);
+        }}
+      >
+        <IconTrash size={16} />
+        Delete
+      </DropdownMenuItem>
+    </>
+  );
 
   const card = (
     <Card
@@ -216,37 +610,7 @@ export function QuickTaskCard({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {siblingApps && siblingApps.length > 0 && (
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <IconArrowMoveRight size={16} />
-                      Move to app
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {siblingApps.map((app) => (
-                        <DropdownMenuItem
-                          key={app._id}
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            setMoveTarget(app._id);
-                          }}
-                        >
-                          {app.appName}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                )}
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setShowDeleteConfirm(true);
-                  }}
-                >
-                  <IconTrash size={16} />
-                  Delete
-                </DropdownMenuItem>
+                {dropdownMenuItems}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -265,39 +629,7 @@ export function QuickTaskCard({
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>{wrappedCard}</ContextMenuTrigger>
-        <ContextMenuContent>
-          {siblingApps && siblingApps.length > 0 && (
-            <ContextMenuSub>
-              <ContextMenuSubTrigger>
-                <IconArrowMoveRight size={16} />
-                Move to app
-              </ContextMenuSubTrigger>
-              <ContextMenuSubContent>
-                {siblingApps.map((app) => (
-                  <ContextMenuItem
-                    key={app._id}
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      setMoveTarget(app._id);
-                    }}
-                  >
-                    {app.appName}
-                  </ContextMenuItem>
-                ))}
-              </ContextMenuSubContent>
-            </ContextMenuSub>
-          )}
-          <ContextMenuItem
-            className="text-destructive focus:text-destructive"
-            onSelect={(e) => {
-              e.preventDefault();
-              setShowDeleteConfirm(true);
-            }}
-          >
-            <IconTrash size={16} />
-            Delete
-          </ContextMenuItem>
-        </ContextMenuContent>
+        <ContextMenuContent>{contextMenuItems}</ContextMenuContent>
       </ContextMenu>
 
       <DeleteTaskDialog

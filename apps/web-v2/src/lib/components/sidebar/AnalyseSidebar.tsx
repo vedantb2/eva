@@ -3,7 +3,8 @@
 import { useNavigate } from "@tanstack/react-router";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useMutation } from "convex/react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";

@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from "react";
 import { useQueryState, useQueryStates } from "nuqs";
-import { useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";

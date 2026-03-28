@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useQueryState } from "nuqs";
 import { api } from "@conductor/backend";
-import { useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { repoStatsRangeParser } from "@/lib/search-params";
 import {

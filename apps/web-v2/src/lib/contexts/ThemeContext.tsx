@@ -8,7 +8,8 @@ import {
   useCallback,
 } from "react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 
 export type AccentColor =

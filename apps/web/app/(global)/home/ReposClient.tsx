@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useAction, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
+import { useAction } from "convex/react";
 import { useState, useEffect } from "react";
 import { AnimatePresence } from "motion/react";
 import { api } from "@conductor/backend";

@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useAction, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useAction } from "convex/react";
 import { useState, useEffect } from "react";
 import { AnimatePresence } from "motion/react";
 import { api } from "@conductor/backend";

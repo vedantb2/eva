@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
+import { useMutation } from "convex/react";
 import { api, CLAUDE_MODELS, type ClaudeModel } from "@conductor/backend";
 import type { Doc } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";

@@ -1,5 +1,11 @@
 # Changelog
 
+## Enable Convex query subscription caching - 2026-03-28
+
+- **Why**: `ConvexQueryCacheProvider` was already in the provider tree but all `useQuery` calls imported from `"convex/react"`, bypassing the cache entirely. Subscriptions were dropped and re-fetched on every navigation/unmount.
+- **Change**: Replaced all `useQuery` imports across both apps — from `"convex/react"` to `"convex-helpers/react/cache"` (web) / `"convex-helpers/react/cache/hooks"` (web-v2). Files that import other hooks (`useMutation`, `useAction`, etc.) keep those from `"convex/react"`.
+- **Effect**: Query subscriptions now persist for 5 minutes after unmount (default), giving instant data on back-navigation and view switches.
+
 ## Replace task detail modal with route-based inline view - 2026-03-28
 
 - **Why**: Clicking a task in kanban view opened a modal dialog while list view showed an inline panel — inconsistent UX. Users wanted consistent navigation behavior.

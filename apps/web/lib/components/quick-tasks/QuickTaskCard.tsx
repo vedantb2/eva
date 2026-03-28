@@ -45,7 +45,8 @@ import {
   IconTrash,
   IconUserPlus,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
+import { useMutation } from "convex/react";
 import {
   statusConfig,
   TASK_STATUSES,

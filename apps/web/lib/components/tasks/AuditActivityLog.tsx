@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ActivitySteps, Spinner } from "@conductor/ui";

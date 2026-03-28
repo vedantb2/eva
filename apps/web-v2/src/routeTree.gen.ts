@@ -23,11 +23,11 @@ import { Route as GlobalSettingsThemeRouteImport } from './routes/_global/settin
 import { Route as GlobalSettingsSyncRouteImport } from './routes/_global/settings/sync'
 import { Route as RepoOwnerRepoIndexRouteImport } from './routes/_repo/$owner/$repo/index'
 import { Route as RepoOwnerRepoStatsRouteImport } from './routes/_repo/$owner/$repo/stats'
-import { Route as RepoOwnerRepoQuickTasksRouteImport } from './routes/_repo/$owner/$repo/quick-tasks'
 import { Route as RepoOwnerRepoInboxRouteImport } from './routes/_repo/$owner/$repo/inbox'
 import { Route as RepoOwnerRepoTestingArenaIndexRouteImport } from './routes/_repo/$owner/$repo/testing-arena/index'
 import { Route as RepoOwnerRepoSettingsIndexRouteImport } from './routes/_repo/$owner/$repo/settings/index'
 import { Route as RepoOwnerRepoSessionsIndexRouteImport } from './routes/_repo/$owner/$repo/sessions/index'
+import { Route as RepoOwnerRepoQuickTasksIndexRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/index'
 import { Route as RepoOwnerRepoProjectsIndexRouteImport } from './routes/_repo/$owner/$repo/projects/index'
 import { Route as RepoOwnerRepoDocsIndexRouteImport } from './routes/_repo/$owner/$repo/docs/index'
 import { Route as RepoOwnerRepoDesignsIndexRouteImport } from './routes/_repo/$owner/$repo/designs/index'
@@ -43,6 +43,7 @@ import { Route as RepoOwnerRepoSettingsEnvVariablesRouteImport } from './routes/
 import { Route as RepoOwnerRepoSettingsConfigRouteImport } from './routes/_repo/$owner/$repo/settings/config'
 import { Route as RepoOwnerRepoSettingsAuditsRouteImport } from './routes/_repo/$owner/$repo/settings/audits'
 import { Route as RepoOwnerRepoSessionsIdRouteImport } from './routes/_repo/$owner/$repo/sessions/$id'
+import { Route as RepoOwnerRepoQuickTasksTaskIdRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$taskId'
 import { Route as RepoOwnerRepoProjectsProjectIdRouteImport } from './routes/_repo/$owner/$repo/projects/$projectId'
 import { Route as RepoOwnerRepoDocsIdRouteImport } from './routes/_repo/$owner/$repo/docs/$id'
 import { Route as RepoOwnerRepoDesignsIdRouteImport } from './routes/_repo/$owner/$repo/designs/$id'
@@ -120,11 +121,6 @@ const RepoOwnerRepoStatsRoute = RepoOwnerRepoStatsRouteImport.update({
   path: '/stats',
   getParentRoute: () => RepoOwnerRepoRoute,
 } as any)
-const RepoOwnerRepoQuickTasksRoute = RepoOwnerRepoQuickTasksRouteImport.update({
-  id: '/quick-tasks',
-  path: '/quick-tasks',
-  getParentRoute: () => RepoOwnerRepoRoute,
-} as any)
 const RepoOwnerRepoInboxRoute = RepoOwnerRepoInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
@@ -146,6 +142,12 @@ const RepoOwnerRepoSessionsIndexRoute =
   RepoOwnerRepoSessionsIndexRouteImport.update({
     id: '/sessions/',
     path: '/sessions/',
+    getParentRoute: () => RepoOwnerRepoRoute,
+  } as any)
+const RepoOwnerRepoQuickTasksIndexRoute =
+  RepoOwnerRepoQuickTasksIndexRouteImport.update({
+    id: '/quick-tasks/',
+    path: '/quick-tasks/',
     getParentRoute: () => RepoOwnerRepoRoute,
   } as any)
 const RepoOwnerRepoProjectsIndexRoute =
@@ -236,6 +238,12 @@ const RepoOwnerRepoSessionsIdRoute = RepoOwnerRepoSessionsIdRouteImport.update({
   path: '/sessions/$id',
   getParentRoute: () => RepoOwnerRepoRoute,
 } as any)
+const RepoOwnerRepoQuickTasksTaskIdRoute =
+  RepoOwnerRepoQuickTasksTaskIdRouteImport.update({
+    id: '/quick-tasks/$taskId',
+    path: '/quick-tasks/$taskId',
+    getParentRoute: () => RepoOwnerRepoRoute,
+  } as any)
 const RepoOwnerRepoProjectsProjectIdRoute =
   RepoOwnerRepoProjectsProjectIdRouteImport.update({
     id: '/projects/$projectId',
@@ -295,7 +303,6 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo': typeof RepoOwnerRepoRouteWithChildren
   '/teams/': typeof GlobalTeamsIndexRoute
   '/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
-  '/$owner/$repo/quick-tasks': typeof RepoOwnerRepoQuickTasksRoute
   '/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
   '/$owner/$repo/': typeof RepoOwnerRepoIndexRoute
   '/$owner/$repo/analyse/files': typeof RepoOwnerRepoAnalyseFilesRoute
@@ -305,6 +312,7 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/designs/$id': typeof RepoOwnerRepoDesignsIdRoute
   '/$owner/$repo/docs/$id': typeof RepoOwnerRepoDocsIdRoute
   '/$owner/$repo/projects/$projectId': typeof RepoOwnerRepoProjectsProjectIdRoute
+  '/$owner/$repo/quick-tasks/$taskId': typeof RepoOwnerRepoQuickTasksTaskIdRoute
   '/$owner/$repo/sessions/$id': typeof RepoOwnerRepoSessionsIdRoute
   '/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
   '/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
@@ -320,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/designs/': typeof RepoOwnerRepoDesignsIndexRoute
   '/$owner/$repo/docs/': typeof RepoOwnerRepoDocsIndexRoute
   '/$owner/$repo/projects/': typeof RepoOwnerRepoProjectsIndexRoute
+  '/$owner/$repo/quick-tasks/': typeof RepoOwnerRepoQuickTasksIndexRoute
   '/$owner/$repo/sessions/': typeof RepoOwnerRepoSessionsIndexRoute
   '/$owner/$repo/settings/': typeof RepoOwnerRepoSettingsIndexRoute
   '/$owner/$repo/testing-arena/': typeof RepoOwnerRepoTestingArenaIndexRoute
@@ -336,7 +345,6 @@ export interface FileRoutesByTo {
   '/teams/$teamId': typeof GlobalTeamsTeamIdRoute
   '/teams': typeof GlobalTeamsIndexRoute
   '/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
-  '/$owner/$repo/quick-tasks': typeof RepoOwnerRepoQuickTasksRoute
   '/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
   '/$owner/$repo': typeof RepoOwnerRepoIndexRoute
   '/$owner/$repo/analyse/files': typeof RepoOwnerRepoAnalyseFilesRoute
@@ -346,6 +354,7 @@ export interface FileRoutesByTo {
   '/$owner/$repo/designs/$id': typeof RepoOwnerRepoDesignsIdRoute
   '/$owner/$repo/docs/$id': typeof RepoOwnerRepoDocsIdRoute
   '/$owner/$repo/projects/$projectId': typeof RepoOwnerRepoProjectsProjectIdRoute
+  '/$owner/$repo/quick-tasks/$taskId': typeof RepoOwnerRepoQuickTasksTaskIdRoute
   '/$owner/$repo/sessions/$id': typeof RepoOwnerRepoSessionsIdRoute
   '/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
   '/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
@@ -361,6 +370,7 @@ export interface FileRoutesByTo {
   '/$owner/$repo/designs': typeof RepoOwnerRepoDesignsIndexRoute
   '/$owner/$repo/docs': typeof RepoOwnerRepoDocsIndexRoute
   '/$owner/$repo/projects': typeof RepoOwnerRepoProjectsIndexRoute
+  '/$owner/$repo/quick-tasks': typeof RepoOwnerRepoQuickTasksIndexRoute
   '/$owner/$repo/sessions': typeof RepoOwnerRepoSessionsIndexRoute
   '/$owner/$repo/settings': typeof RepoOwnerRepoSettingsIndexRoute
   '/$owner/$repo/testing-arena': typeof RepoOwnerRepoTestingArenaIndexRoute
@@ -381,7 +391,6 @@ export interface FileRoutesById {
   '/_repo/$owner/$repo': typeof RepoOwnerRepoRouteWithChildren
   '/_global/teams/': typeof GlobalTeamsIndexRoute
   '/_repo/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
-  '/_repo/$owner/$repo/quick-tasks': typeof RepoOwnerRepoQuickTasksRoute
   '/_repo/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
   '/_repo/$owner/$repo/': typeof RepoOwnerRepoIndexRoute
   '/_repo/$owner/$repo/analyse/files': typeof RepoOwnerRepoAnalyseFilesRoute
@@ -391,6 +400,7 @@ export interface FileRoutesById {
   '/_repo/$owner/$repo/designs/$id': typeof RepoOwnerRepoDesignsIdRoute
   '/_repo/$owner/$repo/docs/$id': typeof RepoOwnerRepoDocsIdRoute
   '/_repo/$owner/$repo/projects/$projectId': typeof RepoOwnerRepoProjectsProjectIdRoute
+  '/_repo/$owner/$repo/quick-tasks/$taskId': typeof RepoOwnerRepoQuickTasksTaskIdRoute
   '/_repo/$owner/$repo/sessions/$id': typeof RepoOwnerRepoSessionsIdRoute
   '/_repo/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
   '/_repo/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
@@ -406,6 +416,7 @@ export interface FileRoutesById {
   '/_repo/$owner/$repo/designs/': typeof RepoOwnerRepoDesignsIndexRoute
   '/_repo/$owner/$repo/docs/': typeof RepoOwnerRepoDocsIndexRoute
   '/_repo/$owner/$repo/projects/': typeof RepoOwnerRepoProjectsIndexRoute
+  '/_repo/$owner/$repo/quick-tasks/': typeof RepoOwnerRepoQuickTasksIndexRoute
   '/_repo/$owner/$repo/sessions/': typeof RepoOwnerRepoSessionsIndexRoute
   '/_repo/$owner/$repo/settings/': typeof RepoOwnerRepoSettingsIndexRoute
   '/_repo/$owner/$repo/testing-arena/': typeof RepoOwnerRepoTestingArenaIndexRoute
@@ -425,7 +436,6 @@ export interface FileRouteTypes {
     | '/$owner/$repo'
     | '/teams/'
     | '/$owner/$repo/inbox'
-    | '/$owner/$repo/quick-tasks'
     | '/$owner/$repo/stats'
     | '/$owner/$repo/'
     | '/$owner/$repo/analyse/files'
@@ -435,6 +445,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/designs/$id'
     | '/$owner/$repo/docs/$id'
     | '/$owner/$repo/projects/$projectId'
+    | '/$owner/$repo/quick-tasks/$taskId'
     | '/$owner/$repo/sessions/$id'
     | '/$owner/$repo/settings/audits'
     | '/$owner/$repo/settings/config'
@@ -450,6 +461,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/designs/'
     | '/$owner/$repo/docs/'
     | '/$owner/$repo/projects/'
+    | '/$owner/$repo/quick-tasks/'
     | '/$owner/$repo/sessions/'
     | '/$owner/$repo/settings/'
     | '/$owner/$repo/testing-arena/'
@@ -466,7 +478,6 @@ export interface FileRouteTypes {
     | '/teams/$teamId'
     | '/teams'
     | '/$owner/$repo/inbox'
-    | '/$owner/$repo/quick-tasks'
     | '/$owner/$repo/stats'
     | '/$owner/$repo'
     | '/$owner/$repo/analyse/files'
@@ -476,6 +487,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/designs/$id'
     | '/$owner/$repo/docs/$id'
     | '/$owner/$repo/projects/$projectId'
+    | '/$owner/$repo/quick-tasks/$taskId'
     | '/$owner/$repo/sessions/$id'
     | '/$owner/$repo/settings/audits'
     | '/$owner/$repo/settings/config'
@@ -491,6 +503,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/designs'
     | '/$owner/$repo/docs'
     | '/$owner/$repo/projects'
+    | '/$owner/$repo/quick-tasks'
     | '/$owner/$repo/sessions'
     | '/$owner/$repo/settings'
     | '/$owner/$repo/testing-arena'
@@ -510,7 +523,6 @@ export interface FileRouteTypes {
     | '/_repo/$owner/$repo'
     | '/_global/teams/'
     | '/_repo/$owner/$repo/inbox'
-    | '/_repo/$owner/$repo/quick-tasks'
     | '/_repo/$owner/$repo/stats'
     | '/_repo/$owner/$repo/'
     | '/_repo/$owner/$repo/analyse/files'
@@ -520,6 +532,7 @@ export interface FileRouteTypes {
     | '/_repo/$owner/$repo/designs/$id'
     | '/_repo/$owner/$repo/docs/$id'
     | '/_repo/$owner/$repo/projects/$projectId'
+    | '/_repo/$owner/$repo/quick-tasks/$taskId'
     | '/_repo/$owner/$repo/sessions/$id'
     | '/_repo/$owner/$repo/settings/audits'
     | '/_repo/$owner/$repo/settings/config'
@@ -535,6 +548,7 @@ export interface FileRouteTypes {
     | '/_repo/$owner/$repo/designs/'
     | '/_repo/$owner/$repo/docs/'
     | '/_repo/$owner/$repo/projects/'
+    | '/_repo/$owner/$repo/quick-tasks/'
     | '/_repo/$owner/$repo/sessions/'
     | '/_repo/$owner/$repo/settings/'
     | '/_repo/$owner/$repo/testing-arena/'
@@ -648,13 +662,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RepoOwnerRepoStatsRouteImport
       parentRoute: typeof RepoOwnerRepoRoute
     }
-    '/_repo/$owner/$repo/quick-tasks': {
-      id: '/_repo/$owner/$repo/quick-tasks'
-      path: '/quick-tasks'
-      fullPath: '/$owner/$repo/quick-tasks'
-      preLoaderRoute: typeof RepoOwnerRepoQuickTasksRouteImport
-      parentRoute: typeof RepoOwnerRepoRoute
-    }
     '/_repo/$owner/$repo/inbox': {
       id: '/_repo/$owner/$repo/inbox'
       path: '/inbox'
@@ -681,6 +688,13 @@ declare module '@tanstack/react-router' {
       path: '/sessions'
       fullPath: '/$owner/$repo/sessions/'
       preLoaderRoute: typeof RepoOwnerRepoSessionsIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/': {
+      id: '/_repo/$owner/$repo/quick-tasks/'
+      path: '/quick-tasks'
+      fullPath: '/$owner/$repo/quick-tasks/'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksIndexRouteImport
       parentRoute: typeof RepoOwnerRepoRoute
     }
     '/_repo/$owner/$repo/projects/': {
@@ -788,6 +802,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RepoOwnerRepoSessionsIdRouteImport
       parentRoute: typeof RepoOwnerRepoRoute
     }
+    '/_repo/$owner/$repo/quick-tasks/$taskId': {
+      id: '/_repo/$owner/$repo/quick-tasks/$taskId'
+      path: '/quick-tasks/$taskId'
+      fullPath: '/$owner/$repo/quick-tasks/$taskId'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksTaskIdRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
     '/_repo/$owner/$repo/projects/$projectId': {
       id: '/_repo/$owner/$repo/projects/$projectId'
       path: '/projects/$projectId'
@@ -872,7 +893,6 @@ const GlobalRouteWithChildren =
 
 interface RepoOwnerRepoRouteChildren {
   RepoOwnerRepoInboxRoute: typeof RepoOwnerRepoInboxRoute
-  RepoOwnerRepoQuickTasksRoute: typeof RepoOwnerRepoQuickTasksRoute
   RepoOwnerRepoStatsRoute: typeof RepoOwnerRepoStatsRoute
   RepoOwnerRepoIndexRoute: typeof RepoOwnerRepoIndexRoute
   RepoOwnerRepoAnalyseFilesRoute: typeof RepoOwnerRepoAnalyseFilesRoute
@@ -882,6 +902,7 @@ interface RepoOwnerRepoRouteChildren {
   RepoOwnerRepoDesignsIdRoute: typeof RepoOwnerRepoDesignsIdRoute
   RepoOwnerRepoDocsIdRoute: typeof RepoOwnerRepoDocsIdRoute
   RepoOwnerRepoProjectsProjectIdRoute: typeof RepoOwnerRepoProjectsProjectIdRoute
+  RepoOwnerRepoQuickTasksTaskIdRoute: typeof RepoOwnerRepoQuickTasksTaskIdRoute
   RepoOwnerRepoSessionsIdRoute: typeof RepoOwnerRepoSessionsIdRoute
   RepoOwnerRepoSettingsAuditsRoute: typeof RepoOwnerRepoSettingsAuditsRoute
   RepoOwnerRepoSettingsConfigRoute: typeof RepoOwnerRepoSettingsConfigRoute
@@ -897,6 +918,7 @@ interface RepoOwnerRepoRouteChildren {
   RepoOwnerRepoDesignsIndexRoute: typeof RepoOwnerRepoDesignsIndexRoute
   RepoOwnerRepoDocsIndexRoute: typeof RepoOwnerRepoDocsIndexRoute
   RepoOwnerRepoProjectsIndexRoute: typeof RepoOwnerRepoProjectsIndexRoute
+  RepoOwnerRepoQuickTasksIndexRoute: typeof RepoOwnerRepoQuickTasksIndexRoute
   RepoOwnerRepoSessionsIndexRoute: typeof RepoOwnerRepoSessionsIndexRoute
   RepoOwnerRepoSettingsIndexRoute: typeof RepoOwnerRepoSettingsIndexRoute
   RepoOwnerRepoTestingArenaIndexRoute: typeof RepoOwnerRepoTestingArenaIndexRoute
@@ -905,7 +927,6 @@ interface RepoOwnerRepoRouteChildren {
 
 const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
   RepoOwnerRepoInboxRoute: RepoOwnerRepoInboxRoute,
-  RepoOwnerRepoQuickTasksRoute: RepoOwnerRepoQuickTasksRoute,
   RepoOwnerRepoStatsRoute: RepoOwnerRepoStatsRoute,
   RepoOwnerRepoIndexRoute: RepoOwnerRepoIndexRoute,
   RepoOwnerRepoAnalyseFilesRoute: RepoOwnerRepoAnalyseFilesRoute,
@@ -915,6 +936,7 @@ const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
   RepoOwnerRepoDesignsIdRoute: RepoOwnerRepoDesignsIdRoute,
   RepoOwnerRepoDocsIdRoute: RepoOwnerRepoDocsIdRoute,
   RepoOwnerRepoProjectsProjectIdRoute: RepoOwnerRepoProjectsProjectIdRoute,
+  RepoOwnerRepoQuickTasksTaskIdRoute: RepoOwnerRepoQuickTasksTaskIdRoute,
   RepoOwnerRepoSessionsIdRoute: RepoOwnerRepoSessionsIdRoute,
   RepoOwnerRepoSettingsAuditsRoute: RepoOwnerRepoSettingsAuditsRoute,
   RepoOwnerRepoSettingsConfigRoute: RepoOwnerRepoSettingsConfigRoute,
@@ -931,6 +953,7 @@ const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
   RepoOwnerRepoDesignsIndexRoute: RepoOwnerRepoDesignsIndexRoute,
   RepoOwnerRepoDocsIndexRoute: RepoOwnerRepoDocsIndexRoute,
   RepoOwnerRepoProjectsIndexRoute: RepoOwnerRepoProjectsIndexRoute,
+  RepoOwnerRepoQuickTasksIndexRoute: RepoOwnerRepoQuickTasksIndexRoute,
   RepoOwnerRepoSessionsIndexRoute: RepoOwnerRepoSessionsIndexRoute,
   RepoOwnerRepoSettingsIndexRoute: RepoOwnerRepoSettingsIndexRoute,
   RepoOwnerRepoTestingArenaIndexRoute: RepoOwnerRepoTestingArenaIndexRoute,

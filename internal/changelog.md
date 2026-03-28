@@ -1,5 +1,13 @@
 # Changelog
 
+## Replace task detail modal with route-based inline view - 2026-03-28
+
+- **Why**: Clicking a task in kanban view opened a modal dialog while list view showed an inline panel — inconsistent UX. Users wanted consistent navigation behavior.
+- **Change**: Clicking a task in ANY view (kanban or list) now navigates to `/quick-tasks/{taskId}` as a dedicated route, rendering `TaskDetailInline` as a full page with breadcrumb and prev/next navigation.
+- **Removed**: `TaskDetailModal` component (deleted from both apps), `taskIdParser` query param (replaced by path segment).
+- **New files**: `QuickTaskDetailClient` + route wrappers in both `apps/web` (Next.js `[taskId]/page.tsx`) and `apps/web-v2` (TanStack `$taskId.tsx`).
+- **Scope**: Both apps/web and apps/web-v2.
+
 ## Rich right-click context menus for project & task cards - 2026-03-28
 
 - **Why**: Context menus were bare-bones (2-3 options). Users needed Linear-style quick access to change fields without opening detail views.

@@ -634,7 +634,7 @@ export function Sidebar() {
                             />
                           )}
 
-                          <div className="space-y-2">
+                          <div className="space-y-4">
                             {repoNavigation.map((group) => (
                               <div key={group.label}>
                                 {!collapsed && (

@@ -14,6 +14,10 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
   Input,
   Spinner,
   Textarea,
@@ -34,6 +38,8 @@ import {
   IconHistory,
   IconTestPipe,
   IconExternalLink,
+  IconDots,
+  IconPlayerStop,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { DocInterviewDialog } from "./DocInterviewDialog";
@@ -96,8 +102,11 @@ function DocEditor({ doc }: { doc: Doc }) {
   const streamingSteps = parseActivitySteps(streaming?.currentActivity);
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [testGenConfirmOpen, setTestGenConfirmOpen] = useState(false);
   const [isTriggeringTestGen, setIsTriggeringTestGen] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const startTestGenMutation = useMutation(api.testGenWorkflow.startTestGen);
+  const cancelTestGenMutation = useMutation(api.testGenWorkflow.cancelTestGen);
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
     (localStore, args) => {
       const current = localStore.getQuery(api.docs.get, { id: args.id });
@@ -188,57 +197,82 @@ function DocEditor({ doc }: { doc: Doc }) {
     }
   };
 
+  const handleStopTestGen = async () => {
+    setIsStopping(true);
+    try {
+      await cancelTestGenMutation({ docId: doc._id });
+    } finally {
+      setIsStopping(false);
+    }
+  };
+
   const isGeneratingTests =
     doc.testGenStatus === "running" || isTriggeringTestGen;
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
-        <Input
-          value={doc.title}
-          onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
-          className="h-10 w-full text-lg font-semibold sm:max-w-md sm:w-auto"
-          placeholder="Document title"
-        />
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => setInterviewOpen(true)}
-        >
-          <IconMessageChatbot size={16} />
-          <span className="hidden sm:inline">Interview Me</span>
-        </Button>
-        {doc.testGenStatus === "completed" && doc.testPrUrl ? (
-          <Button size="sm" variant="secondary" asChild>
-            <a href={doc.testPrUrl} target="_blank" rel="noopener noreferrer">
-              <IconExternalLink size={16} />
-              <span className="hidden sm:inline">View Tests PR</span>
-            </a>
-          </Button>
-        ) : isGeneratingTests ? (
-          <Button size="sm" variant="secondary" disabled>
+      <div className="flex items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+        <div className="flex items-baseline gap-2 min-w-0">
+          <input
+            value={doc.title}
+            onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
+            className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0 min-w-0 w-auto cursor-text placeholder:text-muted-foreground"
+            placeholder="Document title"
+            size={Math.max(doc.title.length, 12)}
+          />
+          <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+            {dayjs(doc.updatedAt).fromNow()}
+          </span>
+        </div>
+        {isGeneratingTests && (
+          <div className="flex items-center gap-1.5 ml-auto text-sm text-muted-foreground">
             <Spinner size="sm" />
             <span className="hidden sm:inline">Generating...</span>
-          </Button>
-        ) : (
-          <Button size="sm" variant="secondary" onClick={handleGenerateTests}>
-            <IconTestPipe size={16} />
-            <span className="hidden sm:inline">Generate Tests</span>
-          </Button>
+          </div>
         )}
-        {(doc.interviewHistory ?? []).length > 0 && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setHistoryOpen(true)}
-          >
-            <IconHistory size={16} />
-            <span className="hidden sm:inline">View History</span>
-          </Button>
-        )}
-        <span className="text-xs text-muted-foreground whitespace-nowrap ml-auto">
-          {dayjs(doc.updatedAt).fromNow()}
-        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              className={isGeneratingTests ? "" : "ml-auto"}
+            >
+              <IconDots size={16} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setInterviewOpen(true)}>
+              <IconMessageChatbot size={16} />
+              Interview Me
+            </DropdownMenuItem>
+            {doc.testGenStatus === "completed" && doc.testPrUrl ? (
+              <DropdownMenuItem asChild>
+                <a
+                  href={doc.testPrUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <IconExternalLink size={16} />
+                  View Tests PR
+                </a>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() => setTestGenConfirmOpen(true)}
+                disabled={isGeneratingTests}
+              >
+                <IconTestPipe size={16} />
+                Generate Tests
+              </DropdownMenuItem>
+            )}
+            {(doc.interviewHistory ?? []).length > 0 && (
+              <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
+                <IconHistory size={16} />
+                View History
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <DocInterviewDialog
         doc={doc}
@@ -251,16 +285,57 @@ function DocEditor({ doc }: { doc: Doc }) {
         onOpenChange={setHistoryOpen}
         readOnly
       />
+      <Dialog open={testGenConfirmOpen} onOpenChange={setTestGenConfirmOpen}>
+        <DialogContent hideCloseButton className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Generate Tests?</DialogTitle>
+            <DialogDescription>
+              This will generate tests based on the current requirements and
+              user flows.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary" size="sm">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              size="sm"
+              onClick={() => {
+                setTestGenConfirmOpen(false);
+                handleGenerateTests();
+              }}
+            >
+              Generate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {streaming && (
         <div className="px-4 pb-3">
           <div className="rounded-lg bg-muted/40 p-3 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
-              <span>
+              <span className="flex-1">
                 {isGeneratingTests
                   ? "Generating tests..."
                   : "Processing PRD..."}
               </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={handleStopTestGen}
+                disabled={isStopping}
+              >
+                {isStopping ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <IconPlayerStop size={14} />
+                )}
+                Stop
+              </Button>
             </div>
             {streamingSteps ? (
               <ActivitySteps steps={streamingSteps} isStreaming />

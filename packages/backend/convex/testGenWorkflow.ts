@@ -7,6 +7,7 @@ import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import { buildPrBody } from "./taskWorkflowActions";
 
 const testGenCompleteEvent = defineEvent({
   name: "testGenComplete",
@@ -102,14 +103,41 @@ export const testGenWorkflow = workflow.define({
     // Step 4: Wait for callback
     const result = await step.awaitEvent(testGenCompleteEvent);
 
-    // Step 5: Create PR and save results
+    // Step 5: Save result status
     await step.runMutation(internal.testGenWorkflow.saveResult, {
       docId: args.docId,
       success: result.success,
       result: result.result,
       error: result.error,
-      branchName: docData.branchName,
     });
+
+    // Step 6: Create PR if successful
+    if (result.success) {
+      const prUrl = await step.runAction(
+        internal.taskWorkflowActions.createPullRequest,
+        {
+          installationId: args.installationId,
+          repoOwner: docData.repoOwner,
+          repoName: docData.repoName,
+          branchName: docData.branchName,
+          title: `Add tests for ${docData.docTitle}`,
+          body: buildPrBody([
+            {
+              heading: "Summary",
+              content: `Auto-generated tests for the **${docData.docTitle}** document.`,
+            },
+          ]),
+          labels: ["tests", "eva"],
+        },
+      );
+
+      if (prUrl) {
+        await step.runMutation(internal.testGenWorkflow.savePrUrl, {
+          docId: args.docId,
+          testPrUrl: prUrl,
+        });
+      }
+    }
   },
 });
 
@@ -121,6 +149,7 @@ export const getDocData = internalQuery({
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
+    docTitle: v.string(),
     prompt: v.string(),
     branchName: v.string(),
     alreadyCompleted: v.boolean(),
@@ -137,6 +166,7 @@ export const getDocData = internalQuery({
         repoOwner: repo.owner,
         repoName: repo.name,
         repoId: doc.repoId,
+        docTitle: doc.title,
         prompt: "",
         branchName: "",
         alreadyCompleted: true,
@@ -176,6 +206,7 @@ ${formatUserFlows(doc.userFlows ?? [])}
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: doc.repoId,
+      docTitle: doc.title,
       prompt,
       branchName,
       alreadyCompleted: false,
@@ -201,7 +232,6 @@ export const saveResult = internalMutation({
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
-    branchName: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -223,6 +253,21 @@ export const saveResult = internalMutation({
       activeWorkflowId: undefined,
     });
 
+    return null;
+  },
+});
+
+export const savePrUrl = internalMutation({
+  args: {
+    docId: v.id("docs"),
+    testPrUrl: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.docId, {
+      testPrUrl: args.testPrUrl,
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });
@@ -262,6 +307,34 @@ export const handleCompletion = authMutation({
       rawResultEvent: args.rawResultEvent,
       repoId: doc.repoId,
       createdAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Public mutation to cancel a running test generation workflow.
+ */
+export const cancelTestGen = authMutation({
+  args: { docId: v.id("docs") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.docId);
+    if (!doc) throw new Error("Doc not found");
+
+    if (doc.activeWorkflowId) {
+      try {
+        await workflow.cancel(ctx, doc.activeWorkflowId as WorkflowId);
+      } catch {}
+    }
+
+    await clearStreamingActivity(ctx, String(args.docId));
+
+    await ctx.db.patch(args.docId, {
+      testGenStatus: undefined,
+      activeWorkflowId: undefined,
+      updatedAt: Date.now(),
     });
 
     return null;

@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useSyncExternalStore,
+  useState,
 } from "react";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
@@ -423,7 +424,7 @@ export function ProjectsTimeline({
         {withDates.length > 0 && (
           <div
             ref={containerRef}
-            className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg bg-muted/40 select-none"
+            className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden select-none"
             style={{ cursor: isDragging ? "grabbing" : "grab" }}
             onWheel={handleWheel}
             onPointerDown={handlePointerDown}
@@ -447,12 +448,9 @@ export function ProjectsTimeline({
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <div className="flex pb-6 bg-background/55">
                 <div
-                  className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2"
+                  className="flex shrink-0 items-center justify-center px-3 pb-2"
                   style={{ width: LABEL_WIDTH }}
                 >
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                    Project
-                  </span>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -603,46 +601,10 @@ export function ProjectsTimeline({
         )}
 
         {withoutDates.length > 0 && (
-          <div
-            className={cn(
-              "rounded-lg bg-muted/30 p-3",
-              withDates.length > 0
-                ? "max-h-56 flex-shrink-0 overflow-y-auto scrollbar"
-                : "min-h-0 flex-1 overflow-y-auto",
-            )}
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                Unscheduled Projects
-              </p>
-              <span className="text-xs text-muted-foreground">
-                {withoutDates.length}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-              {withoutDates.map((project) => {
-                const phase = project.phase as ProjectPhase;
-                const config = phaseConfig[phase];
-                return (
-                  <button
-                    key={project._id}
-                    className="motion-base flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-left transition-[transform,background-color] hover:-translate-y-[1px] hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-                    onClick={() => openProject(project._id)}
-                  >
-                    <span
-                      className={cn(
-                        "h-2 w-2 shrink-0 rounded-full",
-                        config.bar,
-                      )}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                      {project.title}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <p className="px-1 text-xs text-muted-foreground">
+            {withoutDates.length} unscheduled{" "}
+            {withoutDates.length === 1 ? "project" : "projects"}
+          </p>
         )}
       </div>
     </>

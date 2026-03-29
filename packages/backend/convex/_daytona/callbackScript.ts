@@ -122,8 +122,12 @@ async function callActionWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RE
   }
 }
 
-async function callStreamingHeartbeat(entityId, currentActivity) {
-  return await callMutation("streaming:set", { entityId, currentActivity });
+async function callStreamingHeartbeat(entityId, currentActivity, currentContent) {
+  return await callMutation("streaming:set", {
+    entityId,
+    currentActivity,
+    currentContent,
+  });
 }
 
 async function markRunFinalizingIfNeeded() {
@@ -243,9 +247,8 @@ function parseStreamEvent(line) {
         lastStepType = "thinking";
         added = true;
       } else if (block.type === "text" && block.text) {
-        markLastComplete();
-        accumulatedSteps.push({ type: "thinking", label: "Streaming response...", detail: String(block.text), status: "active" });
-        lastStepType = "thinking";
+        appendStreamedContent(block.text);
+        updateThinkingStep("Streaming response...", "Receiving reply...");
         added = true;
       }
     }
@@ -275,6 +278,7 @@ let rawOutput = "";
 let lastProcessed = 0;
 let lastStreamingSentAt = Date.now();
 let lastSentPayload = "";
+let lastSentContent = "";
 let parsedStreamEventCount = 0;
 let realtimeOutputBuffer = "";
 let activeClaudeSessionId = process.env.CLAUDE_SESSION_ID || "";
@@ -285,6 +289,7 @@ let claudeInitAt = 0;
 let activeAttemptStartedAt = 0;
 let firstAssistantEventAt = 0;
 let firstTextBlockAt = 0;
+let currentStreamedContent = "";
 
 function elapsedAttemptMs() {
   return activeAttemptStartedAt > 0 ? Date.now() - activeAttemptStartedAt : 0;
@@ -357,6 +362,18 @@ function collectClaudeTranscriptSessionIds() {
   return Array.from(sessionIds);
 }
 
+function appendStreamedContent(text) {
+  const nextText = String(text);
+  if (!nextText) {
+    return;
+  }
+  if (nextText.startsWith(currentStreamedContent)) {
+    currentStreamedContent = nextText;
+    return;
+  }
+  currentStreamedContent += nextText;
+}
+
 function buildClaudeStartupStep() {
   if (waitingForFirstAssistantEvent && claudeInitAt > 0) {
     const elapsedSeconds = Math.max(
@@ -405,10 +422,20 @@ async function flushStreaming() {
     }
     if (hasNew) {
       const payload = JSON.stringify(accumulatedSteps);
-      if (payload === lastSentPayload) return;
+      if (
+        payload === lastSentPayload &&
+        currentStreamedContent === lastSentContent
+      ) {
+        return;
+      }
       try {
-        await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
+        await callStreamingHeartbeat(
+          STREAMING_ENTITY_ID,
+          payload,
+          currentStreamedContent,
+        );
         lastSentPayload = payload;
+        lastSentContent = currentStreamedContent;
         lastStreamingSentAt = Date.now();
         consecutiveHeartbeatFailures = 0;
       } catch (e) {
@@ -437,8 +464,13 @@ async function heartbeatPing() {
     const maxAttempts = 3;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
+        await callStreamingHeartbeat(
+          STREAMING_ENTITY_ID,
+          payload,
+          currentStreamedContent,
+        );
         lastSentPayload = payload;
+        lastSentContent = currentStreamedContent;
         lastStreamingSentAt = Date.now();
         if (consecutiveHeartbeatFailures > 0) {
           console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
@@ -475,7 +507,11 @@ async function initialHeartbeat() {
   let attempt = 0;
   while (attempt <= 1) {
     try {
-      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
+      await callStreamingHeartbeat(
+        STREAMING_ENTITY_ID,
+        JSON.stringify(accumulatedSteps),
+        currentStreamedContent,
+      );
       log(
         "initialHeartbeat succeeded in " +
           String(Date.now() - startedAt) +
@@ -493,6 +529,7 @@ async function initialHeartbeat() {
 await initialHeartbeat()
   .then(() => {
     lastSentPayload = JSON.stringify(accumulatedSteps);
+    lastSentContent = currentStreamedContent;
     lastStreamingSentAt = Date.now();
     callbackReady = true;
     try {
@@ -536,8 +573,13 @@ async function setFinalizingState() {
   });
   lastStepType = "thinking";
   try {
-    await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
+    await callStreamingHeartbeat(
+      STREAMING_ENTITY_ID,
+      JSON.stringify(accumulatedSteps),
+      currentStreamedContent,
+    );
     lastStreamingSentAt = Date.now();
+    lastSentContent = currentStreamedContent;
   } catch {}
 }
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
@@ -861,7 +903,11 @@ function handleRealtimeStreamLine(line) {
     log("captured Claude session id " + activeClaudeSessionId);
     const startupStep = buildClaudeStartupStep();
     updateThinkingStep(startupStep.label, startupStep.detail);
-    callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps)).catch(() => {});
+    callStreamingHeartbeat(
+      STREAMING_ENTITY_ID,
+      JSON.stringify(accumulatedSteps),
+      currentStreamedContent,
+    ).catch(() => {});
     return;
   }
   if (parsed.type === "assistant") {
@@ -1012,6 +1058,7 @@ async function runClaudeAttempt(sessionMode) {
   resultEventSeen = false;
   waitingForFirstAssistantEvent = false;
   claudeInitAt = 0;
+  currentStreamedContent = "";
   activeAttemptStartedAt = Date.now();
   firstAssistantEventAt = 0;
   firstTextBlockAt = 0;
@@ -1164,7 +1211,11 @@ try {
       label: "Retrying without saved session...",
       status: "active",
     });
-    callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps)).catch(() => {});
+    callStreamingHeartbeat(
+      STREAMING_ENTITY_ID,
+      JSON.stringify(accumulatedSteps),
+      currentStreamedContent,
+    ).catch(() => {});
 
     const secondAttempt = await runClaudeAttempt({
       mode: "none",

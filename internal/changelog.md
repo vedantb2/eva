@@ -10,6 +10,7 @@
 - **Launch path parallelism**: Sandbox token + MCP token minting now happen concurrently, and sandbox prompt/script/MCP-config uploads now happen concurrently before the runner starts, so repeat turns spend less time in avoidable serialized setup.
 - **Targeted session file copies**: Hydrate/sync now copy only the exact Claude transcript(s) referenced by the configured or active session plus `session-state.json`, instead of scanning and copying every transcript file in the persisted project directory on each turn.
 - **Faster completion handoff**: Successful runs now skip the redundant pre-completion `post-attempt` session sync when Claude has already emitted a `result` event and triggered the earlier sync, so the completion callback is no longer blocked on an extra FUSE-backed write before the UI can finish the turn.
+- **Live assistant text streaming**: The shared `streamingActivity` record now carries partial assistant text as `currentContent`, the callback streams Claude text chunks into that field during execution, and the sessions chat renders that partial text directly inside the pending assistant bubble instead of only showing activity steps until completion.
 - **Effect**: Claude session context can survive sandbox recreation without clobbering baked-in config, transcript persistence no longer depends on Claude writing directly to the FUSE mount during process exit, and the design scales across many repos without a single global volume or per-session volume explosion.
 
 ## Enable Convex query subscription caching - 2026-03-28

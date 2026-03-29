@@ -133,6 +133,7 @@ const schema = defineSchema({
   streamingActivity: defineTable({
     entityId: v.string(),
     currentActivity: v.string(),
+    currentContent: v.optional(v.string()),
     lastUpdatedAt: v.optional(v.number()),
   }).index("by_entity", ["entityId"]),
   docs: defineTable({

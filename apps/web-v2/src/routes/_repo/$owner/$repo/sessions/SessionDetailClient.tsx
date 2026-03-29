@@ -82,6 +82,7 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           messages={messages ?? []}
           planContent={session.planContent}
           streamingActivity={streaming?.currentActivity}
+          streamingContent={streaming?.currentContent}
           summaryStreamingActivity={summaryStreaming?.currentActivity}
           isSandboxActive={isSandboxActive}
           isSandboxToggling={isSandboxStarting || isStopPending}

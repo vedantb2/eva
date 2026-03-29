@@ -99,6 +99,7 @@ interface ChatPanelProps {
   messages: SessionMessage[];
   planContent?: string;
   streamingActivity?: string;
+  streamingContent?: string;
   summaryStreamingActivity?: string;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
@@ -118,6 +119,7 @@ export function ChatPanel({
   messages,
   planContent,
   streamingActivity,
+  streamingContent,
   summaryStreamingActivity,
   isSandboxActive,
   isSandboxToggling,
@@ -484,12 +486,19 @@ export function ChatPanel({
                       }
                     >
                       {message.role === "assistant" && !message.content ? (
-                        <StreamingActivityDisplay
-                          activity={streamingActivity}
-                          name="Eva"
-                          icon={evaIcon}
-                          startedAt={message.timestamp}
-                        />
+                        <>
+                          {streamingContent ? (
+                            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                              {streamingContent}
+                            </MessageResponse>
+                          ) : null}
+                          <StreamingActivityDisplay
+                            activity={streamingActivity}
+                            name="Eva"
+                            icon={evaIcon}
+                            startedAt={message.timestamp}
+                          />
+                        </>
                       ) : (
                         <>
                           {message.role === "assistant" ? (

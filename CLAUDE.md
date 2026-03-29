@@ -131,7 +131,3 @@ stop adding usestate's useref's for everything, this is the easy way out for eve
 if the user asks you to run a migration, you need to add a migration function to clear the documents with that field in the db, then you run it, then you can get rid of the fields from the schema, then cleanup the migration function
 
 if you are using the agent-browser skill, navigate to `/?agent` to auto sign in as the agent user.
-
-For remote Claude/Daytona status UX, prefer explicit phase labels that mirror the real lifecycle (`prepare session`, `start CLI`, `restore context`, `think`, `stream`, `finalize`) instead of collapsing long waits into generic startup/writing states.
-
-For session chat streaming UX, surface partial assistant text in the pending assistant message bubble and keep activity steps as supporting context; do not make users wait for completion before any reply text appears.

@@ -538,15 +538,31 @@ export const cancelExecution = authMutation({
       });
     }
 
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
+      .first();
+
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
       .order("desc")
       .first();
-    if (last && last.role === "assistant" && !last.content) {
-      await ctx.db.patch(last._id, {
-        content: "Execution cancelled by user.",
-      });
+    if (last && last.role === "assistant") {
+      const patch: {
+        content?: string;
+        activityLog?: string;
+        finishedAt: number;
+      } = {
+        finishedAt: Date.now(),
+      };
+      if (!last.content) {
+        patch.content = "Execution cancelled by user.";
+      }
+      if (streaming?.currentActivity) {
+        patch.activityLog = streaming.currentActivity;
+      }
+      await ctx.db.patch(last._id, patch);
     }
 
     await clearStreamingActivity(ctx, String(args.sessionId));

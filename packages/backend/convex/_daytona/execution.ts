@@ -528,6 +528,7 @@ export const launchOnExistingSandbox = internalAction({
     streamingEntityId: v.optional(v.string()),
     runId: v.optional(v.string()),
     sessionPersistenceId: v.optional(v.id("sessions")),
+    taskProofCaptureEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -558,6 +559,11 @@ export const launchOnExistingSandbox = internalAction({
     }
     if (args.runId) {
       extraEnvVars.RUN_ID = args.runId;
+    }
+    if (args.taskProofCaptureEnabled !== undefined) {
+      extraEnvVars.TASK_PROOF_CAPTURE_ENABLED = args.taskProofCaptureEnabled
+        ? "true"
+        : "false";
     }
 
     const claudeSessionId = args.sessionPersistenceId

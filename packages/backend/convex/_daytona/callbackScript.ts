@@ -10,6 +10,8 @@ const ENTITY_ID = process.env.ENTITY_ID;
 const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 const RUN_ID = process.env.RUN_ID || null;
 const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
+const TASK_PROOF_CAPTURE_ENABLED =
+  process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
@@ -608,6 +610,9 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
     return;
   }
   if (ENTITY_ID_FIELD === "taskId") {
+    if (!TASK_PROOF_CAPTURE_ENABLED) {
+      return;
+    }
     await callMutationWithRetry("taskProof:saveMessage", {
       taskId: ENTITY_ID,
       message: "No UI changes",
@@ -617,6 +622,9 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
 
 async function saveProofFailureMessageIfNeeded(message) {
   if (ENTITY_ID_FIELD !== "taskId") {
+    return;
+  }
+  if (!TASK_PROOF_CAPTURE_ENABLED) {
     return;
   }
   try {

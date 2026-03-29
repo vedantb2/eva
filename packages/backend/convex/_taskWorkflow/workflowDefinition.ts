@@ -77,6 +77,7 @@ export const taskExecutionWorkflow = workflow.define({
         repoId: args.repoId,
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),
         runId: String(args.runId),
+        taskProofCaptureEnabled: data.screenshotsVideosEnabled,
       });
 
       await step.runMutation(internal.taskWorkflow.saveSandboxId, {

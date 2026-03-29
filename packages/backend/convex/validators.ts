@@ -330,6 +330,7 @@ export const githubRepoFields = {
   deploymentProjectName: v.optional(v.string()),
   domains: v.optional(v.array(v.string())),
   mcpRootPrompt: v.optional(v.string()),
+  screenshotsVideosEnabled: v.optional(v.boolean()),
 };
 
 export const conversationMessageValidator = v.object({

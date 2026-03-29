@@ -1,5 +1,11 @@
 # Changelog
 
+## Add repo-level Screenshots and Videos toggle for quick-task proof capture - 2026-03-29
+
+- **Why**: Quick-task proof capture was always on, even for repos where agent-browser walkthroughs were unnecessary or undesirable, and the Proof tab had no way to explain that proof was intentionally disabled.
+- **Change**: Repo config now includes a per-app `Screenshots and Videos` toggle. Quick-task implementation prompts only include agent-browser proof instructions when that toggle is enabled, the sandbox callback stops writing fallback proof messages when proof capture is off, and the quick-task Proof tab shows a direct link back to Settings → Config when screenshots/videos are disabled and no proof exists.
+- **Effect**: Repos can opt out of visual proof capture without affecting sibling apps, quick tasks stop asking Eva to record walkthroughs when the feature is off, and the Proof tab now explains the disabled state instead of implying proof is still pending.
+
 ## Polish queued chat controls and compact queue rows - 2026-03-29
 
 - **Why**: The initial queue rollout left design chats one step behind regular sessions, kept the in-composer stop control visually mismatched in some views, and let secondary queue metadata expand the queue into a noisier multi-line block.

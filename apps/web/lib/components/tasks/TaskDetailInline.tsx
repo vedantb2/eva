@@ -193,7 +193,11 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
                   </TabsContent>
                   <TabsContent value="proof" className="mt-3 sm:mt-4">
                     {showProofSection ? (
-                      <ProofSection proofs={proofs} status={status} />
+                      <ProofSection
+                        proofs={proofs}
+                        status={status}
+                        isQuickTask={task?.projectId === undefined}
+                      />
                     ) : null}
                   </TabsContent>
                   <TabsContent value="audit" className="mt-3 sm:mt-4">

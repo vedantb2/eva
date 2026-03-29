@@ -13,6 +13,7 @@ import {
   SelectValue,
   Input,
   Button,
+  Checkbox,
 } from "@conductor/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconPlus, IconX } from "@tabler/icons-react";
@@ -72,6 +73,28 @@ export function ConfigClient() {
                 The default model used when creating new tasks. Defaults to{" "}
                 <code>Sonnet</code> if not set.
               </p>
+            </div>
+
+            <div className="rounded-md bg-muted/40 p-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  checked={repo.screenshotsVideosEnabled ?? true}
+                  onCheckedChange={(value) =>
+                    updateConfig({
+                      repoId,
+                      screenshotsVideosEnabled: value === true,
+                    })
+                  }
+                  className="mt-0.5"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium">Screenshots and Videos</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Use agent browser to record walkthroughs, verify its work,
+                    etc.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {repo.parentRepoId && (

@@ -160,6 +160,7 @@ export const updateConfig = authMutation({
     sessionsVscodeEnabled: v.optional(v.boolean()),
     deploymentProjectName: v.optional(v.string()),
     domains: v.optional(v.array(v.string())),
+    screenshotsVideosEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -205,6 +206,12 @@ export const updateConfig = authMutation({
     if (args.domains !== undefined) {
       await ctx.db.patch(args.repoId, {
         domains: args.domains.length > 0 ? args.domains : undefined,
+      });
+    }
+
+    if (args.screenshotsVideosEnabled !== undefined) {
+      await ctx.db.patch(args.repoId, {
+        screenshotsVideosEnabled: args.screenshotsVideosEnabled,
       });
     }
 

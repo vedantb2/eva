@@ -146,33 +146,36 @@ export async function signAndLaunchScript(
   console.log(
     `[daytona][launch] signAndLaunchScript started entityId=${entityId} mutation=${completionMutation} repoId=${repoId} sandboxId=${sandbox.id}`,
   );
-  const sandboxToken = await ctx.runAction(
-    internal.sandboxJwt.signSandboxToken,
-    { userId },
-  );
-  console.log(
-    `[daytona][launch] sandbox token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-  );
+  const sandboxTokenPromise = ctx
+    .runAction(internal.sandboxJwt.signSandboxToken, { userId })
+    .then((sandboxToken) => {
+      console.log(
+        `[daytona][launch] sandbox token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+      );
+      return sandboxToken;
+    });
+  const mcpTokenPromise = ctx
+    .runAction(internal.mcpTokenMinter.mintSandboxMcpToken, {
+      userId,
+      repoId,
+    })
+    .then((mcpToken) => {
+      console.log(
+        `[daytona][launch] MCP token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+      );
+      return mcpToken;
+    })
+    .catch((error) => {
+      console.warn(
+        `[mcp] Continuing without MCP config: ${errorMessage(error, "Failed to mint MCP token")}`,
+      );
+      return undefined;
+    });
 
-  let mcpToken:
-    | {
-        token: string;
-        expiresIn: number;
-      }
-    | undefined;
-  try {
-    mcpToken = await ctx.runAction(
-      internal.mcpTokenMinter.mintSandboxMcpToken,
-      { userId, repoId },
-    );
-    console.log(
-      `[daytona][launch] MCP token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-    );
-  } catch (error) {
-    console.warn(
-      `[mcp] Continuing without MCP config: ${errorMessage(error, "Failed to mint MCP token")}`,
-    );
-  }
+  const [sandboxToken, mcpToken] = await Promise.all([
+    sandboxTokenPromise,
+    mcpTokenPromise,
+  ]);
 
   const mcpBaseUrl = mcpToken ? (process.env.MCP_BASE_URL ?? "") : "";
 

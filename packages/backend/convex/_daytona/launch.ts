@@ -31,21 +31,22 @@ export async function launchScript(
   console.log(
     `[daytona][launchScript] started entityId=${entityId} sandboxId=${sandbox.id}`,
   );
-  await sandbox.fs.uploadFile(
-    Buffer.from(prompt, "utf-8"),
-    "/tmp/design-prompt.txt",
-  );
-  console.log(
-    `[daytona][launchScript] prompt uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-  );
-
-  await sandbox.fs.uploadFile(
-    Buffer.from(CALLBACK_SCRIPT, "utf-8"),
-    "/tmp/run-design.mjs",
-  );
-  console.log(
-    `[daytona][launchScript] callback script uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-  );
+  const uploadTasks: Array<Promise<void>> = [
+    sandbox.fs
+      .uploadFile(Buffer.from(prompt, "utf-8"), "/tmp/design-prompt.txt")
+      .then(() => {
+        console.log(
+          `[daytona][launchScript] prompt uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+        );
+      }),
+    sandbox.fs
+      .uploadFile(Buffer.from(CALLBACK_SCRIPT, "utf-8"), "/tmp/run-design.mjs")
+      .then(() => {
+        console.log(
+          `[daytona][launchScript] callback script uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+        );
+      }),
+  ];
 
   if (opts.mcpBaseUrl && opts.mcpToken) {
     const mcpConfig = JSON.stringify({
@@ -59,14 +60,18 @@ export async function launchScript(
         },
       },
     });
-    await sandbox.fs.uploadFile(
-      Buffer.from(mcpConfig, "utf-8"),
-      "/tmp/eva-mcp.json",
-    );
-    console.log(
-      `[daytona][launchScript] MCP config uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+    uploadTasks.push(
+      sandbox.fs
+        .uploadFile(Buffer.from(mcpConfig, "utf-8"), "/tmp/eva-mcp.json")
+        .then(() => {
+          console.log(
+            `[daytona][launchScript] MCP config uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+          );
+        }),
     );
   }
+
+  await Promise.all(uploadTasks);
 
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");
   const envParts = [

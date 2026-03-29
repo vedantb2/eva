@@ -29,6 +29,7 @@ import {
   syncSettingFields,
   projectFields,
   projectDetailsFields,
+  queuedMessageFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -126,6 +127,10 @@ const schema = defineSchema({
     .index("by_task_and_depends_on", ["taskId", "dependsOnId"])
     .index("by_dependency", ["dependsOnId"]),
   messages: defineTable(messageFields).index("by_parent", ["parentId"]),
+  queuedMessages: defineTable(queuedMessageFields).index(
+    "by_parent_and_created",
+    ["parentId", "createdAt"],
+  ),
   sessions: defineTable(sessionFields)
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])

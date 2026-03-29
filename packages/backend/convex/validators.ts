@@ -439,3 +439,14 @@ export const messageFields = {
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
 };
+
+export const queuedMessageFields = {
+  parentId: v.union(v.id("sessions"), v.id("designSessions")),
+  content: v.string(),
+  createdAt: v.number(),
+  mode: v.optional(sessionModeValidator),
+  model: v.optional(claudeModelValidator),
+  responseLength: v.optional(v.string()),
+  personaId: v.optional(v.id("designPersonas")),
+  numDesigns: v.optional(v.number()),
+};

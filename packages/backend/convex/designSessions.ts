@@ -11,6 +11,7 @@ import {
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import { startNextQueuedDesignMessage } from "./_queues/helpers";
 
 const designSessionValidator = v.object({
   _id: v.id("designSessions"),
@@ -374,6 +375,35 @@ export const executeMessage = authMutation({
   },
 });
 
+export const enqueueMessage = authMutation({
+  args: {
+    id: v.id("designSessions"),
+    message: v.string(),
+    personaId: v.optional(v.id("designPersonas")),
+    numDesigns: v.optional(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const content = args.message.trim();
+    if (!content) return null;
+
+    const session = await ctx.db.get(args.id);
+    if (!session) throw new Error("Design session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+
+    await ctx.db.insert("queuedMessages", {
+      parentId: args.id,
+      content,
+      createdAt: Date.now(),
+      personaId: args.personaId,
+      numDesigns: args.numDesigns ?? 3,
+    });
+    await ctx.db.patch(args.id, { updatedAt: Date.now() });
+    return null;
+  },
+});
+
 export const cancelExecution = authMutation({
   args: { id: v.id("designSessions") },
   returns: v.null(),
@@ -406,6 +436,7 @@ export const cancelExecution = authMutation({
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     });
+    await startNextQueuedDesignMessage(ctx, args.id);
     return null;
   },
 });

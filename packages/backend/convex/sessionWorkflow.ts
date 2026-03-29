@@ -4,9 +4,14 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
-import { sessionModeValidator, workflowCompleteValidator } from "./validators";
+import {
+  claudeModelValidator,
+  sessionModeValidator,
+  workflowCompleteValidator,
+} from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import { startNextQueuedSessionMessage } from "./_queues/helpers";
 import {
   buildRootDirectoryInstruction,
   getResponseLengthInstruction,
@@ -139,7 +144,7 @@ export const sessionExecuteWorkflow = workflow.define({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeArgValidator,
-    model: v.string(),
+    model: claudeModelValidator,
     responseLength: v.string(),
     userId: v.id("users"),
     installationId: v.number(),
@@ -269,7 +274,7 @@ export const getSessionData = internalQuery({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeArgValidator,
-    model: v.string(),
+    model: claudeModelValidator,
     responseLength: v.string(),
   },
   returns: v.object({
@@ -281,7 +286,7 @@ export const getSessionData = internalQuery({
     branchName: v.optional(v.string()),
     baseBranch: v.string(),
     allowedTools: v.string(),
-    model: v.string(),
+    model: claudeModelValidator,
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -375,6 +380,9 @@ export const saveResult = internalMutation({
   handler: async (ctx, args) => {
     await clearStreamingActivity(ctx, String(args.sessionId));
 
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
@@ -409,6 +417,7 @@ export const saveResult = internalMutation({
       sessionPatch.planContent = args.planContent;
     }
     await ctx.db.patch(args.sessionId, sessionPatch);
+    await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
 });
@@ -467,7 +476,7 @@ export const startExecute = authMutation({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeValidator,
-    model: v.string(),
+    model: claudeModelValidator,
     responseLength: v.string(),
   },
   returns: v.null(),
@@ -512,6 +521,37 @@ export const startExecute = authMutation({
       { sessionId: args.sessionId, workflowId: String(workflowId) },
     );
 
+    return null;
+  },
+});
+
+export const enqueueMessage = authMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    message: v.string(),
+    mode: sessionModeValidator,
+    model: claudeModelValidator,
+    responseLength: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const content = args.message.trim();
+    if (!content) return null;
+
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+
+    await ctx.db.insert("queuedMessages", {
+      parentId: args.sessionId,
+      content,
+      createdAt: Date.now(),
+      mode: args.mode,
+      model: args.model,
+      responseLength: args.responseLength,
+    });
+    await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -571,6 +611,8 @@ export const cancelExecution = authMutation({
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     });
+
+    await startNextQueuedSessionMessage(ctx, args.sessionId);
 
     return null;
   },

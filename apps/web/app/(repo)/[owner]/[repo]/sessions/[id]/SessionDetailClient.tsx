@@ -19,6 +19,9 @@ export function SessionDetailClient({
   const messages = useQuery(api.messages.listByParent, {
     parentId: sessionId,
   });
+  const queuedMessages = useQuery(api.queuedMessages.listByParent, {
+    parentId: sessionId,
+  });
   const streaming = useQuery(api.streaming.get, { entityId: sessionId });
   const summaryStreaming = useQuery(api.streaming.get, {
     entityId: `summary:${sessionId}`,
@@ -83,6 +86,7 @@ export function SessionDetailClient({
           prUrl={session.prUrl}
           summary={session.summary}
           messages={messages ?? []}
+          queuedMessages={queuedMessages ?? []}
           planContent={session.planContent}
           streamingActivity={streaming?.currentActivity}
           streamingContent={streaming?.currentContent}

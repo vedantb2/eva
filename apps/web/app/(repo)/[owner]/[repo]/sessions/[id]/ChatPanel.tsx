@@ -70,6 +70,7 @@ import dayjs from "@conductor/shared/dates";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
+import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
 import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
@@ -84,6 +85,9 @@ import {
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
+>[number];
+type QueuedSessionMessage = NonNullable<
+  FunctionReturnType<typeof api.queuedMessages.listByParent>
 >[number];
 type SessionMode = NonNullable<SessionMessage["mode"]>;
 
@@ -100,6 +104,7 @@ interface ChatPanelProps {
   prUrl?: string;
   summary?: string[];
   messages: SessionMessage[];
+  queuedMessages: QueuedSessionMessage[];
   planContent?: string;
   streamingActivity?: string;
   streamingContent?: string;
@@ -120,6 +125,7 @@ export function ChatPanel({
   prUrl,
   summary,
   messages,
+  queuedMessages,
   planContent,
   streamingActivity,
   streamingContent,
@@ -185,6 +191,7 @@ export function ChatPanel({
   const addMessage = useMutation(api.sessions.addMessage);
 
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
+  const enqueueMessage = useMutation(api.sessionWorkflow.enqueueMessage);
   const createPr = useAction(api.github.createSessionPr);
   const startAuditMutation = useMutation(api.audits.startSessionAudit);
   const sessionAudit = useQuery(
@@ -213,6 +220,16 @@ export function ChatPanel({
   const handleSend = async (text: string) => {
     if (!text.trim()) return;
     const content = text.trim();
+    if (isExecuting) {
+      await enqueueMessage({
+        sessionId,
+        message: content,
+        mode,
+        model,
+        responseLength,
+      });
+      return;
+    }
     setIsSending(true);
     try {
       await addMessage({ id: sessionId, role: "user", content, mode });
@@ -303,12 +320,9 @@ export function ChatPanel({
     await cancelExecutionMutation({ sessionId });
   };
 
-  const isInputDisabled = !isSandboxActive || isExecuting;
-  const submitStatus = isExecuting
-    ? lastAssistantHasNoContent
-      ? "streaming"
-      : "submitted"
-    : undefined;
+  const isInputDisabled = !isSandboxActive;
+  const submitStatus =
+    isSending && !lastAssistantHasNoContent ? "submitted" : undefined;
 
   const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
     if (isInputDisabled) return;
@@ -317,6 +331,31 @@ export function ChatPanel({
 
   const hasSummary = Boolean(summary && summary.length > 0);
   const showSummaryStreaming = Boolean(summaryStreamingActivity);
+  const queuedMessageItems = useMemo(
+    () =>
+      queuedMessages.map((message) => {
+        const modeLabel =
+          message.mode === "execute"
+            ? "Execute"
+            : message.mode === "plan"
+              ? "PRD"
+              : "Ask";
+        const detailParts = [
+          modeLabel,
+          message.model ? message.model : null,
+          message.responseLength && message.responseLength !== "default"
+            ? message.responseLength
+            : null,
+        ].filter((part): part is string => Boolean(part));
+        return {
+          id: message._id,
+          content: message.content,
+          description:
+            detailParts.length > 0 ? detailParts.join(" / ") : undefined,
+        };
+      }),
+    [queuedMessages],
+  );
 
   const headerLeft = (
     <Button
@@ -583,6 +622,7 @@ export function ChatPanel({
       </Conversation>
       {!isArchived && (
         <div className="p-2 md:p-3">
+          <QueuedMessagesPanel items={queuedMessageItems} />
           <AnimatePresence>
             {mode === "plan" && planContent && (
               <motion.div
@@ -678,12 +718,21 @@ export function ChatPanel({
                 </PromptInputTools>
                 <div className="flex items-center gap-1">
                   <PromptInputSpeech disabled={isInputDisabled} />
+                  {isExecuting ? (
+                    <Button
+                      size="icon"
+                      type="button"
+                      variant="destructive"
+                      onClick={handleCancel}
+                      title="Stop Eva"
+                    >
+                      <IconPlayerStop className="size-4" />
+                    </Button>
+                  ) : null}
                   <PromptInputSubmit
                     status={submitStatus}
-                    variant={submitStatus ? "destructive" : "default"}
-                    onStop={handleCancel}
-                    disabled={!submitStatus && isInputDisabled}
-                    title={submitStatus ? "Stop Eva" : "Send message"}
+                    disabled={isInputDisabled}
+                    title={isExecuting ? "Queue message" : "Send message"}
                   />
                 </div>
               </PromptInputFooter>

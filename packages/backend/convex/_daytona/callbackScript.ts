@@ -165,6 +165,7 @@ let lastStepType = "";
 
 const completedLabels = {
   "Starting Claude...": "Started Claude",
+  "Claude started...": "Claude started",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
   "Writing response...": "Wrote response",
@@ -193,6 +194,25 @@ function markLastComplete() {
   } else if (last.label.startsWith("Using ") && last.label.endsWith("...")) {
     last.label = "Used " + last.label.slice(6, -3);
   }
+}
+
+function activateClaudeStartedStep() {
+  const lastStep = accumulatedSteps[accumulatedSteps.length - 1];
+  if (lastStep && lastStep.label === "Starting Claude...") {
+    lastStep.label = "Claude started...";
+    lastStep.status = "active";
+    lastStep.type = "thinking";
+    lastStep.detail = undefined;
+    lastStepType = "thinking";
+    return;
+  }
+  markLastComplete();
+  accumulatedSteps.push({
+    type: "thinking",
+    label: "Claude started...",
+    status: "active",
+  });
+  lastStepType = "thinking";
 }
 
 function parseStreamEvent(line) {
@@ -651,7 +671,7 @@ const systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYS
 const settingsJson = '{"attribution":{"commit":"","pr":""}}';
 const settingsArg = "--settings " + JSON.stringify(settingsJson);
 const mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
-const baseCmd = "cat /tmp/design-prompt.txt | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
+const baseCmd = "cat /tmp/design-prompt.txt | claude -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
 log("entityId=" + ENTITY_ID + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (mcpArg ? "yes" : "no"));
 
 const TOOL_STEP_TYPES = new Set(["read", "search_files", "search_code", "write", "edit", "bash", "tool"]);
@@ -693,6 +713,8 @@ function handleRealtimeStreamLine(line) {
   ) {
     activeClaudeSessionId = parsed.session_id.trim();
     log("captured Claude session id " + activeClaudeSessionId);
+    activateClaudeStartedStep();
+    callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps)).catch(() => {});
     return;
   }
   if (parsed.type === "result" && !resultEventSeen) {

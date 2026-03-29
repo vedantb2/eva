@@ -298,8 +298,12 @@ export function DesignChatPanel({
           <div className="p-2 md:p-3">
             <QueuedMessagesPanel
               items={queuedMessageItems}
-              onEdit={(id, content) => updateQueuedMessage({ id, content })}
-              onDelete={(id) => deleteQueuedMessage({ id })}
+              onEdit={async (id, content) => {
+                await updateQueuedMessage({ id, content });
+              }}
+              onDelete={async (id) => {
+                await deleteQueuedMessage({ id });
+              }}
             />
             <PromptInput onSubmit={handlePromptSubmit}>
               <PromptInputTextarea

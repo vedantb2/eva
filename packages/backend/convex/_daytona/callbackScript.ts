@@ -165,7 +165,6 @@ let lastStepType = "";
 
 const completedLabels = {
   "Starting Claude...": "Started Claude",
-  "Claude started...": "Claude started",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
   "Writing response...": "Wrote response",
@@ -196,20 +195,20 @@ function markLastComplete() {
   }
 }
 
-function activateClaudeStartedStep() {
+function updateClaudeStartupStep(detail) {
   const lastStep = accumulatedSteps[accumulatedSteps.length - 1];
   if (lastStep && lastStep.label === "Starting Claude...") {
-    lastStep.label = "Claude started...";
     lastStep.status = "active";
     lastStep.type = "thinking";
-    lastStep.detail = undefined;
+    lastStep.detail = detail;
     lastStepType = "thinking";
     return;
   }
   markLastComplete();
   accumulatedSteps.push({
     type: "thinking",
-    label: "Claude started...",
+    label: "Starting Claude...",
+    detail,
     status: "active",
   });
   lastStepType = "thinking";
@@ -225,6 +224,9 @@ function parseStreamEvent(line) {
     }
 
     if (event.type !== "assistant") return false;
+    if (waitingForFirstAssistantEvent) {
+      waitingForFirstAssistantEvent = false;
+    }
     let added = false;
     for (const block of event.message?.content ?? []) {
       if (block.type === "tool_use") {
@@ -274,6 +276,24 @@ let parsedStreamEventCount = 0;
 let realtimeOutputBuffer = "";
 let activeClaudeSessionId = process.env.CLAUDE_SESSION_ID || "";
 let resultEventSeen = false;
+let activeClaudeSessionMode = "none";
+let waitingForFirstAssistantEvent = false;
+let claudeInitAt = 0;
+
+function buildClaudeStartupDetail() {
+  if (waitingForFirstAssistantEvent && claudeInitAt > 0) {
+    const elapsedSeconds = Math.max(
+      1,
+      Math.floor((Date.now() - claudeInitAt) / 1000),
+    );
+    return activeClaudeSessionMode === "resume"
+      ? "Claude started. Restoring saved context... " + elapsedSeconds + "s"
+      : "Claude started. Waiting for first output... " + elapsedSeconds + "s";
+  }
+  return activeClaudeSessionMode === "resume"
+    ? "Restoring saved context..."
+    : "Launching Claude process...";
+}
 
 let flushInProgress = false;
 async function flushStreaming() {
@@ -320,6 +340,9 @@ async function heartbeatPing() {
   if (Date.now() - lastStreamingSentAt < 10000) return;
   pingInProgress = true;
   try {
+    if (waitingForFirstAssistantEvent) {
+      updateClaudeStartupStep(buildClaudeStartupDetail());
+    }
     const payload = JSON.stringify(accumulatedSteps);
     const maxAttempts = 3;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -712,8 +735,10 @@ function handleRealtimeStreamLine(line) {
     parsed.session_id.trim()
   ) {
     activeClaudeSessionId = parsed.session_id.trim();
+    claudeInitAt = Date.now();
+    waitingForFirstAssistantEvent = true;
     log("captured Claude session id " + activeClaudeSessionId);
-    activateClaudeStartedStep();
+    updateClaudeStartupStep(buildClaudeStartupDetail());
     callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps)).catch(() => {});
     return;
   }
@@ -796,10 +821,18 @@ let stderrOutput = "";
 
 function prepareClaudeSessionState() {
   if (!process.env.CLAUDE_SESSION_ID) {
+    activeClaudeSessionMode = "none";
+    updateClaudeStartupStep("Launching Claude process...");
     return { mode: "none", sessionId: null };
   }
   hydratePersistedClaudeState();
   const sessionMode = resolveClaudeSessionMode();
+  activeClaudeSessionMode = sessionMode.mode;
+  updateClaudeStartupStep(
+    sessionMode.mode === "resume"
+      ? "Restoring saved context..."
+      : "Preparing saved session...",
+  );
   if (sessionMode.sessionId) {
     activeClaudeSessionId = sessionMode.sessionId;
   }
@@ -815,6 +848,8 @@ function prepareClaudeSessionState() {
 async function runClaudeAttempt(sessionMode) {
   realtimeOutputBuffer = "";
   resultEventSeen = false;
+  waitingForFirstAssistantEvent = false;
+  claudeInitAt = 0;
   const sessionArg =
     sessionMode.mode === "session" && sessionMode.sessionId
       ? " --session-id " + JSON.stringify(sessionMode.sessionId)

@@ -1,8 +1,8 @@
 "use node";
 
 export const CALLBACK_SCRIPT = `
-import { spawn } from "child_process";
-import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "fs";
+import { spawn, spawnSync } from "child_process";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -24,6 +24,17 @@ const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || 
 const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
 const CALLBACK_HTTP_RETRY_BASE_MS = 1000;
 const READY_FILE = "/tmp/run-design.ready";
+const CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
+const CLAUDE_RUNTIME_CONFIG_DIR = process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
+const CLAUDE_PERSIST_DIR = process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
+const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\\//g, "-");
+const CLAUDE_LOCAL_PROJECT_DIR = CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
+const CLAUDE_PERSIST_PROJECT_DIR = CLAUDE_PERSIST_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
+const CLAUDE_STATE_FILE_NAME = "session-state.json";
+const CLAUDE_LOCAL_STATE_FILE = CLAUDE_RUNTIME_CONFIG_DIR + "/" + CLAUDE_STATE_FILE_NAME;
+const CLAUDE_PERSIST_STATE_FILE = CLAUDE_PERSIST_DIR + "/" + CLAUDE_STATE_FILE_NAME;
+const CLAUDE_SYNC_TIMEOUT_MS = Number(process.env.CLAUDE_SYNC_TIMEOUT_MS || "10000");
+const CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS = Number(process.env.CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS || "5");
 
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
 if (GH_TOKEN) {
@@ -240,6 +251,9 @@ let lastProcessed = 0;
 let lastStreamingSentAt = Date.now();
 let lastSentPayload = "";
 let parsedStreamEventCount = 0;
+let realtimeOutputBuffer = "";
+let activeClaudeSessionId = process.env.CLAUDE_SESSION_ID || "";
+let resultEventSeen = false;
 
 let flushInProgress = false;
 async function flushStreaming() {
@@ -435,12 +449,210 @@ if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {
   } catch {}
 }
 
+function log(msg) {
+  const line = "[callback " + new Date().toISOString() + "] " + msg + "\\n";
+  console.error(line.trim());
+  try { writeFileSync("/tmp/callback-debug.log", line, { flag: "a" }); } catch {}
+}
+
+function tryParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function copyBaseClaudeConfig() {
+  if (!existsSync(CLAUDE_BASE_CONFIG_DIR)) {
+    return;
+  }
+  mkdirSync(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  for (const entry of readdirSync(CLAUDE_BASE_CONFIG_DIR, { withFileTypes: true })) {
+    if (entry.name === "projects") {
+      continue;
+    }
+    const sourcePath = CLAUDE_BASE_CONFIG_DIR + "/" + entry.name;
+    const targetPath = CLAUDE_RUNTIME_CONFIG_DIR + "/" + entry.name;
+    try {
+      cpSync(sourcePath, targetPath, { force: true, recursive: true });
+    } catch (error) {
+      log("copyBaseClaudeConfig skipped " + entry.name + ": " + String(error));
+    }
+  }
+}
+
+function runTimedBashSync(script, label) {
+  const result = spawnSync("bash", ["-lc", script], {
+    encoding: "utf8",
+    env: { ...process.env },
+    timeout: CLAUDE_SYNC_TIMEOUT_MS,
+  });
+  const timedOut = result.signal === "SIGTERM" || result.signal === "SIGKILL";
+  if (result.error || timedOut || result.status !== 0) {
+    const stderr = (result.stderr || "").trim();
+    const stdout = (result.stdout || "").trim();
+    log(
+      label +
+        " failed (status=" +
+        String(result.status) +
+        ", signal=" +
+        String(result.signal || "none") +
+        "): " +
+        (result.error ? String(result.error) : stderr || stdout || "unknown error"),
+    );
+    return false;
+  }
+  return true;
+}
+
+function hydratePersistedClaudeState() {
+  if (!process.env.CLAUDE_SESSION_ID) {
+    return;
+  }
+  copyBaseClaudeConfig();
+  mkdirSync(CLAUDE_LOCAL_PROJECT_DIR, { recursive: true });
+  const hydrateScript =
+    "mkdir -p " +
+    JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) +
+    " " +
+    JSON.stringify(CLAUDE_RUNTIME_CONFIG_DIR) +
+    "; " +
+    "if [ -d " +
+    JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) +
+    " ]; then " +
+    "find " +
+    JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) +
+    " -maxdepth 1 -type f -name '*.jsonl' -print0 | while IFS= read -r -d '' file; do cp -f \\"$file\\" " +
+    JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) +
+    "/ || true; done; " +
+    "fi; " +
+    "if [ -f " +
+    JSON.stringify(CLAUDE_PERSIST_STATE_FILE) +
+    " ]; then cp -f " +
+    JSON.stringify(CLAUDE_PERSIST_STATE_FILE) +
+    " " +
+    JSON.stringify(CLAUDE_LOCAL_STATE_FILE) +
+    " || true; fi";
+  runTimedBashSync(hydrateScript, "hydratePersistedClaudeState");
+}
+
+function readClaudeSessionState() {
+  if (!existsSync(CLAUDE_LOCAL_STATE_FILE)) {
+    return null;
+  }
+  const parsed = tryParseJson(readFileSync(CLAUDE_LOCAL_STATE_FILE, "utf8"));
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const resumeSessionId =
+    typeof parsed.resumeSessionId === "string" ? parsed.resumeSessionId.trim() : "";
+  if (!resumeSessionId) {
+    return null;
+  }
+  return { resumeSessionId };
+}
+
+function writeClaudeSessionState() {
+  if (!process.env.CLAUDE_SESSION_ID) {
+    return;
+  }
+  const resumeSessionId =
+    typeof activeClaudeSessionId === "string" && activeClaudeSessionId.trim()
+      ? activeClaudeSessionId.trim()
+      : process.env.CLAUDE_SESSION_ID;
+  if (!resumeSessionId) {
+    return;
+  }
+  mkdirSync(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  writeFileSync(
+    CLAUDE_LOCAL_STATE_FILE,
+    JSON.stringify(
+      {
+        logicalSessionId: process.env.CLAUDE_SESSION_ID,
+        resumeSessionId,
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+function listLocalSessionFiles() {
+  if (!existsSync(CLAUDE_LOCAL_PROJECT_DIR)) {
+    return [];
+  }
+  return readdirSync(CLAUDE_LOCAL_PROJECT_DIR)
+    .filter((fileName) => fileName.endsWith(".jsonl"))
+    .map((fileName) => ({
+      fileName,
+      sessionId: fileName.slice(0, -6),
+      mtimeMs: statSync(CLAUDE_LOCAL_PROJECT_DIR + "/" + fileName).mtimeMs,
+    }))
+    .sort((left, right) => right.mtimeMs - left.mtimeMs);
+}
+
+function resolveClaudeSessionMode() {
+  const configuredSessionId = process.env.CLAUDE_SESSION_ID;
+  if (!configuredSessionId) {
+    return { mode: "none", sessionId: null };
+  }
+  const persistedState = readClaudeSessionState();
+  if (persistedState) {
+    return { mode: "resume", sessionId: persistedState.resumeSessionId };
+  }
+  const localSessionFiles = listLocalSessionFiles();
+  const configuredSessionFile = localSessionFiles.find(
+    (file) => file.sessionId === configuredSessionId,
+  );
+  if (configuredSessionFile) {
+    return { mode: "resume", sessionId: configuredSessionId };
+  }
+  return { mode: "session", sessionId: configuredSessionId };
+}
+
+function syncClaudeStateToPersist(reason) {
+  if (!process.env.CLAUDE_SESSION_ID) {
+    return;
+  }
+  writeClaudeSessionState();
+  const syncScript =
+    "mkdir -p " +
+    JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) +
+    " " +
+    JSON.stringify(CLAUDE_PERSIST_DIR) +
+    "; " +
+    "if [ -d " +
+    JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) +
+    " ]; then " +
+    "find " +
+    JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) +
+    " -maxdepth 1 -type f -name '*.jsonl' -print0 | while IFS= read -r -d '' file; do timeout " +
+    String(CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS) +
+    " cp -f \\"$file\\" " +
+    JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) +
+    "/ || true; done; " +
+    "fi; " +
+    "if [ -f " +
+    JSON.stringify(CLAUDE_LOCAL_STATE_FILE) +
+    " ]; then timeout " +
+    String(CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS) +
+    " cp -f " +
+    JSON.stringify(CLAUDE_LOCAL_STATE_FILE) +
+    " " +
+    JSON.stringify(CLAUDE_PERSIST_STATE_FILE) +
+    " || true; fi";
+  runTimedBashSync(syncScript, "syncClaudeStateToPersist(" + reason + ")");
+}
+
 const toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
 const systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
 const settingsJson = '{"attribution":{"commit":"","pr":""}}';
 const settingsArg = "--settings " + JSON.stringify(settingsJson);
 const mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
 const baseCmd = "cat /tmp/design-prompt.txt | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
+log("entityId=" + ENTITY_ID + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (mcpArg ? "yes" : "no"));
 
 const TOOL_STEP_TYPES = new Set(["read", "search_files", "search_code", "write", "edit", "bash", "tool"]);
 
@@ -466,6 +678,43 @@ function extractResultEvent(output) {
     } catch {}
   }
   return resultEvent;
+}
+
+function handleRealtimeStreamLine(line) {
+  const parsed = tryParseJson(line);
+  if (!parsed || typeof parsed !== "object") {
+    return;
+  }
+  if (
+    parsed.type === "system" &&
+    parsed.subtype === "init" &&
+    typeof parsed.session_id === "string" &&
+    parsed.session_id.trim()
+  ) {
+    activeClaudeSessionId = parsed.session_id.trim();
+    log("captured Claude session id " + activeClaudeSessionId);
+    return;
+  }
+  if (parsed.type === "result" && !resultEventSeen) {
+    resultEventSeen = true;
+    syncClaudeStateToPersist("result-event");
+  }
+}
+
+function processRealtimeStdoutChunk(text) {
+  realtimeOutputBuffer += text;
+  while (true) {
+    const newlineIndex = realtimeOutputBuffer.indexOf("\\n");
+    if (newlineIndex === -1) {
+      return;
+    }
+    const line = realtimeOutputBuffer.slice(0, newlineIndex).trim();
+    realtimeOutputBuffer = realtimeOutputBuffer.slice(newlineIndex + 1);
+    if (!line) {
+      continue;
+    }
+    handleRealtimeStreamLine(line);
+  }
 }
 
 function buildErrorMessage(
@@ -523,15 +772,48 @@ async function uploadMediaFile(filePath, mimeType) {
 
 let stderrOutput = "";
 
-async function runClaudeAttempt(includeSessionId) {
+function prepareClaudeSessionState() {
+  if (!process.env.CLAUDE_SESSION_ID) {
+    return { mode: "none", sessionId: null };
+  }
+  hydratePersistedClaudeState();
+  const sessionMode = resolveClaudeSessionMode();
+  if (sessionMode.sessionId) {
+    activeClaudeSessionId = sessionMode.sessionId;
+  }
+  log(
+    "prepareClaudeSessionState resolved mode=" +
+      sessionMode.mode +
+      " sessionId=" +
+      (sessionMode.sessionId || "none"),
+  );
+  return sessionMode;
+}
+
+async function runClaudeAttempt(sessionMode) {
+  realtimeOutputBuffer = "";
+  resultEventSeen = false;
   const sessionArg =
-    includeSessionId && process.env.CLAUDE_SESSION_ID
-      ? " --session-id " + JSON.stringify(process.env.CLAUDE_SESSION_ID)
-      : "";
+    sessionMode.mode === "session" && sessionMode.sessionId
+      ? " --session-id " + JSON.stringify(sessionMode.sessionId)
+      : sessionMode.mode === "resume" && sessionMode.sessionId
+        ? " --resume " + JSON.stringify(sessionMode.sessionId)
+        : "";
   const cmd = baseCmd + sessionArg;
+  log(
+    "runClaudeAttempt started (mode=" +
+      sessionMode.mode +
+      ", sessionArg=" +
+      (sessionArg || "none") +
+      ")",
+  );
+  const attemptStartTime = Date.now();
   return await new Promise((resolve, reject) => {
     const child = spawn("bash", ["-c", "cd " + WORK_DIR + " && " + cmd], {
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+      },
       stdio: ["pipe", "pipe", "pipe"],
     });
     let attemptOutput = "";
@@ -576,12 +858,14 @@ async function runClaudeAttempt(includeSessionId) {
       attemptOutput += text;
       rawOutput += text;
       lastStdoutAt = Date.now();
+      processRealtimeStdoutChunk(text);
     });
     child.stderr.on("data", (chunk) => {
       stderrOutput += chunk.toString();
     });
     child.on("close", (code) => {
       clearInterval(noOutputTimer);
+      log("runClaudeAttempt finished in " + (Date.now() - attemptStartTime) + "ms (code=" + code + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", timedOutForFirstEvent=" + timedOutForFirstEvent + ", outputBytes=" + attemptOutput.length + ", stderrBytes=" + stderrOutput.length + ")");
       resolve({
         code: code ?? 1,
         output: attemptOutput,
@@ -598,7 +882,8 @@ async function runClaudeAttempt(includeSessionId) {
 }
 
 try {
-  const firstAttempt = await runClaudeAttempt(true);
+  const initialSessionMode = prepareClaudeSessionState();
+  const firstAttempt = await runClaudeAttempt(initialSessionMode);
   await flushStreaming();
 
   let finalCode = firstAttempt.code;
@@ -607,11 +892,18 @@ try {
   let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   const shouldRetryWithoutSession =
-    Boolean(process.env.CLAUDE_SESSION_ID) &&
+    initialSessionMode.mode !== "none" &&
     (firstAttempt.code !== 0 || Boolean(finalResultEvent?.isError)) &&
     !hasToolActivity();
 
+  log("firstAttempt result: code=" + firstAttempt.code + " isError=" + Boolean(finalResultEvent?.isError) + " hasToolActivity=" + hasToolActivity() + " shouldRetry=" + shouldRetryWithoutSession);
+
   if (shouldRetryWithoutSession) {
+    const firstAttemptStderr = stderrOutput.slice(-2000).trim();
+    const firstAttemptStdout = firstAttempt.output.slice(-1000).trim();
+    log("session-retry stderr: " + (firstAttemptStderr || "(empty)"));
+    log("session-retry stdout tail: " + (firstAttemptStdout || "(empty)"));
+    stderrOutput = "";
     markLastComplete();
     accumulatedSteps.push({
       type: "thinking",
@@ -620,7 +912,10 @@ try {
     });
     callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps)).catch(() => {});
 
-    const secondAttempt = await runClaudeAttempt(false);
+    const secondAttempt = await runClaudeAttempt({
+      mode: "none",
+      sessionId: null,
+    });
     await flushStreaming();
     finalCode = secondAttempt.code;
     finalTimedOutForNoOutput = Boolean(secondAttempt.timedOutForNoOutput);
@@ -628,6 +923,8 @@ try {
     finalTimedOutForFirstEvent = Boolean(secondAttempt.timedOutForFirstEvent);
     finalResultEvent = extractResultEvent(secondAttempt.output);
   }
+
+  syncClaudeStateToPersist("post-attempt");
 
   await setFinalizingState();
   try {
@@ -653,10 +950,13 @@ try {
   for (const step of accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(accumulatedSteps);
 
+  const completionSuccess = finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
+  log("completion: success=" + completionSuccess + " code=" + finalCode + " hasResult=" + Boolean(finalResultEvent) + " error=" + (errorValue ? errorValue.slice(0, 200) : "none") + " steps=" + accumulatedSteps.length);
+
   const completionArgs = {
     [ENTITY_ID_FIELD]: ENTITY_ID,
     ...(RUN_ID ? { runId: RUN_ID } : {}),
-    success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
+    success: completionSuccess,
     result: finalResultEvent?.result ?? rawOutput,
     error: errorValue,
     activityLog,
@@ -707,13 +1007,16 @@ try {
         "Proof capture failed after completion: " + proofError,
       );
     }
+    syncClaudeStateToPersist("completion");
     await stopStreamingLoops();
   } catch (e) {
     console.error("Failed to send completion:", e);
+    syncClaudeStateToPersist("completion-error");
     await stopStreamingLoops();
     process.exit(1);
   }
 } catch (err) {
+  syncClaudeStateToPersist("fatal-error");
   await stopStreamingLoops();
   const errorArgs = {
     [ENTITY_ID_FIELD]: ENTITY_ID,

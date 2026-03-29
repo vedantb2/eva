@@ -1,5 +1,11 @@
 # Changelog
 
+## Decouple Claude session persistence from live config storage - 2026-03-29
+
+- **Why**: Mounting the Daytona S3/FUSE volume directly into Claude Code's live `~/.claude/projects` path made session shutdown unreliable and left `--session-id` runs stuck on "already in use" after sandbox restarts. The mount also could not replace `~/.claude` safely because the image bakes in settings and plugins there.
+- **Change**: Session sandboxes now mount one shared Daytona Claude volume per repo at a separate persistence path, then isolate regular sessions vs design sessions vs individual conversations with typed `subpath`s under that repo volume. Claude still runs with a local `CLAUDE_CONFIG_DIR`, hydrates persisted transcripts before each run, prefers `--resume` only for the exact saved session, and syncs session state back out explicitly with bounded copy operations.
+- **Effect**: Claude session context can survive sandbox recreation without clobbering baked-in config, transcript persistence no longer depends on Claude writing directly to the FUSE mount during process exit, and the design scales across many repos without a single global volume or per-session volume explosion.
+
 ## Enable Convex query subscription caching - 2026-03-28
 
 - **Why**: `ConvexQueryCacheProvider` was already in the provider tree but all `useQuery` calls imported from `"convex/react"`, bypassing the cache entirely. Subscriptions were dropped and re-fetched on every navigation/unmount.

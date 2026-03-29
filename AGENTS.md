@@ -13,7 +13,6 @@ Implementation:
 - Prefer making a detailed plan over a quick plan
 - Do not add comments unless the user asks you to
 - When done implementing, explain all your changes made to the user
-- If you have learnt anything new from the user, ie their preference of implementing something, then include this in the CLAUDE.md too in a short concise format
 - Never use `any`
 - Never use `unknown`
 - Never use `as` for type assertions
@@ -85,7 +84,6 @@ Implementation Process:
 - Understand existing architecture before changing anything.
 - Identify the simplest possible solution.
 - Avoid adding new dependencies unless absolutely necessary.
-- Update CLAUDE.md of any new learnings.
 - Update internal/changelog.md for medium/large changes.
 
 Plan Mode

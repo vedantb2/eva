@@ -22,7 +22,7 @@ const sessionCompleteEvent = defineEvent({
 // --- Mode config ---
 
 const MODE_TOOLS: Record<"ask" | "plan" | "execute", string> = {
-  ask: "Read,Glob,Grep",
+  ask: "Read,Glob,Grep,Bash",
   plan: "Read,Write,Glob,Grep",
   execute: "Read,Write,Edit,Bash,Glob,Grep",
 };
@@ -33,7 +33,6 @@ const WORKSPACE_DIR = "/workspace/repo";
 
 function buildAskPrompt(
   repo: { owner: string; name: string },
-  conversationHistory: string,
   message: string,
   responseLength: string,
   rootDirectory: string,
@@ -42,16 +41,14 @@ function buildAskPrompt(
 
 Repository: ${repo.owner}/${repo.name}
 
-Previous conversation:
-${conversationHistory || "None"}
-
 Question: ${message}
 
-Use Glob, Grep, Read to find information.
+You have full access to this machine. Use Glob, Grep, Read to explore code, and Bash to run commands (check logs, curl endpoints, inspect running services, etc). Do NOT modify any files.
 
 Response rules:
-- Write for someone who does NOT know programming
-- If you mention a file, just say the filename without the full path
+- Write for a non-technical audience — explain in business and product terms, not code or implementation
+- Never include code snippets, file paths, function names, or technical jargon
+- You may casually reference parts of the product (e.g. "the login page", "the settings screen") but not source files
 - Use markdown formatting: headers, bullet points, tables where they aid clarity
 - When explaining architecture, data flow, or relationships, use a mermaid diagram (fenced \`\`\`mermaid block) to visualise it — this helps non-technical users understand at a glance
 - Keep explanations concise and jargon-free; diagrams can replace lengthy prose${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
@@ -59,7 +56,6 @@ Response rules:
 
 function buildPlanPrompt(
   repo: { owner: string; name: string },
-  conversationHistory: string,
   existingPlan: string,
   message: string,
   responseLength: string,
@@ -68,9 +64,6 @@ function buildPlanPrompt(
   return `You are a product planning assistant helping define a PRD for a feature or change.
 
 ## Repository: ${repo.owner}/${repo.name}
-
-## Previous Conversation:
-${conversationHistory || "None"}
 
 ## Current plan.md:
 ${existingPlan || "No plan created yet."}
@@ -103,7 +96,7 @@ function buildExecutePrompt(
   const planContext = planContent
     ? `\n\n## Approved Product Plan:\n${planContent}\n\nUse this plan as context for what to build and why. Follow the goals, user stories, and acceptance criteria defined above.`
     : "";
-  return `You are working on an ongoing session.
+  return `You are working on an ongoing session. You have full admin access to this sandboxed machine — install packages, run dev servers, execute any commands you need.
 
 ## User Request:
 ${message}
@@ -127,7 +120,9 @@ You are already on branch "${branchName}". All work MUST stay on this branch.${p
 - NEVER commit image or video files
 - Make minimal, focused changes
 - Use the lockfile for package manager. GITHUB_TOKEN is set for git operations.
-- Do NOT mention file paths, commit status, or process meta-commentary in your response
+- Frame your response as a business outcome with light technical context (e.g. "Added dark mode toggle to settings. Changes pushed to branch.")
+- Never include code snippets, file paths, function names, or implementation details in your response
+- Do NOT mention commit hashes, process meta-commentary, or internal tooling steps
 - For browser interaction (screenshots, visual proof), use the agent-browser skill. Before using agent-browser, check CDP: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. If CDP: use \`agent-browser --cdp 9222\` for all commands (skip \`set viewport\`, VNC Chrome is already 1920x1080). If NO_CDP: run \`agent-browser set viewport 1920 1080\` first. Always use \`--annotate\` for screenshots. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
@@ -302,22 +297,10 @@ export const getSessionData = internalQuery({
         ? undefined
         : session.branchName || `eva/session-${args.sessionId}`;
 
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
-      .collect();
-
-    const conversationHistory = messages
-      .filter((m) => m.mode === args.mode)
-      .slice(-10)
-      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-      .join("\n\n");
-
     let prompt: string;
     if (args.mode === "ask") {
       prompt = buildAskPrompt(
         { owner: repo.owner, name: repo.name },
-        conversationHistory,
         args.message,
         args.responseLength,
         rootDirectory,
@@ -325,7 +308,6 @@ export const getSessionData = internalQuery({
     } else if (args.mode === "plan") {
       prompt = buildPlanPrompt(
         { owner: repo.owner, name: repo.name },
-        conversationHistory,
         session.planContent || "",
         args.message,
         args.responseLength,

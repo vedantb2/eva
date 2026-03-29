@@ -4,6 +4,11 @@ import type { Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
 import { exec, requireEnv } from "./helpers";
 import { CALLBACK_SCRIPT } from "./callbackScript";
+import {
+  CLAUDE_BASE_CONFIG_DIR,
+  CLAUDE_PERSIST_VOLUME_MOUNT_PATH,
+  CLAUDE_RUNTIME_CONFIG_DIR,
+} from "./volumes";
 
 export async function launchScript(
   sandbox: Sandbox,
@@ -63,6 +68,13 @@ export async function launchScript(
   ];
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);
+    envParts.push(`CLAUDE_BASE_CONFIG_DIR=${quote([CLAUDE_BASE_CONFIG_DIR])}`);
+    envParts.push(
+      `CLAUDE_RUNTIME_CONFIG_DIR=${quote([CLAUDE_RUNTIME_CONFIG_DIR])}`,
+    );
+    envParts.push(
+      `CLAUDE_PERSIST_DIR=${quote([CLAUDE_PERSIST_VOLUME_MOUNT_PATH])}`,
+    );
   }
   if (opts.extraEnvVars) {
     for (const [key, val] of Object.entries(opts.extraEnvVars)) {

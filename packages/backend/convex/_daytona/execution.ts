@@ -172,7 +172,12 @@ export const prepareSandbox = internalAction({
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
+      ? await ensureSessionClaudeVolume(
+          daytona,
+          args.repoId,
+          "sessions",
+          args.sessionPersistenceId,
+        )
       : undefined;
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
@@ -333,7 +338,12 @@ export const createOrResumeSandbox = internalAction({
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
+      ? await ensureSessionClaudeVolume(
+          daytona,
+          args.repoId,
+          "sessions",
+          args.sessionPersistenceId,
+        )
       : undefined;
     const syncStrategy = getSandboxPrepSyncStrategy(
       args.branchName,

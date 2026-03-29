@@ -17,6 +17,7 @@ const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 const WORK_DIR = "/workspace/repo";
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
 const FIRST_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000");
+const POST_TEXT_STALL_TIMEOUT_MS = Number(process.env.CLAUDE_POST_TEXT_STALL_TIMEOUT_MS || "90000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
 const SCRIPT_STARTED_AT = Date.now();
@@ -164,10 +165,12 @@ function toolCallToStep(name, input) {
 let lastStepType = "";
 
 const completedLabels = {
-  "Starting Claude...": "Started Claude",
+  "Preparing Claude session...": "Prepared Claude session",
+  "Starting Claude CLI...": "Started Claude CLI",
+  "Restoring Claude session...": "Restored Claude session",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
-  "Writing response...": "Wrote response",
+  "Streaming response...": "Streamed response",
   "Finalizing response...": "Finalized response",
   "Reading file...": "Read file",
   "Searching files...": "Searched files",
@@ -195,9 +198,9 @@ function markLastComplete() {
   }
 }
 
-function updateClaudeStartupStep(detail) {
+function updateThinkingStep(label, detail) {
   const lastStep = accumulatedSteps[accumulatedSteps.length - 1];
-  if (lastStep && lastStep.label === "Starting Claude...") {
+  if (lastStep && lastStep.type === "thinking" && lastStep.label === label) {
     lastStep.status = "active";
     lastStep.type = "thinking";
     lastStep.detail = detail;
@@ -207,7 +210,7 @@ function updateClaudeStartupStep(detail) {
   markLastComplete();
   accumulatedSteps.push({
     type: "thinking",
-    label: "Starting Claude...",
+    label,
     detail,
     status: "active",
   });
@@ -241,7 +244,7 @@ function parseStreamEvent(line) {
         added = true;
       } else if (block.type === "text" && block.text) {
         markLastComplete();
-        accumulatedSteps.push({ type: "thinking", label: "Writing response...", detail: String(block.text), status: "active" });
+        accumulatedSteps.push({ type: "thinking", label: "Streaming response...", detail: String(block.text), status: "active" });
         lastStepType = "thinking";
         added = true;
       }
@@ -279,20 +282,67 @@ let resultEventSeen = false;
 let activeClaudeSessionMode = "none";
 let waitingForFirstAssistantEvent = false;
 let claudeInitAt = 0;
+let activeAttemptStartedAt = 0;
+let firstAssistantEventAt = 0;
+let firstTextBlockAt = 0;
 
-function buildClaudeStartupDetail() {
+function elapsedAttemptMs() {
+  return activeAttemptStartedAt > 0 ? Date.now() - activeAttemptStartedAt : 0;
+}
+
+function logTranscriptStats(sessionId, label) {
+  if (!sessionId) {
+    log(label + ": no session id");
+    return;
+  }
+  const transcriptPath = CLAUDE_LOCAL_PROJECT_DIR + "/" + sessionId + ".jsonl";
+  if (!existsSync(transcriptPath)) {
+    log(label + ": transcript missing (" + transcriptPath + ")");
+    return;
+  }
+  try {
+    const content = readFileSync(transcriptPath, "utf8");
+    const lineCount = content.length === 0 ? 0 : content.split("\\n").length;
+    const byteSize = statSync(transcriptPath).size;
+    log(
+      label +
+        ": sessionId=" +
+        sessionId +
+        " bytes=" +
+        String(byteSize) +
+        " lines=" +
+        String(lineCount),
+    );
+  } catch (error) {
+    log(label + ": failed to inspect transcript: " + String(error));
+  }
+}
+
+function buildClaudeStartupStep() {
   if (waitingForFirstAssistantEvent && claudeInitAt > 0) {
     const elapsedSeconds = Math.max(
       1,
       Math.floor((Date.now() - claudeInitAt) / 1000),
     );
     return activeClaudeSessionMode === "resume"
-      ? "Claude started. Restoring saved context... " + elapsedSeconds + "s"
-      : "Claude started. Waiting for first output... " + elapsedSeconds + "s";
+      ? {
+          label: "Restoring Claude session...",
+          detail: "Claude started. Restoring saved context... " + elapsedSeconds + "s",
+        }
+      : {
+          label: "Starting Claude CLI...",
+          detail: "Claude started. Waiting for first output... " + elapsedSeconds + "s",
+        };
   }
   return activeClaudeSessionMode === "resume"
-    ? "Restoring saved context..."
-    : "Launching Claude process...";
+    ? {
+        label: "Starting Claude CLI...",
+        detail: "Launching Claude with saved session...",
+      }
+    : {
+        label: "Starting Claude CLI...",
+        detail: "Launching Claude process...",
+      };
 }
 
 let flushInProgress = false;
@@ -341,7 +391,8 @@ async function heartbeatPing() {
   pingInProgress = true;
   try {
     if (waitingForFirstAssistantEvent) {
-      updateClaudeStartupStep(buildClaudeStartupDetail());
+      const startupStep = buildClaudeStartupStep();
+      updateThinkingStep(startupStep.label, startupStep.detail);
     }
     const payload = JSON.stringify(accumulatedSteps);
     const maxAttempts = 3;
@@ -372,14 +423,26 @@ async function heartbeatPing() {
 
 try { unlinkSync(READY_FILE); } catch {}
 
-accumulatedSteps.push({ type: "thinking", label: "Starting Claude...", status: "active" });
+accumulatedSteps.push({
+  type: "thinking",
+  label: "Preparing Claude session...",
+  detail: "Initializing callback...",
+  status: "active",
+});
 
 let callbackReady = false;
 async function initialHeartbeat() {
+  const startedAt = Date.now();
   let attempt = 0;
   while (attempt <= 1) {
     try {
       await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
+      log(
+        "initialHeartbeat succeeded in " +
+          String(Date.now() - startedAt) +
+          "ms attempts=" +
+          String(attempt + 1),
+      );
       return;
     } catch (e) {
       attempt++;
@@ -395,6 +458,11 @@ await initialHeartbeat()
     callbackReady = true;
     try {
       writeFileSync(READY_FILE, String(Date.now()));
+      log(
+        "ready file written after " +
+          String(Date.now() - SCRIPT_STARTED_AT) +
+          "ms",
+      );
     } catch {}
   })
   .catch((error) => {
@@ -422,6 +490,9 @@ async function setFinalizingState() {
   accumulatedSteps.push({
     type: "thinking",
     label: "Finalizing response...",
+    detail: resultEventSeen
+      ? "Syncing response and saved session..."
+      : "Claude finished. Sending completion...",
     status: "active",
   });
   lastStepType = "thinking";
@@ -507,7 +578,9 @@ function tryParseJson(text) {
 }
 
 function copyBaseClaudeConfig() {
+  const startedAt = Date.now();
   if (!existsSync(CLAUDE_BASE_CONFIG_DIR)) {
+    log("copyBaseClaudeConfig skipped: base config dir missing");
     return;
   }
   mkdirSync(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
@@ -523,6 +596,11 @@ function copyBaseClaudeConfig() {
       log("copyBaseClaudeConfig skipped " + entry.name + ": " + String(error));
     }
   }
+  log(
+    "copyBaseClaudeConfig finished in " +
+      String(Date.now() - startedAt) +
+      "ms",
+  );
 }
 
 function runTimedBashSync(script, label) {
@@ -550,7 +628,9 @@ function runTimedBashSync(script, label) {
 }
 
 function hydratePersistedClaudeState() {
+  const startedAt = Date.now();
   if (!process.env.CLAUDE_SESSION_ID) {
+    log("hydratePersistedClaudeState skipped: no Claude session id");
     return;
   }
   copyBaseClaudeConfig();
@@ -578,6 +658,11 @@ function hydratePersistedClaudeState() {
     JSON.stringify(CLAUDE_LOCAL_STATE_FILE) +
     " || true; fi";
   runTimedBashSync(hydrateScript, "hydratePersistedClaudeState");
+  log(
+    "hydratePersistedClaudeState finished in " +
+      String(Date.now() - startedAt) +
+      "ms",
+  );
 }
 
 function readClaudeSessionState() {
@@ -737,10 +822,45 @@ function handleRealtimeStreamLine(line) {
     activeClaudeSessionId = parsed.session_id.trim();
     claudeInitAt = Date.now();
     waitingForFirstAssistantEvent = true;
+    log(
+      "claude init event after " +
+        String(elapsedAttemptMs()) +
+        "ms sessionId=" +
+        activeClaudeSessionId,
+    );
     log("captured Claude session id " + activeClaudeSessionId);
-    updateClaudeStartupStep(buildClaudeStartupDetail());
+    const startupStep = buildClaudeStartupStep();
+    updateThinkingStep(startupStep.label, startupStep.detail);
     callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps)).catch(() => {});
     return;
+  }
+  if (parsed.type === "assistant") {
+    if (firstAssistantEventAt === 0) {
+      firstAssistantEventAt = Date.now();
+      log(
+        "first assistant event after " +
+          String(firstAssistantEventAt - activeAttemptStartedAt) +
+          "ms",
+      );
+      updateThinkingStep("Thinking...", "Claude is reasoning...");
+    }
+    const contentBlocks = Array.isArray(parsed.message?.content)
+      ? parsed.message.content
+      : [];
+    for (const block of contentBlocks) {
+      if (block && block.type === "text" && typeof block.text === "string") {
+        if (firstTextBlockAt === 0) {
+          firstTextBlockAt = Date.now();
+          log(
+            "first text block after " +
+              String(firstTextBlockAt - activeAttemptStartedAt) +
+              "ms chars=" +
+              String(block.text.length),
+          );
+        }
+        break;
+      }
+    }
   }
   if (parsed.type === "result" && !resultEventSeen) {
     resultEventSeen = true;
@@ -769,12 +889,16 @@ function buildErrorMessage(
   timedOutForMaxRuntime,
   timedOutForNoOutput,
   timedOutForFirstEvent,
+  timedOutAfterFirstText,
 ) {
   if (timedOutForMaxRuntime) {
     return "Claude CLI terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
   }
   if (timedOutForFirstEvent) {
     return "Claude CLI produced no parseable stream-json events within " + FIRST_EVENT_TIMEOUT_MS + "ms";
+  }
+  if (timedOutAfterFirstText) {
+    return "Claude CLI stalled after first text block for " + POST_TEXT_STALL_TIMEOUT_MS + "ms";
   }
   if (timedOutForNoOutput) {
     return "Claude CLI terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms";
@@ -822,20 +946,28 @@ let stderrOutput = "";
 function prepareClaudeSessionState() {
   if (!process.env.CLAUDE_SESSION_ID) {
     activeClaudeSessionMode = "none";
-    updateClaudeStartupStep("Launching Claude process...");
+    updateThinkingStep("Starting Claude CLI...", "Launching Claude process...");
     return { mode: "none", sessionId: null };
   }
+  updateThinkingStep("Preparing Claude session...", "Hydrating saved session...");
   hydratePersistedClaudeState();
   const sessionMode = resolveClaudeSessionMode();
   activeClaudeSessionMode = sessionMode.mode;
-  updateClaudeStartupStep(
+  updateThinkingStep(
+    "Preparing Claude session...",
     sessionMode.mode === "resume"
-      ? "Restoring saved context..."
-      : "Preparing saved session...",
+      ? "Saved session hydrated. Starting Claude..."
+      : "Preparing fresh saved session...",
   );
   if (sessionMode.sessionId) {
     activeClaudeSessionId = sessionMode.sessionId;
   }
+  logTranscriptStats(
+    sessionMode.sessionId,
+    sessionMode.mode === "resume"
+      ? "resume transcript stats"
+      : "session transcript stats",
+  );
   log(
     "prepareClaudeSessionState resolved mode=" +
       sessionMode.mode +
@@ -850,6 +982,9 @@ async function runClaudeAttempt(sessionMode) {
   resultEventSeen = false;
   waitingForFirstAssistantEvent = false;
   claudeInitAt = 0;
+  activeAttemptStartedAt = Date.now();
+  firstAssistantEventAt = 0;
+  firstTextBlockAt = 0;
   const sessionArg =
     sessionMode.mode === "session" && sessionMode.sessionId
       ? " --session-id " + JSON.stringify(sessionMode.sessionId)
@@ -857,6 +992,8 @@ async function runClaudeAttempt(sessionMode) {
         ? " --resume " + JSON.stringify(sessionMode.sessionId)
         : "";
   const cmd = baseCmd + sessionArg;
+  const startupStep = buildClaudeStartupStep();
+  updateThinkingStep(startupStep.label, startupStep.detail);
   log(
     "runClaudeAttempt started (mode=" +
       sessionMode.mode +
@@ -864,7 +1001,11 @@ async function runClaudeAttempt(sessionMode) {
       (sessionArg || "none") +
       ")",
   );
-  const attemptStartTime = Date.now();
+  log(
+    "spawning claude after " +
+      String(activeAttemptStartedAt - SCRIPT_STARTED_AT) +
+      "ms since callback start",
+  );
   return await new Promise((resolve, reject) => {
     const child = spawn("bash", ["-c", "cd " + WORK_DIR + " && " + cmd], {
       env: {
@@ -873,6 +1014,12 @@ async function runClaudeAttempt(sessionMode) {
       },
       stdio: ["pipe", "pipe", "pipe"],
     });
+    log(
+      "claude process spawned after " +
+        String(elapsedAttemptMs()) +
+        "ms pid=" +
+        String(child.pid || "unknown"),
+    );
     let attemptOutput = "";
     const attemptStartedAt = Date.now();
     const parsedEventsAtStart = parsedStreamEventCount;
@@ -880,6 +1027,7 @@ async function runClaudeAttempt(sessionMode) {
     let timedOutForNoOutput = false;
     let timedOutForMaxRuntime = false;
     let timedOutForFirstEvent = false;
+    let timedOutAfterFirstText = false;
     const noOutputTimer = setInterval(() => {
       if (Date.now() - SCRIPT_STARTED_AT > MAX_TOTAL_RUNTIME_MS) {
         timedOutForMaxRuntime = true;
@@ -894,6 +1042,23 @@ async function runClaudeAttempt(sessionMode) {
         Date.now() - attemptStartedAt > FIRST_EVENT_TIMEOUT_MS
       ) {
         timedOutForFirstEvent = true;
+        try { child.kill("SIGTERM"); } catch {}
+        setTimeout(() => {
+          try { child.kill("SIGKILL"); } catch {}
+        }, 2000);
+        return;
+      }
+      if (
+        firstTextBlockAt > 0 &&
+        !resultEventSeen &&
+        Date.now() - firstTextBlockAt > POST_TEXT_STALL_TIMEOUT_MS
+      ) {
+        timedOutAfterFirstText = true;
+        log(
+          "claude stalled after first text for " +
+            String(Date.now() - firstTextBlockAt) +
+            "ms; terminating process",
+        );
         try { child.kill("SIGTERM"); } catch {}
         setTimeout(() => {
           try { child.kill("SIGKILL"); } catch {}
@@ -922,13 +1087,14 @@ async function runClaudeAttempt(sessionMode) {
     });
     child.on("close", (code) => {
       clearInterval(noOutputTimer);
-      log("runClaudeAttempt finished in " + (Date.now() - attemptStartTime) + "ms (code=" + code + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", timedOutForFirstEvent=" + timedOutForFirstEvent + ", outputBytes=" + attemptOutput.length + ", stderrBytes=" + stderrOutput.length + ")");
+      log("runClaudeAttempt finished in " + elapsedAttemptMs() + "ms (code=" + code + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", timedOutForFirstEvent=" + timedOutForFirstEvent + ", timedOutAfterFirstText=" + timedOutAfterFirstText + ", outputBytes=" + attemptOutput.length + ", stderrBytes=" + stderrOutput.length + ")");
       resolve({
         code: code ?? 1,
         output: attemptOutput,
         timedOutForNoOutput,
         timedOutForMaxRuntime,
         timedOutForFirstEvent,
+        timedOutAfterFirstText,
       });
     });
     child.on("error", (err) => {
@@ -947,6 +1113,7 @@ try {
   let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
   let finalTimedOutForMaxRuntime = Boolean(firstAttempt.timedOutForMaxRuntime);
   let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
+  let finalTimedOutAfterFirstText = Boolean(firstAttempt.timedOutAfterFirstText);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   const shouldRetryWithoutSession =
     initialSessionMode.mode !== "none" &&
@@ -978,6 +1145,7 @@ try {
     finalTimedOutForNoOutput = Boolean(secondAttempt.timedOutForNoOutput);
     finalTimedOutForMaxRuntime = Boolean(secondAttempt.timedOutForMaxRuntime);
     finalTimedOutForFirstEvent = Boolean(secondAttempt.timedOutForFirstEvent);
+    finalTimedOutAfterFirstText = Boolean(secondAttempt.timedOutAfterFirstText);
     finalResultEvent = extractResultEvent(secondAttempt.output);
   }
 
@@ -1000,6 +1168,7 @@ try {
         finalTimedOutForMaxRuntime,
         finalTimedOutForNoOutput,
         finalTimedOutForFirstEvent,
+        finalTimedOutAfterFirstText,
       ),
     );
   }

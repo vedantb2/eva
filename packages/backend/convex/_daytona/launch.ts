@@ -27,14 +27,24 @@ export async function launchScript(
     mcpBaseUrl?: string;
   } = {},
 ): Promise<void> {
+  const launchStartedAt = Date.now();
+  console.log(
+    `[daytona][launchScript] started entityId=${entityId} sandboxId=${sandbox.id}`,
+  );
   await sandbox.fs.uploadFile(
     Buffer.from(prompt, "utf-8"),
     "/tmp/design-prompt.txt",
+  );
+  console.log(
+    `[daytona][launchScript] prompt uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
   );
 
   await sandbox.fs.uploadFile(
     Buffer.from(CALLBACK_SCRIPT, "utf-8"),
     "/tmp/run-design.mjs",
+  );
+  console.log(
+    `[daytona][launchScript] callback script uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
   );
 
   if (opts.mcpBaseUrl && opts.mcpToken) {
@@ -52,6 +62,9 @@ export async function launchScript(
     await sandbox.fs.uploadFile(
       Buffer.from(mcpConfig, "utf-8"),
       "/tmp/eva-mcp.json",
+    );
+    console.log(
+      `[daytona][launchScript] MCP config uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
     );
   }
 
@@ -86,5 +99,8 @@ export async function launchScript(
     sandbox,
     `rm -f /tmp/run-design.pid /tmp/run-design.ready; ${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 & echo $! > /tmp/run-design.pid; pid=$(cat /tmp/run-design.pid); if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=0; while [ "$i" -lt 25 ]; do if [ -f /tmp/run-design.ready ]; then exit 0; fi; if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=$((i+1)); sleep 1; done; tail -n 120 /tmp/design.log 2>/dev/null || true; kill "$pid" 2>/dev/null || true; exit 1`,
     40,
+  );
+  console.log(
+    `[daytona][launchScript] runner ready in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
   );
 }

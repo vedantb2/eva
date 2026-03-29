@@ -531,12 +531,19 @@ export const launchOnExistingSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const launchStartedAt = Date.now();
+    console.log(
+      `[daytona][execution] launchOnExistingSandbox started entityId=${args.entityId} sandboxId=${args.sandboxId} repoId=${args.repoId}`,
+    );
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
     await exec(
       sandbox,
       "pkill -f 'claude-code' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
       10,
+    );
+    console.log(
+      `[daytona][execution] cleaned prior runner in ${Date.now() - launchStartedAt}ms entityId=${args.entityId}`,
     );
 
     const extraEnvVars: Record<string, string> = {};
@@ -574,6 +581,9 @@ export const launchOnExistingSandbox = internalAction({
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
         claudeSessionId,
       },
+    );
+    console.log(
+      `[daytona][execution] launchOnExistingSandbox finished in ${Date.now() - launchStartedAt}ms entityId=${args.entityId} sandboxId=${args.sandboxId}`,
     );
 
     return null;

@@ -142,9 +142,16 @@ export async function signAndLaunchScript(
     claudeSessionId?: string;
   } = {},
 ): Promise<void> {
+  const launchStartedAt = Date.now();
+  console.log(
+    `[daytona][launch] signAndLaunchScript started entityId=${entityId} mutation=${completionMutation} repoId=${repoId} sandboxId=${sandbox.id}`,
+  );
   const sandboxToken = await ctx.runAction(
     internal.sandboxJwt.signSandboxToken,
     { userId },
+  );
+  console.log(
+    `[daytona][launch] sandbox token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
   );
 
   let mcpToken:
@@ -157,6 +164,9 @@ export async function signAndLaunchScript(
     mcpToken = await ctx.runAction(
       internal.mcpTokenMinter.mintSandboxMcpToken,
       { userId, repoId },
+    );
+    console.log(
+      `[daytona][launch] MCP token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
     );
   } catch (error) {
     console.warn(
@@ -179,5 +189,8 @@ export async function signAndLaunchScript(
       mcpToken: mcpToken?.token,
       mcpBaseUrl,
     },
+  );
+  console.log(
+    `[daytona][launch] launchScript completed in ${Date.now() - launchStartedAt}ms entityId=${entityId} sandboxId=${sandbox.id}`,
   );
 }

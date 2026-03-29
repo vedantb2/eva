@@ -424,10 +424,15 @@ export const handleCompletion = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const completionStartedAt = Date.now();
     const session = await ctx.db.get(args.sessionId);
     if (!session || !session.activeWorkflowId) return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
+
+    console.log(
+      `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,
+    );
 
     await workflow.sendEvent(ctx, {
       ...sessionCompleteEvent,
@@ -448,6 +453,10 @@ export const handleCompletion = authMutation({
       repoId: session.repoId,
       createdAt: Date.now(),
     });
+
+    console.log(
+      `[sessionWorkflow] handleCompletion finished in ${Date.now() - completionStartedAt}ms sessionId=${args.sessionId}`,
+    );
 
     return null;
   },

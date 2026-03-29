@@ -1,5 +1,11 @@
 # Changelog
 
+## Polish queued chat controls and compact queue rows - 2026-03-29
+
+- **Why**: The initial queue rollout left design chats one step behind regular sessions, kept the in-composer stop control visually mismatched in some views, and let secondary queue metadata expand the queue into a noisier multi-line block.
+- **Change**: Design chats now use the same queued-message edit/delete mutations as regular sessions, their stop control matches the send button size, and queued metadata is tucked into an info tooltip so each queued prompt stays on a single compact row.
+- **Effect**: Both session types now share the same queue management affordances and the composer/queue area reads as a cleaner single-line control surface.
+
 ## Decouple Claude session persistence from live config storage - 2026-03-29
 
 - **Why**: Mounting the Daytona S3/FUSE volume directly into Claude Code's live `~/.claude/projects` path made session shutdown unreliable and left `--session-id` runs stuck on "already in use" after sandbox restarts. The mount also could not replace `~/.claude` safely because the image bakes in settings and plugins there.

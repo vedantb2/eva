@@ -133,3 +133,4 @@ if the user asks you to run a migration, you need to add a migration function to
 if you are using the agent-browser skill, navigate to `/?agent` to auto sign in as the agent user.
 
 For session/design chat queuing UX, keep prompt submission available while a run is active, render queued follow-up prompts in an explicit queue section, and keep stop as a separate control instead of overloading the submit button.
+For queued prompts, keep each row compact on one line, move secondary metadata into an info tooltip, and expose edit/delete actions directly from the queue row.

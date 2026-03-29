@@ -4,6 +4,7 @@ import { useQuery } from "convex-helpers/react/cache";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Button,
@@ -43,6 +44,10 @@ import {
   useSessionModelSetter,
 } from "@/lib/hooks/useSessionSettings";
 
+type QueuedDesignMessage = NonNullable<
+  FunctionReturnType<typeof api.queuedMessages.listByParent>
+>[number];
+
 interface DesignChatPanelProps {
   designSessionId: Id<"designSessions">;
   title: string;
@@ -77,6 +82,8 @@ export function DesignChatPanel({
   const executeMessage = useMutation(api.designSessions.executeMessage);
   const enqueueMessage = useMutation(api.designSessions.enqueueMessage);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
+  const updateQueuedMessage = useMutation(api.queuedMessages.update);
+  const deleteQueuedMessage = useMutation(api.queuedMessages.remove);
 
   const [isSending, setIsSending] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] =
@@ -147,21 +154,25 @@ export function DesignChatPanel({
     await handleSend(text);
   };
 
-  const queuedMessageItems = (queuedMessages ?? []).map((message) => {
-    const detailParts = [
-      message.personaId
-        ? (personaMap.get(message.personaId)?.name ?? "Persona")
-        : null,
-      typeof message.numDesigns === "number"
-        ? `${message.numDesigns} design${message.numDesigns === 1 ? "" : "s"}`
-        : null,
-    ].filter((part): part is string => Boolean(part));
-    return {
-      id: message._id,
-      content: message.content,
-      description: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
-    };
-  });
+  const queuedMessageItems = useMemo(
+    () =>
+      (queuedMessages ?? []).map((message: QueuedDesignMessage) => {
+        const detailParts = [
+          message.personaId
+            ? (personaMap.get(message.personaId)?.name ?? "Persona")
+            : null,
+          typeof message.numDesigns === "number"
+            ? `${message.numDesigns} design${message.numDesigns === 1 ? "" : "s"}`
+            : null,
+        ].filter((part): part is string => Boolean(part));
+        return {
+          id: message._id,
+          content: message.content,
+          info: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
+        };
+      }),
+    [personaMap, queuedMessages],
+  );
 
   return (
     <div className="flex flex-col min-w-0 h-full">
@@ -287,7 +298,11 @@ export function DesignChatPanel({
         </Conversation>
         {!isArchived && (
           <div className="p-2 md:p-3">
-            <QueuedMessagesPanel items={queuedMessageItems} />
+            <QueuedMessagesPanel
+              items={queuedMessageItems}
+              onEdit={(id, content) => updateQueuedMessage({ id, content })}
+              onDelete={(id) => deleteQueuedMessage({ id })}
+            />
             <PromptInput onSubmit={handlePromptSubmit}>
               <PromptInputTextarea
                 placeholder={
@@ -332,7 +347,7 @@ export function DesignChatPanel({
                   <PromptInputSpeech disabled={!isSandboxActive} />
                   {isExecuting ? (
                     <Button
-                      size="icon"
+                      size="icon-sm"
                       type="button"
                       variant="destructive"
                       onClick={handleCancel}

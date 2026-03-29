@@ -188,6 +188,8 @@ export function ChatPanel({
 
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const enqueueMessage = useMutation(api.sessionWorkflow.enqueueMessage);
+  const updateQueuedMessage = useMutation(api.queuedMessages.update);
+  const deleteQueuedMessage = useMutation(api.queuedMessages.remove);
   const createPr = useAction(api.github.createSessionPr);
   const startAuditMutation = useMutation(api.audits.startSessionAudit);
   const sessionAudit = useQuery(
@@ -346,8 +348,7 @@ export function ChatPanel({
         return {
           id: message._id,
           content: message.content,
-          description:
-            detailParts.length > 0 ? detailParts.join(" / ") : undefined,
+          info: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
         };
       }),
     [queuedMessages],
@@ -615,7 +616,15 @@ export function ChatPanel({
       </Conversation>
       {!isArchived && (
         <div className="p-2 md:p-3">
-          <QueuedMessagesPanel items={queuedMessageItems} />
+          <QueuedMessagesPanel
+            items={queuedMessageItems}
+            onEdit={async (id, content) => {
+              await updateQueuedMessage({ id, content });
+            }}
+            onDelete={async (id) => {
+              await deleteQueuedMessage({ id });
+            }}
+          />
           <AnimatePresence>
             {mode === "plan" && planContent && (
               <motion.div
@@ -713,7 +722,7 @@ export function ChatPanel({
                   <PromptInputSpeech disabled={isInputDisabled} />
                   {isExecuting ? (
                     <Button
-                      size="icon"
+                      size="icon-sm"
                       type="button"
                       variant="destructive"
                       onClick={handleCancel}

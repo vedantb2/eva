@@ -295,7 +295,10 @@ function logTranscriptStats(sessionId, label) {
     log(label + ": no session id");
     return;
   }
-  const transcriptPath = CLAUDE_LOCAL_PROJECT_DIR + "/" + sessionId + ".jsonl";
+  const transcriptPath = buildClaudeTranscriptPath(
+    CLAUDE_LOCAL_PROJECT_DIR,
+    sessionId,
+  );
   if (!existsSync(transcriptPath)) {
     log(label + ": transcript missing (" + transcriptPath + ")");
     return;
@@ -316,6 +319,42 @@ function logTranscriptStats(sessionId, label) {
   } catch (error) {
     log(label + ": failed to inspect transcript: " + String(error));
   }
+}
+
+function buildClaudeTranscriptPath(projectDir, sessionId) {
+  return projectDir + "/" + sessionId + ".jsonl";
+}
+
+function copyFileIfPresent(sourcePath, targetPath, label) {
+  const copyScript =
+    "if [ -f " +
+    JSON.stringify(sourcePath) +
+    " ]; then timeout " +
+    String(CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS) +
+    " cp -f " +
+    JSON.stringify(sourcePath) +
+    " " +
+    JSON.stringify(targetPath) +
+    " || true; fi";
+  runTimedBashSync(copyScript, label);
+}
+
+function collectClaudeTranscriptSessionIds() {
+  const sessionIds = new Set();
+  const configuredSessionId = process.env.CLAUDE_SESSION_ID;
+  if (configuredSessionId) {
+    sessionIds.add(configuredSessionId);
+  }
+  const persistedState = readClaudeSessionState();
+  if (persistedState && persistedState.resumeSessionId) {
+    sessionIds.add(persistedState.resumeSessionId);
+  }
+  const currentSessionId =
+    typeof activeClaudeSessionId === "string" ? activeClaudeSessionId.trim() : "";
+  if (currentSessionId) {
+    sessionIds.add(currentSessionId);
+  }
+  return Array.from(sessionIds);
 }
 
 function buildClaudeStartupStep() {
@@ -635,29 +674,31 @@ function hydratePersistedClaudeState() {
   }
   copyBaseClaudeConfig();
   mkdirSync(CLAUDE_LOCAL_PROJECT_DIR, { recursive: true });
-  const hydrateScript =
+  const prepareScript =
     "mkdir -p " +
     JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) +
     " " +
-    JSON.stringify(CLAUDE_RUNTIME_CONFIG_DIR) +
-    "; " +
-    "if [ -d " +
-    JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) +
-    " ]; then " +
-    "find " +
-    JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) +
-    " -maxdepth 1 -type f -name '*.jsonl' -print0 | while IFS= read -r -d '' file; do cp -f \\"$file\\" " +
-    JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) +
-    "/ || true; done; " +
-    "fi; " +
-    "if [ -f " +
-    JSON.stringify(CLAUDE_PERSIST_STATE_FILE) +
-    " ]; then cp -f " +
-    JSON.stringify(CLAUDE_PERSIST_STATE_FILE) +
-    " " +
-    JSON.stringify(CLAUDE_LOCAL_STATE_FILE) +
-    " || true; fi";
-  runTimedBashSync(hydrateScript, "hydratePersistedClaudeState");
+    JSON.stringify(CLAUDE_RUNTIME_CONFIG_DIR);
+  runTimedBashSync(prepareScript, "hydratePersistedClaudeState(prepare)");
+  copyFileIfPresent(
+    CLAUDE_PERSIST_STATE_FILE,
+    CLAUDE_LOCAL_STATE_FILE,
+    "hydratePersistedClaudeState(state)",
+  );
+  const transcriptSessionIds = collectClaudeTranscriptSessionIds();
+  for (const sessionId of transcriptSessionIds) {
+    copyFileIfPresent(
+      buildClaudeTranscriptPath(CLAUDE_PERSIST_PROJECT_DIR, sessionId),
+      buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, sessionId),
+      "hydratePersistedClaudeState(" + sessionId + ")",
+    );
+  }
+  log(
+    "hydratePersistedClaudeState sessionIds=" +
+      (transcriptSessionIds.length > 0
+        ? transcriptSessionIds.join(",")
+        : "none"),
+  );
   log(
     "hydratePersistedClaudeState finished in " +
       String(Date.now() - startedAt) +
@@ -707,20 +748,6 @@ function writeClaudeSessionState() {
   );
 }
 
-function listLocalSessionFiles() {
-  if (!existsSync(CLAUDE_LOCAL_PROJECT_DIR)) {
-    return [];
-  }
-  return readdirSync(CLAUDE_LOCAL_PROJECT_DIR)
-    .filter((fileName) => fileName.endsWith(".jsonl"))
-    .map((fileName) => ({
-      fileName,
-      sessionId: fileName.slice(0, -6),
-      mtimeMs: statSync(CLAUDE_LOCAL_PROJECT_DIR + "/" + fileName).mtimeMs,
-    }))
-    .sort((left, right) => right.mtimeMs - left.mtimeMs);
-}
-
 function resolveClaudeSessionMode() {
   const configuredSessionId = process.env.CLAUDE_SESSION_ID;
   if (!configuredSessionId) {
@@ -730,11 +757,11 @@ function resolveClaudeSessionMode() {
   if (persistedState) {
     return { mode: "resume", sessionId: persistedState.resumeSessionId };
   }
-  const localSessionFiles = listLocalSessionFiles();
-  const configuredSessionFile = localSessionFiles.find(
-    (file) => file.sessionId === configuredSessionId,
-  );
-  if (configuredSessionFile) {
+  if (
+    existsSync(
+      buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, configuredSessionId),
+    )
+  ) {
     return { mode: "resume", sessionId: configuredSessionId };
   }
   return { mode: "session", sessionId: configuredSessionId };
@@ -745,33 +772,36 @@ function syncClaudeStateToPersist(reason) {
     return;
   }
   writeClaudeSessionState();
-  const syncScript =
+  const prepareScript =
     "mkdir -p " +
     JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) +
     " " +
-    JSON.stringify(CLAUDE_PERSIST_DIR) +
-    "; " +
-    "if [ -d " +
-    JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) +
-    " ]; then " +
-    "find " +
-    JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) +
-    " -maxdepth 1 -type f -name '*.jsonl' -print0 | while IFS= read -r -d '' file; do timeout " +
-    String(CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS) +
-    " cp -f \\"$file\\" " +
-    JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) +
-    "/ || true; done; " +
-    "fi; " +
-    "if [ -f " +
-    JSON.stringify(CLAUDE_LOCAL_STATE_FILE) +
-    " ]; then timeout " +
-    String(CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS) +
-    " cp -f " +
-    JSON.stringify(CLAUDE_LOCAL_STATE_FILE) +
-    " " +
-    JSON.stringify(CLAUDE_PERSIST_STATE_FILE) +
-    " || true; fi";
-  runTimedBashSync(syncScript, "syncClaudeStateToPersist(" + reason + ")");
+    JSON.stringify(CLAUDE_PERSIST_DIR);
+  runTimedBashSync(
+    prepareScript,
+    "syncClaudeStateToPersist(" + reason + ":prepare)",
+  );
+  copyFileIfPresent(
+    CLAUDE_LOCAL_STATE_FILE,
+    CLAUDE_PERSIST_STATE_FILE,
+    "syncClaudeStateToPersist(" + reason + ":state)",
+  );
+  const transcriptSessionIds = collectClaudeTranscriptSessionIds();
+  for (const sessionId of transcriptSessionIds) {
+    copyFileIfPresent(
+      buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, sessionId),
+      buildClaudeTranscriptPath(CLAUDE_PERSIST_PROJECT_DIR, sessionId),
+      "syncClaudeStateToPersist(" + reason + ":" + sessionId + ")",
+    );
+  }
+  log(
+    "syncClaudeStateToPersist(" +
+      reason +
+      ") sessionIds=" +
+      (transcriptSessionIds.length > 0
+        ? transcriptSessionIds.join(",")
+        : "none"),
+  );
 }
 
 const toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
@@ -1149,7 +1179,11 @@ try {
     finalResultEvent = extractResultEvent(secondAttempt.output);
   }
 
-  syncClaudeStateToPersist("post-attempt");
+  if (!resultEventSeen) {
+    syncClaudeStateToPersist("post-attempt");
+  } else {
+    log("skipping post-attempt sync because result-event sync already ran");
+  }
 
   await setFinalizingState();
   try {

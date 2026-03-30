@@ -39,13 +39,16 @@ export const set = authMutation({
     const now = Date.now();
     const nextContent = args.currentContent ?? "";
     if (existing) {
-      if (
-        existing.currentActivity !== args.currentActivity ||
-        (existing.currentContent ?? "") !== nextContent
-      ) {
+      const activityChanged = existing.currentActivity !== args.currentActivity;
+      const contentChanged = (existing.currentContent ?? "") !== nextContent;
+      if (activityChanged || contentChanged) {
         await ctx.db.patch(existing._id, {
           currentActivity: args.currentActivity,
           currentContent: nextContent,
+          lastUpdatedAt: now,
+        });
+      } else {
+        await ctx.db.patch(existing._id, {
           lastUpdatedAt: now,
         });
       }
@@ -98,13 +101,16 @@ export const internalSet = internalMutation({
     const now = Date.now();
     const nextContent = args.currentContent ?? "";
     if (existing) {
-      if (
-        existing.currentActivity !== args.currentActivity ||
-        (existing.currentContent ?? "") !== nextContent
-      ) {
+      const activityChanged = existing.currentActivity !== args.currentActivity;
+      const contentChanged = (existing.currentContent ?? "") !== nextContent;
+      if (activityChanged || contentChanged) {
         await ctx.db.patch(existing._id, {
           currentActivity: args.currentActivity,
           currentContent: nextContent,
+          lastUpdatedAt: now,
+        });
+      } else {
+        await ctx.db.patch(existing._id, {
           lastUpdatedAt: now,
         });
       }

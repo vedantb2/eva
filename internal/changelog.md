@@ -1,5 +1,11 @@
 # Changelog
 
+## Refresh watchdog heartbeats even when streaming payloads stay unchanged - 2026-03-31
+
+- **Why**: Long-running proof capture and other tool phases can sit on the same visible activity step for minutes. The callback was still sending heartbeats, but the `streamingActivity` row only updated `lastUpdatedAt` when the activity payload changed, so the watchdog could incorrectly kill a live run as "no heartbeat for 300s".
+- **Change**: Streaming heartbeat writes now always refresh `lastUpdatedAt`, even when `currentActivity` and `currentContent` are unchanged. The shared task-workflow helper now follows the same rule for internal streaming updates.
+- **Effect**: Quick-task runs stay alive during long but legitimate tool phases like `agent-browser` proof capture, instead of being treated as dead just because the visible step text did not change.
+
 ## Add repo-level Screenshots and Videos toggle for quick-task proof capture - 2026-03-29
 
 - **Why**: Quick-task proof capture was always on, even for repos where agent-browser walkthroughs were unnecessary or undesirable, and the Proof tab had no way to explain that proof was intentionally disabled.

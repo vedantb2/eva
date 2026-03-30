@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
 import { AnimatePresence, motion } from "motion/react";
 import {
   IconBrain,
@@ -405,7 +405,7 @@ export function Sidebar() {
                       : "main-header"
                   }
                   className={cn(
-                    "flex w-full items-center",
+                    "relative flex w-full items-center",
                     collapsed ? "justify-center" : "justify-between",
                   )}
                   initial={{ opacity: 0, x: -10 }}
@@ -480,22 +480,27 @@ export function Sidebar() {
                       {!collapsed && (
                         <div
                           onClick={() => router.push("/home")}
-                          className="inline-flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
+                          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 inline-flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
                         >
                           <img
                             src="/icon.png"
                             alt="Eva"
-                            width={30}
-                            height={30}
-                            className="shrink-0 rounded-lg"
+                            width={20}
+                            height={20}
+                            className="shrink-0 rounded"
                           />
-                          <span className="truncate text-lg font-semibold tracking-[-0.02em] text-sidebar-primary">
+                          <span className="text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
                             Eva
                           </span>
                         </div>
                       )}
 
-                      <div className="flex items-center gap-1">
+                      <div
+                        className={cn(
+                          "flex items-center gap-1",
+                          collapsed ? "lg:mx-auto" : "ml-auto",
+                        )}
+                      >
                         <Button
                           size="icon"
                           variant="ghost"
@@ -629,7 +634,7 @@ export function Sidebar() {
                             />
                           )}
 
-                          <div className="space-y-2">
+                          <div className="space-y-4">
                             {repoNavigation.map((group) => (
                               <div key={group.label}>
                                 {!collapsed && (

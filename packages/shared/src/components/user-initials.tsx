@@ -38,17 +38,14 @@ export function UserInitials({
     : user.lastSeenAt
       ? `${name} · Active ${dayjs(user.lastSeenAt).fromNow()}`
       : name;
-  const iconSizePx = size === "md" ? 32 : size === "lg" ? 40 : 20;
+  const iconSizePx = size === "md" ? 24 : size === "lg" ? 32 : 16;
   const dotSize =
-    size === "lg" ? "h-3 w-3" : size === "md" ? "h-2.5 w-2.5" : "h-2 w-2";
+    size === "lg" ? "h-3 w-3" : size === "md" ? "h-2.5 w-2.5" : "h-1.5 w-1.5";
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div
-          className="relative bg-accent rounded-full overflow-visible"
-          style={{ width: iconSizePx, height: iconSizePx }}
-        >
+        <div className="relative flex items-center justify-center rounded-full bg-accent">
           <Facehash size={iconSizePx} name={initials} enableBlink interactive />
           {!hideLastSeen && user.lastSeenAt && (
             <span

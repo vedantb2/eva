@@ -17,6 +17,7 @@ import {
   formatCost,
   formatTokens,
   labelFor,
+  iconFor,
 } from "../_utils";
 
 type LogEntry = FunctionReturnType<typeof api.logs.listByRepo>[number];
@@ -55,17 +56,16 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
 }
 
 export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
+  const Icon = iconFor(type);
   return (
     <Collapsible defaultOpen>
-      <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>svg:first-child]:rotate-90">
+      <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>.chevron-icon]:rotate-90">
         <IconChevronRight
           size={14}
-          className="shrink-0 text-muted-foreground transition-transform"
+          className="chevron-icon shrink-0 text-muted-foreground transition-transform"
         />
+        <Icon size={16} className="shrink-0 text-muted-foreground" />
         <span className="tracking-[-0.01em]">{labelFor(type)}</span>
-        <Badge variant="secondary" className="ml-1 tabular-nums">
-          {logs.length}
-        </Badge>
         <span className="ml-auto font-mono text-xs text-muted-foreground">
           {formatCost(total)}
         </span>

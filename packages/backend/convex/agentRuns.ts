@@ -267,7 +267,8 @@ export const complete = authMutation({
     if (task.projectId) {
       await recomputeProjectPhase(ctx.db, task.projectId);
     }
-    const statusText = args.success ? "succeeded" : "failed";
+    const scopeLabel = task.projectId ? "Task" : "Quick task";
+    const statusText = args.success ? "completed" : "failed";
     const notifyUsers = new Set(
       [task.createdBy, task.assignedTo].filter(
         (id): id is Id<"users"> => id !== undefined,
@@ -277,7 +278,7 @@ export const complete = authMutation({
       await createNotification(ctx, {
         userId,
         type: "run_completed",
-        title: `Run ${statusText} for "${task.title}"`,
+        title: `${scopeLabel} ${statusText}: ${task.title}`,
         repoId: task.repoId,
         projectId: task.projectId,
         taskId: task._id,

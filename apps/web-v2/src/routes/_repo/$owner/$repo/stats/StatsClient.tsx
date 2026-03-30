@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
 import { api } from "@conductor/backend";
-import { useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { StatCard } from "@/lib/components/analytics/StatCard";

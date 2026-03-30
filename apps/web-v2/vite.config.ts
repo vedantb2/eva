@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
+import tanstackRouter from "@tanstack/router-plugin/vite";
 import path from "path";
 
 function agentLoginPlugin(): Plugin {
@@ -68,9 +68,10 @@ function agentLoginPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [
-    TanStackRouterVite({
+    tanstackRouter({
       routesDirectory: "./src/routes",
-      routeFileIgnorePattern: "(_components/|_utils\\.ts|Client\\.tsx)",
+      routeFileIgnorePattern:
+        "(_components|_utils\\.ts|Client\\.tsx|Panel\\.tsx)",
     }),
     react(),
     agentLoginPlugin(),

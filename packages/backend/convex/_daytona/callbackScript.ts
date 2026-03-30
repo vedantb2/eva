@@ -1,8 +1,8 @@
 "use node";
 
 export const CALLBACK_SCRIPT = `
-import { spawn } from "child_process";
-import { readFileSync, unlinkSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "fs";
+import { spawn, spawnSync } from "child_process";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -10,6 +10,8 @@ const ENTITY_ID = process.env.ENTITY_ID;
 const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 const RUN_ID = process.env.RUN_ID || null;
 const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
+const TASK_PROOF_CAPTURE_ENABLED =
+  process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
@@ -17,6 +19,7 @@ const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 const WORK_DIR = "/workspace/repo";
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
 const FIRST_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000");
+const POST_TEXT_STALL_TIMEOUT_MS = Number(process.env.CLAUDE_POST_TEXT_STALL_TIMEOUT_MS || "90000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
 const SCRIPT_STARTED_AT = Date.now();
@@ -24,6 +27,17 @@ const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || 
 const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
 const CALLBACK_HTTP_RETRY_BASE_MS = 1000;
 const READY_FILE = "/tmp/run-design.ready";
+const CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
+const CLAUDE_RUNTIME_CONFIG_DIR = process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
+const CLAUDE_PERSIST_DIR = process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
+const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\\//g, "-");
+const CLAUDE_LOCAL_PROJECT_DIR = CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
+const CLAUDE_PERSIST_PROJECT_DIR = CLAUDE_PERSIST_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
+const CLAUDE_STATE_FILE_NAME = "session-state.json";
+const CLAUDE_LOCAL_STATE_FILE = CLAUDE_RUNTIME_CONFIG_DIR + "/" + CLAUDE_STATE_FILE_NAME;
+const CLAUDE_PERSIST_STATE_FILE = CLAUDE_PERSIST_DIR + "/" + CLAUDE_STATE_FILE_NAME;
+const CLAUDE_SYNC_TIMEOUT_MS = Number(process.env.CLAUDE_SYNC_TIMEOUT_MS || "10000");
+const CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS = Number(process.env.CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS || "5");
 
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
 if (GH_TOKEN) {
@@ -110,8 +124,12 @@ async function callActionWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RE
   }
 }
 
-async function callStreamingHeartbeat(entityId, currentActivity) {
-  return await callMutation("streaming:set", { entityId, currentActivity });
+async function callStreamingHeartbeat(entityId, currentActivity, currentContent) {
+  return await callMutation("streaming:set", {
+    entityId,
+    currentActivity,
+    currentContent,
+  });
 }
 
 async function markRunFinalizingIfNeeded() {
@@ -153,10 +171,12 @@ function toolCallToStep(name, input) {
 let lastStepType = "";
 
 const completedLabels = {
-  "Starting Claude...": "Started Claude",
+  "Preparing Claude session...": "Prepared Claude session",
+  "Starting Claude CLI...": "Started Claude CLI",
+  "Restoring Claude session...": "Restored Claude session",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
-  "Writing response...": "Wrote response",
+  "Streaming response...": "Streamed response",
   "Finalizing response...": "Finalized response",
   "Reading file...": "Read file",
   "Searching files...": "Searched files",
@@ -184,6 +204,25 @@ function markLastComplete() {
   }
 }
 
+function updateThinkingStep(label, detail) {
+  const lastStep = accumulatedSteps[accumulatedSteps.length - 1];
+  if (lastStep && lastStep.type === "thinking" && lastStep.label === label) {
+    lastStep.status = "active";
+    lastStep.type = "thinking";
+    lastStep.detail = detail;
+    lastStepType = "thinking";
+    return;
+  }
+  markLastComplete();
+  accumulatedSteps.push({
+    type: "thinking",
+    label,
+    detail,
+    status: "active",
+  });
+  lastStepType = "thinking";
+}
+
 function parseStreamEvent(line) {
   try {
     const event = JSON.parse(line);
@@ -194,6 +233,9 @@ function parseStreamEvent(line) {
     }
 
     if (event.type !== "assistant") return false;
+    if (waitingForFirstAssistantEvent) {
+      waitingForFirstAssistantEvent = false;
+    }
     let added = false;
     for (const block of event.message?.content ?? []) {
       if (block.type === "tool_use") {
@@ -207,9 +249,8 @@ function parseStreamEvent(line) {
         lastStepType = "thinking";
         added = true;
       } else if (block.type === "text" && block.text) {
-        markLastComplete();
-        accumulatedSteps.push({ type: "thinking", label: "Writing response...", detail: String(block.text), status: "active" });
-        lastStepType = "thinking";
+        appendStreamedContent(block.text);
+        updateThinkingStep("Streaming response...", "Receiving reply...");
         added = true;
       }
     }
@@ -239,7 +280,128 @@ let rawOutput = "";
 let lastProcessed = 0;
 let lastStreamingSentAt = Date.now();
 let lastSentPayload = "";
+let lastSentContent = "";
 let parsedStreamEventCount = 0;
+let realtimeOutputBuffer = "";
+let activeClaudeSessionId = process.env.CLAUDE_SESSION_ID || "";
+let resultEventSeen = false;
+let activeClaudeSessionMode = "none";
+let waitingForFirstAssistantEvent = false;
+let claudeInitAt = 0;
+let activeAttemptStartedAt = 0;
+let firstAssistantEventAt = 0;
+let firstTextBlockAt = 0;
+let currentStreamedContent = "";
+
+function elapsedAttemptMs() {
+  return activeAttemptStartedAt > 0 ? Date.now() - activeAttemptStartedAt : 0;
+}
+
+function logTranscriptStats(sessionId, label) {
+  if (!sessionId) {
+    log(label + ": no session id");
+    return;
+  }
+  const transcriptPath = buildClaudeTranscriptPath(
+    CLAUDE_LOCAL_PROJECT_DIR,
+    sessionId,
+  );
+  if (!existsSync(transcriptPath)) {
+    log(label + ": transcript missing (" + transcriptPath + ")");
+    return;
+  }
+  try {
+    const content = readFileSync(transcriptPath, "utf8");
+    const lineCount = content.length === 0 ? 0 : content.split("\\n").length;
+    const byteSize = statSync(transcriptPath).size;
+    log(
+      label +
+        ": sessionId=" +
+        sessionId +
+        " bytes=" +
+        String(byteSize) +
+        " lines=" +
+        String(lineCount),
+    );
+  } catch (error) {
+    log(label + ": failed to inspect transcript: " + String(error));
+  }
+}
+
+function buildClaudeTranscriptPath(projectDir, sessionId) {
+  return projectDir + "/" + sessionId + ".jsonl";
+}
+
+function copyFileIfPresent(sourcePath, targetPath, label) {
+  const copyScript =
+    "if [ -f " +
+    JSON.stringify(sourcePath) +
+    " ]; then timeout " +
+    String(CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS) +
+    " cp -f " +
+    JSON.stringify(sourcePath) +
+    " " +
+    JSON.stringify(targetPath) +
+    " || true; fi";
+  runTimedBashSync(copyScript, label);
+}
+
+function collectClaudeTranscriptSessionIds() {
+  const sessionIds = new Set();
+  const configuredSessionId = process.env.CLAUDE_SESSION_ID;
+  if (configuredSessionId) {
+    sessionIds.add(configuredSessionId);
+  }
+  const persistedState = readClaudeSessionState();
+  if (persistedState && persistedState.resumeSessionId) {
+    sessionIds.add(persistedState.resumeSessionId);
+  }
+  const currentSessionId =
+    typeof activeClaudeSessionId === "string" ? activeClaudeSessionId.trim() : "";
+  if (currentSessionId) {
+    sessionIds.add(currentSessionId);
+  }
+  return Array.from(sessionIds);
+}
+
+function appendStreamedContent(text) {
+  const nextText = String(text);
+  if (!nextText) {
+    return;
+  }
+  if (nextText.startsWith(currentStreamedContent)) {
+    currentStreamedContent = nextText;
+    return;
+  }
+  currentStreamedContent += nextText;
+}
+
+function buildClaudeStartupStep() {
+  if (waitingForFirstAssistantEvent && claudeInitAt > 0) {
+    const elapsedSeconds = Math.max(
+      1,
+      Math.floor((Date.now() - claudeInitAt) / 1000),
+    );
+    return activeClaudeSessionMode === "resume"
+      ? {
+          label: "Restoring Claude session...",
+          detail: "Claude started. Restoring saved context... " + elapsedSeconds + "s",
+        }
+      : {
+          label: "Starting Claude CLI...",
+          detail: "Claude started. Waiting for first output... " + elapsedSeconds + "s",
+        };
+  }
+  return activeClaudeSessionMode === "resume"
+    ? {
+        label: "Starting Claude CLI...",
+        detail: "Launching Claude with saved session...",
+      }
+    : {
+        label: "Starting Claude CLI...",
+        detail: "Launching Claude process...",
+      };
+}
 
 let flushInProgress = false;
 async function flushStreaming() {
@@ -262,10 +424,20 @@ async function flushStreaming() {
     }
     if (hasNew) {
       const payload = JSON.stringify(accumulatedSteps);
-      if (payload === lastSentPayload) return;
+      if (
+        payload === lastSentPayload &&
+        currentStreamedContent === lastSentContent
+      ) {
+        return;
+      }
       try {
-        await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
+        await callStreamingHeartbeat(
+          STREAMING_ENTITY_ID,
+          payload,
+          currentStreamedContent,
+        );
         lastSentPayload = payload;
+        lastSentContent = currentStreamedContent;
         lastStreamingSentAt = Date.now();
         consecutiveHeartbeatFailures = 0;
       } catch (e) {
@@ -286,12 +458,21 @@ async function heartbeatPing() {
   if (Date.now() - lastStreamingSentAt < 10000) return;
   pingInProgress = true;
   try {
+    if (waitingForFirstAssistantEvent) {
+      const startupStep = buildClaudeStartupStep();
+      updateThinkingStep(startupStep.label, startupStep.detail);
+    }
     const payload = JSON.stringify(accumulatedSteps);
     const maxAttempts = 3;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        await callStreamingHeartbeat(STREAMING_ENTITY_ID, payload);
+        await callStreamingHeartbeat(
+          STREAMING_ENTITY_ID,
+          payload,
+          currentStreamedContent,
+        );
         lastSentPayload = payload;
+        lastSentContent = currentStreamedContent;
         lastStreamingSentAt = Date.now();
         if (consecutiveHeartbeatFailures > 0) {
           console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
@@ -315,14 +496,30 @@ async function heartbeatPing() {
 
 try { unlinkSync(READY_FILE); } catch {}
 
-accumulatedSteps.push({ type: "thinking", label: "Starting Claude...", status: "active" });
+accumulatedSteps.push({
+  type: "thinking",
+  label: "Preparing Claude session...",
+  detail: "Initializing callback...",
+  status: "active",
+});
 
 let callbackReady = false;
 async function initialHeartbeat() {
+  const startedAt = Date.now();
   let attempt = 0;
   while (attempt <= 1) {
     try {
-      await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
+      await callStreamingHeartbeat(
+        STREAMING_ENTITY_ID,
+        JSON.stringify(accumulatedSteps),
+        currentStreamedContent,
+      );
+      log(
+        "initialHeartbeat succeeded in " +
+          String(Date.now() - startedAt) +
+          "ms attempts=" +
+          String(attempt + 1),
+      );
       return;
     } catch (e) {
       attempt++;
@@ -334,10 +531,16 @@ async function initialHeartbeat() {
 await initialHeartbeat()
   .then(() => {
     lastSentPayload = JSON.stringify(accumulatedSteps);
+    lastSentContent = currentStreamedContent;
     lastStreamingSentAt = Date.now();
     callbackReady = true;
     try {
       writeFileSync(READY_FILE, String(Date.now()));
+      log(
+        "ready file written after " +
+          String(Date.now() - SCRIPT_STARTED_AT) +
+          "ms",
+      );
     } catch {}
   })
   .catch((error) => {
@@ -348,8 +551,7 @@ if (!callbackReady) {
   process.exit(1);
 }
 
-// TODO: reduce back to 500ms once we move to a more efficient streaming transport
-const interval = setInterval(flushStreaming, 2000);
+const interval = setInterval(flushStreaming, 500);
 const heartbeatInterval = setInterval(heartbeatPing, 10000);
 let streamingLoopsStopped = false;
 
@@ -366,12 +568,20 @@ async function setFinalizingState() {
   accumulatedSteps.push({
     type: "thinking",
     label: "Finalizing response...",
+    detail: resultEventSeen
+      ? "Syncing response and saved session..."
+      : "Claude finished. Sending completion...",
     status: "active",
   });
   lastStepType = "thinking";
   try {
-    await callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps));
+    await callStreamingHeartbeat(
+      STREAMING_ENTITY_ID,
+      JSON.stringify(accumulatedSteps),
+      currentStreamedContent,
+    );
     lastStreamingSentAt = Date.now();
+    lastSentContent = currentStreamedContent;
   } catch {}
 }
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
@@ -400,6 +610,9 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
     return;
   }
   if (ENTITY_ID_FIELD === "taskId") {
+    if (!TASK_PROOF_CAPTURE_ENABLED) {
+      return;
+    }
     await callMutationWithRetry("taskProof:saveMessage", {
       taskId: ENTITY_ID,
       message: "No UI changes",
@@ -409,6 +622,9 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
 
 async function saveProofFailureMessageIfNeeded(message) {
   if (ENTITY_ID_FIELD !== "taskId") {
+    return;
+  }
+  if (!TASK_PROOF_CAPTURE_ENABLED) {
     return;
   }
   try {
@@ -436,12 +652,215 @@ if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {
   } catch {}
 }
 
+function log(msg) {
+  const line = "[callback " + new Date().toISOString() + "] " + msg + "\\n";
+  console.error(line.trim());
+  try { writeFileSync("/tmp/callback-debug.log", line, { flag: "a" }); } catch {}
+}
+
+function tryParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function copyBaseClaudeConfig() {
+  const startedAt = Date.now();
+  if (!existsSync(CLAUDE_BASE_CONFIG_DIR)) {
+    log("copyBaseClaudeConfig skipped: base config dir missing");
+    return;
+  }
+  mkdirSync(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  for (const entry of readdirSync(CLAUDE_BASE_CONFIG_DIR, { withFileTypes: true })) {
+    if (entry.name === "projects") {
+      continue;
+    }
+    const sourcePath = CLAUDE_BASE_CONFIG_DIR + "/" + entry.name;
+    const targetPath = CLAUDE_RUNTIME_CONFIG_DIR + "/" + entry.name;
+    try {
+      cpSync(sourcePath, targetPath, { force: true, recursive: true });
+    } catch (error) {
+      log("copyBaseClaudeConfig skipped " + entry.name + ": " + String(error));
+    }
+  }
+  log(
+    "copyBaseClaudeConfig finished in " +
+      String(Date.now() - startedAt) +
+      "ms",
+  );
+}
+
+function runTimedBashSync(script, label) {
+  const result = spawnSync("bash", ["-lc", script], {
+    encoding: "utf8",
+    env: { ...process.env },
+    timeout: CLAUDE_SYNC_TIMEOUT_MS,
+  });
+  const timedOut = result.signal === "SIGTERM" || result.signal === "SIGKILL";
+  if (result.error || timedOut || result.status !== 0) {
+    const stderr = (result.stderr || "").trim();
+    const stdout = (result.stdout || "").trim();
+    log(
+      label +
+        " failed (status=" +
+        String(result.status) +
+        ", signal=" +
+        String(result.signal || "none") +
+        "): " +
+        (result.error ? String(result.error) : stderr || stdout || "unknown error"),
+    );
+    return false;
+  }
+  return true;
+}
+
+function hydratePersistedClaudeState() {
+  const startedAt = Date.now();
+  if (!process.env.CLAUDE_SESSION_ID) {
+    log("hydratePersistedClaudeState skipped: no Claude session id");
+    return;
+  }
+  copyBaseClaudeConfig();
+  mkdirSync(CLAUDE_LOCAL_PROJECT_DIR, { recursive: true });
+  const prepareScript =
+    "mkdir -p " +
+    JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) +
+    " " +
+    JSON.stringify(CLAUDE_RUNTIME_CONFIG_DIR);
+  runTimedBashSync(prepareScript, "hydratePersistedClaudeState(prepare)");
+  copyFileIfPresent(
+    CLAUDE_PERSIST_STATE_FILE,
+    CLAUDE_LOCAL_STATE_FILE,
+    "hydratePersistedClaudeState(state)",
+  );
+  const transcriptSessionIds = collectClaudeTranscriptSessionIds();
+  for (const sessionId of transcriptSessionIds) {
+    copyFileIfPresent(
+      buildClaudeTranscriptPath(CLAUDE_PERSIST_PROJECT_DIR, sessionId),
+      buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, sessionId),
+      "hydratePersistedClaudeState(" + sessionId + ")",
+    );
+  }
+  log(
+    "hydratePersistedClaudeState sessionIds=" +
+      (transcriptSessionIds.length > 0
+        ? transcriptSessionIds.join(",")
+        : "none"),
+  );
+  log(
+    "hydratePersistedClaudeState finished in " +
+      String(Date.now() - startedAt) +
+      "ms",
+  );
+}
+
+function readClaudeSessionState() {
+  if (!existsSync(CLAUDE_LOCAL_STATE_FILE)) {
+    return null;
+  }
+  const parsed = tryParseJson(readFileSync(CLAUDE_LOCAL_STATE_FILE, "utf8"));
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const resumeSessionId =
+    typeof parsed.resumeSessionId === "string" ? parsed.resumeSessionId.trim() : "";
+  if (!resumeSessionId) {
+    return null;
+  }
+  return { resumeSessionId };
+}
+
+function writeClaudeSessionState() {
+  if (!process.env.CLAUDE_SESSION_ID) {
+    return;
+  }
+  const resumeSessionId =
+    typeof activeClaudeSessionId === "string" && activeClaudeSessionId.trim()
+      ? activeClaudeSessionId.trim()
+      : process.env.CLAUDE_SESSION_ID;
+  if (!resumeSessionId) {
+    return;
+  }
+  mkdirSync(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  writeFileSync(
+    CLAUDE_LOCAL_STATE_FILE,
+    JSON.stringify(
+      {
+        logicalSessionId: process.env.CLAUDE_SESSION_ID,
+        resumeSessionId,
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+function resolveClaudeSessionMode() {
+  const configuredSessionId = process.env.CLAUDE_SESSION_ID;
+  if (!configuredSessionId) {
+    return { mode: "none", sessionId: null };
+  }
+  const persistedState = readClaudeSessionState();
+  if (persistedState) {
+    return { mode: "resume", sessionId: persistedState.resumeSessionId };
+  }
+  if (
+    existsSync(
+      buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, configuredSessionId),
+    )
+  ) {
+    return { mode: "resume", sessionId: configuredSessionId };
+  }
+  return { mode: "session", sessionId: configuredSessionId };
+}
+
+function syncClaudeStateToPersist(reason) {
+  if (!process.env.CLAUDE_SESSION_ID) {
+    return;
+  }
+  writeClaudeSessionState();
+  const prepareScript =
+    "mkdir -p " +
+    JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) +
+    " " +
+    JSON.stringify(CLAUDE_PERSIST_DIR);
+  runTimedBashSync(
+    prepareScript,
+    "syncClaudeStateToPersist(" + reason + ":prepare)",
+  );
+  copyFileIfPresent(
+    CLAUDE_LOCAL_STATE_FILE,
+    CLAUDE_PERSIST_STATE_FILE,
+    "syncClaudeStateToPersist(" + reason + ":state)",
+  );
+  const transcriptSessionIds = collectClaudeTranscriptSessionIds();
+  for (const sessionId of transcriptSessionIds) {
+    copyFileIfPresent(
+      buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, sessionId),
+      buildClaudeTranscriptPath(CLAUDE_PERSIST_PROJECT_DIR, sessionId),
+      "syncClaudeStateToPersist(" + reason + ":" + sessionId + ")",
+    );
+  }
+  log(
+    "syncClaudeStateToPersist(" +
+      reason +
+      ") sessionIds=" +
+      (transcriptSessionIds.length > 0
+        ? transcriptSessionIds.join(",")
+        : "none"),
+  );
+}
+
 const toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
 const systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
 const settingsJson = '{"attribution":{"commit":"","pr":""}}';
 const settingsArg = "--settings " + JSON.stringify(settingsJson);
 const mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
-const baseCmd = "cat /tmp/design-prompt.txt | npx @anthropic-ai/claude-code -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
+const baseCmd = "cat /tmp/design-prompt.txt | claude -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
+log("entityId=" + ENTITY_ID + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (mcpArg ? "yes" : "no"));
 
 const TOOL_STEP_TYPES = new Set(["read", "search_files", "search_code", "write", "edit", "bash", "tool"]);
 
@@ -469,17 +888,101 @@ function extractResultEvent(output) {
   return resultEvent;
 }
 
+function handleRealtimeStreamLine(line) {
+  const parsed = tryParseJson(line);
+  if (!parsed || typeof parsed !== "object") {
+    return;
+  }
+  if (
+    parsed.type === "system" &&
+    parsed.subtype === "init" &&
+    typeof parsed.session_id === "string" &&
+    parsed.session_id.trim()
+  ) {
+    activeClaudeSessionId = parsed.session_id.trim();
+    claudeInitAt = Date.now();
+    waitingForFirstAssistantEvent = true;
+    log(
+      "claude init event after " +
+        String(elapsedAttemptMs()) +
+        "ms sessionId=" +
+        activeClaudeSessionId,
+    );
+    log("captured Claude session id " + activeClaudeSessionId);
+    const startupStep = buildClaudeStartupStep();
+    updateThinkingStep(startupStep.label, startupStep.detail);
+    callStreamingHeartbeat(
+      STREAMING_ENTITY_ID,
+      JSON.stringify(accumulatedSteps),
+      currentStreamedContent,
+    ).catch(() => {});
+    return;
+  }
+  if (parsed.type === "assistant") {
+    if (firstAssistantEventAt === 0) {
+      firstAssistantEventAt = Date.now();
+      log(
+        "first assistant event after " +
+          String(firstAssistantEventAt - activeAttemptStartedAt) +
+          "ms",
+      );
+      updateThinkingStep("Thinking...", "Claude is reasoning...");
+    }
+    const contentBlocks = Array.isArray(parsed.message?.content)
+      ? parsed.message.content
+      : [];
+    for (const block of contentBlocks) {
+      if (block && block.type === "text" && typeof block.text === "string") {
+        if (firstTextBlockAt === 0) {
+          firstTextBlockAt = Date.now();
+          log(
+            "first text block after " +
+              String(firstTextBlockAt - activeAttemptStartedAt) +
+              "ms chars=" +
+              String(block.text.length),
+          );
+        }
+        break;
+      }
+    }
+  }
+  if (parsed.type === "result" && !resultEventSeen) {
+    resultEventSeen = true;
+    syncClaudeStateToPersist("result-event");
+  }
+}
+
+function processRealtimeStdoutChunk(text) {
+  realtimeOutputBuffer += text;
+  while (true) {
+    const newlineIndex = realtimeOutputBuffer.indexOf("\\n");
+    if (newlineIndex === -1) {
+      return;
+    }
+    const line = realtimeOutputBuffer.slice(0, newlineIndex).trim();
+    realtimeOutputBuffer = realtimeOutputBuffer.slice(newlineIndex + 1);
+    if (!line) {
+      continue;
+    }
+    handleRealtimeStreamLine(line);
+  }
+}
+
 function buildErrorMessage(
   code,
   timedOutForMaxRuntime,
   timedOutForNoOutput,
   timedOutForFirstEvent,
+  timedOutAfterFirstText,
 ) {
   if (timedOutForMaxRuntime) {
     return "Claude CLI terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
   }
   if (timedOutForFirstEvent) {
     return "Claude CLI produced no parseable stream-json events within " + FIRST_EVENT_TIMEOUT_MS + "ms";
+  }
+  if (timedOutAfterFirstText) {
+    return "Claude CLI stalled after first text block for " + POST_TEXT_STALL_TIMEOUT_MS + "ms";
   }
   if (timedOutForNoOutput) {
     return "Claude CLI terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms";
@@ -524,17 +1027,84 @@ async function uploadMediaFile(filePath, mimeType) {
 
 let stderrOutput = "";
 
-async function runClaudeAttempt(includeSessionId) {
+function prepareClaudeSessionState() {
+  if (!process.env.CLAUDE_SESSION_ID) {
+    activeClaudeSessionMode = "none";
+    updateThinkingStep("Starting Claude CLI...", "Launching Claude process...");
+    return { mode: "none", sessionId: null };
+  }
+  updateThinkingStep("Preparing Claude session...", "Hydrating saved session...");
+  hydratePersistedClaudeState();
+  const sessionMode = resolveClaudeSessionMode();
+  activeClaudeSessionMode = sessionMode.mode;
+  updateThinkingStep(
+    "Preparing Claude session...",
+    sessionMode.mode === "resume"
+      ? "Saved session hydrated. Starting Claude..."
+      : "Preparing fresh saved session...",
+  );
+  if (sessionMode.sessionId) {
+    activeClaudeSessionId = sessionMode.sessionId;
+  }
+  logTranscriptStats(
+    sessionMode.sessionId,
+    sessionMode.mode === "resume"
+      ? "resume transcript stats"
+      : "session transcript stats",
+  );
+  log(
+    "prepareClaudeSessionState resolved mode=" +
+      sessionMode.mode +
+      " sessionId=" +
+      (sessionMode.sessionId || "none"),
+  );
+  return sessionMode;
+}
+
+async function runClaudeAttempt(sessionMode) {
+  realtimeOutputBuffer = "";
+  resultEventSeen = false;
+  waitingForFirstAssistantEvent = false;
+  claudeInitAt = 0;
+  currentStreamedContent = "";
+  activeAttemptStartedAt = Date.now();
+  firstAssistantEventAt = 0;
+  firstTextBlockAt = 0;
   const sessionArg =
-    includeSessionId && process.env.CLAUDE_SESSION_ID
-      ? " --session-id " + JSON.stringify(process.env.CLAUDE_SESSION_ID)
-      : "";
+    sessionMode.mode === "session" && sessionMode.sessionId
+      ? " --session-id " + JSON.stringify(sessionMode.sessionId)
+      : sessionMode.mode === "resume" && sessionMode.sessionId
+        ? " --resume " + JSON.stringify(sessionMode.sessionId)
+        : "";
   const cmd = baseCmd + sessionArg;
+  const startupStep = buildClaudeStartupStep();
+  updateThinkingStep(startupStep.label, startupStep.detail);
+  log(
+    "runClaudeAttempt started (mode=" +
+      sessionMode.mode +
+      ", sessionArg=" +
+      (sessionArg || "none") +
+      ")",
+  );
+  log(
+    "spawning claude after " +
+      String(activeAttemptStartedAt - SCRIPT_STARTED_AT) +
+      "ms since callback start",
+  );
   return await new Promise((resolve, reject) => {
     const child = spawn("bash", ["-c", "cd " + WORK_DIR + " && " + cmd], {
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+      },
       stdio: ["pipe", "pipe", "pipe"],
     });
+    log(
+      "claude process spawned after " +
+        String(elapsedAttemptMs()) +
+        "ms pid=" +
+        String(child.pid || "unknown"),
+    );
     let attemptOutput = "";
     const attemptStartedAt = Date.now();
     const parsedEventsAtStart = parsedStreamEventCount;
@@ -542,6 +1112,7 @@ async function runClaudeAttempt(includeSessionId) {
     let timedOutForNoOutput = false;
     let timedOutForMaxRuntime = false;
     let timedOutForFirstEvent = false;
+    let timedOutAfterFirstText = false;
     const noOutputTimer = setInterval(() => {
       if (Date.now() - SCRIPT_STARTED_AT > MAX_TOTAL_RUNTIME_MS) {
         timedOutForMaxRuntime = true;
@@ -556,6 +1127,23 @@ async function runClaudeAttempt(includeSessionId) {
         Date.now() - attemptStartedAt > FIRST_EVENT_TIMEOUT_MS
       ) {
         timedOutForFirstEvent = true;
+        try { child.kill("SIGTERM"); } catch {}
+        setTimeout(() => {
+          try { child.kill("SIGKILL"); } catch {}
+        }, 2000);
+        return;
+      }
+      if (
+        firstTextBlockAt > 0 &&
+        !resultEventSeen &&
+        Date.now() - firstTextBlockAt > POST_TEXT_STALL_TIMEOUT_MS
+      ) {
+        timedOutAfterFirstText = true;
+        log(
+          "claude stalled after first text for " +
+            String(Date.now() - firstTextBlockAt) +
+            "ms; terminating process",
+        );
         try { child.kill("SIGTERM"); } catch {}
         setTimeout(() => {
           try { child.kill("SIGKILL"); } catch {}
@@ -577,18 +1165,21 @@ async function runClaudeAttempt(includeSessionId) {
       attemptOutput += text;
       rawOutput += text;
       lastStdoutAt = Date.now();
+      processRealtimeStdoutChunk(text);
     });
     child.stderr.on("data", (chunk) => {
       stderrOutput += chunk.toString();
     });
     child.on("close", (code) => {
       clearInterval(noOutputTimer);
+      log("runClaudeAttempt finished in " + elapsedAttemptMs() + "ms (code=" + code + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", timedOutForFirstEvent=" + timedOutForFirstEvent + ", timedOutAfterFirstText=" + timedOutAfterFirstText + ", outputBytes=" + attemptOutput.length + ", stderrBytes=" + stderrOutput.length + ")");
       resolve({
         code: code ?? 1,
         output: attemptOutput,
         timedOutForNoOutput,
         timedOutForMaxRuntime,
         timedOutForFirstEvent,
+        timedOutAfterFirstText,
       });
     });
     child.on("error", (err) => {
@@ -599,35 +1190,58 @@ async function runClaudeAttempt(includeSessionId) {
 }
 
 try {
-  const firstAttempt = await runClaudeAttempt(true);
+  const initialSessionMode = prepareClaudeSessionState();
+  const firstAttempt = await runClaudeAttempt(initialSessionMode);
   await flushStreaming();
 
   let finalCode = firstAttempt.code;
   let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
   let finalTimedOutForMaxRuntime = Boolean(firstAttempt.timedOutForMaxRuntime);
   let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
+  let finalTimedOutAfterFirstText = Boolean(firstAttempt.timedOutAfterFirstText);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   const shouldRetryWithoutSession =
-    Boolean(process.env.CLAUDE_SESSION_ID) &&
+    initialSessionMode.mode !== "none" &&
     (firstAttempt.code !== 0 || Boolean(finalResultEvent?.isError)) &&
     !hasToolActivity();
 
+  log("firstAttempt result: code=" + firstAttempt.code + " isError=" + Boolean(finalResultEvent?.isError) + " hasToolActivity=" + hasToolActivity() + " shouldRetry=" + shouldRetryWithoutSession);
+
   if (shouldRetryWithoutSession) {
+    const firstAttemptStderr = stderrOutput.slice(-2000).trim();
+    const firstAttemptStdout = firstAttempt.output.slice(-1000).trim();
+    log("session-retry stderr: " + (firstAttemptStderr || "(empty)"));
+    log("session-retry stdout tail: " + (firstAttemptStdout || "(empty)"));
+    stderrOutput = "";
     markLastComplete();
     accumulatedSteps.push({
       type: "thinking",
       label: "Retrying without saved session...",
       status: "active",
     });
-    callStreamingHeartbeat(STREAMING_ENTITY_ID, JSON.stringify(accumulatedSteps)).catch(() => {});
+    callStreamingHeartbeat(
+      STREAMING_ENTITY_ID,
+      JSON.stringify(accumulatedSteps),
+      currentStreamedContent,
+    ).catch(() => {});
 
-    const secondAttempt = await runClaudeAttempt(false);
+    const secondAttempt = await runClaudeAttempt({
+      mode: "none",
+      sessionId: null,
+    });
     await flushStreaming();
     finalCode = secondAttempt.code;
     finalTimedOutForNoOutput = Boolean(secondAttempt.timedOutForNoOutput);
     finalTimedOutForMaxRuntime = Boolean(secondAttempt.timedOutForMaxRuntime);
     finalTimedOutForFirstEvent = Boolean(secondAttempt.timedOutForFirstEvent);
+    finalTimedOutAfterFirstText = Boolean(secondAttempt.timedOutAfterFirstText);
     finalResultEvent = extractResultEvent(secondAttempt.output);
+  }
+
+  if (!resultEventSeen) {
+    syncClaudeStateToPersist("post-attempt");
+  } else {
+    log("skipping post-attempt sync because result-event sync already ran");
   }
 
   await setFinalizingState();
@@ -647,6 +1261,7 @@ try {
         finalTimedOutForMaxRuntime,
         finalTimedOutForNoOutput,
         finalTimedOutForFirstEvent,
+        finalTimedOutAfterFirstText,
       ),
     );
   }
@@ -654,10 +1269,13 @@ try {
   for (const step of accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(accumulatedSteps);
 
+  const completionSuccess = finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
+  log("completion: success=" + completionSuccess + " code=" + finalCode + " hasResult=" + Boolean(finalResultEvent) + " error=" + (errorValue ? errorValue.slice(0, 200) : "none") + " steps=" + accumulatedSteps.length);
+
   const completionArgs = {
     [ENTITY_ID_FIELD]: ENTITY_ID,
     ...(RUN_ID ? { runId: RUN_ID } : {}),
-    success: finalResultEvent ? !finalResultEvent.isError : finalCode === 0,
+    success: completionSuccess,
     result: finalResultEvent?.result ?? rawOutput,
     error: errorValue,
     activityLog,
@@ -708,13 +1326,16 @@ try {
         "Proof capture failed after completion: " + proofError,
       );
     }
+    syncClaudeStateToPersist("completion");
     await stopStreamingLoops();
   } catch (e) {
     console.error("Failed to send completion:", e);
+    syncClaudeStateToPersist("completion-error");
     await stopStreamingLoops();
     process.exit(1);
   }
 } catch (err) {
+  syncClaudeStateToPersist("fatal-error");
   await stopStreamingLoops();
   const errorArgs = {
     [ENTITY_ID_FIELD]: ENTITY_ID,

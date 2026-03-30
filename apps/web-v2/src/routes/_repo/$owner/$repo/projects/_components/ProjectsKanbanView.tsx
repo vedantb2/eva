@@ -54,6 +54,7 @@ export function ProjectsKanbanView({
                 accentColor={phaseConfig[phase].bar}
                 members={project.members}
                 projectLead={project.projectLead}
+                phase={phase}
                 onClick={() => onOpenProject(project._id)}
                 onDelete={() => onDelete(project._id, project.title)}
               />

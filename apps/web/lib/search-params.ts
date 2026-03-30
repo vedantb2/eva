@@ -128,5 +128,3 @@ export const teamDetailTabParser = parseAsStringLiteral(teamDetailTabs)
 export const logEntityTypesParser = parseAsArrayOf(parseAsString)
   .withDefault([])
   .withOptions(searchOptions);
-
-export const taskIdParser = parseAsString.withOptions(tabOptions);

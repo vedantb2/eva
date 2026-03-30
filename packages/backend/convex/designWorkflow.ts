@@ -7,6 +7,7 @@ import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { buildRootDirectoryInstruction, DESIGN_SYSTEM_PROMPT } from "./prompts";
 import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
+import { startNextQueuedDesignMessage } from "./_queues/helpers";
 
 const designCompleteEvent = defineEvent({
   name: "designComplete",
@@ -286,6 +287,9 @@ export const saveResult = internalMutation({
   handler: async (ctx, args) => {
     await clearStreamingActivity(ctx, String(args.designSessionId));
 
+    const session = await ctx.db.get(args.designSessionId);
+    if (!session) return null;
+
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.designSessionId))
@@ -331,6 +335,7 @@ export const saveResult = internalMutation({
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     });
+    await startNextQueuedDesignMessage(ctx, args.designSessionId);
     return null;
   },
 });

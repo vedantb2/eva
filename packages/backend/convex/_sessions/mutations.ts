@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { authMutation, hasRepoAccess } from "../functions";
 import { roleValidator, sessionStatusValidator } from "../validators";
 
@@ -12,16 +13,27 @@ export const create = authMutation({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
     const sessionId = await ctx.db.insert("sessions", {
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
-      status: "closed",
+      status: "starting",
       createdBy: ctx.userId,
       updatedAt: Date.now(),
     });
-    await ctx.db.patch(sessionId, {
-      branchName: `eva/session-${sessionId}`,
+    const branchName = `eva/session-${sessionId}`;
+    await ctx.db.patch(sessionId, { branchName });
+    const baseBranch = repo.defaultBaseBranch ?? "main";
+    await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
+      sessionId,
+      installationId: repo.installationId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName,
+      baseBranch,
+      repoId: args.repoId,
     });
     return sessionId;
   },

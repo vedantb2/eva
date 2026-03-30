@@ -172,7 +172,12 @@ export const prepareSandbox = internalAction({
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
+      ? await ensureSessionClaudeVolume(
+          daytona,
+          args.repoId,
+          "sessions",
+          args.sessionPersistenceId,
+        )
       : undefined;
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
@@ -333,7 +338,12 @@ export const createOrResumeSandbox = internalAction({
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionClaudeVolume(daytona, args.sessionPersistenceId)
+      ? await ensureSessionClaudeVolume(
+          daytona,
+          args.repoId,
+          "sessions",
+          args.sessionPersistenceId,
+        )
       : undefined;
     const syncStrategy = getSandboxPrepSyncStrategy(
       args.branchName,
@@ -518,15 +528,23 @@ export const launchOnExistingSandbox = internalAction({
     streamingEntityId: v.optional(v.string()),
     runId: v.optional(v.string()),
     sessionPersistenceId: v.optional(v.id("sessions")),
+    taskProofCaptureEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const launchStartedAt = Date.now();
+    console.log(
+      `[daytona][execution] launchOnExistingSandbox started entityId=${args.entityId} sandboxId=${args.sandboxId} repoId=${args.repoId}`,
+    );
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
     await exec(
       sandbox,
       "pkill -f 'claude-code' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
       10,
+    );
+    console.log(
+      `[daytona][execution] cleaned prior runner in ${Date.now() - launchStartedAt}ms entityId=${args.entityId}`,
     );
 
     const extraEnvVars: Record<string, string> = {};
@@ -541,6 +559,11 @@ export const launchOnExistingSandbox = internalAction({
     }
     if (args.runId) {
       extraEnvVars.RUN_ID = args.runId;
+    }
+    if (args.taskProofCaptureEnabled !== undefined) {
+      extraEnvVars.TASK_PROOF_CAPTURE_ENABLED = args.taskProofCaptureEnabled
+        ? "true"
+        : "false";
     }
 
     const claudeSessionId = args.sessionPersistenceId
@@ -564,6 +587,9 @@ export const launchOnExistingSandbox = internalAction({
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
         claudeSessionId,
       },
+    );
+    console.log(
+      `[daytona][execution] launchOnExistingSandbox finished in ${Date.now() - launchStartedAt}ms entityId=${args.entityId} sandboxId=${args.sandboxId}`,
     );
 
     return null;

@@ -21,7 +21,7 @@ export const update = authMutation({
     projectId: v.optional(v.union(v.id("projects"), v.null())),
     tags: v.optional(v.array(v.string())),
     taskNumber: v.optional(v.number()),
-    assignedTo: v.optional(v.id("users")),
+    assignedTo: v.optional(v.union(v.id("users"), v.null())),
     model: v.optional(claudeModelValidator),
     baseBranch: v.optional(v.string()),
   },
@@ -38,7 +38,8 @@ export const update = authMutation({
       updates.projectId = args.projectId ?? undefined;
     if (args.tags !== undefined) updates.tags = normalizeTaskTags(args.tags);
     if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
-    if (args.assignedTo !== undefined) updates.assignedTo = args.assignedTo;
+    if (args.assignedTo !== undefined)
+      updates.assignedTo = args.assignedTo ?? undefined;
     if (args.model !== undefined) updates.model = args.model;
     if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
     await ctx.db.patch(args.id, updates);

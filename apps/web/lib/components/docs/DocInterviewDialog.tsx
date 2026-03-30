@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";

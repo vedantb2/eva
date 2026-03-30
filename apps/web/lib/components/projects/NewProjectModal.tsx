@@ -27,9 +27,10 @@ interface NewProjectModalProps {
 export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
   const { repo, basePath } = useRepo();
   const router = useRouter();
+  const defaultBranch = repo?.defaultBaseBranch ?? "main";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [baseBranch, setBaseBranch] = useState("main");
+  const [baseBranch, setBaseBranch] = useState(defaultBranch);
   const [isLoading, setIsLoading] = useState(false);
 
   const createProject = useMutation(api.projects.create);
@@ -48,7 +49,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
 
       setTitle("");
       setDescription("");
-      setBaseBranch("main");
+      setBaseBranch(defaultBranch);
       onClose();
       router.push(basePath + "/projects/" + projectId);
     } finally {

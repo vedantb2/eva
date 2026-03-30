@@ -74,10 +74,18 @@ export const evalFixStatusValidator = v.union(
 
 export const themeValidator = v.union(v.literal("light"), v.literal("dark"));
 
+export const auditSeverityValidator = v.union(
+  v.literal("critical"),
+  v.literal("high"),
+  v.literal("medium"),
+  v.literal("low"),
+);
+
 export const evalResultValidator = v.object({
   requirement: v.string(),
   passed: v.boolean(),
   detail: v.string(),
+  severity: v.optional(auditSeverityValidator),
 });
 
 export const auditSectionValidator = v.object({
@@ -200,6 +208,7 @@ export const radiusValidator = v.union(
   v.literal("md"),
   v.literal("lg"),
   v.literal("xl"),
+  v.literal("full"),
 );
 
 export const fontFamilyValidator = v.union(
@@ -321,6 +330,7 @@ export const githubRepoFields = {
   deploymentProjectName: v.optional(v.string()),
   domains: v.optional(v.array(v.string())),
   mcpRootPrompt: v.optional(v.string()),
+  screenshotsVideosEnabled: v.optional(v.boolean()),
 };
 
 export const conversationMessageValidator = v.object({
@@ -429,4 +439,15 @@ export const messageFields = {
   status: v.optional(queryConfirmationStatusValidator),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
+};
+
+export const queuedMessageFields = {
+  parentId: v.union(v.id("sessions"), v.id("designSessions")),
+  content: v.string(),
+  createdAt: v.number(),
+  mode: v.optional(sessionModeValidator),
+  model: v.optional(claudeModelValidator),
+  responseLength: v.optional(v.string()),
+  personaId: v.optional(v.id("designPersonas")),
+  numDesigns: v.optional(v.number()),
 };

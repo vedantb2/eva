@@ -432,7 +432,13 @@ async function prepareSessionSandboxInternal(
   const sessionVolumeMounts = await runLoggedSessionStep(
     "ensureSessionClaudeVolume",
     actionDetails,
-    () => ensureSessionClaudeVolume(daytona, args.sessionId),
+    () =>
+      ensureSessionClaudeVolume(
+        daytona,
+        args.repoId,
+        "sessions",
+        args.sessionId,
+      ),
   );
   const prepared = await runLoggedSessionStep(
     "createSessionSandboxAndPrepareRepo",
@@ -615,6 +621,8 @@ export const startDesignSandbox = internalAction({
 
       const designVolumeMounts = await ensureSessionClaudeVolume(
         daytona,
+        args.repoId,
+        "designSessions",
         args.designSessionId,
       );
 

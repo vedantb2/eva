@@ -1,5 +1,5 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { Spinner } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";

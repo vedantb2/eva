@@ -1,3 +1,40 @@
+import {
+  IconChecklist,
+  IconTerminal2,
+  IconPalette,
+  IconFileText,
+  IconLayoutKanban,
+  IconFlask,
+  IconTestPipe,
+  IconPlayerPlay,
+  IconBrain,
+} from "@tabler/icons-react";
+import type { ComponentType } from "react";
+
+const ENTITY_TYPE_ICONS: Record<
+  string,
+  ComponentType<{ size?: number; className?: string }>
+> = {
+  quickTask: IconChecklist,
+  session: IconTerminal2,
+  designSession: IconPalette,
+  doc: IconFileText,
+  project: IconLayoutKanban,
+  evaluation: IconFlask,
+  testGen: IconTestPipe,
+  automation: IconPlayerPlay,
+  researchQuery: IconBrain,
+  sessionAudit: IconTerminal2,
+  taskAudit: IconChecklist,
+  summarize: IconFileText,
+};
+
+export function iconFor(
+  entityType: string,
+): ComponentType<{ size?: number; className?: string }> {
+  return ENTITY_TYPE_ICONS[entityType] ?? IconFileText;
+}
+
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   quickTask: "Quick Tasks",
   session: "Sessions",

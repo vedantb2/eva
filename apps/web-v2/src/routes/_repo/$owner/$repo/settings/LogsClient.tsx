@@ -2,11 +2,15 @@
 
 import { useMemo, useCallback } from "react";
 import { useQueryState, useQueryStates } from "nuqs";
-import { useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { timeRangeParser, logEntityTypesParser } from "@/lib/search-params";
+import {
+  timeRangeParser,
+  logEntityTypesParser,
+  searchParser,
+} from "@/lib/search-params";
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
 import { Spinner } from "@conductor/ui";
 import { IconFileOff } from "@tabler/icons-react";
@@ -18,6 +22,7 @@ import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
 export function LogsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
+  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [{ entityTypes }, setEntityParams] = useQueryStates({
     entityTypes: logEntityTypesParser,
   });
@@ -47,6 +52,13 @@ export function LogsClient() {
     entityTypes: entityTypes.length > 0 ? entityTypes : undefined,
   });
 
+  const filteredLogs = useMemo(() => {
+    if (!logs) return undefined;
+    const query = (searchQuery ?? "").toLowerCase().trim();
+    if (!query) return logs;
+    return logs.filter((log) => log.entityTitle.toLowerCase().includes(query));
+  }, [logs, searchQuery]);
+
   const {
     totalCost,
     totalInput,
@@ -55,7 +67,7 @@ export function LogsClient() {
     grouped,
     availableTypes,
   } = useMemo(() => {
-    if (!logs)
+    if (!filteredLogs)
       return {
         totalCost: 0,
         totalInput: 0,
@@ -69,9 +81,12 @@ export function LogsClient() {
     let input = 0;
     let output = 0;
     let duration = 0;
-    const groups = new Map<string, { logs: typeof logs; total: number }>();
+    const groups = new Map<
+      string,
+      { logs: typeof filteredLogs; total: number }
+    >();
 
-    for (const log of logs) {
+    for (const log of filteredLogs) {
       const parsed = parseResultEvent(log.rawResultEvent);
       cost += parsed.costUsd;
       input += parsed.inputTokens;
@@ -101,13 +116,11 @@ export function LogsClient() {
       grouped: sorted,
       availableTypes: sorted.map((g) => g.type),
     };
-  }, [logs]);
+  }, [filteredLogs]);
 
   return (
     <PageWrapper
-      title={
-        logs !== undefined && logs.length > 0 ? `Logs (${logs.length})` : "Logs"
-      }
+      title="Logs"
       headerRight={
         <LogsHeader
           visibleTypes={visibleTypes}
@@ -115,14 +128,16 @@ export function LogsClient() {
           onTypeToggle={handleTypeToggle}
           timeRange={timeRange}
           onTimeRangeChange={setTimeRange}
+          searchQuery={searchQuery ?? ""}
+          onSearchChange={setSearchQuery}
         />
       }
     >
-      {logs === undefined ? (
+      {filteredLogs === undefined ? (
         <div className="flex items-center justify-center py-16">
           <Spinner size="lg" />
         </div>
-      ) : logs.length === 0 ? (
+      ) : filteredLogs.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
           <div className="rounded-xl bg-secondary p-3">
             <IconFileOff size={24} />

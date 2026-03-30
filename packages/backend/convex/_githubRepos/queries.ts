@@ -125,7 +125,7 @@ export const listByTeam = authQuery({
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
 
-    return repos;
+    return repos.filter((r) => r.hidden !== true);
   },
 });
 

@@ -142,27 +142,40 @@ export async function signAndLaunchScript(
     claudeSessionId?: string;
   } = {},
 ): Promise<void> {
-  const sandboxToken = await ctx.runAction(
-    internal.sandboxJwt.signSandboxToken,
-    { userId },
+  const launchStartedAt = Date.now();
+  console.log(
+    `[daytona][launch] signAndLaunchScript started entityId=${entityId} mutation=${completionMutation} repoId=${repoId} sandboxId=${sandbox.id}`,
   );
+  const sandboxTokenPromise = ctx
+    .runAction(internal.sandboxJwt.signSandboxToken, { userId })
+    .then((sandboxToken) => {
+      console.log(
+        `[daytona][launch] sandbox token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+      );
+      return sandboxToken;
+    });
+  const mcpTokenPromise = ctx
+    .runAction(internal.mcpTokenMinter.mintSandboxMcpToken, {
+      userId,
+      repoId,
+    })
+    .then((mcpToken) => {
+      console.log(
+        `[daytona][launch] MCP token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+      );
+      return mcpToken;
+    })
+    .catch((error) => {
+      console.warn(
+        `[mcp] Continuing without MCP config: ${errorMessage(error, "Failed to mint MCP token")}`,
+      );
+      return undefined;
+    });
 
-  let mcpToken:
-    | {
-        token: string;
-        expiresIn: number;
-      }
-    | undefined;
-  try {
-    mcpToken = await ctx.runAction(
-      internal.mcpTokenMinter.mintSandboxMcpToken,
-      { userId, repoId },
-    );
-  } catch (error) {
-    console.warn(
-      `[mcp] Continuing without MCP config: ${errorMessage(error, "Failed to mint MCP token")}`,
-    );
-  }
+  const [sandboxToken, mcpToken] = await Promise.all([
+    sandboxTokenPromise,
+    mcpTokenPromise,
+  ]);
 
   const mcpBaseUrl = mcpToken ? (process.env.MCP_BASE_URL ?? "") : "";
 
@@ -179,5 +192,8 @@ export async function signAndLaunchScript(
       mcpToken: mcpToken?.token,
       mcpBaseUrl,
     },
+  );
+  console.log(
+    `[daytona][launch] launchScript completed in ${Date.now() - launchStartedAt}ms entityId=${entityId} sandboxId=${sandbox.id}`,
   );
 }

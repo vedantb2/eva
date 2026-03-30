@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@conductor/ui";
 import { IconTrash, IconUserPlus } from "@tabler/icons-react";
+import { UserInitials } from "@conductor/shared";
 
 type Member = FunctionReturnType<typeof api.teamMembers.list>[number];
 
@@ -131,13 +132,16 @@ export function TeamMembersTab({
         {members.map((member) => (
           <Card key={member._id}>
             <CardContent className="flex items-center justify-between p-4">
-              <div>
-                <p className="text-sm font-medium">
-                  {member.user?.fullName || member.user?.email || "Unknown"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {member.user?.email}
-                </p>
+              <div className="flex items-center gap-3">
+                <UserInitials userId={member.userId} hideLastSeen size="md" />
+                <div>
+                  <p className="text-sm font-medium">
+                    {member.user?.fullName || member.user?.email || "Unknown"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {member.user?.email}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-secondary px-2 py-1 text-xs">

@@ -34,6 +34,7 @@ export function buildImplementationPrompt(
   branchName: string,
   isQuickTask: boolean,
   rootDirectory: string,
+  screenshotsVideosEnabled: boolean,
   changeRequests?: string[],
 ): string {
   const subtasksList =
@@ -63,23 +64,8 @@ ${changeRequests.map((r, i) => `${i + 1}. ${r}`).join("\n")}
 
 IMPORTANT: This task was already implemented. The branch "${branchName}" has commits from a previous run. Focus ONLY on addressing the change requests above. Do NOT redo work that was already completed successfully.\n`
       : "";
-
-  return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
-
-## Task: ${task.title}
-## Description: ${task.description || "No description provided"}
-${subtasksList}${changeRequestSection}
-
-## Steps:
-1. Read the files you plan to modify before editing them — understand existing code first
-2. Implement changes by editing source code files
-3. Run the build command to verify no build errors. If errors, fix and re-run (max 3 attempts — if still failing, commit what you have and report the error)
-4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
-5. Run: git push -u origin ${branchName}
-
-## Summary (REQUIRED):
-After pushing, write a brief summary of the changes you made and why.
-
+  const proofOfCompletionSection = screenshotsVideosEnabled
+    ? `
 ## Proof of Completion (REQUIRED):
 After pushing, capture visual proof of your changes using agent-browser.
 Assume proof is needed unless your changes are EXCLUSIVELY backend logic with no rendering impact (e.g. a cron job, a migration, an internal API rate limit).
@@ -100,10 +86,28 @@ Do NOT mention proof capture in your response or commit message.
 7. Always prefer recording a video walkthrough of the change, screenshot only if the change is very minor or hard to capture in video (e.g. a small text change). If in doubt, record a video.
 8. **Verify proof quality**: Review the screenshot/recording output. The capture must show the SPECIFIC UI element or behavior that changed — a generic page load is not sufficient. If the capture shows an error, loading spinner, or the old state, debug once and re-capture.
 9. Kill the dev server
-If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.
+If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.`
+    : "";
+
+  return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
+
+## Task: ${task.title}
+## Description: ${task.description || "No description provided"}
+${subtasksList}${changeRequestSection}
+
+## Steps:
+1. Read the files you plan to modify before editing them — understand existing code first
+2. Implement changes by editing source code files
+3. Run the build command to verify no build errors. If errors, fix and re-run (max 3 attempts — if still failing, commit what you have and report the error)
+4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
+5. Run: git push -u origin ${branchName}
+
+## Summary (REQUIRED):
+After pushing, write a brief summary of the changes you made and why.
+${proofOfCompletionSection}
 
 ## Rules:
-- Do NOT create .md plan files or run lint/dev commands (except the build/test steps above and dev server for proof)
+- Do NOT create .md plan files or run lint/dev commands (except the build/test steps above and dev server for proof when proof capture is enabled)
 - Use lockfile for package manager. GITHUB_TOKEN is set.
 - Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 60 npm run build\`, \`timeout 60 npm test\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
@@ -196,7 +200,7 @@ export function buildAuditPrompt(categories: AuditCategory[]): string {
   const sectionJson = categories
     .map(
       (s) =>
-        `    { "name": "${s.name}", "results": [{ "requirement": "...", "passed": true, "detail": "..." }] }`,
+        `    { "name": "${s.name}", "results": [{ "requirement": "...", "passed": true, "detail": "...", "severity": "medium" }] }`,
     )
     .join(",\n");
 
@@ -207,7 +211,13 @@ Focus ONLY on the changes in this branch — use git diff against the base branc
 ## Audit categories:
 ${sectionDescriptions}
 
-For each category, produce a list of findings. Each finding should have a requirement name, whether it passed, and a 1-sentence explanation.
+For each category, produce a list of findings. Each finding should have a requirement name, whether it passed, a 1-sentence explanation, and a severity level ("critical", "high", "medium", or "low").
+
+Severity guidelines:
+- **critical**: Security vulnerabilities, data loss risks, broken core functionality
+- **high**: Significant bugs, performance issues, accessibility violations
+- **medium**: Code quality issues, missing tests, minor bugs
+- **low**: Style issues, minor improvements, nice-to-haves
 
 When you are done, output ONLY valid JSON in this exact format:
 {

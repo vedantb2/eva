@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
@@ -230,6 +231,10 @@ export function QuickTasksListView({
                             isActive={selectedTaskId === task._id}
                             onToggleSelect={() => onToggleSelect(task._id)}
                             siblingApps={siblingApps ?? undefined}
+                            assignedTo={task.assignedTo}
+                            model={task.model}
+                            projectId={task.projectId}
+                            repoId={task.repoId ?? repoId}
                           />
                         ))}
                       </div>

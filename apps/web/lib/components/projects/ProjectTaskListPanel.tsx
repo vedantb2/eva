@@ -88,6 +88,10 @@ function SortableTaskWrapper({
           scheduledAt={task.scheduledAt}
           isActive={selectedTaskId === task._id}
           onClick={() => onSelectTask(task._id)}
+          assignedTo={task.assignedTo}
+          model={task.model}
+          projectId={task.projectId}
+          repoId={task.repoId}
         />
       </div>
     </div>
@@ -260,6 +264,10 @@ export function ProjectTaskListPanel({
                       scheduledAt={task.scheduledAt}
                       isActive={selectedTaskId === task._id}
                       onClick={() => onSelectTask(task._id)}
+                      assignedTo={task.assignedTo}
+                      model={task.model}
+                      projectId={task.projectId}
+                      repoId={task.repoId}
                     />
                   ))
                 )}

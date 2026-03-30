@@ -1,6 +1,8 @@
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Button,
@@ -28,6 +30,7 @@ import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
+import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
 import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
@@ -38,6 +41,10 @@ import {
   getSessionModel,
   useSessionModelSetter,
 } from "@/lib/hooks/useSessionSettings";
+
+type QueuedDesignMessage = NonNullable<
+  FunctionReturnType<typeof api.queuedMessages.listByParent>
+>[number];
 
 interface DesignChatPanelProps {
   designSessionId: Id<"designSessions">;
@@ -66,9 +73,15 @@ export function DesignChatPanel({
   const streaming = useQuery(api.streaming.get, {
     entityId: designSessionId,
   });
+  const queuedMessages = useQuery(api.queuedMessages.listByParent, {
+    parentId: designSessionId,
+  });
   const personas = useQuery(api.designPersonas.list, { repoId });
   const executeMessage = useMutation(api.designSessions.executeMessage);
+  const enqueueMessage = useMutation(api.designSessions.enqueueMessage);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
+  const updateQueuedMessage = useMutation(api.queuedMessages.update);
+  const deleteQueuedMessage = useMutation(api.queuedMessages.remove);
 
   const [isSending, setIsSending] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] =
@@ -91,8 +104,6 @@ export function DesignChatPanel({
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
-  const lastAssistantHasNoContent =
-    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
 
   useEffect(() => {
     if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
@@ -109,14 +120,17 @@ export function DesignChatPanel({
 
   const isExecuting = isSending || parentIsExecuting;
 
-  const submitStatus = isExecuting
-    ? lastAssistantHasNoContent
-      ? "streaming"
-      : "submitted"
-    : undefined;
-
   const handleSend = async (text: string) => {
     if (!text.trim() || !isSandboxActive) return;
+    if (isExecuting) {
+      await enqueueMessage({
+        id: designSessionId,
+        message: text.trim(),
+        personaId: selectedPersonaId,
+        numDesigns,
+      });
+      return;
+    }
     setIsSending(true);
     try {
       await executeMessage({
@@ -137,6 +151,26 @@ export function DesignChatPanel({
   const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
     await handleSend(text);
   };
+
+  const queuedMessageItems = useMemo(
+    () =>
+      (queuedMessages ?? []).map((message: QueuedDesignMessage) => {
+        const detailParts = [
+          message.personaId
+            ? (personaMap.get(message.personaId)?.name ?? "Persona")
+            : null,
+          typeof message.numDesigns === "number"
+            ? `${message.numDesigns} design${message.numDesigns === 1 ? "" : "s"}`
+            : null,
+        ].filter((part): part is string => Boolean(part));
+        return {
+          id: message._id,
+          content: message.content,
+          info: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
+        };
+      }),
+    [personaMap, queuedMessages],
+  );
 
   return (
     <div className="flex flex-col min-w-0 h-full">
@@ -262,6 +296,15 @@ export function DesignChatPanel({
         </Conversation>
         {!isArchived && (
           <div className="p-2 md:p-3">
+            <QueuedMessagesPanel
+              items={queuedMessageItems}
+              onEdit={async (id, content) => {
+                await updateQueuedMessage({ id, content });
+              }}
+              onDelete={async (id) => {
+                await deleteQueuedMessage({ id });
+              }}
+            />
             <PromptInput onSubmit={handlePromptSubmit}>
               <PromptInputTextarea
                 placeholder={
@@ -269,14 +312,14 @@ export function DesignChatPanel({
                     ? "Start the sandbox to begin designing..."
                     : "Describe the design you want..."
                 }
-                disabled={isExecuting || !isSandboxActive}
+                disabled={!isSandboxActive}
               />
               <PromptInputFooter>
                 <PromptInputTools>
                   <ModelSelect
                     value={model}
                     onValueChange={setModel}
-                    disabled={isExecuting || !isSandboxActive}
+                    disabled={!isSandboxActive}
                   />
                   <PersonaDropdown
                     repoId={repoId}
@@ -291,7 +334,7 @@ export function DesignChatPanel({
                       key={n}
                       type="button"
                       onClick={() => setNumDesigns(n)}
-                      disabled={isExecuting || !isSandboxActive}
+                      disabled={!isSandboxActive}
                       className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
                         numDesigns === n
                           ? "bg-primary text-primary-foreground"
@@ -303,16 +346,24 @@ export function DesignChatPanel({
                   ))}
                 </div>
                 <div className="flex items-center gap-1">
-                  <PromptInputSpeech
-                    disabled={isExecuting || !isSandboxActive}
-                  />
+                  <PromptInputSpeech disabled={!isSandboxActive} />
+                  {isExecuting ? (
+                    <Button
+                      size="icon-sm"
+                      type="button"
+                      variant="destructive"
+                      onClick={handleCancel}
+                      title="Stop Eva"
+                    >
+                      <IconPlayerStop className="size-4" />
+                    </Button>
+                  ) : null}
                   <PromptInputSubmit
-                    status={submitStatus}
-                    onStop={handleCancel}
-                    disabled={
-                      !submitStatus && (isExecuting || !isSandboxActive)
+                    status={
+                      isSending && !parentIsExecuting ? "submitted" : undefined
                     }
-                    title={submitStatus ? "Stop Eva" : "Send message"}
+                    disabled={!isSandboxActive}
+                    title={isExecuting ? "Queue message" : "Send message"}
                   />
                 </div>
               </PromptInputFooter>

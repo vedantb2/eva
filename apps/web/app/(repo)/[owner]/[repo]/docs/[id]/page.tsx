@@ -1,7 +1,7 @@
 "use client";
 
 import { use } from "react";
-import { useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { DocViewer } from "@/lib/components/docs/DocViewer";

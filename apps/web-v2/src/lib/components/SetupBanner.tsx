@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {

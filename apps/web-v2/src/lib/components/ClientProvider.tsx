@@ -1,10 +1,10 @@
 "use client";
 
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   ConvexReactClient,
   useConvexAuth,
   useMutation,
-  useQuery,
   AuthLoading,
   Authenticated,
 } from "convex/react";

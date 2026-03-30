@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import {
   Tooltip,
@@ -27,6 +28,7 @@ import {
   IconHammer,
   IconPlayerStop,
   IconLoader2,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
@@ -87,8 +89,21 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
 
   return (
     <PageWrapper
-      title={project.title}
-      showBack
+      title={
+        <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
+          <button
+            onClick={() => router.push(`${basePath}/projects`)}
+            className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
+          >
+            Projects
+          </button>
+          <IconChevronRight
+            size={14}
+            className="text-muted-foreground/50 flex-shrink-0"
+          />
+          <span className="truncate font-semibold">{project.title}</span>
+        </div>
+      }
       fillHeight
       childPadding={false}
       headerRight={

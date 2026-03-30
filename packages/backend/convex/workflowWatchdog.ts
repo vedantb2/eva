@@ -8,6 +8,10 @@ import {
   getProjectConversation,
   setProjectConversation,
 } from "./_projects/helpers";
+import {
+  startNextQueuedDesignMessage,
+  startNextQueuedSessionMessage,
+} from "./_queues/helpers";
 
 export const RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -61,6 +65,8 @@ export const handleStaleSession = internalMutation({
       updatedAt: Date.now(),
     });
 
+    await startNextQueuedSessionMessage(ctx, args.sessionId);
+
     return null;
   },
 });
@@ -89,6 +95,8 @@ export const handleStaleDesignSession = internalMutation({
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     });
+
+    await startNextQueuedDesignMessage(ctx, args.designSessionId);
 
     return null;
   },

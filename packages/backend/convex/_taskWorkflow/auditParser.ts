@@ -1,4 +1,10 @@
-type EvalResult = { requirement: string; passed: boolean; detail: string };
+type AuditSeverity = "critical" | "high" | "medium" | "low";
+type EvalResult = {
+  requirement: string;
+  passed: boolean;
+  detail: string;
+  severity?: AuditSeverity;
+};
 type AuditSection = { name: string; results: EvalResult[] };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -14,9 +20,25 @@ function isEvalResult(item: unknown): item is EvalResult {
   );
 }
 
+function parseSeverity(value: unknown): AuditSeverity {
+  if (value === "critical") return "critical";
+  if (value === "high") return "high";
+  if (value === "medium") return "medium";
+  if (value === "low") return "low";
+  return "medium";
+}
+
 function parseResultsArray(value: unknown): EvalResult[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isEvalResult);
+  return value.filter(isEvalResult).map((item) => {
+    if (!isRecord(item)) return item;
+    return {
+      requirement: String(item.requirement),
+      passed: Boolean(item.passed),
+      detail: String(item.detail),
+      severity: parseSeverity(item.severity),
+    };
+  });
 }
 
 export function parseSectionsFromJson(raw: unknown): AuditSection[] {

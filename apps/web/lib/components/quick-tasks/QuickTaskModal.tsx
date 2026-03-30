@@ -15,7 +15,8 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@conductor/ui";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";

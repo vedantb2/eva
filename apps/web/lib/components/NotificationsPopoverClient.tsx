@@ -1,6 +1,7 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRouter } from "next/navigation";
 import { useDisclosure } from "@/lib/hooks/use-disclosure";

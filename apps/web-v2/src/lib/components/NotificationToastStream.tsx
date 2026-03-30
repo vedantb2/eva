@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useMutation } from "convex/react";
 import { api, type Id } from "@conductor/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { Badge, Button, Card, CardContent } from "@conductor/ui";

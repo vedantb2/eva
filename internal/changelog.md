@@ -1,5 +1,72 @@
 # Changelog
 
+## Refresh watchdog heartbeats even when streaming payloads stay unchanged - 2026-03-31
+
+- **Why**: Long-running proof capture and other tool phases can sit on the same visible activity step for minutes. The callback was still sending heartbeats, but the `streamingActivity` row only updated `lastUpdatedAt` when the activity payload changed, so the watchdog could incorrectly kill a live run as "no heartbeat for 300s".
+- **Change**: Streaming heartbeat writes now always refresh `lastUpdatedAt`, even when `currentActivity` and `currentContent` are unchanged. The shared task-workflow helper now follows the same rule for internal streaming updates.
+- **Effect**: Quick-task runs stay alive during long but legitimate tool phases like `agent-browser` proof capture, instead of being treated as dead just because the visible step text did not change.
+
+## Add repo-level Screenshots and Videos toggle for quick-task proof capture - 2026-03-29
+
+- **Why**: Quick-task proof capture was always on, even for repos where agent-browser walkthroughs were unnecessary or undesirable, and the Proof tab had no way to explain that proof was intentionally disabled.
+- **Change**: Repo config now includes a per-app `Screenshots and Videos` toggle. Quick-task implementation prompts only include agent-browser proof instructions when that toggle is enabled, the sandbox callback stops writing fallback proof messages when proof capture is off, and the quick-task Proof tab shows a direct link back to Settings → Config when screenshots/videos are disabled and no proof exists.
+- **Effect**: Repos can opt out of visual proof capture without affecting sibling apps, quick tasks stop asking Eva to record walkthroughs when the feature is off, and the Proof tab now explains the disabled state instead of implying proof is still pending.
+
+## Polish queued chat controls and compact queue rows - 2026-03-29
+
+- **Why**: The initial queue rollout left design chats one step behind regular sessions, kept the in-composer stop control visually mismatched in some views, and let secondary queue metadata expand the queue into a noisier multi-line block.
+- **Change**: Design chats now use the same queued-message edit/delete mutations as regular sessions, their stop control matches the send button size, and queued metadata is tucked into an info tooltip so each queued prompt stays on a single compact row.
+- **Effect**: Both session types now share the same queue management affordances and the composer/queue area reads as a cleaner single-line control surface.
+
+## Decouple Claude session persistence from live config storage - 2026-03-29
+
+- **Why**: Mounting the Daytona S3/FUSE volume directly into Claude Code's live `~/.claude/projects` path made session shutdown unreliable and left `--session-id` runs stuck on "already in use" after sandbox restarts. The mount also could not replace `~/.claude` safely because the image bakes in settings and plugins there.
+- **Change**: Session sandboxes now mount one shared Daytona Claude volume per repo at a separate persistence path, then isolate regular sessions vs design sessions vs individual conversations with typed `subpath`s under that repo volume. Claude still runs with a local `CLAUDE_CONFIG_DIR`, hydrates persisted transcripts before each run, prefers `--resume` only for the exact saved session, and syncs session state back out explicitly with bounded copy operations.
+- **Startup polish**: The callback now invokes the preinstalled `claude` binary directly instead of `npx @anthropic-ai/claude-code`, and the startup UI now keeps a single "Starting Claude..." step whose detail explains whether Claude is launching, restoring saved context, or waiting for first output instead of showing multiple static startup labels.
+- **Phase clarity**: The callback now reports explicit lifecycle steps for prepare session, start Claude CLI, restore saved context, think, stream response text, and finalize completion so the UI reflects where latency is actually happening instead of collapsing everything into generic startup/writing states.
+- **Timing visibility**: Added detailed launch timing logs for sandbox-side prompt/script upload and runner readiness, plus callback-side hydrate, initial heartbeat, ready-file, spawn, init, first assistant event, first text block, and completion-path timings so slow session turns can be attributed to the correct layer.
+- **Launch path parallelism**: Sandbox token + MCP token minting now happen concurrently, and sandbox prompt/script/MCP-config uploads now happen concurrently before the runner starts, so repeat turns spend less time in avoidable serialized setup.
+- **Targeted session file copies**: Hydrate/sync now copy only the exact Claude transcript(s) referenced by the configured or active session plus `session-state.json`, instead of scanning and copying every transcript file in the persisted project directory on each turn.
+- **Faster completion handoff**: Successful runs now skip the redundant pre-completion `post-attempt` session sync when Claude has already emitted a `result` event and triggered the earlier sync, so the completion callback is no longer blocked on an extra FUSE-backed write before the UI can finish the turn.
+- **Live assistant text streaming**: The shared `streamingActivity` record now carries partial assistant text as `currentContent`, the callback streams Claude text chunks into that field during execution, and the sessions chat renders that partial text directly inside the pending assistant bubble instead of only showing activity steps until completion.
+- **Cancel preserves progress context**: User-cancelled session runs now keep the generic cancellation message but snapshot the latest live activity step into the saved assistant message before the transient streaming row is cleared, so stopping a run still shows where it got up to.
+- **Queued follow-up prompts**: Sessions and design chats now keep the prompt input active while a reply is running, store follow-up prompts in a shared backend queue table, and automatically dequeue the next prompt when the current run finishes, is cancelled, or times out. The chat footer now uses a dedicated queued-items panel built from shared AI Elements queue primitives, while stop remains a separate control from send.
+- **Effect**: Claude session context can survive sandbox recreation without clobbering baked-in config, transcript persistence no longer depends on Claude writing directly to the FUSE mount during process exit, and the design scales across many repos without a single global volume or per-session volume explosion.
+
+## Enable Convex query subscription caching - 2026-03-28
+
+- **Why**: `ConvexQueryCacheProvider` was already in the provider tree but all `useQuery` calls imported from `"convex/react"`, bypassing the cache entirely. Subscriptions were dropped and re-fetched on every navigation/unmount.
+- **Change**: Replaced all `useQuery` imports across both apps — from `"convex/react"` to `"convex-helpers/react/cache"` (web) / `"convex-helpers/react/cache/hooks"` (web-v2). Files that import other hooks (`useMutation`, `useAction`, etc.) keep those from `"convex/react"`.
+- **Effect**: Query subscriptions now persist for 5 minutes after unmount (default), giving instant data on back-navigation and view switches.
+
+## Replace task detail modal with route-based inline view - 2026-03-28
+
+- **Why**: Clicking a task in kanban view opened a modal dialog while list view showed an inline panel — inconsistent UX. Users wanted consistent navigation behavior.
+- **Change**: Clicking a task in ANY view (kanban or list) now navigates to `/quick-tasks/{taskId}` as a dedicated route, rendering `TaskDetailInline` as a full page with breadcrumb and prev/next navigation.
+- **Removed**: `TaskDetailModal` component (deleted from both apps), `taskIdParser` query param (replaced by path segment).
+- **New files**: `QuickTaskDetailClient` + route wrappers in both `apps/web` (Next.js `[taskId]/page.tsx`) and `apps/web-v2` (TanStack `$taskId.tsx`).
+- **Scope**: Both apps/web and apps/web-v2.
+
+## Rich right-click context menus for project & task cards - 2026-03-28
+
+- **Why**: Context menus were bare-bones (2-3 options). Users needed Linear-style quick access to change fields without opening detail views.
+- **QuickTaskCard menu**: Status (radio submenu), Assignee (radio submenu with "Assign to me"), Model (radio submenu, locked after execution), Project (radio submenu), Move to app, Copy title, Copy task link, Delete.
+- **ProjectCard menu**: Phase (radio submenu), Project Lead (radio submenu with "Set myself"), View Branch, Edit Details, Copy title, Copy branch name, Delete. Phase/Lead disabled for non-owners.
+- **Uses**: `ContextMenuRadioGroup`/`ContextMenuRadioItem` primitives that existed in the UI package but were never used.
+- **Parent updates**: All card parents now pass new props (assignedTo, model, projectId, repoId for tasks; phase for projects).
+- **Scope**: Both apps/web and apps/web-v2 — QuickTaskCard, ProjectCard, and their parent components.
+
+## User-driven audit fixes with severity badges - 2026-03-28
+
+- **Why**: Audit fixes were fully automatic — the workflow detected failures, applied fixes, and re-audited without user input. For quick tasks this removed control over what gets changed. Users should review audit results and choose which failures to fix.
+- **Workflow change**: Removed auto-fix and re-audit logic from `taskExecutionWorkflow`. Audit still runs automatically; failures are displayed but not acted on.
+- **New mutation**: `audits.runSelectedFixes` — accepts an audit ID and array of selected failures with severity. Sets `fixStatus=fixing`, spins up or reuses sandbox, launches fix agent with only the selected items.
+- **New action**: `daytona.launchSelectedAuditFixes` — validates/creates sandbox, builds fix prompt from selected failures, launches sonnet with write tools.
+- **Completion handler**: `handleAuditFixCompletion` now directly updates the audit record instead of sending a workflow event (since the workflow has already finished).
+- **Severity levels**: Audit results now include severity (critical/high/medium/low). Prompts instruct the auditor to classify findings. Parser defaults to "medium" for old data. UI shows color-coded severity badges (matching automation findings style) and sorts failures/results by severity (critical first).
+- **UI**: `AuditSection` shows checkboxes next to each failed requirement with severity badge, "Select all" toggle, and "Run Fixes (N)" button. Results sorted: failures before passes, then by severity within each group.
+- **Scope**: Backend validators + workflow + mutations + actions + parser, both frontends (web-v2 + web).
+
 ## Remove installationId from client-facing API surface - 2026-03-23
 
 - **Why**: Two deployments (work + personal) share the same GitHub App credentials. Public mutations/actions accepted `installationId` directly from the client without DB validation, allowing any authenticated user to request GitHub tokens for arbitrary installations — cross-deployment leakage.

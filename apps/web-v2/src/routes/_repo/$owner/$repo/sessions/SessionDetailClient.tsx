@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useCallback, useState } from "react";
@@ -13,6 +14,9 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
   const typedSessionId = sessionId as Id<"sessions">;
   const session = useQuery(api.sessions.get, { id: typedSessionId });
   const messages = useQuery(api.messages.listByParent, {
+    parentId: typedSessionId,
+  });
+  const queuedMessages = useQuery(api.queuedMessages.listByParent, {
     parentId: typedSessionId,
   });
   const streaming = useQuery(api.streaming.get, { entityId: typedSessionId });
@@ -79,8 +83,10 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           prUrl={session.prUrl}
           summary={session.summary}
           messages={messages ?? []}
+          queuedMessages={queuedMessages ?? []}
           planContent={session.planContent}
           streamingActivity={streaming?.currentActivity}
+          streamingContent={streaming?.currentContent}
           summaryStreamingActivity={summaryStreaming?.currentActivity}
           isSandboxActive={isSandboxActive}
           isSandboxToggling={isSandboxStarting || isStopPending}

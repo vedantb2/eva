@@ -13,6 +13,7 @@ import {
   TimeRangeFilter,
   type TimeRange,
 } from "@/lib/components/analytics/TimeRangeFilter";
+import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { labelFor } from "../_utils";
 
 interface LogsHeaderProps {
@@ -21,6 +22,8 @@ interface LogsHeaderProps {
   onTypeToggle: (type: string, allTypes: string[]) => void;
   timeRange: TimeRange;
   onTimeRangeChange: (value: TimeRange) => void;
+  searchQuery: string;
+  onSearchChange: (value: string | null) => void;
 }
 
 export function LogsHeader({
@@ -29,11 +32,19 @@ export function LogsHeader({
   onTypeToggle,
   timeRange,
   onTimeRangeChange,
+  searchQuery,
+  onSearchChange,
 }: LogsHeaderProps) {
   const filterActive = visibleTypes.size > 0;
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
+      <ToggleSearch
+        value={searchQuery}
+        onChange={onSearchChange}
+        placeholder="Search logs..."
+        tooltipLabel="Search logs"
+      />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="secondary" size="sm" className="motion-press">

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Command } from "cmdk";
 import { Dialog, DialogContent } from "@conductor/ui";
 import { useNavigate } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useSearch } from "@/lib/contexts/SearchContext";

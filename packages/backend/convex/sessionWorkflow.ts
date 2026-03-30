@@ -4,9 +4,14 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
-import { sessionModeValidator, workflowCompleteValidator } from "./validators";
+import {
+  claudeModelValidator,
+  sessionModeValidator,
+  workflowCompleteValidator,
+} from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import { startNextQueuedSessionMessage } from "./_queues/helpers";
 import {
   buildRootDirectoryInstruction,
   getResponseLengthInstruction,
@@ -22,7 +27,7 @@ const sessionCompleteEvent = defineEvent({
 // --- Mode config ---
 
 const MODE_TOOLS: Record<"ask" | "plan" | "execute", string> = {
-  ask: "Read,Glob,Grep",
+  ask: "Read,Glob,Grep,Bash",
   plan: "Read,Write,Glob,Grep",
   execute: "Read,Write,Edit,Bash,Glob,Grep",
 };
@@ -33,7 +38,6 @@ const WORKSPACE_DIR = "/workspace/repo";
 
 function buildAskPrompt(
   repo: { owner: string; name: string },
-  conversationHistory: string,
   message: string,
   responseLength: string,
   rootDirectory: string,
@@ -42,16 +46,14 @@ function buildAskPrompt(
 
 Repository: ${repo.owner}/${repo.name}
 
-Previous conversation:
-${conversationHistory || "None"}
-
 Question: ${message}
 
-Use Glob, Grep, Read to find information.
+You have full access to this machine. Use Glob, Grep, Read to explore code, and Bash to run commands (check logs, curl endpoints, inspect running services, etc). Do NOT modify any files.
 
 Response rules:
-- Write for someone who does NOT know programming
-- If you mention a file, just say the filename without the full path
+- Write for a non-technical audience — explain in business and product terms, not code or implementation
+- Never include code snippets, file paths, function names, or technical jargon
+- You may casually reference parts of the product (e.g. "the login page", "the settings screen") but not source files
 - Use markdown formatting: headers, bullet points, tables where they aid clarity
 - When explaining architecture, data flow, or relationships, use a mermaid diagram (fenced \`\`\`mermaid block) to visualise it — this helps non-technical users understand at a glance
 - Keep explanations concise and jargon-free; diagrams can replace lengthy prose${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
@@ -59,7 +61,6 @@ Response rules:
 
 function buildPlanPrompt(
   repo: { owner: string; name: string },
-  conversationHistory: string,
   existingPlan: string,
   message: string,
   responseLength: string,
@@ -68,9 +69,6 @@ function buildPlanPrompt(
   return `You are a product planning assistant helping define a PRD for a feature or change.
 
 ## Repository: ${repo.owner}/${repo.name}
-
-## Previous Conversation:
-${conversationHistory || "None"}
 
 ## Current plan.md:
 ${existingPlan || "No plan created yet."}
@@ -103,7 +101,7 @@ function buildExecutePrompt(
   const planContext = planContent
     ? `\n\n## Approved Product Plan:\n${planContent}\n\nUse this plan as context for what to build and why. Follow the goals, user stories, and acceptance criteria defined above.`
     : "";
-  return `You are working on an ongoing session.
+  return `You are working on an ongoing session. You have full admin access to this sandboxed machine — install packages, run dev servers, execute any commands you need.
 
 ## User Request:
 ${message}
@@ -127,7 +125,9 @@ You are already on branch "${branchName}". All work MUST stay on this branch.${p
 - NEVER commit image or video files
 - Make minimal, focused changes
 - Use the lockfile for package manager. GITHUB_TOKEN is set for git operations.
-- Do NOT mention file paths, commit status, or process meta-commentary in your response
+- Frame your response as a business outcome with light technical context (e.g. "Added dark mode toggle to settings. Changes pushed to branch.")
+- Never include code snippets, file paths, function names, or implementation details in your response
+- Do NOT mention commit hashes, process meta-commentary, or internal tooling steps
 - For browser interaction (screenshots, visual proof), use the agent-browser skill. Before using agent-browser, check CDP: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. If CDP: use \`agent-browser --cdp 9222\` for all commands (skip \`set viewport\`, VNC Chrome is already 1920x1080). If NO_CDP: run \`agent-browser set viewport 1920 1080\` first. Always use \`--annotate\` for screenshots. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
@@ -144,7 +144,7 @@ export const sessionExecuteWorkflow = workflow.define({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeArgValidator,
-    model: v.string(),
+    model: claudeModelValidator,
     responseLength: v.string(),
     userId: v.id("users"),
     installationId: v.number(),
@@ -274,7 +274,7 @@ export const getSessionData = internalQuery({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeArgValidator,
-    model: v.string(),
+    model: claudeModelValidator,
     responseLength: v.string(),
   },
   returns: v.object({
@@ -286,7 +286,7 @@ export const getSessionData = internalQuery({
     branchName: v.optional(v.string()),
     baseBranch: v.string(),
     allowedTools: v.string(),
-    model: v.string(),
+    model: claudeModelValidator,
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -302,22 +302,10 @@ export const getSessionData = internalQuery({
         ? undefined
         : session.branchName || `eva/session-${args.sessionId}`;
 
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
-      .collect();
-
-    const conversationHistory = messages
-      .filter((m) => m.mode === args.mode)
-      .slice(-10)
-      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-      .join("\n\n");
-
     let prompt: string;
     if (args.mode === "ask") {
       prompt = buildAskPrompt(
         { owner: repo.owner, name: repo.name },
-        conversationHistory,
         args.message,
         args.responseLength,
         rootDirectory,
@@ -325,7 +313,6 @@ export const getSessionData = internalQuery({
     } else if (args.mode === "plan") {
       prompt = buildPlanPrompt(
         { owner: repo.owner, name: repo.name },
-        conversationHistory,
         session.planContent || "",
         args.message,
         args.responseLength,
@@ -393,6 +380,9 @@ export const saveResult = internalMutation({
   handler: async (ctx, args) => {
     await clearStreamingActivity(ctx, String(args.sessionId));
 
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
@@ -427,6 +417,7 @@ export const saveResult = internalMutation({
       sessionPatch.planContent = args.planContent;
     }
     await ctx.db.patch(args.sessionId, sessionPatch);
+    await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
 });
@@ -442,10 +433,15 @@ export const handleCompletion = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const completionStartedAt = Date.now();
     const session = await ctx.db.get(args.sessionId);
     if (!session || !session.activeWorkflowId) return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
+
+    console.log(
+      `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,
+    );
 
     await workflow.sendEvent(ctx, {
       ...sessionCompleteEvent,
@@ -467,6 +463,10 @@ export const handleCompletion = authMutation({
       createdAt: Date.now(),
     });
 
+    console.log(
+      `[sessionWorkflow] handleCompletion finished in ${Date.now() - completionStartedAt}ms sessionId=${args.sessionId}`,
+    );
+
     return null;
   },
 });
@@ -476,7 +476,7 @@ export const startExecute = authMutation({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeValidator,
-    model: v.string(),
+    model: claudeModelValidator,
     responseLength: v.string(),
   },
   returns: v.null(),
@@ -525,6 +525,37 @@ export const startExecute = authMutation({
   },
 });
 
+export const enqueueMessage = authMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    message: v.string(),
+    mode: sessionModeValidator,
+    model: claudeModelValidator,
+    responseLength: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const content = args.message.trim();
+    if (!content) return null;
+
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+
+    await ctx.db.insert("queuedMessages", {
+      parentId: args.sessionId,
+      content,
+      createdAt: Date.now(),
+      mode: args.mode,
+      model: args.model,
+      responseLength: args.responseLength,
+    });
+    await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
+    return null;
+  },
+});
+
 export const cancelExecution = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -547,15 +578,31 @@ export const cancelExecution = authMutation({
       });
     }
 
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
+      .first();
+
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
       .order("desc")
       .first();
-    if (last && last.role === "assistant" && !last.content) {
-      await ctx.db.patch(last._id, {
-        content: "Execution cancelled by user.",
-      });
+    if (last && last.role === "assistant") {
+      const patch: {
+        content?: string;
+        activityLog?: string;
+        finishedAt: number;
+      } = {
+        finishedAt: Date.now(),
+      };
+      if (!last.content) {
+        patch.content = "Execution cancelled by user.";
+      }
+      if (streaming?.currentActivity) {
+        patch.activityLog = streaming.currentActivity;
+      }
+      await ctx.db.patch(last._id, patch);
     }
 
     await clearStreamingActivity(ctx, String(args.sessionId));
@@ -564,6 +611,8 @@ export const cancelExecution = authMutation({
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     });
+
+    await startNextQueuedSessionMessage(ctx, args.sessionId);
 
     return null;
   },

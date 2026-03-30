@@ -164,7 +164,7 @@ export function TeamReposTab({
           <Card key={repo._id}>
             <CardContent className="flex items-center justify-between p-3 sm:p-4">
               <div className="flex items-center gap-2">
-                <IconGitBranch size={16} className="text-muted-foreground" />
+                <IconGitBranch size={20} className="text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">
                     {repo.rootDirectory

@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
@@ -12,7 +13,6 @@ import { IconChecks, IconInbox } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { inboxFilterParser } from "@/lib/search-params";
 import {
-  typeConfig,
   NotificationIcon,
   type Notification,
 } from "@/lib/components/notifications/notification-config";
@@ -149,58 +149,36 @@ export function InboxClient() {
                     {group.label}
                   </span>
                 </div>
-                {group.items.map((n, index) => {
-                  const config = typeConfig[n.type];
-                  return (
-                    <motion.div
-                      key={n._id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{
-                        duration: 0.15,
-                        delay: Math.min(index * 0.02, 0.1),
-                      }}
+                {group.items.map((n, index) => (
+                  <motion.div
+                    key={n._id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{
+                      duration: 0.15,
+                      delay: Math.min(index * 0.02, 0.1),
+                    }}
+                  >
+                    <button
+                      onClick={() => handleClick(n)}
+                      className={`group flex w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-100 hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50 sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
                     >
-                      <button
-                        onClick={() => handleClick(n)}
-                        className={`group flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors duration-100 hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50 sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
-                      >
-                        <div className="flex w-3 items-center justify-center flex-shrink-0">
-                          {!n.read && (
-                            <span className="h-2 w-2 rounded-full bg-primary" />
-                          )}
-                        </div>
-                        <NotificationIcon type={n.type} size="sm" />
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs font-medium truncate block sm:text-sm">
-                            {n.title}
-                          </span>
-                          {n.message && (
-                            <span className="text-[11px] text-muted-foreground truncate block sm:text-xs">
-                              {n.message}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <Badge
-                            variant={config.badgeVariant}
-                            className="text-[10px] px-1.5 py-0 h-4 hidden sm:inline-flex"
-                          >
-                            {config.label}
-                          </Badge>
-                          <span className="text-[10px] text-muted-foreground tabular-nums sm:text-xs">
-                            {dayjs(n.createdAt).format(
-                              dayjs(n.createdAt).isSame(dayjs(), "day")
-                                ? "h:mm A"
-                                : "MMM D",
-                            )}
-                          </span>
-                        </div>
-                      </button>
-                    </motion.div>
-                  );
-                })}
+                      <div className="flex w-3 items-center justify-center flex-shrink-0">
+                        {!n.read && (
+                          <span className="h-2 w-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <NotificationIcon type={n.type} size="sm" />
+                      <span className="flex-1 min-w-0 text-xs font-medium truncate sm:text-sm">
+                        {n.title}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums flex-shrink-0 sm:text-xs">
+                        {dayjs(n.createdAt).fromNow()}
+                      </span>
+                    </button>
+                  </motion.div>
+                ))}
               </motion.div>
             ))}
           </AnimatePresence>

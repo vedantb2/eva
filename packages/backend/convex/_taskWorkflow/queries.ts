@@ -25,6 +25,7 @@ export const getTaskData = internalQuery({
     hasSubtasks: v.boolean(),
     deploymentProjectName: v.optional(v.string()),
     rootDirectory: v.string(),
+    screenshotsVideosEnabled: v.boolean(),
     auditCategories: v.array(
       v.object({ name: v.string(), description: v.string() }),
     ),
@@ -62,6 +63,11 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
+    const screenshotsVideosEnabled =
+      args.projectId === undefined
+        ? (repo.screenshotsVideosEnabled ?? true)
+        : true;
+
     const prompt =
       args.mode === "resolve_conflicts"
         ? buildConflictResolutionPrompt(
@@ -75,6 +81,7 @@ export const getTaskData = internalQuery({
             branchName,
             !args.projectId,
             rootDirectory,
+            screenshotsVideosEnabled,
             changeRequests.length > 0 ? changeRequests : undefined,
           );
 
@@ -106,6 +113,7 @@ export const getTaskData = internalQuery({
       hasSubtasks: sortedSubtasks.length > 0,
       deploymentProjectName: repo.deploymentProjectName,
       rootDirectory,
+      screenshotsVideosEnabled,
       auditCategories: enabledCategories,
     };
   },

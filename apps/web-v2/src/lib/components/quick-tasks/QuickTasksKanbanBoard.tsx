@@ -1,6 +1,7 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
@@ -129,6 +130,10 @@ export function QuickTasksKanbanBoard({
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
             onToggleSelect={() => onToggleSelect(task._id)}
+            assignedTo={task.assignedTo}
+            model={task.model}
+            projectId={task.projectId}
+            repoId={task.repoId ?? repoId}
           />
         )}
         renderOverlay={(task) => (
@@ -147,6 +152,10 @@ export function QuickTasksKanbanBoard({
             siblingApps={siblingApps ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
+            assignedTo={task.assignedTo}
+            model={task.model}
+            projectId={task.projectId}
+            repoId={task.repoId ?? repoId}
           />
         )}
       />

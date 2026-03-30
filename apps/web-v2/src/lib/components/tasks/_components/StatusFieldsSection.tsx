@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Doc, Id } from "@conductor/backend";
@@ -27,7 +27,7 @@ import {
   IconTags,
   IconGitBranch,
   IconInfoCircle,
-  IconBrandVercel,
+  IconBrandVercelFilled,
 } from "@tabler/icons-react";
 import {
   statusConfig,
@@ -75,30 +75,37 @@ export function StatusFieldsSection({
 }: StatusFieldsSectionProps) {
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
-  const [tagsInput, setTagsInput] = useState("");
-  const tagsInputRef = useRef<HTMLInputElement>(null);
+  const [tagDraft, setTagDraft] = useState("");
+  const tagDraftRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    setTagsInput((task?.tags ?? []).join(", "));
-  }, [task?.tags]);
+  const addTag = async (raw: string) => {
+    const value = raw.trim();
+    if (!value || !task) return;
+    const current = task.tags ?? [];
+    if (current.includes(value)) return;
+    await updateTask({ id: taskId, tags: [...current, value] });
+  };
 
-  const handleSaveTags = async () => {
+  const removeTag = async (tag: string) => {
     if (!task) return;
-    const nextTags = Array.from(
-      new Set(
-        tagsInput
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-      ),
-    );
-    const currentTags = task.tags ?? [];
+    const next = (task.tags ?? []).filter((t) => t !== tag);
+    await updateTask({ id: taskId, tags: next });
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if ((e.key === "Enter" || e.key === ",") && tagDraft.trim()) {
+      e.preventDefault();
+      void addTag(tagDraft);
+      setTagDraft("");
+    }
     if (
-      nextTags.length === currentTags.length &&
-      nextTags.every((tag, i) => tag === currentTags[i])
-    )
-      return;
-    await updateTask({ id: taskId, tags: nextTags });
+      e.key === "Backspace" &&
+      tagDraft === "" &&
+      (task?.tags?.length ?? 0) > 0
+    ) {
+      const tags = task?.tags ?? [];
+      void removeTag(tags[tags.length - 1]);
+    }
   };
 
   const projectOptions = projects ?? [];
@@ -244,34 +251,41 @@ export function StatusFieldsSection({
 
       <div
         className="group/tags flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1 flex-wrap cursor-text"
-        onClick={() => tagsInputRef.current?.focus()}
+        onClick={() => tagDraftRef.current?.focus()}
       >
         <IconTags size={14} className="text-muted-foreground shrink-0" />
         {task?.tags?.map((tag) => (
-          <Badge key={tag} variant="outline" className="text-xs h-5">
+          <Badge
+            key={tag}
+            variant="outline"
+            className="text-xs h-5 gap-0.5 pr-0.5 group/tag"
+          >
             {tag}
+            <button
+              type="button"
+              className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
+              onClick={(e) => {
+                e.stopPropagation();
+                void removeTag(tag);
+              }}
+            >
+              ×
+            </button>
           </Badge>
         ))}
-        {(task?.tags?.length ?? 0) === 0 && (
-          <span className="text-[13px] text-muted-foreground group-focus-within/tags:hidden">
-            Tags
-          </span>
-        )}
         <Input
-          ref={tagsInputRef}
-          value={tagsInput}
-          placeholder="Add tag..."
-          className="h-7 border-0 shadow-none bg-transparent px-0 focus-visible:ring-0 text-[13px] min-w-16 flex-1 placeholder:text-muted-foreground hidden group-focus-within/tags:block"
-          onChange={(e) => setTagsInput(e.target.value)}
+          ref={tagDraftRef}
+          value={tagDraft}
+          placeholder={(task?.tags?.length ?? 0) === 0 ? "Tags" : "Add tag..."}
+          className="h-7 border-0 shadow-none bg-transparent px-0 focus-visible:ring-0 text-[13px] min-w-16 flex-1 placeholder:text-muted-foreground"
+          onChange={(e) => setTagDraft(e.target.value)}
           onBlur={() => {
-            void handleSaveTags();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              void handleSaveTags();
+            if (tagDraft.trim()) {
+              void addTag(tagDraft);
+              setTagDraft("");
             }
           }}
+          onKeyDown={handleTagKeyDown}
         />
       </div>
 
@@ -349,12 +363,12 @@ export function StatusFieldsSection({
 
       {latestDeployment?.deploymentStatus && (
         <div className="flex items-center h-10 rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
-          <IconBrandVercel size={14} className="text-muted-foreground" />
-          <span
-            className={`h-2 w-2 rounded-full shrink-0 ${
+          <IconBrandVercelFilled
+            size={14}
+            className={
               DEPLOYMENT_STATUS_CONFIG[latestDeployment.deploymentStatus]
-                ?.color ?? "bg-gray-500"
-            }`}
+                ?.iconColor ?? "text-muted-foreground"
+            }
           />
           <span>
             {DEPLOYMENT_STATUS_CONFIG[latestDeployment.deploymentStatus]

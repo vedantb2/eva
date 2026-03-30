@@ -6,6 +6,7 @@ import {
   auditSectionValidator,
   evalFixStatusValidator,
   activityLogTypeValidator,
+  auditSeverityValidator,
 } from "./validators";
 import { authQuery, authMutation, hasTaskAccess } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
@@ -236,6 +237,73 @@ export const fail = internalMutation({
       error: args.error,
       completedAt: Date.now(),
     });
+    return null;
+  },
+});
+
+const auditFailureValidator = v.object({
+  section: v.string(),
+  requirement: v.string(),
+  detail: v.string(),
+  severity: auditSeverityValidator,
+});
+
+export const runSelectedFixes = authMutation({
+  args: {
+    auditId: v.id("audits"),
+    selectedFailures: v.array(auditFailureValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (args.selectedFailures.length === 0) {
+      throw new Error("No failures selected");
+    }
+
+    const audit = await ctx.db.get(args.auditId);
+    if (!audit) throw new Error("Audit not found");
+    if (audit.status !== "completed") throw new Error("Audit not completed");
+    if (audit.fixStatus === "fixing")
+      throw new Error("Fix already in progress");
+
+    const runId = audit.runId;
+    if (!runId) throw new Error("Audit has no associated run");
+
+    const run = await ctx.db.get(runId);
+    if (!run) throw new Error("Run not found");
+
+    const task = await ctx.db.get(run.taskId);
+    if (!task) throw new Error("Task not found");
+
+    if (!(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+
+    const taskId = task._id;
+    const repoId = task.repoId;
+    if (!repoId) throw new Error("Task has no repo");
+
+    const repo = await ctx.db.get(repoId);
+    if (!repo) throw new Error("Repo not found");
+
+    await ctx.db.patch(args.auditId, { fixStatus: "fixing" });
+
+    const branchName = `eva/task-${String(taskId)}`;
+
+    await ctx.scheduler.runAfter(0, internal.daytona.launchSelectedAuditFixes, {
+      auditId: args.auditId,
+      selectedFailures: args.selectedFailures,
+      sandboxId: run.sandboxId,
+      taskId: String(taskId),
+      runId,
+      userId: ctx.userId,
+      repoId,
+      installationId: repo.installationId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName,
+      rootDirectory: repo.rootDirectory ?? "",
+    });
+
     return null;
   },
 });

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {

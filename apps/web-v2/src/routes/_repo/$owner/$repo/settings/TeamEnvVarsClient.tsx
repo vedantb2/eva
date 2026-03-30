@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useMutation, useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import { Card, CardContent } from "@conductor/ui";
 import { Link } from "@tanstack/react-router";

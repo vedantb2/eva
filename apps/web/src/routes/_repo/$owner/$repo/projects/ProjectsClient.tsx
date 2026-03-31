@@ -30,6 +30,7 @@ import {
   IconSortDescending,
   IconTimeline,
   IconList,
+  IconTable,
 } from "@tabler/icons-react";
 import {
   PROJECT_PHASES,
@@ -38,6 +39,7 @@ import {
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
 import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
+import { ProjectsTableView } from "@/lib/components/projects/ProjectsTableView";
 import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
 import { SORT_FIELDS, type SortField } from "./_components/ProjectsToolbar";
@@ -49,7 +51,7 @@ import {
   projectViewParser,
 } from "@/lib/search-params";
 
-type ProjectView = "kanban" | "timeline" | "list";
+type ProjectView = "kanban" | "timeline" | "list" | "table";
 
 const VIEW_OPTIONS: {
   key: ProjectView;
@@ -59,6 +61,7 @@ const VIEW_OPTIONS: {
   { key: "kanban", icon: IconLayoutKanban, label: "Kanban view" },
   { key: "timeline", icon: IconTimeline, label: "Timeline view" },
   { key: "list", icon: IconList, label: "List view" },
+  { key: "table", icon: IconTable, label: "Table view" },
 ];
 
 function isSortField(value: string): value is SortField {
@@ -334,6 +337,21 @@ export function ProjectsClient() {
                   <ProjectsTimeline
                     projects={filteredSorted}
                     basePath={basePath}
+                  />
+                </motion.div>
+              ) : view === "table" ? (
+                <motion.div
+                  key="projects-table-view"
+                  className="flex flex-1 min-h-0"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ProjectsTableView
+                    projects={filteredSorted}
+                    onOpenProject={handleOpenProject}
+                    onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
                 </motion.div>
               ) : (

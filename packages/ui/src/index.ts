@@ -28,6 +28,7 @@ export * from "./ui/sheet";
 export * from "./ui/spinner";
 export * from "./ui/tabs";
 export * from "./ui/textarea";
+export * from "./ui/table";
 export * from "./ui/tooltip";
 
 export * from "./ai-elements/artifact";

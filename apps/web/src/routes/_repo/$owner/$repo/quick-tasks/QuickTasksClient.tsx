@@ -16,6 +16,7 @@ import {
 } from "@/lib/components/quick-tasks";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
+import { QuickTasksTableView } from "@/lib/components/quick-tasks/QuickTasksTableView";
 import {
   searchParser,
   quickTaskViewParser,
@@ -143,7 +144,9 @@ export function QuickTasksClient() {
         headerRight={
           <QuickTasksToolbar
             view={view}
-            onViewChange={(v: "kanban" | "list") => setParams({ view: v })}
+            onViewChange={(v: "kanban" | "list" | "table") =>
+              setParams({ view: v })
+            }
             searchQuery={searchQuery}
             onSearchChange={(v) => setParams({ q: v })}
             hasQuickTasks={hasAnyTasks}
@@ -190,6 +193,24 @@ export function QuickTasksClient() {
                 transition={{ duration: 0.2 }}
               >
                 <QuickTasksKanbanBoard
+                  tasks={quickTasks}
+                  projectNames={projectNames}
+                  isSelecting={isSelecting}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  onOpenTask={handleOpenTask}
+                />
+              </motion.div>
+            ) : view === "table" ? (
+              <motion.div
+                key="quick-tasks-table"
+                className="flex min-w-0 flex-1 min-h-0"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <QuickTasksTableView
                   tasks={quickTasks}
                   projectNames={projectNames}
                   isSelecting={isSelecting}

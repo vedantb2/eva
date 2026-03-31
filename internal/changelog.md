@@ -1,5 +1,17 @@
 # Changelog
 
+## Add table view to Quick Tasks and Projects - 2026-03-31
+
+- **Why**: Users wanted a dense, sortable view for tasks and projects. Table view shows all key fields as columns with sortable headers.
+- **Changes**:
+  - **New dep `@tanstack/react-table`**: Powers column definitions, sorting, and row model.
+  - **New `packages/ui/src/ui/table.tsx`**: Shadcn table primitive (Table, TableHeader, TableBody, TableRow, TableHead, TableCell).
+  - **New `packages/ui/src/kibo/data-table.tsx`**: Forked kibo table, replaced jotai with props-based sorting (`sorting`/`onSortingChange`). Compound components: `DataTableProvider`, `DataTableHeader`, `DataTableHeaderGroup`, `DataTableHead`, `DataTableColumnHeader`, `DataTableBody`, `DataTableRow`, `DataTableCell`.
+  - **New `QuickTasksTableView.tsx`**: Columns: Title, Status, Project, Tags, Assigned, Model, Created. Click-to-open + selection mode support.
+  - **New `ProjectsTableView.tsx`**: Columns: Title, Phase, Description, Lead, Members, Branch, Created. Click-to-open.
+  - **Updated search-params**: Added "table" to `quickTaskViews` and `projectViews` parsers.
+  - **Updated QuickTasksClient/Toolbar + ProjectsClient**: Added table view toggle button (IconTable) and rendering branch.
+
 ## Migrate QuickTasks list view to Kibo List with drag-and-drop - 2026-03-31
 
 - **Why**: QuickTasks list view was a static collapsible list with no DnD. Now uses kibo's `ListProvider`/`ListGroup`/`ListItem` primitives, adding drag-and-drop between status groups. Externalizes DnD wiring to maintained kibo components.

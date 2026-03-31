@@ -100,3 +100,24 @@ export {
   type GanttFeatureItemCardProps,
   type GanttFeatureDragHelperProps,
 } from "./gantt-features";
+
+export {
+  DataTableProvider,
+  DataTableHead,
+  DataTableHeaderGroup,
+  DataTableHeader,
+  DataTableColumnHeader,
+  DataTableCell,
+  DataTableRow,
+  DataTableBody,
+  type DataTableProviderProps,
+  type DataTableRenderContext,
+  type DataTableHeadProps,
+  type DataTableHeaderGroupProps,
+  type DataTableHeaderProps,
+  type DataTableColumnHeaderProps,
+  type DataTableCellProps,
+  type DataTableRowProps,
+  type DataTableBodyProps,
+  type ColumnDef,
+} from "./data-table";

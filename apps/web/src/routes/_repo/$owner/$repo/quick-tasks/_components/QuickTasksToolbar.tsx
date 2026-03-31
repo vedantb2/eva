@@ -27,6 +27,7 @@ import {
   IconFolder,
   IconSettings,
   IconFilter,
+  IconTable,
 } from "@tabler/icons-react";
 import {
   statusConfig,
@@ -38,7 +39,7 @@ import type { api } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
 import { statusesParser } from "@/lib/search-params";
 
-type QuickTaskView = "kanban" | "list";
+type QuickTaskView = "kanban" | "list" | "table";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
 interface QuickTasksToolbarProps {
@@ -129,6 +130,19 @@ export function QuickTasksToolbar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>List view</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={view === "table" ? "secondary" : "ghost"}
+                size="icon"
+                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                onClick={() => onViewChange("table")}
+              >
+                <IconTable size={16} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Table view</TooltipContent>
           </Tooltip>
         </div>
       )}

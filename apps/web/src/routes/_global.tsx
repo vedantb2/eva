@@ -1,10 +1,15 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { AuthGate } from "@/lib/components/ClientProvider";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 
 export const Route = createFileRoute("/_global")({
+  beforeLoad: ({ context }) => {
+    if (!context.isSignedIn) {
+      throw redirect({ to: "/" });
+    }
+  },
   component: GlobalLayout,
 });
 

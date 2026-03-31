@@ -1,8 +1,13 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { AuthGate } from "@/lib/components/ClientProvider";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
 
 export const Route = createFileRoute("/_repo")({
+  beforeLoad: ({ context }) => {
+    if (!context.isSignedIn) {
+      throw redirect({ to: "/" });
+    }
+  },
   component: RepoLayout,
 });
 

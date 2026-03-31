@@ -1,34 +1,25 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useAuth, SignInButton, SignUpButton } from "@clerk/clerk-react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { Button } from "@conductor/ui";
 import { clientEnv } from "@/env/client";
-import { useEffect } from "react";
 
 const isProduction = clientEnv.VITE_ENV === "production";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: ({ context }) => {
+    if (context.isSignedIn) {
+      throw redirect({ to: "/home" });
+    }
+  },
   component: LandingPage,
 });
 
 function LandingPage() {
-  const { isSignedIn, isLoaded } = useAuth();
   const navigate = useNavigate();
   const hasAgent = new URLSearchParams(window.location.search).has("agent");
 
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    if (isSignedIn) {
-      navigate({ to: "/home", replace: true });
-      return;
-    }
-
-    if (hasAgent) {
-      window.location.href = "/api/auth/agent-login";
-    }
-  }, [isLoaded, isSignedIn, hasAgent, navigate]);
-
-  if (!isLoaded) {
+  if (hasAgent) {
+    window.location.href = "/api/auth/agent-login";
     return <div className="min-h-screen w-full bg-background" />;
   }
 

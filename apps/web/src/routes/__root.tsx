@@ -1,27 +1,23 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { ClerkProvider } from "@clerk/clerk-react";
+import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { Analytics } from "@vercel/analytics/react";
 import { ClientProvider } from "@/lib/components/ClientProvider";
-import { clientEnv } from "@/env/client";
 
-export const Route = createRootRoute({
+export interface RouterContext {
+  isSignedIn: boolean;
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
 });
 
 function RootComponent() {
   return (
-    <ClerkProvider
-      publishableKey={clientEnv.VITE_CLERK_PUBLISHABLE_KEY}
-      signInFallbackRedirectUrl="/home"
-      signUpFallbackRedirectUrl="/home"
-    >
-      <ClientProvider>
-        <NuqsAdapter>
-          <Outlet />
-        </NuqsAdapter>
-      </ClientProvider>
+    <ClientProvider>
+      <NuqsAdapter>
+        <Outlet />
+      </NuqsAdapter>
       <Analytics />
-    </ClerkProvider>
+    </ClientProvider>
   );
 }

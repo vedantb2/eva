@@ -130,7 +130,19 @@ function isSandboxSetupRetryable(message: string): boolean {
     return true;
   }
   const lowered = message.toLowerCase();
-  return lowered.includes("sandbox exec") && lowered.includes("timed out");
+  const gitNetworkMarkers = [
+    "gnutls recv error",
+    "tls connection was non-properly terminated",
+    "remote end hung up unexpectedly",
+    "http/2 stream",
+    "early eof",
+    "connection reset by peer",
+    "rpc failed",
+  ];
+  return (
+    (lowered.includes("sandbox exec") && lowered.includes("timed out")) ||
+    gitNetworkMarkers.some((marker) => lowered.includes(marker))
+  );
 }
 
 export const prepareSandbox = internalAction({

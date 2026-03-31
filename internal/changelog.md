@@ -1,5 +1,11 @@
 # Changelog
 
+## Retry transient git TLS/bootstrap failures during sandbox setup - 2026-03-31
+
+- **Why**: Some sandbox starts fail during repo bootstrap with transient GitHub transport errors like `GnuTLS recv error (-110)` or abruptly terminated TLS sessions. A manual retry usually succeeds, which means these should be treated as flaky setup errors rather than hard failures.
+- **Change**: Sandbox setup retry classification now includes transient git/TLS transport markers in both quick-task sandbox creation and session sandbox git retry paths.
+- **Effect**: More sandbox startup failures are absorbed automatically by the existing retry loop instead of surfacing to the user on the first flaky network hop.
+
 ## Compress session prompts, simplify response length to default/detailed - 2026-03-31
 
 - **Why**: System prompts were verbose, wasting tokens on every request. Three response length options (concise/default/detailed) were unnecessary — default should already be concise-leaning, making "concise" redundant.

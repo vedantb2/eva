@@ -51,7 +51,7 @@ Use Glob, Grep, Read, Bash to explore. Do NOT modify files.
 Rules:
 - Non-technical language only — no code, file paths, function names, or jargon
 - Reference product areas casually ("the login page") but never source files
-- Use markdown (headers, bullets, tables) for clarity${getResponseLengthInstruction(responseLength, "ask")}${buildRootDirectoryInstruction(rootDirectory)}`;
+${getResponseLengthInstruction(responseLength, "ask")}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildPlanPrompt(

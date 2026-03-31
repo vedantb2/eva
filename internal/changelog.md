@@ -1,5 +1,16 @@
 # Changelog
 
+## Add live collaborative cursors - 2026-03-31
+
+- **Why**: Make the platform feel more collaborative by showing team members' cursor positions in real-time (Figma-style). Leverages existing `@convex-dev/presence` infrastructure — cursor rooms are scoped per page so users only see teammates on the same route.
+- **Changes**:
+  - **New `packages/ui/src/kibo/cursor.tsx`**: Cursor SVG + body/name components adapted from kibo-ui. Composition-based (`Cursor > CursorPointer + CursorBody > CursorName`).
+  - **`packages/backend/convex/presence.ts`**: Added `updateCursor` mutation — stores `{x, y, firstName, accentColor}` via `presence.updateRoomUser`. User info is fetched server-side to keep the client API simple (just sends x/y).
+  - **New `apps/web/src/lib/hooks/useLiveCursors.ts`**: Hook that manages cursor room presence (heartbeat via `usePresence`), throttled mousemove tracking (50ms), and parsing remote cursor data from the presence state.
+  - **New `apps/web/src/lib/components/LiveCursors.tsx`**: Fixed fullscreen overlay (`z-[60]`, `pointer-events-none`) rendering remote cursors with CSS transition smoothing. Each cursor colored by the user's accent color.
+  - **`apps/web/src/routes/_repo/$owner/$repo.tsx`**: Mounted `<LiveCursors />` in repo layout. Only active on repo pages.
+- **Architecture**: Room ID = `cursor:{pathname}`. Percentage-based coordinates for cross-resolution support. Presence data includes denormalized user info to avoid N+1 queries.
+
 ## Add online teammates indicator to sidebar - 2026-03-31
 
 - **Why**: No visibility into who's currently active on the platform. Adding an avatar stack at the bottom of the sidebar gives passive awareness of online teammates.

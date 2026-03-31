@@ -5,6 +5,7 @@ import { Sidebar } from "@/lib/components/Sidebar";
 import { SetupBanner } from "@/lib/components/SetupBanner";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { SearchProvider } from "@/lib/contexts/SearchContext";
+import { LiveCursors } from "@/lib/components/LiveCursors";
 
 export const Route = createFileRoute("/_repo/$owner/$repo")({
   component: RepoLayoutInner,
@@ -42,6 +43,7 @@ function RepoLayoutInner() {
             <Outlet />
           </MainContent>
           <SpotlightSearch />
+          <LiveCursors />
         </RepoProvider>
       </SearchProvider>
     </SidebarProvider>

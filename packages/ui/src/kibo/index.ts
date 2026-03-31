@@ -131,6 +131,17 @@ export {
 export { AvatarStack, type AvatarStackProps } from "./avatar-stack";
 
 export {
+  Cursor,
+  CursorPointer,
+  CursorBody,
+  CursorName,
+  type CursorProps,
+  type CursorPointerProps,
+  type CursorBodyProps,
+  type CursorNameProps,
+} from "./cursor";
+
+export {
   DataTableProvider,
   DataTableHead,
   DataTableHeaderGroup,

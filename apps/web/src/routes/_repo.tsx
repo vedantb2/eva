@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { ClientProvider } from "@/lib/components/ClientProvider";
+import { AuthGate } from "@/lib/components/ClientProvider";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
 
 export const Route = createFileRoute("/_repo")({
@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_repo")({
 
 function RepoLayout() {
   return (
-    <ClientProvider>
+    <AuthGate>
       <div className="relative min-h-screen bg-app-shell">
         <div
           aria-hidden
@@ -19,6 +19,6 @@ function RepoLayout() {
         </div>
         <NotificationToastStream />
       </div>
-    </ClientProvider>
+    </AuthGate>
   );
 }

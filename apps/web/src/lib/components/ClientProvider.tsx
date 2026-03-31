@@ -70,25 +70,31 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
       <ConvexQueryCacheProvider>
         <EnsureUser />
-        <ThemeModeProvider>
-          <AuthLoading>
-            <div className="min-h-screen w-full bg-background">
-              <Spinner size="lg" />
-            </div>
-          </AuthLoading>
-          <Unauthenticated>
-            <RedirectToLanding />
-          </Unauthenticated>
-          <Authenticated>
-            <ThemeProvider>
-              <TooltipProvider delayDuration={300}>
-                {children}
-                <PresenceHeartbeat />
-              </TooltipProvider>
-            </ThemeProvider>
-          </Authenticated>
-        </ThemeModeProvider>
+        <ThemeModeProvider>{children}</ThemeModeProvider>
       </ConvexQueryCacheProvider>
     </ConvexProviderWithClerk>
+  );
+}
+
+export function AuthGate({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <AuthLoading>
+        <div className="min-h-screen w-full bg-background">
+          <Spinner size="lg" />
+        </div>
+      </AuthLoading>
+      <Unauthenticated>
+        <RedirectToLanding />
+      </Unauthenticated>
+      <Authenticated>
+        <ThemeProvider>
+          <TooltipProvider delayDuration={300}>
+            {children}
+            <PresenceHeartbeat />
+          </TooltipProvider>
+        </ThemeProvider>
+      </Authenticated>
+    </>
   );
 }

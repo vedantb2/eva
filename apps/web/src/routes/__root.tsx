@@ -2,6 +2,7 @@ import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { ClerkProvider } from "@clerk/clerk-react";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { Analytics } from "@vercel/analytics/react";
+import { ClientProvider } from "@/lib/components/ClientProvider";
 import { clientEnv } from "@/env/client";
 
 export const Route = createRootRoute({
@@ -15,9 +16,11 @@ function RootComponent() {
       signInFallbackRedirectUrl="/home"
       signUpFallbackRedirectUrl="/home"
     >
-      <NuqsAdapter>
-        <Outlet />
-      </NuqsAdapter>
+      <ClientProvider>
+        <NuqsAdapter>
+          <Outlet />
+        </NuqsAdapter>
+      </ClientProvider>
       <Analytics />
     </ClerkProvider>
   );

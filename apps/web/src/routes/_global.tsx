@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { ClientProvider } from "@/lib/components/ClientProvider";
+import { AuthGate } from "@/lib/components/ClientProvider";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
@@ -29,12 +29,12 @@ function GlobalMainContent() {
 
 function GlobalLayout() {
   return (
-    <ClientProvider>
+    <AuthGate>
       <SidebarProvider>
         <Sidebar />
         <GlobalMainContent />
         <NotificationToastStream />
       </SidebarProvider>
-    </ClientProvider>
+    </AuthGate>
   );
 }

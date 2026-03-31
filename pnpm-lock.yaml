@@ -108,6 +108,9 @@ importers:
       convex:
         specifier: ^1.31.6
         version: 1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
+      convex-helpers:
+        specifier: ^0.1.88
+        version: 0.1.111(@standard-schema/spec@1.1.0)(convex@1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1))(hono@4.12.0)(react@19.2.1)(typescript@5.9.3)(zod@4.3.6)
       facehash:
         specifier: ^0.0.7
         version: 0.0.7(@types/react@19.0.10)(next@16.2.1(@opentelemetry/api@1.9.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -841,6 +844,9 @@ importers:
       convex:
         specifier: '>=1.0.0'
         version: 1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
+      convex-helpers:
+        specifier: ^0.1.88
+        version: 0.1.111(@standard-schema/spec@1.1.0)(convex@1.31.7(@clerk/clerk-react@5.60.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1))(hono@4.12.0)(react@19.2.1)(typescript@5.9.3)(zod@4.3.6)
       dayjs:
         specifier: '>=1.0.0'
         version: 1.11.19

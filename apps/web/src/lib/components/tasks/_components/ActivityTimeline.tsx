@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Spinner,
 } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
-import { RunTimelineItem } from "./RunTimelineItem";
+
+const RunTimelineItem = lazy(() =>
+  import("./RunTimelineItem").then((m) => ({ default: m.RunTimelineItem })),
+);
 
 type Runs = FunctionReturnType<typeof api.agentRuns.listByTask>;
 type Audits = FunctionReturnType<typeof api.audits.listByTask>;
@@ -139,18 +143,19 @@ export function ActivityTimeline({
           const isActiveRun =
             run.status === "running" || run.status === "queued";
           return (
-            <RunTimelineItem
-              key={run._id}
-              run={run}
-              isActiveRun={isActiveRun}
-              streaming={streaming}
-              activeRunElapsed={activeRunElapsed}
-              isOwner={isOwner}
-              isStopping={isStopping}
-              onStopConfirm={onStopConfirm}
-              hasComment={runCommentMap.has(run._id)}
-              onViewComment={() => setViewingCommentForRun(run._id)}
-            />
+            <Suspense key={run._id} fallback={<Spinner size="sm" />}>
+              <RunTimelineItem
+                run={run}
+                isActiveRun={isActiveRun}
+                streaming={streaming}
+                activeRunElapsed={activeRunElapsed}
+                isOwner={isOwner}
+                isStopping={isStopping}
+                onStopConfirm={onStopConfirm}
+                hasComment={runCommentMap.has(run._id)}
+                onViewComment={() => setViewingCommentForRun(run._id)}
+              />
+            </Suspense>
           );
         })}
       </div>

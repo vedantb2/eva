@@ -3,9 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./cn": "./src/utils/cn.ts"
+    "./cn": "./src/utils/cn.ts",
+    "./ai": "./src/ai-elements/index.ts"
   },
   "peerDependencies": {
     "@radix-ui/react-accordion": "^1.2.12",

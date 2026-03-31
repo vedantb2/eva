@@ -1,18 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   Accordion,
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
+  Spinner,
 } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { FormattedText } from "./FormattedText";
+
+const FormattedText = lazy(() =>
+  import("./FormattedText").then((m) => ({ default: m.FormattedText })),
+);
+const LazyCodeBlock = lazy(() =>
+  import("./LazyCodeBlock").then((m) => ({ default: m.CodeBlock })),
+);
 
 export function TaskDescription({
   description,
@@ -61,21 +66,23 @@ export function TaskDescription({
             Click to add description...
           </p>
         ) : (
-          <FormattedText
-            content={mainDesc}
-            editable={isEditingDescription}
-            className="text-sm leading-7 text-muted-foreground whitespace-pre-wrap break-words [&_.tiptap]:outline-none [&_.tiptap_p]:my-0 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6"
-            onBlur={(markdown) => {
-              const trimmed = markdown.trim();
-              if (canEditTaskText && trimmed !== description) {
-                const fullDesc = elementDetails
-                  ? `${trimmed}\n---\n${elementDetails}`
-                  : trimmed;
-                updateTask({ id: taskId, description: fullDesc });
-              }
-              setIsEditingDescription(false);
-            }}
-          />
+          <Suspense fallback={<Spinner size="sm" />}>
+            <FormattedText
+              content={mainDesc}
+              editable={isEditingDescription}
+              className="text-sm leading-7 text-muted-foreground whitespace-pre-wrap break-words [&_.tiptap]:outline-none [&_.tiptap_p]:my-0 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6"
+              onBlur={(markdown) => {
+                const trimmed = markdown.trim();
+                if (canEditTaskText && trimmed !== description) {
+                  const fullDesc = elementDetails
+                    ? `${trimmed}\n---\n${elementDetails}`
+                    : trimmed;
+                  updateTask({ id: taskId, description: fullDesc });
+                }
+                setIsEditingDescription(false);
+              }}
+            />
+          </Suspense>
         )}
       </div>
       {!isEditingDescription && elementDetails && (
@@ -87,19 +94,9 @@ export function TaskDescription({
               </span>
             </AccordionTrigger>
             <AccordionContent>
-              <SyntaxHighlighter
-                language="css"
-                style={oneDark}
-                wrapLines
-                wrapLongLines
-                customStyle={{
-                  fontSize: "0.75rem",
-                  borderRadius: "0.5rem",
-                  margin: 0,
-                }}
-              >
-                {elementDetails}
-              </SyntaxHighlighter>
+              <Suspense fallback={<Spinner size="sm" />}>
+                <LazyCodeBlock code={elementDetails} language="css" />
+              </Suspense>
             </AccordionContent>
           </AccordionItem>
         </Accordion>

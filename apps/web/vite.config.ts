@@ -90,4 +90,29 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "vendor-radix",
+              test: /node_modules[\\/]@radix-ui/,
+              priority: 15,
+            },
+            {
+              name: "vendor-convex",
+              test: /node_modules[\\/](convex|convex-helpers)/,
+              priority: 15,
+            },
+            {
+              name: "vendor-clerk",
+              test: /node_modules[\\/]@clerk/,
+              priority: 15,
+            },
+          ],
+        },
+      },
+    },
+  },
 });

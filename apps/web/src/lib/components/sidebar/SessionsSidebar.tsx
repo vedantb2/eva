@@ -28,6 +28,8 @@ export function SessionsSidebar({
   const archiveSession = useMutation(api.sessions.archive);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
 
+  const updateSession = useMutation(api.sessions.update);
+
   return (
     <SessionListSidebar
       sessions={sessions}
@@ -45,6 +47,19 @@ export function SessionsSidebar({
           await stopSandboxMutation({ sessionId: session._id });
         }
         await archiveSession({ id: session._id });
+      }}
+      onRename={async (session, newTitle) => {
+        await updateSession({
+          id: session._id,
+          title: newTitle,
+        });
+      }}
+      onDuplicate={async (session) => {
+        const id = await createSession({
+          repoId,
+          title: `${session.title} (copy)`,
+        });
+        return id;
       }}
       emptyIcon={<IconTerminal2 size={28} />}
       emptyLabel="No sessions yet"

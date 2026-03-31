@@ -1,5 +1,11 @@
 # Changelog
 
+## Lift repo context to the shared repo layout - 2026-03-31
+
+- **Why**: Repo pages could briefly lose `RepoProvider` during TanStack Router transitions, which surfaced intermittent `useRepo must be used within a RepoProvider` crashes when repo-scoped UI stayed mounted across a tab change.
+- **Change**: Moved `RepoProvider` from the `/_repo/$owner/$repo` child layout up into the shared `/_repo` layout so the whole repo route subtree keeps repo context for the full lifetime of the repo shell.
+- **Effect**: Repo-scoped components like the spotlight search and setup banner now keep access to repo context while nested repo tabs swap, instead of crashing on a one-frame provider gap.
+
 ## Add live collaborative cursors - 2026-03-31
 
 - **Why**: Make the platform feel more collaborative by showing team members' cursor positions in real-time (Figma-style). Leverages existing `@convex-dev/presence` infrastructure — cursor rooms are scoped per page so users only see teammates on the same route.

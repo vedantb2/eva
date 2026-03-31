@@ -1,10 +1,10 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { RepoProvider } from "@/lib/contexts/RepoContext";
 import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { SetupBanner } from "@/lib/components/SetupBanner";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { SearchProvider } from "@/lib/contexts/SearchContext";
+import { RepoProvider } from "@/lib/contexts/RepoContext";
 import { LiveCursors } from "@/lib/components/LiveCursors";
 
 export const Route = createFileRoute("/_repo/$owner/$repo")({
@@ -35,17 +35,17 @@ function RepoLayoutInner() {
   const { owner, repo } = Route.useParams();
 
   return (
-    <SidebarProvider>
-      <SearchProvider>
-        <RepoProvider owner={owner} repoParam={repo}>
+    <RepoProvider owner={owner} repoParam={repo}>
+      <SidebarProvider>
+        <SearchProvider>
           <Sidebar />
           <MainContent>
             <Outlet />
           </MainContent>
           <SpotlightSearch />
           <LiveCursors />
-        </RepoProvider>
-      </SearchProvider>
-    </SidebarProvider>
+        </SearchProvider>
+      </SidebarProvider>
+    </RepoProvider>
   );
 }

@@ -31,20 +31,12 @@ export function StatsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
 
-  const TIME_RANGE_DAYS: Record<TimeRange, number | undefined> = {
-    "7d": 7,
-    "30d": 30,
-    "90d": 90,
-    all: undefined,
-  };
-
-  const { startTime, bucketSize, timelineStart, heatmapDays } = useMemo(() => {
+  const { startTime, bucketSize, timelineStart } = useMemo(() => {
     const start = getStartTime(timeRange);
     return {
       startTime: start,
       bucketSize: getBucketSize(timeRange),
       timelineStart: start ?? dayjs().subtract(90, "day").valueOf(),
-      heatmapDays: TIME_RANGE_DAYS[timeRange],
     };
   }, [timeRange]);
 
@@ -66,7 +58,6 @@ export function StatsClient() {
   });
   const heatmap = useQuery(api.analytics.getActivityHeatmap, {
     repoId: repo._id,
-    startTime,
   });
 
   const isLoading =
@@ -94,7 +85,7 @@ export function StatsClient() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <ActivityHeatmap data={heatmap} days={heatmapDays} />
+            <ActivityHeatmap data={heatmap} />
           </motion.div>
 
           <motion.div

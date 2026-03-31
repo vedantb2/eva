@@ -1,5 +1,13 @@
 # Changelog
 
+## Replace ActivityHeatmap with kibo-ui ContributionGraph - 2026-03-31
+
+- **Why**: The custom ActivityHeatmap was a 310-line monolithic component with its own grid layout logic. Kibo UI's ContributionGraph provides a composable, SVG-based architecture that's more maintainable and consistent with the existing kibo Gantt pattern.
+- **Changes**:
+  - **New `packages/ui/src/kibo/contribution-graph.tsx`**: Forked kibo-ui ContributionGraph source. Converted all date-fns calls to dayjs (matching the gantt component pattern). Exports composable primitives: `ContributionGraph`, `ContributionGraphBlock`, `ContributionGraphCalendar`, `ContributionGraphFooter`, `ContributionGraphTotalCount`, `ContributionGraphLegend`.
+  - **Rewrote `ActivityHeatmap.tsx`**: From custom grid renderer to thin wrapper. Transforms backend data (`{ date, count }[]`) to Kibo's `Activity` format (adding computed `level`). Keeps streak calculation and stats header. Delegates grid rendering to Kibo composable components.
+  - **Color scheme**: Switched from emerald intensity shades to Kibo's muted-foreground opacity levels (0/20/40/60/80%).
+
 ## Replace ProjectsTimeline with kibo-ui Gantt component - 2026-03-31
 
 - **Why**: The existing custom timeline view was read-only with no interactive editing. Replacing with the kibo-ui Gantt component adds drag-to-resize and drag-to-move project bars, daily/monthly/quarterly range modes, a fixed sidebar with project labels, and a today marker — all features that improve project planning UX.

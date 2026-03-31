@@ -40,6 +40,23 @@ export {
 } from "./gantt-sidebar";
 
 export {
+  ContributionGraph,
+  ContributionGraphBlock,
+  ContributionGraphCalendar,
+  ContributionGraphFooter,
+  ContributionGraphTotalCount,
+  ContributionGraphLegend,
+  type Activity,
+  type Labels,
+  type ContributionGraphProps,
+  type ContributionGraphBlockProps,
+  type ContributionGraphCalendarProps,
+  type ContributionGraphFooterProps,
+  type ContributionGraphTotalCountProps,
+  type ContributionGraphLegendProps,
+} from "./contribution-graph";
+
+export {
   GanttFeatureList,
   GanttFeatureListGroup,
   GanttFeatureRow,

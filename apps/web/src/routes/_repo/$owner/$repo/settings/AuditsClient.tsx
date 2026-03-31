@@ -29,7 +29,7 @@ export function AuditsClient() {
     : [];
 
   return (
-    <PageWrapper title="Audits">
+    <PageWrapper title="Audits" comfortable>
       <div className="space-y-6">
         <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
           <div>

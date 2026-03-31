@@ -11,7 +11,7 @@ export function EnvVariablesPageClient() {
   const [tab, setTab] = useQueryState("tab", envVarTabParser);
 
   return (
-    <PageWrapper title="Environment Variables">
+    <PageWrapper title="Environment Variables" comfortable>
       <Tabs
         value={tab}
         onValueChange={(value) => {

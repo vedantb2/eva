@@ -23,7 +23,7 @@ export function ConfigClient() {
   const updateConfig = useMutation(api.githubRepos.updateConfig);
 
   return (
-    <PageWrapper title="Config">
+    <PageWrapper title="Config" comfortable>
       <div className="space-y-4">
         <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
           <h3 className="text-sm font-medium">Repository Configuration</h3>

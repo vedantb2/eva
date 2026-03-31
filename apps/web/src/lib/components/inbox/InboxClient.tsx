@@ -90,6 +90,7 @@ export function InboxClient() {
   return (
     <PageWrapper
       title="Inbox"
+      comfortable
       headerRight={
         <div className="flex items-center gap-1">
           <Button

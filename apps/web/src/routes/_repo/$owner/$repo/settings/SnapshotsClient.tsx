@@ -101,7 +101,7 @@ export function SnapshotsClient() {
 
   if (snapshot === undefined) {
     return (
-      <PageWrapper title="Snapshots">
+      <PageWrapper title="Snapshots" comfortable>
         <div className="flex items-center justify-center py-12">
           <Spinner size="lg" />
         </div>
@@ -110,7 +110,7 @@ export function SnapshotsClient() {
   }
 
   return (
-    <PageWrapper title="Snapshots">
+    <PageWrapper title="Snapshots" comfortable>
       <Tabs defaultValue="configuration" className="space-y-4">
         <TabsList>
           <TabsTrigger value="configuration">Configuration</TabsTrigger>

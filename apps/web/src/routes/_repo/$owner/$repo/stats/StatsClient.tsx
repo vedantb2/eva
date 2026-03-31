@@ -70,6 +70,7 @@ export function StatsClient() {
   return (
     <PageWrapper
       title="Stats"
+      comfortable
       headerRight={
         <TimeRangeFilter value={timeRange} onChange={setTimeRange} />
       }

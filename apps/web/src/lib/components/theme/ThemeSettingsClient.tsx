@@ -61,7 +61,7 @@ export function ThemeSettingsClient() {
 
   if (!mounted) {
     return (
-      <PageWrapper title="Theme">
+      <PageWrapper title="Theme" comfortable>
         <div className="flex items-center justify-center py-12">
           <Spinner size="lg" />
         </div>
@@ -70,7 +70,7 @@ export function ThemeSettingsClient() {
   }
 
   return (
-    <PageWrapper title="Theme">
+    <PageWrapper title="Theme" comfortable>
       <div className="max-w-2xl space-y-6 sm:space-y-8">
         <AppearanceSection
           currentMode={currentMode}

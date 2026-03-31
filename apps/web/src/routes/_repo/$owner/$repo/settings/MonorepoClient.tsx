@@ -97,6 +97,7 @@ export function MonorepoClient() {
   return (
     <PageWrapper
       title="Monorepo Apps"
+      comfortable
       headerRight={
         <Button
           size="sm"

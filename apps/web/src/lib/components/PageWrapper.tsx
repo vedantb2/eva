@@ -12,6 +12,7 @@ interface PageWrapperProps {
   fillHeight?: boolean;
   children: React.ReactNode;
   childPadding?: boolean;
+  comfortable?: boolean;
 }
 
 export function PageWrapper({
@@ -23,12 +24,17 @@ export function PageWrapper({
   fillHeight = false,
   children,
   childPadding = true,
+  comfortable = false,
 }: PageWrapperProps) {
   return (
     <div className="flex-1 h-full min-h-0 overflow-hidden animate-in fade-in duration-300">
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="motion-base relative p-3 sm:px-4">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div
+          className={`motion-base relative ${comfortable ? "p-4 sm:px-6" : "p-3 sm:px-4"}`}
+        >
+          <div
+            className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
+          >
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               {showBack && (
                 <Button
@@ -67,9 +73,13 @@ export function PageWrapper({
           className={`flex-1 min-h-0 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto scrollbar"}`}
         >
           <div
-            className={`flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ${childPadding ? "p-3 pt-0" : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
+            className={`flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ${childPadding ? (comfortable ? "p-4 pt-0 sm:px-6" : "p-3 pt-0") : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
           >
-            {children}
+            {comfortable ? (
+              <div className="mx-auto w-full max-w-5xl">{children}</div>
+            ) : (
+              children
+            )}
           </div>
         </div>
       </div>

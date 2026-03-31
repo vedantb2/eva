@@ -121,6 +121,7 @@ export function LogsClient() {
   return (
     <PageWrapper
       title="Logs"
+      comfortable
       headerRight={
         <LogsHeader
           visibleTypes={visibleTypes}

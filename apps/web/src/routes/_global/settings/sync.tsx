@@ -107,6 +107,7 @@ function SyncSettingsRoute() {
   return (
     <PageWrapper
       title="Sync Settings"
+      comfortable
       showBack
       headerRight={
         <Button

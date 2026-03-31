@@ -69,6 +69,7 @@ export function AutomationClient({
 
   return (
     <PageWrapper
+      comfortable
       title={
         <div className="flex items-center gap-3">
           <span>{automation.title}</span>

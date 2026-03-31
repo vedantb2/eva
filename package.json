@@ -8,7 +8,7 @@
     "build:prod": "pnpm --filter eva build:prod",
     "update:dev": "pnpm --filter eva update:dev",
     "update:preview": "pnpm --filter eva update:preview",
-    "dev": "pnpm --filter @conductor/web-v2 dev",
+    "dev": "pnpm --filter @conductor/web dev",
     "turbo": "pnpm --filter conductor turbo",
     "convex": "pnpm --filter @conductor/backend dev",
     "convex:deploy": "pnpm --filter @conductor/backend run deploy",

@@ -17,12 +17,14 @@ interface ScheduleBuildPopoverProps {
   projectId: Id<"projects">;
   scheduledBuildAt?: number;
   disabled?: boolean;
+  trigger?: React.ReactNode;
 }
 
 export function ScheduleBuildPopover({
   projectId,
   scheduledBuildAt,
   disabled,
+  trigger,
 }: ScheduleBuildPopoverProps) {
   const { selectedDate, setSelectedDate, time, setTime, timestamp, reset } =
     useScheduleDateTime(scheduledBuildAt);
@@ -58,18 +60,20 @@ export function ScheduleBuildPopover({
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={disabled}
-          className={isScheduled ? "text-primary" : undefined}
-        >
-          <IconCalendarClock size={16} />
-          {isScheduled
-            ? `Scheduled: ${dayjs(scheduledBuildAt).format("MMM D, h:mm A")}`
-            : "Schedule Build"}
-        </Button>
+      <PopoverTrigger asChild disabled={disabled}>
+        {trigger ?? (
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={disabled}
+            className={isScheduled ? "text-primary" : undefined}
+          >
+            <IconCalendarClock size={16} />
+            {isScheduled
+              ? `Scheduled: ${dayjs(scheduledBuildAt).format("MMM D, h:mm A")}`
+              : "Schedule Build"}
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end">
         <ScheduleDateTimePicker

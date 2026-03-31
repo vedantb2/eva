@@ -27,7 +27,10 @@ import {
   IconPlayerStop,
   IconLoader2,
   IconChevronRight,
+  IconChevronDown,
+  IconCalendarClock,
 } from "@tabler/icons-react";
+import dayjs from "@conductor/shared/dates";
 import { useNavigate } from "@tanstack/react-router";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
@@ -122,13 +125,6 @@ export function ProjectDetailClient() {
                 </a>
               </Button>
             )}
-            <div className="hidden sm:block">
-              <ScheduleBuildPopover
-                projectId={typedProjectId}
-                scheduledBuildAt={project.scheduledBuildAt}
-                disabled={!isOwner || !!project.activeBuildWorkflowId}
-              />
-            </div>
             {project.activeBuildWorkflowId ? (
               <Button
                 size="sm"
@@ -144,27 +140,60 @@ export function ProjectDetailClient() {
                 <span className="hidden sm:inline">Stop Build</span>
               </Button>
             ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
+              <div className="group/split flex items-center transition-transform duration-200 hover:-translate-y-[1px]">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button
+                        size="sm"
+                        onClick={
+                          project.scheduledBuildAt
+                            ? undefined
+                            : () => setIsBuildModalOpen(true)
+                        }
+                        disabled={!isOwner}
+                        className="rounded-r-none hover:translate-y-0 group-hover/split:bg-primary/92"
+                      >
+                        {project.scheduledBuildAt ? (
+                          <IconCalendarClock size={16} />
+                        ) : (
+                          <IconHammer size={16} />
+                        )}
+                        <span className="hidden sm:inline">
+                          {project.scheduledBuildAt
+                            ? dayjs(project.scheduledBuildAt).format(
+                                "MMM D, h:mm A",
+                              )
+                            : "Build Project"}
+                        </span>
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  {!isOwner ? (
+                    <TooltipContent>
+                      Only the project owner can build
+                    </TooltipContent>
+                  ) : project.scheduledBuildAt ? (
+                    <TooltipContent>
+                      Scheduled — open dropdown to change or remove
+                    </TooltipContent>
+                  ) : null}
+                </Tooltip>
+                <ScheduleBuildPopover
+                  projectId={typedProjectId}
+                  scheduledBuildAt={project.scheduledBuildAt}
+                  disabled={!isOwner || !!project.activeBuildWorkflowId}
+                  trigger={
                     <Button
                       size="sm"
-                      onClick={() => setIsBuildModalOpen(true)}
-                      disabled={!isOwner || !!project.scheduledBuildAt}
+                      disabled={!isOwner || !!project.activeBuildWorkflowId}
+                      className="rounded-l-none border-l border-l-primary-foreground/20 px-2 hover:translate-y-0 group-hover/split:bg-primary/92"
                     >
-                      <IconHammer size={16} />
-                      <span className="hidden sm:inline">Build Project</span>
+                      <IconChevronDown size={14} />
                     </Button>
-                  </div>
-                </TooltipTrigger>
-                {!isOwner ? (
-                  <TooltipContent>
-                    Only the project owner can build
-                  </TooltipContent>
-                ) : project.scheduledBuildAt ? (
-                  <TooltipContent>Build is already scheduled</TooltipContent>
-                ) : null}
-              </Tooltip>
+                  }
+                />
+              </div>
             )}
           </div>
         ) : null

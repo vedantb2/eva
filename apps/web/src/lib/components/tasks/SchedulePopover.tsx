@@ -17,12 +17,14 @@ interface SchedulePopoverProps {
   taskId: Id<"agentTasks">;
   scheduledAt?: number;
   disabled?: boolean;
+  trigger?: React.ReactNode;
 }
 
 export function SchedulePopover({
   taskId,
   scheduledAt,
   disabled,
+  trigger,
 }: SchedulePopoverProps) {
   const { selectedDate, setSelectedDate, time, setTime, timestamp, reset } =
     useScheduleDateTime(scheduledAt);
@@ -58,17 +60,19 @@ export function SchedulePopover({
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
-          disabled={disabled}
-          className={isScheduled ? "text-primary" : undefined}
-        >
-          <IconCalendarClock size={18} />
-          {isScheduled
-            ? dayjs(scheduledAt).format("MMM D, h:mm A")
-            : "Schedule"}
-        </Button>
+      <PopoverTrigger asChild disabled={disabled}>
+        {trigger ?? (
+          <Button
+            variant="secondary"
+            disabled={disabled}
+            className={isScheduled ? "text-primary" : undefined}
+          >
+            <IconCalendarClock size={18} />
+            {isScheduled
+              ? dayjs(scheduledAt).format("MMM D, h:mm A")
+              : "Schedule"}
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end">
         <ScheduleDateTimePicker

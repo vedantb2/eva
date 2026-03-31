@@ -35,7 +35,7 @@ export function VideoPreview({ url }: { url: string }) {
         <VideoPlayerSeekForwardButton />
         <VideoPlayerTimeRange />
         <VideoPlayerTimeDisplay showDuration />
-        <VideoPlayerPlaybackRateButton rates="1 3 5 8" />
+        <VideoPlayerPlaybackRateButton rates={[1, 3, 5, 8]} />
         <VideoPlayerMuteButton />
         <VideoPlayerVolumeRange />
       </VideoPlayerControlBar>

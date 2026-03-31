@@ -1,5 +1,13 @@
 # Changelog
 
+## Replace VideoPreview with kibo-ui video player - 2026-03-31
+
+- **Why**: The existing VideoPreview used a raw `<video>` element with browser-native controls and custom speed buttons below it. Replacing with the kibo-ui video player (powered by `media-chrome`) gives a consistent, themed control bar with play/pause, seek, time display, volume, and playback rate — all inline within the video chrome.
+- **Changes**:
+  - **New `packages/ui/src/kibo/video-player.tsx`**: Adapted from kibo-ui source. Wraps `media-chrome/react` components with shadcn-themed CSS variables. Added `VideoPlayerPlaybackRateButton` for speed controls (1x, 3x, 5x, 8x).
+  - **Rewrote `VideoPreview` in `MediaPreview.tsx`**: From manual `useRef`/`useState` speed management to composable kibo video player components. Removed `VIDEO_SPEEDS` constant and all manual `playbackRate` logic.
+  - **New dependency**: `media-chrome` in apps/web and packages/ui peerDeps.
+
 ## Add table view to Quick Tasks and Projects - 2026-03-31
 
 - **Why**: Users wanted a dense, sortable view for tasks and projects. Table view shows all key fields as columns with sortable headers.

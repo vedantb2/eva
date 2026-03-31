@@ -104,6 +104,31 @@ export {
 export { ThemeSwitcher, type ThemeSwitcherProps } from "./theme-switcher";
 
 export {
+  VideoPlayer,
+  VideoPlayerControlBar,
+  VideoPlayerTimeRange,
+  VideoPlayerTimeDisplay,
+  VideoPlayerVolumeRange,
+  VideoPlayerPlayButton,
+  VideoPlayerSeekBackwardButton,
+  VideoPlayerSeekForwardButton,
+  VideoPlayerMuteButton,
+  VideoPlayerPlaybackRateButton,
+  VideoPlayerContent,
+  type VideoPlayerProps,
+  type VideoPlayerControlBarProps,
+  type VideoPlayerTimeRangeProps,
+  type VideoPlayerTimeDisplayProps,
+  type VideoPlayerVolumeRangeProps,
+  type VideoPlayerPlayButtonProps,
+  type VideoPlayerSeekBackwardButtonProps,
+  type VideoPlayerSeekForwardButtonProps,
+  type VideoPlayerMuteButtonProps,
+  type VideoPlayerPlaybackRateButtonProps,
+  type VideoPlayerContentProps,
+} from "./video-player";
+
+export {
   DataTableProvider,
   DataTableHead,
   DataTableHeaderGroup,

@@ -49,7 +49,8 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@tanstack/react-table": "^8.21.3",
-    "@conductor/shared": "workspace:*"
+    "@conductor/shared": "workspace:*",
+    "media-chrome": "^4.14.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

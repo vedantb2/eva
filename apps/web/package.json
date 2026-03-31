@@ -67,6 +67,7 @@
     "dayjs": "^1.11.13",
     "embla-carousel-react": "^8.6.0",
     "facehash": "^0.0.7",
+    "media-chrome": "^4.14.0",
     "lucide-react": "^0.563.0",
     "motion": "^12.33.0",
     "nanoid": "^5.1.6",

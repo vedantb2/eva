@@ -1,66 +1,45 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { IconExternalLink } from "@tabler/icons-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  VideoPlayer,
+  VideoPlayerContent,
+  VideoPlayerControlBar,
+  VideoPlayerMuteButton,
+  VideoPlayerPlayButton,
+  VideoPlayerPlaybackRateButton,
+  VideoPlayerSeekBackwardButton,
+  VideoPlayerSeekForwardButton,
+  VideoPlayerTimeDisplay,
+  VideoPlayerTimeRange,
+  VideoPlayerVolumeRange,
 } from "@conductor/ui";
 
-const VIDEO_SPEEDS = [1, 3, 5, 8] as const;
-
 export function VideoPreview({ url }: { url: string }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [speed, setSpeed] = useState<(typeof VIDEO_SPEEDS)[number]>(3);
-
-  const applySpeed = (rate: (typeof VIDEO_SPEEDS)[number]) => {
-    setSpeed(rate);
-    if (videoRef.current) {
-      videoRef.current.playbackRate = rate;
-      videoRef.current.defaultPlaybackRate = rate;
-    }
-  };
-
   return (
-    <div className="space-y-1.5">
-      <video
-        ref={videoRef}
+    <VideoPlayer className="max-w-full">
+      <VideoPlayerContent
         src={url}
-        controls
         playsInline
         preload="metadata"
-        className="rounded-lg border max-w-full"
-        onLoadedMetadata={() => {
-          if (videoRef.current) {
-            videoRef.current.playbackRate = speed;
-            videoRef.current.defaultPlaybackRate = speed;
-          }
-        }}
-        onPlay={() => {
-          if (videoRef.current && videoRef.current.playbackRate !== speed) {
-            videoRef.current.playbackRate = speed;
-          }
-        }}
+        slot="media"
       />
-      <div className="flex items-center gap-1">
-        {VIDEO_SPEEDS.map((rate) => (
-          <button
-            key={rate}
-            type="button"
-            onClick={() => applySpeed(rate)}
-            className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
-              speed === rate
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            {rate}x
-          </button>
-        ))}
-      </div>
-    </div>
+      <VideoPlayerControlBar>
+        <VideoPlayerPlayButton />
+        <VideoPlayerSeekBackwardButton />
+        <VideoPlayerSeekForwardButton />
+        <VideoPlayerTimeRange />
+        <VideoPlayerTimeDisplay showDuration />
+        <VideoPlayerPlaybackRateButton rates="1 3 5 8" />
+        <VideoPlayerMuteButton />
+        <VideoPlayerVolumeRange />
+      </VideoPlayerControlBar>
+    </VideoPlayer>
   );
 }
 

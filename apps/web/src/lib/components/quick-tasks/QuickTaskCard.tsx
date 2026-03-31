@@ -30,6 +30,7 @@ import {
   TooltipTrigger,
 } from "@conductor/ui";
 import type { Id } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { UserInitials } from "@conductor/shared";
@@ -59,6 +60,9 @@ import { MoveTaskDialog } from "./_components/MoveTaskDialog";
 
 type SiblingApp = { _id: Id<"githubRepos">; appName: string };
 
+type User = FunctionReturnType<typeof api.users.listAll>[number];
+type Project = FunctionReturnType<typeof api.projects.list>[number];
+
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
   title: string;
@@ -80,6 +84,9 @@ interface QuickTaskCardProps {
   model?: string;
   projectId?: Id<"projects">;
   repoId?: Id<"githubRepos">;
+  users?: User[];
+  currentUserId?: Id<"users">;
+  projects?: Project[];
 }
 
 const MODEL_OPTIONS = [
@@ -109,6 +116,9 @@ export function QuickTaskCard({
   model,
   projectId,
   repoId,
+  users,
+  currentUserId,
+  projects,
 }: QuickTaskCardProps) {
   const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
   const hasError = runs?.[0]?.status === "error";
@@ -122,9 +132,6 @@ export function QuickTaskCard({
 
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const updateTask = useMutation(api.agentTasks.update);
-  const users = useQuery(api.users.listAll);
-  const projects = useQuery(api.projects.list, repoId ? { repoId } : "skip");
-  const currentUserId = useQuery(api.auth.me);
 
   const moveTargetAppName =
     siblingApps?.find((a) => a._id === moveTarget)?.appName ?? "";

@@ -59,7 +59,7 @@ export function QuickTaskDetailClient() {
     };
   }, [typedTaskId, orderedTasks]);
 
-  const viewParam = `?view=${view}`;
+  const viewParam = view === "kanban" ? "" : `?view=${view}`;
 
   const handleBack = () => {
     navigate({ to: `${basePath}/quick-tasks${viewParam}` });

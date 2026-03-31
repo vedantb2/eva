@@ -36,6 +36,8 @@ export function QuickTasksKanbanBoard({
   const { repoId } = useRepo();
   const currentUserId = useQuery(api.auth.me);
   const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
+  const users = useQuery(api.users.listAll);
+  const projects = useQuery(api.projects.list, { repoId });
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const [isFixingAll, setIsFixingAll] = useState(false);
@@ -134,6 +136,9 @@ export function QuickTasksKanbanBoard({
             model={task.model}
             projectId={task.projectId}
             repoId={task.repoId ?? repoId}
+            users={users ?? undefined}
+            currentUserId={currentUserId ?? undefined}
+            projects={projects ?? undefined}
           />
         )}
         renderOverlay={(task) => (
@@ -156,6 +161,9 @@ export function QuickTasksKanbanBoard({
             model={task.model}
             projectId={task.projectId}
             repoId={task.repoId ?? repoId}
+            users={users ?? undefined}
+            currentUserId={currentUserId ?? undefined}
+            projects={projects ?? undefined}
           />
         )}
       />

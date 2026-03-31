@@ -115,7 +115,8 @@ export function QuickTasksClient() {
   };
 
   const handleOpenTask = (id: string) => {
-    navigate({ to: `${basePath}/quick-tasks/${id}?view=${view}` });
+    const viewParam = view === "kanban" ? "" : `?view=${view}`;
+    navigate({ to: `${basePath}/quick-tasks/${id}${viewParam}` });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);

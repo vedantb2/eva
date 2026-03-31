@@ -50,6 +50,8 @@ export function QuickTasksListView({
   const { repoId } = useRepo();
   const currentUserId = useQuery(api.auth.me);
   const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
+  const users = useQuery(api.users.listAll);
+  const projectsList = useQuery(api.projects.list, { repoId });
   const startExecution = useMutation(api.agentTasks.startExecution);
 
   const [isFixingAll, setIsFixingAll] = useState(false);
@@ -235,6 +237,9 @@ export function QuickTasksListView({
                             model={task.model}
                             projectId={task.projectId}
                             repoId={task.repoId ?? repoId}
+                            users={users ?? undefined}
+                            currentUserId={currentUserId ?? undefined}
+                            projects={projectsList ?? undefined}
                           />
                         ))}
                       </div>

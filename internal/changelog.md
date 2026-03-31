@@ -1,5 +1,13 @@
 # Changelog
 
+## Replace ProjectsTimeline with kibo-ui Gantt component - 2026-03-31
+
+- **Why**: The existing custom timeline view was read-only with no interactive editing. Replacing with the kibo-ui Gantt component adds drag-to-resize and drag-to-move project bars, daily/monthly/quarterly range modes, a fixed sidebar with project labels, and a today marker — all features that improve project planning UX.
+- **Changes**:
+  - **New `packages/ui/src/kibo/` module**: Forked kibo-ui Gantt source into 5 files (`gantt-provider`, `gantt-header`, `gantt-timeline`, `gantt-sidebar`, `gantt-features`). Converted all date-fns calls to dayjs, replaced jotai atoms with React context, inlined lodash.throttle, removed @uidotdev/usehooks dependency. Restyled for design system compliance (no shadows, no borders, tonal surface hierarchy).
+  - **Rewrote `ProjectsTimeline.tsx`**: From 612-line custom implementation to ~150-line thin wrapper composing Gantt components. Maps Convex project data to GanttFeature format, handles drag-to-move via `projects.update` mutation.
+  - **New dependency**: `@dnd-kit/modifiers` in apps/web for horizontal-axis drag constraint.
+
 ## Retry transient git TLS/bootstrap failures during sandbox setup - 2026-03-31
 
 - **Why**: Some sandbox starts fail during repo bootstrap with transient GitHub transport errors like `GnuTLS recv error (-110)` or abruptly terminated TLS sessions. A manual retry usually succeeds, which means these should be treated as flaky setup errors rather than hard failures.

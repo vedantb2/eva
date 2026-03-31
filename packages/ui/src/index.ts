@@ -49,3 +49,5 @@ export * from "./ai-elements/code-block";
 export * from "./ai-elements/sandbox";
 export * from "./ai-elements/chain-of-thought";
 export * from "./ai-elements/activity-steps";
+
+export * from "./kibo";

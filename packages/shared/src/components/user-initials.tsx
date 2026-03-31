@@ -5,33 +5,56 @@ import { useQuery } from "convex/react";
 import { Facehash } from "facehash";
 import dayjs from "../utils/dates";
 
+interface UserFields {
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+  lastSeenAt?: number | null;
+}
+
+export function getUserInitials(user: UserFields): string {
+  const firstLast =
+    `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase();
+  if (firstLast) return firstLast;
+  if (user.fullName) {
+    return user.fullName
+      .split(/\s+/)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  }
+  return "?";
+}
+
+function getUserName(user: UserFields): string {
+  return (
+    `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+    user.fullName ||
+    ""
+  );
+}
+
 export function UserInitials({
   userId,
+  user: preloadedUser,
   hideLastSeen,
   size,
 }: {
-  userId: Id<"users">;
+  userId?: Id<"users">;
+  user?: UserFields;
   hideLastSeen?: boolean;
   size?: "sm" | "md" | "lg";
 }) {
-  const user = useQuery(api.users.get, { id: userId });
+  const fetchedUser = useQuery(
+    api.users.get,
+    !preloadedUser && userId ? { id: userId } : "skip",
+  );
+  const user = preloadedUser ?? fetchedUser;
   if (!user) return null;
-  const firstLast =
-    `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase();
-  const initials =
-    firstLast ||
-    (user.fullName
-      ? user.fullName
-          .split(/\s+/)
-          .map((w) => w[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2)
-      : "?");
-  const name =
-    `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-    user.fullName ||
-    "";
+
+  const initials = getUserInitials(user);
+  const name = getUserName(user);
   const online = !!user.lastSeenAt && Date.now() - user.lastSeenAt < 120_000;
   const tooltip = online
     ? `${name} · Online`

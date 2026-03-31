@@ -1,1 +1,1 @@
-export { UserInitials } from "./components/user-initials";
+export { UserInitials, getUserInitials } from "./components/user-initials";

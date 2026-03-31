@@ -29,6 +29,8 @@ import {
   IconInfoCircle,
   IconBrandVercelFilled,
 } from "@tabler/icons-react";
+import { UserInitials, getUserInitials } from "@conductor/shared";
+import { Facehash } from "facehash";
 import {
   statusConfig,
   TASK_STATUSES,
@@ -204,11 +206,19 @@ export function StatusFieldsSection({
             <SelectLabel>Project</SelectLabel>
             <SelectItem value={NO_PROJECT_VALUE}>No project</SelectItem>
             {task?.projectId && !hasSelectedProject && (
-              <SelectItem value={task.projectId}>Current project</SelectItem>
+              <SelectItem value={task.projectId}>
+                <div className="flex items-center gap-1.5">
+                  <IconFolder size={14} className="text-muted-foreground" />
+                  <span>Current project</span>
+                </div>
+              </SelectItem>
             )}
             {projectOptions.map((project) => (
               <SelectItem key={project._id} value={project._id}>
-                {project.title}
+                <div className="flex items-center gap-1.5">
+                  <IconFolder size={14} className="text-muted-foreground" />
+                  <span>{project.title}</span>
+                </div>
               </SelectItem>
             ))}
           </SelectGroup>
@@ -231,7 +241,11 @@ export function StatusFieldsSection({
             <div
               className={`flex items-center gap-1.5 ${!task?.assignedTo ? "text-muted-foreground" : ""}`}
             >
-              <IconUserPlus size={14} className="text-muted-foreground" />
+              {assignedUser ? (
+                <UserInitials user={assignedUser} size="sm" hideLastSeen />
+              ) : (
+                <IconUserPlus size={14} className="text-muted-foreground" />
+              )}
               <span>{task?.assignedTo ? assignedDisplayName : "Assignee"}</span>
             </div>
           </SelectValue>
@@ -242,7 +256,14 @@ export function StatusFieldsSection({
             <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
             {(users ?? []).map((user) => (
               <SelectItem key={user._id} value={user._id}>
-                {getUserDisplayName(user)}
+                <div className="flex items-center gap-1.5">
+                  <Facehash
+                    size={16}
+                    name={getUserInitials(user)}
+                    enableBlink
+                  />
+                  <span>{getUserDisplayName(user)}</span>
+                </div>
               </SelectItem>
             ))}
           </SelectGroup>
@@ -323,7 +344,10 @@ export function StatusFieldsSection({
             <SelectLabel>Model</SelectLabel>
             {CLAUDE_MODELS.map((m) => (
               <SelectItem key={m} value={m}>
-                {capitalize(m)}
+                <div className="flex items-center gap-1.5">
+                  <IconBrain size={14} className="text-muted-foreground" />
+                  <span>{capitalize(m)}</span>
+                </div>
               </SelectItem>
             ))}
           </SelectGroup>

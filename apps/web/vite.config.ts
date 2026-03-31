@@ -73,6 +73,7 @@ export default defineConfig({
       routesDirectory: "./src/routes",
       routeFileIgnorePattern:
         "(_components|_utils\\.ts|Client\\.tsx|Panel\\.tsx)",
+      autoCodeSplitting: true,
     }),
     react(),
     babel({

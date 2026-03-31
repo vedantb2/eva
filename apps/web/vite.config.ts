@@ -2,6 +2,7 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import tanstackRouter from "@tanstack/router-plugin/vite";
+import viteImagemin from "vite-plugin-imagemin";
 import path from "path";
 
 function agentLoginPlugin(): Plugin {
@@ -79,6 +80,17 @@ export default defineConfig({
       presets: [reactCompilerPreset()],
     }),
     agentLoginPlugin(),
+    viteImagemin({
+      gifsicle: { optimizationLevel: 3 },
+      mozjpeg: { quality: 80 },
+      pngquant: { quality: [0.65, 0.9], speed: 4 },
+      svgo: {
+        plugins: [
+          { name: "removeViewBox", active: false },
+          { name: "removeEmptyAttrs", active: false },
+        ],
+      },
+    }),
   ],
   server: {
     host: "0.0.0.0",

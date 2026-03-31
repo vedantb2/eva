@@ -1,6 +1,6 @@
 "use client";
 
-import dayjs from "@conductor/shared/dates";
+import dayjs from "../utils/dayjs";
 import type {
   FC,
   KeyboardEventHandler,

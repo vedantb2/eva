@@ -1,5 +1,17 @@
 # Changelog
 
+## Bundle optimization — reduce initial load by 80% - 2026-03-31
+
+- **Why**: Main bundle was 1,355KB and TaskDetailInline was 1,048KB — both over 1MB. Users downloaded and parsed megabytes of JS before seeing any content, including libraries they'd never use on most pages (tiptap, react-syntax-highlighter, streamdown).
+- **Changes**:
+  - Added `sideEffects: false` to `@conductor/ui` — enables tree-shaking of the 180+ component barrel export.
+  - Added `./ai` sub-path export to `@conductor/ui` for ai-elements.
+  - Lazy-loaded FormattedText (tiptap ~300KB), LazyCodeBlock (syntax highlighting), and RunTimelineItem (streamdown + plugins) via `React.lazy()` with `Suspense`.
+  - Replaced `react-syntax-highlighter` (624KB lazy chunk) with `shiki` (76KB lazy chunk) — shiki was already in the dep tree via @streamdown/code, so react-syntax-highlighter was redundant.
+  - Added vendor chunk splitting in Vite 8 via `codeSplitting.groups` for Radix, Convex, and Clerk — stable vendor libs now cache independently.
+  - Broke cyclic workspace dependency between `packages/shared` ↔ `packages/ui` by giving the UI package its own local dayjs setup instead of importing from `@conductor/shared/dates`.
+- **Result**: index 1,355KB → 273KB (-80%), TaskDetailInline 1,048KB → 84KB (-92%), LazyCodeBlock 624KB → 76KB (-88%). Cyclic dependency warning eliminated.
+
 ## Lift repo context to the shared repo layout - 2026-03-31
 
 - **Why**: Repo pages could briefly lose `RepoProvider` during TanStack Router transitions, which surfaced intermittent `useRepo must be used within a RepoProvider` crashes when repo-scoped UI stayed mounted across a tab change.

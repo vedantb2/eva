@@ -131,7 +131,7 @@ function FindingRow({
   const [expanded, setExpanded] = useState(false);
   const hasTaskCreated = finding.taskId !== undefined;
   const taskUrl = hasTaskCreated
-    ? `/${repoOwner}/${repoName}/quick-tasks?taskId=${finding.taskId}`
+    ? `/${repoOwner}/${repoName}/quick-tasks/${finding.taskId}`
     : null;
 
   return (

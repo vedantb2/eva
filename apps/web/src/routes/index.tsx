@@ -79,7 +79,7 @@ function LandingPage() {
               size="lg"
               variant="outline"
               onClick={() => {
-                window.location.href = "/?agent";
+                navigate({ to: "/", search: { agent: true } });
               }}
             >
               Sign in as Eva

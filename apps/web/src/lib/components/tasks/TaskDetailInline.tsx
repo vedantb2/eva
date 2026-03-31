@@ -98,8 +98,8 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
                     canEditTaskText={canEditTaskText}
                     taskId={taskId}
                   />
-                  {task?.scheduledAt ? (
-                    <div className="flex items-center gap-1.5 mt-2">
+                  <div className="flex items-center gap-2 mt-2">
+                    {task?.scheduledAt ? (
                       <Badge
                         variant="outline"
                         className="gap-1 text-xs font-normal text-muted-foreground"
@@ -110,12 +110,16 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
                           : "Was scheduled for"}{" "}
                         {dayjs(task.scheduledAt).format("DD/MM/YYYY HH:mm")}
                       </Badge>
-                    </div>
-                  ) : null}
+                    ) : null}
+                    {task?.createdAt ? (
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <TaskDescription
                   description={task?.description}
-                  createdAt={task?.createdAt}
                   canEditTaskText={canEditTaskText}
                   taskId={taskId}
                   inline={true}

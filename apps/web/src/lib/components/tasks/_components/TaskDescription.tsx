@@ -12,18 +12,15 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import dayjs from "@conductor/shared/dates";
 import { FormattedText } from "./FormattedText";
 
 export function TaskDescription({
   description,
-  createdAt,
   canEditTaskText,
   taskId,
   inline,
 }: {
   description: string | undefined;
-  createdAt: number | undefined;
   canEditTaskText: boolean;
   taskId: Id<"agentTasks">;
   inline: boolean;
@@ -40,11 +37,6 @@ export function TaskDescription({
 
   return (
     <div>
-      <div className="flex items-center justify-end mb-2">
-        <span className="text-xs text-muted-foreground">
-          {createdAt ? dayjs(createdAt).format("DD/MM/YYYY HH:mm") : ""}
-        </span>
-      </div>
       <div
         onClick={
           !isEditingDescription && canEditTaskText

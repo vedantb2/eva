@@ -90,6 +90,11 @@ Next.js:
 - When using Convex:
   - Extract interactive/live logic into child Client Components.
 
+TanStack Router (eva web app):
+
+- Never use `window.location.href` for navigation. Always use `useNavigate` from `@tanstack/react-router` or the `<Link>` component.
+- `window.location.href` causes a full page reload, losing client-side state. TanStack Router navigation preserves SPA behavior.
+
 Nuqs:
 
 - If you are required to implement filters, or sort by methods, make sure nuqs is installed in the codebase and use it to create searchParams.ts and use the useQueryState/useQueryStates hook from nuqs to implement the filters / sorting methods. This is preferred over local state as it stores the state in the URL so can be shared with other users.

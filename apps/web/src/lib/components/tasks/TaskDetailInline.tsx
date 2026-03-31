@@ -87,9 +87,9 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
   return (
     <>
       <div className="flex flex-col h-full overflow-hidden">
-        <div className="px-4 md:px-6 pt-4 md:pt-5 flex-1 min-h-0 overflow-y-auto scrollbar flex flex-col">
-          <div className="flex-1 flex flex-col pb-4">
-            <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] flex-1 min-h-0">
+        <div className="px-4 md:px-6 pt-4 md:pt-5 flex-1 min-h-0 overflow-y-auto scrollbar">
+          <div className="flex flex-col pb-4">
+            <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] min-h-0">
               <div className="space-y-4 min-h-0 min-w-0 md:pr-6">
                 <div>
                   <TaskHeader
@@ -217,44 +217,42 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
                 </Tabs>
               </div>
               <div className="md:pl-8 flex flex-col min-h-0 min-w-0 md:overflow-y-auto scrollbar">
-                <div className="flex-1">
-                  <StatusFieldsSection
-                    taskId={taskId}
-                    task={task}
-                    status={status}
-                    isBlocked={isBlocked}
-                    users={users}
-                    projects={projects}
-                    baseBranch={baseBranch}
-                    setBaseBranch={setBaseBranch}
-                    latestDeployment={latestDeployment}
-                    hasActiveRun={hasActiveRun}
-                  />
-                </div>
-                <div className="flex items-center justify-end pt-4 mt-auto pb-4 md:pb-0">
-                  <TaskFooter
-                    taskId={taskId}
-                    task={task}
-                    status={status}
-                    isOwner={isOwner}
-                    isBlocked={isBlocked}
-                    hasActiveRun={hasActiveRun}
-                    latestPrUrl={latestPrUrl}
-                    latestDeployment={latestDeployment}
-                    executionError={executionError}
-                    isStarting={isStarting}
-                    onStartExecution={handleStartExecution}
-                    onResolveConfirm={() => setShowResolveConfirm(true)}
-                    onRequestChanges={() => {
-                      setRequestingChanges(true);
-                      if (executionError) setExecutionError(null);
-                      setActiveTab("comments");
-                    }}
-                  />
-                </div>
+                <StatusFieldsSection
+                  taskId={taskId}
+                  task={task}
+                  status={status}
+                  isBlocked={isBlocked}
+                  users={users}
+                  projects={projects}
+                  baseBranch={baseBranch}
+                  setBaseBranch={setBaseBranch}
+                  latestDeployment={latestDeployment}
+                  hasActiveRun={hasActiveRun}
+                />
               </div>
             </div>
           </div>
+        </div>
+        <div className="flex items-center justify-end px-4 md:px-6 py-3 shrink-0">
+          <TaskFooter
+            taskId={taskId}
+            task={task}
+            status={status}
+            isOwner={isOwner}
+            isBlocked={isBlocked}
+            hasActiveRun={hasActiveRun}
+            latestPrUrl={latestPrUrl}
+            latestDeployment={latestDeployment}
+            executionError={executionError}
+            isStarting={isStarting}
+            onStartExecution={handleStartExecution}
+            onResolveConfirm={() => setShowResolveConfirm(true)}
+            onRequestChanges={() => {
+              setRequestingChanges(true);
+              if (executionError) setExecutionError(null);
+              setActiveTab("comments");
+            }}
+          />
         </div>
       </div>
       <StopConfirmDialog

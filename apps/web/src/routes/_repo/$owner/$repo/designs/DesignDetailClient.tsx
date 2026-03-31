@@ -106,7 +106,7 @@ export function DesignDetailClient({
 
   return (
     <ResizablePanelLayout
-      leftPanel={() => (
+      leftPanel={(ctx) => (
         <DesignChatPanel
           designSessionId={designSessionId}
           title={session.title}
@@ -116,6 +116,8 @@ export function DesignDetailClient({
           isExecuting={lastAssistantHasNoContent}
           onSandboxToggle={handleSandboxToggle}
           repoId={session.repoId}
+          previewCollapsed={ctx.rightPanelCollapsed}
+          onTogglePreview={ctx.onToggleRightPanel}
         />
       )}
       rightPanel={

@@ -101,6 +101,8 @@ export {
   type GanttFeatureDragHelperProps,
 } from "./gantt-features";
 
+export { ThemeSwitcher, type ThemeSwitcherProps } from "./theme-switcher";
+
 export {
   DataTableProvider,
   DataTableHead,

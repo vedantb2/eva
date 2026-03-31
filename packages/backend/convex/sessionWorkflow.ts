@@ -42,21 +42,16 @@ function buildAskPrompt(
   responseLength: string,
   rootDirectory: string,
 ): string {
-  return `You are answering questions about a codebase for a non-technical user. READ-ONLY mode — do NOT modify any files.
+  return `Answer questions about ${repo.owner}/${repo.name} for a non-technical user. READ-ONLY — do NOT modify files.
 
-Repository: ${repo.owner}/${repo.name}
+${message}
 
-Question: ${message}
+Use Glob, Grep, Read, Bash to explore. Do NOT modify files.
 
-You have full access to this machine. Use Glob, Grep, Read to explore code, and Bash to run commands (check logs, curl endpoints, inspect running services, etc). Do NOT modify any files.
-
-Response rules:
-- Write for a non-technical audience — explain in business and product terms, not code or implementation
-- Never include code snippets, file paths, function names, or technical jargon
-- You may casually reference parts of the product (e.g. "the login page", "the settings screen") but not source files
-- Use markdown formatting: headers, bullet points, tables where they aid clarity
-- When explaining architecture, data flow, or relationships, use a mermaid diagram (fenced \`\`\`mermaid block) to visualise it — this helps non-technical users understand at a glance
-- Keep explanations concise and jargon-free; diagrams can replace lengthy prose${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+Rules:
+- Non-technical language only — no code, file paths, function names, or jargon
+- Reference product areas casually ("the login page") but never source files
+- Use markdown (headers, bullets, tables) for clarity${getResponseLengthInstruction(responseLength, "ask")}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildPlanPrompt(
@@ -66,27 +61,20 @@ function buildPlanPrompt(
   responseLength: string,
   rootDirectory: string,
 ): string {
-  return `You are a product planning assistant helping define a PRD for a feature or change.
+  return `PRD planning for ${repo.owner}/${repo.name}. Explore with Glob, Grep, Read.
 
-## Repository: ${repo.owner}/${repo.name}
+Current plan.md:
+${existingPlan || "None yet."}
 
-## Current plan.md:
-${existingPlan || "No plan created yet."}
+User: ${message}
 
-## User Message:
-${message}
+Create/update plan.md with: Overview, Goals, User Stories, Acceptance Criteria, Scope, Out of Scope. Refine iteratively — don't rewrite unless asked.
 
-## Instructions:
-1. Use Glob, Grep, Read to explore the codebase
-2. Create or update plan.md in the repository root with the full PRD
-3. Refine based on user feedback — don't rewrite from scratch unless asked
-4. Structure: Overview, Goals, User Stories, Acceptance Criteria, Scope, Out of Scope
-
-## Rules:
-- ONLY write to plan.md — do NOT modify other files
-- Response: 1-2 sentences on what changed in the plan
-- Non-technical audience — WHAT and WHY, not HOW
-- Do NOT commit or push${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+Rules:
+- ONLY write plan.md — no other files
+- Respond with 1-2 sentences on what changed
+- Non-technical: WHAT and WHY, not HOW
+- Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 function buildExecutePrompt(
@@ -99,36 +87,26 @@ function buildExecutePrompt(
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const planContext = planContent
-    ? `\n\n## Approved Product Plan:\n${planContent}\n\nUse this plan as context for what to build and why. Follow the goals, user stories, and acceptance criteria defined above.`
+    ? `\n\nApproved plan:\n${planContent}\n\nFollow the goals, user stories, and acceptance criteria above.`
     : "";
-  return `You are working on an ongoing session. You have full admin access to this sandboxed machine — install packages, run dev servers, execute any commands you need.
+  return `Full admin access to this sandbox. ${repo.owner}/${repo.name} on branch "${branchName}".${planContext}
 
-## User Request:
 ${message}
 
-## Repository: ${repo.owner}/${repo.name}
-## Branch: ${branchName}
-
-You are already on branch "${branchName}". All work MUST stay on this branch.${planContext}
-
-## Instructions:
+Steps:
 1. Read CLAUDE.md if it exists
-2. Use Glob, Grep, Read to find relevant files
-3. Make changes using Edit or Write
-4. Only if you made code changes, commit and push:
+2. Find relevant files with Glob, Grep, Read
+3. Make changes with Edit or Write
+4. If code changed, commit and push:
    git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}" && git push -u origin ${branchName}
-5. Respond with a concise summary of what you did
 
-## Rules:
-- NEVER checkout, push to, or interact with main — only "${branchName}"
-- Do NOT create PRs, run build/lint/test/dev commands, or commit if no source code changed
-- NEVER commit image or video files
-- Make minimal, focused changes
-- Use the lockfile for package manager. GITHUB_TOKEN is set for git operations.
-- Frame your response as a business outcome with light technical context (e.g. "Added dark mode toggle to settings. Changes pushed to branch.")
-- Never include code snippets, file paths, function names, or implementation details in your response
-- Do NOT mention commit hashes, process meta-commentary, or internal tooling steps
-- For browser interaction (screenshots, visual proof), use the agent-browser skill. Before using agent-browser, check CDP: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. If CDP: use \`agent-browser --cdp 9222\` for all commands (skip \`set viewport\`, VNC Chrome is already 1920x1080). If NO_CDP: run \`agent-browser set viewport 1920 1080\` first. Always use \`--annotate\` for screenshots. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength)}${buildRootDirectoryInstruction(rootDirectory)}`;
+Rules:
+- ONLY work on "${branchName}" — never interact with main
+- No PRs, no build/lint/test/dev commands, no commit if no source changed
+- Never commit images/video. Minimal, focused changes. Use lockfile. GITHUB_TOKEN is set.
+- Respond as business outcome, no code/paths/jargon (e.g. "Added dark mode toggle. Pushed to branch.")
+- No commit hashes or process commentary
+- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "execute")}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 // --- Workflow ---

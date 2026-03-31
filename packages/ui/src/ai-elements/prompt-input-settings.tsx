@@ -21,7 +21,7 @@ import { IconBrain, IconTextResize, IconDots } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
 
 export type ClaudeModel = "opus" | "sonnet" | "haiku";
-export type ResponseLength = "concise" | "default" | "detailed";
+export type ResponseLength = "default" | "detailed";
 
 const MODELS: { key: ClaudeModel; label: string }[] = [
   { key: "opus", label: "Opus" },
@@ -30,7 +30,6 @@ const MODELS: { key: ClaudeModel; label: string }[] = [
 ];
 
 const RESPONSE_LENGTHS: { key: ResponseLength; label: string }[] = [
-  { key: "concise", label: "Concise" },
   { key: "default", label: "Default" },
   { key: "detailed", label: "Detailed" },
 ];

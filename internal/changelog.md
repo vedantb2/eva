@@ -1,5 +1,13 @@
 # Changelog
 
+## Compress session prompts, simplify response length to default/detailed - 2026-03-31
+
+- **Why**: System prompts were verbose, wasting tokens on every request. Three response length options (concise/default/detailed) were unnecessary — default should already be concise-leaning, making "concise" redundant.
+- **Changes**:
+  - **Ask/Plan/Execute prompts** (`sessionWorkflow.ts`): Compressed all three by ~40%, removing redundant phrasing while preserving all behavioral rules. Mermaid diagram instruction moved from ask prompt base into the response length system.
+  - **`getResponseLengthInstruction`** (`prompts/shared.ts`): Now takes a `mode` parameter. Per-mode instructions: Ask mode controls diagram usage; Execute mode controls summary depth; Plan mode always returns empty (plan is always terse). Default is concise-leaning.
+  - **Removed "concise" option**: Type narrowed to `"default" | "detailed"`. UI dropdown, validation arrays, and settings hook updated. Old "concise" values in DB are harmless — they fall through to the default branch which is already concise-leaning.
+
 ## Backend performance audit — eliminate full table scans, N+1 queries, and missing indexes - 2026-03-31
 
 - **Why**: Multiple reactive queries scanned entire tables then post-filtered in JS, causing read amplification that grows linearly with data. `githubRepos.list` and `agentTasks.getActiveTasks` both scanned ALL repos with per-repo access checks. `recomputeProjectPhase` collected all project tasks on every status change. `agentRuns.listAll` was dead code doing a triple full-scan.

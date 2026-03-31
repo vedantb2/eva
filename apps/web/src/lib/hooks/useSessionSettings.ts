@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 
 const MODELS: ClaudeModel[] = ["opus", "sonnet", "haiku"];
-const RESPONSE_LENGTHS: ResponseLength[] = ["concise", "default", "detailed"];
+const RESPONSE_LENGTHS: ResponseLength[] = ["default", "detailed"];
 
 function isClaudeModel(v: string): v is ClaudeModel {
   return MODELS.includes(v as ClaudeModel);

@@ -106,6 +106,7 @@
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.9.3",
-    "vite": "^8.0.2"
+    "vite": "^8.0.2",
+    "vite-plugin-imagemin": "^0.6.1"
   }
 }

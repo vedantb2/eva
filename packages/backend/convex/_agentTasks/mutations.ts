@@ -90,21 +90,23 @@ export const updateStatus = authMutation({
         }
       }
     }
-    await ctx.db.patch(args.id, {
-      status: args.status,
-      updatedAt: Date.now(),
-    });
-    if (args.status !== "todo" && task.scheduledFunctionId) {
+    const clearSchedule =
+      args.status !== "todo" && task.scheduledFunctionId !== undefined;
+    if (clearSchedule && task.scheduledFunctionId) {
       try {
         await ctx.scheduler.cancel(task.scheduledFunctionId);
       } catch {
         // may have already fired
       }
-      await ctx.db.patch(args.id, {
+    }
+    await ctx.db.patch(args.id, {
+      status: args.status,
+      updatedAt: Date.now(),
+      ...(clearSchedule && {
         scheduledAt: undefined,
         scheduledFunctionId: undefined,
-      });
-    }
+      }),
+    });
     if (args.status === "done") {
       if (task.createdBy && task.createdBy !== ctx.userId) {
         await createNotification(ctx, {

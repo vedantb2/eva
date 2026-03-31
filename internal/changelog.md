@@ -1,5 +1,20 @@
 # Changelog
 
+## Backend performance audit — eliminate full table scans, N+1 queries, and missing indexes - 2026-03-31
+
+- **Why**: Multiple reactive queries scanned entire tables then post-filtered in JS, causing read amplification that grows linearly with data. `githubRepos.list` and `agentTasks.getActiveTasks` both scanned ALL repos with per-repo access checks. `recomputeProjectPhase` collected all project tasks on every status change. `agentRuns.listAll` was dead code doing a triple full-scan.
+- **Changes**:
+  - **`githubRepos/queries.list`**: Replaced full-table scan with indexed fan-out: team memberships → `by_team` per team + new `by_connected_by` index for directly-connected repos. Read set now scoped to user's repos only.
+  - **`agentTasks/queries.getActiveTasks`**: Same team-scoped approach replaces full `githubRepos` scan + N+1 `hasRepoAccess` checks.
+  - **`agentRuns.listAll`**: Removed — dead code, no client or internal callers.
+  - **`recomputeProjectPhase`**: Replaced `.collect()` of all project tasks with parallel `.first()` calls using `by_project_and_status` index. Reads at most 7 index probes instead of N full documents.
+  - **Session queries**: `listArchived` now uses new `by_repo_and_archived` index; `list` and `countActive` use Convex `.filter()` in query chain instead of JS post-filter.
+  - **`auditCategories`**: `hasEnabledCategories` and `listEnabledForContext` now use new `by_repo_and_enabled` index.
+  - **`_agentTasks/mutations.updateStatus`**: Consolidated double-patch into single write.
+  - **`_taskWorkflow/runLifecycle.completeRun`**: Eliminated duplicate `ctx.db.get(projectId)` read.
+- **New indexes**: `githubRepos.by_connected_by`, `sessions.by_repo_and_archived`, `auditCategories.by_repo_and_enabled`.
+- **Effect**: Reactive query read sets are now proportional to the user's data, not the entire database. Subscription invalidation is narrower since queries no longer touch unrelated documents.
+
 ## Refresh watchdog heartbeats even when streaming payloads stay unchanged - 2026-03-31
 
 - **Why**: Long-running proof capture and other tool phases can sit on the same visible activity step for minutes. The callback was still sending heartbeats, but the `streamingActivity` row only updated `lastUpdatedAt` when the activity payload changed, so the watchdog could incorrectly kill a live run as "no heartbeat for 300s".

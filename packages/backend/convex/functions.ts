@@ -66,26 +66,52 @@ export async function recomputeProjectPhase(
     project.phase !== "cancelled"
   )
     return;
-  const tasks = await db
-    .query("agentTasks")
-    .withIndex("by_project", (q) => q.eq("projectId", projectId))
-    .collect();
-  if (tasks.length === 0) return;
-  const allDone = tasks.every((t) => t.status === "done");
-  const anyActive = tasks.some(
-    (t) =>
-      t.status === "todo" ||
-      t.status === "in_progress" ||
-      t.status === "business_review",
+
+  const activeStatuses = ["todo", "in_progress", "business_review"] as const;
+  const activeChecks = await Promise.all(
+    activeStatuses.map((status) =>
+      db
+        .query("agentTasks")
+        .withIndex("by_project_and_status", (q) =>
+          q.eq("projectId", projectId).eq("status", status),
+        )
+        .first(),
+    ),
   );
+  const anyActive = activeChecks.some((t) => t !== null);
+
+  if (anyActive) {
+    if (project.phase !== "active") {
+      await db.patch(projectId, { phase: "active" });
+    }
+    return;
+  }
+
+  const nonDoneStatuses = ["code_review", "draft", "cancelled"] as const;
+  const nonDoneChecks = await Promise.all(
+    nonDoneStatuses.map((status) =>
+      db
+        .query("agentTasks")
+        .withIndex("by_project_and_status", (q) =>
+          q.eq("projectId", projectId).eq("status", status),
+        )
+        .first(),
+    ),
+  );
+  const hasNonDone = nonDoneChecks.some((t) => t !== null);
+
+  const hasDone = await db
+    .query("agentTasks")
+    .withIndex("by_project_and_status", (q) =>
+      q.eq("projectId", projectId).eq("status", "done"),
+    )
+    .first();
+
+  if (!hasDone && !hasNonDone) return;
+
+  const allDone = hasDone !== null && !hasNonDone && !anyActive;
   if (allDone && project.phase !== "completed") {
     await db.patch(projectId, { phase: "completed" });
-  } else if (anyActive && project.phase === "completed") {
-    await db.patch(projectId, { phase: "active" });
-  } else if (anyActive && project.phase === "cancelled") {
-    await db.patch(projectId, { phase: "active" });
-  } else if (anyActive && project.phase === "finalized") {
-    await db.patch(projectId, { phase: "active" });
   }
 }
 

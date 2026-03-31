@@ -94,7 +94,8 @@ const schema = defineSchema({
   githubRepos: defineTable(githubRepoFields)
     .index("by_github_id", ["githubId"])
     .index("by_owner_and_name", ["owner", "name"])
-    .index("by_team", ["teamId"]),
+    .index("by_team", ["teamId"])
+    .index("by_connected_by", ["connectedBy"]),
 
   taskComments: defineTable({
     taskId: v.id("agentTasks"),
@@ -127,7 +128,8 @@ const schema = defineSchema({
   sessions: defineTable(sessionFields)
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
-    .index("by_repo_and_status", ["repoId", "status"]),
+    .index("by_repo_and_status", ["repoId", "status"])
+    .index("by_repo_and_archived", ["repoId", "archived"]),
   streamingActivity: defineTable({
     entityId: v.string(),
     currentActivity: v.string(),
@@ -247,7 +249,9 @@ const schema = defineSchema({
     appId: v.optional(v.id("githubRepos")),
     disabledForAppIds: v.optional(v.array(v.id("githubRepos"))),
     createdAt: v.number(),
-  }).index("by_repo", ["repoId"]),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_repo_and_enabled", ["repoId", "enabled"]),
   audits: defineTable({
     entityId: v.union(v.id("agentTasks"), v.id("sessions")),
     runId: v.optional(v.id("agentRuns")),

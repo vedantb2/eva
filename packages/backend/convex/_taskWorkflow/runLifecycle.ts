@@ -202,17 +202,16 @@ export const completeRun = internalMutation({
       });
     }
 
-    if (args.projectId) {
-      const project = await ctx.db.get(args.projectId);
-      if (project) {
-        const projectPatch: { lastSandboxActivity: number; prUrl?: string } = {
-          lastSandboxActivity: now,
-        };
-        if (args.prUrl) {
-          projectPatch.prUrl = args.prUrl;
-        }
-        await ctx.db.patch(args.projectId, projectPatch);
+    const project = args.projectId ? await ctx.db.get(args.projectId) : null;
+
+    if (project) {
+      const projectPatch: { lastSandboxActivity: number; prUrl?: string } = {
+        lastSandboxActivity: now,
+      };
+      if (args.prUrl) {
+        projectPatch.prUrl = args.prUrl;
       }
+      await ctx.db.patch(project._id, projectPatch);
     }
 
     await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(args.runId));
@@ -244,18 +243,15 @@ export const completeRun = internalMutation({
       }
     }
 
-    if (args.projectId) {
-      const project = await ctx.db.get(args.projectId);
-      if (project?.activeBuildWorkflowId) {
-        await workflow.sendEvent(ctx, {
-          ...buildTaskDoneEvent,
-          workflowId: project.activeBuildWorkflowId as WorkflowId,
-          value: {
-            taskId: args.taskId,
-            success: args.success,
-          },
-        });
-      }
+    if (project?.activeBuildWorkflowId) {
+      await workflow.sendEvent(ctx, {
+        ...buildTaskDoneEvent,
+        workflowId: project.activeBuildWorkflowId as WorkflowId,
+        value: {
+          taskId: args.taskId,
+          success: args.success,
+        },
+      });
     }
 
     return null;

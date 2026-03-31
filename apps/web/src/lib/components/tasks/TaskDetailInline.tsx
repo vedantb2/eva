@@ -23,7 +23,6 @@ import { StatusFieldsSection } from "./_components/StatusFieldsSection";
 import { TaskFooter } from "./_components/TaskFooter";
 import { StopConfirmDialog } from "./_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "./_components/ResolveConfirmDialog";
-import { SubtaskList } from "./SubtaskList";
 
 interface TaskDetailInlineProps {
   onClose: () => void;
@@ -41,7 +40,6 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
     pastAudits,
     comments,
     proofs,
-    subtasks,
     users,
     projects,
     streaming,
@@ -122,11 +120,7 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
                   taskId={taskId}
                   inline={true}
                 />
-                {subtasks && subtasks.length > 0 ? (
-                  <div className="pt-4">
-                    <SubtaskList taskId={taskId} readOnly={status !== "todo"} />
-                  </div>
-                ) : null}
+
                 <Tabs
                   value={activeTab}
                   onValueChange={(v) => {

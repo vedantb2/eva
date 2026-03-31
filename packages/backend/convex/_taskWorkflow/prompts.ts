@@ -30,18 +30,12 @@ export function buildWorkflowRunNotificationMessage(params: {
 
 export function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
-  subtasks: Array<{ title: string }>,
   branchName: string,
   isQuickTask: boolean,
   rootDirectory: string,
   screenshotsVideosEnabled: boolean,
   changeRequests?: string[],
 ): string {
-  const subtasksList =
-    subtasks.length > 0
-      ? `\n## Subtasks:\n${subtasks.map((s, i) => `${i}. ${s.title}`).join("\n")}`
-      : "";
-
   const commitScope = isQuickTask
     ? "feat"
     : `feat(task-${task.taskNumber ?? task.title})`;
@@ -93,7 +87,7 @@ If dev server fails or page errors, screenshot the error state with \`agent-brow
 
 ## Task: ${task.title}
 ## Description: ${task.description || "No description provided"}
-${subtasksList}${changeRequestSection}
+${changeRequestSection}
 
 ## Steps:
 1. Read the files you plan to modify before editing them — understand existing code first

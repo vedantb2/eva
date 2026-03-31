@@ -110,37 +110,10 @@ export async function deleteProjectDetails(
   }
 }
 
-export const AUDIT_TASKS = [
-  {
-    title: "Accessibility Audit",
-    description:
-      "Review all changes for WCAG 2.2 compliance (https://www.w3.org/TR/WCAG22/). Check semantic HTML, ARIA attributes, keyboard navigation, color contrast, focus management, and screen reader support.",
-    subtasks: [
-      "Check semantic HTML elements and landmark regions",
-      "Verify ARIA attributes and roles are correct",
-      "Check form labels, error messages, and input associations",
-      "Verify images have appropriate alt text",
-    ],
-  },
-  {
-    title: "Testing Audit",
-    description:
-      "Review all diffs in the branch/PR and verify that tests are correct, complete, and aligned with the project requirements. Check test coverage, edge cases, assertions, and that tests actually validate the described behavior.",
-    subtasks: [
-      "Verify tests exist for all new/changed functionality",
-      "Check test assertions match the project requirements",
-      "Validate edge cases and error paths are covered",
-      "Ensure tests are not trivially passing (false positives)",
-      "Check mocks and test data are realistic",
-    ],
-  },
-];
-
 interface ParsedTask {
   title: string;
   description: string;
   dependencies: number[];
-  subtasks: string[];
 }
 
 interface ParsedSpec {
@@ -159,12 +132,10 @@ export function parseSpec(specJson: string): ParsedSpec {
         title?: string;
         description?: string;
         dependencies?: number[];
-        subtasks?: string[];
       }) => ({
         title: t.title ?? "",
         description: t.description ?? "",
         dependencies: t.dependencies ?? [],
-        subtasks: t.subtasks ?? [],
       }),
     ),
   };

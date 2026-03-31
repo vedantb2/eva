@@ -174,15 +174,6 @@ export const deleteRepoStep = internalMutation({
             deleted++;
           }
 
-          const subtasks = await ctx.db
-            .query("subtasks")
-            .withIndex("by_parent", (q) => q.eq("parentTaskId", task._id))
-            .collect();
-          for (const s of subtasks) {
-            await ctx.db.delete(s._id);
-            deleted++;
-          }
-
           const comments = await ctx.db
             .query("taskComments")
             .withIndex("by_task", (q) => q.eq("taskId", task._id))

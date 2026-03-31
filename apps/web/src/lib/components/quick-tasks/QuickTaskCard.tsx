@@ -32,7 +32,6 @@ import {
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
-import { SubtaskProgress } from "@/lib/components/tasks/SubtaskList";
 import { UserInitials } from "@conductor/shared";
 import {
   IconArrowMoveRight,
@@ -596,7 +595,6 @@ export function QuickTaskCard({
                 </TooltipContent>
               </Tooltip>
             ) : null}
-            <SubtaskProgress taskId={id} />
           </div>
         </div>
 

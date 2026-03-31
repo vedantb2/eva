@@ -39,7 +39,7 @@ export function ProjectDeleteDialog({
           <div className="mt-3 p-3 bg-warning-bg rounded-lg">
             <p className="text-sm text-warning">
               This will permanently delete the project and all associated tasks,
-              subtasks, agent runs, and dependencies.
+              agent runs, and dependencies.
             </p>
           </div>
           <p className="text-sm text-muted-foreground mt-3">

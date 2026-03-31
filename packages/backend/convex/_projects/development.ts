@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { authMutation } from "../functions";
 import {
-  AUDIT_TASKS,
   parseSpec,
   getProjectGeneratedSpec,
   setProjectConversation,
@@ -45,14 +44,6 @@ export const startDevelopment = authMutation({
         createdBy: ctx.userId,
       });
       taskIdMap.set(taskNumber, taskId);
-      for (let j = 0; j < task.subtasks.length; j++) {
-        await ctx.db.insert("subtasks", {
-          parentTaskId: taskId,
-          title: task.subtasks[j],
-          completed: false,
-          order: j,
-        });
-      }
     }
     for (let i = 0; i < spec.tasks.length; i++) {
       const task = spec.tasks[i];
@@ -67,36 +58,6 @@ export const startDevelopment = authMutation({
             dependsOnId: depTaskId,
           });
         }
-      }
-    }
-    const specTaskIds = [...taskIdMap.values()];
-    for (let i = 0; i < AUDIT_TASKS.length; i++) {
-      const audit = AUDIT_TASKS[i];
-      const taskNumber = spec.tasks.length + i + 1;
-      const auditTaskId = await ctx.db.insert("agentTasks", {
-        title: audit.title,
-        description: audit.description,
-        repoId: project.repoId,
-        projectId: args.projectId,
-        taskNumber,
-        status: "todo",
-        createdAt: now,
-        updatedAt: now,
-        createdBy: ctx.userId,
-      });
-      for (let j = 0; j < audit.subtasks.length; j++) {
-        await ctx.db.insert("subtasks", {
-          parentTaskId: auditTaskId,
-          title: audit.subtasks[j],
-          completed: false,
-          order: j,
-        });
-      }
-      for (const depId of specTaskIds) {
-        await ctx.db.insert("taskDependencies", {
-          taskId: auditTaskId,
-          dependsOnId: depId,
-        });
       }
     }
     await ctx.db.patch(args.projectId, {

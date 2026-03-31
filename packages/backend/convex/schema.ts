@@ -96,13 +96,6 @@ const schema = defineSchema({
     .index("by_owner_and_name", ["owner", "name"])
     .index("by_team", ["teamId"]),
 
-  subtasks: defineTable({
-    parentTaskId: v.id("agentTasks"),
-    title: v.string(),
-    completed: v.boolean(),
-    order: v.number(),
-  }).index("by_parent", ["parentTaskId"]),
-
   taskComments: defineTable({
     taskId: v.id("agentTasks"),
     content: v.string(),

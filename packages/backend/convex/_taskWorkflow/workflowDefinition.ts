@@ -25,7 +25,6 @@ export const taskExecutionWorkflow = workflow.define({
   },
   handler: async (step, args): Promise<void> => {
     let sandboxId: string | undefined;
-    let hasSubtasks = false;
     let completionSuccess: boolean | undefined;
     let completionError: string | null = null;
     let completionPrUrl: string | null = null;
@@ -49,8 +48,6 @@ export const taskExecutionWorkflow = workflow.define({
         branchName: args.branchName,
         mode: args.mode,
       });
-      hasSubtasks = data.hasSubtasks;
-
       sandboxId = await prepareSandboxSteps(step, {
         existingSandboxId: data.projectSandboxId,
         installationId: args.installationId,
@@ -212,7 +209,6 @@ export const taskExecutionWorkflow = workflow.define({
         success: result.success,
         error: result.error,
         prUrl: completionPrUrl,
-        hasSubtasks: data.hasSubtasks,
         activityLog: result.activityLog,
         mode: args.mode,
         claudeResult: result.result ?? undefined,
@@ -279,7 +275,6 @@ export const taskExecutionWorkflow = workflow.define({
           success: fallbackSuccess,
           error: fallbackError,
           prUrl: completionPrUrl,
-          hasSubtasks,
           activityLog: completionActivityLog,
           exitReason: fallbackExitReason,
           mode: args.mode,

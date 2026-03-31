@@ -58,9 +58,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   );
   const allComments = useQuery(api.taskComments.listByTask, { taskId });
   const comments = allComments?.filter((c) => c.authorId);
-  const subtasks = useQuery(api.subtasks.listByTask, {
-    parentTaskId: taskId,
-  });
   const auditCategories = useQuery(
     api.auditCategories.listByRepo,
     task?.repoId ? { repoId: task.repoId } : "skip",
@@ -145,7 +142,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     pastAudits,
     comments,
     proofs,
-    subtasks,
     users,
     projects,
     streaming,

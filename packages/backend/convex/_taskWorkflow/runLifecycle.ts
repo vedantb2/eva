@@ -171,7 +171,6 @@ export const completeRun = internalMutation({
     success: v.boolean(),
     error: v.union(v.string(), v.null()),
     prUrl: v.union(v.string(), v.null()),
-    hasSubtasks: v.boolean(),
     activityLog: v.union(v.string(), v.null()),
     exitReason: v.optional(v.string()),
     mode: v.optional(runModeValidator),
@@ -201,16 +200,6 @@ export const completeRun = internalMutation({
         status: args.success ? "code_review" : "todo",
         updatedAt: now,
       });
-    }
-
-    if (args.success && args.hasSubtasks) {
-      const subtasks = await ctx.db
-        .query("subtasks")
-        .withIndex("by_parent", (q) => q.eq("parentTaskId", args.taskId))
-        .collect();
-      for (const subtask of subtasks) {
-        await ctx.db.patch(subtask._id, { completed: true });
-      }
     }
 
     if (args.projectId) {

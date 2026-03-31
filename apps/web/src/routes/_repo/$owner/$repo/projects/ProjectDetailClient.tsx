@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -140,60 +140,13 @@ export function ProjectDetailClient() {
                 <span className="hidden sm:inline">Stop Build</span>
               </Button>
             ) : (
-              <div className="group/split flex items-center transition-transform duration-200 hover:-translate-y-[1px]">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Button
-                        size="sm"
-                        onClick={
-                          project.scheduledBuildAt
-                            ? undefined
-                            : () => setIsBuildModalOpen(true)
-                        }
-                        disabled={!isOwner}
-                        className="rounded-r-none hover:translate-y-0 group-hover/split:bg-primary/92"
-                      >
-                        {project.scheduledBuildAt ? (
-                          <IconCalendarClock size={16} />
-                        ) : (
-                          <IconHammer size={16} />
-                        )}
-                        <span className="hidden sm:inline">
-                          {project.scheduledBuildAt
-                            ? dayjs(project.scheduledBuildAt).format(
-                                "MMM D, h:mm A",
-                              )
-                            : "Build Project"}
-                        </span>
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  {!isOwner ? (
-                    <TooltipContent>
-                      Only the project owner can build
-                    </TooltipContent>
-                  ) : project.scheduledBuildAt ? (
-                    <TooltipContent>
-                      Scheduled — open dropdown to change or remove
-                    </TooltipContent>
-                  ) : null}
-                </Tooltip>
-                <ScheduleBuildPopover
-                  projectId={typedProjectId}
-                  scheduledBuildAt={project.scheduledBuildAt}
-                  disabled={!isOwner || !!project.activeBuildWorkflowId}
-                  trigger={
-                    <Button
-                      size="sm"
-                      disabled={!isOwner || !!project.activeBuildWorkflowId}
-                      className="rounded-l-none border-l border-l-primary-foreground/20 px-2 hover:translate-y-0 group-hover/split:bg-primary/92"
-                    >
-                      <IconChevronDown size={14} />
-                    </Button>
-                  }
-                />
-              </div>
+              <SplitBuildButton
+                projectId={typedProjectId}
+                scheduledBuildAt={project.scheduledBuildAt}
+                isOwner={isOwner}
+                hasActiveBuild={!!project.activeBuildWorkflowId}
+                onBuild={() => setIsBuildModalOpen(true)}
+              />
             )}
           </div>
         ) : null
@@ -276,5 +229,75 @@ export function ProjectDetailClient() {
         isStopping={isStoppingBuild}
       />
     </PageWrapper>
+  );
+}
+
+const SPLIT_BUTTON_HALF =
+  "hover:translate-y-0 active:scale-100 group-hover/split:bg-primary/92";
+
+function SplitBuildButton({
+  projectId,
+  scheduledBuildAt,
+  isOwner,
+  hasActiveBuild,
+  onBuild,
+}: {
+  projectId: Id<"projects">;
+  scheduledBuildAt: number | undefined;
+  isOwner: boolean;
+  hasActiveBuild: boolean;
+  onBuild: () => void;
+}) {
+  const chevronRef = useRef<HTMLButtonElement>(null);
+  const isScheduled = scheduledBuildAt !== undefined;
+
+  return (
+    <div className="group/split flex items-center transition-[transform,background-color] duration-200 hover:-translate-y-[1px] active:scale-[0.985]">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div>
+            <Button
+              size="sm"
+              onClick={
+                isScheduled ? () => chevronRef.current?.click() : onBuild
+              }
+              disabled={!isOwner}
+              className={`rounded-r-none ${SPLIT_BUTTON_HALF}`}
+            >
+              {isScheduled ? (
+                <IconCalendarClock size={16} />
+              ) : (
+                <IconHammer size={16} />
+              )}
+              <span className="hidden sm:inline">
+                {isScheduled
+                  ? dayjs(scheduledBuildAt).format("MMM D, h:mm A")
+                  : "Build Project"}
+              </span>
+            </Button>
+          </div>
+        </TooltipTrigger>
+        {!isOwner ? (
+          <TooltipContent>Only the project owner can build</TooltipContent>
+        ) : isScheduled ? (
+          <TooltipContent>Click to change or remove schedule</TooltipContent>
+        ) : null}
+      </Tooltip>
+      <ScheduleBuildPopover
+        projectId={projectId}
+        scheduledBuildAt={scheduledBuildAt}
+        disabled={!isOwner || hasActiveBuild}
+        trigger={
+          <Button
+            ref={chevronRef}
+            size="sm"
+            disabled={!isOwner || hasActiveBuild}
+            className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 ${SPLIT_BUTTON_HALF}`}
+          >
+            <IconChevronDown size={14} />
+          </Button>
+        }
+      />
+    </div>
   );
 }

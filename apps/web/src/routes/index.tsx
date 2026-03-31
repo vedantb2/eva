@@ -73,6 +73,20 @@ function LandingPage() {
           )}
         </div>
 
+        {!isProduction && (
+          <div className="flex justify-center">
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => {
+                window.location.href = "/?agent";
+              }}
+            >
+              Sign in as Eva
+            </Button>
+          </div>
+        )}
+
         {isProduction && (
           <div className="max-w-sm rounded-lg bg-muted/40 px-4 py-3 text-center text-sm text-muted-foreground">
             Eva is fully open source and self-hosted. Clone the repo, create

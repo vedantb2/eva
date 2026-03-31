@@ -1,0 +1,26 @@
+function e(e = {}) {
+  if (((e.isNotFound = !0), e.throw)) throw e;
+  return e;
+}
+function t(e) {
+  return !!e?.isNotFound;
+}
+var n = `__root__`;
+function r(e) {
+  if (
+    ((e.statusCode = e.statusCode || e.code || 307),
+    !e._builtLocation && !e.reloadDocument && typeof e.href == `string`)
+  )
+    try {
+      (new URL(e.href), (e.reloadDocument = !0));
+    } catch {}
+  let t = new Headers(e.headers);
+  e.href && t.get(`Location`) === null && t.set(`Location`, e.href);
+  let n = new Response(null, { status: e.statusCode, headers: t });
+  if (((n.options = e), e.throw)) throw n;
+  return n;
+}
+function i(e) {
+  return e instanceof Response && !!e.options;
+}
+export { e as a, t as i, r as n, n as r, i as t };

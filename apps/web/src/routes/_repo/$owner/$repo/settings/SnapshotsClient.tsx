@@ -188,9 +188,7 @@ export function SnapshotsClient() {
                       ? "Manual"
                       : (() => {
                           const result = describeCron(snapshot.schedule);
-                          return result.valid
-                            ? `${result.text} (UTC)`
-                            : snapshot.schedule;
+                          return result.valid ? result.text : snapshot.schedule;
                         })()}
                   </p>
                 </div>

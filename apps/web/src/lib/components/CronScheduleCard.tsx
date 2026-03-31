@@ -2,27 +2,60 @@ import cronstrue from "cronstrue";
 import { CronExpressionParser } from "cron-parser";
 import { Input } from "@conductor/ui";
 
-function describeCron(
-  expression: string,
-): { valid: true; text: string } | { valid: false; partial: boolean } {
+function getOffsetMinutes(): number {
+  return -new Date().getTimezoneOffset();
+}
+
+function offsetCronHour(expression: string, offsetMin: number): string | null {
   const parts = expression.trim().split(/\s+/);
+  if (parts.length < 5) return null;
+  const [min, hour, ...rest] = parts;
+  const minNum = parseInt(min);
+  const hourNum = parseInt(hour);
+  if (
+    isNaN(minNum) ||
+    isNaN(hourNum) ||
+    min !== String(minNum) ||
+    hour !== String(hourNum)
+  )
+    return null;
+  const total = hourNum * 60 + minNum + offsetMin;
+  const newHour = ((Math.floor(total / 60) % 24) + 24) % 24;
+  const newMin = ((total % 60) + 60) % 60;
+  return [String(newMin), String(newHour), ...rest].join(" ");
+}
+
+function localCronToUtc(localExpr: string): string {
+  const result = offsetCronHour(localExpr, -getOffsetMinutes());
+  return result ?? localExpr;
+}
+
+function utcCronToLocal(utcExpr: string): string {
+  const result = offsetCronHour(utcExpr, getOffsetMinutes());
+  return result ?? utcExpr;
+}
+
+function describeCron(
+  utcExpression: string,
+): { valid: true; text: string } | { valid: false; partial: boolean } {
+  const parts = utcExpression.trim().split(/\s+/);
   if (parts.length < 5) return { valid: false, partial: true };
   try {
+    const localExpr = utcCronToLocal(utcExpression);
     return {
       valid: true,
-      text: cronstrue.toString(expression, { use24HourTimeFormat: false }),
+      text: cronstrue.toString(localExpr, { use24HourTimeFormat: false }),
     };
   } catch {
     return { valid: false, partial: false };
   }
 }
 
-function nextCronDate(expression: string): string | null {
+function nextCronDate(utcExpression: string): string | null {
   try {
-    const iter = CronExpressionParser.parse(expression, { tz: "UTC" });
+    const iter = CronExpressionParser.parse(utcExpression, { tz: "UTC" });
     const next = iter.next().toDate();
     return next.toLocaleString("en-GB", {
-      timeZone: "UTC",
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -45,7 +78,8 @@ export function CronScheduleCard({
   onChange,
   allowManual = false,
 }: CronScheduleCardProps) {
-  const displayValue = allowManual && value === "manual" ? "" : value;
+  const isManual = allowManual && value === "manual";
+  const localDisplay = isManual ? "" : utcCronToLocal(value);
   const schedule = allowManual ? value : value || "";
 
   return (
@@ -53,7 +87,7 @@ export function CronScheduleCard({
       <h3 className="text-sm font-medium">Cron Schedule</h3>
       <div>
         <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-          Schedule (cron expression)
+          Schedule (cron expression, your timezone)
         </label>
         <CronPreview schedule={schedule} allowManual={allowManual} />
         <Input
@@ -61,13 +95,14 @@ export function CronScheduleCard({
           placeholder={
             allowManual ? "0 6 * * * (leave empty for manual)" : "0 6 * * *"
           }
-          value={displayValue}
+          value={localDisplay}
           onChange={(e) => {
-            if (allowManual) {
-              onChange(e.target.value || "manual");
-            } else {
-              onChange(e.target.value);
+            const raw = e.target.value;
+            if (allowManual && !raw) {
+              onChange("manual");
+              return;
             }
+            onChange(localCronToUtc(raw));
           }}
           onBlur={() => {
             if (allowManual) {
@@ -78,8 +113,8 @@ export function CronScheduleCard({
           }}
         />
         <p className="mt-1 text-[11px] text-muted-foreground">
-          Standard cron format (UTC). Examples: <code>0 6 * * *</code> (daily at
-          6am), <code>0 6 * * 1</code> (weekly Monday at 6am),{" "}
+          Times are in your local timezone. Examples: <code>0 6 * * *</code>{" "}
+          (daily at 6am), <code>0 6 * * 1</code> (weekly Monday at 6am),{" "}
           <code>0 */6 * * *</code> (every 6 hours)
           {allowManual && ". Leave empty for manual only."}
         </p>
@@ -126,7 +161,7 @@ function CronPreview({
     <div className="mb-2 rounded-md bg-muted/50 px-3 py-2 text-center">
       <p className="text-lg font-medium">{result.text}</p>
       {next && (
-        <p className="text-[11px] text-muted-foreground">next at {next} UTC</p>
+        <p className="text-[11px] text-muted-foreground">next at {next}</p>
       )}
     </div>
   );

@@ -24,7 +24,12 @@ import {
   type ClaudeModel,
   type PromptInputMessage,
 } from "@conductor/ui";
-import { IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
+import {
+  IconPlayerPlay,
+  IconPlayerStop,
+  IconLayoutSidebarRightCollapse,
+  IconLayoutSidebarRightExpand,
+} from "@tabler/icons-react";
 import { motion } from "motion/react";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { PersonaDropdown, ManagePersonasModal } from "./PersonaSelector";
@@ -55,6 +60,8 @@ interface DesignChatPanelProps {
   isExecuting: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
   repoId: Id<"githubRepos">;
+  previewCollapsed?: boolean;
+  onTogglePreview?: () => void;
 }
 
 export function DesignChatPanel({
@@ -66,6 +73,8 @@ export function DesignChatPanel({
   isExecuting: parentIsExecuting,
   onSandboxToggle,
   repoId,
+  previewCollapsed,
+  onTogglePreview,
 }: DesignChatPanelProps) {
   const messages = useQuery(api.messages.listByParent, {
     parentId: designSessionId,
@@ -195,15 +204,34 @@ export function DesignChatPanel({
           </Button>
         }
         headerRight={
-          <ManagePersonasModal
-            repoId={repoId}
-            selectedPersonaId={selectedPersonaId}
-            onClearPersona={() => setSelectedPersonaId(undefined)}
-          />
+          <>
+            <ManagePersonasModal
+              repoId={repoId}
+              selectedPersonaId={selectedPersonaId}
+              onClearPersona={() => setSelectedPersonaId(undefined)}
+            />
+            {onTogglePreview && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-8 motion-press hover:scale-[1.03] active:scale-[0.97]"
+                onClick={onTogglePreview}
+                title={
+                  previewCollapsed ? "Show preview panel" : "Hide preview panel"
+                }
+              >
+                {previewCollapsed ? (
+                  <IconLayoutSidebarRightExpand className="size-4" />
+                ) : (
+                  <IconLayoutSidebarRightCollapse className="size-4" />
+                )}
+              </Button>
+            )}
+          </>
         }
       >
         <Conversation className="flex-1 min-h-0">
-          <ConversationContent className="gap-3 p-3">
+          <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
             {messagesList.length === 0 ? (
               <ConversationEmptyState
                 title={
@@ -295,7 +323,7 @@ export function DesignChatPanel({
           <ConversationScrollButton />
         </Conversation>
         {!isArchived && (
-          <div className="p-2 md:p-3">
+          <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
             <QueuedMessagesPanel
               items={queuedMessageItems}
               onEdit={async (id, content) => {

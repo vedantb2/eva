@@ -465,7 +465,7 @@ export function ChatPanel({
               type="single"
               collapsible
               defaultValue={showSummaryStreaming ? "summary" : undefined}
-              className="w-full min-w-0 px-3 sm:px-6 bg-secondary rounded-b-3xl"
+              className="w-full min-w-0 px-3 sm:px-6 bg-secondary rounded-b-3xl max-w-3xl mx-auto"
             >
               <AccordionItem value="summary" className="border-b-0">
                 <AccordionTrigger className="py-2 text-sm">
@@ -493,7 +493,7 @@ export function ChatPanel({
         )}
       </AnimatePresence>
       <Conversation className="flex-1 min-h-0">
-        <ConversationContent className="gap-3 p-3">
+        <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
           {messages.length === 0 ? (
             <ConversationEmptyState
               title={
@@ -615,7 +615,7 @@ export function ChatPanel({
         <ConversationScrollButton />
       </Conversation>
       {!isArchived && (
-        <div className="p-2 md:p-3">
+        <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
           <QueuedMessagesPanel
             items={queuedMessageItems}
             onEdit={async (id, content) => {

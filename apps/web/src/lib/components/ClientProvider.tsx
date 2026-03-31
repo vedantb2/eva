@@ -7,6 +7,7 @@ import {
   useMutation,
   AuthLoading,
   Authenticated,
+  Unauthenticated,
 } from "convex/react";
 import usePresence from "@convex-dev/presence/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
@@ -14,6 +15,7 @@ import { useAuth } from "@clerk/clerk-react";
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider";
 import { ThemeModeProvider } from "@/lib/components/ThemeModeProvider";
 import { useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { TooltipProvider, Spinner } from "@conductor/ui";
 import { clientEnv } from "@/env/client";
@@ -25,6 +27,19 @@ if (!clientEnv.VITE_CONVEX_URL) {
 }
 
 const convex = new ConvexReactClient(clientEnv.VITE_CONVEX_URL);
+
+function RedirectToLanding() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigate({ to: "/" });
+  }, [navigate]);
+
+  return (
+    <div className="min-h-screen w-full bg-background">
+      <Spinner size="lg" />
+    </div>
+  );
+}
 
 function EnsureUser() {
   const { isAuthenticated } = useConvexAuth();
@@ -61,6 +76,9 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
               <Spinner size="lg" />
             </div>
           </AuthLoading>
+          <Unauthenticated>
+            <RedirectToLanding />
+          </Unauthenticated>
           <Authenticated>
             <ThemeProvider>
               <TooltipProvider delayDuration={300}>

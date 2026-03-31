@@ -46,6 +46,7 @@ export const get = authQuery({
   handler: async (ctx, args) => {
     const repo = await ctx.db.get(args.id);
     if (!repo) return null;
+    if (repo.hidden === true) return null;
 
     if (repo.connectedBy === ctx.userId) return repo;
 
@@ -86,6 +87,7 @@ export const getByOwnerAndName = authQuery({
       : candidates.find((r) => !r.rootDirectory);
 
     if (!repo) return null;
+    if (repo.hidden === true) return null;
 
     if (repo.connectedBy === ctx.userId) return repo;
 

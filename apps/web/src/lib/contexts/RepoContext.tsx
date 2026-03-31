@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
 import { decodeRepoParam } from "@/lib/utils/repoUrl";
 import type { FunctionReturnType } from "convex/server";
@@ -36,11 +37,19 @@ export function RepoProvider({
 }: RepoProviderProps) {
   const { name, appName } = decodeRepoParam(repoParam);
 
+  const navigate = useNavigate();
+
   const repo = useQuery(api.githubRepos.getByOwnerAndName, {
     owner,
     name,
     appName,
   });
+
+  useEffect(() => {
+    if (repo === null) {
+      navigate({ to: "/home", replace: true });
+    }
+  }, [repo, navigate]);
 
   const basePath = appName
     ? `/${owner}/${name}--${appName}`
@@ -69,14 +78,8 @@ export function RepoProvider({
 
   if (repo === null) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <h1 className="text-2xl font-bold text-foreground">
-          Repository not found
-        </h1>
-        <p className="text-muted-foreground">
-          The repository &quot;{owner}/{name}&quot; does not exist or you
-          don&apos;t have access to it.
-        </p>
+      <div className="flex items-center justify-center min-h-screen">
+        <Spinner size="lg" />
       </div>
     );
   }

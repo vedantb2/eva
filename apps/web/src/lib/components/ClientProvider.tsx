@@ -7,6 +7,7 @@ import {
   useMutation,
   AuthLoading,
   Authenticated,
+  Unauthenticated,
 } from "convex/react";
 import usePresence from "@convex-dev/presence/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
@@ -25,6 +26,18 @@ if (!clientEnv.VITE_CONVEX_URL) {
 }
 
 const convex = new ConvexReactClient(clientEnv.VITE_CONVEX_URL);
+
+function RedirectToLanding() {
+  useEffect(() => {
+    window.location.href = "/";
+  }, []);
+
+  return (
+    <div className="min-h-screen w-full bg-background">
+      <Spinner size="lg" />
+    </div>
+  );
+}
 
 function EnsureUser() {
   const { isAuthenticated } = useConvexAuth();
@@ -61,6 +74,9 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
               <Spinner size="lg" />
             </div>
           </AuthLoading>
+          <Unauthenticated>
+            <RedirectToLanding />
+          </Unauthenticated>
           <Authenticated>
             <ThemeProvider>
               <TooltipProvider delayDuration={300}>

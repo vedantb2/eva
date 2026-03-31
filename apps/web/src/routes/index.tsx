@@ -28,6 +28,10 @@ function LandingPage() {
     }
   }, [isLoaded, isSignedIn, hasAgent, navigate]);
 
+  if (!isLoaded) {
+    return <div className="min-h-screen w-full bg-background" />;
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="flex flex-col items-center gap-8">

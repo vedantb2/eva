@@ -5,3 +5,4 @@ screenshots
 .env
 .env.local
 dist
+tsconfig.buildinfo

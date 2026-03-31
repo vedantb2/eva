@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import react from "@vitejs/plugin-react";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import babel from "@rolldown/plugin-babel";
 import tanstackRouter from "@tanstack/router-plugin/vite";
 import path from "path";
 
@@ -74,6 +75,9 @@ export default defineConfig({
         "(_components|_utils\\.ts|Client\\.tsx|Panel\\.tsx)",
     }),
     react(),
+    babel({
+      presets: [reactCompilerPreset()],
+    }),
     agentLoginPlugin(),
   ],
   server: {

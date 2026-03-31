@@ -11,6 +11,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
   Dialog,
   DialogContent,
@@ -22,7 +23,15 @@ import {
   Spinner,
   cn,
 } from "@conductor/ui";
-import { IconArchive, IconChevronDown, IconPlus } from "@tabler/icons-react";
+import {
+  IconArchive,
+  IconChevronDown,
+  IconClipboard,
+  IconCopy,
+  IconLink,
+  IconPencil,
+  IconPlus,
+} from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 
 type SessionStatus = "active" | "starting" | "closed";
@@ -46,6 +55,8 @@ interface SessionListSidebarProps<T extends SessionItem> {
   createRequestId?: number;
   onCreate: (title: string) => Promise<string>;
   onArchive: (session: T) => Promise<void>;
+  onRename?: (session: T, newTitle: string) => Promise<void>;
+  onDuplicate?: (session: T) => Promise<string>;
   emptyIcon: React.ReactNode;
   emptyLabel: string;
   createTitle: string;
@@ -64,6 +75,8 @@ export function SessionListSidebar<T extends SessionItem>({
   createRequestId,
   onCreate,
   onArchive,
+  onRename,
+  onDuplicate,
   emptyIcon,
   emptyLabel,
   createTitle,
@@ -84,6 +97,9 @@ export function SessionListSidebar<T extends SessionItem>({
   } | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [sessionToRename, setSessionToRename] = useState<T | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
   const currentSessionId = pathname.startsWith(`${baseUrl}/`)
@@ -223,9 +239,53 @@ export function SessionListSidebar<T extends SessionItem>({
                       </motion.div>
                     </ContextMenuTrigger>
                     <ContextMenuContent>
+                      {onRename && (
+                        <ContextMenuItem
+                          onSelect={() => {
+                            setSessionToRename(session);
+                            setRenameValue(session.title);
+                          }}
+                        >
+                          <IconPencil size={16} />
+                          Rename
+                        </ContextMenuItem>
+                      )}
+                      {onDuplicate && (
+                        <ContextMenuItem
+                          onSelect={() => {
+                            void onDuplicate(session).then((newId) => {
+                              navigate({ to: `${baseUrl}/${newId}` });
+                              onNavigate?.();
+                            });
+                          }}
+                        >
+                          <IconCopy size={16} />
+                          Duplicate
+                        </ContextMenuItem>
+                      )}
+                      <ContextMenuItem
+                        onSelect={() => {
+                          void navigator.clipboard.writeText(session.title);
+                        }}
+                      >
+                        <IconClipboard size={16} />
+                        Copy title
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onSelect={() => {
+                          void navigator.clipboard.writeText(
+                            window.location.origin +
+                              `${baseUrl}/${session._id}`,
+                          );
+                        }}
+                      >
+                        <IconLink size={16} />
+                        Copy link
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
                       <ContextMenuItem
                         className="text-warning"
-                        onClick={() =>
+                        onSelect={() =>
                           setSessionToArchive({
                             id: session._id,
                             title: session.title,
@@ -372,6 +432,56 @@ export function SessionListSidebar<T extends SessionItem>({
               disabled={isCreating || !newSessionTitle.trim()}
             >
               {isCreating ? <Spinner size="sm" /> : "Create Session"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!sessionToRename}
+        onOpenChange={(open) => {
+          if (!open) setSessionToRename(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Session</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Title</label>
+            <Input
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              autoFocus
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  renameValue.trim() &&
+                  sessionToRename
+                ) {
+                  setIsRenaming(true);
+                  void onRename?.(sessionToRename, renameValue.trim())
+                    .then(() => setSessionToRename(null))
+                    .finally(() => setIsRenaming(false));
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSessionToRename(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={isRenaming || !renameValue.trim()}
+              onClick={() => {
+                if (!sessionToRename) return;
+                setIsRenaming(true);
+                void onRename?.(sessionToRename, renameValue.trim())
+                  .then(() => setSessionToRename(null))
+                  .finally(() => setIsRenaming(false));
+              }}
+            >
+              {isRenaming ? <Spinner size="sm" /> : "Rename"}
             </Button>
           </DialogFooter>
         </DialogContent>

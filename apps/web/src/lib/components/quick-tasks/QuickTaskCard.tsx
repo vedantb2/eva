@@ -41,6 +41,7 @@ import {
   IconDots,
   IconFolder,
   IconLink,
+  IconPlayerPlay,
   IconTag,
   IconTrash,
   IconUserPlus,
@@ -131,6 +132,9 @@ export function QuickTaskCard({
 
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const updateTask = useMutation(api.agentTasks.update);
+  const startExecution = useMutation(api.agentTasks.startExecution);
+
+  const canRun = status === "todo";
 
   const moveTargetAppName =
     siblingApps?.find((a) => a._id === moveTarget)?.appName ?? "";
@@ -139,6 +143,17 @@ export function QuickTaskCard({
 
   const contextMenuItems = (
     <>
+      <ContextMenuItem
+        disabled={!canRun}
+        onSelect={() => {
+          void startExecution({ id });
+        }}
+      >
+        <IconPlayerPlay size={16} />
+        Run Eva
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+
       <ContextMenuSub>
         <ContextMenuSubTrigger>
           <StatusIcon size={16} />
@@ -319,6 +334,17 @@ export function QuickTaskCard({
 
   const dropdownMenuItems = (
     <>
+      <DropdownMenuItem
+        disabled={!canRun}
+        onSelect={() => {
+          void startExecution({ id });
+        }}
+      >
+        <IconPlayerPlay size={16} />
+        Run Eva
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+
       <DropdownMenuSub>
         <DropdownMenuSubTrigger>
           <StatusIcon size={16} />

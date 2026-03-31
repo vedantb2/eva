@@ -29,6 +29,8 @@ export function DesignSessionsSidebar({
   const createSession = useMutation(api.designSessions.create);
   const archiveSession = useMutation(api.designSessions.archive);
 
+  const updateSession = useMutation(api.designSessions.update);
+
   return (
     <SessionListSidebar
       sessions={sessions}
@@ -43,6 +45,19 @@ export function DesignSessionsSidebar({
       }}
       onArchive={async (session) => {
         await archiveSession({ id: session._id });
+      }}
+      onRename={async (session, newTitle) => {
+        await updateSession({
+          id: session._id,
+          title: newTitle,
+        });
+      }}
+      onDuplicate={async (session) => {
+        const id = await createSession({
+          repoId,
+          title: `${session.title} (copy)`,
+        });
+        return id;
       }}
       emptyIcon={<IconPalette size={28} />}
       emptyLabel="No design sessions yet"

@@ -109,6 +109,24 @@ export const create = authMutation({
   },
 });
 
+export const update = authMutation({
+  args: {
+    id: v.id("designSessions"),
+    title: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session) throw new Error("Design session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+    const updates: { title?: string } = {};
+    if (args.title !== undefined) updates.title = args.title;
+    await ctx.db.patch(args.id, updates);
+    return null;
+  },
+});
+
 export const addMessage = authMutation({
   args: {
     id: v.id("designSessions"),

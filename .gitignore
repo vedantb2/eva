@@ -3,4 +3,4 @@ nul
 recordings
 screenshots
 .env*
-.env.local
+.env.localdist

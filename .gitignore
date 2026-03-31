@@ -2,5 +2,7 @@ node_modules
 nul
 recordings
 screenshots
-.env*
+.env
 .env.local
+dist
+tsconfig.buildinfo

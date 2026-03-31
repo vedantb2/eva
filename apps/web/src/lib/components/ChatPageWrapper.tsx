@@ -18,7 +18,7 @@ export function ChatPageWrapper({
   children,
 }: ChatPageWrapperProps) {
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col max-w-3xl mx-auto w-full">
       {isArchived ? (
         <div className="flex items-center gap-2 px-3 py-3 border-b border-border bg-muted/50 animate-in fade-in duration-300 sm:px-4 sm:py-5">
           <IconArchive size={16} className="text-muted-foreground" />

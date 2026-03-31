@@ -57,6 +57,35 @@ export {
 } from "./contribution-graph";
 
 export {
+  KanbanProvider,
+  KanbanBoard,
+  KanbanHeader,
+  KanbanCards,
+  KanbanCard,
+  useKanbanContext,
+  type KanbanProviderProps,
+  type KanbanBoardProps,
+  type KanbanHeaderProps,
+  type KanbanCardsProps,
+  type KanbanCardProps,
+  type KanbanItem,
+  type KanbanColumnDef,
+} from "./kanban";
+
+export {
+  ListProvider,
+  ListGroup,
+  ListHeader,
+  ListItems,
+  ListItem,
+  type ListProviderProps,
+  type ListGroupProps,
+  type ListHeaderProps,
+  type ListItemsProps,
+  type ListItemProps,
+} from "./list";
+
+export {
   GanttFeatureList,
   GanttFeatureListGroup,
   GanttFeatureRow,

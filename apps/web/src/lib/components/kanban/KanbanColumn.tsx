@@ -1,7 +1,7 @@
 "use client";
 
-import { Badge, Card, CardHeader, CardContent } from "@conductor/ui";
-import { useDroppable } from "@dnd-kit/core";
+import { Badge } from "@conductor/ui";
+import { KanbanBoard } from "@conductor/ui";
 import { ReactNode } from "react";
 import type { IconCircle } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
@@ -34,17 +34,15 @@ export function KanbanColumn({
   headerExtra,
   emptyLabel = "No items",
 }: KanbanColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id, disabled: !droppable });
   const Icon = config.icon;
 
   return (
-    <Card
-      ref={setNodeRef}
-      className={`flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip shadow-none transition-colors duration-200 border-none ${
-        isOver ? "bg-primary/10" : "bg-accent/15"
-      }`}
+    <KanbanBoard
+      id={id}
+      disabled={!droppable}
+      className="flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip"
     >
-      <CardHeader className="flex flex-row items-center justify-between p-2 pb-2 md:p-2 md:pb-2 flex-shrink-0 space-y-0">
+      <div className="flex flex-row items-center justify-between p-2 flex-shrink-0">
         <Badge
           variant="outline"
           className={`${config.bg} ${config.text} gap-1.5 border-transparent py-1`}
@@ -54,15 +52,15 @@ export function KanbanColumn({
           <span className="text-foreground/50 tabular-nums">{count}</span>
         </Badge>
         {headerExtra}
-      </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar md:p-1.5 md:pt-0">
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar md:p-1.5 md:pt-0">
         {count === 0 && (
           <div className="flex flex-1 items-center justify-center py-6 text-xs text-muted-foreground/50">
             {emptyLabel}
           </div>
         )}
         {children}
-      </CardContent>
-    </Card>
+      </div>
+    </KanbanBoard>
   );
 }

@@ -1,32 +1,30 @@
 "use client";
 
+import { useState, useMemo, ReactNode } from "react";
 import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  DragCancelEvent,
+  type DragEndEvent,
+  type DragStartEvent,
+  type DragCancelEvent,
   PointerSensor,
   useSensor,
   useSensors,
   pointerWithin,
 } from "@dnd-kit/core";
-import { useState, useMemo, ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQueryStates } from "nuqs";
+import {
+  KanbanProvider,
+  KanbanCards,
+  KanbanCard,
+  type KanbanItem,
+  type KanbanColumnDef,
+} from "@conductor/ui";
 import { searchParser, statusesParser } from "@/lib/search-params";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
 import {
   statusConfig,
   type TaskStatus,
-  type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 interface BaseTask {
   _id: string;
@@ -45,43 +43,10 @@ interface KanbanBoardProps<T extends BaseTask> {
   columnExtra?: (status: TaskStatus) => ReactNode;
 }
 
-function SortableItem<T extends BaseTask>({
-  item,
-  renderCard,
-  onItemClick,
-}: {
-  item: T;
-  renderCard: (item: T) => ReactNode;
-  onItemClick: (item: T) => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item._id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <motion.div
-      layout
-      ref={setNodeRef}
-      style={style}
-      className={`rounded-lg transition-opacity duration-150 ${isDragging ? "opacity-40 cursor-grabbing" : "cursor-grab"}`}
-      {...attributes}
-      {...listeners}
-      onClick={() => onItemClick(item)}
-    >
-      {renderCard(item)}
-    </motion.div>
-  );
-}
+const COLUMNS: KanbanColumnDef[] = KANBAN_STATUSES.map((status) => ({
+  id: status,
+  name: statusConfig[status].label,
+}));
 
 export function KanbanBoard<T extends BaseTask>({
   items,
@@ -96,11 +61,10 @@ export function KanbanBoard<T extends BaseTask>({
   const [activeOverlayWidth, setActiveOverlayWidth] = useState<number | null>(
     null,
   );
-  const [{ q, statuses }, setParams] = useQueryStates({
+  const [{ q, statuses }] = useQueryStates({
     q: searchParser,
     statuses: statusesParser,
   });
-  const searchQuery = q;
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
 
   const sensors = useSensors(
@@ -112,39 +76,47 @@ export function KanbanBoard<T extends BaseTask>({
     }),
   );
 
+  const itemsById = useMemo(() => {
+    const map = new Map<string, T>();
+    for (const item of items) {
+      map.set(item._id, item);
+    }
+    return map;
+  }, [items]);
+
   const filteredItems = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
+    const query = q.toLowerCase().trim();
     if (!query) return items;
     return items.filter(
       (item) =>
         item.title.toLowerCase().includes(query) ||
         item.description?.toLowerCase().includes(query),
     );
-  }, [items, searchQuery]);
+  }, [items, q]);
 
-  const itemsByStatus = useMemo(() => {
-    return KANBAN_STATUSES.reduce(
-      (acc, status) => {
-        acc[status] = filteredItems.filter((item) => item.status === status);
-        return acc;
-      },
-      {} as Record<TaskStatus, T[]>,
-    );
+  const kanbanData: KanbanItem[] = useMemo(
+    () =>
+      filteredItems.map((item) => ({
+        id: item._id,
+        name: item.title,
+        column: item.status,
+      })),
+    [filteredItems],
+  );
+
+  const countByStatus = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const status of KANBAN_STATUSES) {
+      counts[status] = 0;
+    }
+    for (const item of filteredItems) {
+      counts[item.status] = (counts[item.status] ?? 0) + 1;
+    }
+    return counts;
   }, [filteredItems]);
 
-  const handleStatusToggle = (status: DisplayTaskStatus) => {
-    const next = new Set(visibleStatuses);
-    if (next.has(status)) {
-      if (next.size === 1) return;
-      next.delete(status);
-    } else {
-      next.add(status);
-    }
-    setParams({ statuses: [...next] });
-  };
-
   const handleDragStart = (event: DragStartEvent) => {
-    const item = items.find((i) => i._id === event.active.id);
+    const item = itemsById.get(String(event.active.id));
     if (item) {
       setActiveItem(item);
       const width =
@@ -160,10 +132,9 @@ export function KanbanBoard<T extends BaseTask>({
     const { active, over } = event;
     if (!over) return;
 
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    const activeItemData = items.find((i) => i._id === activeId);
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    const activeItemData = itemsById.get(activeId);
     if (!activeItemData) return;
 
     const targetStatus = KANBAN_STATUSES.find((s) => s === overId);
@@ -178,7 +149,7 @@ export function KanbanBoard<T extends BaseTask>({
       return;
     }
 
-    const overItemData = items.find((i) => i._id === overId);
+    const overItemData = itemsById.get(overId);
     if (overItemData && activeItemData.status !== overItemData.status) {
       try {
         await onStatusChange(activeId, overItemData.status);
@@ -201,12 +172,28 @@ export function KanbanBoard<T extends BaseTask>({
           : "space-y-3 animate-in fade-in duration-300"
       }
     >
-      <DndContext
+      <KanbanProvider
+        columns={COLUMNS}
+        data={kanbanData}
         sensors={sensors}
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
+        overlay={
+          activeItem ? (
+            <div
+              className="pointer-events-none rotate-[1.5deg]"
+              style={
+                activeOverlayWidth
+                  ? { width: `${activeOverlayWidth}px` }
+                  : undefined
+              }
+            >
+              {renderOverlay(activeItem)}
+            </div>
+          ) : null
+        }
       >
         <div
           className={`flex w-full items-stretch gap-2 pb-1 sm:gap-3 ${
@@ -231,44 +218,30 @@ export function KanbanBoard<T extends BaseTask>({
                 <KanbanColumn
                   id={status}
                   config={statusConfig[status]}
-                  count={itemsByStatus[status]?.length ?? 0}
+                  count={countByStatus[status] ?? 0}
                   headerExtra={columnExtra?.(status)}
                 >
-                  <SortableContext
-                    items={itemsByStatus[status]?.map((i) => i._id) ?? []}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <AnimatePresence initial={false}>
-                      {itemsByStatus[status]?.map((item) => (
-                        <SortableItem
-                          key={item._id}
-                          item={item}
-                          renderCard={renderCard}
-                          onItemClick={onItemClick}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  </SortableContext>
+                  <KanbanCards id={status}>
+                    {(kanbanItem) => {
+                      const task = itemsById.get(kanbanItem.id);
+                      if (!task) return null;
+                      return (
+                        <KanbanCard
+                          key={kanbanItem.id}
+                          id={kanbanItem.id}
+                          onClick={() => onItemClick(task)}
+                        >
+                          {renderCard(task)}
+                        </KanbanCard>
+                      );
+                    }}
+                  </KanbanCards>
                 </KanbanColumn>
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
-        <DragOverlay>
-          {activeItem ? (
-            <div
-              className="pointer-events-none rotate-[1.5deg]"
-              style={
-                activeOverlayWidth
-                  ? { width: `${activeOverlayWidth}px` }
-                  : undefined
-              }
-            >
-              {renderOverlay(activeItem)}
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+      </KanbanProvider>
     </div>
   );
 }

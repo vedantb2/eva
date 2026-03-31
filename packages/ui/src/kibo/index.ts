@@ -128,6 +128,8 @@ export {
   type VideoPlayerContentProps,
 } from "./video-player";
 
+export { AvatarStack, type AvatarStackProps } from "./avatar-stack";
+
 export {
   DataTableProvider,
   DataTableHead,

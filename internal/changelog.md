@@ -1,5 +1,13 @@
 # Changelog
 
+## Add online teammates indicator to sidebar - 2026-03-31
+
+- **Why**: No visibility into who's currently active on the platform. Adding an avatar stack at the bottom of the sidebar gives passive awareness of online teammates.
+- **Changes**:
+  - **New `users.listOnlineTeammates` query**: Collects all teammates across user's teams, filters to those with `lastSeenAt` within 2 minutes. Uses existing `by_user` and `by_team` indexes.
+  - **New `packages/ui/src/kibo/avatar-stack.tsx`**: Adapted from kibo-ui. Overlapping circular avatars with radial-gradient mask.
+  - **`Sidebar.tsx`**: Added `OnlineTeammates` component above user profile. Shows avatar stack + count when expanded, vertical avatars when collapsed.
+
 ## Replace VideoPreview with kibo-ui video player - 2026-03-31
 
 - **Why**: The existing VideoPreview used a raw `<video>` element with browser-native controls and custom speed buttons below it. Replacing with the kibo-ui video player (powered by `media-chrome`) gives a consistent, themed control bar with play/pause, seek, time display, volume, and playback rate — all inline within the video chrome.

@@ -33,7 +33,16 @@ import {
 } from "@tabler/icons-react";
 import { clientEnv } from "@/env/client";
 import { api } from "@conductor/backend";
-import { Button, Spinner, cn } from "@conductor/ui";
+import {
+  AvatarStack,
+  Button,
+  Spinner,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  cn,
+} from "@conductor/ui";
+import { UserInitials } from "@conductor/shared";
 import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
 import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
@@ -791,6 +800,7 @@ export function Sidebar() {
                 collapsed ? "px-2 py-3" : "px-3 py-3",
               )}
             >
+              <OnlineTeammates collapsed={collapsed} />
               <div
                 className={cn(
                   "flex items-center",
@@ -831,6 +841,40 @@ export function Sidebar() {
         </div>
       </aside>
     </>
+  );
+}
+
+function OnlineTeammates({ collapsed }: { collapsed: boolean }) {
+  const onlineUsers = useQuery(api.users.listOnlineTeammates, {});
+
+  if (!onlineUsers || onlineUsers.length === 0) return null;
+
+  if (collapsed) {
+    return (
+      <div className="flex flex-col items-center gap-1 pb-3">
+        {onlineUsers.slice(0, 3).map((u) => (
+          <UserInitials key={u._id} user={u} size="sm" hideLastSeen />
+        ))}
+        {onlineUsers.length > 3 && (
+          <span className="text-[10px] text-muted-foreground">
+            +{onlineUsers.length - 3}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 pb-3">
+      <AvatarStack size={20}>
+        {onlineUsers.map((u) => (
+          <UserInitials key={u._id} user={u} size="sm" hideLastSeen />
+        ))}
+      </AvatarStack>
+      <span className="text-xs text-muted-foreground">
+        {onlineUsers.length} online
+      </span>
+    </div>
   );
 }
 

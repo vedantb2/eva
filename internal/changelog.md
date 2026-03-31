@@ -1,11 +1,17 @@
 # Changelog
 
-## Replace custom kanban/list with Kibo UI primitives - 2026-03-31
+## Migrate QuickTasks list view to Kibo List with drag-and-drop - 2026-03-31
+
+- **Why**: QuickTasks list view was a static collapsible list with no DnD. Now uses kibo's `ListProvider`/`ListGroup`/`ListItem` primitives, adding drag-and-drop between status groups. Externalizes DnD wiring to maintained kibo components.
+- **Changes**:
+  - **Restyled `packages/ui/src/kibo/list.tsx`**: Stripped `bg-secondary`, `bg-background`, `rounded-md`, `p-2` defaults to match design system (tonal hierarchy, no shadows/borders on cards). Added `PointerSensor` with `distance: 8` activation constraint to disambiguate clicks from drags. Added `opacity-50` on dragging items.
+  - **Rewrote `QuickTasksListView.tsx`**: Composes `ListProvider` → `Collapsible` → `ListGroup` → `ListHeader`/`ListItems`/`ListItem`. Dragging a task between status sections calls `updateStatus` mutation. Keeps Fix All button, selection mode, nuqs search/filter.
+
+## Replace custom kanban with Kibo UI primitives - 2026-03-31
 
 - **Why**: Standardizing on Kibo UI composable primitives across the codebase (already used for Gantt and ContributionGraph). Replaces hand-rolled DndContext/SortableContext/useDroppable wiring with reusable Kibo components. Adds screen reader accessibility announcements during drag operations.
 - **Changes**:
   - **New `packages/ui/src/kibo/kanban.tsx`**: Forked Kibo UI Kanban source. Composable primitives: `KanbanProvider` (DnD context + a11y), `KanbanBoard` (droppable zone), `KanbanCards` (SortableContext + auto-filter by column), `KanbanCard` (sortable item), `KanbanHeader`. Removed `tunnel-rat` dependency (overlay via prop). Stripped borders/shadows for design system. Consumer provides drag handlers instead of built-in data management.
-  - **New `packages/ui/src/kibo/list.tsx`**: Forked Kibo UI List source. Composable primitives: `ListProvider`, `ListGroup`, `ListHeader`, `ListItems`, `ListItem`. Vertical-axis-only drag. Stripped borders/shadows.
   - **Rewrote `apps/web/.../kanban/KanbanBoard.tsx`**: Now composes `KanbanProvider` (DnD context, sensors, a11y), `KanbanCards` (SortableContext per column), and `KanbanCard` (sortable items) from Kibo. Maps task data to Kibo's `KanbanItem` format. Keeps custom nuqs filtering, motion animations, and overlay rendering.
   - **Rewrote `apps/web/.../kanban/KanbanColumn.tsx`**: Now uses `KanbanBoard` from Kibo as droppable wrapper instead of raw `useDroppable`. Keeps custom header with Badge, empty state, headerExtra slot.
   - **`packages/ui/package.json`**: Added `@dnd-kit/sortable` and `@dnd-kit/utilities` as peer dependencies.

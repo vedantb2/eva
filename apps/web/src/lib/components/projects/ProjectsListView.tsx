@@ -31,7 +31,6 @@ interface ProjectsListViewProps {
 export function ProjectsListView({
   projectsByPhase,
   visiblePhases,
-  basePath,
   onOpenProject,
   onDelete,
 }: ProjectsListViewProps) {

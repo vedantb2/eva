@@ -3,9 +3,12 @@
 import {
   DndContext,
   type DragEndEvent,
+  PointerSensor,
   rectIntersection,
   useDraggable,
   useDroppable,
+  useSensor,
+  useSensors,
 } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import type { ReactNode } from "react";
@@ -13,27 +16,13 @@ import { cn } from "../utils/cn";
 
 export type { DragEndEvent as ListDragEndEvent } from "@dnd-kit/core";
 
-type Status = {
-  id: string;
-  name: string;
-  color: string;
-};
-
-type Feature = {
-  id: string;
-  name: string;
-  startAt: Date;
-  endAt: Date;
-  status: Status;
-};
-
 export type ListItemsProps = {
   children: ReactNode;
   className?: string;
 };
 
 export const ListItems = ({ children, className }: ListItemsProps) => (
-  <div className={cn("flex flex-1 flex-col gap-2 p-3", className)}>
+  <div className={cn("flex flex-1 flex-col gap-0.5", className)}>
     {children}
   </div>
 );
@@ -43,8 +32,8 @@ export type ListHeaderProps =
       children: ReactNode;
     }
   | {
-      name: Status["name"];
-      color: Status["color"];
+      name: string;
+      color: string;
       className?: string;
     };
 
@@ -67,7 +56,7 @@ export const ListHeader = (props: ListHeaderProps) =>
   );
 
 export type ListGroupProps = {
-  id: Status["id"];
+  id: string;
   children: ReactNode;
   className?: string;
 };
@@ -77,11 +66,7 @@ export const ListGroup = ({ id, children, className }: ListGroupProps) => {
 
   return (
     <div
-      className={cn(
-        "bg-secondary transition-colors",
-        isOver && "bg-foreground/10",
-        className,
-      )}
+      className={cn("transition-colors", isOver && "bg-muted/40", className)}
       ref={setNodeRef}
     >
       {children}
@@ -89,7 +74,9 @@ export const ListGroup = ({ id, children, className }: ListGroupProps) => {
   );
 };
 
-export type ListItemProps = Pick<Feature, "id" | "name"> & {
+export type ListItemProps = {
+  readonly id: string;
+  readonly name: string;
   readonly index: number;
   readonly parent: string;
   readonly children?: ReactNode;
@@ -113,8 +100,8 @@ export const ListItem = ({
   return (
     <div
       className={cn(
-        "flex cursor-grab items-center gap-2 rounded-md bg-background p-2",
-        isDragging && "cursor-grabbing",
+        "cursor-grab",
+        isDragging && "cursor-grabbing opacity-50",
         className,
       )}
       style={{
@@ -141,12 +128,21 @@ export const ListProvider = ({
   children,
   onDragEnd,
   className,
-}: ListProviderProps) => (
-  <DndContext
-    collisionDetection={rectIntersection}
-    modifiers={[restrictToVerticalAxis]}
-    onDragEnd={onDragEnd}
-  >
-    <div className={cn("flex size-full flex-col", className)}>{children}</div>
-  </DndContext>
-);
+}: ListProviderProps) => {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+  );
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={rectIntersection}
+      modifiers={[restrictToVerticalAxis]}
+      onDragEnd={onDragEnd}
+    >
+      <div className={cn("flex size-full flex-col", className)}>{children}</div>
+    </DndContext>
+  );
+};

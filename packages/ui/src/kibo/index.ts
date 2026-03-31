@@ -83,6 +83,7 @@ export {
   type ListHeaderProps,
   type ListItemsProps,
   type ListItemProps,
+  type ListDragEndEvent,
 } from "./list";
 
 export {

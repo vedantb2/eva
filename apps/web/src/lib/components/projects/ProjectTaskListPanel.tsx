@@ -27,13 +27,14 @@ import {
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
+  Button,
 } from "@conductor/ui";
 import { QuickTaskCard } from "@/lib/components/quick-tasks/QuickTaskCard";
 import {
   statusConfig,
   TASK_STATUSES,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import { IconGripVertical } from "@tabler/icons-react";
+import { IconGripVertical, IconPlus } from "@tabler/icons-react";
 
 type Task = FunctionReturnType<typeof api.agentTasks.listByProject>[number];
 type TaskStatus = Task["status"];
@@ -102,12 +103,14 @@ interface ProjectTaskListPanelProps {
   tasks: Task[];
   selectedTaskId: Id<"agentTasks"> | null;
   onSelectTask: (id: Id<"agentTasks">) => void;
+  onCreateTask: () => void;
 }
 
 export function ProjectTaskListPanel({
   tasks,
   selectedTaskId,
   onSelectTask,
+  onCreateTask,
 }: ProjectTaskListPanelProps) {
   const [localTodoOrder, setLocalTodoOrder] = useState<
     Id<"agentTasks">[] | null
@@ -185,7 +188,7 @@ export function ProjectTaskListPanel({
     <div className="h-full overflow-y-auto scrollbar">
       <Accordion
         type="multiple"
-        className="px-0 [&_hr]:bg-border"
+        className="px-3 [&_hr]:bg-border"
         defaultValue={defaultExpandedKeys}
       >
         {TASK_STATUSES.map((status) => {
@@ -198,14 +201,27 @@ export function ProjectTaskListPanel({
             return (
               <AccordionItem key={status} value={status}>
                 <AccordionTrigger className="p-2 hover:no-underline">
-                  <div className="flex items-center gap-1.5">
-                    <StatusIcon size={14} className={config.text} />
-                    <span className={`text-sm font-medium ${config.text}`}>
-                      {config.label}
-                    </span>
-                    <span className="text-xs text-muted-foreground/60 tabular-nums">
-                      {statusTasks.length}
-                    </span>
+                  <div className="flex flex-1 items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <StatusIcon size={14} className={config.text} />
+                      <span className={`text-sm font-medium ${config.text}`}>
+                        {config.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground/60 tabular-nums">
+                        {statusTasks.length}
+                      </span>
+                    </div>
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      className="mr-2 h-6 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCreateTask();
+                      }}
+                    >
+                      <IconPlus size={12} />
+                    </Button>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="flex flex-col gap-2 px-3">
@@ -236,14 +252,31 @@ export function ProjectTaskListPanel({
           return (
             <AccordionItem key={status} value={status}>
               <AccordionTrigger className="p-2 hover:no-underline">
-                <div className="flex items-center gap-1.5">
-                  <StatusIcon size={14} className={config.text} />
-                  <span className={`text-sm font-medium ${config.text}`}>
-                    {config.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground/60 tabular-nums">
-                    {statusTasks.length}
-                  </span>
+                <div
+                  className={`flex items-center gap-1.5 ${status === "todo" ? "flex-1 justify-between" : ""}`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <StatusIcon size={14} className={config.text} />
+                    <span className={`text-sm font-medium ${config.text}`}>
+                      {config.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground/60 tabular-nums">
+                      {statusTasks.length}
+                    </span>
+                  </div>
+                  {status === "todo" && (
+                    <Button
+                      size="icon-sm"
+                      variant="outline"
+                      className="mr-2 h-6 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCreateTask();
+                      }}
+                    >
+                      <IconPlus size={12} />
+                    </Button>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="flex flex-col gap-2 px-3">

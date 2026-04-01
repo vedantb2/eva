@@ -53,8 +53,6 @@ import {
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { useQueryState } from "nuqs";
-import { sessionModeParser } from "@/lib/search-params";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
@@ -73,12 +71,8 @@ import {
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
-import {
-  getSessionModel,
-  getSessionResponseLength,
-  useSessionModelSetter,
-  useSessionResponseLengthSetter,
-} from "@/lib/hooks/useSessionSettings";
+import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -86,7 +80,6 @@ type SessionMessage = NonNullable<
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
 >[number];
-type SessionMode = NonNullable<SessionMessage["mode"]>;
 
 const REVIEW_AUDITS = [
   "Running code audits",
@@ -145,40 +138,10 @@ export function ChatPanel({
     "confirm" | "auditing" | "complete"
   >("confirm");
   const [completedAudits, setCompletedAudits] = useState(0);
-  const [mode, setMode] = useQueryState("mode", sessionModeParser);
 
   const defaultModel = repo.defaultModel ?? "sonnet";
-  const initialModel = useMemo(
-    () => getSessionModel(sessionId, defaultModel),
-    [sessionId, defaultModel],
-  );
-  const initialResponseLength = useMemo(
-    () => getSessionResponseLength(sessionId, "default"),
-    [sessionId],
-  );
-  const [model, setModelState] = useState<ClaudeModel>(initialModel);
-  const [responseLength, setResponseLengthState] = useState<ResponseLength>(
-    initialResponseLength,
-  );
-
-  const saveModel = useSessionModelSetter(sessionId);
-  const saveResponseLength = useSessionResponseLengthSetter(sessionId);
-
-  const setModel = useCallback(
-    (m: ClaudeModel) => {
-      setModelState(m);
-      saveModel(m);
-    },
-    [saveModel],
-  );
-
-  const setResponseLength = useCallback(
-    (rl: ResponseLength) => {
-      setResponseLengthState(rl);
-      saveResponseLength(rl);
-    },
-    [saveResponseLength],
-  );
+  const { mode, setMode, model, setModel, responseLength, setResponseLength } =
+    useSessionSettings(sessionId, { defaultModel });
 
   const evaIcon = <EvaIcon />;
 

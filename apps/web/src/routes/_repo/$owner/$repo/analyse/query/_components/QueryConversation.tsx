@@ -2,15 +2,9 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { motion } from "motion/react";
-import type { ClaudeModel, ResponseLength } from "@conductor/ui";
-import {
-  getSessionModel,
-  getSessionResponseLength,
-  useSessionModelSetter,
-  useSessionResponseLengthSetter,
-} from "@/lib/hooks/useSessionSettings";
+import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import {
   Conversation,
   ConversationContent,
@@ -49,38 +43,8 @@ export function QueryConversation({
   const savedQueries = useQuery(api.savedQueries.list, { repoId });
   const createSavedQuery = useMutation(api.savedQueries.create);
   const [isSending, setIsSending] = useState(false);
-
-  const initialModel = useMemo(
-    () => getSessionModel(queryId, "sonnet"),
-    [queryId],
-  );
-  const initialResponseLength = useMemo(
-    () => getSessionResponseLength(queryId, "default"),
-    [queryId],
-  );
-  const [model, setModelState] = useState<ClaudeModel>(initialModel);
-  const [responseLength, setResponseLengthState] = useState<ResponseLength>(
-    initialResponseLength,
-  );
-
-  const saveModel = useSessionModelSetter(queryId);
-  const saveResponseLength = useSessionResponseLengthSetter(queryId);
-
-  const setModel = useCallback(
-    (m: ClaudeModel) => {
-      setModelState(m);
-      saveModel(m);
-    },
-    [saveModel],
-  );
-
-  const setResponseLength = useCallback(
-    (rl: ResponseLength) => {
-      setResponseLengthState(rl);
-      saveResponseLength(rl);
-    },
-    [saveResponseLength],
-  );
+  const { model, setModel, responseLength, setResponseLength } =
+    useSessionSettings(queryId);
 
   const updateMessageStatus = useMutation(
     api.researchQueries.updateMessageStatus,

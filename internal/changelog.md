@@ -1,5 +1,17 @@
 # Changelog
 
+## Kanban board query and animation optimization — 2026-04-01
+
+- **Why**: Kanban board with 40+ task cards made 80+ sequential database reads in a single query (getTaskIdsWithLatestRunError looped through taskIds, doing ctx.db.get + hasTaskAccess + index query per task). View switching also had stacked animations (200ms exit + 200ms enter + 300ms board fade-in) creating 500ms+ delay.
+- **Changes**:
+  - Optimized `getTaskIdsWithLatestRunError` backend query: accept `repoId` arg, do single `hasRepoAccess()` check upfront, then use `Promise.all` to parallelize 40 taskId queries instead of looping sequentially. Reduces from ~160 index range reads to ~42 parallel reads + 1 repo access check.
+  - Updated 3 frontend call sites to pass `repoId`: QuickTasksKanbanBoard, QuickTasksListView, ProjectTaskListPanel.
+  - Wrapped kanban task sort in `useMemo` to prevent re-sorting on every render and stabilize downstream memo dependencies.
+  - Changed `AnimatePresence mode="wait"` to `mode="popLayout"` for simultaneous exit/enter animation (halves view-switch delay).
+  - Removed duplicate `animate-in fade-in duration-300` CSS classes from KanbanBoard (framer-motion parent animation is sufficient).
+- **Effect**: Kanban board loads faster (fewer DB reads, parallel instead of sequential), view transitions feel snappier, re-subscription invalidation surface area smaller (task docs no longer in read set).
+- **Files**: packages/backend/convex/agentRuns.ts, QuickTasksKanbanBoard.tsx, QuickTasksListView.tsx, ProjectTaskListPanel.tsx, QuickTasksClient.tsx, KanbanBoard.tsx
+
 ## Quick tasks performance optimization — 2026-04-01
 
 - **Why**: Quick tasks page with 160+ tasks loaded slowly due to N+1 queries (320 Convex subscriptions from per-card UserInitials and listByTask queries), eagerly-rendered menu trees (320 context/dropdown menus in React tree), and no virtualization (all 160+ cards in DOM simultaneously).

@@ -43,10 +43,14 @@ export function QuickTasksKanbanBoard({
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  const tasks = [...externalTasks].sort((a, b) => b.createdAt - a.createdAt);
+  const tasks = useMemo(
+    () => [...externalTasks].sort((a, b) => b.createdAt - a.createdAt),
+    [externalTasks],
+  );
 
   const taskIds = useMemo(() => tasks.map((t) => t._id), [tasks]);
   const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
+    repoId,
     taskIds,
   });
   const errorTaskIdSet = useMemo(

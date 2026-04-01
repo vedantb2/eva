@@ -76,6 +76,7 @@ export function QuickTasksListView({
     [externalTasks],
   );
   const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
+    repoId,
     taskIds,
   });
   const errorTaskIdSet = useMemo(

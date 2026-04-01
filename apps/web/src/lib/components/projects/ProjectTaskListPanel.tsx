@@ -7,6 +7,7 @@ import { useCallback, useMemo, useState, type RefCallback } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { Virtuoso } from "react-virtuoso";
 import { useMutation } from "convex/react";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   DndContext,
   closestCenter,
@@ -116,6 +117,7 @@ export function ProjectTaskListPanel({
   onSelectTask,
   onCreateTask,
 }: ProjectTaskListPanelProps) {
+  const { repoId } = useRepo();
   const [localTodoOrder, setLocalTodoOrder] = useState<
     Id<"agentTasks">[] | null
   >(null);
@@ -130,6 +132,7 @@ export function ProjectTaskListPanel({
 
   const taskIds = useMemo(() => tasks.map((t) => t._id), [tasks]);
   const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
+    repoId,
     taskIds,
   });
   const errorTaskIdSet = useMemo(

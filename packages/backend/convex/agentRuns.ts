@@ -12,6 +12,7 @@ import {
   authQuery,
   authMutation,
   hasTaskAccess,
+  hasRepoAccess,
   recomputeProjectPhase,
 } from "./functions";
 
@@ -128,23 +129,25 @@ export const listByTask = authQuery({
 });
 
 export const getTaskIdsWithLatestRunError = authQuery({
-  args: { taskIds: v.array(v.id("agentTasks")) },
+  args: {
+    repoId: v.id("githubRepos"),
+    taskIds: v.array(v.id("agentTasks")),
+  },
   returns: v.array(v.id("agentTasks")),
   handler: async (ctx, args) => {
-    const errorTaskIds: Id<"agentTasks">[] = [];
-    for (const taskId of args.taskIds) {
-      const task = await ctx.db.get(taskId);
-      if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) continue;
-      const latestRun = await ctx.db
-        .query("agentRuns")
-        .withIndex("by_task", (q) => q.eq("taskId", taskId))
-        .order("desc")
-        .first();
-      if (latestRun?.status === "error") {
-        errorTaskIds.push(taskId);
-      }
-    }
-    return errorTaskIds;
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+
+    const results = await Promise.all(
+      args.taskIds.map(async (taskId) => {
+        const latestRun = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", taskId))
+          .order("desc")
+          .first();
+        return latestRun?.status === "error" ? taskId : null;
+      }),
+    );
+    return results.filter((id): id is Id<"agentTasks"> => id !== null);
   },
 });
 

@@ -47,8 +47,6 @@ interface SandboxPanelProps {
   repoId: Id<"githubRepos">;
   devPort?: number;
   devCommand?: string;
-  previewInfo: PreviewInfo | null;
-  onPreviewInfoChange: (info: PreviewInfo | null) => void;
 }
 
 export function SandboxPanel({
@@ -58,9 +56,8 @@ export function SandboxPanel({
   repoId,
   devPort,
   devCommand,
-  previewInfo,
-  onPreviewInfoChange,
 }: SandboxPanelProps) {
+  const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +88,7 @@ export function SandboxPanel({
       });
       if (data.ready) {
         await dismissDaytonaWarning(data.url);
-        onPreviewInfoChange(data);
+        setPreviewInfo(data);
         setCachedPreview(sessionId, data);
         setIframeKey((k) => k + 1);
         setIsLoading(false);
@@ -112,14 +109,14 @@ export function SandboxPanel({
     repoId,
     effectivePort,
     sessionId,
-    onPreviewInfoChange,
+    setPreviewInfo,
   ]);
 
   useEffect(() => {
     if (isActive && sandboxId) {
       const cached = getCachedPreview(sessionId, effectivePort);
       if (cached) {
-        onPreviewInfoChange(cached);
+        setPreviewInfo(cached);
         return;
       }
       fetchPreview();
@@ -135,7 +132,7 @@ export function SandboxPanel({
     stopPolling,
     sessionId,
     effectivePort,
-    onPreviewInfoChange,
+    setPreviewInfo,
   ]);
 
   const terminal = useMemo(

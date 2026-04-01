@@ -2,7 +2,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
@@ -27,15 +27,6 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
   const isSandboxStarting = session?.status === "starting";
   const [isStopPending, setIsStopPending] = useState(false);
-  const [previewInfo, setPreviewInfo] = useState<{
-    url: string;
-    port: number;
-  } | null>(null);
-  const handlePreviewInfoChange = useCallback(
-    (info: { url: string; port: number } | null) => setPreviewInfo(info),
-    [],
-  );
-
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {
       await startSandboxMutation({
@@ -93,7 +84,8 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           isSandboxToggling={isSandboxStarting || isStopPending}
           onSandboxToggle={handleSandboxToggle}
           isArchived={session.archived === true}
-          previewUrl={previewInfo?.url}
+          deploymentStatus={session.deploymentStatus}
+          deploymentUrl={session.deploymentUrl}
           sandboxCollapsed={rightPanelCollapsed}
           onToggleSandbox={onToggleRightPanel}
         />
@@ -106,8 +98,6 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           repoId={session.repoId}
           devPort={session.devPort}
           devCommand={session.devCommand}
-          previewInfo={previewInfo}
-          onPreviewInfoChange={handlePreviewInfoChange}
         />
       }
       leftDefaultSize="30%"

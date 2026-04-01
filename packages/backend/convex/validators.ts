@@ -305,6 +305,8 @@ export const sessionFields = {
   activeWorkflowId: v.optional(v.string()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
+  deploymentStatus: v.optional(deploymentStatusValidator),
+  deploymentUrl: v.optional(v.string()),
 };
 
 export const syncSettingFields = {

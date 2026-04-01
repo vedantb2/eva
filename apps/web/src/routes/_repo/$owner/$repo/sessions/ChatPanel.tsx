@@ -36,6 +36,9 @@ import {
   PlanContent,
   PlanFooter,
   PlanTrigger,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -151,7 +154,8 @@ interface ChatPanelProps {
   isSandboxToggling: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
   isArchived?: boolean;
-  previewUrl?: string;
+  deploymentStatus?: "queued" | "building" | "deployed" | "error";
+  deploymentUrl?: string;
   sandboxCollapsed?: boolean;
   onToggleSandbox?: () => void;
 }
@@ -173,7 +177,8 @@ export function ChatPanel({
   isSandboxToggling,
   onSandboxToggle,
   isArchived,
-  previewUrl,
+  deploymentStatus,
+  deploymentUrl,
   sandboxCollapsed,
   onToggleSandbox,
 }: ChatPanelProps) {
@@ -409,25 +414,46 @@ export function ChatPanel({
 
   const headerRight = (
     <>
-      <Button
-        size="sm"
-        variant="secondary"
-        className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
-        asChild={!!previewUrl}
-        disabled={!previewUrl}
-      >
-        {previewUrl ? (
-          <a href={previewUrl} target="_blank" rel="noopener noreferrer">
-            <IconBrandVercel size={14} />
-            <span className="hidden sm:inline">View Preview</span>
-          </a>
-        ) : (
-          <>
-            <IconBrandVercel size={14} />
-            <span className="hidden sm:inline">View Preview</span>
-          </>
-        )}
-      </Button>
+      {deploymentStatus && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
+                asChild={deploymentStatus === "deployed" && !!deploymentUrl}
+                disabled={deploymentStatus !== "deployed"}
+              >
+                {deploymentStatus === "deployed" && deploymentUrl ? (
+                  <a
+                    href={deploymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconBrandVercel size={14} />
+                    <span className="hidden sm:inline">View Preview</span>
+                  </a>
+                ) : (
+                  <>
+                    <IconBrandVercel size={14} />
+                    <span className="hidden sm:inline">View Preview</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            {deploymentStatus === "deployed"
+              ? "Open preview deployment"
+              : deploymentStatus === "error"
+                ? "Deployment failed"
+                : deploymentStatus === "building"
+                  ? "Deployment is building..."
+                  : "Deployment is queued..."}
+          </TooltipContent>
+        </Tooltip>
+      )}
       {prUrl ? (
         <a href={prUrl} target="_blank" rel="noopener noreferrer">
           <Badge

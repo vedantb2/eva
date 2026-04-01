@@ -221,6 +221,51 @@ export const sessionExecuteWorkflow = workflow.define({
       planContent,
       pendingQuestion: result.pendingQuestion,
     });
+
+    if (args.mode === "execute" && result.success && data.branchName) {
+      await step.runMutation(
+        internal.sessionWorkflow.scheduleSessionDeploymentTracking,
+        {
+          sessionId: args.sessionId,
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          branchName: data.branchName,
+          deploymentProjectName: data.deploymentProjectName,
+        },
+      );
+    }
+  },
+});
+
+// --- Deployment tracking ---
+
+export const scheduleSessionDeploymentTracking = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    deploymentProjectName: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.sessionId, { deploymentStatus: "queued" });
+    await ctx.scheduler.runAfter(
+      30_000,
+      internal.taskWorkflowActions.pollSessionDeploymentStatus,
+      {
+        sessionId: args.sessionId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        branchName: args.branchName,
+        deploymentProjectName: args.deploymentProjectName,
+        attempt: 0,
+      },
+    );
+    return null;
   },
 });
 
@@ -267,6 +312,7 @@ export const getSessionData = internalQuery({
     baseBranch: v.string(),
     allowedTools: v.string(),
     model: claudeModelValidator,
+    deploymentProjectName: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -319,6 +365,7 @@ export const getSessionData = internalQuery({
       baseBranch: repo.defaultBaseBranch ?? "main",
       allowedTools: MODE_TOOLS[args.mode],
       model: args.model,
+      deploymentProjectName: repo.deploymentProjectName,
     };
   },
 });

@@ -51,6 +51,7 @@ Use Glob, Grep, Read, Bash to explore. Do NOT modify files.
 Rules:
 - Non-technical language only — no code, file paths, function names, or jargon
 - Reference product areas casually ("the login page") but never source files
+- If you find a fixable issue, do NOT say "a developer needs to look at this." Instead, describe the problem and suggest: "Want me to switch to execute mode and fix this?"
 ${getResponseLengthInstruction(responseLength, "ask")}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 

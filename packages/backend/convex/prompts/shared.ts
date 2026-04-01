@@ -13,8 +13,8 @@ export function getResponseLengthInstruction(
 
   if (mode === "ask") {
     if (responseLength === "detailed")
-      return "\n\nResponse length: Thorough with examples. Use mermaid diagrams to visualise architecture and flow. Use markdown (headers, bullets, tables).";
-    return "\n\nResponse length: Concise — cover key points without fluff. Use diagrams only if they clarify.";
+      return "\n\nResponse length: Thorough with examples. Use mermaid diagrams to visualise architecture and flow. Use markdown (headers, bold, bullets, tables).";
+    return "\n\nResponse length: Concise — cover key points without fluff. Use diagrams only if they clarify. You can use minimal markdown only (bullets, bold text) - do not use headers or tables at all.";
   }
 
   if (responseLength === "detailed")

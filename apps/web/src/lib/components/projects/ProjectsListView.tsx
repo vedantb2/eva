@@ -1,9 +1,8 @@
-"use client";
-
-import { useState } from "react";
+import { useCallback, useState, type RefCallback } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
+import { Virtuoso } from "react-virtuoso";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -35,6 +34,13 @@ export function ProjectsListView({
   onDelete,
 }: ProjectsListViewProps) {
   const { owner, name } = useRepo();
+  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
+  const scrollRef: RefCallback<HTMLDivElement> = useCallback(
+    (node: HTMLDivElement | null) => {
+      setScrollParent(node);
+    },
+    [],
+  );
   const [openSections, setOpenSections] = useState<Set<ProjectPhase>>(() => {
     const nonEmpty = new Set(
       PROJECT_PHASES.filter((p) => (projectsByPhase[p] ?? []).length > 0),
@@ -55,7 +61,10 @@ export function ProjectsListView({
   };
 
   return (
-    <div className="flex-1 w-full overflow-y-auto scrollbar space-y-1">
+    <div
+      ref={scrollRef}
+      className="flex-1 w-full overflow-y-auto scrollbar space-y-1"
+    >
       {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
         (phase) => {
           const cfg = phaseConfig[phase];
@@ -92,25 +101,38 @@ export function ProjectsListView({
                   </div>
                 ) : (
                   <div className="flex flex-col gap-1.5 px-1.5 pb-1.5">
-                    {items.map((project) => (
-                      <ProjectCard
-                        key={project._id}
-                        projectId={project._id}
-                        userId={project.userId}
-                        title={project.title}
-                        description={project.description}
-                        rawInput={project.rawInput}
-                        branchName={project.branchName}
-                        repoFullName={`${owner}/${name}`}
-                        createdAt={project._creationTime}
-                        accentColor={phaseConfig[phase].bar}
-                        members={project.members}
-                        projectLead={project.projectLead}
-                        phase={phase}
-                        onClick={() => onOpenProject(project._id)}
-                        onDelete={() => onDelete(project._id, project.title)}
+                    {scrollParent && (
+                      <Virtuoso
+                        customScrollParent={scrollParent}
+                        totalCount={items.length}
+                        overscan={200}
+                        itemContent={(index) => {
+                          const project = items[index];
+                          return (
+                            <div className="pb-1.5">
+                              <ProjectCard
+                                projectId={project._id}
+                                userId={project.userId}
+                                title={project.title}
+                                description={project.description}
+                                rawInput={project.rawInput}
+                                branchName={project.branchName}
+                                repoFullName={`${owner}/${name}`}
+                                createdAt={project._creationTime}
+                                accentColor={phaseConfig[phase].bar}
+                                members={project.members}
+                                projectLead={project.projectLead}
+                                phase={phase}
+                                onClick={() => onOpenProject(project._id)}
+                                onDelete={() =>
+                                  onDelete(project._id, project.title)
+                                }
+                              />
+                            </div>
+                          );
+                        }}
                       />
-                    ))}
+                    )}
                   </div>
                 )}
               </CollapsibleContent>

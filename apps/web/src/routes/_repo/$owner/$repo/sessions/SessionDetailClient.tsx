@@ -87,6 +87,7 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           planContent={session.planContent}
           streamingActivity={streaming?.currentActivity}
           streamingContent={streaming?.currentContent}
+          streamingPendingQuestion={streaming?.pendingQuestion}
           summaryStreamingActivity={summaryStreaming?.currentActivity}
           isSandboxActive={isSandboxActive}
           isSandboxToggling={isSandboxStarting || isStopPending}

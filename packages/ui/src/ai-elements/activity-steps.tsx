@@ -22,6 +22,7 @@ import {
   WorkflowIcon,
   BookOpenIcon,
   WrenchIcon,
+  MessageSquareIcon,
 } from "lucide-react";
 import { memo, useState, useEffect, useRef } from "react";
 
@@ -256,6 +257,7 @@ export interface ActivityStep {
     | "subtask"
     | "notebook"
     | "thinking"
+    | "question"
     | "tool";
   label: string;
   detail?: string;
@@ -274,6 +276,7 @@ const stepConfig = {
   subtask: { icon: WorkflowIcon, defaultLabel: "Ran agent" },
   notebook: { icon: BookOpenIcon, defaultLabel: "Edited notebook" },
   thinking: { icon: EvaThinkingIcon, defaultLabel: "Thinking..." },
+  question: { icon: MessageSquareIcon, defaultLabel: "Asked a question" },
   tool: { icon: WrenchIcon, defaultLabel: "Used tool" },
 };
 

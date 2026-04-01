@@ -124,12 +124,16 @@ async function callActionWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RE
   }
 }
 
-async function callStreamingHeartbeat(entityId, currentActivity, currentContent) {
-  return await callMutation("streaming:set", {
+async function callStreamingHeartbeat(entityId, currentActivity, currentContent, pendingQuestion) {
+  const args = {
     entityId,
     currentActivity,
     currentContent,
-  });
+  };
+  if (pendingQuestion) {
+    args.pendingQuestion = pendingQuestion;
+  }
+  return await callMutation("streaming:set", args);
 }
 
 async function markRunFinalizingIfNeeded() {
@@ -148,6 +152,8 @@ function shortenPath(p) {
   return ".../" + parts.slice(-3).join("/");
 }
 
+let pendingQuestionData = "";
+
 function toolCallToStep(name, input) {
   const path = input.file_path ? shortenPath(String(input.file_path)) : "";
   switch (name) {
@@ -164,6 +170,7 @@ function toolCallToStep(name, input) {
     case "Agent": return { type: "subtask", label: "Running agent...", detail: input.description ? String(input.description) : undefined, status: "active" };
     case "TodoWrite": return { type: "tool", label: "Updating tasks...", status: "active" };
     case "TodoRead": return { type: "tool", label: "Reading tasks...", status: "active" };
+    case "AskUserQuestion": return { type: "question", label: "Asking a question...", status: "active" };
     default: return { type: "tool", label: "Using " + name + "...", status: "active" };
   }
 }
@@ -191,6 +198,7 @@ const completedLabels = {
   "Running agent...": "Ran agent",
   "Updating tasks...": "Updated tasks",
   "Reading tasks...": "Read tasks",
+  "Asking a question...": "Asked a question",
 };
 
 function markLastComplete() {
@@ -243,6 +251,9 @@ function parseStreamEvent(line) {
         accumulatedSteps.push(toolCallToStep(block.name, block.input ?? {}));
         lastStepType = "tool";
         added = true;
+        if (block.name === "AskUserQuestion" && block.input) {
+          pendingQuestionData = JSON.stringify(block.input);
+        }
       } else if (block.type === "thinking" && block.thinking) {
         markLastComplete();
         accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: String(block.thinking), status: "active" });
@@ -435,6 +446,7 @@ async function flushStreaming() {
           STREAMING_ENTITY_ID,
           payload,
           currentStreamedContent,
+          pendingQuestionData || undefined,
         );
         lastSentPayload = payload;
         lastSentContent = currentStreamedContent;
@@ -470,6 +482,7 @@ async function heartbeatPing() {
           STREAMING_ENTITY_ID,
           payload,
           currentStreamedContent,
+          pendingQuestionData || undefined,
         );
         lastSentPayload = payload;
         lastSentContent = currentStreamedContent;
@@ -513,6 +526,7 @@ async function initialHeartbeat() {
         STREAMING_ENTITY_ID,
         JSON.stringify(accumulatedSteps),
         currentStreamedContent,
+        pendingQuestionData || undefined,
       );
       log(
         "initialHeartbeat succeeded in " +
@@ -579,6 +593,7 @@ async function setFinalizingState() {
       STREAMING_ENTITY_ID,
       JSON.stringify(accumulatedSteps),
       currentStreamedContent,
+      pendingQuestionData || undefined,
     );
     lastStreamingSentAt = Date.now();
     lastSentContent = currentStreamedContent;
@@ -915,6 +930,7 @@ function handleRealtimeStreamLine(line) {
       STREAMING_ENTITY_ID,
       JSON.stringify(accumulatedSteps),
       currentStreamedContent,
+      pendingQuestionData || undefined,
     ).catch(() => {});
     return;
   }
@@ -1223,6 +1239,7 @@ try {
       STREAMING_ENTITY_ID,
       JSON.stringify(accumulatedSteps),
       currentStreamedContent,
+      pendingQuestionData || undefined,
     ).catch(() => {});
 
     const secondAttempt = await runClaudeAttempt({
@@ -1280,6 +1297,7 @@ try {
     error: errorValue,
     activityLog,
     ...(finalResultEvent?.rawResultEvent ? { rawResultEvent: finalResultEvent.rawResultEvent } : {}),
+    ...(pendingQuestionData ? { pendingQuestion: pendingQuestionData } : {}),
   };
   try {
     await callMutationWithRetry(COMPLETION_MUTATION, completionArgs);

@@ -71,6 +71,7 @@ import {
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
+import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 
@@ -87,6 +88,52 @@ const REVIEW_AUDITS = [
   "Generating report",
 ];
 
+interface ParsedQuestion {
+  question: string;
+  header: string;
+  options: Array<{ label: string; description: string }>;
+  multiSelect: boolean;
+}
+
+function isRecord(val: unknown): val is Record<string, unknown> {
+  return typeof val === "object" && val !== null;
+}
+
+function isOptionItem(
+  val: unknown,
+): val is { label: string; description: string } {
+  return (
+    isRecord(val) &&
+    typeof val.label === "string" &&
+    typeof val.description === "string"
+  );
+}
+
+function isParsedQuestion(val: unknown): val is ParsedQuestion {
+  return (
+    isRecord(val) &&
+    typeof val.question === "string" &&
+    typeof val.header === "string" &&
+    typeof val.multiSelect === "boolean" &&
+    Array.isArray(val.options) &&
+    val.options.every(isOptionItem)
+  );
+}
+
+function parsePendingQuestion(
+  raw: string | undefined | null,
+): ParsedQuestion[] | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed) || !Array.isArray(parsed.questions)) return null;
+    const questions = parsed.questions.filter(isParsedQuestion);
+    return questions.length > 0 ? questions : null;
+  } catch {
+    return null;
+  }
+}
+
 interface ChatPanelProps {
   sessionId: Id<"sessions">;
   title: string;
@@ -98,6 +145,7 @@ interface ChatPanelProps {
   planContent?: string;
   streamingActivity?: string;
   streamingContent?: string;
+  streamingPendingQuestion?: string;
   summaryStreamingActivity?: string;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
@@ -119,6 +167,7 @@ export function ChatPanel({
   planContent,
   streamingActivity,
   streamingContent,
+  streamingPendingQuestion,
   summaryStreamingActivity,
   isSandboxActive,
   isSandboxToggling,
@@ -317,6 +366,29 @@ export function ChatPanel({
     [queuedMessages],
   );
 
+  const [questionDismissed, setQuestionDismissed] = useState(false);
+
+  const pendingQuestionRaw =
+    streamingPendingQuestion ?? lastMessage?.pendingQuestion;
+  const activePendingQuestion = useMemo(
+    () => (questionDismissed ? null : parsePendingQuestion(pendingQuestionRaw)),
+    [questionDismissed, pendingQuestionRaw],
+  );
+
+  useEffect(() => {
+    if (pendingQuestionRaw) {
+      setQuestionDismissed(false);
+    }
+  }, [pendingQuestionRaw]);
+
+  const handleQuestionAnswer = useCallback(
+    async (answer: string) => {
+      setQuestionDismissed(true);
+      await handleSend(answer);
+    },
+    [handleSend],
+  );
+
   const headerLeft = (
     <Button
       size="icon"
@@ -501,6 +573,15 @@ export function ChatPanel({
                             icon={evaIcon}
                             startedAt={message.timestamp}
                           />
+                          {activePendingQuestion && (
+                            <div className="mt-3">
+                              <MultipleChoiceQuestion
+                                questions={activePendingQuestion}
+                                onAnswer={handleQuestionAnswer}
+                                isLoading={isSending}
+                              />
+                            </div>
+                          )}
                         </>
                       ) : (
                         <>
@@ -524,6 +605,16 @@ export function ChatPanel({
                               {message.videoUrl && (
                                 <VideoPreview url={message.videoUrl} />
                               )}
+                              {message._id === lastMessage?._id &&
+                                activePendingQuestion && (
+                                  <div className="mt-3">
+                                    <MultipleChoiceQuestion
+                                      questions={activePendingQuestion}
+                                      onAnswer={handleQuestionAnswer}
+                                      isLoading={isSending}
+                                    />
+                                  </div>
+                                )}
                             </>
                           ) : (
                             <>
@@ -577,7 +668,7 @@ export function ChatPanel({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      {!isArchived && (
+      {!isArchived && !activePendingQuestion && (
         <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
           <QueuedMessagesPanel
             items={queuedMessageItems}

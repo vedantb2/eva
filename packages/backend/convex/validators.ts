@@ -5,6 +5,7 @@ export const workflowCompleteValidator = v.object({
   result: v.union(v.string(), v.null()),
   error: v.union(v.string(), v.null()),
   activityLog: v.union(v.string(), v.null()),
+  pendingQuestion: v.optional(v.string()),
 });
 
 export const taskStatusValidator = v.union(
@@ -439,6 +440,7 @@ export const messageFields = {
   status: v.optional(queryConfirmationStatusValidator),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
+  pendingQuestion: v.optional(v.string()),
 };
 
 export const queuedMessageFields = {

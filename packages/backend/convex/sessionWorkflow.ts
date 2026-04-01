@@ -219,6 +219,7 @@ export const sessionExecuteWorkflow = workflow.define({
       error: result.error,
       activityLog: result.activityLog,
       planContent,
+      pendingQuestion: result.pendingQuestion,
     });
   },
 });
@@ -354,6 +355,7 @@ export const saveResult = internalMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     planContent: v.optional(v.string()),
+    pendingQuestion: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -373,6 +375,7 @@ export const saveResult = internalMutation({
       content: string;
       activityLog?: string;
       finishedAt?: number;
+      pendingQuestion?: string;
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -381,6 +384,9 @@ export const saveResult = internalMutation({
     };
     if (args.activityLog) {
       patch.activityLog = args.activityLog;
+    }
+    if (args.pendingQuestion) {
+      patch.pendingQuestion = args.pendingQuestion;
     }
     await ctx.db.patch(last._id, patch);
 
@@ -409,6 +415,7 @@ export const handleCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    pendingQuestion: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -430,6 +437,7 @@ export const handleCompletion = authMutation({
         result: args.result,
         error: args.error,
         activityLog: args.activityLog,
+        pendingQuestion: args.pendingQuestion,
       },
     });
 

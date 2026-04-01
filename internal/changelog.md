@@ -1,5 +1,18 @@
 # Changelog
 
+## AskUserQuestion renders as interactive multiple choice in session chat — 2026-04-01
+
+- **Why**: When Claude Code uses AskUserQuestion during a session, the question and options were buried in activity logs ("Using AskUserQuestion...") and invisible to the user. Users had no way to see or respond to questions.
+- **Changes**:
+  - Added `pendingQuestion` field to `streamingActivity` table (real-time) and `messages` table (persisted after completion)
+  - Callback script now detects AskUserQuestion tool_use events, extracts the question JSON, and threads it through streaming heartbeats and completion args
+  - Session workflow threads `pendingQuestion` through handleCompletion → event → saveResult → message patch
+  - ChatPanel renders `MultipleChoiceQuestion` component when a pending question is detected (both during streaming and after completion)
+  - Prompt input is hidden when a question is active, forcing user to select an option
+  - MultipleChoiceQuestion component extended to support multiple questions (1-4), multiSelect, and header badges
+  - Added `question` step type to ActivityStep with MessageSquare icon
+- **Files**: schema.ts, validators.ts, streaming.ts, callbackScript.ts, sessionWorkflow.ts, SessionDetailClient.tsx, ChatPanel.tsx, MultipleChoiceQuestion.tsx, activity-steps.tsx
+
 ## Kanban board query and animation optimization — 2026-04-01
 
 - **Why**: Kanban board with 40+ task cards made 80+ sequential database reads in a single query (getTaskIdsWithLatestRunError looped through taskIds, doing ctx.db.get + hasTaskAccess + index query per task). View switching also had stacked animations (200ms exit + 200ms enter + 300ms board fade-in) creating 500ms+ delay.

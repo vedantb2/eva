@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
+import { useLocalStorage } from "usehooks-ts";
 import { ThemeModeContext } from "@/lib/hooks/useThemeMode";
 import type { ThemeMode } from "@/lib/hooks/useThemeMode";
 
@@ -16,24 +17,22 @@ function applyTheme(resolved: "light" | "dark") {
   document.documentElement.classList.toggle("dark", resolved === "dark");
 }
 
-export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>(() => {
-    const stored = localStorage.getItem("theme");
-    if (stored === "dark" || stored === "light" || stored === "system")
-      return stored;
-    return "light";
-  });
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(() =>
-    resolveTheme(theme),
-  );
+function isValidTheme(value: string): value is ThemeMode {
+  return value === "dark" || value === "light" || value === "system";
+}
 
-  const setTheme = useCallback((t: ThemeMode) => {
-    setThemeState(t);
-    localStorage.setItem("theme", t);
-    const resolved = resolveTheme(t);
-    setResolvedTheme(resolved);
-    applyTheme(resolved);
-  }, []);
+export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
+  const [storedTheme, setStoredTheme] = useLocalStorage("theme", "light");
+  const theme: ThemeMode = isValidTheme(storedTheme) ? storedTheme : "light";
+  const resolvedTheme = resolveTheme(theme);
+
+  const setTheme = useCallback(
+    (t: ThemeMode) => {
+      setStoredTheme(t);
+      applyTheme(resolveTheme(t));
+    },
+    [setStoredTheme],
+  );
 
   useEffect(() => {
     applyTheme(resolvedTheme);
@@ -43,9 +42,7 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
     if (theme !== "system") return;
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
-      const resolved = getSystemTheme();
-      setResolvedTheme(resolved);
-      applyTheme(resolved);
+      applyTheme(getSystemTheme());
     };
     mql.addEventListener("change", handler);
     return () => mql.removeEventListener("change", handler);

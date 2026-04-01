@@ -112,7 +112,7 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
       leftDefaultSize="30%"
       leftMinWidthPx={350}
       rightMinWidthPx={300}
-      collapseCookieName="sandbox-collapsed"
+      storageKey="sandbox-collapsed"
     />
   );
 }

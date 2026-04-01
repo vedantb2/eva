@@ -1,21 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 import { IconGripVertical } from "@tabler/icons-react";
+import { useLocalStorage } from "usehooks-ts";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
-
-const ONE_YEAR = 60 * 60 * 24 * 365;
-
-function readCollapsed(cookieName: string): boolean {
-  if (typeof document === "undefined") return false;
-  return document.cookie.includes(`${cookieName}=true`);
-}
-
-function writeCollapsed(cookieName: string, collapsed: boolean) {
-  document.cookie = `${cookieName}=${collapsed}; path=/; max-age=${ONE_YEAR}; SameSite=Lax`;
-}
 
 interface PanelContext {
   rightPanelCollapsed: boolean;
@@ -28,7 +18,7 @@ interface ResizablePanelLayoutProps {
   leftDefaultSize: string;
   leftMinWidthPx: number;
   rightMinWidthPx: number;
-  collapseCookieName: string;
+  storageKey: string;
 }
 
 export function ResizablePanelLayout({
@@ -37,11 +27,12 @@ export function ResizablePanelLayout({
   leftDefaultSize,
   leftMinWidthPx,
   rightMinWidthPx,
-  collapseCookieName,
+  storageKey,
 }: ResizablePanelLayoutProps) {
   const rightPanelRef = usePanelRef();
-  const [rightCollapsed, setRightCollapsed] = useState(() =>
-    readCollapsed(collapseCookieName),
+  const [rightCollapsed, setRightCollapsed] = useLocalStorage(
+    storageKey,
+    false,
   );
   const isMobile = useMediaQuery("(max-width: 767px)");
 
@@ -59,7 +50,6 @@ export function ResizablePanelLayout({
       rightPanelRef.current?.expand();
     }
     setRightCollapsed(next);
-    writeCollapsed(collapseCookieName, next);
   };
 
   const ctx: PanelContext = {

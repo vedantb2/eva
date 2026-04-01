@@ -1,5 +1,16 @@
 # Changelog
 
+## Quick tasks performance optimization — 2026-04-01
+
+- **Why**: Quick tasks page with 160+ tasks loaded slowly due to N+1 queries (320 Convex subscriptions from per-card UserInitials and listByTask queries), eagerly-rendered menu trees (320 context/dropdown menus in React tree), and no virtualization (all 160+ cards in DOM simultaneously).
+- **Changes**:
+  - Eliminated N+1 `users.get` queries: parents now look up users from the already-fetched `users.listAll` and pass the `user` object to `UserInitials` instead of `userId`. Applies to QuickTaskCard, table view's assignedTo column. Removes 160 subscriptions.
+  - Deduplicated context + dropdown menu items: extracted `TaskCardMenuItems` component that takes a `variant` prop and aliases Radix primitives, eliminating ~190 lines of duplicated JSX.
+  - Deferred menu rendering: menu content is now a child component (`TaskCardMenuItems`) instead of inline JSX, so React only calls it when the portal mounts (i.e., when menu opens). Eliminates hundreds of React elements per card per render.
+  - Added `@tanstack/react-virtual` for virtualization: table view renders only visible rows with spacer `<tr>` elements; kanban columns render only visible cards with absolute positioning. Both use `measureElement` for dynamic sizing.
+  - Moved mutations (`updateStatus`, `updateTask`, `startExecution`) from QuickTaskCard into TaskCardMenuItems, since they're only used by menu actions.
+- **Files**: QuickTaskCard.tsx, TaskCardMenuItems.tsx (new), QuickTasksKanbanBoard.tsx, QuickTasksListView.tsx, QuickTasksTableView.tsx, KanbanBoard.tsx, KanbanColumn.tsx
+
 ## Bundle optimization — reduce initial load by 80% - 2026-03-31
 
 - **Why**: Main bundle was 1,355KB and TaskDetailInline was 1,048KB — both over 1MB. Users downloaded and parsed megabytes of JS before seeing any content, including libraries they'd never use on most pages (tiptap, react-syntax-highlighter, streamdown).

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type RefCallback } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -173,13 +174,25 @@ export function QuickTasksListView({
     }
   };
 
+  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
+
+  const scrollRef: RefCallback<HTMLDivElement> = useCallback(
+    (node: HTMLDivElement | null) => {
+      setScrollParent(node);
+    },
+    [],
+  );
+
   return (
     <>
       <ListProvider
         onDragEnd={handleDragEnd}
         className="flex-1 min-h-0 gap-2 sm:gap-3"
       >
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar space-y-1 pb-2">
+        <div
+          ref={scrollRef}
+          className="flex-1 min-h-0 overflow-y-auto scrollbar space-y-1 pb-2"
+        >
           {TASK_STATUSES.filter((status) => visibleStatuses.has(status)).map(
             (status) => {
               const cfg = statusConfig[status];
@@ -237,50 +250,63 @@ export function QuickTasksListView({
                         </div>
                       ) : (
                         <ListItems className="pr-1.5 pb-1.5">
-                          {items.map((task, i) => (
-                            <ListItem
-                              key={task._id}
-                              id={task._id}
-                              name={task.title}
-                              index={i}
-                              parent={status}
-                            >
-                              <QuickTaskCard
-                                id={task._id}
-                                title={task.title}
-                                description={task.description}
-                                status={task.status}
-                                scheduledAt={task.scheduledAt}
-                                tags={task.tags}
-                                createdBy={task.createdBy}
-                                createdAt={task.createdAt}
-                                projectName={
-                                  task.projectId
-                                    ? projectNames.get(task.projectId)
-                                    : undefined
-                                }
-                                onClick={() => {
-                                  if (isSelecting) {
-                                    onToggleSelect(task._id);
-                                  } else {
-                                    onOpenTask(task._id);
-                                  }
-                                }}
-                                isSelecting={isSelecting}
-                                isSelected={selectedIds.has(task._id)}
-                                isActive={selectedTaskId === task._id}
-                                onToggleSelect={() => onToggleSelect(task._id)}
-                                siblingApps={siblingApps ?? undefined}
-                                assignedTo={task.assignedTo}
-                                model={task.model}
-                                projectId={task.projectId}
-                                repoId={task.repoId ?? repoId}
-                                users={users ?? undefined}
-                                currentUserId={currentUserId ?? undefined}
-                                projects={projectsList ?? undefined}
-                              />
-                            </ListItem>
-                          ))}
+                          {scrollParent && (
+                            <Virtuoso
+                              customScrollParent={scrollParent}
+                              totalCount={items.length}
+                              overscan={200}
+                              itemContent={(index) => {
+                                const task = items[index];
+                                return (
+                                  <ListItem
+                                    id={task._id}
+                                    name={task.title}
+                                    index={index}
+                                    parent={status}
+                                  >
+                                    <QuickTaskCard
+                                      id={task._id}
+                                      title={task.title}
+                                      description={task.description}
+                                      status={task.status}
+                                      scheduledAt={task.scheduledAt}
+                                      tags={task.tags}
+                                      createdByUser={users?.find(
+                                        (u) => u._id === task.createdBy,
+                                      )}
+                                      createdAt={task.createdAt}
+                                      projectName={
+                                        task.projectId
+                                          ? projectNames.get(task.projectId)
+                                          : undefined
+                                      }
+                                      onClick={() => {
+                                        if (isSelecting) {
+                                          onToggleSelect(task._id);
+                                        } else {
+                                          onOpenTask(task._id);
+                                        }
+                                      }}
+                                      isSelecting={isSelecting}
+                                      isSelected={selectedIds.has(task._id)}
+                                      isActive={selectedTaskId === task._id}
+                                      onToggleSelect={() =>
+                                        onToggleSelect(task._id)
+                                      }
+                                      siblingApps={siblingApps ?? undefined}
+                                      assignedTo={task.assignedTo}
+                                      model={task.model}
+                                      projectId={task.projectId}
+                                      repoId={task.repoId ?? repoId}
+                                      users={users ?? undefined}
+                                      currentUserId={currentUserId ?? undefined}
+                                      projects={projectsList ?? undefined}
+                                    />
+                                  </ListItem>
+                                );
+                              }}
+                            />
+                          )}
                         </ListItems>
                       )}
                     </CollapsibleContent>

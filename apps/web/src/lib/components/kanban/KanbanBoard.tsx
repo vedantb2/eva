@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, ReactNode } from "react";
+import type { ReactNode, RefCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   type DragEndEvent,
   type DragStartEvent,
@@ -10,11 +11,12 @@ import {
   useSensors,
   pointerWithin,
 } from "@dnd-kit/core";
+import { SortableContext } from "@dnd-kit/sortable";
 import { AnimatePresence, motion } from "motion/react";
 import { useQueryStates } from "nuqs";
+import { Virtuoso } from "react-virtuoso";
 import {
   KanbanProvider,
-  KanbanCards,
   KanbanCard,
   type KanbanItem,
   type KanbanColumnDef,
@@ -104,16 +106,24 @@ export function KanbanBoard<T extends BaseTask>({
     [filteredItems],
   );
 
+  const itemsByStatus = useMemo(() => {
+    const map = new Map<string, T[]>();
+    for (const status of KANBAN_STATUSES) {
+      map.set(status, []);
+    }
+    for (const item of filteredItems) {
+      map.get(item.status)?.push(item);
+    }
+    return map;
+  }, [filteredItems]);
+
   const countByStatus = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const status of KANBAN_STATUSES) {
-      counts[status] = 0;
-    }
-    for (const item of filteredItems) {
-      counts[item.status] = (counts[item.status] ?? 0) + 1;
+      counts[status] = itemsByStatus.get(status)?.length ?? 0;
     }
     return counts;
-  }, [filteredItems]);
+  }, [itemsByStatus]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const item = itemsById.get(String(event.active.id));
@@ -215,33 +225,76 @@ export function KanbanBoard<T extends BaseTask>({
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <KanbanColumn
-                  id={status}
-                  config={statusConfig[status]}
+                <VirtualKanbanColumn
+                  status={status}
+                  items={itemsByStatus.get(status) ?? []}
                   count={countByStatus[status] ?? 0}
                   headerExtra={columnExtra?.(status)}
-                >
-                  <KanbanCards id={status}>
-                    {(kanbanItem) => {
-                      const task = itemsById.get(kanbanItem.id);
-                      if (!task) return null;
-                      return (
-                        <KanbanCard
-                          key={kanbanItem.id}
-                          id={kanbanItem.id}
-                          onClick={() => onItemClick(task)}
-                        >
-                          {renderCard(task)}
-                        </KanbanCard>
-                      );
-                    }}
-                  </KanbanCards>
-                </KanbanColumn>
+                  renderCard={renderCard}
+                  onItemClick={onItemClick}
+                />
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
       </KanbanProvider>
     </div>
+  );
+}
+
+function VirtualKanbanColumn<T extends BaseTask>({
+  status,
+  items,
+  count,
+  headerExtra,
+  renderCard,
+  onItemClick,
+}: {
+  status: string;
+  items: T[];
+  count: number;
+  headerExtra?: ReactNode;
+  renderCard: (item: T) => ReactNode;
+  onItemClick: (item: T) => void;
+}) {
+  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
+
+  const scrollRef: RefCallback<HTMLDivElement> = useCallback(
+    (node: HTMLDivElement | null) => {
+      setScrollParent(node);
+    },
+    [],
+  );
+
+  const itemIds = useMemo(() => items.map((item) => item._id), [items]);
+
+  return (
+    <KanbanColumn
+      id={status}
+      config={statusConfig[status as TaskStatus]}
+      count={count}
+      headerExtra={headerExtra}
+      scrollRef={scrollRef}
+    >
+      <SortableContext items={itemIds}>
+        {scrollParent && (
+          <Virtuoso
+            customScrollParent={scrollParent}
+            totalCount={items.length}
+            overscan={200}
+            itemContent={(index) => {
+              const task = items[index];
+              return (
+                <div className="pb-1.5">
+                  <KanbanCard id={task._id} onClick={() => onItemClick(task)}>
+                    {renderCard(task)}
+                  </KanbanCard>
+                </div>
+              );
+            }}
+          />
+        )}
+      </SortableContext>
+    </KanbanColumn>
   );
 }

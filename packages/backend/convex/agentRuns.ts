@@ -127,6 +127,27 @@ export const listByTask = authQuery({
   },
 });
 
+export const getTaskIdsWithLatestRunError = authQuery({
+  args: { taskIds: v.array(v.id("agentTasks")) },
+  returns: v.array(v.id("agentTasks")),
+  handler: async (ctx, args) => {
+    const errorTaskIds: Id<"agentTasks">[] = [];
+    for (const taskId of args.taskIds) {
+      const task = await ctx.db.get(taskId);
+      if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) continue;
+      const latestRun = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", taskId))
+        .order("desc")
+        .first();
+      if (latestRun?.status === "error") {
+        errorTaskIds.push(taskId);
+      }
+    }
+    return errorTaskIds;
+  },
+});
+
 export const updateStatus = authMutation({
   args: {
     id: v.id("agentRuns"),

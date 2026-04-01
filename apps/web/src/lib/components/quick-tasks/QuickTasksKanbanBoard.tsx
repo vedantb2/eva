@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { FixAllDialog } from "./FixAllDialog";
@@ -44,6 +44,15 @@ export function QuickTasksKanbanBoard({
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const tasks = [...externalTasks].sort((a, b) => b.createdAt - a.createdAt);
+
+  const taskIds = useMemo(() => tasks.map((t) => t._id), [tasks]);
+  const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
+    taskIds,
+  });
+  const errorTaskIdSet = useMemo(
+    () => new Set(errorTaskIds ?? []),
+    [errorTaskIds],
+  );
 
   if (tasks.length === 0) {
     return null;
@@ -121,9 +130,10 @@ export function QuickTasksKanbanBoard({
             title={task.title}
             description={task.description}
             status={task.status}
+            hasError={errorTaskIdSet.has(task._id)}
             scheduledAt={task.scheduledAt}
             tags={task.tags}
-            createdBy={task.createdBy}
+            createdByUser={users?.find((u) => u._id === task.createdBy)}
             createdAt={task.createdAt}
             projectName={
               task.projectId ? projectNames.get(task.projectId) : undefined
@@ -147,9 +157,10 @@ export function QuickTasksKanbanBoard({
             title={task.title}
             description={task.description}
             status={task.status}
+            hasError={errorTaskIdSet.has(task._id)}
             scheduledAt={task.scheduledAt}
             tags={task.tags}
-            createdBy={task.createdBy}
+            createdByUser={users?.find((u) => u._id === task.createdBy)}
             createdAt={task.createdAt}
             projectName={
               task.projectId ? projectNames.get(task.projectId) : undefined

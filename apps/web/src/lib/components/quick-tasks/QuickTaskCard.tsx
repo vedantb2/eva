@@ -20,7 +20,6 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
 import { IconClock, IconDots, IconFolder, IconTag } from "@tabler/icons-react";
-import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   statusConfig,
   type TaskStatus,
@@ -47,6 +46,7 @@ interface QuickTaskCardProps {
   createdByUser?: User;
   createdAt: number;
   projectName?: string;
+  hasError?: boolean;
   siblingApps?: SiblingApp[];
   onClick?: () => void;
   isSelecting?: boolean;
@@ -72,6 +72,7 @@ export function QuickTaskCard({
   createdByUser,
   createdAt,
   projectName,
+  hasError = false,
   siblingApps,
   onClick,
   isSelecting,
@@ -85,8 +86,6 @@ export function QuickTaskCard({
   currentUserId,
   projects,
 }: QuickTaskCardProps) {
-  const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
-  const hasError = runs?.[0]?.status === "error";
   const showError = hasError && status !== "done";
   const statusMeta = statusConfig[status];
   const accentClass = showError ? "bg-destructive" : statusMeta.bar;

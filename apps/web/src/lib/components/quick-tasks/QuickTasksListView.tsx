@@ -71,6 +71,18 @@ export function QuickTasksListView({
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
 
+  const taskIds = useMemo(
+    () => externalTasks.map((t) => t._id),
+    [externalTasks],
+  );
+  const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
+    taskIds,
+  });
+  const errorTaskIdSet = useMemo(
+    () => new Set(errorTaskIds ?? []),
+    [errorTaskIds],
+  );
+
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Set<DisplayTaskStatus>>(
@@ -269,6 +281,7 @@ export function QuickTasksListView({
                                       title={task.title}
                                       description={task.description}
                                       status={task.status}
+                                      hasError={errorTaskIdSet.has(task._id)}
                                       scheduledAt={task.scheduledAt}
                                       tags={task.tags}
                                       createdByUser={users?.find(

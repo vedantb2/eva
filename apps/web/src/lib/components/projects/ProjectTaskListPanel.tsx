@@ -4,6 +4,7 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import { useMemo, useState } from "react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import {
   DndContext,
@@ -43,10 +44,12 @@ function SortableTaskWrapper({
   task,
   selectedTaskId,
   onSelectTask,
+  hasError,
 }: {
   task: Task;
   selectedTaskId: Id<"agentTasks"> | null;
   onSelectTask: (id: Id<"agentTasks">) => void;
+  hasError: boolean;
 }) {
   const {
     attributes,
@@ -82,9 +85,9 @@ function SortableTaskWrapper({
           title={task.title}
           description={task.description}
           status={task.status}
+          hasError={hasError}
           taskNumber={task.taskNumber ?? 0}
           tags={task.tags}
-          createdBy={task.createdBy}
           createdAt={task._creationTime}
           scheduledAt={task.scheduledAt}
           isActive={selectedTaskId === task._id}
@@ -116,6 +119,15 @@ export function ProjectTaskListPanel({
     Id<"agentTasks">[] | null
   >(null);
   const reorderTasks = useMutation(api.agentTasks.reorderProjectTasks);
+
+  const taskIds = useMemo(() => tasks.map((t) => t._id), [tasks]);
+  const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
+    taskIds,
+  });
+  const errorTaskIdSet = useMemo(
+    () => new Set(errorTaskIds ?? []),
+    [errorTaskIds],
+  );
 
   const groupedTasks = useMemo(() => {
     const groups: Record<TaskStatus, Task[]> = {
@@ -240,6 +252,7 @@ export function ProjectTaskListPanel({
                           task={task}
                           selectedTaskId={selectedTaskId}
                           onSelectTask={onSelectTask}
+                          hasError={errorTaskIdSet.has(task._id)}
                         />
                       ))}
                     </SortableContext>
@@ -290,9 +303,9 @@ export function ProjectTaskListPanel({
                       title={task.title}
                       description={task.description}
                       status={task.status}
+                      hasError={errorTaskIdSet.has(task._id)}
                       taskNumber={task.taskNumber ?? 0}
                       tags={task.tags}
-                      createdBy={task.createdBy}
                       createdAt={task._creationTime}
                       scheduledAt={task.scheduledAt}
                       isActive={selectedTaskId === task._id}

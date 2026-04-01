@@ -56,6 +56,7 @@ import {
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
@@ -196,6 +197,14 @@ export function ChatPanel({
   const defaultModel = repo.defaultModel ?? "sonnet";
   const { mode, setMode, model, setModel, responseLength, setResponseLength } =
     useSessionSettings(sessionId, { defaultModel });
+
+  const SESSION_MODES: SessionMode[] = ["execute", "ask", "plan"];
+  useHotkey("Shift+Tab", (e) => {
+    e.preventDefault();
+    const currentIndex = SESSION_MODES.indexOf(mode);
+    const nextIndex = (currentIndex + 1) % SESSION_MODES.length;
+    setMode(SESSION_MODES[nextIndex]);
+  });
 
   const evaIcon = <EvaIcon />;
 

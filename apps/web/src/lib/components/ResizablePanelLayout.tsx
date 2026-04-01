@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect } from "react";
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 import { IconGripVertical } from "@tabler/icons-react";
 import { useLocalStorage } from "usehooks-ts";
@@ -35,12 +34,6 @@ export function ResizablePanelLayout({
     false,
   );
   const isMobile = useMediaQuery("(max-width: 767px)");
-
-  useEffect(() => {
-    if (rightCollapsed) {
-      rightPanelRef.current?.collapse();
-    }
-  }, [rightCollapsed, rightPanelRef]);
 
   const handleToggle = () => {
     const next = !rightCollapsed;
@@ -88,9 +81,11 @@ export function ResizablePanelLayout({
       <Panel
         collapsible
         collapsedSize={0}
-        defaultSize="60%"
+        defaultSize={rightCollapsed ? 0 : "60%"}
         minSize={rightMinWidthPx}
         panelRef={rightPanelRef}
+        onCollapse={() => setRightCollapsed(true)}
+        onExpand={() => setRightCollapsed(false)}
       >
         {rightPanel}
       </Panel>

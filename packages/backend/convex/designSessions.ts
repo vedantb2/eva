@@ -414,6 +414,7 @@ export const enqueueMessage = authMutation({
       parentId: args.id,
       content,
       createdAt: Date.now(),
+      userId: ctx.userId,
       personaId: args.personaId,
       numDesigns: args.numDesigns ?? 3,
     });

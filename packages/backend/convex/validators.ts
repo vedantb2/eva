@@ -449,6 +449,7 @@ export const queuedMessageFields = {
   parentId: v.union(v.id("sessions"), v.id("designSessions")),
   content: v.string(),
   createdAt: v.number(),
+  userId: v.id("users"),
   mode: v.optional(sessionModeValidator),
   model: v.optional(claudeModelValidator),
   responseLength: v.optional(v.string()),

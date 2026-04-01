@@ -1,5 +1,14 @@
 # Changelog
 
+## Fix queued messages sent as session owner instead of sender — 2026-04-01
+
+- **Why**: When a user queued messages in a shared session, the messages appeared as the session owner (coworker) instead of the person who actually queued them. The `queuedMessages` table had no `userId` field, so processing fell back to `session.userId`.
+- **Changes**:
+  - Added `userId` field to `queuedMessageFields` in validators.ts (optional for backward compat with existing rows)
+  - Both `enqueueMessage` mutations (sessionWorkflow.ts, designSessions.ts) now store `ctx.userId`
+  - Queue processing in `_queues/helpers.ts` uses `nextMessage.userId ?? session.userId` fallback
+- **Files**: validators.ts, sessionWorkflow.ts, designSessions.ts, \_queues/helpers.ts
+
 ## AskUserQuestion renders as interactive multiple choice in session chat — 2026-04-01
 
 - **Why**: When Claude Code uses AskUserQuestion during a session, the question and options were buried in activity logs ("Using AskUserQuestion...") and invisible to the user. Users had no way to see or respond to questions.

@@ -1,7 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
+import { type ReactNode, useCallback } from "react";
+import {
+  Group,
+  Panel,
+  type PanelSize,
+  Separator,
+  usePanelRef,
+} from "react-resizable-panels";
 import { IconGripVertical } from "@tabler/icons-react";
 import { useLocalStorage } from "usehooks-ts";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
@@ -36,14 +42,20 @@ export function ResizablePanelLayout({
   const isMobile = useMediaQuery("(max-width: 767px)");
 
   const handleToggle = () => {
-    const next = !rightCollapsed;
-    if (next) {
-      rightPanelRef.current?.collapse();
-    } else {
+    if (rightCollapsed) {
       rightPanelRef.current?.expand();
+    } else {
+      rightPanelRef.current?.collapse();
     }
-    setRightCollapsed(next);
   };
+
+  const handleResize = useCallback(
+    (size: PanelSize) => {
+      const collapsed = size.asPercentage === 0;
+      setRightCollapsed(collapsed);
+    },
+    [setRightCollapsed],
+  );
 
   const ctx: PanelContext = {
     rightPanelCollapsed: rightCollapsed,
@@ -84,8 +96,7 @@ export function ResizablePanelLayout({
         defaultSize={rightCollapsed ? 0 : "60%"}
         minSize={rightMinWidthPx}
         panelRef={rightPanelRef}
-        onCollapse={() => setRightCollapsed(true)}
-        onExpand={() => setRightCollapsed(false)}
+        onResize={handleResize}
       >
         {rightPanel}
       </Panel>

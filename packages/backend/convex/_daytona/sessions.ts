@@ -70,7 +70,14 @@ function isRetryableSessionGitError(message: string): boolean {
     lower.includes("econnrefused") ||
     lower.includes("etimedout") ||
     lower.includes("socket hang up") ||
-    lower.includes("network")
+    lower.includes("network") ||
+    lower.includes("gnutls recv error") ||
+    lower.includes("tls connection was non-properly terminated") ||
+    lower.includes("remote end hung up unexpectedly") ||
+    lower.includes("http/2 stream") ||
+    lower.includes("early eof") ||
+    lower.includes("connection reset by peer") ||
+    lower.includes("rpc failed")
   );
 }
 

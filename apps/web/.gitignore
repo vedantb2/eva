@@ -1,19 +1,8 @@
-# dependencies
-node_modules/
-
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-.next/
-.bolt/
-.vscode/
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+tsconfig.tsbuildinfo
+tsconfig.buildinfo

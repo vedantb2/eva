@@ -1,5 +1,123 @@
 # Changelog
 
+## Bundle optimization — reduce initial load by 80% - 2026-03-31
+
+- **Why**: Main bundle was 1,355KB and TaskDetailInline was 1,048KB — both over 1MB. Users downloaded and parsed megabytes of JS before seeing any content, including libraries they'd never use on most pages (tiptap, react-syntax-highlighter, streamdown).
+- **Changes**:
+  - Added `sideEffects: false` to `@conductor/ui` — enables tree-shaking of the 180+ component barrel export.
+  - Added `./ai` sub-path export to `@conductor/ui` for ai-elements.
+  - Lazy-loaded FormattedText (tiptap ~300KB), LazyCodeBlock (syntax highlighting), and RunTimelineItem (streamdown + plugins) via `React.lazy()` with `Suspense`.
+  - Replaced `react-syntax-highlighter` (624KB lazy chunk) with `shiki` (76KB lazy chunk) — shiki was already in the dep tree via @streamdown/code, so react-syntax-highlighter was redundant.
+  - Added vendor chunk splitting in Vite 8 via `codeSplitting.groups` for Radix, Convex, and Clerk — stable vendor libs now cache independently.
+  - Broke cyclic workspace dependency between `packages/shared` ↔ `packages/ui` by giving the UI package its own local dayjs setup instead of importing from `@conductor/shared/dates`.
+- **Result**: index 1,355KB → 273KB (-80%), TaskDetailInline 1,048KB → 84KB (-92%), LazyCodeBlock 624KB → 76KB (-88%). Cyclic dependency warning eliminated.
+
+## Lift repo context to the shared repo layout - 2026-03-31
+
+- **Why**: Repo pages could briefly lose `RepoProvider` during TanStack Router transitions, which surfaced intermittent `useRepo must be used within a RepoProvider` crashes when repo-scoped UI stayed mounted across a tab change.
+- **Change**: Moved `RepoProvider` from the `/_repo/$owner/$repo` child layout up into the shared `/_repo` layout so the whole repo route subtree keeps repo context for the full lifetime of the repo shell.
+- **Effect**: Repo-scoped components like the spotlight search and setup banner now keep access to repo context while nested repo tabs swap, instead of crashing on a one-frame provider gap.
+
+## Add live collaborative cursors - 2026-03-31
+
+- **Why**: Make the platform feel more collaborative by showing team members' cursor positions in real-time (Figma-style). Leverages existing `@convex-dev/presence` infrastructure — cursor rooms are scoped per page so users only see teammates on the same route.
+- **Changes**:
+  - **New `packages/ui/src/kibo/cursor.tsx`**: Cursor SVG + body/name components adapted from kibo-ui. Composition-based (`Cursor > CursorPointer + CursorBody > CursorName`).
+  - **`packages/backend/convex/presence.ts`**: Added `updateCursor` mutation — stores `{x, y, firstName, accentColor}` via `presence.updateRoomUser`. User info is fetched server-side to keep the client API simple (just sends x/y).
+  - **New `apps/web/src/lib/hooks/useLiveCursors.ts`**: Hook that manages cursor room presence (heartbeat via `usePresence`), throttled mousemove tracking (50ms), and parsing remote cursor data from the presence state.
+  - **New `apps/web/src/lib/components/LiveCursors.tsx`**: Fixed fullscreen overlay (`z-[60]`, `pointer-events-none`) rendering remote cursors with CSS transition smoothing. Each cursor colored by the user's accent color.
+  - **`apps/web/src/routes/_repo/$owner/$repo.tsx`**: Mounted `<LiveCursors />` in repo layout. Only active on repo pages.
+- **Architecture**: Room ID = `cursor:{pathname}`. Percentage-based coordinates for cross-resolution support. Presence data includes denormalized user info to avoid N+1 queries.
+
+## Add online teammates indicator to sidebar - 2026-03-31
+
+- **Why**: No visibility into who's currently active on the platform. Adding an avatar stack at the bottom of the sidebar gives passive awareness of online teammates.
+- **Changes**:
+  - **New `users.listOnlineTeammates` query**: Collects all teammates across user's teams, filters to those with `lastSeenAt` within 2 minutes. Uses existing `by_user` and `by_team` indexes.
+  - **New `packages/ui/src/kibo/avatar-stack.tsx`**: Adapted from kibo-ui. Overlapping circular avatars with radial-gradient mask.
+  - **`Sidebar.tsx`**: Added `OnlineTeammates` component above user profile. Shows avatar stack + count when expanded, vertical avatars when collapsed.
+
+## Replace VideoPreview with kibo-ui video player - 2026-03-31
+
+- **Why**: The existing VideoPreview used a raw `<video>` element with browser-native controls and custom speed buttons below it. Replacing with the kibo-ui video player (powered by `media-chrome`) gives a consistent, themed control bar with play/pause, seek, time display, volume, and playback rate — all inline within the video chrome.
+- **Changes**:
+  - **New `packages/ui/src/kibo/video-player.tsx`**: Adapted from kibo-ui source. Wraps `media-chrome/react` components with shadcn-themed CSS variables. Added `VideoPlayerPlaybackRateButton` for speed controls (1x, 3x, 5x, 8x).
+  - **Rewrote `VideoPreview` in `MediaPreview.tsx`**: From manual `useRef`/`useState` speed management to composable kibo video player components. Removed `VIDEO_SPEEDS` constant and all manual `playbackRate` logic.
+  - **New dependency**: `media-chrome` in apps/web and packages/ui peerDeps.
+
+## Add table view to Quick Tasks and Projects - 2026-03-31
+
+- **Why**: Users wanted a dense, sortable view for tasks and projects. Table view shows all key fields as columns with sortable headers.
+- **Changes**:
+  - **New dep `@tanstack/react-table`**: Powers column definitions, sorting, and row model.
+  - **New `packages/ui/src/ui/table.tsx`**: Shadcn table primitive (Table, TableHeader, TableBody, TableRow, TableHead, TableCell).
+  - **New `packages/ui/src/kibo/data-table.tsx`**: Forked kibo table, replaced jotai with props-based sorting (`sorting`/`onSortingChange`). Compound components: `DataTableProvider`, `DataTableHeader`, `DataTableHeaderGroup`, `DataTableHead`, `DataTableColumnHeader`, `DataTableBody`, `DataTableRow`, `DataTableCell`.
+  - **New `QuickTasksTableView.tsx`**: Columns: Title, Status, Project, Tags, Assigned, Model, Created. Click-to-open + selection mode support.
+  - **New `ProjectsTableView.tsx`**: Columns: Title, Phase, Description, Lead, Members, Branch, Created. Click-to-open.
+  - **Updated search-params**: Added "table" to `quickTaskViews` and `projectViews` parsers.
+  - **Updated QuickTasksClient/Toolbar + ProjectsClient**: Added table view toggle button (IconTable) and rendering branch.
+
+## Migrate QuickTasks list view to Kibo List with drag-and-drop - 2026-03-31
+
+- **Why**: QuickTasks list view was a static collapsible list with no DnD. Now uses kibo's `ListProvider`/`ListGroup`/`ListItem` primitives, adding drag-and-drop between status groups. Externalizes DnD wiring to maintained kibo components.
+- **Changes**:
+  - **Restyled `packages/ui/src/kibo/list.tsx`**: Stripped `bg-secondary`, `bg-background`, `rounded-md`, `p-2` defaults to match design system (tonal hierarchy, no shadows/borders on cards). Added `PointerSensor` with `distance: 8` activation constraint to disambiguate clicks from drags. Added `opacity-50` on dragging items.
+  - **Rewrote `QuickTasksListView.tsx`**: Composes `ListProvider` → `Collapsible` → `ListGroup` → `ListHeader`/`ListItems`/`ListItem`. Dragging a task between status sections calls `updateStatus` mutation. Keeps Fix All button, selection mode, nuqs search/filter.
+
+## Replace custom kanban with Kibo UI primitives - 2026-03-31
+
+- **Why**: Standardizing on Kibo UI composable primitives across the codebase (already used for Gantt and ContributionGraph). Replaces hand-rolled DndContext/SortableContext/useDroppable wiring with reusable Kibo components. Adds screen reader accessibility announcements during drag operations.
+- **Changes**:
+  - **New `packages/ui/src/kibo/kanban.tsx`**: Forked Kibo UI Kanban source. Composable primitives: `KanbanProvider` (DnD context + a11y), `KanbanBoard` (droppable zone), `KanbanCards` (SortableContext + auto-filter by column), `KanbanCard` (sortable item), `KanbanHeader`. Removed `tunnel-rat` dependency (overlay via prop). Stripped borders/shadows for design system. Consumer provides drag handlers instead of built-in data management.
+  - **Rewrote `apps/web/.../kanban/KanbanBoard.tsx`**: Now composes `KanbanProvider` (DnD context, sensors, a11y), `KanbanCards` (SortableContext per column), and `KanbanCard` (sortable items) from Kibo. Maps task data to Kibo's `KanbanItem` format. Keeps custom nuqs filtering, motion animations, and overlay rendering.
+  - **Rewrote `apps/web/.../kanban/KanbanColumn.tsx`**: Now uses `KanbanBoard` from Kibo as droppable wrapper instead of raw `useDroppable`. Keeps custom header with Badge, empty state, headerExtra slot.
+  - **`packages/ui/package.json`**: Added `@dnd-kit/sortable` and `@dnd-kit/utilities` as peer dependencies.
+
+## Replace ActivityHeatmap with kibo-ui ContributionGraph - 2026-03-31
+
+- **Why**: The custom ActivityHeatmap was a 310-line monolithic component with its own grid layout logic. Kibo UI's ContributionGraph provides a composable, SVG-based architecture that's more maintainable and consistent with the existing kibo Gantt pattern.
+- **Changes**:
+  - **New `packages/ui/src/kibo/contribution-graph.tsx`**: Forked kibo-ui ContributionGraph source. Converted all date-fns calls to dayjs (matching the gantt component pattern). Exports composable primitives: `ContributionGraph`, `ContributionGraphBlock`, `ContributionGraphCalendar`, `ContributionGraphFooter`, `ContributionGraphTotalCount`, `ContributionGraphLegend`.
+  - **Rewrote `ActivityHeatmap.tsx`**: From custom grid renderer to thin wrapper. Transforms backend data (`{ date, count }[]`) to Kibo's `Activity` format (adding computed `level`). Keeps streak calculation and stats header. Delegates grid rendering to Kibo composable components.
+  - **Color scheme**: Switched from emerald intensity shades to Kibo's muted-foreground opacity levels (0/20/40/60/80%).
+
+## Replace ProjectsTimeline with kibo-ui Gantt component - 2026-03-31
+
+- **Why**: The existing custom timeline view was read-only with no interactive editing. Replacing with the kibo-ui Gantt component adds drag-to-resize and drag-to-move project bars, daily/monthly/quarterly range modes, a fixed sidebar with project labels, and a today marker — all features that improve project planning UX.
+- **Changes**:
+  - **New `packages/ui/src/kibo/` module**: Forked kibo-ui Gantt source into 5 files (`gantt-provider`, `gantt-header`, `gantt-timeline`, `gantt-sidebar`, `gantt-features`). Converted all date-fns calls to dayjs, replaced jotai atoms with React context, inlined lodash.throttle, removed @uidotdev/usehooks dependency. Restyled for design system compliance (no shadows, no borders, tonal surface hierarchy).
+  - **Rewrote `ProjectsTimeline.tsx`**: From 612-line custom implementation to ~150-line thin wrapper composing Gantt components. Maps Convex project data to GanttFeature format, handles drag-to-move via `projects.update` mutation.
+  - **New dependency**: `@dnd-kit/modifiers` in apps/web for horizontal-axis drag constraint.
+
+## Retry transient git TLS/bootstrap failures during sandbox setup - 2026-03-31
+
+- **Why**: Some sandbox starts fail during repo bootstrap with transient GitHub transport errors like `GnuTLS recv error (-110)` or abruptly terminated TLS sessions. A manual retry usually succeeds, which means these should be treated as flaky setup errors rather than hard failures.
+- **Change**: Sandbox setup retry classification now includes transient git/TLS transport markers in both quick-task sandbox creation and session sandbox git retry paths.
+- **Effect**: More sandbox startup failures are absorbed automatically by the existing retry loop instead of surfacing to the user on the first flaky network hop.
+
+## Compress session prompts, simplify response length to default/detailed - 2026-03-31
+
+- **Why**: System prompts were verbose, wasting tokens on every request. Three response length options (concise/default/detailed) were unnecessary — default should already be concise-leaning, making "concise" redundant.
+- **Changes**:
+  - **Ask/Plan/Execute prompts** (`sessionWorkflow.ts`): Compressed all three by ~40%, removing redundant phrasing while preserving all behavioral rules. Mermaid diagram instruction moved from ask prompt base into the response length system.
+  - **`getResponseLengthInstruction`** (`prompts/shared.ts`): Now takes a `mode` parameter. Per-mode instructions: Ask mode controls diagram usage; Execute mode controls summary depth; Plan mode always returns empty (plan is always terse). Default is concise-leaning.
+  - **Removed "concise" option**: Type narrowed to `"default" | "detailed"`. UI dropdown, validation arrays, and settings hook updated. Old "concise" values in DB are harmless — they fall through to the default branch which is already concise-leaning.
+
+## Backend performance audit — eliminate full table scans, N+1 queries, and missing indexes - 2026-03-31
+
+- **Why**: Multiple reactive queries scanned entire tables then post-filtered in JS, causing read amplification that grows linearly with data. `githubRepos.list` and `agentTasks.getActiveTasks` both scanned ALL repos with per-repo access checks. `recomputeProjectPhase` collected all project tasks on every status change. `agentRuns.listAll` was dead code doing a triple full-scan.
+- **Changes**:
+  - **`githubRepos/queries.list`**: Replaced full-table scan with indexed fan-out: team memberships → `by_team` per team + new `by_connected_by` index for directly-connected repos. Read set now scoped to user's repos only.
+  - **`agentTasks/queries.getActiveTasks`**: Same team-scoped approach replaces full `githubRepos` scan + N+1 `hasRepoAccess` checks.
+  - **`agentRuns.listAll`**: Removed — dead code, no client or internal callers.
+  - **`recomputeProjectPhase`**: Replaced `.collect()` of all project tasks with parallel `.first()` calls using `by_project_and_status` index. Reads at most 7 index probes instead of N full documents.
+  - **Session queries**: `listArchived` now uses new `by_repo_and_archived` index; `list` and `countActive` use Convex `.filter()` in query chain instead of JS post-filter.
+  - **`auditCategories`**: `hasEnabledCategories` and `listEnabledForContext` now use new `by_repo_and_enabled` index.
+  - **`_agentTasks/mutations.updateStatus`**: Consolidated double-patch into single write.
+  - **`_taskWorkflow/runLifecycle.completeRun`**: Eliminated duplicate `ctx.db.get(projectId)` read.
+- **New indexes**: `githubRepos.by_connected_by`, `sessions.by_repo_and_archived`, `auditCategories.by_repo_and_enabled`.
+- **Effect**: Reactive query read sets are now proportional to the user's data, not the entire database. Subscription invalidation is narrower since queries no longer touch unrelated documents.
+
 ## Refresh watchdog heartbeats even when streaming payloads stay unchanged - 2026-03-31
 
 - **Why**: Long-running proof capture and other tool phases can sit on the same visible activity step for minutes. The callback was still sending heartbeats, but the `streamingActivity` row only updated `lastUpdatedAt` when the activity payload changed, so the watchdog could incorrectly kill a live run as "no heartbeat for 300s".

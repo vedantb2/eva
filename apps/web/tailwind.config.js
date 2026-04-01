@@ -106,12 +106,8 @@ export const themeExtend = {
 const config = {
   darkMode: "class",
   content: [
-    "./app/**/*.{ts,tsx}",
-    "./components/**/*.{ts,tsx}",
+    "./index.html",
     "./src/**/*.{ts,tsx}",
-    "./lib/**/*.{ts,tsx}",
-    "*.{js,ts,jsx,tsx,mdx}",
-    "./node_modules/streamdown/dist/**/*.js",
     "../../packages/ui/src/**/*.{ts,tsx}",
   ],
   theme: { extend: themeExtend },

@@ -127,34 +127,6 @@ export const listByTask = authQuery({
   },
 });
 
-export const listAll = authQuery({
-  args: {},
-  returns: v.array(
-    v.object({
-      ...agentRunSummaryValidator.fields,
-      taskTitle: v.string(),
-    }),
-  ),
-  handler: async (ctx) => {
-    const tasks = await ctx.db.query("agentTasks").collect();
-    const accessibleTasks: typeof tasks = [];
-    for (const t of tasks) {
-      if (await hasTaskAccess(ctx.db, t, ctx.userId)) accessibleTasks.push(t);
-    }
-    const enrichedRuns = [];
-    for (const task of accessibleTasks) {
-      const runs = await ctx.db
-        .query("agentRuns")
-        .withIndex("by_task", (q) => q.eq("taskId", task._id))
-        .collect();
-      for (const run of runs) {
-        enrichedRuns.push({ ...run, taskTitle: task.title });
-      }
-    }
-    return enrichedRuns.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
-  },
-});
-
 export const updateStatus = authMutation({
   args: {
     id: v.id("agentRuns"),

@@ -45,14 +45,29 @@ export const getActiveTasks = authQuery({
       if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
       repoIds = [args.repoId];
     } else {
-      const allRepos = await ctx.db.query("githubRepos").collect();
-      repoIds = (
-        await Promise.all(
-          allRepos.map(async (r) =>
-            (await hasRepoAccess(ctx.db, r._id, ctx.userId)) ? r._id : null,
-          ),
-        )
-      ).filter((id): id is Id<"githubRepos"> => id !== null);
+      const memberships = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+        .collect();
+      const teamRepos = await Promise.all(
+        memberships.map((m) =>
+          ctx.db
+            .query("githubRepos")
+            .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
+            .collect(),
+        ),
+      );
+      const connectedRepos = await ctx.db
+        .query("githubRepos")
+        .withIndex("by_connected_by", (q) => q.eq("connectedBy", ctx.userId))
+        .collect();
+      const seen = new Set<string>();
+      repoIds = [];
+      for (const repo of [...connectedRepos, ...teamRepos.flat()]) {
+        if (seen.has(String(repo._id))) continue;
+        seen.add(String(repo._id));
+        repoIds.push(repo._id);
+      }
     }
 
     const taskArrays = await Promise.all(

@@ -10,13 +10,12 @@ export const list = authQuery({
     const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .filter((q) => q.neq(q.field("archived"), true))
       .collect();
-    return sessions
-      .filter((session) => !session.archived)
-      .sort(
-        (a, b) =>
-          (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
-      );
+    return sessions.sort(
+      (a, b) =>
+        (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
+    );
   },
 });
 
@@ -27,14 +26,14 @@ export const listArchived = authQuery({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const sessions = await ctx.db
       .query("sessions")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo_and_archived", (q) =>
+        q.eq("repoId", args.repoId).eq("archived", true),
+      )
       .collect();
-    return sessions
-      .filter((session) => session.archived === true)
-      .sort(
-        (a, b) =>
-          (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
-      );
+    return sessions.sort(
+      (a, b) =>
+        (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime),
+    );
   },
 });
 
@@ -48,8 +47,9 @@ export const countActive = authQuery({
       .withIndex("by_repo_and_status", (q) =>
         q.eq("repoId", args.repoId).eq("status", "active"),
       )
+      .filter((q) => q.neq(q.field("archived"), true))
       .collect();
-    return sessions.filter((s) => !s.archived).length;
+    return sessions.length;
   },
 });
 

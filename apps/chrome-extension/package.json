@@ -30,6 +30,7 @@
     "@streamdown/math": "^1.0.1",
     "@streamdown/mermaid": "^1.0.1",
     "@tabler/icons-react": "^3.36.1",
+    "convex-helpers": "^0.1.88",
     "class-variance-authority": "^0.7.1",
     "facehash": "^0.0.7",
     "clsx": "^2.1.1",

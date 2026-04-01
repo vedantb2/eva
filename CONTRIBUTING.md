@@ -6,7 +6,7 @@ Thanks for your interest in contributing to Eva. This guide will help you get st
 
 Eva is a monorepo managed with pnpm. The main apps and packages are:
 
-- **apps/web** — Next.js dashboard
+- **apps/web** — Vite + TanStack Router dashboard
 - **apps/desktop** — Electron desktop client
 - **apps/chrome-extension** — Browser extension
 - **apps/mcp** — MCP server
@@ -49,7 +49,7 @@ Eva is a monorepo managed with pnpm. The main apps and packages are:
 ### Code Style
 
 - TypeScript only — no `any`, `unknown`, or `as` type assertions
-- Prefer Server Components in Next.js; only use Client Components when state, effects, or interaction is required
+- All components are client components (Vite SPA — no SSR)
 - Keep changes minimal and focused — don't refactor surrounding code unless it's part of the PR's purpose
 - No unnecessary comments or docstrings
 

@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 
 type AccentColor =
@@ -15,7 +16,7 @@ type AccentColor =
   | "indigo"
   | "red";
 
-type RadiusSize = "none" | "sm" | "md" | "lg" | "xl";
+type RadiusSize = "none" | "sm" | "md" | "lg" | "xl" | "full";
 
 type FontFamily =
   | "inter"
@@ -23,7 +24,13 @@ type FontFamily =
   | "poppins"
   | "dm-sans"
   | "space-grotesk"
-  | "geist";
+  | "geist"
+  | "source-serif"
+  | "jakarta"
+  | "outfit"
+  | "nunito"
+  | "ibm-plex"
+  | "figtree";
 
 type LetterSpacing = "tighter" | "tight" | "normal" | "wide" | "wider";
 
@@ -41,6 +48,12 @@ const FONT_FAMILIES: Record<FontFamily, string> = {
   "dm-sans": "'DM Sans', ui-sans-serif, system-ui, sans-serif",
   "space-grotesk": "'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
   geist: "'Geist Sans', ui-sans-serif, system-ui, sans-serif",
+  "source-serif": "'Source Serif 4', Georgia, 'Times New Roman', serif",
+  jakarta: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif",
+  outfit: "Outfit, ui-sans-serif, system-ui, sans-serif",
+  nunito: "Nunito, ui-sans-serif, system-ui, sans-serif",
+  "ibm-plex": "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
+  figtree: "Figtree, ui-sans-serif, system-ui, sans-serif",
 };
 
 const RADIUS_VALUES: Record<RadiusSize, string> = {
@@ -49,6 +62,7 @@ const RADIUS_VALUES: Record<RadiusSize, string> = {
   md: "0.5rem",
   lg: "0.75rem",
   xl: "1rem",
+  full: "9999px",
 };
 
 const LETTER_SPACING_VALUES: Record<LetterSpacing, string> = {

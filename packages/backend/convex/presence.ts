@@ -55,3 +55,21 @@ export const disconnect = mutation({
     return null;
   },
 });
+
+export const updateCursor = authMutation({
+  args: {
+    roomId: v.string(),
+    x: v.number(),
+    y: v.number(),
+  },
+  handler: async (ctx, { roomId, x, y }) => {
+    const user = await ctx.db.get(ctx.userId);
+    if (!user) return;
+    await presence.updateRoomUser(ctx, roomId, ctx.userId, {
+      x,
+      y,
+      firstName: user.firstName,
+      accentColor: user.customTheme?.accentColor ?? "teal",
+    });
+  },
+});

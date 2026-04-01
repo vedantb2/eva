@@ -5,12 +5,8 @@ import {
   SignedOut,
   useUser,
 } from "@clerk/chrome-extension";
-import {
-  Authenticated,
-  AuthLoading,
-  useMutation,
-  useQuery,
-} from "convex/react";
+import { Authenticated, AuthLoading, useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { ConvexProvider } from "./ConvexProvider";
 import { ChatPanel } from "./components/ChatPanel";

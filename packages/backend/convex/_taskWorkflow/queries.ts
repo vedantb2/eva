@@ -22,7 +22,6 @@ export const getTaskData = internalQuery({
     taskTitle: v.string(),
     taskDescription: v.optional(v.string()),
     projectSandboxId: v.optional(v.string()),
-    hasSubtasks: v.boolean(),
     deploymentProjectName: v.optional(v.string()),
     rootDirectory: v.string(),
     screenshotsVideosEnabled: v.boolean(),
@@ -44,12 +43,6 @@ export const getTaskData = internalQuery({
         projectSandboxId = project.sandboxId;
       }
     }
-
-    const subtasks = await ctx.db
-      .query("subtasks")
-      .withIndex("by_parent", (q) => q.eq("parentTaskId", args.taskId))
-      .collect();
-    const sortedSubtasks = subtasks.sort((a, b) => a.order - b.order);
 
     const comments = await ctx.db
       .query("taskComments")
@@ -77,7 +70,6 @@ export const getTaskData = internalQuery({
           )
         : buildImplementationPrompt(
             task,
-            sortedSubtasks,
             branchName,
             !args.projectId,
             rootDirectory,
@@ -110,7 +102,6 @@ export const getTaskData = internalQuery({
       taskTitle: task.title,
       taskDescription: task.description,
       projectSandboxId,
-      hasSubtasks: sortedSubtasks.length > 0,
       deploymentProjectName: repo.deploymentProjectName,
       rootDirectory,
       screenshotsVideosEnabled,

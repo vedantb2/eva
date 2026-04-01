@@ -43,8 +43,9 @@ export const hasEnabledCategories = authQuery({
     const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
     const category = await ctx.db
       .query("auditCategories")
-      .withIndex("by_repo", (q) => q.eq("repoId", canonicalId))
-      .filter((q) => q.eq(q.field("enabled"), true))
+      .withIndex("by_repo_and_enabled", (q) =>
+        q.eq("repoId", canonicalId).eq("enabled", true),
+      )
       .first();
     return category !== null;
   },
@@ -63,14 +64,15 @@ export const listEnabledForContext = internalQuery({
   ),
   handler: async (ctx, args) => {
     const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
-    const categories = await ctx.db
+    const enabledCategories = await ctx.db
       .query("auditCategories")
-      .withIndex("by_repo", (q) => q.eq("repoId", canonicalId))
+      .withIndex("by_repo_and_enabled", (q) =>
+        q.eq("repoId", canonicalId).eq("enabled", true),
+      )
       .collect();
 
-    return categories
+    return enabledCategories
       .filter((c) => {
-        if (!c.enabled) return false;
         const isRepoLevel = c.appId === undefined;
         const isForThisApp = c.appId !== undefined && c.appId === args.appId;
         return isRepoLevel || isForThisApp;

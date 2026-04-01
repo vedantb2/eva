@@ -28,24 +28,9 @@ export * from "./ui/sheet";
 export * from "./ui/spinner";
 export * from "./ui/tabs";
 export * from "./ui/textarea";
+export * from "./ui/table";
 export * from "./ui/tooltip";
 
-export * from "./ai-elements/artifact";
-export * from "./ai-elements/attachments";
-export * from "./ai-elements/confirmation";
-export * from "./ai-elements/conversation";
-export * from "./ai-elements/message";
-export * from "./ai-elements/model-selector";
-export * from "./ai-elements/prompt-input";
-export * from "./ai-elements/prompt-input-settings";
-export * from "./ai-elements/prompt-input-speech";
-export * from "./ai-elements/reasoning";
-export * from "./ai-elements/shimmer";
-export * from "./ai-elements/web-preview";
-export * from "./ai-elements/plan";
-export * from "./ai-elements/queue";
-export * from "./ai-elements/test-results";
-export * from "./ai-elements/code-block";
-export * from "./ai-elements/sandbox";
-export * from "./ai-elements/chain-of-thought";
-export * from "./ai-elements/activity-steps";
+export * from "./ai-elements";
+
+export * from "./kibo";

@@ -14,18 +14,29 @@ export const list = authQuery({
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .collect();
 
-    const userTeamIds = new Set(userTeamMemberships.map((m) => m.teamId));
+    const teamRepoResults = await Promise.all(
+      userTeamMemberships.map((m) =>
+        ctx.db
+          .query("githubRepos")
+          .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
+          .collect(),
+      ),
+    );
 
-    const allRepos = await ctx.db.query("githubRepos").collect();
+    const connectedRepos = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_connected_by", (q) => q.eq("connectedBy", ctx.userId))
+      .collect();
 
-    return allRepos.filter((repo) => {
-      const hasAccess =
-        repo.connectedBy === ctx.userId ||
-        (repo.teamId !== undefined && userTeamIds.has(repo.teamId));
-      if (!hasAccess) return false;
-      if (!args.includeHidden && repo.hidden === true) return false;
-      return true;
-    });
+    const seen = new Set<string>();
+    const repos = [];
+    for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
+      if (seen.has(String(repo._id))) continue;
+      seen.add(String(repo._id));
+      if (!args.includeHidden && repo.hidden === true) continue;
+      repos.push(repo);
+    }
+    return repos;
   },
 });
 
@@ -35,6 +46,7 @@ export const get = authQuery({
   handler: async (ctx, args) => {
     const repo = await ctx.db.get(args.id);
     if (!repo) return null;
+    if (repo.hidden === true) return null;
 
     if (repo.connectedBy === ctx.userId) return repo;
 
@@ -75,6 +87,7 @@ export const getByOwnerAndName = authQuery({
       : candidates.find((r) => !r.rootDirectory);
 
     if (!repo) return null;
+    if (repo.hidden === true) return null;
 
     if (repo.connectedBy === ctx.userId) return repo;
 

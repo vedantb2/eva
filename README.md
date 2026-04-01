@@ -59,7 +59,7 @@ Access your connected databases (Convex, Supabase) directly from Claude. Query, 
 
 ## Tech Stack
 
-- **Frontend**: Next.js, React, Tailwind CSS
+- **Frontend**: Vite, TanStack Router, React, Tailwind CSS
 - **Backend**: Convex
 - **Sandboxes**: Daytona SDK
 - **Auth**: Clerk
@@ -91,13 +91,13 @@ Eva is self-hosted — there is no managed cloud version. You create your own Co
 
 ### Environment Variables
 
-#### Next.js (`apps/web`)
+#### Web App (`apps/web`)
 
-| Variable                            | Required | Purpose                                   |
-| ----------------------------------- | -------- | ----------------------------------------- |
-| `NEXT_PUBLIC_CONVEX_URL`            | Yes      | Your Convex deployment URL                |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes      | Clerk publishable key                     |
-| `NEXT_PUBLIC_ENV`                   | Yes      | `development`, `staging`, or `production` |
+| Variable                     | Required | Purpose                                   |
+| ---------------------------- | -------- | ----------------------------------------- |
+| `VITE_CONVEX_URL`            | Yes      | Your Convex deployment URL                |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Yes      | Clerk publishable key                     |
+| `VITE_ENV`                   | Yes      | `development`, `staging`, or `production` |
 
 #### Convex (set in Convex dashboard or `npx convex env set`)
 

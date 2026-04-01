@@ -31,11 +31,6 @@ TASK GRANULARITY RULES:
 - Think in terms of: "core capability/infrastructure" vs "user-facing integration/UI"
 - Aim for 2-5 tasks total, NOT 10+ micro-tasks
 
-SUBTASKS:
-- Each task MUST have 3-7 subtasks that serve as a checklist for the agent
-- Subtasks should be discrete, actionable items the agent will mark as complete
-- Subtasks should be specific enough that completion is unambiguous
-
 Each task description should specify ALL the changes needed within that ownership boundary.`;
 
 export const SPEC_SYSTEM_PROMPT = `You are a technical architect. Read CLAUDE.md first to understand the codebase, then create a detailed implementation plan based on the feature description and interview answers.
@@ -52,8 +47,7 @@ You MUST output ONLY valid JSON with this exact structure:
     {
       "title": "Task title",
       "description": "What needs to be done",
-      "dependencies": [1, 2],
-      "subtasks": ["subtask 1", "subtask 2", "subtask 3"]
+      "dependencies": [1, 2]
     }
   ]
 }`;

@@ -4,3 +4,6 @@ recordings
 screenshots
 .env
 .env.local
+.env*
+dist
+tsconfig.buildinfo

@@ -177,7 +177,9 @@ export function KanbanBoard<T extends BaseTask>({
   return (
     <div
       className={
-        fillHeight ? "flex min-w-0 flex-1 min-h-0 flex-col gap-3" : "space-y-3"
+        fillHeight
+          ? "flex min-w-0 flex-1 min-h-0 flex-col gap-3 animate-in fade-in duration-300"
+          : "space-y-3 animate-in fade-in duration-300"
       }
     >
       <KanbanProvider

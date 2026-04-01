@@ -88,6 +88,36 @@ Eva is self-hosted — there is no managed cloud version. You create your own Co
 - A Convex project
 - A Daytona account
 - A Clerk account
+- A GitHub App (see [Creating a GitHub App](#creating-a-github-app) below)
+
+### Creating a GitHub App
+
+Eva uses a GitHub App to access repositories, create branches, open pull requests, and receive webhook events. You need to create one in your GitHub account or organization.
+
+1. Go to **GitHub Settings → Developer settings → GitHub Apps → New GitHub App**
+2. Fill in the app details:
+   - **GitHub App name**: e.g. `Eva (your-org)`
+   - **Homepage URL**: your Eva instance URL
+   - **Webhook URL**: your Convex HTTP actions URL (found in the Convex dashboard) + `/github/webhook` (e.g. `https://your-deployment.convex.site/github/webhook`)
+   - **Webhook secret**: generate a random secret and save it — this becomes your `GITHUB_WEBHOOK_SECRET` env var
+3. Set the following **Repository permissions**:
+   - **Contents**: Read & write (clone repos, create branches, push commits)
+   - **Pull requests**: Read & write (create and update PRs)
+   - **Issues**: Read & write (add labels to PRs)
+   - **Metadata**: Read-only (required by GitHub)
+   - **Webhooks**: Read-only
+4. Subscribe to these **events**:
+   - `Push`
+   - `Pull request`
+   - `Installation`
+5. Set **Where can this GitHub App be installed?** to "Only on this account" (or "Any account" if you want others to install it)
+6. Click **Create GitHub App**
+7. After creation:
+   - Note the **App ID** → `GITHUB_APP_ID`
+   - Note the **Client ID** → `GITHUB_CLIENT_ID`
+   - Generate a **Client secret** → `GITHUB_CLIENT_SECRET`
+   - Generate a **Private key** (downloads a `.pem` file) → `GITHUB_PRIVATE_KEY` (paste the full PEM contents)
+8. **Install the app** on your account/org and grant access to the repositories you want Eva to manage
 
 ### Environment Variables
 
@@ -130,7 +160,42 @@ Eva supports Convex and Supabase MCP connections. To add these, add your Convex 
 
 ## Sandbox Snapshots
 
-You need to create a workflow to build your snapshot — this is an implementation detail specific to your codebase. You can use GitHub Actions to automate snapshot creation (e.g. per commit to main, or on a daily schedule). Maximise the resources you allocate so the sandboxes have what they need for sessions.
+Eva runs agents inside Daytona sandboxes that boot from pre-built snapshots. Snapshots include the OS, dependencies, tooling, and your repo code so sandboxes start fast.
+
+### How It Works
+
+The repo includes a GitHub Actions workflow (`.github/workflows/rebuild-snapshot.yml`) that:
+
+1. Generates a Dockerfile with all required system dependencies (Node.js, Chrome, ripgrep, Claude Code, agent-browser, etc.)
+2. Copies your repo into the image and runs `pnpm install`
+3. Pushes the built image to Daytona as a named snapshot
+
+### Running the Workflow
+
+1. Go to your repo's **Actions** tab on GitHub
+2. Select **Rebuild Daytona Snapshot** from the workflow list
+3. Click **Run workflow**
+4. Enter a **snapshot name** (this is the name you'll reference in Eva when configuring a repo)
+5. The workflow requires `DAYTONA_API_KEY` to be set as a GitHub Actions secret
+
+### Customizing the Snapshot
+
+Edit `.github/workflows/rebuild-snapshot.yml` to customize what gets installed. The default snapshot includes:
+
+- Node.js 20, pnpm, git, curl, jq, ripgrep, fd, gh CLI
+- Chrome + Xvfb + VNC (for browser automation and previews)
+- Claude Code, agent-browser, Convex CLI
+- code-server (VS Code in the browser)
+
+If your project needs additional system packages, language runtimes, or global tools, add them to the Dockerfile generation step in the workflow.
+
+### When to Rebuild
+
+Rebuild your snapshot when:
+
+- Dependencies change significantly (new major packages)
+- You update the base tooling (Node.js version, system packages)
+- You want sandboxes to start with a fresher copy of the codebase
 
 ## Agent Browser
 

@@ -257,6 +257,8 @@ export function renderAuthPage(query: Record<string, string>): string {
         var container = document.getElementById('sign-in-container');
         container.innerHTML = '';
         clerk.mountSignIn(container, {
+          afterSignInUrl: window.location.href,
+          afterSignUpUrl: window.location.href,
           appearance: {
             variables: {
               colorBackground: '#171717',

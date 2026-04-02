@@ -198,7 +198,7 @@ export function ChatPanel({
   const { mode, setMode, model, setModel, responseLength, setResponseLength } =
     useSessionSettings(sessionId, { defaultModel });
 
-  const SESSION_MODES: SessionMode[] = ["execute", "ask", "plan"];
+  const SESSION_MODES: SessionMode[] = ["ask", "execute", "plan"];
   useHotkey("Shift+Tab", (e) => {
     e.preventDefault();
     const currentIndex = SESSION_MODES.indexOf(mode);
@@ -758,18 +758,18 @@ export function ChatPanel({
             >
               <TabsList className="h-8 rounded-full  p-0.5">
                 <TabsTrigger
-                  value="execute"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
-                >
-                  <IconCode className="w-3 h-3" />
-                  Execute
-                </TabsTrigger>
-                <TabsTrigger
                   value="ask"
                   className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
                 >
                   <IconMessageCircle2 className="w-3 h-3" />
                   Ask
+                </TabsTrigger>
+                <TabsTrigger
+                  value="execute"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
+                >
+                  <IconCode className="w-3 h-3" />
+                  Execute
                 </TabsTrigger>
                 <TabsTrigger
                   value="plan"

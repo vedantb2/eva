@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import type { ClaudeModel, ResponseLength } from "@conductor/ui";
 
-const SESSION_MODES = ["execute", "ask", "plan"] as const;
+const SESSION_MODES = ["ask", "execute", "plan"] as const;
 export type SessionMode = (typeof SESSION_MODES)[number];
 
 interface StoredSettings {
@@ -16,7 +16,7 @@ interface StoredSettings {
 const DEFAULT_SETTINGS: StoredSettings = {
   model: "sonnet",
   responseLength: "default",
-  mode: "execute",
+  mode: "ask",
 };
 
 function storageKey(sessionId: string) {

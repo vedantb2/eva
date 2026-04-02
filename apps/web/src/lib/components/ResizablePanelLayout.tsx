@@ -35,10 +35,7 @@ export function ResizablePanelLayout({
   storageKey,
 }: ResizablePanelLayoutProps) {
   const rightPanelRef = usePanelRef();
-  const [rightCollapsed, setRightCollapsed] = useLocalStorage(
-    storageKey,
-    false,
-  );
+  const [rightCollapsed, setRightCollapsed] = useLocalStorage(storageKey, true);
   const isMobile = useMediaQuery("(max-width: 767px)");
 
   const handleToggle = () => {

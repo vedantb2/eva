@@ -13,7 +13,6 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
-  Badge,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -39,6 +38,10 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -53,6 +56,7 @@ import {
   IconCircleCheck,
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
+  IconDots,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -423,57 +427,7 @@ export function ChatPanel({
 
   const headerRight = (
     <>
-      {deploymentStatus && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
-                asChild={deploymentStatus === "deployed" && !!deploymentUrl}
-                disabled={deploymentStatus !== "deployed"}
-              >
-                {deploymentStatus === "deployed" && deploymentUrl ? (
-                  <a
-                    href={deploymentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <IconBrandVercel size={14} />
-                    <span className="hidden sm:inline">View Preview</span>
-                  </a>
-                ) : (
-                  <>
-                    <IconBrandVercel size={14} />
-                    <span className="hidden sm:inline">View Preview</span>
-                  </>
-                )}
-              </Button>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            {deploymentStatus === "deployed"
-              ? "Open preview deployment"
-              : deploymentStatus === "error"
-                ? "Deployment failed"
-                : deploymentStatus === "building"
-                  ? "Deployment is building..."
-                  : "Deployment is queued..."}
-          </TooltipContent>
-        </Tooltip>
-      )}
-      {prUrl ? (
-        <a href={prUrl} target="_blank" rel="noopener noreferrer">
-          <Badge
-            variant="outline"
-            className="motion-base gap-1 cursor-pointer hover:scale-[1.01]"
-          >
-            <IconGitPullRequest size={12} />
-            View PR
-          </Badge>
-        </a>
-      ) : branchName ? (
+      {!prUrl && branchName && (
         <Button
           size="sm"
           variant="secondary"
@@ -483,21 +437,56 @@ export function ChatPanel({
           <IconSend size={12} />
           <span className="hidden sm:inline">Send for Review</span>
         </Button>
-      ) : null}
-      <Button
-        size="icon"
-        variant="secondary"
-        onClick={() => setShowSummaryModal(true)}
-        disabled={isSummarizing || !isSandboxActive || messages.length === 0}
-        className="motion-press h-8 w-8 text-primary hover:scale-[1.03] active:scale-[0.97]"
-        title={hasSummary ? "Regenerate summary" : "Generate summary"}
-      >
-        {isSummarizing ? (
-          <Spinner size="sm" />
-        ) : (
-          <IconSparkles className="w-4 h-4" />
-        )}
-      </Button>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+          >
+            More
+            <IconDots size={14} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={() => setShowSummaryModal(true)}
+            disabled={
+              isSummarizing || !isSandboxActive || messages.length === 0
+            }
+          >
+            <IconSparkles size={14} />
+            {hasSummary ? "Regenerate Summary" : "Summarise Session"}
+          </DropdownMenuItem>
+          {deploymentStatus && (
+            <DropdownMenuItem
+              disabled={deploymentStatus !== "deployed"}
+              onClick={() => {
+                if (deploymentStatus === "deployed" && deploymentUrl) {
+                  window.open(deploymentUrl, "_blank", "noopener,noreferrer");
+                }
+              }}
+            >
+              <IconBrandVercel size={14} />
+              View Preview
+              {deploymentStatus === "building" && " (Building...)"}
+              {deploymentStatus === "queued" && " (Queued...)"}
+              {deploymentStatus === "error" && " (Failed)"}
+            </DropdownMenuItem>
+          )}
+          {prUrl && (
+            <DropdownMenuItem
+              onClick={() => {
+                window.open(prUrl, "_blank", "noopener,noreferrer");
+              }}
+            >
+              <IconGitPullRequest size={14} />
+              View PR
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
       {onToggleSandbox && (
         <Button
           size="icon"

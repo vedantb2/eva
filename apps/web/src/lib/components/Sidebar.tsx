@@ -46,6 +46,7 @@ import { UserInitials } from "@conductor/shared";
 import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
 import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
+import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
@@ -763,6 +764,8 @@ export function Sidebar() {
                                             {item.name}
                                           </span>
                                         )}
+                                        {item.name === "Inbox" &&
+                                          !collapsed && <UnreadInboxBadge />}
                                         {item.name === "Quick Tasks" &&
                                           !collapsed &&
                                           repo &&

@@ -362,23 +362,18 @@ export async function listUserRepos(
 ): Promise<Repo[]> {
   const source = wrapQueryHandler(
     `const userId = ${JSON.stringify(userId)};
-    const repos = await ctx.db.query("githubRepos").collect();
-    const accessible = [];
-    for (const repo of repos) {
-      if (repo.connectedBy === userId) {
-        accessible.push({ id: repo._id, owner: repo.owner, name: repo.name, rootDirectory: repo.rootDirectory ?? null, mcpRootPrompt: repo.mcpRootPrompt ?? null });
-        continue;
-      }
-      if (repo.teamId) {
-        const membership = await ctx.db.query("teamMembers")
-          .withIndex("by_team_and_user", q => q.eq("teamId", repo.teamId).eq("userId", userId))
-          .first();
-        if (membership) {
-          accessible.push({ id: repo._id, owner: repo.owner, name: repo.name, rootDirectory: repo.rootDirectory ?? null, mcpRootPrompt: repo.mcpRootPrompt ?? null });
-        }
-      }
+    const toEntry = (r) => ({ id: r._id, owner: r.owner, name: r.name, rootDirectory: r.rootDirectory ?? null, mcpRootPrompt: r.mcpRootPrompt ?? null });
+    const memberships = await ctx.db.query("teamMembers").withIndex("by_user", q => q.eq("userId", userId)).collect();
+    const teamRepoResults = await Promise.all(memberships.map(m => ctx.db.query("githubRepos").withIndex("by_team", q => q.eq("teamId", m.teamId)).collect()));
+    const connectedRepos = await ctx.db.query("githubRepos").withIndex("by_connected_by", q => q.eq("connectedBy", userId)).collect();
+    const seen = new Set();
+    const result = [];
+    for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
+      if (seen.has(repo._id)) continue;
+      seen.add(repo._id);
+      result.push(toEntry(repo));
     }
-    return accessible;`,
+    return result;`,
   );
   const result = await runTestQuery(convexUrl, deployKey, source);
   return z

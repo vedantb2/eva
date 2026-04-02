@@ -15,12 +15,27 @@ import { errorResult } from "./tools.js";
 
 const SUPABASE_PREFIX = "supabase_";
 const TOKEN_CACHE_TTL_MS = 5 * 60 * 1000;
+const TOOL_CACHE_TTL_MS = 10 * 60 * 1000;
 const CONNECT_TIMEOUT_MS = 15_000;
 const CALL_TIMEOUT_MS = 30_000;
 
 const SUPABASE_REMOTE_URL = "https://mcp.supabase.com/mcp?read_only=true";
 
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+const toolDefinitionCache = new Map<
+  string,
+  { tools: Tool[]; expiresAt: number }
+>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of toolDefinitionCache) {
+    if (entry.expiresAt < now) toolDefinitionCache.delete(key);
+  }
+  for (const [key, entry] of tokenCache) {
+    if (entry.expiresAt < now) tokenCache.delete(key);
+  }
+}, 60_000);
 
 async function resolveSupabaseToken(
   convexUrl: string,
@@ -38,25 +53,46 @@ async function resolveSupabaseToken(
   const repos = await listUserRepos(convexUrl, deployKey, userId);
   if (repos.length === 0) return null;
 
-  const results = await Promise.allSettled(
-    repos.map(async (repo) => {
+  for (const repo of repos) {
+    try {
       const vars = await getRepoEnvVars(convexUrl, deployKey, repo.id, userId);
       const match = vars.find((v) => v.key === "SUPABASE_ACCESS_TOKEN");
-      return match ? match.value : null;
-    }),
-  );
-
-  for (const result of results) {
-    if (result.status === "fulfilled" && result.value) {
-      tokenCache.set(clerkUserId, {
-        token: result.value,
-        expiresAt: Date.now() + TOKEN_CACHE_TTL_MS,
-      });
-      return result.value;
+      if (match) {
+        tokenCache.set(clerkUserId, {
+          token: match.value,
+          expiresAt: Date.now() + TOKEN_CACHE_TTL_MS,
+        });
+        return match.value;
+      }
+    } catch {
+      continue;
     }
   }
 
   return null;
+}
+
+async function discoverTools(token: string): Promise<Tool[]> {
+  const cached = toolDefinitionCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.tools;
+  }
+
+  const client = await connectClient(token);
+  try {
+    const result = await withTimeout(
+      client.listTools(),
+      CONNECT_TIMEOUT_MS,
+      "Supabase tools/list",
+    );
+    toolDefinitionCache.set(token, {
+      tools: result.tools,
+      expiresAt: Date.now() + TOOL_CACHE_TTL_MS,
+    });
+    return result.tools;
+  } finally {
+    await client.close();
+  }
 }
 
 function withTimeout<T>(
@@ -180,23 +216,11 @@ export async function registerSupabaseTools(
     return;
   }
 
-  console.log(
-    "  Supabase: token found, discovering tools from remote server...",
-  );
+  console.log("  Supabase: token found, discovering tools...");
 
   let tools: Tool[];
   try {
-    const client = await connectClient(token);
-    try {
-      const result = await withTimeout(
-        client.listTools(),
-        CONNECT_TIMEOUT_MS,
-        "Supabase tools/list",
-      );
-      tools = result.tools;
-    } finally {
-      await client.close();
-    }
+    tools = await discoverTools(token);
   } catch (err) {
     console.error("  Supabase: failed to discover tools:", err);
     return;

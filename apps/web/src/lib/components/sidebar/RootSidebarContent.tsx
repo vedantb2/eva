@@ -8,6 +8,7 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
+import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
 
 const ROOT_NAV_ITEMS = [
   { name: "Home", href: "/home", icon: IconHome },
@@ -51,6 +52,7 @@ export function RootSidebarContent({
               )}
             />
             {!collapsed && <span className="truncate">{item.name}</span>}
+            {!collapsed && item.name === "Inbox" && <UnreadInboxBadge />}
           </Link>
         );
       })}

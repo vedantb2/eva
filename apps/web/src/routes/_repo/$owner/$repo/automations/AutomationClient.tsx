@@ -107,15 +107,26 @@ export function AutomationClient({
         </Button>
       }
     >
-      <Tabs defaultValue="history" className="space-y-4">
+      <Tabs defaultValue="latest" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="latest">Latest</TabsTrigger>
           <TabsTrigger value="history">Run History</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="latest">
+          <LatestRun
+            run={runs?.[0]}
+            loading={runs === undefined}
+            actionsEnabled={automation.actionsEnabled === true}
+            repoOwner={repoOwner}
+            repoName={repoName}
+          />
+        </TabsContent>
+
         <TabsContent value="history">
           <RunHistory
-            runs={runs}
+            runs={runs?.slice(1)}
             actionsEnabled={automation.actionsEnabled === true}
             repoOwner={repoOwner}
             repoName={repoName}
@@ -127,6 +138,52 @@ export function AutomationClient({
         </TabsContent>
       </Tabs>
     </PageWrapper>
+  );
+}
+
+function LatestRun({
+  run,
+  loading,
+  actionsEnabled,
+  repoOwner,
+  repoName,
+}: {
+  run: Doc<"automationRuns"> | undefined;
+  loading: boolean;
+  actionsEnabled: boolean;
+  repoOwner: string;
+  repoName: string;
+}) {
+  const acknowledgeRun = useMutation(api.automations.acknowledgeRun);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!run) {
+    return (
+      <div className="rounded-lg bg-muted/40 p-8 text-center">
+        <p className="text-sm text-muted-foreground">
+          No runs yet. Enable the automation and wait for the cron schedule to
+          trigger, or click &quot;Run Now&quot;.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <RunAccordion
+      run={run}
+      actionsEnabled={actionsEnabled}
+      repoOwner={repoOwner}
+      repoName={repoName}
+      onAcknowledge={() => acknowledgeRun({ runId: run._id })}
+      defaultExpanded
+    />
   );
 }
 
@@ -184,15 +241,17 @@ function RunAccordion({
   repoOwner,
   repoName,
   onAcknowledge,
+  defaultExpanded,
 }: {
   run: Doc<"automationRuns">;
   actionsEnabled: boolean;
   repoOwner: string;
   repoName: string;
   onAcknowledge: () => void;
+  defaultExpanded?: boolean;
 }) {
   const isActive = run.status === "running" || run.status === "queued";
-  const [expanded, setExpanded] = useState(isActive);
+  const [expanded, setExpanded] = useState(defaultExpanded ?? isActive);
   const cancelRun = useMutation(api.automations.cancelRun);
 
   const streamingEntityId = `automation-run-${run._id}`;

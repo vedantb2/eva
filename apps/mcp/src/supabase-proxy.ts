@@ -11,6 +11,7 @@ import {
   resolveUserByClerkId,
 } from "./convex-api.js";
 import type { ConvexCredentials } from "./auth.js";
+import { errorResult } from "./tools.js";
 
 const SUPABASE_PREFIX = "supabase_";
 const TOKEN_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -19,24 +20,15 @@ const CALL_TIMEOUT_MS = 30_000;
 
 const SUPABASE_REMOTE_URL = "https://mcp.supabase.com/mcp?read_only=true";
 
-interface CachedToken {
-  clerkUserId: string;
-  token: string;
-  expiresAt: number;
-}
-
-let cachedToken: CachedToken | null = null;
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 async function resolveSupabaseToken(
   convexUrl: string,
   clerkUserId: string,
 ): Promise<string | null> {
-  if (
-    cachedToken &&
-    cachedToken.clerkUserId === clerkUserId &&
-    cachedToken.expiresAt > Date.now()
-  ) {
-    return cachedToken.token;
+  const cached = tokenCache.get(clerkUserId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.token;
   }
 
   const deployKey = await getDeployKey(convexUrl);
@@ -56,11 +48,10 @@ async function resolveSupabaseToken(
 
   for (const result of results) {
     if (result.status === "fulfilled" && result.value) {
-      cachedToken = {
-        clerkUserId,
+      tokenCache.set(clerkUserId, {
         token: result.value,
         expiresAt: Date.now() + TOKEN_CACHE_TTL_MS,
-      };
+      });
       return result.value;
     }
   }
@@ -231,15 +222,7 @@ export async function registerSupabaseTools(
       async (args: Record<string, unknown>) => {
         const currentToken = await resolveSupabaseToken(convexUrl, clerkUserId);
         if (!currentToken) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: "SUPABASE_ACCESS_TOKEN is no longer available.",
-              },
-            ],
-            isError: true,
-          };
+          return errorResult("SUPABASE_ACCESS_TOKEN is no longer available.");
         }
 
         try {
@@ -296,15 +279,7 @@ export async function registerSupabaseTools(
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `Supabase tool error: ${message}`,
-              },
-            ],
-            isError: true,
-          };
+          return errorResult(`Supabase tool error: ${message}`);
         }
       },
     );

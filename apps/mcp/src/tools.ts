@@ -17,14 +17,14 @@ import {
   type Repo,
 } from "./convex-api.js";
 
-function errorResult(message: string) {
+export function errorResult(message: string) {
   return {
     content: [{ type: "text" as const, text: message }],
     isError: true,
   };
 }
 
-function textResult(data: unknown) {
+export function textResult(data: Record<string, unknown> | Array<unknown>) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
   };

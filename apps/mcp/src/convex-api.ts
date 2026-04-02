@@ -232,15 +232,16 @@ export async function runTestQuery(
   };
 }
 
-export async function runMutation(
+async function callConvexApi(
   convexUrl: string,
-  deployKey: string,
+  endpoint: "mutation" | "action",
+  headers: Record<string, string>,
   functionPath: string,
   args: Record<string, JsonValue>,
 ): Promise<JsonValue> {
-  const response = await fetch(`${convexUrl}/api/mutation`, {
+  const response = await fetch(`${convexUrl}/api/${endpoint}`, {
     method: "POST",
-    headers: authHeaders(deployKey),
+    headers,
     body: JSON.stringify({ path: functionPath, args, format: "json" }),
   });
   if (!response.ok) {
@@ -251,23 +252,34 @@ export async function runMutation(
   return result.value;
 }
 
-export async function runAction(
+export function runMutation(
   convexUrl: string,
   deployKey: string,
   functionPath: string,
   args: Record<string, JsonValue>,
 ): Promise<JsonValue> {
-  const response = await fetch(`${convexUrl}/api/action`, {
-    method: "POST",
-    headers: authHeaders(deployKey),
-    body: JSON.stringify({ path: functionPath, args, format: "json" }),
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-  }
-  const json = await response.json();
-  const result = parseConvexResponse(jsonValue.parse(json));
-  return result.value;
+  return callConvexApi(
+    convexUrl,
+    "mutation",
+    authHeaders(deployKey),
+    functionPath,
+    args,
+  );
+}
+
+export function runAction(
+  convexUrl: string,
+  deployKey: string,
+  functionPath: string,
+  args: Record<string, JsonValue>,
+): Promise<JsonValue> {
+  return callConvexApi(
+    convexUrl,
+    "action",
+    authHeaders(deployKey),
+    functionPath,
+    args,
+  );
 }
 
 export interface Repo {
@@ -300,17 +312,30 @@ export async function listRepos(
     .parse(result.value);
 }
 
+const userIdCache = new Map<string, { userId: string; expiresAt: number }>();
+
 export async function resolveUserByClerkId(
   convexUrl: string,
   deployKey: string,
   clerkUserId: string,
 ): Promise<string | null> {
+  const cached = userIdCache.get(clerkUserId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.userId;
+  }
+
   const source = wrapQueryHandler(
     `const user = await ctx.db.query("users").withIndex("by_clerk_id", q => q.eq("clerkId", ${JSON.stringify(clerkUserId)})).first();
     return user ? user._id : null;`,
   );
   const result = await runTestQuery(convexUrl, deployKey, source);
-  if (typeof result.value === "string") return result.value;
+  if (typeof result.value === "string") {
+    userIdCache.set(clerkUserId, {
+      userId: result.value,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    });
+    return result.value;
+  }
   return null;
 }
 
@@ -455,19 +480,12 @@ export async function getRepoConvexCredentials(
   return { convexUrl: creds.convexUrl, deployKey: creds.deployKey };
 }
 
-let cachedUserJwt: {
-  clerkUserId: string;
-  jwt: string;
-  expiresAt: number;
-} | null = null;
+const userJwtCache = new Map<string, { jwt: string; expiresAt: number }>();
 
 export async function signUserJwt(clerkUserId: string): Promise<string> {
-  if (
-    cachedUserJwt &&
-    cachedUserJwt.clerkUserId === clerkUserId &&
-    cachedUserJwt.expiresAt > Date.now()
-  ) {
-    return cachedUserJwt.jwt;
+  const cached = userJwtCache.get(clerkUserId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.jwt;
   }
 
   const privateKeyJson = process.env.SANDBOX_JWT_PRIVATE_KEY;
@@ -492,11 +510,10 @@ export async function signUserJwt(clerkUserId: string): Promise<string> {
     .setIssuedAt()
     .sign(key);
 
-  cachedUserJwt = {
-    clerkUserId,
+  userJwtCache.set(clerkUserId, {
     jwt,
     expiresAt: Date.now() + 55 * 60 * 1000,
-  };
+  });
 
   return jwt;
 }
@@ -508,18 +525,11 @@ export async function runMutationAsUser(
   args: Record<string, JsonValue>,
 ): Promise<JsonValue> {
   const jwt = await signUserJwt(clerkUserId);
-  const response = await fetch(`${convexUrl}/api/mutation`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${jwt}`,
-    },
-    body: JSON.stringify({ path: functionPath, args, format: "json" }),
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-  }
-  const json = await response.json();
-  const result = parseConvexResponse(jsonValue.parse(json));
-  return result.value;
+  return callConvexApi(
+    convexUrl,
+    "mutation",
+    { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+    functionPath,
+    args,
+  );
 }

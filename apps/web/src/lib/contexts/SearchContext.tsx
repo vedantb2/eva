@@ -33,8 +33,13 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+const fallback: SearchContextValue = {
+  isOpen: false,
+  setIsOpen: () => {},
+  openSearch: () => {},
+};
+
 export function useSearch() {
   const ctx = useContext(SearchContext);
-  if (!ctx) throw new Error("useSearch must be used within SearchProvider");
-  return ctx;
+  return ctx ?? fallback;
 }

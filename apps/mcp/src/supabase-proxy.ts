@@ -53,23 +53,35 @@ async function resolveSupabaseToken(
   const repos = await listUserRepos(convexUrl, deployKey, userId);
   if (repos.length === 0) return null;
 
-  for (const repo of repos) {
-    try {
-      const vars = await getRepoEnvVars(convexUrl, deployKey, repo.id, userId);
-      const match = vars.find((v) => v.key === "SUPABASE_ACCESS_TOKEN");
-      if (match) {
-        tokenCache.set(clerkUserId, {
-          token: match.value,
-          expiresAt: Date.now() + TOKEN_CACHE_TTL_MS,
-        });
-        return match.value;
+  let found: string | null = null;
+  await Promise.all(
+    repos.map(async (repo) => {
+      if (found) return;
+      try {
+        const vars = await getRepoEnvVars(
+          convexUrl,
+          deployKey,
+          repo.id,
+          userId,
+        );
+        const match = vars.find((v) => v.key === "SUPABASE_ACCESS_TOKEN");
+        if (match && !found) {
+          found = match.value;
+        }
+      } catch {
+        // skip failed repos
       }
-    } catch {
-      continue;
-    }
+    }),
+  );
+
+  if (found) {
+    tokenCache.set(clerkUserId, {
+      token: found,
+      expiresAt: Date.now() + TOKEN_CACHE_TTL_MS,
+    });
   }
 
-  return null;
+  return found;
 }
 
 async function discoverTools(token: string): Promise<Tool[]> {

@@ -369,8 +369,8 @@ export async function listUserRepos(
     const seen = new Set();
     const result = [];
     for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
-      if (seen.has(repo._id)) continue;
-      seen.add(repo._id);
+      if (seen.has(String(repo._id))) continue;
+      seen.add(String(repo._id));
       result.push(toEntry(repo));
     }
     return result;`,

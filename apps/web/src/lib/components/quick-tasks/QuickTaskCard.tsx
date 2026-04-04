@@ -228,7 +228,10 @@ export function QuickTaskCard({
                   <IconDots size={14} />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent
+                align="end"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <TaskCardMenuItems variant="dropdown" {...menuProps} />
               </DropdownMenuContent>
             </DropdownMenu>
@@ -248,7 +251,7 @@ export function QuickTaskCard({
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>{wrappedCard}</ContextMenuTrigger>
-        <ContextMenuContent>
+        <ContextMenuContent onClick={(e) => e.stopPropagation()}>
           <TaskCardMenuItems variant="context" {...menuProps} />
         </ContextMenuContent>
       </ContextMenu>

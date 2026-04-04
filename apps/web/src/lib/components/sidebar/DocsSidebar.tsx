@@ -273,7 +273,7 @@ export function DocsSidebar({
                       </Link>
                     </div>
                   </ContextMenuTrigger>
-                  <ContextMenuContent>
+                  <ContextMenuContent onClick={(e) => e.stopPropagation()}>
                     <ContextMenuItem
                       className="text-destructive"
                       onClick={() =>

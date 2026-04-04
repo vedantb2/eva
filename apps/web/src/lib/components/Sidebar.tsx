@@ -683,7 +683,6 @@ export function Sidebar() {
                                               setContextSidebarMode(
                                                 contextMode,
                                               );
-                                              closeMobileSidebar();
                                             }}
                                             className={cn(
                                               navItemClass(isActive),
@@ -743,7 +742,9 @@ export function Sidebar() {
                                           if (contextMode) {
                                             setContextSidebarMode(contextMode);
                                           }
-                                          closeMobileSidebar();
+                                          if (!contextMode) {
+                                            closeMobileSidebar();
+                                          }
                                         }}
                                         title={
                                           collapsed ? item.name : undefined

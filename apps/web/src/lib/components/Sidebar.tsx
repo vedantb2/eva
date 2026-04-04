@@ -675,10 +675,10 @@ export function Sidebar() {
                                       return (
                                         <div
                                           key={item.name}
-                                          className="relative"
+                                          className="group relative"
                                         >
-                                          <Link
-                                            to={item.href}
+                                          <button
+                                            type="button"
                                             onClick={() => {
                                               setContextSidebarMode(
                                                 contextMode,
@@ -687,7 +687,7 @@ export function Sidebar() {
                                             }}
                                             className={cn(
                                               navItemClass(isActive),
-                                              "pr-9",
+                                              "w-full pr-9",
                                             )}
                                           >
                                             <item.icon
@@ -712,11 +712,11 @@ export function Sidebar() {
                                                 }
                                               />
                                             )}
-                                          </Link>
+                                          </button>
                                           <Button
                                             size="icon-sm"
                                             variant="ghost"
-                                            className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground hover:text-sidebar-foreground"
+                                            className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground"
                                             onClick={(event) => {
                                               event.preventDefault();
                                               event.stopPropagation();

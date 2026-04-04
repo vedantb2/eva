@@ -208,7 +208,9 @@ export function AnalyseSidebar({
                             </DynamicLink>
                           </div>
                         </ContextMenuTrigger>
-                        <ContextMenuContent>
+                        <ContextMenuContent
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <ContextMenuItem
                             className="text-destructive"
                             onClick={() =>

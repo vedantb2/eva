@@ -82,7 +82,7 @@ export function RepoCard({
             </Link>
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent>
+        <ContextMenuContent onClick={(e) => e.stopPropagation()}>
           <ContextMenuItem onClick={onManageApps}>
             <IconFolders size={16} />
             Manage apps

@@ -238,7 +238,7 @@ export function SessionListSidebar<T extends SessionItem>({
                         />
                       </motion.div>
                     </ContextMenuTrigger>
-                    <ContextMenuContent>
+                    <ContextMenuContent onClick={(e) => e.stopPropagation()}>
                       {onRename && (
                         <ContextMenuItem
                           onSelect={() => {

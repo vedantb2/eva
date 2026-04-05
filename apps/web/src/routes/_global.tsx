@@ -3,6 +3,7 @@ import { AuthGate } from "@/lib/components/ClientProvider";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
+import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
 
 export const Route = createFileRoute("/_global")({
   beforeLoad: ({ context }) => {
@@ -36,9 +37,11 @@ function GlobalLayout() {
   return (
     <AuthGate>
       <SidebarProvider>
-        <Sidebar />
-        <GlobalMainContent />
-        <NotificationToastStream />
+        <PageTitleProvider>
+          <Sidebar />
+          <GlobalMainContent />
+          <NotificationToastStream />
+        </PageTitleProvider>
       </SidebarProvider>
     </AuthGate>
   );

@@ -131,19 +131,19 @@ export function TeamMembersTab({
       <div className="space-y-2">
         {members.map((member) => (
           <Card key={member._id}>
-            <CardContent className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
+            <CardContent className="flex items-center justify-between gap-2 p-3 sm:p-4">
+              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                 <UserInitials userId={member.userId} hideLastSeen size="md" />
-                <div>
-                  <p className="text-sm font-medium">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
                     {member.user?.fullName || member.user?.email || "Unknown"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="truncate text-xs text-muted-foreground">
                     {member.user?.email}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <span className="rounded-full bg-secondary px-2 py-1 text-xs">
                   {member.role}
                 </span>

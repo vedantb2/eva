@@ -32,13 +32,15 @@ export function QueryDetailClient() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full flex-col md:flex-row">
       <QueryConversation
         queryId={queryId}
         title={researchQuery.title}
         repoId={repo._id}
       />
-      <QuerySavedSidebar repoId={repo._id} />
+      <div className="hidden md:block">
+        <QuerySavedSidebar repoId={repo._id} />
+      </div>
     </div>
   );
 }

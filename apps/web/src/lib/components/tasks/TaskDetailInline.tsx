@@ -242,8 +242,6 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
             taskId={taskId}
             task={task}
             status={status}
-            isOwner={isOwner}
-            isBlocked={isBlocked}
             hasActiveRun={hasActiveRun}
             latestPrUrl={latestPrUrl}
             latestDeployment={latestDeployment}

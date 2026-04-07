@@ -27,8 +27,6 @@ interface TaskFooterProps {
   taskId: Id<"agentTasks">;
   task: Doc<"agentTasks"> | undefined;
   status: TaskStatus | undefined;
-  isOwner: boolean;
-  isBlocked: boolean | undefined;
   hasActiveRun: boolean;
   latestPrUrl: string | undefined;
   latestDeployment: RunDoc | undefined;
@@ -43,8 +41,6 @@ export function TaskFooter({
   taskId,
   task,
   status,
-  isOwner,
-  isBlocked,
   hasActiveRun,
   latestPrUrl,
   latestDeployment,
@@ -135,8 +131,6 @@ export function TaskFooter({
             taskId={taskId}
             scheduledAt={task?.scheduledAt}
             isStarting={isStarting}
-            isOwner={isOwner}
-            isBlocked={isBlocked}
             onStartExecution={onStartExecution}
           />
         )}
@@ -152,15 +146,11 @@ function SplitRunButton({
   taskId,
   scheduledAt,
   isStarting,
-  isOwner,
-  isBlocked,
   onStartExecution,
 }: {
   taskId: Id<"agentTasks">;
   scheduledAt: number | undefined;
   isStarting: boolean;
-  isOwner: boolean;
-  isBlocked: boolean | undefined;
   onStartExecution: () => void;
 }) {
   const chevronRef = useRef<HTMLButtonElement>(null);
@@ -177,7 +167,7 @@ function SplitRunButton({
                   ? () => chevronRef.current?.click()
                   : onStartExecution
               }
-              disabled={isStarting || isBlocked || !isOwner}
+              disabled={isStarting}
               className={`rounded-r-none ${SPLIT_BUTTON_HALF}`}
             >
               {isStarting ? (
@@ -193,22 +183,16 @@ function SplitRunButton({
             </Button>
           </div>
         </TooltipTrigger>
-        {isScheduled ? (
+        {isScheduled && (
           <TooltipContent>Click to change or remove schedule</TooltipContent>
-        ) : (
-          !isOwner && (
-            <TooltipContent>Only the task owner can run Eva</TooltipContent>
-          )
         )}
       </Tooltip>
       <SchedulePopover
         taskId={taskId}
         scheduledAt={scheduledAt}
-        disabled={!isOwner || isBlocked}
         trigger={
           <Button
             ref={chevronRef}
-            disabled={!isOwner || isBlocked}
             className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 ${SPLIT_BUTTON_HALF}`}
           >
             <IconChevronDown size={16} />

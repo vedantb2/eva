@@ -130,7 +130,7 @@ export function TaskFooter({
             </TooltipContent>
           </Tooltip>
         )}
-        {!hasActiveRun && (status === "todo" || status === "in_progress") && (
+        {(status === "todo" || (status === "in_progress" && !hasActiveRun)) && (
           <SplitRunButton
             taskId={taskId}
             scheduledAt={task?.scheduledAt}

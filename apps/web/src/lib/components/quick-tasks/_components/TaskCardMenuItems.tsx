@@ -81,7 +81,7 @@ export function TaskCardMenuItems({
   const updateTask = useMutation(api.agentTasks.update);
   const startExecution = useMutation(api.agentTasks.startExecution);
 
-  const canRun = status === "todo";
+  const canRun = status === "todo" || status === "in_progress";
   const StatusIcon = statusConfig[status].icon;
 
   const Item = variant === "context" ? ContextMenuItem : DropdownMenuItem;

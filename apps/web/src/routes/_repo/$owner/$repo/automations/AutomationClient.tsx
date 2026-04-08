@@ -71,8 +71,8 @@ export function AutomationClient({
     <PageWrapper
       comfortable
       title={
-        <div className="flex items-center gap-3">
-          <span>{automation.title}</span>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="truncate">{automation.title}</span>
           <button
             type="button"
             onClick={() =>
@@ -296,7 +296,7 @@ function RunAccordion({
             onAcknowledge();
           }
         }}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+        className="flex w-full flex-wrap items-center gap-2 px-3 py-3 text-left hover:bg-muted/30 transition-colors sm:flex-nowrap sm:gap-3 sm:px-4"
       >
         {expanded ? (
           <IconChevronDown
@@ -310,10 +310,10 @@ function RunAccordion({
           />
         )}
         <Badge variant={badgeVariant}>{run.status}</Badge>
-        <span className="text-sm text-muted-foreground">
-          {dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")}
+        <span className="text-xs text-muted-foreground sm:text-sm">
+          {dayjs(run.startedAt).format("DD/MM HH:mm")}
         </span>
-        <span className="flex-1 truncate text-sm font-medium">
+        <span className="hidden flex-1 truncate text-sm font-medium sm:block">
           {run.resultSummary
             ? run.resultSummary.slice(0, 80)
             : run.error

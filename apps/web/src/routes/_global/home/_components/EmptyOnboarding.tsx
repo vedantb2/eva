@@ -17,7 +17,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
       transition={{ duration: 0.25 }}
       className="flex flex-col items-center px-4 py-12"
     >
-      <div className="mb-12 flex items-center gap-2">
+      <div className="mb-12 flex flex-wrap items-center justify-center gap-2">
         {steps.map((step, i) => (
           <div key={step.num} className="flex items-center gap-2">
             <div
@@ -40,7 +40,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
             </span>
             {i < steps.length - 1 && (
               <div
-                className={`mx-1 h-px w-8 flex-shrink-0 ${
+                className={`mx-1 hidden h-px w-8 flex-shrink-0 sm:block ${
                   i === 0
                     ? "bg-gradient-to-r from-primary/40 to-border"
                     : "bg-border"

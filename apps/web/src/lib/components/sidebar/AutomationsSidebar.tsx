@@ -14,11 +14,14 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  SearchInput,
   Spinner,
   cn,
 } from "@conductor/ui";
 import { IconPlayerPlay, IconPlus } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { useQueryState } from "nuqs";
+import { searchParser } from "@/lib/search-params";
 
 interface AutomationsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -37,9 +40,18 @@ export function AutomationsSidebar({
   const automations = useQuery(api.automations.list, { repoId });
   const createAutomation = useMutation(api.automations.create);
 
+  const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+
+  const filteredAutomations = useMemo(() => {
+    if (!automations) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return q
+      ? automations.filter((a) => a.title.toLowerCase().includes(q))
+      : automations;
+  }, [automations, searchQuery]);
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
@@ -57,15 +69,23 @@ export function AutomationsSidebar({
 
   return (
     <>
-      <div className="p-2">
+      <div className="flex items-center gap-1.5 p-2">
+        <SearchInput
+          placeholder="Search automations..."
+          value={searchQuery}
+          onChange={(v) => setSearchQuery(v || null)}
+          onClear={() => setSearchQuery(null)}
+          className="min-w-0 flex-1"
+          inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
+        />
         <Button
-          variant="outline"
-          size="sm"
-          className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground"
+          size="icon-sm"
+          variant="ghost"
+          className="shrink-0 text-sidebar-primary"
           onClick={() => setIsCreateOpen(true)}
+          title="New automation"
         >
-          <IconPlus size={14} />
-          New Automation
+          <IconPlus size={16} />
         </Button>
       </div>
 
@@ -82,9 +102,13 @@ export function AutomationsSidebar({
             />
             <p className="text-sm text-muted-foreground">No automations yet</p>
           </div>
+        ) : filteredAutomations.length === 0 ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">
+            No matches found
+          </div>
         ) : (
           <div>
-            {automations.map((automation) => {
+            {filteredAutomations.map((automation) => {
               const href = `${basePath}/automations/${automation._id}`;
               const isSelected = pathname.startsWith(href);
               return (

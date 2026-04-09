@@ -6,7 +6,12 @@ import { internal } from "../_generated/api";
 import { resolveDaytonaApiKey } from "../envVarResolver";
 import { launchScript } from "./launch";
 
-export const WORKSPACE_DIR = "/workspace/repo";
+export const WORKSPACE_DIR = "/tmp/repo";
+export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
+
+export function workspaceDirShell(): string {
+  return `$(if [ -d ${WORKSPACE_DIR} ]; then printf %s ${WORKSPACE_DIR}; elif [ -d ${LEGACY_WORKSPACE_DIR} ]; then printf %s ${LEGACY_WORKSPACE_DIR}; else printf %s ${WORKSPACE_DIR}; fi)`;
+}
 export const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
 export const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
 

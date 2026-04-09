@@ -1,5 +1,14 @@
 # Changelog
 
+## Move Daytona workspace to /tmp for non-snapshot repo runs - 2026-04-09
+
+- **Why**: Freshly synced repos without a built snapshot were using the plain Daytona sandbox path, and quick-task execution failed before cloning because `/workspace/repo` was not writable in that environment. The snapshot and non-snapshot paths were assuming the same workspace location without guaranteeing the same filesystem permissions.
+- **Changes**:
+  - Switched the shared Daytona workspace path from `/workspace/repo` to `/tmp/repo` in backend sandbox helpers, workflow prompts, session workflow reads, and the callback runtime script.
+  - Added legacy fallback handling so existing snapshot-backed sandboxes can still resolve `/workspace/repo` until they are rebuilt onto the new path.
+  - Updated snapshot/template workflow Dockerfiles to copy the repo into `/tmp/repo` too, so future snapshots match the runtime workspace path used by fresh sandboxes.
+- **Effect**: New repos can run quick tasks before a snapshot exists, and snapshot-backed sandboxes keep using the same repo path as non-snapshot sandboxes.
+
 ## Fix queued messages sent as session owner instead of sender — 2026-04-01
 
 - **Why**: When a user queued messages in a shared session, the messages appeared as the session owner (coworker) instead of the person who actually queued them. The `queuedMessages` table had no `userId` field, so processing fell back to `session.userId`.

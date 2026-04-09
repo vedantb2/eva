@@ -16,7 +16,11 @@ const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 const MODEL = process.env.CLAUDE_MODEL || "opus";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
-const WORK_DIR = "/workspace/repo";
+const WORK_DIR = existsSync("/tmp/repo")
+  ? "/tmp/repo"
+  : existsSync("/workspace/repo")
+    ? "/workspace/repo"
+    : "/tmp/repo";
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
 const FIRST_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000");
 const POST_TEXT_STALL_TIMEOUT_MS = Number(process.env.CLAUDE_POST_TEXT_STALL_TIMEOUT_MS || "90000");

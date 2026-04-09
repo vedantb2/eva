@@ -1,12 +1,44 @@
 "use node";
 
+import type { Sandbox } from "@daytonaio/sdk";
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { resolveDaytonaApiKey } from "./envVarResolver";
-import { getDaytona, WORKSPACE_DIR } from "./_daytona/helpers";
+import {
+  getDaytona,
+  LEGACY_WORKSPACE_DIR,
+  WORKSPACE_DIR,
+} from "./_daytona/helpers";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
+
+const PTY_WORKSPACE_CANDIDATES = [WORKSPACE_DIR, LEGACY_WORKSPACE_DIR];
+
+async function createPtyInWorkspace(
+  sandbox: Sandbox,
+  ptyId: string,
+  cols: number,
+  rows: number,
+) {
+  for (const cwd of PTY_WORKSPACE_CANDIDATES) {
+    try {
+      return await sandbox.process.createPty({
+        id: ptyId,
+        cols,
+        rows,
+        cwd,
+        envs: { TERM: "xterm-256color" },
+        onData: () => {},
+      });
+    } catch (error) {
+      if (cwd === LEGACY_WORKSPACE_DIR) {
+        throw error;
+      }
+    }
+  }
+  throw new Error("Failed to create PTY");
+}
 
 async function getToolboxBaseUrl(
   sandboxId: string,
@@ -63,27 +95,23 @@ export const connectPty = action({
       try {
         await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
       } catch {
-        const handle = await sandbox.process.createPty({
-          id: ptyId,
-          cols: args.cols,
-          rows: args.rows,
-          cwd: WORKSPACE_DIR,
-          envs: { TERM: "xterm-256color" },
-          onData: () => {},
-        });
+        const handle = await createPtyInWorkspace(
+          sandbox,
+          ptyId,
+          args.cols,
+          args.rows,
+        );
         await handle.disconnect();
         isNewPty = true;
       }
     } else {
       try {
-        const handle = await sandbox.process.createPty({
-          id: ptyId,
-          cols: args.cols,
-          rows: args.rows,
-          cwd: WORKSPACE_DIR,
-          envs: { TERM: "xterm-256color" },
-          onData: () => {},
-        });
+        const handle = await createPtyInWorkspace(
+          sandbox,
+          ptyId,
+          args.cols,
+          args.rows,
+        );
         await handle.disconnect();
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);

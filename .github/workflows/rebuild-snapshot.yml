@@ -49,8 +49,8 @@ jobs:
           ENV PATH=$PNPM_HOME:$PATH
           RUN mkdir -p $PNPM_HOME
 
-          COPY --chown=eva:eva . /workspace/repo
-          WORKDIR /workspace/repo
+          COPY --chown=eva:eva . /tmp/repo
+          WORKDIR /tmp/repo
           RUN pnpm install --frozen-lockfile
           EOF
 

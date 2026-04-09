@@ -32,7 +32,8 @@ const MODE_TOOLS: Record<"ask" | "plan" | "execute", string> = {
   execute: "Read,Write,Edit,Bash,Glob,Grep",
 };
 
-const WORKSPACE_DIR = "/workspace/repo";
+const WORKSPACE_DIR = "/tmp/repo";
+const LEGACY_WORKSPACE_DIR = "/workspace/repo";
 
 // --- Prompt builders ---
 
@@ -203,7 +204,7 @@ export const sessionExecuteWorkflow = workflow.define({
     if (args.mode === "plan" && result.success && sandboxId) {
       const planRaw = await step.runAction(internal.daytona.runSandboxCommand, {
         sandboxId,
-        command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
+        command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || cat ${LEGACY_WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
         timeoutSeconds: 10,
         repoId: data.repoId,
       });

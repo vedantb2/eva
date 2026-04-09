@@ -6,11 +6,11 @@ import { internal } from "../_generated/api";
 import type { DataModel, Id } from "../_generated/dataModel";
 import {
   exec,
-  WORKSPACE_DIR,
   resolveSandboxContext,
   ensureSandboxRunning,
   errorMessage,
   sleep,
+  workspaceDirShell,
 } from "./helpers";
 import {
   setupBranch,
@@ -286,7 +286,9 @@ async function installSnapshotDependenciesWithRetry(
 ): Promise<void> {
   const maxAttempts = 3;
   const pm = await detectPackageManager(sandbox, rootDir);
-  const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
+  const dir = rootDir
+    ? `${workspaceDirShell()}/${rootDir}`
+    : workspaceDirShell();
   const installCommand =
     pm === "pnpm"
       ? `npm install -g pnpm && cd ${dir} && pnpm install`

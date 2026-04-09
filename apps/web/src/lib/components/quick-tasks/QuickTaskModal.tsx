@@ -17,7 +17,7 @@ import {
 } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api, DEFAULT_AI_MODEL, normalizeAIModel } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -52,6 +52,7 @@ export function QuickTaskModal({
   const activateDraft = useMutation(api.agentTasks.activateDraft);
   const removeDraft = useMutation(api.agentTasks.remove);
   const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
+  const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
 
   const hasContent = title.trim() || description.trim();
 
@@ -99,7 +100,7 @@ export function QuickTaskModal({
           title: title.trim(),
           description: description.trim() || undefined,
           baseBranch,
-          model: repo.defaultModel,
+          model: defaultModel,
         });
       } else {
         await createQuickTask({
@@ -107,7 +108,7 @@ export function QuickTaskModal({
           title: title.trim(),
           description: description.trim() || undefined,
           baseBranch,
-          model: repo.defaultModel,
+          model: defaultModel,
           projectId,
         });
       }

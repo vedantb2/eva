@@ -8,6 +8,8 @@ import { sleep } from "./helpers";
 export const CLAUDE_BASE_CONFIG_DIR = "/home/eva/.claude";
 export const CLAUDE_RUNTIME_CONFIG_DIR = "/tmp/claude-config";
 export const CLAUDE_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.claude-persist";
+export const CODEX_RUNTIME_HOME_DIR = "/tmp/codex-home";
+export const CODEX_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.codex-persist";
 const VOLUME_READY_TIMEOUT_MS = 45_000;
 const VOLUME_READY_POLL_INTERVAL_MS = 1_000;
 
@@ -21,6 +23,7 @@ const VOLUME_INVALID_STATES = new Set([
 type PersistableSessionId = Id<"sessions"> | Id<"designSessions">;
 type PersistableSessionKind = "sessions" | "designSessions";
 type PersistableRepoId = Id<"githubRepos">;
+type PersistedProvider = "claude" | "codex";
 
 function sessionHash(sessionId: PersistableSessionId): string {
   return createHash("sha256").update(String(sessionId)).digest("hex");
@@ -30,15 +33,19 @@ function repoHash(repoId: PersistableRepoId): string {
   return createHash("sha256").update(String(repoId)).digest("hex");
 }
 
-export function sessionVolumeName(repoId: PersistableRepoId): string {
-  return `claude-sessions-${repoHash(repoId).slice(0, 24)}`;
+function sessionVolumeName(
+  provider: PersistedProvider,
+  repoId: PersistableRepoId,
+): string {
+  return `${provider}-sessions-${repoHash(repoId).slice(0, 24)}`;
 }
 
-export function sessionVolumeSubpath(
+function sessionVolumeSubpath(
+  provider: PersistedProvider,
   sessionKind: PersistableSessionKind,
   sessionId: PersistableSessionId,
 ): string {
-  return `claude-sessions/${sessionKind}/${sessionHash(sessionId)}`;
+  return `${provider}-sessions/${sessionKind}/${sessionHash(sessionId)}`;
 }
 
 export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
@@ -55,13 +62,15 @@ export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
   ].join("-");
 }
 
-export async function ensureSessionClaudeVolume(
+async function ensureSessionProviderVolume(
   daytona: Daytona,
   repoId: PersistableRepoId,
   sessionKind: PersistableSessionKind,
   sessionId: PersistableSessionId,
+  provider: PersistedProvider,
+  mountPath: string,
 ): Promise<VolumeMount[]> {
-  const volumeName = sessionVolumeName(repoId);
+  const volumeName = sessionVolumeName(provider, repoId);
   const deadline = Date.now() + VOLUME_READY_TIMEOUT_MS;
 
   let volume = await daytona.volume.get(volumeName, true);
@@ -83,8 +92,35 @@ export async function ensureSessionClaudeVolume(
   return [
     {
       volumeId: volume.id,
-      mountPath: CLAUDE_PERSIST_VOLUME_MOUNT_PATH,
-      subpath: sessionVolumeSubpath(sessionKind, sessionId),
+      mountPath,
+      subpath: sessionVolumeSubpath(provider, sessionKind, sessionId),
     },
   ];
+}
+
+export async function ensureSessionPersistenceVolumes(
+  daytona: Daytona,
+  repoId: PersistableRepoId,
+  sessionKind: PersistableSessionKind,
+  sessionId: PersistableSessionId,
+): Promise<VolumeMount[]> {
+  const [claudeMounts, codexMounts] = await Promise.all([
+    ensureSessionProviderVolume(
+      daytona,
+      repoId,
+      sessionKind,
+      sessionId,
+      "claude",
+      CLAUDE_PERSIST_VOLUME_MOUNT_PATH,
+    ),
+    ensureSessionProviderVolume(
+      daytona,
+      repoId,
+      sessionKind,
+      sessionId,
+      "codex",
+      CODEX_PERSIST_VOLUME_MOUNT_PATH,
+    ),
+  ]);
+  return [...claudeMounts, ...codexMounts];
 }

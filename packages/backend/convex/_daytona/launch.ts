@@ -2,12 +2,15 @@
 
 import type { Sandbox } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
+import { getAIModelProvider, normalizeAIModel } from "../validators";
 import { exec, requireEnv } from "./helpers";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import {
   CLAUDE_BASE_CONFIG_DIR,
   CLAUDE_PERSIST_VOLUME_MOUNT_PATH,
   CLAUDE_RUNTIME_CONFIG_DIR,
+  CODEX_PERSIST_VOLUME_MOUNT_PATH,
+  CODEX_RUNTIME_HOME_DIR,
 } from "./volumes";
 
 export async function launchScript(
@@ -31,6 +34,8 @@ export async function launchScript(
   console.log(
     `[daytona][launchScript] started entityId=${entityId} sandboxId=${sandbox.id}`,
   );
+  const normalizedModel = normalizeAIModel(opts.model);
+  const provider = getAIModelProvider(normalizedModel);
   const uploadTasks: Array<Promise<void>> = [
     sandbox.fs
       .uploadFile(Buffer.from(prompt, "utf-8"), "/tmp/design-prompt.txt")
@@ -80,9 +85,13 @@ export async function launchScript(
     `ENTITY_ID=${quote([entityId])}`,
     `COMPLETION_MUTATION=${quote([completionMutation])}`,
     `ENTITY_ID_FIELD=${quote([entityIdField])}`,
-    `CLAUDE_MODEL=${opts.model ?? "opus"}`,
+    `AI_PROVIDER=${quote([provider])}`,
+    `AI_MODEL=${quote([normalizedModel])}`,
+    `CLAUDE_MODEL=${quote([normalizedModel])}`,
     `ALLOWED_TOOLS=${quote([opts.allowedTools ?? "Read,Glob,Grep,Skill"])}`,
     `SYSTEM_PROMPT=${quote([opts.systemPrompt ?? ""])}`,
+    `CODEX_RUNTIME_HOME_DIR=${quote([CODEX_RUNTIME_HOME_DIR])}`,
+    `CODEX_PERSIST_DIR=${quote([CODEX_PERSIST_VOLUME_MOUNT_PATH])}`,
   ];
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);

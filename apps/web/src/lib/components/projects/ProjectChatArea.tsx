@@ -13,12 +13,16 @@ import {
   PromptInputTools,
   PromptInputSubmit,
   ModelSelect,
-  type ClaudeModel,
   type PromptInputMessage,
 } from "@conductor/ui";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import {
+  api,
+  AI_MODEL_OPTIONS,
+  DEFAULT_AI_MODEL,
+  type AIModel,
+  type Id,
+} from "@conductor/backend";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 
@@ -36,7 +40,7 @@ export function ProjectChatArea({
   const addMessage = useMutation(api.projects.addMessage);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isSending, setIsSending] = useState(false);
-  const [model, setModel] = useState<ClaudeModel>("sonnet");
+  const [model, setModel] = useState<AIModel>(DEFAULT_AI_MODEL);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -88,6 +92,7 @@ export function ProjectChatArea({
             <PromptInputTools>
               <ModelSelect
                 value={model}
+                options={AI_MODEL_OPTIONS}
                 onValueChange={setModel}
                 disabled={isSending}
               />

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { taskStatusValidator, claudeModelValidator } from "../validators";
+import { taskStatusValidator, aiModelValidator } from "../validators";
 import { createNotification } from "../notifications";
 import {
   authMutation,
@@ -22,7 +22,7 @@ export const update = authMutation({
     tags: v.optional(v.array(v.string())),
     taskNumber: v.optional(v.number()),
     assignedTo: v.optional(v.union(v.id("users"), v.null())),
-    model: v.optional(claudeModelValidator),
+    model: v.optional(aiModelValidator),
     baseBranch: v.optional(v.string()),
   },
   returns: v.null(),
@@ -160,7 +160,7 @@ export const createQuickTask = authMutation({
     title: v.string(),
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
-    model: v.optional(claudeModelValidator),
+    model: v.optional(aiModelValidator),
     projectId: v.optional(v.id("projects")),
   },
   returns: v.id("agentTasks"),
@@ -289,7 +289,7 @@ export const createBatchWithDependencies = authMutation({
     ),
     projectTitle: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
-    model: v.optional(claudeModelValidator),
+    model: v.optional(aiModelValidator),
   },
   returns: v.object({
     taskIds: v.array(v.id("agentTasks")),

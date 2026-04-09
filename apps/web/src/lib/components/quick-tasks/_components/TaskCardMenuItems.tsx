@@ -16,7 +16,12 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@conductor/ui";
-import type { Id } from "@conductor/backend";
+import {
+  AI_MODEL_OPTIONS,
+  getAIModelProvider,
+  normalizeAIModel,
+  type Id,
+} from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import {
@@ -35,16 +40,11 @@ import {
   TASK_STATUSES,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 type SiblingApp = { _id: Id<"githubRepos">; appName: string };
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
-
-const MODEL_OPTIONS = [
-  { value: "opus", label: "Opus" },
-  { value: "sonnet", label: "Sonnet" },
-  { value: "haiku", label: "Haiku" },
-] as const;
 
 export interface TaskCardMenuItemsProps {
   variant: "context" | "dropdown";
@@ -54,6 +54,7 @@ export interface TaskCardMenuItemsProps {
   assignedTo?: Id<"users">;
   model?: string;
   projectId?: Id<"projects">;
+  repoId?: Id<"githubRepos">;
   siblingApps?: SiblingApp[];
   users?: User[];
   currentUserId?: Id<"users">;
@@ -70,6 +71,7 @@ export function TaskCardMenuItems({
   assignedTo,
   model,
   projectId,
+  repoId,
   siblingApps,
   users,
   currentUserId,
@@ -80,6 +82,11 @@ export function TaskCardMenuItems({
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const updateTask = useMutation(api.agentTasks.update);
   const startExecution = useMutation(api.agentTasks.startExecution);
+  const normalizedModel = normalizeAIModel(model);
+  const { options: modelOptions } = useAvailableAiModels(
+    repoId,
+    normalizedModel,
+  );
 
   const canRun = status === "todo" || status === "in_progress";
   const StatusIcon = statusConfig[status].icon;
@@ -179,18 +186,24 @@ export function TaskCardMenuItems({
         </SubTrigger>
         <SubContent>
           <RadioGroup
-            value={model ?? "sonnet"}
+            value={normalizedModel}
             onValueChange={(value) => {
-              const matched = MODEL_OPTIONS.find((m) => m.value === value);
+              const matched = modelOptions.find(
+                (option) => option.id === value,
+              );
               if (!matched) return;
-              updateTask({ id, model: matched.value });
+              updateTask({ id, model: matched.id });
             }}
           >
-            {MODEL_OPTIONS.map((m) => (
-              <RadioItem key={m.value} value={m.value}>
-                {m.label}
-              </RadioItem>
-            ))}
+            {(modelOptions.length > 0 ? modelOptions : AI_MODEL_OPTIONS).map(
+              (option) => (
+                <RadioItem key={option.id} value={option.id}>
+                  {getAIModelProvider(option.id) === "codex"
+                    ? "Codex / " + option.label
+                    : "Claude / " + option.label}
+                </RadioItem>
+              ),
+            )}
           </RadioGroup>
         </SubContent>
       </Sub>

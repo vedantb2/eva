@@ -2,25 +2,18 @@
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
-import { api, CLAUDE_MODELS } from "@conductor/backend";
+import { api, normalizeAIModel, type AIModel } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Input,
-  Button,
-  Checkbox,
-} from "@conductor/ui";
+import { Input, Button, Checkbox, ModelSelect } from "@conductor/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconPlus, IconX } from "@tabler/icons-react";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 export function ConfigClient() {
   const { repo, repoId } = useRepo();
   const updateConfig = useMutation(api.githubRepos.updateConfig);
+  const { options, model } = useAvailableAiModels(repoId, repo.defaultModel);
 
   return (
     <PageWrapper title="Config" comfortable>
@@ -51,27 +44,19 @@ export function ConfigClient() {
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                 Default Model
               </label>
-              <Select
-                value={repo.defaultModel ?? "sonnet"}
-                onValueChange={(val) => {
-                  const model = CLAUDE_MODELS.find((m) => m === val);
-                  if (model) updateConfig({ repoId, defaultModel: model });
+              <ModelSelect
+                value={model}
+                options={options}
+                onValueChange={(nextModel: AIModel) => {
+                  updateConfig({
+                    repoId,
+                    defaultModel: normalizeAIModel(nextModel),
+                  });
                 }}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CLAUDE_MODELS.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m.charAt(0).toUpperCase() + m.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                className="h-8 text-xs"
+              />
               <p className="mt-1 text-[11px] text-muted-foreground">
-                The default model used when creating new tasks. Defaults to{" "}
-                <code>Sonnet</code> if not set.
+                The default provider and model used when creating new tasks.
               </p>
             </div>
 

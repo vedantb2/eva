@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { workflowCompleteValidator } from "./validators";
+import { aiModelValidator, workflowCompleteValidator } from "./validators";
 import { buildRootDirectoryInstruction, DESIGN_SYSTEM_PROMPT } from "./prompts";
 import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 import { startNextQueuedDesignMessage } from "./_queues/helpers";
@@ -139,6 +139,7 @@ export const designSessionWorkflow = workflow.define({
   args: {
     designSessionId: v.id("designSessions"),
     message: v.string(),
+    model: aiModelValidator,
     personaId: v.optional(v.id("designPersonas")),
     userId: v.id("users"),
     numDesigns: v.optional(v.number()),
@@ -174,7 +175,7 @@ export const designSessionWorkflow = workflow.define({
         userId: args.userId,
         completionMutation: "designWorkflow:handleCompletion",
         entityIdField: "designSessionId",
-        model: "opus",
+        model: args.model,
         allowedTools: "Read,Glob,Grep,Skill,Write,Edit,Bash",
         systemPrompt: DESIGN_SYSTEM_PROMPT,
         repoId: sessionData.repoId,

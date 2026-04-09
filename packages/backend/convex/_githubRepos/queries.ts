@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { authQuery } from "../functions";
 import { githubRepoValidator } from "./helpers";
+import { getAIProviderAvailability } from "../validators";
 
 export const list = authQuery({
   args: {
@@ -62,6 +63,59 @@ export const get = authQuery({
     }
 
     return null;
+  },
+});
+
+export const getProviderAvailability = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.object({
+    claude: v.boolean(),
+    codex: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) {
+      return { claude: false, codex: false };
+    }
+
+    if (repo.connectedBy !== ctx.userId) {
+      const teamId = repo.teamId;
+      if (teamId) {
+        const membership = await ctx.db
+          .query("teamMembers")
+          .withIndex("by_team_and_user", (q) =>
+            q.eq("teamId", teamId).eq("userId", ctx.userId),
+          )
+          .first();
+        if (!membership) {
+          return { claude: false, codex: false };
+        }
+      } else {
+        return { claude: false, codex: false };
+      }
+    }
+
+    const repoEnvDoc = await ctx.db
+      .query("repoEnvVars")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .first();
+    const { teamId } = repo;
+    const teamEnvDoc = teamId
+      ? await ctx.db
+          .query("teamEnvVars")
+          .withIndex("by_team", (q) => q.eq("teamId", teamId))
+          .first()
+      : null;
+
+    const keys = new Set<string>();
+    for (const entry of teamEnvDoc?.vars ?? []) {
+      keys.add(entry.key);
+    }
+    for (const entry of repoEnvDoc?.vars ?? []) {
+      keys.add(entry.key);
+    }
+
+    return getAIProviderAvailability(keys);
   },
 });
 

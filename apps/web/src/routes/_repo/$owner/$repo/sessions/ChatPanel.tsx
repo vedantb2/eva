@@ -61,10 +61,15 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import type { ClaudeModel, ResponseLength } from "@conductor/ui";
+import type { ResponseLength } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import {
+  api,
+  findAIModelOption,
+  normalizeAIModel,
+  type AIModel,
+} from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -82,6 +87,7 @@ import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -198,9 +204,10 @@ export function ChatPanel({
   >("confirm");
   const [completedAudits, setCompletedAudits] = useState(0);
 
-  const defaultModel = repo.defaultModel ?? "sonnet";
+  const defaultModel = normalizeAIModel(repo.defaultModel);
   const { mode, setMode, model, setModel, responseLength, setResponseLength } =
     useSessionSettings(sessionId, { defaultModel });
+  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
   const SESSION_MODES: SessionMode[] = ["ask", "execute", "plan"];
   useHotkey("Shift+Tab", (e) => {
@@ -231,7 +238,7 @@ export function ChatPanel({
     async (
       message: string,
       sendMode: SessionMode,
-      sendModel: ClaudeModel,
+      sendModel: AIModel,
       sendResponseLength: ResponseLength,
     ) => {
       await startExecution({
@@ -370,7 +377,7 @@ export function ChatPanel({
               : "Ask";
         const detailParts = [
           modeLabel,
-          message.model ? message.model : null,
+          message.model ? findAIModelOption(message.model).label : null,
           message.responseLength && message.responseLength !== "default"
             ? message.responseLength
             : null,
@@ -787,6 +794,7 @@ export function ChatPanel({
                 <PromptInputTools>
                   <ModelSelect
                     value={model}
+                    options={modelOptions}
                     onValueChange={setModel}
                     disabled={isInputDisabled}
                   />

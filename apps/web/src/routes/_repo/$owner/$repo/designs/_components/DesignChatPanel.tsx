@@ -42,6 +42,7 @@ import {
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import dayjs from "@conductor/shared/dates";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 type QueuedDesignMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -94,6 +95,7 @@ export function DesignChatPanel({
   const [numDesigns, setNumDesigns] = useState(3);
 
   const { model, setModel } = useSessionSettings(designSessionId);
+  const { options: modelOptions } = useAvailableAiModels(repoId, model);
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
@@ -119,6 +121,7 @@ export function DesignChatPanel({
       await enqueueMessage({
         id: designSessionId,
         message: text.trim(),
+        model,
         personaId: selectedPersonaId,
         numDesigns,
       });
@@ -129,6 +132,7 @@ export function DesignChatPanel({
       await executeMessage({
         id: designSessionId,
         message: text.trim(),
+        model,
         personaId: selectedPersonaId,
         numDesigns,
       });
@@ -330,6 +334,7 @@ export function DesignChatPanel({
                 <PromptInputTools>
                   <ModelSelect
                     value={model}
+                    options={modelOptions}
                     onValueChange={setModel}
                     disabled={!isSandboxActive}
                   />

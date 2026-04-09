@@ -5,9 +5,10 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
-  claudeModelValidator,
+  aiModelValidator,
   sessionModeValidator,
   workflowCompleteValidator,
+  normalizeAIModel,
 } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
@@ -124,7 +125,7 @@ export const sessionExecuteWorkflow = workflow.define({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeArgValidator,
-    model: claudeModelValidator,
+    model: aiModelValidator,
     responseLength: v.string(),
     userId: v.id("users"),
     installationId: v.number(),
@@ -300,7 +301,7 @@ export const getSessionData = internalQuery({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeArgValidator,
-    model: claudeModelValidator,
+    model: aiModelValidator,
     responseLength: v.string(),
   },
   returns: v.object({
@@ -312,7 +313,7 @@ export const getSessionData = internalQuery({
     branchName: v.optional(v.string()),
     baseBranch: v.string(),
     allowedTools: v.string(),
-    model: claudeModelValidator,
+    model: aiModelValidator,
     deploymentProjectName: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
@@ -365,7 +366,7 @@ export const getSessionData = internalQuery({
       branchName,
       baseBranch: repo.defaultBaseBranch ?? "main",
       allowedTools: MODE_TOOLS[args.mode],
-      model: args.model,
+      model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,
     };
   },
@@ -511,7 +512,7 @@ export const startExecute = authMutation({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeValidator,
-    model: claudeModelValidator,
+    model: aiModelValidator,
     responseLength: v.string(),
   },
   returns: v.null(),
@@ -565,7 +566,7 @@ export const enqueueMessage = authMutation({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeValidator,
-    model: claudeModelValidator,
+    model: aiModelValidator,
     responseLength: v.string(),
   },
   returns: v.null(),

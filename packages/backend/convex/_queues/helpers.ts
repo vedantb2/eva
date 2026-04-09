@@ -2,6 +2,7 @@ import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
+import { DEFAULT_AI_MODEL } from "../validators";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -148,6 +149,7 @@ export async function startNextQueuedDesignMessage(
       {
         designSessionId,
         message: nextMessage.content,
+        model: nextMessage.model ?? DEFAULT_AI_MODEL,
         personaId: nextMessage.personaId,
         userId: nextMessage.userId,
         numDesigns: nextMessage.numDesigns ?? 3,

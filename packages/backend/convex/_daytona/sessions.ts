@@ -21,7 +21,7 @@ import {
   remoteBranchExists,
   SESSION_LIFECYCLE,
 } from "./git";
-import { ensureSessionClaudeVolume } from "./volumes";
+import { ensureSessionPersistenceVolumes } from "./volumes";
 import { detectPackageManager, startSessionServices } from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
@@ -439,10 +439,10 @@ async function prepareSessionSandboxInternal(
   }
 
   const sessionVolumeMounts = await runLoggedSessionStep(
-    "ensureSessionClaudeVolume",
+    "ensureSessionPersistenceVolumes",
     actionDetails,
     () =>
-      ensureSessionClaudeVolume(
+      ensureSessionPersistenceVolumes(
         daytona,
         args.repoId,
         "sessions",
@@ -628,7 +628,7 @@ export const startDesignSandbox = internalAction({
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
-      const designVolumeMounts = await ensureSessionClaudeVolume(
+      const designVolumeMounts = await ensureSessionPersistenceVolumes(
         daytona,
         args.repoId,
         "designSessions",

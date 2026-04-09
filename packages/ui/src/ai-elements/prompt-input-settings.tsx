@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -20,53 +21,101 @@ import {
 import { IconBrain, IconTextResize, IconDots } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
 
-export type ClaudeModel = "opus" | "sonnet" | "haiku";
+export interface ModelOption<TModel extends string = string> {
+  id: TModel;
+  provider: string;
+  label: string;
+}
+
 export type ResponseLength = "default" | "detailed";
 
-const MODELS: { key: ClaudeModel; label: string }[] = [
-  { key: "opus", label: "Opus" },
-  { key: "sonnet", label: "Sonnet" },
-  { key: "haiku", label: "Haiku" },
-];
-
-const RESPONSE_LENGTHS: { key: ResponseLength; label: string }[] = [
+const RESPONSE_LENGTHS: ReadonlyArray<{
+  key: ResponseLength;
+  label: string;
+}> = [
   { key: "default", label: "Default" },
   { key: "detailed", label: "Detailed" },
 ];
 
-function isClaudeModel(v: string): v is ClaudeModel {
-  return MODELS.some((m) => m.key === v);
+function getProviderLabel(provider: string): string {
+  switch (provider) {
+    case "claude":
+      return "Claude";
+    case "codex":
+      return "Codex";
+    default:
+      return provider;
+  }
+}
+
+function getProviderOptions<TModel extends string>(
+  options: ReadonlyArray<ModelOption<TModel>>,
+): ReadonlyArray<{ id: string; label: string }> {
+  const providers: Array<{ id: string; label: string }> = [];
+  for (const option of options) {
+    if (providers.some((provider) => provider.id === option.provider)) {
+      continue;
+    }
+    providers.push({
+      id: option.provider,
+      label: getProviderLabel(option.provider),
+    });
+  }
+  return providers;
+}
+
+function findModelOption<TModel extends string>(
+  value: TModel,
+  options: ReadonlyArray<ModelOption<TModel>>,
+): ModelOption<TModel> | null {
+  const option = options.find((entry) => entry.id === value);
+  return option ?? options[0] ?? null;
+}
+
+function getProviderModels<TModel extends string>(
+  options: ReadonlyArray<ModelOption<TModel>>,
+  provider: string,
+): ReadonlyArray<ModelOption<TModel>> {
+  return options.filter((option) => option.provider === provider);
 }
 
 function isResponseLength(v: string): v is ResponseLength {
-  return RESPONSE_LENGTHS.some((o) => o.key === v);
+  return RESPONSE_LENGTHS.some((option) => option.key === v);
 }
 
-export interface PromptInputSettingsProps {
-  model: ClaudeModel;
-  onModelChange: (model: ClaudeModel) => void;
+export interface PromptInputSettingsProps<TModel extends string = string> {
+  model: TModel;
+  onModelChange: (model: TModel) => void;
+  options: ReadonlyArray<ModelOption<TModel>>;
   responseLength?: ResponseLength;
   onResponseLengthChange?: (length: ResponseLength) => void;
   disabled?: boolean;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   className?: string;
 }
 
-export function PromptInputSettings({
+export function PromptInputSettings<TModel extends string>({
   model,
   onModelChange,
+  options,
   responseLength,
   onResponseLengthChange,
   disabled,
   icon,
   className,
-}: PromptInputSettingsProps) {
+}: PromptInputSettingsProps<TModel>) {
+  const selectedModel = findModelOption(model, options);
+  const providerOptions = getProviderOptions(options);
+  const selectedProvider =
+    selectedModel?.provider ?? providerOptions[0]?.id ?? "claude";
+  const providerModels = getProviderModels(options, selectedProvider);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            "p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50",
+            "rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50",
             className,
           )}
           disabled={disabled}
@@ -75,6 +124,31 @@ export function PromptInputSettings({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
+        {providerOptions.length > 1 && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <IconBrain size={14} />
+              Provider
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuRadioGroup
+                value={selectedProvider}
+                onValueChange={(provider) => {
+                  const nextModel = getProviderModels(options, provider)[0];
+                  if (nextModel) {
+                    onModelChange(nextModel.id);
+                  }
+                }}
+              >
+                {providerOptions.map((provider) => (
+                  <DropdownMenuRadioItem key={provider.id} value={provider.id}>
+                    {provider.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <IconBrain size={14} />
@@ -82,14 +156,17 @@ export function PromptInputSettings({
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuRadioGroup
-              value={model}
-              onValueChange={(v) => {
-                if (isClaudeModel(v)) onModelChange(v);
+              value={selectedModel?.id}
+              onValueChange={(value) => {
+                const option = options.find((entry) => entry.id === value);
+                if (option) {
+                  onModelChange(option.id);
+                }
               }}
             >
-              {MODELS.map((m) => (
-                <DropdownMenuRadioItem key={m.key} value={m.key}>
-                  {m.label}
+              {providerModels.map((option) => (
+                <DropdownMenuRadioItem key={option.id} value={option.id}>
+                  {option.label}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
@@ -105,12 +182,14 @@ export function PromptInputSettings({
               <DropdownMenuRadioGroup
                 value={responseLength}
                 onValueChange={(v) => {
-                  if (isResponseLength(v)) onResponseLengthChange(v);
+                  if (isResponseLength(v)) {
+                    onResponseLengthChange(v);
+                  }
                 }}
               >
-                {RESPONSE_LENGTHS.map((o) => (
-                  <DropdownMenuRadioItem key={o.key} value={o.key}>
-                    {o.label}
+                {RESPONSE_LENGTHS.map((option) => (
+                  <DropdownMenuRadioItem key={option.key} value={option.key}>
+                    {option.label}
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
@@ -122,45 +201,80 @@ export function PromptInputSettings({
   );
 }
 
-export interface ModelSelectProps {
-  value: ClaudeModel;
-  onValueChange: (model: ClaudeModel) => void;
+export interface ModelSelectProps<TModel extends string = string> {
+  value: TModel;
+  onValueChange: (model: TModel) => void;
+  options: ReadonlyArray<ModelOption<TModel>>;
   disabled?: boolean;
   className?: string;
 }
 
-export function ModelSelect({
+export function ModelSelect<TModel extends string>({
   value,
   onValueChange,
+  options,
   disabled,
   className,
-}: ModelSelectProps) {
+}: ModelSelectProps<TModel>) {
+  const selectedModel = findModelOption(value, options);
+  const providerOptions = getProviderOptions(options);
+  const selectedProvider =
+    selectedModel?.provider ?? providerOptions[0]?.id ?? "claude";
+  const providerModels = getProviderModels(options, selectedProvider);
+
+  const triggerClassName = cn(
+    "h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none hover:bg-accent hover:text-foreground",
+    className,
+  );
+
   return (
-    <Select
-      value={value}
-      onValueChange={(v) => {
-        if (isClaudeModel(v)) onValueChange(v);
-      }}
-      disabled={disabled}
-    >
-      <SelectTrigger
-        className={cn(
-          "h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none",
-          "hover:bg-accent hover:text-foreground",
-          className,
-        )}
+    <div className="flex items-center gap-1">
+      {providerOptions.length > 1 && (
+        <Select
+          value={selectedProvider}
+          onValueChange={(provider) => {
+            const nextModel = getProviderModels(options, provider)[0];
+            if (nextModel) {
+              onValueChange(nextModel.id);
+            }
+          }}
+          disabled={disabled}
+        >
+          <SelectTrigger className={cn(triggerClassName, "px-1.5")}>
+            <SelectValue>{getProviderLabel(selectedProvider)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {providerOptions.map((provider) => (
+              <SelectItem key={provider.id} value={provider.id}>
+                {provider.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      <Select
+        value={selectedModel?.id}
+        onValueChange={(modelId) => {
+          const option = options.find((entry) => entry.id === modelId);
+          if (option) {
+            onValueChange(option.id);
+          }
+        }}
+        disabled={disabled}
       >
-        <IconBrain size={14} className="shrink-0" />
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {MODELS.map((m) => (
-          <SelectItem key={m.key} value={m.key}>
-            {m.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+        <SelectTrigger className={triggerClassName}>
+          <IconBrain size={14} className="shrink-0" />
+          <SelectValue>{selectedModel?.label}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {providerModels.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -181,14 +295,15 @@ export function ResponseLengthSelect({
     <Select
       value={value}
       onValueChange={(v) => {
-        if (isResponseLength(v)) onValueChange(v);
+        if (isResponseLength(v)) {
+          onValueChange(v);
+        }
       }}
       disabled={disabled}
     >
       <SelectTrigger
         className={cn(
-          "h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none",
-          "hover:bg-accent hover:text-foreground",
+          "h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none hover:bg-accent hover:text-foreground",
           className,
         )}
       >
@@ -196,9 +311,9 @@ export function ResponseLengthSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {RESPONSE_LENGTHS.map((o) => (
-          <SelectItem key={o.key} value={o.key}>
-            {o.label}
+        {RESPONSE_LENGTHS.map((option) => (
+          <SelectItem key={option.key} value={option.key}>
+            {option.label}
           </SelectItem>
         ))}
       </SelectContent>

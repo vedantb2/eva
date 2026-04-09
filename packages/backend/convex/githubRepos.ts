@@ -1,6 +1,7 @@
 export {
   list,
   get,
+  getProviderAvailability,
   getByOwnerAndName,
   getTeamIdForRepo,
   listByTeam,

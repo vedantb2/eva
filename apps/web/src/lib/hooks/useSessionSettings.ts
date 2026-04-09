@@ -2,19 +2,24 @@
 
 import { useCallback } from "react";
 import { useLocalStorage } from "usehooks-ts";
-import type { ClaudeModel, ResponseLength } from "@conductor/ui";
+import type { ResponseLength } from "@conductor/ui";
+import {
+  DEFAULT_AI_MODEL,
+  normalizeAIModel,
+  type AIModel,
+} from "@conductor/backend";
 
 const SESSION_MODES = ["ask", "execute", "plan"] as const;
 export type SessionMode = (typeof SESSION_MODES)[number];
 
 interface StoredSettings {
-  model: ClaudeModel;
+  model: AIModel;
   responseLength: ResponseLength;
   mode: SessionMode;
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
-  model: "sonnet",
+  model: DEFAULT_AI_MODEL,
   responseLength: "default",
   mode: "ask",
 };
@@ -25,10 +30,10 @@ function storageKey(sessionId: string) {
 
 export function useSessionSettings(
   sessionId: string,
-  overrides?: { defaultModel?: ClaudeModel },
+  overrides?: { defaultModel?: string | null },
 ) {
   const defaults: StoredSettings = overrides?.defaultModel
-    ? { ...DEFAULT_SETTINGS, model: overrides.defaultModel }
+    ? { ...DEFAULT_SETTINGS, model: normalizeAIModel(overrides.defaultModel) }
     : DEFAULT_SETTINGS;
 
   const [settings, setSettings] = useLocalStorage(
@@ -37,8 +42,8 @@ export function useSessionSettings(
   );
 
   const setModel = useCallback(
-    (model: ClaudeModel) => {
-      setSettings((prev) => ({ ...prev, model }));
+    (model: AIModel) => {
+      setSettings((prev) => ({ ...prev, model: normalizeAIModel(model) }));
     },
     [setSettings],
   );
@@ -58,7 +63,7 @@ export function useSessionSettings(
   );
 
   return {
-    model: settings.model,
+    model: normalizeAIModel(settings.model),
     mode: settings.mode,
     responseLength: settings.responseLength,
     setModel,

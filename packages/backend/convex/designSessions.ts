@@ -4,6 +4,8 @@ import { internal } from "./_generated/api";
 import { type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import {
+  aiModelValidator,
+  normalizeAIModel,
   roleValidator,
   sessionStatusValidator,
   variationValidator,
@@ -341,6 +343,7 @@ export const executeMessage = authMutation({
   args: {
     id: v.id("designSessions"),
     message: v.string(),
+    model: aiModelValidator,
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
   },
@@ -373,6 +376,7 @@ export const executeMessage = authMutation({
       {
         designSessionId: args.id,
         message: args.message,
+        model: normalizeAIModel(args.model),
         personaId: args.personaId,
         userId: ctx.userId,
         numDesigns: args.numDesigns ?? 3,
@@ -397,6 +401,7 @@ export const enqueueMessage = authMutation({
   args: {
     id: v.id("designSessions"),
     message: v.string(),
+    model: aiModelValidator,
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
   },
@@ -415,6 +420,7 @@ export const enqueueMessage = authMutation({
       content,
       createdAt: Date.now(),
       userId: ctx.userId,
+      model: normalizeAIModel(args.model),
       personaId: args.personaId,
       numDesigns: args.numDesigns ?? 3,
     });

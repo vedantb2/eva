@@ -1,5 +1,15 @@
 # Changelog
 
+## Add Codex as an env-var-backed sandbox provider - 2026-04-09
+
+- **Why**: Claude was the only first-class sandbox provider, which meant teams could not bring their existing ChatGPT-backed Codex access into Conductor. The goal was to add Codex without introducing a new OAuth product flow or more setup friction, so the implementation needed to stay simple: choose a provider in the same UI surfaces and enable Codex by adding env vars only.
+- **Changes**:
+  - Replaced the Claude-only sandbox model contract with shared provider-qualified model ids and a backend model catalog reused by the web app, extension, and shared UI controls.
+  - Added Codex availability gating based on repo/team env vars, so Codex only appears when `CODEX_AUTH_JSON` or its compatible fallback env vars are configured.
+  - Extended the Daytona sandbox runner and persisted session storage to support Codex CLI launches, hydrated `CODEX_HOME` from env vars, and kept Codex session state across sandbox restarts alongside the existing Claude path.
+  - Updated setup and env-var UX to explain the simplest Codex setup path: sign in locally once, then paste the saved auth JSON into an env var.
+- **Reason**: Treating providers as first-class runtime choices keeps the architecture easier to extend than sprinkling Codex support through Claude-specific code paths, while the env-var-only setup keeps the product change low-friction for users.
+
 ## Move Daytona workspace to /tmp for non-snapshot repo runs - 2026-04-09
 
 - **Why**: Freshly synced repos without a built snapshot were using the plain Daytona sandbox path, and quick-task execution failed before cloning because `/workspace/repo` was not writable in that environment. The snapshot and non-snapshot paths were assuming the same workspace location without guaranteeing the same filesystem permissions.

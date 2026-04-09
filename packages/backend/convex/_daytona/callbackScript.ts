@@ -13,7 +13,8 @@ const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 const TASK_PROOF_CAPTURE_ENABLED =
   process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
-const MODEL = process.env.CLAUDE_MODEL || "opus";
+const PROVIDER = process.env.AI_PROVIDER || "claude";
+const MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 const WORK_DIR = existsSync("/tmp/repo")
@@ -34,6 +35,15 @@ const READY_FILE = "/tmp/run-design.ready";
 const CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
 const CLAUDE_RUNTIME_CONFIG_DIR = process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
 const CLAUDE_PERSIST_DIR = process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
+const CODEX_RUNTIME_HOME_DIR = process.env.CODEX_RUNTIME_HOME_DIR || "/tmp/codex-home";
+const CODEX_PERSIST_DIR = process.env.CODEX_PERSIST_DIR || "/home/eva/.codex-persist";
+const CODEX_STATE_FILE = "session-state.json";
+const CODEX_LOCAL_STATE_FILE = CODEX_RUNTIME_HOME_DIR + "/" + CODEX_STATE_FILE;
+const CODEX_PERSIST_STATE_FILE = CODEX_PERSIST_DIR + "/" + CODEX_STATE_FILE;
+const CODEX_AUTH_JSON = process.env.CODEX_AUTH_JSON || "";
+const CODEX_AUTH_JSON_BASE64 = process.env.CODEX_AUTH_JSON_BASE64 || "";
+const CODEX_CONFIG_TOML = process.env.CODEX_CONFIG_TOML || "";
+const CODEX_CONFIG_TOML_BASE64 = process.env.CODEX_CONFIG_TOML_BASE64 || "";
 const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\\//g, "-");
 const CLAUDE_LOCAL_PROJECT_DIR = CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
 const CLAUDE_PERSIST_PROJECT_DIR = CLAUDE_PERSIST_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
@@ -179,11 +189,180 @@ function toolCallToStep(name, input) {
   }
 }
 
+function getCodexFieldValue(item, keys) {
+  const sources = [item];
+  if (item && typeof item.input === "object" && item.input !== null) {
+    sources.push(item.input);
+  }
+  for (const source of sources) {
+    if (!source || typeof source !== "object") {
+      continue;
+    }
+    for (const key of keys) {
+      if (typeof source[key] === "string" && source[key].trim()) {
+        return source[key].trim();
+      }
+    }
+  }
+  return "";
+}
+
+function getCodexThreadId(event) {
+  if (typeof event.thread_id === "string" && event.thread_id.trim()) {
+    return event.thread_id.trim();
+  }
+  if (
+    event.thread &&
+    typeof event.thread === "object" &&
+    typeof event.thread.id === "string" &&
+    event.thread.id.trim()
+  ) {
+    return event.thread.id.trim();
+  }
+  return "";
+}
+
+function getCodexAgentMessageText(item) {
+  if (!item || item.type !== "agent_message") {
+    return "";
+  }
+  if (typeof item.text === "string" && item.text) {
+    return item.text;
+  }
+  if (!Array.isArray(item.content)) {
+    return "";
+  }
+  const parts = [];
+  for (const block of item.content) {
+    if (!block || typeof block !== "object") {
+      continue;
+    }
+    if (typeof block.text === "string" && block.text) {
+      parts.push(block.text);
+      continue;
+    }
+    if (typeof block.content === "string" && block.content) {
+      parts.push(block.content);
+    }
+  }
+  return parts.join("");
+}
+
+function codexItemToStep(item) {
+  const itemType =
+    item && typeof item.type === "string" && item.type.trim()
+      ? item.type.trim()
+      : "tool";
+  const normalizedType = itemType.toLowerCase();
+  const pathValue = getCodexFieldValue(item, [
+    "file_path",
+    "path",
+    "target_file",
+    "target_path",
+    "notebook_path",
+  ]);
+  const queryValue = getCodexFieldValue(item, ["query", "pattern", "url"]);
+  const commandValue = getCodexFieldValue(item, ["command", "cmd"]);
+  const descriptionValue = getCodexFieldValue(item, [
+    "description",
+    "name",
+    "tool",
+    "skill",
+  ]);
+  const pathDetail = pathValue ? shortenPath(String(pathValue)) : "";
+
+  if (normalizedType.includes("web")) {
+    return {
+      type: normalizedType.includes("search") ? "web_search" : "web_fetch",
+      label: normalizedType.includes("search")
+        ? "Searching web..."
+        : "Fetching URL...",
+      detail: queryValue || pathDetail || undefined,
+      status: "active",
+    };
+  }
+  if (normalizedType.includes("read")) {
+    return {
+      type: "read",
+      label: "Reading file...",
+      detail: pathDetail || undefined,
+      status: "active",
+    };
+  }
+  if (normalizedType.includes("grep") || normalizedType.includes("search")) {
+    return {
+      type: normalizedType.includes("file") ? "search_files" : "search_code",
+      label: normalizedType.includes("file")
+        ? "Searching files..."
+        : "Searching code...",
+      detail: queryValue || pathDetail || undefined,
+      status: "active",
+    };
+  }
+  if (normalizedType.includes("glob") || normalizedType.includes("list")) {
+    return {
+      type: "search_files",
+      label: "Searching files...",
+      detail: queryValue || pathDetail || undefined,
+      status: "active",
+    };
+  }
+  if (normalizedType.includes("write") || normalizedType.includes("create")) {
+    return {
+      type: "write",
+      label: "Creating file...",
+      detail: pathDetail || undefined,
+      status: "active",
+    };
+  }
+  if (
+    normalizedType.includes("edit") ||
+    normalizedType.includes("patch") ||
+    normalizedType.includes("apply")
+  ) {
+    return {
+      type: "edit",
+      label: "Editing file...",
+      detail: pathDetail || undefined,
+      status: "active",
+    };
+  }
+  if (
+    normalizedType.includes("command") ||
+    normalizedType.includes("shell") ||
+    normalizedType.includes("bash") ||
+    normalizedType.includes("exec")
+  ) {
+    return {
+      type: "bash",
+      label: "Running command...",
+      detail: commandValue || descriptionValue || undefined,
+      status: "active",
+    };
+  }
+  if (normalizedType.includes("agent")) {
+    return {
+      type: "subtask",
+      label: "Running agent...",
+      detail: descriptionValue || undefined,
+      status: "active",
+    };
+  }
+  return {
+    type: "tool",
+    label: "Using " + itemType + "...",
+    detail: descriptionValue || pathDetail || queryValue || undefined,
+    status: "active",
+  };
+}
+
 let lastStepType = "";
 
 const completedLabels = {
   "Preparing Claude session...": "Prepared Claude session",
+  "Preparing Codex session...": "Prepared Codex session",
   "Starting Claude CLI...": "Started Claude CLI",
+  "Starting Codex CLI...": "Started Codex CLI",
   "Restoring Claude session...": "Restored Claude session",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
@@ -238,6 +417,63 @@ function updateThinkingStep(label, detail) {
 function parseStreamEvent(line) {
   try {
     const event = JSON.parse(line);
+
+    if (PROVIDER === "codex") {
+      const threadId = getCodexThreadId(event);
+      if (event.type === "thread.started" && threadId) {
+        activeCodexThreadId = threadId;
+        updateThinkingStep("Starting Codex CLI...", "Restoring saved context...");
+        return true;
+      }
+      if (event.type === "turn.started") {
+        updateThinkingStep("Starting Codex CLI...", "Codex is reasoning...");
+        return true;
+      }
+      if (
+        event.type === "item.started" &&
+        event.item &&
+        typeof event.item.type === "string" &&
+        event.item.type !== "agent_message"
+      ) {
+        const step = codexItemToStep(event.item);
+        markLastComplete();
+        accumulatedSteps.push(step);
+        lastStepType = step.type === "thinking" ? "thinking" : "tool";
+        return true;
+      }
+      if (
+        event.type === "item.completed" &&
+        event.item &&
+        event.item.type === "agent_message"
+      ) {
+        const messageText = getCodexAgentMessageText(event.item);
+        if (!messageText) {
+          return false;
+        }
+        appendStreamedContent(messageText);
+        updateThinkingStep("Streaming response...", "Receiving reply...");
+        return true;
+      }
+      if (
+        (event.type === "item.completed" || event.type === "item.failed") &&
+        event.item &&
+        typeof event.item.type === "string" &&
+        event.item.type !== "agent_message"
+      ) {
+        markLastComplete();
+        return true;
+      }
+      if (event.type === "turn.completed") {
+        markLastComplete();
+        accumulatedSteps.push({
+          type: "thinking",
+          label: "Finalizing response...",
+          status: "active",
+        });
+        return true;
+      }
+      return false;
+    }
 
     if (event.type === "tool_result") {
       markLastComplete();
@@ -299,6 +535,7 @@ let lastSentContent = "";
 let parsedStreamEventCount = 0;
 let realtimeOutputBuffer = "";
 let activeClaudeSessionId = process.env.CLAUDE_SESSION_ID || "";
+let activeCodexThreadId = "";
 let resultEventSeen = false;
 let activeClaudeSessionMode = "none";
 let waitingForFirstAssistantEvent = false;
@@ -359,6 +596,95 @@ function copyFileIfPresent(sourcePath, targetPath, label) {
     JSON.stringify(targetPath) +
     " || true; fi";
   runTimedBashSync(copyScript, label);
+}
+
+function copyDirectoryContents(sourceDir, targetDir) {
+  if (!existsSync(sourceDir)) {
+    return;
+  }
+  mkdirSync(targetDir, { recursive: true });
+  for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
+    const sourcePath = sourceDir + "/" + entry.name;
+    const targetPath = targetDir + "/" + entry.name;
+    try {
+      cpSync(sourcePath, targetPath, { force: true, recursive: true });
+    } catch (error) {
+      console.error(
+        "Failed to copy " + sourcePath + " to " + targetPath + ":",
+        String(error),
+      );
+    }
+  }
+}
+
+function decodeBase64(value) {
+  return Buffer.from(value, "base64").toString("utf8");
+}
+
+function writeCodexFileIfConfigured(fileName, rawValue, encodedValue) {
+  const value = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
+  if (!value) {
+    return;
+  }
+  mkdirSync(CODEX_RUNTIME_HOME_DIR, { recursive: true });
+  writeFileSync(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
+}
+
+function readCodexSessionState() {
+  const statePath = existsSync(CODEX_LOCAL_STATE_FILE)
+    ? CODEX_LOCAL_STATE_FILE
+    : existsSync(CODEX_PERSIST_STATE_FILE)
+      ? CODEX_PERSIST_STATE_FILE
+      : "";
+  if (!statePath) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(statePath, "utf8"));
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.resumeThreadId === "string" &&
+      parsed.resumeThreadId.trim()
+    ) {
+      return { resumeThreadId: parsed.resumeThreadId.trim() };
+    }
+  } catch (error) {
+    console.error(
+      "Failed to read Codex session state from " + statePath + ":",
+      String(error),
+    );
+  }
+  return null;
+}
+
+function writeCodexSessionState() {
+  if (!activeCodexThreadId) {
+    return;
+  }
+  mkdirSync(CODEX_RUNTIME_HOME_DIR, { recursive: true });
+  writeFileSync(
+    CODEX_LOCAL_STATE_FILE,
+    JSON.stringify(
+      {
+        resumeThreadId: activeCodexThreadId,
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+function hydratePersistedCodexState() {
+  copyDirectoryContents(CODEX_PERSIST_DIR, CODEX_RUNTIME_HOME_DIR);
+  writeCodexFileIfConfigured("auth.json", CODEX_AUTH_JSON, CODEX_AUTH_JSON_BASE64);
+  writeCodexFileIfConfigured("config.toml", CODEX_CONFIG_TOML, CODEX_CONFIG_TOML_BASE64);
+}
+
+function syncCodexStateToPersist() {
+  writeCodexSessionState();
+  copyDirectoryContents(CODEX_RUNTIME_HOME_DIR, CODEX_PERSIST_DIR);
 }
 
 function collectClaudeTranscriptSessionIds() {
@@ -515,7 +841,7 @@ try { unlinkSync(READY_FILE); } catch {}
 
 accumulatedSteps.push({
   type: "thinking",
-  label: "Preparing Claude session...",
+  label: PROVIDER === "codex" ? "Preparing Codex session..." : "Preparing Claude session...",
   detail: "Initializing callback...",
   status: "active",
 });
@@ -588,7 +914,9 @@ async function setFinalizingState() {
     label: "Finalizing response...",
     detail: resultEventSeen
       ? "Syncing response and saved session..."
-      : "Claude finished. Sending completion...",
+      : PROVIDER === "codex"
+        ? "Codex finished. Sending completion..."
+        : "Claude finished. Sending completion...",
     status: "active",
   });
   lastStepType = "thinking";
@@ -878,16 +1206,75 @@ const systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYS
 const settingsJson = '{"attribution":{"commit":"","pr":""}}';
 const settingsArg = "--settings " + JSON.stringify(settingsJson);
 const mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
-const baseCmd = "cat /tmp/design-prompt.txt | claude -p --verbose --dangerously-skip-permissions --model " + MODEL + " " + toolsArg + " " + systemArg + " " + settingsArg + " " + mcpArg + " --output-format stream-json";
-log("entityId=" + ENTITY_ID + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (mcpArg ? "yes" : "no"));
+const normalizedClaudeModel = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
+const normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
+const codexPromptCmd = SYSTEM_PROMPT
+  ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)"
+  : "cat /tmp/design-prompt.txt";
+const codexExecBaseCmd =
+  "codex exec --skip-git-repo-check --full-auto --json --model " +
+  JSON.stringify(normalizedCodexModel);
+const claudeBaseCmd =
+  "cat /tmp/design-prompt.txt | claude -p --verbose --dangerously-skip-permissions --model " +
+  normalizedClaudeModel +
+  " " +
+  toolsArg +
+  " " +
+  systemArg +
+  " " +
+  settingsArg +
+  " " +
+  mcpArg +
+  " --output-format stream-json";
+log("entityId=" + ENTITY_ID + " provider=" + PROVIDER + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (mcpArg ? "yes" : "no"));
 
-const TOOL_STEP_TYPES = new Set(["read", "search_files", "search_code", "write", "edit", "bash", "tool"]);
+const TOOL_STEP_TYPES = new Set([
+  "read",
+  "search_files",
+  "search_code",
+  "write",
+  "edit",
+  "bash",
+  "tool",
+  "web_fetch",
+  "web_search",
+  "notebook",
+  "subtask",
+  "question",
+]);
 
 function hasToolActivity() {
   return accumulatedSteps.some((step) => TOOL_STEP_TYPES.has(step.type));
 }
 
 function extractResultEvent(output) {
+  if (PROVIDER === "codex") {
+    let finalText = "";
+    for (const line of output.split("\\n")) {
+      const clean = line.trim();
+      if (!clean) continue;
+      try {
+        const parsed = JSON.parse(clean);
+        if (
+          parsed.type === "item.completed" &&
+          parsed.item &&
+          parsed.item.type === "agent_message"
+        ) {
+          const messageText = getCodexAgentMessageText(parsed.item);
+          if (messageText) {
+            finalText = messageText;
+          }
+        }
+      } catch {}
+    }
+    return finalText
+      ? {
+          result: finalText,
+          isError: false,
+          rawResultEvent: finalText,
+        }
+      : null;
+  }
   let resultEvent = null;
   for (const line of output.split("\\n")) {
     const clean = line.trim();
@@ -910,6 +1297,19 @@ function extractResultEvent(output) {
 function handleRealtimeStreamLine(line) {
   const parsed = tryParseJson(line);
   if (!parsed || typeof parsed !== "object") {
+    return;
+  }
+  if (PROVIDER === "codex") {
+    const threadId = getCodexThreadId(parsed);
+    if (parsed.type === "thread.started" && threadId) {
+      activeCodexThreadId = threadId;
+      writeCodexSessionState();
+      return;
+    }
+    if (parsed.type === "turn.completed" && !resultEventSeen) {
+      resultEventSeen = true;
+      syncCodexStateToPersist();
+    }
     return;
   }
   if (
@@ -995,19 +1395,20 @@ function buildErrorMessage(
   timedOutForFirstEvent,
   timedOutAfterFirstText,
 ) {
+  const cliName = PROVIDER === "codex" ? "Codex CLI" : "Claude CLI";
   if (timedOutForMaxRuntime) {
-    return "Claude CLI terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
+    return cliName + " terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
   }
   if (timedOutForFirstEvent) {
-    return "Claude CLI produced no parseable stream-json events within " + FIRST_EVENT_TIMEOUT_MS + "ms";
+    return cliName + " produced no parseable stream-json events within " + FIRST_EVENT_TIMEOUT_MS + "ms";
   }
   if (timedOutAfterFirstText) {
-    return "Claude CLI stalled after first text block for " + POST_TEXT_STALL_TIMEOUT_MS + "ms";
+    return cliName + " stalled after first text block for " + POST_TEXT_STALL_TIMEOUT_MS + "ms";
   }
   if (timedOutForNoOutput) {
-    return "Claude CLI terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms";
+    return cliName + " terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms";
   }
-  return "Claude CLI exited with code " + code;
+  return cliName + " exited with code " + code;
 }
 
 function appendDiagnosticTail(message) {
@@ -1081,46 +1482,84 @@ function prepareClaudeSessionState() {
   return sessionMode;
 }
 
-async function runClaudeAttempt(sessionMode) {
+function prepareCodexSessionState() {
+  updateThinkingStep("Preparing Codex session...", "Hydrating saved session...");
+  hydratePersistedCodexState();
+  const persistedState = readCodexSessionState();
+  updateThinkingStep(
+    "Preparing Codex session...",
+    persistedState
+      ? "Saved session hydrated. Starting Codex..."
+      : "Preparing fresh Codex session...",
+  );
+  return persistedState
+    ? { mode: "resume", sessionId: persistedState.resumeThreadId }
+    : { mode: "none", sessionId: null };
+}
+
+function prepareProviderSessionState() {
+  return PROVIDER === "codex"
+    ? prepareCodexSessionState()
+    : prepareClaudeSessionState();
+}
+
+function resetAttemptState() {
   realtimeOutputBuffer = "";
   resultEventSeen = false;
   waitingForFirstAssistantEvent = false;
   claudeInitAt = 0;
   currentStreamedContent = "";
-  activeAttemptStartedAt = Date.now();
   firstAssistantEventAt = 0;
   firstTextBlockAt = 0;
-  const sessionArg =
-    sessionMode.mode === "session" && sessionMode.sessionId
-      ? " --session-id " + JSON.stringify(sessionMode.sessionId)
-      : sessionMode.mode === "resume" && sessionMode.sessionId
-        ? " --resume " + JSON.stringify(sessionMode.sessionId)
-        : "";
-  const cmd = baseCmd + sessionArg;
-  const startupStep = buildClaudeStartupStep();
-  updateThinkingStep(startupStep.label, startupStep.detail);
-  log(
-    "runClaudeAttempt started (mode=" +
-      sessionMode.mode +
-      ", sessionArg=" +
-      (sessionArg || "none") +
-      ")",
-  );
-  log(
-    "spawning claude after " +
-      String(activeAttemptStartedAt - SCRIPT_STARTED_AT) +
-      "ms since callback start",
-  );
+}
+
+function terminateAttemptProcess(child) {
+  try {
+    child.kill("SIGTERM");
+  } catch {}
+  setTimeout(() => {
+    try {
+      child.kill("SIGKILL");
+    } catch {}
+  }, 2000);
+}
+
+function inspectCodexStdout(text) {
+  for (const line of text.split("\\n")) {
+    const clean = line.trim();
+    if (!clean) {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(clean);
+      if (
+        parsed.type === "item.completed" &&
+        parsed.item &&
+        parsed.item.type === "agent_message" &&
+        getCodexAgentMessageText(parsed.item) &&
+        firstTextBlockAt === 0
+      ) {
+        firstTextBlockAt = Date.now();
+      }
+    } catch {}
+  }
+}
+
+async function runCliAttempt(options) {
+  resetAttemptState();
+  activeAttemptStartedAt = Date.now();
+  updateThinkingStep(options.startupStep.label, options.startupStep.detail);
+  if (options.onStart) {
+    options.onStart();
+  }
   return await new Promise((resolve, reject) => {
-    const child = spawn("bash", ["-c", "cd " + WORK_DIR + " && " + cmd], {
-      env: {
-        ...process.env,
-        CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
-      },
+    const child = spawn("bash", ["-c", "cd " + WORK_DIR + " && " + options.cmd], {
+      env: options.env,
       stdio: ["pipe", "pipe", "pipe"],
     });
     log(
-      "claude process spawned after " +
+      options.processLabel +
+        " process spawned after " +
         String(elapsedAttemptMs()) +
         "ms pid=" +
         String(child.pid || "unknown"),
@@ -1136,10 +1575,7 @@ async function runClaudeAttempt(sessionMode) {
     const noOutputTimer = setInterval(() => {
       if (Date.now() - SCRIPT_STARTED_AT > MAX_TOTAL_RUNTIME_MS) {
         timedOutForMaxRuntime = true;
-        try { child.kill("SIGTERM"); } catch {}
-        setTimeout(() => {
-          try { child.kill("SIGKILL"); } catch {}
-        }, 2000);
+        terminateAttemptProcess(child);
         return;
       }
       if (
@@ -1147,10 +1583,7 @@ async function runClaudeAttempt(sessionMode) {
         Date.now() - attemptStartedAt > FIRST_EVENT_TIMEOUT_MS
       ) {
         timedOutForFirstEvent = true;
-        try { child.kill("SIGTERM"); } catch {}
-        setTimeout(() => {
-          try { child.kill("SIGKILL"); } catch {}
-        }, 2000);
+        terminateAttemptProcess(child);
         return;
       }
       if (
@@ -1160,24 +1593,19 @@ async function runClaudeAttempt(sessionMode) {
       ) {
         timedOutAfterFirstText = true;
         log(
-          "claude stalled after first text for " +
+          options.processLabel +
+            " stalled after first text for " +
             String(Date.now() - firstTextBlockAt) +
             "ms; terminating process",
         );
-        try { child.kill("SIGTERM"); } catch {}
-        setTimeout(() => {
-          try { child.kill("SIGKILL"); } catch {}
-        }, 2000);
+        terminateAttemptProcess(child);
         return;
       }
       if (Date.now() - lastStdoutAt <= NO_OUTPUT_TIMEOUT_MS) {
         return;
       }
       timedOutForNoOutput = true;
-      try { child.kill("SIGTERM"); } catch {}
-      setTimeout(() => {
-        try { child.kill("SIGKILL"); } catch {}
-      }, 2000);
+      terminateAttemptProcess(child);
     }, NO_OUTPUT_CHECK_INTERVAL_MS);
 
     child.stdout.on("data", (chunk) => {
@@ -1186,13 +1614,35 @@ async function runClaudeAttempt(sessionMode) {
       rawOutput += text;
       lastStdoutAt = Date.now();
       processRealtimeStdoutChunk(text);
+      if (options.onStdoutText) {
+        options.onStdoutText(text);
+      }
     });
     child.stderr.on("data", (chunk) => {
       stderrOutput += chunk.toString();
     });
     child.on("close", (code) => {
       clearInterval(noOutputTimer);
-      log("runClaudeAttempt finished in " + elapsedAttemptMs() + "ms (code=" + code + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", timedOutForFirstEvent=" + timedOutForFirstEvent + ", timedOutAfterFirstText=" + timedOutAfterFirstText + ", outputBytes=" + attemptOutput.length + ", stderrBytes=" + stderrOutput.length + ")");
+      log(
+        options.attemptLabel +
+          " finished in " +
+          elapsedAttemptMs() +
+          "ms (code=" +
+          code +
+          ", timedOutForNoOutput=" +
+          timedOutForNoOutput +
+          ", timedOutForMaxRuntime=" +
+          timedOutForMaxRuntime +
+          ", timedOutForFirstEvent=" +
+          timedOutForFirstEvent +
+          ", timedOutAfterFirstText=" +
+          timedOutAfterFirstText +
+          ", outputBytes=" +
+          attemptOutput.length +
+          ", stderrBytes=" +
+          stderrOutput.length +
+          ")",
+      );
       resolve({
         code: code ?? 1,
         output: attemptOutput,
@@ -1209,9 +1659,89 @@ async function runClaudeAttempt(sessionMode) {
   });
 }
 
+async function runClaudeAttempt(sessionMode) {
+  const sessionArg =
+    sessionMode.mode === "session" && sessionMode.sessionId
+      ? " --session-id " + JSON.stringify(sessionMode.sessionId)
+      : sessionMode.mode === "resume" && sessionMode.sessionId
+        ? " --resume " + JSON.stringify(sessionMode.sessionId)
+        : "";
+  const cmd = claudeBaseCmd + sessionArg;
+  const startupStep = buildClaudeStartupStep();
+  return await runCliAttempt({
+    cmd,
+    env: {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+    },
+    processLabel: "claude",
+    attemptLabel: "runClaudeAttempt",
+    startupStep,
+    onStart: () => {
+      log(
+        "runClaudeAttempt started (mode=" +
+          sessionMode.mode +
+          ", sessionArg=" +
+          (sessionArg || "none") +
+          ")",
+      );
+      log(
+        "spawning claude after " +
+          String(activeAttemptStartedAt - SCRIPT_STARTED_AT) +
+          "ms since callback start",
+      );
+    },
+  });
+}
+
+async function runCodexAttempt(sessionMode) {
+  const sessionArg =
+    sessionMode.mode === "resume" && sessionMode.sessionId
+      ? " resume " + JSON.stringify(sessionMode.sessionId)
+      : "";
+  const cmd =
+    codexPromptCmd +
+    " | " +
+    codexExecBaseCmd +
+    sessionArg +
+    " -";
+  const startupStep = {
+    label: "Starting Codex CLI...",
+    detail:
+      sessionMode.mode === "resume"
+        ? "Restoring saved context..."
+        : "Launching Codex process...",
+  };
+  return await runCliAttempt({
+    cmd,
+    env: {
+      ...process.env,
+      CODEX_HOME: CODEX_RUNTIME_HOME_DIR,
+    },
+    processLabel: "codex",
+    attemptLabel: "runCodexAttempt",
+    startupStep,
+    onStdoutText: inspectCodexStdout,
+  });
+}
+
+async function runProviderAttempt(sessionMode) {
+  return PROVIDER === "codex"
+    ? await runCodexAttempt(sessionMode)
+    : await runClaudeAttempt(sessionMode);
+}
+
+function syncProviderStateToPersist(reason) {
+  if (PROVIDER === "codex") {
+    syncCodexStateToPersist();
+    return;
+  }
+  syncClaudeStateToPersist(reason);
+}
+
 try {
-  const initialSessionMode = prepareClaudeSessionState();
-  const firstAttempt = await runClaudeAttempt(initialSessionMode);
+  const initialSessionMode = prepareProviderSessionState();
+  const firstAttempt = await runProviderAttempt(initialSessionMode);
   await flushStreaming();
 
   let finalCode = firstAttempt.code;
@@ -1246,7 +1776,7 @@ try {
       pendingQuestionData || undefined,
     ).catch(() => {});
 
-    const secondAttempt = await runClaudeAttempt({
+    const secondAttempt = await runProviderAttempt({
       mode: "none",
       sessionId: null,
     });
@@ -1260,7 +1790,7 @@ try {
   }
 
   if (!resultEventSeen) {
-    syncClaudeStateToPersist("post-attempt");
+    syncProviderStateToPersist("post-attempt");
   } else {
     log("skipping post-attempt sync because result-event sync already ran");
   }
@@ -1348,16 +1878,16 @@ try {
         "Proof capture failed after completion: " + proofError,
       );
     }
-    syncClaudeStateToPersist("completion");
+    syncProviderStateToPersist("completion");
     await stopStreamingLoops();
   } catch (e) {
     console.error("Failed to send completion:", e);
-    syncClaudeStateToPersist("completion-error");
+    syncProviderStateToPersist("completion-error");
     await stopStreamingLoops();
     process.exit(1);
   }
 } catch (err) {
-  syncClaudeStateToPersist("fatal-error");
+  syncProviderStateToPersist("fatal-error");
   await stopStreamingLoops();
   const errorArgs = {
     [ENTITY_ID_FIELD]: ENTITY_ID,

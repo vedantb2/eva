@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import {
+  api,
+  getAIProviderAvailability,
+  getVisibleAIModelOptions,
+  type AIModel,
+  type Id,
+} from "@conductor/backend";
 import { ContextPreview } from "./ContextPreview";
 import { SelectionTool } from "./SelectionTool";
 import { AnnotationTool } from "./AnnotationTool";
@@ -29,7 +35,6 @@ import {
   PromptInputSettings,
   ActivitySteps,
   Spinner,
-  type ClaudeModel,
   type ResponseLength,
   type PromptInputMessage,
 } from "@conductor/ui";
@@ -45,7 +50,6 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 import type { ExtractedContext } from "@/shared/types";
-import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 
 type SessionMessage = NonNullable<
@@ -96,7 +100,7 @@ export function ChatPanel({
     EphemeralMessage[]
   >([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [model, setModel] = useState<ClaudeModel>("sonnet");
+  const [model, setModel] = useState<AIModel>("claude:sonnet");
   const [responseLength, setResponseLength] =
     useState<ResponseLength>("default");
   const [activeTool, setActiveTool] = useState<"select" | "annotate" | null>(
@@ -109,6 +113,14 @@ export function ChatPanel({
   const selectedRepo = useQuery(
     api.githubRepos.get,
     selectedRepoId ? { id: selectedRepoId } : "skip",
+  );
+  const repoEnvVars = useQuery(
+    api.repoEnvVars.list,
+    selectedRepoId ? { repoId: selectedRepoId } : "skip",
+  );
+  const teamEnvVars = useQuery(
+    api.teamEnvVars.list,
+    selectedRepo?.teamId ? { teamId: selectedRepo.teamId } : "skip",
   );
   const addMessage = useMutation(api.sessions.addMessage);
 
@@ -295,6 +307,24 @@ export function ChatPanel({
   };
 
   const isInputDisabled = !selectedRepoId || isLoading || isLoadingSession;
+  const providerAvailability = useMemo(() => {
+    if (
+      repoEnvVars === undefined ||
+      (selectedRepo?.teamId && teamEnvVars === undefined)
+    ) {
+      return undefined;
+    }
+    return getAIProviderAvailability(
+      new Set([
+        ...(teamEnvVars ?? []).map((entry) => entry.key),
+        ...(repoEnvVars ?? []).map((entry) => entry.key),
+      ]),
+    );
+  }, [repoEnvVars, selectedRepo?.teamId, teamEnvVars]);
+  const availableModelOptions = getVisibleAIModelOptions(
+    providerAvailability,
+    model,
+  );
 
   const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
     await handleSend(text);
@@ -593,6 +623,7 @@ export function ChatPanel({
                 <PromptInputSettings
                   model={model}
                   onModelChange={setModel}
+                  options={availableModelOptions}
                   responseLength={responseLength}
                   onResponseLengthChange={setResponseLength}
                   disabled={isInputDisabled}

@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { workflowCompleteValidator } from "./validators";
+import { DEFAULT_AI_MODEL, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 
@@ -123,7 +123,7 @@ export const generateQueryWorkflow = workflow.define({
       userId: args.userId,
       completionMutation: "researchQueryWorkflow:handleCompletion",
       entityIdField: "queryId",
-      model: args.model || "sonnet",
+      model: args.model || DEFAULT_AI_MODEL,
       allowedTools: "Bash",
       repoId: args.repoId,
     });

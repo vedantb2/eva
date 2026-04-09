@@ -42,7 +42,7 @@ jobs:
 
           RUN apt-get update && apt-get install -y git curl
           RUN corepack enable
-          RUN npm install -g @anthropic-ai/claude-code agent-browser convex
+          RUN npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex
           RUN npx playwright install-deps chromium
 
           RUN useradd -m -s /bin/bash eva && mkdir -p /workspace && chown eva:eva /workspace

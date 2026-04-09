@@ -22,6 +22,7 @@ import {
 } from "@conductor/ui";
 import type { FunctionReturnType } from "convex/server";
 import { QueryMessageItem } from "./QueryMessageItem";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 type QueryMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -45,6 +46,7 @@ export function QueryConversation({
   const [isSending, setIsSending] = useState(false);
   const { model, setModel, responseLength, setResponseLength } =
     useSessionSettings(queryId);
+  const { options: modelOptions } = useAvailableAiModels(repoId, model);
 
   const updateMessageStatus = useMutation(
     api.researchQueries.updateMessageStatus,
@@ -162,6 +164,7 @@ export function QueryConversation({
             <PromptInputTools>
               <ModelSelect
                 value={model}
+                options={modelOptions}
                 onValueChange={setModel}
                 disabled={isSending}
               />

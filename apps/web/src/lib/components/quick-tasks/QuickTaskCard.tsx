@@ -104,6 +104,7 @@ export function QuickTaskCard({
     assignedTo,
     model,
     projectId,
+    repoId,
     siblingApps,
     users,
     currentUserId,

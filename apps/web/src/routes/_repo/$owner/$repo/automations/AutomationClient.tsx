@@ -1,18 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, CLAUDE_MODELS, type ClaudeModel } from "@conductor/backend";
+import { api, normalizeAIModel, type AIModel } from "@conductor/backend";
 import type { Doc } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { CronScheduleCard } from "@/lib/components/CronScheduleCard";
 import {
   Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Tabs,
   TabsContent,
   TabsList,
@@ -24,6 +19,7 @@ import {
   useElapsedSeconds,
   formatElapsed,
   cn,
+  ModelSelect,
 } from "@conductor/ui";
 import {
   IconAlertTriangle,
@@ -42,6 +38,7 @@ import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 const summaryPlugins = { cjk, math, mermaid };
 
@@ -434,18 +431,24 @@ function SettingsForm({ automation }: { automation: Automation }) {
   const [title, setTitle] = useState(automation.title);
   const [description, setDescription] = useState(automation.description);
   const [cronSchedule, setCronSchedule] = useState(automation.cronSchedule);
-  const [model, setModel] = useState<ClaudeModel>(automation.model ?? "sonnet");
+  const [model, setModel] = useState<AIModel>(
+    normalizeAIModel(automation.model),
+  );
   const [readOnly, setReadOnly] = useState(automation.readOnly === true);
   const [actionsEnabled, setActionsEnabled] = useState(
     automation.actionsEnabled === true,
   );
   const [isSaving, setIsSaving] = useState(false);
+  const { options: modelOptions } = useAvailableAiModels(
+    automation.repoId,
+    model,
+  );
 
   const hasChanges =
     title !== automation.title ||
     description !== automation.description ||
     cronSchedule !== automation.cronSchedule ||
-    model !== (automation.model ?? "sonnet") ||
+    model !== normalizeAIModel(automation.model) ||
     readOnly !== (automation.readOnly === true) ||
     actionsEnabled !== (automation.actionsEnabled === true);
 
@@ -557,26 +560,13 @@ function SettingsForm({ automation }: { automation: Automation }) {
         <h3 className="text-sm font-medium">Model</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            Claude Model
+            Provider and Model
           </label>
-          <Select
+          <ModelSelect
             value={model}
-            onValueChange={(val) => {
-              const found = CLAUDE_MODELS.find((m) => m === val);
-              if (found) setModel(found);
-            }}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CLAUDE_MODELS.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m.charAt(0).toUpperCase() + m.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={modelOptions}
+            onValueChange={setModel}
+          />
         </div>
       </div>
 

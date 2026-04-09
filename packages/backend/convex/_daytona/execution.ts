@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import type { Sandbox } from "@daytonaio/sdk";
 import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { getAIModelProvider, normalizeAIModel } from "../validators";
 import {
   exec,
   resolveSandboxContext,
@@ -25,7 +26,7 @@ import {
   EPHEMERAL_LIFECYCLE,
   SESSION_LIFECYCLE,
 } from "./git";
-import { sessionClaudeUuid, ensureSessionClaudeVolume } from "./volumes";
+import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 
 export const validateSandbox = internalAction({
@@ -184,7 +185,7 @@ export const prepareSandbox = internalAction({
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionClaudeVolume(
+      ? await ensureSessionPersistenceVolumes(
           daytona,
           args.repoId,
           "sessions",
@@ -350,7 +351,7 @@ export const createOrResumeSandbox = internalAction({
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionClaudeVolume(
+      ? await ensureSessionPersistenceVolumes(
           daytona,
           args.repoId,
           "sessions",
@@ -552,7 +553,7 @@ export const launchOnExistingSandbox = internalAction({
 
     await exec(
       sandbox,
-      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
+      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
       10,
     );
     console.log(
@@ -578,9 +579,12 @@ export const launchOnExistingSandbox = internalAction({
         : "false";
     }
 
-    const claudeSessionId = args.sessionPersistenceId
-      ? sessionClaudeUuid(args.sessionPersistenceId)
-      : undefined;
+    const normalizedModel = normalizeAIModel(args.model);
+    const claudeSessionId =
+      getAIModelProvider(normalizedModel) === "claude" &&
+      args.sessionPersistenceId
+        ? sessionClaudeUuid(args.sessionPersistenceId)
+        : undefined;
 
     await signAndLaunchScript(
       ctx,
@@ -592,7 +596,7 @@ export const launchOnExistingSandbox = internalAction({
       args.entityId,
       args.repoId,
       {
-        model: args.model,
+        model: normalizedModel,
         allowedTools: args.allowedTools,
         systemPrompt: args.systemPrompt,
         extraEnvVars:

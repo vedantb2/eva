@@ -209,7 +209,7 @@ export async function createSandbox(
     );
     await exec(
       sandbox,
-      'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
+      `git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com" && mkdir -p ${WORKSPACE_DIR}`,
       10,
     );
     return sandbox;

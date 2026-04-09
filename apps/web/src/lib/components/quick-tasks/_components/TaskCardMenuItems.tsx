@@ -185,26 +185,54 @@ export function TaskCardMenuItems({
           Model
         </SubTrigger>
         <SubContent>
-          <RadioGroup
-            value={normalizedModel}
-            onValueChange={(value) => {
-              const matched = modelOptions.find(
-                (option) => option.id === value,
+          {(() => {
+            const opts =
+              modelOptions.length > 0 ? modelOptions : AI_MODEL_OPTIONS;
+            const providers = [
+              ...new Set(opts.map((o) => getAIModelProvider(o.id))),
+            ];
+            if (providers.length === 1) {
+              return (
+                <RadioGroup
+                  value={normalizedModel}
+                  onValueChange={(value) => {
+                    const matched = opts.find((o) => o.id === value);
+                    if (matched) updateTask({ id, model: matched.id });
+                  }}
+                >
+                  {opts.map((option) => (
+                    <RadioItem key={option.id} value={option.id}>
+                      {option.label}
+                    </RadioItem>
+                  ))}
+                </RadioGroup>
               );
-              if (!matched) return;
-              updateTask({ id, model: matched.id });
-            }}
-          >
-            {(modelOptions.length > 0 ? modelOptions : AI_MODEL_OPTIONS).map(
-              (option) => (
-                <RadioItem key={option.id} value={option.id}>
-                  {getAIModelProvider(option.id) === "codex"
-                    ? "Codex / " + option.label
-                    : "Claude / " + option.label}
-                </RadioItem>
-              ),
-            )}
-          </RadioGroup>
+            }
+            return providers.map((provider) => (
+              <Sub key={provider}>
+                <SubTrigger>
+                  {provider === "codex" ? "Codex" : "Claude"}
+                </SubTrigger>
+                <SubContent>
+                  <RadioGroup
+                    value={normalizedModel}
+                    onValueChange={(value) => {
+                      const matched = opts.find((o) => o.id === value);
+                      if (matched) updateTask({ id, model: matched.id });
+                    }}
+                  >
+                    {opts
+                      .filter((o) => getAIModelProvider(o.id) === provider)
+                      .map((option) => (
+                        <RadioItem key={option.id} value={option.id}>
+                          {option.label}
+                        </RadioItem>
+                      ))}
+                  </RadioGroup>
+                </SubContent>
+              </Sub>
+            ));
+          })()}
         </SubContent>
       </Sub>
 

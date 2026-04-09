@@ -106,9 +106,6 @@ export function PromptInputSettings<TModel extends string>({
 }: PromptInputSettingsProps<TModel>) {
   const selectedModel = findModelOption(model, options);
   const providerOptions = getProviderOptions(options);
-  const selectedProvider =
-    selectedModel?.provider ?? providerOptions[0]?.id ?? "claude";
-  const providerModels = getProviderModels(options, selectedProvider);
 
   return (
     <DropdownMenu>
@@ -124,52 +121,66 @@ export function PromptInputSettings<TModel extends string>({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        {providerOptions.length > 1 && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <IconBrain size={14} />
-              Provider
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuRadioGroup
-                value={selectedProvider}
-                onValueChange={(provider) => {
-                  const nextModel = getProviderModels(options, provider)[0];
-                  if (nextModel) {
-                    onModelChange(nextModel.id);
-                  }
-                }}
-              >
-                {providerOptions.map((provider) => (
-                  <DropdownMenuRadioItem key={provider.id} value={provider.id}>
-                    {provider.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <IconBrain size={14} />
             Model
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
-            <DropdownMenuRadioGroup
-              value={selectedModel?.id}
-              onValueChange={(value) => {
-                const option = options.find((entry) => entry.id === value);
-                if (option) {
-                  onModelChange(option.id);
-                }
-              }}
-            >
-              {providerModels.map((option) => (
-                <DropdownMenuRadioItem key={option.id} value={option.id}>
-                  {option.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
+            {providerOptions.map((provider) => {
+              const models = getProviderModels(options, provider.id);
+              if (providerOptions.length === 1) {
+                return (
+                  <DropdownMenuRadioGroup
+                    key={provider.id}
+                    value={selectedModel?.id}
+                    onValueChange={(value) => {
+                      const option = options.find(
+                        (entry) => entry.id === value,
+                      );
+                      if (option) {
+                        onModelChange(option.id);
+                      }
+                    }}
+                  >
+                    {models.map((option) => (
+                      <DropdownMenuRadioItem key={option.id} value={option.id}>
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                );
+              }
+              return (
+                <DropdownMenuSub key={provider.id}>
+                  <DropdownMenuSubTrigger>
+                    {provider.label}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuRadioGroup
+                      value={selectedModel?.id}
+                      onValueChange={(value) => {
+                        const option = options.find(
+                          (entry) => entry.id === value,
+                        );
+                        if (option) {
+                          onModelChange(option.id);
+                        }
+                      }}
+                    >
+                      {models.map((option) => (
+                        <DropdownMenuRadioItem
+                          key={option.id}
+                          value={option.id}
+                        >
+                          {option.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              );
+            })}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         {onResponseLengthChange && responseLength !== undefined && (
@@ -218,63 +229,73 @@ export function ModelSelect<TModel extends string>({
 }: ModelSelectProps<TModel>) {
   const selectedModel = findModelOption(value, options);
   const providerOptions = getProviderOptions(options);
-  const selectedProvider =
-    selectedModel?.provider ?? providerOptions[0]?.id ?? "claude";
-  const providerModels = getProviderModels(options, selectedProvider);
-
-  const triggerClassName = cn(
-    "h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none hover:bg-accent hover:text-foreground",
-    className,
-  );
 
   return (
-    <div className="flex items-center gap-1">
-      {providerOptions.length > 1 && (
-        <Select
-          value={selectedProvider}
-          onValueChange={(provider) => {
-            const nextModel = getProviderModels(options, provider)[0];
-            if (nextModel) {
-              onValueChange(nextModel.id);
-            }
-          }}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={cn(
+            "flex items-center gap-1.5 rounded-md h-7 px-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50 transition-colors",
+            className,
+          )}
           disabled={disabled}
         >
-          <SelectTrigger className={cn(triggerClassName, "px-1.5")}>
-            <SelectValue>{getProviderLabel(selectedProvider)}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {providerOptions.map((provider) => (
-              <SelectItem key={provider.id} value={provider.id}>
-                {provider.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-      <Select
-        value={selectedModel?.id}
-        onValueChange={(modelId) => {
-          const option = options.find((entry) => entry.id === modelId);
-          if (option) {
-            onValueChange(option.id);
-          }
-        }}
-        disabled={disabled}
-      >
-        <SelectTrigger className={triggerClassName}>
           <IconBrain size={14} className="shrink-0" />
-          <SelectValue>{selectedModel?.label}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {providerModels.map((option) => (
-            <SelectItem key={option.id} value={option.id}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+          {selectedModel
+            ? `${getProviderLabel(selectedModel.provider)} / ${selectedModel.label}`
+            : "Select model"}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {providerOptions.map((provider) => {
+          const models = getProviderModels(options, provider.id);
+          if (providerOptions.length === 1) {
+            return (
+              <DropdownMenuRadioGroup
+                key={provider.id}
+                value={selectedModel?.id}
+                onValueChange={(modelId) => {
+                  const option = options.find((entry) => entry.id === modelId);
+                  if (option) {
+                    onValueChange(option.id);
+                  }
+                }}
+              >
+                {models.map((option) => (
+                  <DropdownMenuRadioItem key={option.id} value={option.id}>
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            );
+          }
+          return (
+            <DropdownMenuSub key={provider.id}>
+              <DropdownMenuSubTrigger>{provider.label}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={selectedModel?.id}
+                  onValueChange={(modelId) => {
+                    const option = options.find(
+                      (entry) => entry.id === modelId,
+                    );
+                    if (option) {
+                      onValueChange(option.id);
+                    }
+                  }}
+                >
+                  {models.map((option) => (
+                    <DropdownMenuRadioItem key={option.id} value={option.id}>
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

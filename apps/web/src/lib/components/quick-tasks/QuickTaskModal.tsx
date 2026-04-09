@@ -14,12 +14,19 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
+  ModelSelect,
 } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, DEFAULT_AI_MODEL, normalizeAIModel } from "@conductor/backend";
+import {
+  api,
+  DEFAULT_AI_MODEL,
+  normalizeAIModel,
+  type AIModel,
+} from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconFileText, IconTrash } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -53,6 +60,8 @@ export function QuickTaskModal({
   const removeDraft = useMutation(api.agentTasks.remove);
   const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
+  const [model, setModel] = useState<AIModel>(defaultModel);
+  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
   const hasContent = title.trim() || description.trim();
 
@@ -60,8 +69,9 @@ export function QuickTaskModal({
     setTitle("");
     setDescription("");
     setBaseBranch(defaultBranch);
+    setModel(defaultModel);
     setActiveDraftId(null);
-  }, [defaultBranch]);
+  }, [defaultBranch, defaultModel]);
 
   const handleClose = useCallback(async () => {
     if (hasContent) {
@@ -100,7 +110,7 @@ export function QuickTaskModal({
           title: title.trim(),
           description: description.trim() || undefined,
           baseBranch,
-          model: defaultModel,
+          model,
         });
       } else {
         await createQuickTask({
@@ -108,7 +118,7 @@ export function QuickTaskModal({
           title: title.trim(),
           description: description.trim() || undefined,
           baseBranch,
-          model: defaultModel,
+          model,
           projectId,
         });
       }
@@ -174,12 +184,19 @@ export function QuickTaskModal({
             rows={6}
             className="min-h-[120px] max-h-[50vh] sm:min-h-[200px]"
           />
-          <BranchSelect
-            value={baseBranch}
-            onValueChange={setBaseBranch}
-            placeholder="Select a base branch"
-            className="h-10"
-          />
+          <div className="flex items-center gap-2">
+            <BranchSelect
+              value={baseBranch}
+              onValueChange={setBaseBranch}
+              placeholder="Select a base branch"
+              className="h-10 flex-1"
+            />
+            <ModelSelect
+              value={model}
+              options={modelOptions}
+              onValueChange={setModel}
+            />
+          </div>
         </div>
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           <div>

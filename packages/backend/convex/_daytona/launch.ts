@@ -13,6 +13,20 @@ import {
   CODEX_RUNTIME_HOME_DIR,
 } from "./volumes";
 
+const CODEX_INSTALL_TIMEOUT_SECONDS = 300;
+const CODEX_FALLBACK_INSTALL_DIR = "/tmp/codex-cli";
+const CODEX_FALLBACK_BIN_PATH = `${CODEX_FALLBACK_INSTALL_DIR}/bin/codex`;
+const CALLBACK_READY_TIMEOUT_SECONDS = 75;
+const CALLBACK_READY_POLL_ATTEMPTS = 60;
+
+async function ensureCodexCliAvailable(sandbox: Sandbox): Promise<void> {
+  await exec(
+    sandbox,
+    `if ! command -v codex >/dev/null 2>&1 && [ ! -x ${quote([CODEX_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CODEX_FALLBACK_INSTALL_DIR])} @openai/codex; fi`,
+    CODEX_INSTALL_TIMEOUT_SECONDS,
+  );
+}
+
 export async function launchScript(
   sandbox: Sandbox,
   prompt: string,
@@ -36,6 +50,9 @@ export async function launchScript(
   );
   const normalizedModel = normalizeAIModel(opts.model);
   const provider = getAIModelProvider(normalizedModel);
+  if (provider === "codex") {
+    await ensureCodexCliAvailable(sandbox);
+  }
   const uploadTasks: Array<Promise<void>> = [
     sandbox.fs
       .uploadFile(Buffer.from(prompt, "utf-8"), "/tmp/design-prompt.txt")
@@ -92,6 +109,7 @@ export async function launchScript(
     `SYSTEM_PROMPT=${quote([opts.systemPrompt ?? ""])}`,
     `CODEX_RUNTIME_HOME_DIR=${quote([CODEX_RUNTIME_HOME_DIR])}`,
     `CODEX_PERSIST_DIR=${quote([CODEX_PERSIST_VOLUME_MOUNT_PATH])}`,
+    `CODEX_BIN_PATH=${quote([CODEX_FALLBACK_BIN_PATH])}`,
   ];
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);
@@ -111,8 +129,8 @@ export async function launchScript(
   const envVars = envParts.join(" ");
   await exec(
     sandbox,
-    `rm -f /tmp/run-design.pid /tmp/run-design.ready; ${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 & echo $! > /tmp/run-design.pid; pid=$(cat /tmp/run-design.pid); if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=0; while [ "$i" -lt 25 ]; do if [ -f /tmp/run-design.ready ]; then exit 0; fi; if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=$((i+1)); sleep 1; done; tail -n 120 /tmp/design.log 2>/dev/null || true; kill "$pid" 2>/dev/null || true; exit 1`,
-    40,
+    `rm -f /tmp/run-design.pid /tmp/run-design.ready; ${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 & echo $! > /tmp/run-design.pid; pid=$(cat /tmp/run-design.pid); if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=0; while [ "$i" -lt ${CALLBACK_READY_POLL_ATTEMPTS} ]; do if [ -f /tmp/run-design.ready ]; then exit 0; fi; if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=$((i+1)); sleep 1; done; tail -n 120 /tmp/design.log 2>/dev/null || true; kill "$pid" 2>/dev/null || true; exit 1`,
+    CALLBACK_READY_TIMEOUT_SECONDS,
   );
   console.log(
     `[daytona][launchScript] runner ready in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,

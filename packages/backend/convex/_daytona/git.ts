@@ -44,6 +44,11 @@ const WARMING_LIFECYCLE: SandboxLifecycle = {
 
 export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE, WARMING_LIFECYCLE };
 
+const REPO_CLONE_TIMEOUT_SECONDS = 300;
+const PNPM_INSTALL_TIMEOUT_SECONDS = 900;
+const YARN_INSTALL_TIMEOUT_SECONDS = 900;
+const NPM_INSTALL_TIMEOUT_SECONDS = 900;
+
 function formatDurationMs(durationMs: number): string {
   return `${durationMs}ms`;
 }
@@ -424,12 +429,20 @@ async function installDependencies(
     await exec(
       sandbox,
       `npm install -g pnpm && cd ${workspaceDir} && pnpm install`,
-      150,
+      PNPM_INSTALL_TIMEOUT_SECONDS,
     );
   } else if (pm === "yarn") {
-    await exec(sandbox, `cd ${workspaceDir} && yarn install`, 120);
+    await exec(
+      sandbox,
+      `cd ${workspaceDir} && yarn install`,
+      YARN_INSTALL_TIMEOUT_SECONDS,
+    );
   } else {
-    await exec(sandbox, `cd ${workspaceDir} && npm install`, 120);
+    await exec(
+      sandbox,
+      `cd ${workspaceDir} && npm install`,
+      NPM_INSTALL_TIMEOUT_SECONDS,
+    );
   }
 }
 
@@ -438,6 +451,7 @@ export async function cloneAndSetupRepo(
   installationId: number,
   owner: string,
   name: string,
+  shouldInstallDeps: boolean,
   onProgress?: (label: string) => Promise<void>,
 ): Promise<void> {
   if (onProgress) await onProgress("Cloning repository...");
@@ -446,8 +460,11 @@ export async function cloneAndSetupRepo(
   await execGitCommand(
     sandbox,
     `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && git clone --depth 1 ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
-    120,
+    REPO_CLONE_TIMEOUT_SECONDS,
   );
+  if (!shouldInstallDeps) {
+    return;
+  }
   if (onProgress) await onProgress("Installing dependencies...");
   const pm = await detectPackageManager(sandbox);
   await installDependencies(sandbox, pm);
@@ -545,6 +562,7 @@ export async function createSandboxAndPrepareRepo(
           installationId,
           owner,
           name,
+          !lifecycle.ephemeral,
           onProgress,
         );
         return { sandbox, usedSnapshot: false };

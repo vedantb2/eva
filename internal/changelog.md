@@ -7,6 +7,9 @@
   - Replaced the Claude-only sandbox model contract with shared provider-qualified model ids and a backend model catalog reused by the web app, extension, and shared UI controls.
   - Added Codex availability gating based on repo/team env vars, so Codex only appears when `CODEX_AUTH_JSON` or its compatible fallback env vars are configured.
   - Extended the Daytona sandbox runner and persisted session storage to support Codex CLI launches, hydrated `CODEX_HOME` from env vars, and kept Codex session state across sandbox restarts alongside the existing Claude path.
+  - Added a Codex CLI availability check at launch time so older snapshots and plain non-snapshot sandboxes can install Codex on demand the first time a Codex model is used.
+  - Stopped fresh ephemeral sandboxes from blocking on dependency installation before a quick task can start, while still leaving the longer install path available for non-ephemeral sandboxes that benefit from a prepared environment.
+  - Increased fresh sandbox clone and runner startup timeouts so newly synced repos without snapshots are less likely to fail during initial bootstrap or callback readiness on slower sandboxes.
   - Updated setup and env-var UX to explain the simplest Codex setup path: sign in locally once, then paste the saved auth JSON into an env var.
 - **Reason**: Treating providers as first-class runtime choices keeps the architecture easier to extend than sprinkling Codex support through Claude-specific code paths, while the env-var-only setup keeps the product change low-friction for users.
 

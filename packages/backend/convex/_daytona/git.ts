@@ -268,20 +268,21 @@ export async function fetchOrigin(
   owner: string,
   name: string,
   ref?: string,
-  opts?: { prune?: boolean; timeoutSeconds?: number },
+  opts?: { prune?: boolean; timeoutSeconds?: number; shallow?: boolean },
 ): Promise<void> {
   const details = `${owner}/${name}, ref=${ref ?? "all"}, prune=${
     opts?.prune === false ? "false" : "true"
-  }`;
+  }, shallow=${opts?.shallow === true ? "true" : "false"}`;
   await runLoggedGitStep("fetchOrigin", details, async () => {
     const githubToken = await getInstallationToken(installationId);
     const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
     const workspaceDir = workspaceDirShell();
     const pruneArg = opts?.prune === false ? "" : " --prune";
+    const depthArg = opts?.shallow === true ? " --depth 1" : "";
     const refArg = ref ? ` ${quote([ref])}` : "";
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch${pruneArg} origin${refArg}`,
+      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch${pruneArg}${depthArg} origin${refArg}`,
       opts?.timeoutSeconds ?? 240,
     );
   });

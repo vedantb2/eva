@@ -487,7 +487,7 @@ export const fetchBaseBranch = internalAction({
       args.repoOwner,
       args.repoName,
       args.baseBranch,
-      { prune: false, timeoutSeconds: 240 },
+      { prune: false, timeoutSeconds: 240, shallow: true },
     );
     return null;
   },

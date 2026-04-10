@@ -25,7 +25,7 @@ export {
   clearActiveWorkflow,
 } from "./_taskWorkflow/scheduling";
 
-export { getTaskData } from "./_taskWorkflow/queries";
+export { getTaskData, getPrSectionsData } from "./_taskWorkflow/queries";
 
 export {
   handleCompletion,

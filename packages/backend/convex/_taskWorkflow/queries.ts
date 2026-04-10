@@ -6,6 +6,53 @@ import {
   buildConflictResolutionPrompt,
 } from "./prompts";
 
+const proofEntryValidator = v.object({
+  url: v.string(),
+  contentType: v.string(),
+  fileName: v.union(v.string(), v.null()),
+});
+
+export const getPrSectionsData = internalQuery({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.object({
+    proofEntries: v.array(proofEntryValidator),
+    changeRequests: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const proofs = await ctx.db
+      .query("taskProof")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+
+    const proofEntries: Array<{
+      url: string;
+      contentType: string;
+      fileName: string | null;
+    }> = [];
+    for (const p of proofs) {
+      if (!p.storageId) continue;
+      const url = await ctx.storage.getUrl(p.storageId);
+      if (!url) continue;
+      const meta = await ctx.db.system.get("_storage", p.storageId);
+      proofEntries.push({
+        url,
+        contentType: meta?.contentType ?? "application/octet-stream",
+        fileName: p.fileName ?? null,
+      });
+    }
+
+    const comments = await ctx.db
+      .query("taskComments")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const changeRequests = comments
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((c) => c.content);
+
+    return { proofEntries, changeRequests };
+  },
+});
+
 export const getTaskData = internalQuery({
   args: {
     taskId: v.id("agentTasks"),

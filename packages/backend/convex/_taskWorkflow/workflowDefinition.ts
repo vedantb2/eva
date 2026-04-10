@@ -186,23 +186,44 @@ export const taskExecutionWorkflow = workflow.define({
             activityLog: auditResult.activityLog,
           });
 
-          if (completionPrUrl) {
-            await step.runAction(
-              internal.taskWorkflowActions.appendAuditToPullRequest,
-              {
-                installationId: args.installationId,
-                repoOwner: data.repoOwner,
-                repoName: data.repoName,
-                branchName: data.branchName,
-                auditResult: auditResult.result,
-                auditError: auditResult.success
-                  ? null
-                  : (auditResult.error ?? "Audit failed"),
-              },
-            );
-          }
+          await step.runAction(
+            internal.taskWorkflowActions.appendAuditToPullRequest,
+            {
+              installationId: args.installationId,
+              repoOwner: data.repoOwner,
+              repoName: data.repoName,
+              branchName: data.branchName,
+              auditResult: auditResult.result,
+              auditError: auditResult.success
+                ? null
+                : (auditResult.error ?? "Audit failed"),
+            },
+          );
         } catch (err) {
           console.error("Audit step failed:", err);
+        }
+      }
+
+      if (result.success) {
+        try {
+          const prSections = await step.runQuery(
+            internal.taskWorkflow.getPrSectionsData,
+            { taskId: args.taskId },
+          );
+
+          await step.runAction(
+            internal.taskWorkflowActions.updatePullRequestSections,
+            {
+              installationId: args.installationId,
+              repoOwner: data.repoOwner,
+              repoName: data.repoName,
+              branchName: data.branchName,
+              proofEntries: prSections.proofEntries,
+              changeRequests: prSections.changeRequests,
+            },
+          );
+        } catch (err) {
+          console.error("PR sections update failed:", err);
         }
       }
 

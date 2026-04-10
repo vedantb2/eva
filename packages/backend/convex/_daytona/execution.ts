@@ -137,6 +137,10 @@ function isSandboxSetupRetryable(message: string): boolean {
   }
   const lowered = message.toLowerCase();
   const gitNetworkMarkers = [
+    "status code 502",
+    "status code 503",
+    "status code 504",
+    "fetch failed",
     "gnutls recv error",
     "tls connection was non-properly terminated",
     "remote end hung up unexpectedly",

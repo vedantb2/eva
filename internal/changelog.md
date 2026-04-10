@@ -9,6 +9,17 @@
   - Added `useStableAuth` wrapper around Clerk's `useAuth` for `ConvexProviderWithClerk` — debounces unexpected auth loss for 2s so the page reloads (stale deployment) or routes unmount (real logout) before Convex ever sees the token cleared.
 - **Reason**: The error page flash was a bad UX during deployments, and the Convex log noise made real errors harder to spot. Debouncing auth loss at the provider boundary is the narrowest intervention that prevents the cascade without changing the backend auth contract.
 
+## Remove pre-clone network polling for fresh sandboxes - 2026-04-10
+
+- **Why**: New repos without snapshots were still taking over a minute to start quick tasks because sandbox prep waited for a synthetic `curl github.com` network check before attempting the real `git clone`. The check was both slow and misleading: even after timing out, the code still tried the clone anyway.
+- **Changes**:
+  - Removed the pre-clone network readiness gate from the non-snapshot sandbox bootstrap path.
+  - Added direct clone retries with short backoff for transient sandbox/GitHub transport failures so the first real git operation happens immediately.
+  - Added clearer retry/recovery logs around clone attempts to make bootstrap failures easier to pinpoint.
+  - Added a dedicated archive-download bootstrap path for fresh ephemeral sandboxes with no branch sync requirements, so they no longer depend on a long-lived `git clone` call just to materialize the working tree.
+  - Broadened outer sandbox setup retry classification to treat 502/503/504-style upstream failures as transient bootstrap errors.
+- **Reason**: Retrying the real git operation is simpler and more accurate than polling a separate connectivity heuristic, and it avoids burning most of the startup budget before any useful work begins.
+
 ## Add Codex as an env-var-backed sandbox provider - 2026-04-09
 
 - **Why**: Claude was the only first-class sandbox provider, which meant teams could not bring their existing ChatGPT-backed Codex access into Conductor. The goal was to add Codex without introducing a new OAuth product flow or more setup friction, so the implementation needed to stay simple: choose a provider in the same UI surfaces and enable Codex by adding env vars only.

@@ -43,6 +43,7 @@ Implementation:
 - Feel free to ask AS MANY QUESTIONS AS YOU LIKE, you must have a complete end to end understand of how the user wants something to be implemented, even if the user may not know themselves.
 - Prefer making a detailed plan over a quick plan
 - Add comments especially for big functions and update comments (if needed) when modifying big functions- When done implementing, explain all your changes made to the user
+- Check web and docs for everything you do
 - If you have learnt anything new from the user, ie their preference of implementing something, then include this in the CLAUDE.md too in a short concise format
 - Never use `any`
 - Never use `unknown`
@@ -135,3 +136,5 @@ stop adding usestate's useref's for everything, this is the easy way out for eve
 if the user asks you to run a migration, you need to add a migration function to clear the documents with that field in the db, then you run it, then you can get rid of the fields from the schema, then cleanup the migration function
 
 if you are using the agent-browser skill, navigate to `/?agent` to auto sign in as the agent user.
+
+for fresh daytona sandbox bootstrap, do not pre-poll generic network readiness before git operations; attempt the real git command immediately and retry that command with clear logs if the transport is flaky

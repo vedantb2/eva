@@ -7,7 +7,11 @@ import type {
   VolumeMount,
 } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
-import { buildGitHubRepoUrl, getInstallationToken } from "../githubAuth";
+import {
+  buildGitHubRepoUrl,
+  getInstallationOctokit,
+  getInstallationToken,
+} from "../githubAuth";
 import {
   exec,
   LEGACY_WORKSPACE_DIR,
@@ -97,42 +101,6 @@ async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
       `cleanupTimedOutGitState: cleanup failed (best-effort): ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-}
-
-/** Polls HTTPS connectivity to github.com until it responds, or throws after max wait.
- * New Daytona sandboxes can have DNS ready before outbound TCP is fully routed.
- */
-async function waitForNetwork(sandbox: Sandbox): Promise<void> {
-  const startedAt = Date.now();
-  let attempts = 0;
-  while (Date.now() - startedAt < NETWORK_READY_MAX_WAIT_MS) {
-    attempts += 1;
-    try {
-      const result = await exec(
-        sandbox,
-        `curl -s -o /dev/null -w "%{http_code}" https://github.com --connect-timeout 5`,
-        10,
-      );
-      const statusCode = result.trim();
-      if (statusCode !== "000") {
-        logGit(
-          `waitForNetwork: ready after ${attempts} attempt(s), ${formatDurationMs(Date.now() - startedAt)} (HTTP ${statusCode})`,
-        );
-        return;
-      }
-    } catch {
-      // curl failed or timed out — keep polling
-    }
-    logGit(
-      `waitForNetwork: not ready after ${attempts} attempt(s), ${formatDurationMs(Date.now() - startedAt)} elapsed, retrying in ${NETWORK_READY_POLL_INTERVAL_MS}ms`,
-    );
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, NETWORK_READY_POLL_INTERVAL_MS);
-    });
-  }
-  logGit(
-    `waitForNetwork: timed out after ${attempts} attempt(s), ${formatDurationMs(Date.now() - startedAt)} — proceeding with clone anyway`,
-  );
 }
 
 /** Strips GitHub tokens from command strings for safe logging.
@@ -248,6 +216,28 @@ function isMissingRemoteRefError(message: string): boolean {
   return (
     lower.includes("couldn't find remote ref") ||
     lower.includes("could not find remote ref")
+  );
+}
+
+function isRetryableGitNetworkError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    isSandboxExecTimeout(message) ||
+    lower.includes("status code 502") ||
+    lower.includes("status code 503") ||
+    lower.includes("status code 504") ||
+    lower.includes("fetch failed") ||
+    lower.includes("econnreset") ||
+    lower.includes("econnrefused") ||
+    lower.includes("etimedout") ||
+    lower.includes("socket hang up") ||
+    lower.includes("gnutls recv error") ||
+    lower.includes("tls connection was non-properly terminated") ||
+    lower.includes("remote end hung up unexpectedly") ||
+    lower.includes("connection reset by peer") ||
+    lower.includes("rpc failed") ||
+    lower.includes("early eof") ||
+    lower.includes("http/2 stream")
   );
 }
 
@@ -575,6 +565,29 @@ async function installDependencies(
   }
 }
 
+/** Downloads a repo archive for fast no-sync ephemeral bootstrap and initializes a local git repo. */
+async function downloadRepoArchive(
+  sandbox: Sandbox,
+  installationId: number,
+  owner: string,
+  name: string,
+): Promise<void> {
+  const octokit = await getInstallationOctokit(installationId);
+  const repo = await octokit.rest.repos.get({ owner, repo: name });
+  const defaultBranch = repo.data.default_branch;
+  const githubToken = await getInstallationToken(installationId);
+  const archiveUrl = `https://api.github.com/repos/${owner}/${name}/tarball/${encodeURIComponent(defaultBranch)}`;
+  const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+  logGit(
+    `downloadRepoArchive: bootstrapping ${owner}/${name} from defaultBranch=${defaultBranch}`,
+  );
+  await exec(
+    sandbox,
+    `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} /tmp/repo.tar.gz && mkdir -p ${quote([WORKSPACE_DIR])} && curl -fsSL -H ${quote([`Authorization: Bearer ${githubToken}`])} -H ${quote(["Accept: application/vnd.github+json"])} ${quote([archiveUrl])} -o /tmp/repo.tar.gz && tar -xzf /tmp/repo.tar.gz --strip-components=1 -C ${quote([WORKSPACE_DIR])} && rm -f /tmp/repo.tar.gz && cd ${quote([WORKSPACE_DIR])} && git init -b ${quote([defaultBranch])} && git remote add origin ${quote([repoUrl])} && git add -A && git commit --allow-empty -m "Initial checkout"`,
+    180,
+  );
+}
+
 /** Clones a GitHub repo into the sandbox and optionally installs dependencies. */
 export async function cloneAndSetupRepo(
   sandbox: Sandbox,
@@ -589,14 +602,36 @@ export async function cloneAndSetupRepo(
     if (onProgress) await onProgress("Cloning repository...");
     const githubToken = await getInstallationToken(installationId);
     const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
-    // Wait for sandbox network to be ready (HTTPS to github.com)
-    // New sandboxes may have DNS before outbound TCP is routable.
-    await waitForNetwork(sandbox);
-    await execGitCommand(
-      sandbox,
-      `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && GIT_TERMINAL_PROMPT=0 git clone --depth 1 --single-branch --no-tags ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
-      REPO_CLONE_TIMEOUT_SECONDS,
-    );
+    const cloneCommand = `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && GIT_TERMINAL_PROMPT=0 git clone --depth 1 --single-branch --no-tags ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`;
+    const maxCloneAttempts = 3;
+    for (let attempt = 1; attempt <= maxCloneAttempts; attempt += 1) {
+      try {
+        await execGitCommand(sandbox, cloneCommand, REPO_CLONE_TIMEOUT_SECONDS);
+        if (attempt > 1) {
+          logGit(
+            `cloneAndSetupRepo: clone recovered on attempt ${attempt}/${maxCloneAttempts} for ${owner}/${name}`,
+          );
+        }
+        break;
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          throw error;
+        }
+        const shouldRetry =
+          attempt < maxCloneAttempts &&
+          isRetryableGitNetworkError(error.message);
+        if (!shouldRetry) {
+          throw error;
+        }
+        const delayMs = attempt * 2000;
+        logGit(
+          `cloneAndSetupRepo: clone retrying in ${delayMs}ms after attempt ${attempt}/${maxCloneAttempts} for ${owner}/${name}: ${error.message}`,
+        );
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
+      }
+    }
     if (!shouldInstallDeps) {
       return;
     }
@@ -702,6 +737,23 @@ export async function createSandboxAndPrepareRepo(
             await syncRepo(sandbox, installationId, owner, name, syncStrategy);
           }
           return { sandbox, usedSnapshot: true };
+        }
+        if (lifecycle.ephemeral && syncStrategy.mode === "none") {
+          const activeSandbox = sandbox;
+          if (onProgress) await onProgress("Downloading repository...");
+          await runLoggedGitStep(
+            "downloadRepoArchive",
+            `${owner}/${name}`,
+            async () => {
+              await downloadRepoArchive(
+                activeSandbox,
+                installationId,
+                owner,
+                name,
+              );
+            },
+          );
+          return { sandbox: activeSandbox, usedSnapshot: false };
         }
         await cloneAndSetupRepo(
           sandbox,

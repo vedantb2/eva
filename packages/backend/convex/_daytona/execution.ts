@@ -147,6 +147,7 @@ function isSandboxSetupRetryable(message: string): boolean {
   ];
   return (
     (lowered.includes("sandbox exec") && lowered.includes("timed out")) ||
+    lowered.includes("command execution timeout") ||
     gitNetworkMarkers.some((marker) => lowered.includes(marker))
   );
 }
@@ -188,6 +189,9 @@ export const prepareSandbox = internalAction({
     };
 
     const setupStartedAt = Date.now();
+    console.log(
+      `[daytona] prepareSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
+    );
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
@@ -198,6 +202,9 @@ export const prepareSandbox = internalAction({
           args.sessionPersistenceId,
         )
       : undefined;
+    console.log(
+      `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
+    );
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
@@ -283,6 +290,9 @@ export const prepareSandbox = internalAction({
         break;
       } catch (error) {
         if (deleteSandboxOnFailure && sandbox) {
+          console.warn(
+            `[daytona] prepareSandbox: deleting failed sandbox ${sandbox.id}`,
+          );
           try {
             await sandbox.delete();
           } catch {}
@@ -290,18 +300,24 @@ export const prepareSandbox = internalAction({
 
         const message = errorMessage(error, "Sandbox setup failed");
         const elapsed = Date.now() - setupStartedAt;
-        const shouldRetry =
-          isSandboxSetupRetryable(message) && elapsed < MAX_SETUP_ELAPSED_MS;
+        const retryable = isSandboxSetupRetryable(message);
+        const withinTimeLimit = elapsed < MAX_SETUP_ELAPSED_MS;
+        const shouldRetry = retryable && withinTimeLimit;
+
+        console.warn(
+          `[daytona] prepareSandbox: attempt ${attempt}/${maxSetupAttempts} failed after ${elapsed}ms — retryable=${retryable}, withinTimeLimit=${withinTimeLimit}, shouldRetry=${shouldRetry}: ${message}`,
+        );
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
+          console.error(
+            `[daytona] prepareSandbox: giving up after ${attempt} attempt(s), total elapsed=${elapsed}ms: ${message}`,
+          );
           throw error;
         }
 
         const delayMs =
           2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
-        console.warn(
-          `[daytona] prepareSandbox transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
-        );
+        console.warn(`[daytona] prepareSandbox: retrying in ${delayMs}ms`);
         await sleep(delayMs);
         completedSteps.length = 0;
         await emitProgress("Retrying sandbox setup...");
@@ -315,6 +331,10 @@ export const prepareSandbox = internalAction({
       throw new Error("Sandbox setup failed");
     }
 
+    const totalElapsed = Date.now() - setupStartedAt;
+    console.log(
+      `[daytona] prepareSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
+    );
     return { sandboxId: sandbox.id };
   },
 });
@@ -355,6 +375,9 @@ export const createOrResumeSandbox = internalAction({
     };
 
     const setupStartedAt = Date.now();
+    console.log(
+      `[daytona] createOrResumeSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
+    );
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
@@ -368,6 +391,9 @@ export const createOrResumeSandbox = internalAction({
     const syncStrategy = getSandboxPrepSyncStrategy(
       args.branchName,
       args.baseBranch,
+    );
+    console.log(
+      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
     );
 
     let sandbox: Sandbox | undefined;
@@ -432,6 +458,9 @@ export const createOrResumeSandbox = internalAction({
         break;
       } catch (error) {
         if (deleteSandboxOnFailure && sandbox) {
+          console.warn(
+            `[daytona] createOrResumeSandbox: deleting failed sandbox ${sandbox.id}`,
+          );
           try {
             await sandbox.delete();
           } catch {}
@@ -439,17 +468,25 @@ export const createOrResumeSandbox = internalAction({
 
         const message = errorMessage(error, "Sandbox setup failed");
         const elapsed = Date.now() - setupStartedAt;
-        const shouldRetry =
-          isSandboxSetupRetryable(message) && elapsed < MAX_SETUP_ELAPSED_MS;
+        const retryable = isSandboxSetupRetryable(message);
+        const withinTimeLimit = elapsed < MAX_SETUP_ELAPSED_MS;
+        const shouldRetry = retryable && withinTimeLimit;
+
+        console.warn(
+          `[daytona] createOrResumeSandbox: attempt ${attempt}/${maxSetupAttempts} failed after ${elapsed}ms — retryable=${retryable}, withinTimeLimit=${withinTimeLimit}, shouldRetry=${shouldRetry}: ${message}`,
+        );
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
+          console.error(
+            `[daytona] createOrResumeSandbox: giving up after ${attempt} attempt(s), total elapsed=${elapsed}ms: ${message}`,
+          );
           throw error;
         }
 
         const delayMs =
           2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
         console.warn(
-          `[daytona] createOrResumeSandbox transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
+          `[daytona] createOrResumeSandbox: retrying in ${delayMs}ms`,
         );
         await sleep(delayMs);
         completedSteps.length = 0;
@@ -464,6 +501,10 @@ export const createOrResumeSandbox = internalAction({
       throw new Error("Sandbox setup failed");
     }
 
+    const totalElapsed = Date.now() - setupStartedAt;
+    console.log(
+      `[daytona] createOrResumeSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
+    );
     return { sandboxId: sandbox.id };
   },
 });

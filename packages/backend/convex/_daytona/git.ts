@@ -63,11 +63,17 @@ function logGit(message: string): void {
 /** Checks if an error message indicates a sandbox execution timeout. */
 function isSandboxExecTimeout(message: string): boolean {
   const lower = message.toLowerCase();
-  return lower.includes("sandbox exec") && lower.includes("timed out");
+  return (
+    (lower.includes("sandbox exec") && lower.includes("timed out")) ||
+    lower.includes("command execution timeout")
+  );
 }
 
 /** Kills stale git processes and removes lock files after a timeout. */
 async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
+  logGit(
+    "cleanupTimedOutGitState: killing stale git processes and removing lock files",
+  );
   try {
     const workspaceDir = workspaceDirShell();
     await sandbox.process.executeCommand(
@@ -76,9 +82,20 @@ async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
       undefined,
       10,
     );
-  } catch {
-    // best effort only
+    logGit("cleanupTimedOutGitState: cleanup completed");
+  } catch (error) {
+    logGit(
+      `cleanupTimedOutGitState: cleanup failed (best-effort): ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
+}
+
+/** Strips GitHub tokens from command strings for safe logging. */
+function sanitizeCommand(command: string): string {
+  return command.replace(
+    /https:\/\/[^@]+@github\.com/g,
+    "https://***@github.com",
+  );
 }
 
 /** Executes a git command, cleaning up lock files on timeout errors. */
@@ -87,10 +104,21 @@ async function execGitCommand(
   command: string,
   timeoutSeconds: number,
 ): Promise<string> {
+  const sanitized = sanitizeCommand(command);
+  const startedAt = Date.now();
+  logGit(`exec [timeout=${timeoutSeconds}s]: ${sanitized}`);
   try {
-    return await exec(sandbox, command, timeoutSeconds);
+    const result = await exec(sandbox, command, timeoutSeconds);
+    logGit(
+      `exec completed in ${formatDurationMs(Date.now() - startedAt)}: ${sanitized}`,
+    );
+    return result;
   } catch (error) {
+    const elapsed = Date.now() - startedAt;
     const message = error instanceof Error ? error.message : String(error);
+    logGit(
+      `exec failed after ${formatDurationMs(elapsed)} [timeout=${timeoutSeconds}s]: ${sanitized} — ${message}`,
+    );
     if (isSandboxExecTimeout(message)) {
       await cleanupTimedOutGitState(sandbox);
     }
@@ -505,20 +533,26 @@ export async function cloneAndSetupRepo(
   shouldInstallDeps: boolean,
   onProgress?: (label: string) => Promise<void>,
 ): Promise<void> {
-  if (onProgress) await onProgress("Cloning repository...");
-  const githubToken = await getInstallationToken(installationId);
-  const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
-  await execGitCommand(
-    sandbox,
-    `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && git clone --depth 1 ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
-    REPO_CLONE_TIMEOUT_SECONDS,
-  );
-  if (!shouldInstallDeps) {
-    return;
-  }
-  if (onProgress) await onProgress("Installing dependencies...");
-  const pm = await detectPackageManager(sandbox);
-  await installDependencies(sandbox, pm);
+  const details = `${owner}/${name}, installDeps=${shouldInstallDeps}`;
+  await runLoggedGitStep("cloneAndSetupRepo", details, async () => {
+    if (onProgress) await onProgress("Cloning repository...");
+    const githubToken = await getInstallationToken(installationId);
+    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    await execGitCommand(
+      sandbox,
+      `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && git clone --depth 1 --single-branch --no-tags ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
+      REPO_CLONE_TIMEOUT_SECONDS,
+    );
+    if (!shouldInstallDeps) {
+      return;
+    }
+    if (onProgress) await onProgress("Installing dependencies...");
+    const pm = await detectPackageManager(sandbox);
+    logGit(
+      `installDependencies: detected package manager "${pm}" for ${owner}/${name}`,
+    );
+    await installDependencies(sandbox, pm);
+  });
 }
 
 /** Sets up a working branch from a base, merges upstream changes, and pushes to origin. */

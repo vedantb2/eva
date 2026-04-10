@@ -64,7 +64,7 @@ export const taskExecutionWorkflow = workflow.define({
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),
         baseBranch: args.baseBranch,
         branchName: data.branchName,
-        createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
+        createRetry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 },
       });
 
       await step.runAction(internal.daytona.launchOnExistingSandbox, {

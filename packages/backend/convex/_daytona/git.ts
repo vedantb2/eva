@@ -60,7 +60,7 @@ const NETWORK_READY_MAX_WAIT_MS = 60_000;
 const NETWORK_READY_POLL_INTERVAL_MS = 3_000;
 
 // Match snapshot resource levels for non-snapshot sandboxes
-const NON_SNAPSHOT_RESOURCES = { cpu: 4, memory: 8 } as const;
+const NON_SNAPSHOT_RESOURCES = { cpu: 4, memory: 8, disk: 10 } as const;
 
 /** Formats a duration in milliseconds as a human-readable string. */
 function formatDurationMs(durationMs: number): string {

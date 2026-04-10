@@ -59,7 +59,7 @@ jobs:
 
       - name: Install Daytona CLI
         run: |
-          curl -sfL -o /usr/local/bin/daytona https://github.com/daytonaio/daytona/releases/download/v0.163.0/daytona-linux-amd64
+          curl -sfL -o /usr/local/bin/daytona "https://github.com/daytonaio/daytona/releases/latest/download/daytona-linux-amd64"
           chmod +x /usr/local/bin/daytona
           daytona version
 

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
 
+/** Gets the current streaming activity state for an entity (task, session, etc.). */
 export const get = authQuery({
   args: { entityId: v.string() },
   returns: v.union(
@@ -26,6 +27,7 @@ export const get = authQuery({
   },
 });
 
+/** Updates or creates streaming activity state for an entity, only writing on actual changes. */
 export const set = authMutation({
   args: {
     entityId: v.string(),
@@ -71,6 +73,7 @@ export const set = authMutation({
   },
 });
 
+/** Gets streaming activity state (internal use, no auth check). */
 export const internalGet = internalQuery({
   args: { entityId: v.string() },
   returns: v.union(
@@ -95,6 +98,7 @@ export const internalGet = internalQuery({
   },
 });
 
+/** Updates or creates streaming activity state (internal use, no auth check). */
 export const internalSet = internalMutation({
   args: {
     entityId: v.string(),
@@ -140,6 +144,7 @@ export const internalSet = internalMutation({
   },
 });
 
+/** Removes the streaming activity record for an entity. */
 export const clear = authMutation({
   args: { entityId: v.string() },
   returns: v.null(),

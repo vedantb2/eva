@@ -1,3 +1,4 @@
+/** Builds an instruction string directing the agent to work inside a specific root directory. */
 export function buildRootDirectoryInstruction(rootDirectory: string): string {
   if (!rootDirectory) return "";
   return `\nIMPORTANT: Unless the user mentions otherwise, all changes must be made inside the app at "${rootDirectory}".`;
@@ -5,6 +6,7 @@ export function buildRootDirectoryInstruction(rootDirectory: string): string {
 
 type PromptMode = "ask" | "plan" | "execute";
 
+/** Returns the response length instruction string based on mode and verbosity preference. */
 export function getResponseLengthInstruction(
   responseLength: string,
   mode: PromptMode,

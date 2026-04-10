@@ -12,6 +12,7 @@ const MAX_POLLS = 30;
 const MAX_FIND_ATTEMPTS = 5;
 const GITHUB_API = "https://api.github.com";
 
+/** Makes an authenticated request to the GitHub API. */
 function githubFetch(
   path: string,
   token: string,
@@ -28,6 +29,7 @@ function githubFetch(
   });
 }
 
+/** Dispatches a GitHub Actions workflow to rebuild a snapshot and begins polling for completion. */
 export const rebuildSnapshot = internalAction({
   args: {
     buildId: v.id("snapshotBuilds"),
@@ -148,6 +150,7 @@ export const rebuildSnapshot = internalAction({
   },
 });
 
+/** Polls a GitHub Actions workflow run until completion, scheduling retries. */
 export const pollWorkflowRun = internalAction({
   args: {
     buildId: v.id("snapshotBuilds"),
@@ -326,6 +329,7 @@ export const pollWorkflowRun = internalAction({
   },
 });
 
+/** Deletes a Daytona snapshot via the Daytona SDK. */
 export const deleteDaytonaSnapshot = internalAction({
   args: { snapshotName: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),

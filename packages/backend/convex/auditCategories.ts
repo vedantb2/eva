@@ -3,6 +3,7 @@ import { authQuery, authMutation } from "./functions";
 import { internalQuery } from "./_generated/server";
 import { resolveCanonicalRepoId } from "./_githubRepos/helpers";
 
+/** Lists all audit categories for a repo (resolved to canonical repo for monorepos). */
 export const listByRepo = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(
@@ -36,6 +37,7 @@ export const listByRepo = authQuery({
   },
 });
 
+/** Checks whether a repo has at least one enabled audit category. */
 export const hasEnabledCategories = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.boolean(),
@@ -51,6 +53,7 @@ export const hasEnabledCategories = authQuery({
   },
 });
 
+/** Lists enabled audit categories applicable to a repo/app context (internal use). */
 export const listEnabledForContext = internalQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -81,6 +84,7 @@ export const listEnabledForContext = internalQuery({
   },
 });
 
+/** Creates a new audit category for a repo, optionally scoped to a specific app. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -102,6 +106,7 @@ export const create = authMutation({
   },
 });
 
+/** Updates an audit category's name and description. */
 export const update = authMutation({
   args: {
     id: v.id("auditCategories"),
@@ -121,6 +126,7 @@ export const update = authMutation({
   },
 });
 
+/** Toggles the enabled state of an audit category. */
 export const toggleEnabled = authMutation({
   args: {
     id: v.id("auditCategories"),
@@ -136,6 +142,7 @@ export const toggleEnabled = authMutation({
   },
 });
 
+/** Deletes an audit category. */
 export const remove = authMutation({
   args: { id: v.id("auditCategories") },
   returns: v.null(),

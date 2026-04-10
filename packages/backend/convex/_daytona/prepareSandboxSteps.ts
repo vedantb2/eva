@@ -27,6 +27,7 @@ const STEP_RETRY = {
   retry: { maxAttempts: 3, initialBackoffMs: 1000, base: 2 },
 };
 
+/** Emits progress steps to the streaming entity for real-time UI updates. */
 async function emitSteps(
   step: WorkflowCtx,
   streamingEntityId: string,
@@ -38,6 +39,7 @@ async function emitSteps(
   });
 }
 
+/** Orchestrates sandbox creation, base branch fetch, and branch setup as a multi-step workflow. */
 export async function prepareSandboxSteps(
   step: WorkflowCtx,
   args: PrepareSandboxArgs,

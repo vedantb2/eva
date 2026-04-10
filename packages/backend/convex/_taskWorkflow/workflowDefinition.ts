@@ -13,6 +13,7 @@ import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
 
+/** Main durable workflow that orchestrates sandbox setup, task execution, audit, PR creation, and cleanup. */
 export const taskExecutionWorkflow = workflow.define({
   args: {
     runId: v.id("agentRuns"),

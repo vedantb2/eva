@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authMutation, authQuery, hasTaskAccess } from "./functions";
 
+/** Generates a temporary upload URL for storing proof files. */
 export const generateUploadUrl = authMutation({
   args: {},
   returns: v.string(),
@@ -9,6 +10,7 @@ export const generateUploadUrl = authMutation({
   },
 });
 
+/** Saves a file-based proof attachment to a task. */
 export const save = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -29,6 +31,7 @@ export const save = authMutation({
   },
 });
 
+/** Saves a text message as proof for a task. */
 export const saveMessage = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -47,6 +50,7 @@ export const saveMessage = authMutation({
   },
 });
 
+/** Lists all proof attachments for a task, including resolved file URLs. */
 export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(
@@ -85,6 +89,7 @@ export const listByTask = authQuery({
   },
 });
 
+/** Deletes a proof attachment and its associated storage file. */
 export const remove = authMutation({
   args: { id: v.id("taskProof") },
   returns: v.null(),

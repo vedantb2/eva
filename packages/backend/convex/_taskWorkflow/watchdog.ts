@@ -37,6 +37,7 @@ type StreamingStep = {
   status?: string;
 };
 
+/** Parses streaming activity JSON and returns labels of steps with "active" status. */
 function getActiveStreamingLabels(
   currentActivity: string | undefined,
 ): string[] {
@@ -68,6 +69,7 @@ function getActiveStreamingLabels(
   }
 }
 
+/** Returns true if the current streaming activity indicates sandbox startup is still in progress. */
 function isSandboxStartupActivity(
   currentActivity: string | undefined,
 ): boolean {
@@ -81,12 +83,14 @@ function isSandboxStartupActivity(
   return currentActivity.includes('"Starting sandbox..."');
 }
 
+/** Returns true if the current streaming activity indicates the run is finalizing. */
 function isFinalizingActivity(currentActivity: string | undefined): boolean {
   if (!currentActivity) {
     return false;
   }
   return currentActivity.includes('"Finalizing response..."');
 }
+/** Periodically checks if a run has gone stale and cleans it up or reschedules another check. */
 export const checkStaleRuns = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -195,6 +199,7 @@ export const checkStaleRuns = internalMutation({
   },
 });
 
+/** Hard-timeout handler that kills a run after the maximum allowed duration (2 hours). */
 export const handleStaleRun = internalMutation({
   args: {
     taskId: v.id("agentTasks"),

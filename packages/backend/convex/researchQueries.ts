@@ -15,6 +15,7 @@ const researchQueryValidator = v.object({
   sandboxId: v.optional(v.string()),
 });
 
+/** Lists all research queries for a repo, sorted by most recently updated. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(researchQueryValidator),
@@ -28,6 +29,7 @@ export const list = authQuery({
   },
 });
 
+/** Fetches a single research query by ID, with repo access control. */
 export const get = authQuery({
   args: { id: v.id("researchQueries") },
   returns: v.union(researchQueryValidator, v.null()),
@@ -39,6 +41,7 @@ export const get = authQuery({
   },
 });
 
+/** Creates a new research query in a repo. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -61,6 +64,7 @@ export const create = authMutation({
   },
 });
 
+/** Adds a chat message to a research query conversation. */
 export const addMessage = authMutation({
   args: {
     id: v.id("researchQueries"),
@@ -89,6 +93,7 @@ export const addMessage = authMutation({
   },
 });
 
+/** Updates the most recent message in a research query (for streaming). */
 export const updateLastMessage = authMutation({
   args: {
     id: v.id("researchQueries"),
@@ -115,6 +120,7 @@ export const updateLastMessage = authMutation({
   },
 });
 
+/** Updates the confirmation status of a specific message in a research query. */
 export const updateMessageStatus = authMutation({
   args: {
     id: v.id("researchQueries"),
@@ -138,6 +144,7 @@ export const updateMessageStatus = authMutation({
   },
 });
 
+/** Updates a research query's title. */
 export const update = authMutation({
   args: {
     id: v.id("researchQueries"),
@@ -158,6 +165,7 @@ export const update = authMutation({
   },
 });
 
+/** Deletes a research query and all its associated messages. */
 export const remove = authMutation({
   args: { id: v.id("researchQueries") },
   returns: v.null(),

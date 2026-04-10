@@ -5,6 +5,7 @@ import { type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
+/** Finds and resets stale in-progress tasks and their timed-out runs. */
 export const cleanupStaleRuns = internalMutation({
   args: {},
   returns: v.object({ tasksFixed: v.number(), runsFixed: v.number() }),
@@ -105,12 +106,14 @@ const STEPS = [
 
 type Step = (typeof STEPS)[number];
 
+/** Returns the next deletion step in the ordered pipeline, or null if done. */
 function nextStep(current: Step): Step | null {
   const idx = STEPS.indexOf(current);
   if (idx === -1 || idx === STEPS.length - 1) return null;
   return STEPS[idx + 1];
 }
 
+/** Executes one step of the repo deletion pipeline and schedules the next step. */
 export const deleteRepoStep = internalMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -424,6 +427,7 @@ export const deleteRepoStep = internalMutation({
   },
 });
 
+/** Schedules deletion of all repos not owned by "evalucom" (or vedantb2/eva). */
 export const deleteNonEvalucomRepos = internalMutation({
   args: {},
   returns: v.object({ reposScheduled: v.number() }),
@@ -451,6 +455,7 @@ export const deleteNonEvalucomRepos = internalMutation({
   },
 });
 
+/** Schedules deletion of all repos owned by "evalucom" (or vedantb2/eva). */
 export const deleteEvalucomRepos = internalMutation({
   args: {},
   returns: v.object({ reposScheduled: v.number() }),

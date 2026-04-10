@@ -7,10 +7,12 @@ type EvalResult = {
 };
 type AuditSection = { name: string; results: EvalResult[] };
 
+/** Type guard that checks if a value is a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Type guard that validates an item conforms to the EvalResult shape. */
 function isEvalResult(item: unknown): item is EvalResult {
   if (!isRecord(item)) return false;
   return (
@@ -20,6 +22,7 @@ function isEvalResult(item: unknown): item is EvalResult {
   );
 }
 
+/** Parses a value into a valid AuditSeverity, defaulting to "medium". */
 function parseSeverity(value: unknown): AuditSeverity {
   if (value === "critical") return "critical";
   if (value === "high") return "high";
@@ -28,6 +31,7 @@ function parseSeverity(value: unknown): AuditSeverity {
   return "medium";
 }
 
+/** Filters and normalizes an array of unknown items into typed EvalResult entries. */
 function parseResultsArray(value: unknown): EvalResult[] {
   if (!Array.isArray(value)) return [];
   return value.filter(isEvalResult).map((item) => {
@@ -41,6 +45,7 @@ function parseResultsArray(value: unknown): EvalResult[] {
   });
 }
 
+/** Parses raw JSON into structured audit sections with validated results. */
 export function parseSectionsFromJson(raw: unknown): AuditSection[] {
   if (!isRecord(raw)) return [];
 
@@ -57,11 +62,13 @@ export function parseSectionsFromJson(raw: unknown): AuditSection[] {
   return [];
 }
 
+/** Extracts the summary string from parsed audit JSON, with a fallback default. */
 export function extractSummaryFromJson(raw: unknown): string {
   if (!isRecord(raw)) return "Audit completed";
   return typeof raw.summary === "string" ? raw.summary : "Audit completed";
 }
 
+/** Collects all failed audit results across sections into a flat list of failures. */
 export function extractFailuresFromJson(
   raw: unknown,
 ): Array<{ section: string; requirement: string; detail: string }> {

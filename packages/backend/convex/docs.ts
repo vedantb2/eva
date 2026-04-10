@@ -9,6 +9,7 @@ const docTimeline = new Timeline(components.timeline, { maxNodesPerScope: 50 });
 
 const snapshotValidator = v.object({ title: v.string(), content: v.string() });
 
+/** Safely parses raw timeline data into a title/content snapshot, returning null if invalid. */
 function parseSnapshot(
   data: unknown,
 ): { title: string; content: string } | null {
@@ -46,6 +47,7 @@ const docValidator = v.object({
   updatedAt: v.number(),
 });
 
+/** Lists all docs for a given repo, filtered by user access. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(docValidator),
@@ -58,6 +60,7 @@ export const list = authQuery({
   },
 });
 
+/** Fetches a single doc by ID, with access control. */
 export const get = authQuery({
   args: { id: v.id("docs") },
   returns: v.union(docValidator, v.null()),
@@ -69,6 +72,7 @@ export const get = authQuery({
   },
 });
 
+/** Creates a new doc in a repo with optional description, user flows, and requirements. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -99,6 +103,7 @@ export const create = authMutation({
   },
 });
 
+/** Updates a doc's title, content, description, user flows, or requirements. */
 export const update = authMutation({
   args: {
     id: v.id("docs"),
@@ -137,6 +142,7 @@ export const update = authMutation({
   },
 });
 
+/** Deletes a doc and its associated timeline history. */
 export const remove = authMutation({
   args: { id: v.id("docs") },
   returns: v.null(),
@@ -151,6 +157,7 @@ export const remove = authMutation({
   },
 });
 
+/** Marks a doc as having test generation in progress. */
 export const startTestGen = authMutation({
   args: { id: v.id("docs") },
   returns: v.null(),
@@ -167,6 +174,7 @@ export const startTestGen = authMutation({
   },
 });
 
+/** Marks test generation as completed and saves the PR URL. */
 export const completeTestGen = authMutation({
   args: { id: v.id("docs"), prUrl: v.string() },
   returns: v.null(),
@@ -183,6 +191,7 @@ export const completeTestGen = authMutation({
   },
 });
 
+/** Marks test generation as failed with an error status. */
 export const failTestGen = authMutation({
   args: { id: v.id("docs") },
   returns: v.null(),
@@ -198,6 +207,7 @@ export const failTestGen = authMutation({
   },
 });
 
+/** Saves a new version snapshot to the doc's timeline for undo/redo support. */
 export const saveVersion = authMutation({
   args: { id: v.id("docs"), content: v.string() },
   returns: v.null(),
@@ -212,6 +222,7 @@ export const saveVersion = authMutation({
   },
 });
 
+/** Undoes the last change by restoring the previous timeline snapshot. */
 export const timelineUndo = authMutation({
   args: { id: v.id("docs") },
   returns: v.union(snapshotValidator, v.null()),
@@ -228,6 +239,7 @@ export const timelineUndo = authMutation({
   },
 });
 
+/** Redoes a previously undone change by advancing to the next timeline snapshot. */
 export const timelineRedo = authMutation({
   args: { id: v.id("docs") },
   returns: v.union(snapshotValidator, v.null()),
@@ -244,6 +256,7 @@ export const timelineRedo = authMutation({
   },
 });
 
+/** Returns the current undo/redo status (can undo, can redo, position, length). */
 export const timelineStatus = authQuery({
   args: { id: v.id("docs") },
   returns: v.object({
@@ -257,6 +270,7 @@ export const timelineStatus = authQuery({
   },
 });
 
+/** Lists all timeline snapshots with their position and title for version history display. */
 export const timelineHistory = authQuery({
   args: { id: v.id("docs") },
   returns: v.array(v.object({ position: v.number(), title: v.string() })),
@@ -269,6 +283,7 @@ export const timelineHistory = authQuery({
   },
 });
 
+/** Appends a message to the doc's interview conversation history. */
 export const addInterviewMessage = authMutation({
   args: {
     id: v.id("docs"),
@@ -292,6 +307,7 @@ export const addInterviewMessage = authMutation({
   },
 });
 
+/** Updates the content or activity log of the last interview message (for streaming). */
 export const updateLastInterviewMessage = authMutation({
   args: {
     id: v.id("docs"),
@@ -312,6 +328,7 @@ export const updateLastInterviewMessage = authMutation({
   },
 });
 
+/** Clears a doc's interview history and associated sandbox. */
 export const clearInterview = authMutation({
   args: { id: v.id("docs") },
   returns: v.null(),
@@ -326,6 +343,7 @@ export const clearInterview = authMutation({
   },
 });
 
+/** Associates a sandbox ID with a doc for live interview execution. */
 export const updateDocSandbox = authMutation({
   args: { id: v.id("docs"), sandboxId: v.string() },
   returns: v.null(),

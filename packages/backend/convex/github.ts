@@ -14,6 +14,7 @@ import {
 } from "./githubAuth";
 import { buildPrBody } from "./taskWorkflowActions";
 
+/** Creates an Octokit client authenticated as the GitHub App itself (not an installation). */
 function getAppOctokit(): Octokit {
   const creds = getGitHubCredentials();
   return new Octokit({
@@ -22,6 +23,7 @@ function getAppOctokit(): Octokit {
   });
 }
 
+/** Returns a short-lived installation token for a given GitHub repo's app installation. */
 export const getInstallationTokenAction = action({
   args: { repoId: v.id("githubRepos") },
   returns: v.object({ token: v.string() }),
@@ -39,6 +41,7 @@ export const getInstallationTokenAction = action({
   },
 });
 
+/** Lists all branches for a given repository via the GitHub API. */
 export const listBranches = action({
   args: {
     installationId: v.number(),
@@ -64,6 +67,7 @@ export const listBranches = action({
   },
 });
 
+/** Lists all repositories accessible to a specific GitHub App installation. */
 export const listRepos = action({
   args: { installationId: v.number() },
   returns: v.array(
@@ -96,6 +100,7 @@ export const listRepos = action({
   },
 });
 
+/** Creates a GitHub pull request for a session's branch and stores the PR URL. */
 export const createSessionPr = action({
   args: { sessionId: v.id("sessions") },
   returns: v.object({ url: v.string() }),
@@ -155,6 +160,7 @@ export const createSessionPr = action({
   },
 });
 
+/** Scans the apps/ directory of a repo to detect monorepo sub-applications. */
 async function detectAppsForRepo(
   octokit: Octokit,
   owner: string,
@@ -202,6 +208,7 @@ async function detectAppsForRepo(
   return apps;
 }
 
+/** Detects monorepo sub-applications in a repository's apps/ directory. */
 export const detectMonorepoApps = action({
   args: {
     installationId: v.number(),
@@ -225,6 +232,7 @@ export const detectMonorepoApps = action({
   },
 });
 
+/** Lists all repos across all GitHub App installations for discovery. */
 export const listAllAvailableRepos = action({
   args: {},
   returns: v.array(
@@ -271,6 +279,7 @@ export const listAllAvailableRepos = action({
   },
 });
 
+/** Syncs all GitHub App installation repos into the database, detecting monorepo apps and updating connected status. */
 export const syncRepos = action({
   args: {},
   returns: v.object({ success: v.boolean(), synced: v.number() }),

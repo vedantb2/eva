@@ -50,19 +50,23 @@ const YARN_INSTALL_TIMEOUT_SECONDS = 900;
 const NPM_INSTALL_TIMEOUT_SECONDS = 900;
 const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 90;
 
+/** Formats a duration in milliseconds as a human-readable string. */
 function formatDurationMs(durationMs: number): string {
   return `${durationMs}ms`;
 }
 
+/** Logs a git-related message with a consistent prefix. */
 function logGit(message: string): void {
   console.log(`[daytona][git] ${message}`);
 }
 
+/** Checks if an error message indicates a sandbox execution timeout. */
 function isSandboxExecTimeout(message: string): boolean {
   const lower = message.toLowerCase();
   return lower.includes("sandbox exec") && lower.includes("timed out");
 }
 
+/** Kills stale git processes and removes lock files after a timeout. */
 async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
   try {
     const workspaceDir = workspaceDirShell();
@@ -77,6 +81,7 @@ async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
   }
 }
 
+/** Executes a git command, cleaning up lock files on timeout errors. */
 async function execGitCommand(
   sandbox: Sandbox,
   command: string,
@@ -93,6 +98,7 @@ async function execGitCommand(
   }
 }
 
+/** Wraps a git operation with timing logs and error reporting. */
 async function runLoggedGitStep<T>(
   label: string,
   details: string,
@@ -114,6 +120,7 @@ async function runLoggedGitStep<T>(
   }
 }
 
+/** Checks whether a branch exists on the remote GitHub repository. */
 export async function remoteBranchExists(
   sandbox: Sandbox,
   installationId: number,
@@ -136,6 +143,7 @@ export async function remoteBranchExists(
   });
 }
 
+/** Deduplicates and trims branch names, removing empty entries. */
 function normalizeBranchNames(branchNames: string[]): string[] {
   const normalized: string[] = [];
   for (const branchName of branchNames) {
@@ -148,6 +156,7 @@ function normalizeBranchNames(branchNames: string[]): string[] {
   return normalized;
 }
 
+/** Creates a branch-specific repo sync strategy from a list of branch names. */
 export function createBranchSyncStrategy(
   branchNames: string[],
 ): RepoSyncStrategy {
@@ -161,6 +170,7 @@ export function createBranchSyncStrategy(
   };
 }
 
+/** Checks if an error message indicates a missing remote ref. */
 function isMissingRemoteRefError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
@@ -169,6 +179,7 @@ function isMissingRemoteRefError(message: string): boolean {
   );
 }
 
+/** Creates a new Daytona sandbox with GitHub auth and git configuration. */
 export async function createSandbox(
   daytona: Daytona,
   installationId: number,
@@ -229,6 +240,7 @@ export async function createSandbox(
   });
 }
 
+/** Sets the git remote origin URL to an authenticated GitHub URL. */
 export async function configureGitHubOrigin(
   sandbox: Sandbox,
   installationId: number,
@@ -249,6 +261,7 @@ export async function configureGitHubOrigin(
   });
 }
 
+/** Fetches refs from the GitHub remote origin, optionally pruning stale refs. */
 export async function fetchOrigin(
   sandbox: Sandbox,
   installationId: number,
@@ -274,6 +287,7 @@ export async function fetchOrigin(
   });
 }
 
+/** Fetches specific branch refs from origin, falling back to individual fetches on missing refs. */
 export async function fetchBranchRefs(
   sandbox: Sandbox,
   installationId: number,
@@ -335,6 +349,7 @@ export async function fetchBranchRefs(
   });
 }
 
+/** Syncs the sandbox repo with the remote using the given strategy. */
 export async function syncRepo(
   sandbox: Sandbox,
   installationId: number,
@@ -371,8 +386,7 @@ export async function syncRepo(
   });
 }
 
-// Determines the best available base ref for branch creation: prefers origin/<base>,
-// falls back to local <base>, then HEAD if neither exists.
+/** Resolves the best available base ref: prefers origin/<base>, falls back to local, then HEAD. */
 export async function resolveBaseTarget(
   sandbox: Sandbox,
   baseBranch: string,
@@ -396,6 +410,7 @@ export async function resolveBaseTarget(
   return { ref: "HEAD", source: "head" };
 }
 
+/** Checks out a session branch, creating it from a remote or base ref if needed. */
 export async function checkoutSessionBranch(
   sandbox: Sandbox,
   branchName: string,
@@ -416,6 +431,7 @@ export async function checkoutSessionBranch(
   });
 }
 
+/** Checks out and fast-forward merges a previously fetched base branch. */
 export async function checkoutFetchedBaseBranch(
   sandbox: Sandbox,
   baseBranch: string,
@@ -434,6 +450,7 @@ export async function checkoutFetchedBaseBranch(
   });
 }
 
+/** Resets the snapshot worktree to a clean state via hard reset and clean. */
 export async function normalizeSnapshotWorktree(
   sandbox: Sandbox,
 ): Promise<void> {
@@ -451,6 +468,7 @@ export async function normalizeSnapshotWorktree(
   );
 }
 
+/** Installs project dependencies using the detected package manager. */
 async function installDependencies(
   sandbox: Sandbox,
   pm: string,
@@ -477,6 +495,7 @@ async function installDependencies(
   }
 }
 
+/** Clones a GitHub repo into the sandbox and optionally installs dependencies. */
 export async function cloneAndSetupRepo(
   sandbox: Sandbox,
   installationId: number,
@@ -501,6 +520,7 @@ export async function cloneAndSetupRepo(
   await installDependencies(sandbox, pm);
 }
 
+/** Sets up a working branch from a base, merges upstream changes, and pushes to origin. */
 export async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
@@ -553,6 +573,7 @@ export async function setupBranch(
   });
 }
 
+/** Creates a sandbox and prepares the repo by cloning or syncing from a snapshot. */
 export async function createSandboxAndPrepareRepo(
   daytona: Daytona,
   installationId: number,
@@ -614,6 +635,7 @@ export async function createSandboxAndPrepareRepo(
   }
 }
 
+/** Resumes an existing sandbox or creates a new one with repo setup. */
 export async function getOrCreateSandbox(
   daytona: Daytona,
   existingSandboxId: string | undefined,

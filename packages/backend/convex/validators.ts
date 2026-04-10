@@ -269,6 +269,7 @@ export const CODEX_CONFIG_ENV_KEYS: ReadonlyArray<string> = [
   "CODEX_CONFIG_TOML_BASE64",
 ];
 
+/** Determines which AI providers are available based on the presence of required env var keys. */
 export function getAIProviderAvailability(
   envVarKeys: Iterable<string>,
 ): AIProviderAvailability {
@@ -279,6 +280,7 @@ export function getAIProviderAvailability(
   };
 }
 
+/** Normalizes a raw model string (including legacy formats) to a canonical AIModel value. */
 export function normalizeAIModel(model: string | null | undefined): AIModel {
   switch (model) {
     case "opus":
@@ -308,12 +310,14 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
   }
 }
 
+/** Returns the AI provider ("claude" or "codex") for a given model string. */
 export function getAIModelProvider(
   model: string | null | undefined,
 ): AIProvider {
   return normalizeAIModel(model).startsWith("codex:") ? "codex" : "claude";
 }
 
+/** Finds the full AIModelOption metadata for a given model string, falling back to the default. */
 export function findAIModelOption(
   model: string | null | undefined,
 ): AIModelOption {
@@ -331,6 +335,7 @@ export function findAIModelOption(
   };
 }
 
+/** Checks whether any Codex authentication environment variable is present and non-empty. */
 export function hasCodexAuthEnvVar(envVars: Record<string, string>): boolean {
   return CODEX_AUTH_ENV_KEYS.some((key) => {
     const value = envVars[key];
@@ -338,6 +343,7 @@ export function hasCodexAuthEnvVar(envVars: Record<string, string>): boolean {
   });
 }
 
+/** Returns the list of AI model options visible to the user based on provider availability. */
 export function getVisibleAIModelOptions(
   availability: AIProviderAvailability | null | undefined,
   currentModel: string | null | undefined,

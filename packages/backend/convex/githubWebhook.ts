@@ -5,6 +5,7 @@ import { createNotification } from "./notifications";
 import type { Id } from "./_generated/dataModel";
 import { buildProjectBranchName } from "./_projects/helpers";
 
+/** Handles a PR closed webhook event, updating related tasks and projects based on merge status. */
 export const handlePrClosed = internalMutation({
   args: {
     prUrl: v.string(),

@@ -6,6 +6,7 @@ import { hasActiveRun, isFirstTaskOnBranch } from "../functions";
 import { isDaytonaNetworkIssue, buildQuickTaskRetryDelayMs } from "./recovery";
 import { buildProjectBranchName } from "../_projects/helpers";
 
+/** Schedules an automatic retry for a failed quick task if eligible (no prior retry, no active run). */
 export const maybeScheduleQuickTaskRetry = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -76,6 +77,7 @@ export const maybeScheduleQuickTaskRetry = internalMutation({
   },
 });
 
+/** Executes a previously scheduled task retry by creating a new run and starting the workflow. */
 export const executeScheduledTask = internalMutation({
   args: { taskId: v.id("agentTasks") },
   returns: v.union(v.id("agentRuns"), v.null()),
@@ -160,6 +162,7 @@ export const executeScheduledTask = internalMutation({
   },
 });
 
+/** Clears the active workflow ID from a task if no runs are still queued or running. */
 export const clearActiveWorkflow = internalMutation({
   args: { taskId: v.id("agentTasks") },
   returns: v.null(),

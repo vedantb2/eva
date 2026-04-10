@@ -29,6 +29,7 @@ import {
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 
+/** Checks whether a sandbox is healthy by executing a test command. */
 export const validateSandbox = internalAction({
   args: {
     sandboxId: v.string(),
@@ -47,6 +48,7 @@ export const validateSandbox = internalAction({
   },
 });
 
+/** Executes a shell command on a sandbox and returns the output. */
 export const runSandboxCommand = internalAction({
   args: {
     sandboxId: v.string(),
@@ -63,6 +65,7 @@ export const runSandboxCommand = internalAction({
   },
 });
 
+/** Returns a signed preview URL for a sandbox port, optionally checking readiness. */
 export const getPreviewUrl = action({
   args: {
     sandboxId: v.string(),
@@ -107,6 +110,7 @@ export const getPreviewUrl = action({
 
 const MAX_SETUP_ELAPSED_MS = 8 * 60 * 1000;
 
+/** Determines the repo sync strategy based on branch and base branch names. */
 function getSandboxPrepSyncStrategy(
   branchName: string | undefined,
   baseBranch: string | undefined,
@@ -126,6 +130,7 @@ function getSandboxPrepSyncStrategy(
   return createBranchSyncStrategy(branchTargets);
 }
 
+/** Checks if a sandbox setup error is transient and worth retrying. */
 function isSandboxSetupRetryable(message: string): boolean {
   if (isDaytonaNetworkIssue(message)) {
     return true;
@@ -146,6 +151,7 @@ function isSandboxSetupRetryable(message: string): boolean {
   );
 }
 
+/** Creates or resumes a sandbox with branch setup, desktop, and retry logic. */
 export const prepareSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
@@ -313,6 +319,7 @@ export const prepareSandbox = internalAction({
   },
 });
 
+/** Creates or resumes a sandbox with repo syncing and retry logic. */
 export const createOrResumeSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
@@ -461,6 +468,7 @@ export const createOrResumeSandbox = internalAction({
   },
 });
 
+/** Fetches a base branch from the remote origin into the sandbox. */
 export const fetchBaseBranch = internalAction({
   args: {
     sandboxId: v.string(),
@@ -485,6 +493,7 @@ export const fetchBaseBranch = internalAction({
   },
 });
 
+/** Checks out a previously fetched base branch in the sandbox. */
 export const checkoutBaseBranch = internalAction({
   args: {
     sandboxId: v.string(),
@@ -502,6 +511,7 @@ export const checkoutBaseBranch = internalAction({
   },
 });
 
+/** Configures the GitHub origin and sets up a working branch in the sandbox. */
 export const setupSandboxBranch = internalAction({
   args: {
     sandboxId: v.string(),
@@ -526,6 +536,7 @@ export const setupSandboxBranch = internalAction({
   },
 });
 
+/** Launches an AI agent script on an existing sandbox with streaming and token setup. */
 export const launchOnExistingSandbox = internalAction({
   args: {
     sandboxId: v.string(),

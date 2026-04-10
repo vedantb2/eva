@@ -13,6 +13,7 @@ const taskCommentValidator = v.object({
   createdAt: v.number(),
 });
 
+/** Builds a truncated notification message for a new task comment. */
 function buildCommentNotificationMessage(
   content: string,
   projectId: Id<"projects"> | undefined,
@@ -29,6 +30,7 @@ function buildCommentNotificationMessage(
   return `New comment on this ${scopeLabel}: "${summary}"`;
 }
 
+/** Lists all comments for a task, sorted oldest first. */
 export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(taskCommentValidator),
@@ -43,6 +45,7 @@ export const listByTask = authQuery({
   },
 });
 
+/** Creates a comment on a task and notifies the assignee. */
 export const create = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -74,6 +77,7 @@ export const create = authMutation({
   },
 });
 
+/** Deletes a task comment. */
 export const remove = authMutation({
   args: { id: v.id("taskComments") },
   returns: v.null(),
@@ -90,6 +94,7 @@ export const remove = authMutation({
   },
 });
 
+/** Creates a system-generated comment on a task (no author). */
 export const createSystemComment = internalMutation({
   args: {
     taskId: v.id("agentTasks"),

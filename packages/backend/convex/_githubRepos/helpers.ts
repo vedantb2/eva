@@ -3,6 +3,7 @@ import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import { githubRepoFields } from "../validators";
 
+/** Resolves a repo ID to its parent repo ID if it is a sub-app, otherwise returns itself. */
 export async function resolveCanonicalRepoId(
   db: GenericDatabaseReader<DataModel>,
   repoId: Id<"githubRepos">,
@@ -12,6 +13,7 @@ export async function resolveCanonicalRepoId(
   return repo.parentRepoId ?? repoId;
 }
 
+/** Finds all repo entries sharing the same owner and name (root + sub-apps). */
 export async function findAllSiblingRepoIds(
   db: GenericDatabaseReader<DataModel>,
   repoId: Id<"githubRepos">,
@@ -29,6 +31,7 @@ export async function findAllSiblingRepoIds(
   return siblings.map((s) => s._id);
 }
 
+/** Validator for the full githubRepos document shape including system fields. */
 export const githubRepoValidator = v.object({
   _id: v.id("githubRepos"),
   _creationTime: v.number(),

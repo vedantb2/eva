@@ -4,6 +4,7 @@ import { extractFailuresFromJson } from "./auditParser";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 
+/** Builds a user-facing notification message for a workflow run completion. */
 export function buildWorkflowRunNotificationMessage(params: {
   success: boolean;
   projectId: Id<"projects"> | undefined;
@@ -28,6 +29,7 @@ export function buildWorkflowRunNotificationMessage(params: {
   return `Run failed for this ${scopeLabel}.`;
 }
 
+/** Builds the full implementation prompt sent to the AI agent in the sandbox. */
 export function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
   branchName: string,
@@ -108,6 +110,7 @@ ${proofOfCompletionSection}
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+/** Builds a prompt for resolving merge conflicts against the base branch. */
 export function buildConflictResolutionPrompt(
   branchName: string,
   baseBranch: string,
@@ -137,6 +140,7 @@ type AuditFailure = {
   detail: string;
 };
 
+/** Parses raw audit result text and extracts the list of failed audit items. */
 export function extractAuditFailures(rawResult: string): AuditFailure[] {
   try {
     const jsonStr =
@@ -151,6 +155,7 @@ export function extractAuditFailures(rawResult: string): AuditFailure[] {
   }
 }
 
+/** Builds a prompt instructing the AI agent to fix specific audit failures. */
 export function buildAuditFixPrompt(
   failures: AuditFailure[],
   branchName: string,
@@ -186,6 +191,7 @@ type AuditCategory = {
   description: string;
 };
 
+/** Builds the code audit prompt with category descriptions and expected JSON output format. */
 export function buildAuditPrompt(categories: AuditCategory[]): string {
   const sectionDescriptions = categories
     .map((s, i) => `${i + 1}. **${s.name}**: ${s.description}`)

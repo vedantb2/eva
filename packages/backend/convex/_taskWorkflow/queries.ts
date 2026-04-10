@@ -6,6 +6,7 @@ import {
   buildConflictResolutionPrompt,
 } from "./prompts";
 
+/** Fetches task, repo, and audit config to build the prompt and sandbox parameters for a run. */
 export const getTaskData = internalQuery({
   args: {
     taskId: v.id("agentTasks"),

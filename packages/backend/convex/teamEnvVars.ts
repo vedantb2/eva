@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
 
+/** Lists team env vars for the authenticated user, masking actual values. */
 export const list = authQuery({
   args: { teamId: v.id("teams") },
   returns: v.array(
@@ -35,6 +36,7 @@ export const list = authQuery({
   },
 });
 
+/** Returns all team env vars with raw encrypted values (internal use only). */
 export const getAllInternal = internalQuery({
   args: { teamId: v.id("teams") },
   returns: v.array(
@@ -54,6 +56,7 @@ export const getAllInternal = internalQuery({
   },
 });
 
+/** Returns team env vars eligible for sandbox injection (excludes sandbox-excluded vars). */
 export const getForSandbox = internalQuery({
   args: { teamId: v.id("teams") },
   returns: v.array(v.object({ key: v.string(), value: v.string() })),
@@ -69,6 +72,7 @@ export const getForSandbox = internalQuery({
   },
 });
 
+/** Inserts or updates a single env var for a team (internal use only). */
 export const upsertVarInternal = internalMutation({
   args: {
     teamId: v.id("teams"),
@@ -107,6 +111,7 @@ export const upsertVarInternal = internalMutation({
   },
 });
 
+/** Removes an env var by key from a team's env var document. Requires team membership. */
 export const removeVar = authMutation({
   args: {
     teamId: v.id("teams"),
@@ -136,6 +141,7 @@ export const removeVar = authMutation({
   },
 });
 
+/** Toggles the sandboxExclude flag for a specific team env var. Requires team membership. */
 export const toggleSandboxExclude = authMutation({
   args: {
     teamId: v.id("teams"),

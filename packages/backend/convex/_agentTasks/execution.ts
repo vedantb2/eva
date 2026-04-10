@@ -10,6 +10,7 @@ import {
 import { workflow } from "../workflowManager";
 import { buildProjectBranchName } from "../_projects/helpers";
 
+/** Starts task execution by creating a run and launching the workflow. */
 export const startExecution = authMutation({
   args: { id: v.id("agentTasks"), mode: v.optional(runModeValidator) },
   returns: v.object({
@@ -153,6 +154,7 @@ export const startExecution = authMutation({
   },
 });
 
+/** Schedules a task for future execution at a specified time. */
 export const scheduleExecution = authMutation({
   args: {
     id: v.id("agentTasks"),
@@ -193,6 +195,7 @@ export const scheduleExecution = authMutation({
   },
 });
 
+/** Cancels a previously scheduled task execution. */
 export const cancelScheduledExecution = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),
@@ -218,6 +221,7 @@ export const cancelScheduledExecution = authMutation({
   },
 });
 
+/** Reschedules a task execution to a new time. */
 export const updateScheduledExecution = authMutation({
   args: {
     id: v.id("agentTasks"),

@@ -25,14 +25,17 @@ type PersistableSessionKind = "sessions" | "designSessions";
 type PersistableRepoId = Id<"githubRepos">;
 type PersistedProvider = "claude" | "codex";
 
+/** Generates a SHA-256 hash of a session ID for use in volume naming. */
 function sessionHash(sessionId: PersistableSessionId): string {
   return createHash("sha256").update(String(sessionId)).digest("hex");
 }
 
+/** Generates a SHA-256 hash of a repo ID for use in volume naming. */
 function repoHash(repoId: PersistableRepoId): string {
   return createHash("sha256").update(String(repoId)).digest("hex");
 }
 
+/** Builds a deterministic volume name for a provider and repo combination. */
 function sessionVolumeName(
   provider: PersistedProvider,
   repoId: PersistableRepoId,
@@ -40,6 +43,7 @@ function sessionVolumeName(
   return `${provider}-sessions-${repoHash(repoId).slice(0, 24)}`;
 }
 
+/** Builds a subpath within a volume for a specific provider, session kind, and session. */
 function sessionVolumeSubpath(
   provider: PersistedProvider,
   sessionKind: PersistableSessionKind,
@@ -48,6 +52,7 @@ function sessionVolumeSubpath(
   return `${provider}-sessions/${sessionKind}/${sessionHash(sessionId)}`;
 }
 
+/** Derives a deterministic UUID v4 from a session ID hash for Claude session identification. */
 export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
   const hex = sessionHash(sessionId).slice(0, 32).split("");
   hex[12] = "4";
@@ -62,6 +67,7 @@ export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
   ].join("-");
 }
 
+/** Ensures a provider-specific volume exists and is ready, polling until timeout. */
 async function ensureSessionProviderVolume(
   daytona: Daytona,
   repoId: PersistableRepoId,
@@ -98,6 +104,7 @@ async function ensureSessionProviderVolume(
   ];
 }
 
+/** Creates and returns volume mounts for both Claude and Codex persistence for a session. */
 export async function ensureSessionPersistenceVolumes(
   daytona: Daytona,
   repoId: PersistableRepoId,

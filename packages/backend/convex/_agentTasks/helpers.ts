@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { agentTaskFields } from "../validators";
 
+/** Deduplicates and trims an array of tags, preserving order. */
 export function normalizeTaskTags(
   tags: string[] | undefined,
 ): string[] | undefined {
@@ -21,6 +22,7 @@ export function normalizeTaskTags(
   return normalized;
 }
 
+/** Builds a human-readable notification message for task assignment or completion. */
 export function buildTaskNotificationMessage(
   task: {
     projectId?: Id<"projects">;
@@ -46,6 +48,7 @@ export function buildTaskNotificationMessage(
   return summary ? `${message} ${summary}` : message;
 }
 
+/** Convex validator for a full agent task document including system fields. */
 export const agentTaskValidator = v.object({
   _id: v.id("agentTasks"),
   _creationTime: v.number(),

@@ -17,11 +17,13 @@ const queryCompleteEvent = defineEvent({
 
 // --- Prompt builders ---
 
+/** Strips markdown code fences from text, returning the inner content. */
 function stripCodeFences(text: string): string {
   const match = text.match(/```(?:\w+)?\n([\s\S]+?)```/);
   return (match ? match[1] : text).trim();
 }
 
+/** Builds a prompt instructing the LLM to generate a Convex database query from the user's question. */
 function buildGeneratePrompt(repoId: string): string {
   const now = new Date();
   return `You are a data analyst. Generate a single Convex database query to answer the user's question.
@@ -57,6 +59,7 @@ export default query({ handler: async (ctx) => {
 - Get by ID: await ctx.db.get(someId)`;
 }
 
+/** Builds a prompt instructing the LLM to execute a query and analyze the results. */
 function buildAnalysePrompt(repoId: string): string {
   const now = new Date();
   return `You are a data analyst. Execute the provided Convex database query and analyze the results.
@@ -85,6 +88,7 @@ If the query fails, fix and retry once.
 
 // --- Workflow definitions ---
 
+/** Generates a Convex query from a natural language question using a sandbox agent. */
 export const generateQueryWorkflow = workflow.define({
   args: {
     queryId: v.id("researchQueries"),
@@ -141,6 +145,7 @@ export const generateQueryWorkflow = workflow.define({
   },
 });
 
+/** Executes a confirmed query and produces an analyzed result summary. */
 export const confirmQueryWorkflow = workflow.define({
   args: {
     queryId: v.id("researchQueries"),
@@ -207,6 +212,7 @@ export const confirmQueryWorkflow = workflow.define({
 
 // --- Supporting internal functions ---
 
+/** Inserts the user question and an empty assistant placeholder message for streaming. */
 export const addMessages = internalMutation({
   args: {
     queryId: v.id("researchQueries"),
@@ -235,6 +241,7 @@ export const addMessages = internalMutation({
   },
 });
 
+/** Fetches repo data and builds the query generation prompt. */
 export const getGenerateData = internalQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -258,6 +265,7 @@ export const getGenerateData = internalQuery({
   },
 });
 
+/** Fetches repo data and builds the query execution/analysis prompt. */
 export const getConfirmData = internalQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -287,6 +295,7 @@ export const getConfirmData = internalQuery({
   },
 });
 
+/** Marks a query message as confirmed and stores the query code for execution. */
 export const markConfirmed = internalMutation({
   args: {
     queryId: v.id("researchQueries"),
@@ -305,6 +314,7 @@ export const markConfirmed = internalMutation({
   },
 });
 
+/** Saves the generated query code onto the assistant message, marking it as pending confirmation. */
 export const saveGenerateResult = internalMutation({
   args: {
     queryId: v.id("researchQueries"),
@@ -356,6 +366,7 @@ export const saveGenerateResult = internalMutation({
   },
 });
 
+/** Saves the query execution analysis result onto the confirmed message. */
 export const saveConfirmResult = internalMutation({
   args: {
     queryId: v.id("researchQueries"),
@@ -393,6 +404,7 @@ export const saveConfirmResult = internalMutation({
 
 // --- Public mutations ---
 
+/** Receives sandbox completion callback and forwards the event to the active research query workflow. */
 export const handleCompletion = authMutation({
   args: {
     queryId: v.id("researchQueries"),
@@ -431,6 +443,7 @@ export const handleCompletion = authMutation({
   },
 });
 
+/** Frontend trigger to start the query generation workflow from a natural language question. */
 export const startGenerate = authMutation({
   args: {
     queryId: v.id("researchQueries"),
@@ -473,6 +486,7 @@ export const startGenerate = authMutation({
   },
 });
 
+/** Frontend trigger to execute a confirmed query and start the analysis workflow. */
 export const startConfirm = authMutation({
   args: {
     queryId: v.id("researchQueries"),

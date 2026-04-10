@@ -22,6 +22,7 @@ const VARIATION_STRATEGIES = [
   "E: Accessible/minimal — maximum legibility, highest contrast, simplified interactions",
 ];
 
+/** Generates the Next.js router scaffold code for lazy-loading design variations. */
 function buildRouterScaffold(labels: string[]): string {
   const entries = labels
     .map((l) => `  ${l}: lazy(() => import('./variations/variation-${l}')),`)
@@ -44,6 +45,7 @@ export default function DesignPreview() {
 \`\`\``;
 }
 
+/** Builds the full design prompt including conversation history, base design, and persona context. */
 function buildDesignPrompt(
   repo: { owner: string; name: string },
   message: string,
@@ -127,6 +129,7 @@ ${message}
 After completing all steps, output ONLY valid JSON matching the format in your system prompt.${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+/** Extracts the first JSON object from LLM output text. */
 function extractJsonFromText(text: string): string | null {
   const { json } = llmJson.extract(text);
   if (json.length === 0) return null;
@@ -135,6 +138,7 @@ function extractJsonFromText(text: string): string | null {
 
 // --- Workflow definition ---
 
+/** Runs a design session: prepares the sandbox, launches the agent, and saves results. */
 export const designSessionWorkflow = workflow.define({
   args: {
     designSessionId: v.id("designSessions"),
@@ -197,6 +201,7 @@ export const designSessionWorkflow = workflow.define({
 
 // --- Supporting internal functions ---
 
+/** Fetches session data, conversation history, and builds the design prompt. */
 export const getSessionDataAndPrompt = internalQuery({
   args: {
     designSessionId: v.id("designSessions"),
@@ -276,6 +281,7 @@ export const getSessionDataAndPrompt = internalQuery({
   },
 });
 
+/** Saves the design workflow result, parsing variation JSON and updating the last message. */
 export const saveResult = internalMutation({
   args: {
     designSessionId: v.id("designSessions"),
@@ -341,6 +347,7 @@ export const saveResult = internalMutation({
   },
 });
 
+/** Receives sandbox completion callback and forwards the event to the active workflow. */
 export const handleCompletion = authMutation({
   args: {
     designSessionId: v.id("designSessions"),

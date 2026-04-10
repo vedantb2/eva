@@ -6,10 +6,12 @@ import { v } from "convex/values";
 import { resolveAllEnvVars } from "./envVarResolver";
 import type { Id } from "./_generated/dataModel";
 
+/** Type guard that validates a string looks like a valid repo ID (non-empty, no whitespace). */
 function isRepoId(id: string): id is Id<"githubRepos"> {
   return id.length > 0 && !/\s/.test(id);
 }
 
+/** Resolves and decrypts all environment variables for a repo (team + repo-level merged). */
 export const getDecryptedRepoEnvVars = internalAction({
   args: { repoId: v.string() },
   returns: v.array(v.object({ key: v.string(), value: v.string() })),

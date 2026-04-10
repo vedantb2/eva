@@ -27,14 +27,17 @@ import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import { startDesktopWithChrome } from "./desktop";
 
+/** Formats a duration in milliseconds as a human-readable string. */
 function formatDurationMs(durationMs: number): string {
   return `${durationMs}ms`;
 }
 
+/** Logs a session-scoped message with the daytona/sessions prefix. */
 function logSession(message: string): void {
   console.log(`[daytona][sessions] ${message}`);
 }
 
+/** Runs an async step with timing logs and error reporting. */
 async function runLoggedSessionStep<T>(
   label: string,
   details: string,
@@ -56,10 +59,12 @@ async function runLoggedSessionStep<T>(
   }
 }
 
+/** Returns the git branch sync strategy for a session branch and its base. */
 function getSessionSyncStrategy(branchName: string, baseBranch: string) {
   return createBranchSyncStrategy([branchName, baseBranch]);
 }
 
+/** Checks whether a git error message indicates a transient/retryable failure. */
 function isRetryableSessionGitError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
@@ -84,6 +89,7 @@ function isRetryableSessionGitError(message: string): boolean {
   );
 }
 
+/** Fetches branch refs from remote with automatic retry on transient failures. */
 async function fetchBranchRefsWithRetry(
   sandbox: Sandbox,
   installationId: number,
@@ -130,6 +136,7 @@ async function fetchBranchRefsWithRetry(
   return [];
 }
 
+/** Resolves and logs the base ref target for a session branch. */
 async function resolveSessionBaseRef(
   sandbox: Sandbox,
   repoOwner: string,
@@ -143,6 +150,7 @@ async function resolveSessionBaseRef(
   );
 }
 
+/** Checks out a session branch with automatic retry on transient git errors. */
 async function checkoutSessionBranchWithRetry(
   sandbox: Sandbox,
   branchName: string,
@@ -174,6 +182,7 @@ async function checkoutSessionBranchWithRetry(
   }
 }
 
+/** Syncs remote refs for session restore, falling back to base branch if session branch is missing. */
 async function syncSessionRefsForRestore(
   sandbox: Sandbox,
   installationId: number,
@@ -221,6 +230,7 @@ async function syncSessionRefsForRestore(
   );
 }
 
+/** Fetches both base and design branch refs for initial design session setup. */
 async function syncDesignRefsForSetup(
   sandbox: Sandbox,
   installationId: number,
@@ -250,6 +260,7 @@ async function syncDesignRefsForSetup(
   );
 }
 
+/** Installs project dependencies after snapshot restore, with retry on transient failures. */
 async function installSnapshotDependenciesWithRetry(
   sandbox: Sandbox,
   rootDir: string,
@@ -292,6 +303,7 @@ async function installSnapshotDependenciesWithRetry(
   }
 }
 
+/** Attempts to reuse an existing sandbox by running a preparation function on it. */
 async function tryReuseSandbox(
   daytona: Daytona,
   existingSandboxId: string | undefined,
@@ -329,6 +341,7 @@ type PreparedSessionSandbox = {
   devCommand: string;
 };
 
+/** Core logic for preparing a session sandbox: reuses existing or creates new, syncs refs, and starts services. */
 async function prepareSessionSandboxInternal(
   ctx: GenericActionCtx<DataModel>,
   args: SessionSandboxPreparationArgs,
@@ -481,6 +494,7 @@ async function prepareSessionSandboxInternal(
   };
 }
 
+/** Starts a session sandbox end-to-end and notifies the session of readiness or error. */
 export const startSessionSandbox = internalAction({
   args: {
     sessionId: v.id("sessions"),
@@ -544,6 +558,7 @@ export const startSessionSandbox = internalAction({
   },
 });
 
+/** Prepares a session sandbox and returns the sandbox ID without notifying the session. */
 export const prepareSessionSandbox = internalAction({
   args: {
     sessionId: v.id("sessions"),
@@ -573,6 +588,7 @@ export const prepareSessionSandbox = internalAction({
   },
 });
 
+/** Starts a design session sandbox with branch setup, dev server, and desktop support. */
 export const startDesignSandbox = internalAction({
   args: {
     designSessionId: v.id("designSessions"),

@@ -7,6 +7,7 @@ import { getSandbox, errorMessage, signAndLaunchScript } from "./helpers";
 import { sessionClaudeUuid } from "./volumes";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 
+/** Builds the system prompt for a session audit given a list of audit categories. */
 function buildSessionAuditPrompt(
   categories: Array<{ name: string; description: string }>,
 ): string {
@@ -45,6 +46,7 @@ ${sectionJson}
 }`;
 }
 
+/** Launches an audit agent on a sandbox to review branch changes. */
 export const launchAudit = internalAction({
   args: {
     sandboxId: v.string(),
@@ -80,6 +82,7 @@ export const launchAudit = internalAction({
   },
 });
 
+/** Launches an agent to fix issues found during an audit. */
 export const launchAuditFix = internalAction({
   args: {
     sandboxId: v.string(),
@@ -116,6 +119,7 @@ export const launchAuditFix = internalAction({
   },
 });
 
+/** Creates or reuses a sandbox and launches fixes for selected audit failures. */
 export const launchSelectedAuditFixes = internalAction({
   args: {
     auditId: v.id("audits"),
@@ -236,6 +240,7 @@ ${failureList}
   },
 });
 
+/** Runs an audit on a session's sandbox using enabled audit categories. */
 export const runSessionAudit = internalAction({
   args: {
     sessionId: v.id("sessions"),

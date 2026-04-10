@@ -13,6 +13,7 @@ import {
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 
+/** Retrieves the active workflow ID for a task, or null if none exists. */
 async function getActiveWorkflowId(
   ctx: MutationCtx,
   taskId: Id<"agentTasks">,
@@ -22,6 +23,7 @@ async function getActiveWorkflowId(
   return task.activeWorkflowId as WorkflowId;
 }
 
+/** Marks a running run as finalizing by setting the finalizingAt timestamp. */
 export const markRunFinalizing = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -47,6 +49,7 @@ export const markRunFinalizing = authMutation({
   },
 });
 
+/** Receives the task completion callback, validates it, and forwards the event to the workflow. */
 export const handleCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -123,6 +126,7 @@ export const handleCompletion = authMutation({
   },
 });
 
+/** Receives the audit completion callback and forwards the event to the workflow. */
 export const handleAuditCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -192,6 +196,7 @@ export const handleAuditCompletion = authMutation({
   },
 });
 
+/** Receives the audit fix completion callback and updates the audit fix status. */
 export const handleAuditFixCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -253,6 +258,7 @@ export const handleAuditFixCompletion = authMutation({
   },
 });
 
+/** Cancels the active workflow and run for a task, resetting it to todo status. */
 export const cancelExecution = authMutation({
   args: { taskId: v.id("agentTasks") },
   returns: v.null(),
@@ -304,6 +310,7 @@ export const cancelExecution = authMutation({
   },
 });
 
+/** Starts a new task execution workflow for a queued run. */
 export const triggerExecution = authMutation({
   args: {
     runId: v.id("agentRuns"),

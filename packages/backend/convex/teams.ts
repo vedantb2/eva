@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
 
+/** Gets the user's personal team, creating one (with owner membership) if it doesn't exist. */
 export const getOrCreatePersonal = internalMutation({
   args: { userId: v.id("users") },
   returns: v.id("teams"),
@@ -34,6 +35,7 @@ export const getOrCreatePersonal = internalMutation({
   },
 });
 
+/** Creates a new team and adds the current user as owner. */
 export const create = authMutation({
   args: {
     name: v.string(),
@@ -61,6 +63,7 @@ export const create = authMutation({
   },
 });
 
+/** Lists all teams the current user belongs to, with display names and user role. */
 export const list = authQuery({
   args: {},
   returns: v.array(
@@ -107,6 +110,7 @@ export const list = authQuery({
   },
 });
 
+/** Fetches a single team by ID, returning null if not found or user isn't a member. */
 export const get = authQuery({
   args: { id: v.id("teams") },
   returns: v.union(
@@ -154,6 +158,7 @@ export const get = authQuery({
   },
 });
 
+/** Updates team settings (name). Only team owners can update. */
 export const update = authMutation({
   args: {
     id: v.id("teams"),
@@ -180,6 +185,7 @@ export const update = authMutation({
   },
 });
 
+/** Deletes a team and cleans up all memberships, repo associations, and env vars. Only owners can delete non-personal teams. */
 export const remove = authMutation({
   args: { id: v.id("teams") },
   returns: v.null(),

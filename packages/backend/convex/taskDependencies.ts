@@ -8,6 +8,7 @@ const dependencyValidator = v.object({
   dependsOnId: v.id("agentTasks"),
 });
 
+/** Retrieves all dependency records for a given task. */
 export const getForTask = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(dependencyValidator),
@@ -19,6 +20,7 @@ export const getForTask = authQuery({
   },
 });
 
+/** Retrieves all tasks that depend on the given task. */
 export const getDependents = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(dependencyValidator),
@@ -30,6 +32,7 @@ export const getDependents = authQuery({
   },
 });
 
+/** Returns task details (title, status, taskNumber) for all dependencies of a task. */
 export const getDependencies = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(
@@ -61,6 +64,7 @@ export const getDependencies = authQuery({
   },
 });
 
+/** Checks whether a task is blocked by any incomplete dependency. */
 export const isBlocked = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.boolean(),
@@ -79,6 +83,7 @@ export const isBlocked = authQuery({
   },
 });
 
+/** Adds a dependency between two tasks, preventing self-references and duplicates. */
 export const add = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -105,6 +110,7 @@ export const add = authMutation({
   },
 });
 
+/** Removes a task dependency by its document ID. */
 export const remove = authMutation({
   args: { id: v.id("taskDependencies") },
   returns: v.null(),
@@ -118,6 +124,7 @@ export const remove = authMutation({
   },
 });
 
+/** Removes a task dependency by looking up the task and dependsOn pair. */
 export const removeByTasks = authMutation({
   args: {
     taskId: v.id("agentTasks"),

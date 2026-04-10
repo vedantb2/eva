@@ -13,6 +13,7 @@ const savedQueryValidator = v.object({
   updatedAt: v.number(),
 });
 
+/** Lists all saved queries for a repo. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(savedQueryValidator),
@@ -25,6 +26,7 @@ export const list = authQuery({
   },
 });
 
+/** Fetches a single saved query by ID, with repo access control. */
 export const get = authQuery({
   args: { id: v.id("savedQueries") },
   returns: v.union(savedQueryValidator, v.null()),
@@ -36,6 +38,7 @@ export const get = authQuery({
   },
 });
 
+/** Creates a new saved query for a repo. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -61,6 +64,7 @@ export const create = authMutation({
   },
 });
 
+/** Updates a saved query's title or query text. */
 export const update = authMutation({
   args: {
     id: v.id("savedQueries"),
@@ -83,6 +87,7 @@ export const update = authMutation({
   },
 });
 
+/** Deletes a saved query. */
 export const remove = authMutation({
   args: { id: v.id("savedQueries") },
   returns: v.null(),

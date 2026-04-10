@@ -50,6 +50,9 @@ const YARN_INSTALL_TIMEOUT_SECONDS = 900;
 const NPM_INSTALL_TIMEOUT_SECONDS = 900;
 const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 90;
 
+const NETWORK_READY_MAX_WAIT_MS = 60_000;
+const NETWORK_READY_POLL_INTERVAL_MS = 3_000;
+
 /** Formats a duration in milliseconds as a human-readable string. */
 function formatDurationMs(durationMs: number): string {
   return `${durationMs}ms`;
@@ -88,6 +91,42 @@ async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
       `cleanupTimedOutGitState: cleanup failed (best-effort): ${error instanceof Error ? error.message : String(error)}`,
     );
   }
+}
+
+/** Polls HTTPS connectivity to github.com until it responds, or throws after max wait.
+ * New Daytona sandboxes can have DNS ready before outbound TCP is fully routed.
+ */
+async function waitForNetwork(sandbox: Sandbox): Promise<void> {
+  const startedAt = Date.now();
+  let attempts = 0;
+  while (Date.now() - startedAt < NETWORK_READY_MAX_WAIT_MS) {
+    attempts += 1;
+    try {
+      const result = await exec(
+        sandbox,
+        `curl -s -o /dev/null -w "%{http_code}" https://github.com --connect-timeout 5`,
+        10,
+      );
+      const statusCode = result.trim();
+      if (statusCode !== "000") {
+        logGit(
+          `waitForNetwork: ready after ${attempts} attempt(s), ${formatDurationMs(Date.now() - startedAt)} (HTTP ${statusCode})`,
+        );
+        return;
+      }
+    } catch {
+      // curl failed or timed out — keep polling
+    }
+    logGit(
+      `waitForNetwork: not ready after ${attempts} attempt(s), ${formatDurationMs(Date.now() - startedAt)} elapsed, retrying in ${NETWORK_READY_POLL_INTERVAL_MS}ms`,
+    );
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, NETWORK_READY_POLL_INTERVAL_MS);
+    });
+  }
+  logGit(
+    `waitForNetwork: timed out after ${attempts} attempt(s), ${formatDurationMs(Date.now() - startedAt)} — proceeding with clone anyway`,
+  );
 }
 
 /** Strips GitHub tokens from command strings for safe logging.
@@ -537,19 +576,9 @@ export async function cloneAndSetupRepo(
     if (onProgress) await onProgress("Cloning repository...");
     const githubToken = await getInstallationToken(installationId);
     const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
-    // Pre-clone network check — log DNS + HTTPS connectivity to GitHub
-    try {
-      const netCheck = await exec(
-        sandbox,
-        `echo "dns=$(dig +short github.com | head -1)" && curl -s -o /dev/null -w "http=%{http_code} time=%{time_total}s" https://github.com --connect-timeout 10`,
-        15,
-      );
-      logGit(`cloneAndSetupRepo network check: ${netCheck.trim()}`);
-    } catch (error) {
-      logGit(
-        `cloneAndSetupRepo network check failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+    // Wait for sandbox network to be ready (HTTPS to github.com)
+    // New sandboxes may have DNS before outbound TCP is routable.
+    await waitForNetwork(sandbox);
     await execGitCommand(
       sandbox,
       `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && GIT_TERMINAL_PROMPT=0 git clone --depth 1 --single-branch --no-tags ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,

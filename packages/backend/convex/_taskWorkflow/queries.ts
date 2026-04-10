@@ -57,10 +57,7 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    const screenshotsVideosEnabled =
-      args.projectId === undefined
-        ? (repo.screenshotsVideosEnabled ?? true)
-        : true;
+    const screenshotsVideosEnabled = repo.screenshotsVideosEnabled ?? false;
 
     const prompt =
       args.mode === "resolve_conflicts"

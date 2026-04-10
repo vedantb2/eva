@@ -53,6 +53,9 @@ const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 90;
 const NETWORK_READY_MAX_WAIT_MS = 60_000;
 const NETWORK_READY_POLL_INTERVAL_MS = 3_000;
 
+// Match snapshot resource levels for non-snapshot sandboxes
+const NON_SNAPSHOT_RESOURCES = { cpu: 4, memory: 8 } as const;
+
 /** Formats a duration in milliseconds as a human-readable string. */
 function formatDurationMs(durationMs: number): string {
   return `${durationMs}ms`;
@@ -297,6 +300,22 @@ export async function createSandbox(
         : DAYTONA_CREATE_TIMEOUT_MS,
       "create",
     );
+    logGit(
+      `createSandbox: created id=${sandbox.id}, cpu=${sandbox.cpu}, memory=${sandbox.memory}, disk=${sandbox.disk}`,
+    );
+
+    // Non-snapshot sandboxes get Daytona defaults (usually minimal).
+    // Resize to match snapshot-level resources for reliable networking and performance.
+    if (!snapshotName && sandbox.cpu < NON_SNAPSHOT_RESOURCES.cpu) {
+      logGit(
+        `createSandbox: resizing non-snapshot sandbox from cpu=${sandbox.cpu}/mem=${sandbox.memory} to cpu=${NON_SNAPSHOT_RESOURCES.cpu}/mem=${NON_SNAPSHOT_RESOURCES.memory}`,
+      );
+      await sandbox.resize(NON_SNAPSHOT_RESOURCES, 30);
+      logGit(
+        `createSandbox: resize complete, now cpu=${sandbox.cpu}, memory=${sandbox.memory}`,
+      );
+    }
+
     await exec(
       sandbox,
       'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',

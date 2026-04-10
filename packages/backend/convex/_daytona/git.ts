@@ -1,6 +1,12 @@
 "use node";
 
-import type { Daytona, Sandbox, VolumeMount } from "@daytonaio/sdk";
+import type {
+  CreateSandboxFromImageParams,
+  CreateSandboxFromSnapshotParams,
+  Daytona,
+  Sandbox,
+  VolumeMount,
+} from "@daytonaio/sdk";
 import { quote } from "shell-quote";
 import { buildGitHubRepoUrl, getInstallationToken } from "../githubAuth";
 import {
@@ -275,26 +281,35 @@ export async function createSandbox(
 
     const githubToken = await getInstallationToken(installationId);
 
+    const commonParams = {
+      ...(volumes ? { volumes } : {}),
+      envVars: {
+        ...sandboxEnvVars,
+        GITHUB_TOKEN: githubToken,
+        INSTALLATION_ID: String(installationId),
+      },
+      autoStopInterval: lifecycle.autoStopInterval,
+      ...(lifecycle.autoDeleteInterval !== undefined
+        ? { autoDeleteInterval: lifecycle.autoDeleteInterval }
+        : {}),
+      ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
+    };
+
+    // Snapshot-based sandboxes inherit resources from the snapshot definition.
+    // Non-snapshot sandboxes use the image-based creation path so we can specify
+    // resources explicitly — Daytona defaults (cpu=1, mem=1GB) have unreliable networking.
+    const createParams:
+      | CreateSandboxFromSnapshotParams
+      | CreateSandboxFromImageParams = snapshotName
+      ? { ...commonParams, snapshot: snapshotName }
+      : {
+          ...commonParams,
+          image: "node:20-bookworm",
+          resources: NON_SNAPSHOT_RESOURCES,
+        };
+
     const sandbox = await withTimeout(
-      daytona.create(
-        {
-          ...(snapshotName
-            ? { snapshot: snapshotName }
-            : { language: "typescript" }),
-          ...(volumes ? { volumes } : {}),
-          envVars: {
-            ...sandboxEnvVars,
-            GITHUB_TOKEN: githubToken,
-            INSTALLATION_ID: String(installationId),
-          },
-          autoStopInterval: lifecycle.autoStopInterval,
-          ...(lifecycle.autoDeleteInterval !== undefined
-            ? { autoDeleteInterval: lifecycle.autoDeleteInterval }
-            : {}),
-          ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
-        },
-        { timeout: timeoutSeconds },
-      ),
+      daytona.create(createParams, { timeout: timeoutSeconds }),
       readyTimeoutSeconds
         ? timeoutSeconds * 1000 + 30_000
         : DAYTONA_CREATE_TIMEOUT_MS,
@@ -303,18 +318,6 @@ export async function createSandbox(
     logGit(
       `createSandbox: created id=${sandbox.id}, cpu=${sandbox.cpu}, memory=${sandbox.memory}, disk=${sandbox.disk}`,
     );
-
-    // Non-snapshot sandboxes get Daytona defaults (usually minimal).
-    // Resize to match snapshot-level resources for reliable networking and performance.
-    if (!snapshotName && sandbox.cpu < NON_SNAPSHOT_RESOURCES.cpu) {
-      logGit(
-        `createSandbox: resizing non-snapshot sandbox from cpu=${sandbox.cpu}/mem=${sandbox.memory} to cpu=${NON_SNAPSHOT_RESOURCES.cpu}/mem=${NON_SNAPSHOT_RESOURCES.memory}`,
-      );
-      await sandbox.resize(NON_SNAPSHOT_RESOURCES, 30);
-      logGit(
-        `createSandbox: resize complete, now cpu=${sandbox.cpu}, memory=${sandbox.memory}`,
-      );
-    }
 
     await exec(
       sandbox,

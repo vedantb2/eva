@@ -12,6 +12,7 @@ import {
   authQuery,
   authMutation,
   hasTaskAccess,
+  hasRepoAccess,
   recomputeProjectPhase,
 } from "./functions";
 
@@ -124,6 +125,29 @@ export const listByTask = authQuery({
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
       .collect();
     return runs.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+  },
+});
+
+export const getTaskIdsWithLatestRunError = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    taskIds: v.array(v.id("agentTasks")),
+  },
+  returns: v.array(v.id("agentTasks")),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+
+    const results = await Promise.all(
+      args.taskIds.map(async (taskId) => {
+        const latestRun = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", taskId))
+          .order("desc")
+          .first();
+        return latestRun?.status === "error" ? taskId : null;
+      }),
+    );
+    return results.filter((id): id is Id<"agentTasks"> => id !== null);
   },
 });
 

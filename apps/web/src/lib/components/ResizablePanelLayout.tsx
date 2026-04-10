@@ -1,21 +1,16 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
+import { type ReactNode, useCallback, useRef } from "react";
+import {
+  Group,
+  Panel,
+  type PanelSize,
+  Separator,
+  usePanelRef,
+} from "react-resizable-panels";
 import { IconGripVertical } from "@tabler/icons-react";
+import { useLocalStorage } from "usehooks-ts";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
-
-const ONE_YEAR = 60 * 60 * 24 * 365;
-
-function readCollapsed(cookieName: string): boolean {
-  if (typeof document === "undefined") return false;
-  return document.cookie.includes(`${cookieName}=true`);
-}
-
-function writeCollapsed(cookieName: string, collapsed: boolean) {
-  document.cookie = `${cookieName}=${collapsed}; path=/; max-age=${ONE_YEAR}; SameSite=Lax`;
-}
 
 interface PanelContext {
   rightPanelCollapsed: boolean;
@@ -28,8 +23,10 @@ interface ResizablePanelLayoutProps {
   leftDefaultSize: string;
   leftMinWidthPx: number;
   rightMinWidthPx: number;
-  collapseCookieName: string;
+  storageKey: string;
 }
+
+const DEFAULT_RIGHT_PANEL_SIZE = "60%";
 
 export function ResizablePanelLayout({
   leftPanel,
@@ -37,30 +34,31 @@ export function ResizablePanelLayout({
   leftDefaultSize,
   leftMinWidthPx,
   rightMinWidthPx,
-  collapseCookieName,
+  storageKey,
 }: ResizablePanelLayoutProps) {
   const rightPanelRef = usePanelRef();
-  const [rightCollapsed, setRightCollapsed] = useState(() =>
-    readCollapsed(collapseCookieName),
-  );
+  const [rightCollapsed, setRightCollapsed] = useLocalStorage(storageKey, true);
   const isMobile = useMediaQuery("(max-width: 767px)");
-
-  useEffect(() => {
-    if (rightCollapsed) {
-      rightPanelRef.current?.collapse();
-    }
-  }, [rightCollapsed, rightPanelRef]);
+  const lastExpandedSize = useRef<string>(DEFAULT_RIGHT_PANEL_SIZE);
 
   const handleToggle = () => {
-    const next = !rightCollapsed;
-    if (next) {
-      rightPanelRef.current?.collapse();
+    if (rightCollapsed) {
+      rightPanelRef.current?.resize(lastExpandedSize.current);
     } else {
-      rightPanelRef.current?.expand();
+      rightPanelRef.current?.collapse();
     }
-    setRightCollapsed(next);
-    writeCollapsed(collapseCookieName, next);
   };
+
+  const handleResize = useCallback(
+    (size: PanelSize) => {
+      const collapsed = size.asPercentage === 0;
+      if (!collapsed) {
+        lastExpandedSize.current = `${size.asPercentage}%`;
+      }
+      setRightCollapsed(collapsed);
+    },
+    [setRightCollapsed],
+  );
 
   const ctx: PanelContext = {
     rightPanelCollapsed: rightCollapsed,
@@ -98,9 +96,10 @@ export function ResizablePanelLayout({
       <Panel
         collapsible
         collapsedSize={0}
-        defaultSize="60%"
+        defaultSize={rightCollapsed ? 0 : DEFAULT_RIGHT_PANEL_SIZE}
         minSize={rightMinWidthPx}
         panelRef={rightPanelRef}
+        onResize={handleResize}
       >
         {rightPanel}
       </Panel>

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { claudeModelValidator, runModeValidator } from "../validators";
+import { aiModelValidator, runModeValidator } from "../validators";
 import {
   authMutation,
   hasTaskAccess,
@@ -21,7 +21,7 @@ export const startExecution = authMutation({
     branchName: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     isFirstTaskOnBranch: v.boolean(),
-    model: v.optional(claudeModelValidator),
+    model: v.optional(aiModelValidator),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);

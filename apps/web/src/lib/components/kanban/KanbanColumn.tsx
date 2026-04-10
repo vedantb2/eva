@@ -2,7 +2,8 @@
 
 import { Badge } from "@conductor/ui";
 import { KanbanBoard } from "@conductor/ui";
-import { ReactNode } from "react";
+import type { ReactNode, RefCallback } from "react";
+import { useCallback } from "react";
 import type { IconCircle } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 
@@ -23,6 +24,7 @@ interface KanbanColumnProps {
   droppable?: boolean;
   headerExtra?: ReactNode;
   emptyLabel?: string;
+  scrollRef?: RefCallback<HTMLDivElement>;
 }
 
 export function KanbanColumn({
@@ -33,8 +35,16 @@ export function KanbanColumn({
   droppable = true,
   headerExtra,
   emptyLabel = "No items",
+  scrollRef,
 }: KanbanColumnProps) {
   const Icon = config.icon;
+
+  const ref = useCallback(
+    (node: HTMLDivElement | null) => {
+      scrollRef?.(node);
+    },
+    [scrollRef],
+  );
 
   return (
     <KanbanBoard
@@ -53,7 +63,10 @@ export function KanbanColumn({
         </Badge>
         {headerExtra}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar md:p-1.5 md:pt-0">
+      <div
+        ref={ref}
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar md:p-1.5 md:pt-0"
+      >
         {count === 0 && (
           <div className="flex flex-1 items-center justify-center py-6 text-xs text-muted-foreground/50">
             {emptyLabel}

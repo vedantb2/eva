@@ -2,6 +2,7 @@ import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
+import { DEFAULT_AI_MODEL } from "../validators";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -54,7 +55,7 @@ export async function startNextQueuedSessionMessage(
     role: "user",
     content: nextMessage.content,
     timestamp: now,
-    userId: session.userId,
+    userId: nextMessage.userId,
     mode: nextMessage.mode,
   });
 
@@ -68,7 +69,7 @@ export async function startNextQueuedSessionMessage(
         mode: nextMessage.mode,
         model: nextMessage.model,
         responseLength: nextMessage.responseLength,
-        userId: session.userId,
+        userId: nextMessage.userId,
         installationId: repo.installationId,
       },
     );
@@ -129,7 +130,7 @@ export async function startNextQueuedDesignMessage(
     role: "user",
     content: nextMessage.content,
     timestamp: now,
-    userId: session.userId,
+    userId: nextMessage.userId,
     personaId: nextMessage.personaId,
   });
 
@@ -148,8 +149,9 @@ export async function startNextQueuedDesignMessage(
       {
         designSessionId,
         message: nextMessage.content,
+        model: nextMessage.model ?? DEFAULT_AI_MODEL,
         personaId: nextMessage.personaId,
-        userId: session.userId,
+        userId: nextMessage.userId,
         numDesigns: nextMessage.numDesigns ?? 3,
       },
     );

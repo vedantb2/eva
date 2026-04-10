@@ -2,10 +2,9 @@
 
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api, normalizeAIModel } from "@conductor/backend";
 import type { Doc, Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { CLAUDE_MODELS } from "@conductor/backend";
 import {
   Select,
   SelectContent,
@@ -15,6 +14,7 @@ import {
   SelectLabel,
   SelectGroup,
   Input,
+  ModelSelect,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -22,7 +22,6 @@ import {
 } from "@conductor/ui";
 import {
   IconUserPlus,
-  IconBrain,
   IconFolder,
   IconTags,
   IconGitBranch,
@@ -40,11 +39,11 @@ import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   GHOST_TRIGGER_CLASS,
   DEPLOYMENT_STATUS_CONFIG,
-  capitalize,
   getUserDisplayName,
   NO_PROJECT_VALUE,
   UNASSIGNED_VALUE,
 } from "./task-detail-constants";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 type RunDoc = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
@@ -126,6 +125,11 @@ export function StatusFieldsSection({
   const assignedDisplayName = assignedUser
     ? getUserDisplayName(assignedUser)
     : "Unnamed User";
+  const currentModel = normalizeAIModel(task?.model);
+  const { options: modelOptions } = useAvailableAiModels(
+    task?.repoId,
+    currentModel,
+  );
 
   return (
     <div className="space-y-0.5">
@@ -310,49 +314,30 @@ export function StatusFieldsSection({
         />
       </div>
 
-      <Select
-        value={task?.model ?? "sonnet"}
-        onValueChange={(val) => {
-          const model = CLAUDE_MODELS.find((m) => m === val);
-          if (model) updateTask({ id: taskId, model });
-        }}
-        disabled={status !== "todo"}
-      >
-        <SelectTrigger className={GHOST_TRIGGER_CLASS}>
-          <SelectValue>
-            <div className="flex items-center gap-1.5">
-              <IconBrain size={14} className="text-muted-foreground" />
-              <span>{capitalize(task?.model ?? "sonnet")}</span>
-              {status !== "todo" && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <IconInfoCircle
-                      size={12}
-                      className="text-muted-foreground cursor-help"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Cannot be modified after task has run
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectLabel>Model</SelectLabel>
-            {CLAUDE_MODELS.map((m) => (
-              <SelectItem key={m} value={m}>
-                <div className="flex items-center gap-1.5">
-                  <IconBrain size={14} className="text-muted-foreground" />
-                  <span>{capitalize(m)}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+      <div className="flex items-center min-h-[40px] rounded-md px-2 transition-colors hover:bg-muted/50">
+        <ModelSelect
+          value={currentModel}
+          options={modelOptions}
+          onValueChange={(nextModel) =>
+            updateTask({ id: taskId, model: nextModel })
+          }
+          disabled={status !== "todo"}
+          className="px-0"
+        />
+        {status !== "todo" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <IconInfoCircle
+                size={12}
+                className="cursor-help text-muted-foreground"
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              Cannot be modified after task has run
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
 
       {!task?.projectId && (
         <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2">

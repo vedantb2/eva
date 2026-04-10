@@ -1,31 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { SortingState } from "@tanstack/react-table";
+import {
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { TableVirtuoso } from "react-virtuoso";
 import { useQueryStates } from "nuqs";
 import { searchParser, statusesParser } from "@/lib/search-params";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import {
-  Badge,
-  DataTableProvider,
-  DataTableHeader,
-  DataTableHeaderGroup,
-  DataTableHead,
-  DataTableColumnHeader,
-  DataTableBody,
-  DataTableRow,
-  DataTableCell,
-  type ColumnDef,
-} from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
+import { Badge, DataTableColumnHeader, type ColumnDef } from "@conductor/ui";
 import {
   statusConfig,
   TASK_STATUSES,
-  type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { compactRelativeTime } from "@conductor/shared/dates";
 
@@ -106,11 +101,7 @@ const columns: ColumnDef<Task, unknown>[] = [
   {
     id: "assignedTo",
     header: "Assigned",
-    cell: ({ row }) => {
-      const userId = row.original.assignedTo;
-      if (!userId) return <span className="text-muted-foreground">—</span>;
-      return <UserInitials userId={userId} size="sm" />;
-    },
+    cell: () => null,
     enableSorting: false,
   },
   {
@@ -149,9 +140,15 @@ export function QuickTasksTableView({
   onOpenTask,
 }: QuickTasksTableViewProps) {
   const { repoId } = useRepo();
+  const users = useQuery(api.users.listAll);
+  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "createdAt", desc: true },
   ]);
+
+  const scrollRef = useCallback((node: HTMLDivElement | null) => {
+    setScrollParent(node);
+  }, []);
 
   const [{ q, statuses }] = useQueryStates({
     q: searchParser,
@@ -174,7 +171,7 @@ export function QuickTasksTableView({
       });
   }, [externalTasks, q, visibleStatuses]);
 
-  const columnsWithProject = useMemo(() => {
+  const resolvedColumns = useMemo(() => {
     return columns.map((col) => {
       if ("id" in col && col.id === "project") {
         return {
@@ -192,59 +189,121 @@ export function QuickTasksTableView({
           },
         };
       }
+      if ("id" in col && col.id === "assignedTo") {
+        return {
+          ...col,
+          cell: ({ row }: { row: { original: Task } }) => {
+            const userId = row.original.assignedTo;
+            if (!userId)
+              return <span className="text-muted-foreground">—</span>;
+            const user = users?.find((u) => u._id === userId);
+            if (!user) return <span className="text-muted-foreground">—</span>;
+            return <UserInitials user={user} size="sm" />;
+          },
+        };
+      }
       return col;
     });
-  }, [projectNames]);
+  }, [projectNames, users]);
+
+  const table = useReactTable({
+    data: tasks,
+    columns: resolvedColumns,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    onSortingChange: (updater) => {
+      const next = typeof updater === "function" ? updater(sorting) : updater;
+      setSorting(next);
+    },
+    state: { sorting },
+  });
+
+  const rows = table.getRowModel().rows;
+  const headerGroups = table.getHeaderGroups();
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <div className="flex-1 min-h-0 overflow-auto scrollbar">
-        <DataTableProvider
-          columns={columnsWithProject}
-          data={tasks}
-          sorting={sorting}
-          onSortingChange={setSorting}
-        >
-          {({ headerGroups, rows, columnCount }) => (
-            <>
-              <DataTableHeader headerGroups={headerGroups}>
-                {({ headerGroup }) => (
-                  <DataTableHeaderGroup
-                    key={headerGroup.id}
-                    headerGroup={headerGroup}
-                  >
-                    {({ header }) => (
-                      <DataTableHead key={header.id} header={header} />
-                    )}
-                  </DataTableHeaderGroup>
-                )}
-              </DataTableHeader>
-              <DataTableBody
-                rows={rows}
-                columnCount={columnCount}
-                emptyMessage="No tasks match your filters."
-              >
-                {({ row }) => (
-                  <DataTableRow
-                    key={row.id}
-                    row={row}
-                    onClick={() => {
-                      const task = row.original;
-                      if (isSelecting) {
-                        onToggleSelect(task._id);
-                      } else {
-                        onOpenTask(task._id);
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto scrollbar">
+        {scrollParent && (
+          <TableVirtuoso
+            customScrollParent={scrollParent}
+            totalCount={rows.length}
+            overscan={200}
+            fixedHeaderContent={() =>
+              headerGroups.map((headerGroup) => (
+                <tr key={headerGroup.id} className="border-b">
+                  {headerGroup.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      className="h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </th>
+                  ))}
+                </tr>
+              ))
+            }
+            itemContent={(index) => {
+              const row = rows[index];
+              return row.getVisibleCells().map((cell) => (
+                <td
+                  key={cell.id}
+                  className="p-2 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ));
+            }}
+            components={{
+              Table: ({ style, ...props }) => (
+                <table
+                  className="w-full caption-bottom text-sm"
+                  style={style}
+                  {...props}
+                />
+              ),
+              TableRow: ({ style, ...props }) => {
+                const index = props["data-item-index"];
+                const handleClick =
+                  typeof index === "number"
+                    ? () => {
+                        const task = rows[index].original;
+                        if (isSelecting) {
+                          onToggleSelect(task._id);
+                        } else {
+                          onOpenTask(task._id);
+                        }
                       }
-                    }}
-                    className="hover:bg-muted/40"
-                  >
-                    {({ cell }) => <DataTableCell key={cell.id} cell={cell} />}
-                  </DataTableRow>
-                )}
-              </DataTableBody>
-            </>
-          )}
-        </DataTableProvider>
+                    : undefined;
+                return (
+                  <tr
+                    className="border-b transition-colors hover:bg-muted/40 cursor-pointer data-[state=selected]:bg-muted"
+                    style={style}
+                    onClick={handleClick}
+                    {...props}
+                  />
+                );
+              },
+              EmptyPlaceholder: () => (
+                <tbody>
+                  <tr>
+                    <td
+                      className="h-24 text-center text-muted-foreground"
+                      colSpan={resolvedColumns.length}
+                    >
+                      No tasks match your filters.
+                    </td>
+                  </tr>
+                </tbody>
+              ),
+            }}
+          />
+        )}
       </div>
     </div>
   );

@@ -5,12 +5,14 @@ import { quote } from "shell-quote";
 import { buildGitHubRepoUrl, getInstallationToken } from "../githubAuth";
 import {
   exec,
+  LEGACY_WORKSPACE_DIR,
   WORKSPACE_DIR,
   SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS,
   DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
   DAYTONA_CREATE_TIMEOUT_MS,
   ensureSandboxRunning,
   withTimeout,
+  workspaceDirShell,
 } from "./helpers";
 import { detectPackageManager } from "./devServer";
 
@@ -42,6 +44,12 @@ const WARMING_LIFECYCLE: SandboxLifecycle = {
 
 export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE, WARMING_LIFECYCLE };
 
+const REPO_CLONE_TIMEOUT_SECONDS = 300;
+const PNPM_INSTALL_TIMEOUT_SECONDS = 900;
+const YARN_INSTALL_TIMEOUT_SECONDS = 900;
+const NPM_INSTALL_TIMEOUT_SECONDS = 900;
+const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 90;
+
 function formatDurationMs(durationMs: number): string {
   return `${durationMs}ms`;
 }
@@ -57,8 +65,9 @@ function isSandboxExecTimeout(message: string): boolean {
 
 async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
   try {
+    const workspaceDir = workspaceDirShell();
     await sandbox.process.executeCommand(
-      `pkill -9 -f '^git($| )' 2>/dev/null || true; rm -f ${WORKSPACE_DIR}/.git/index.lock ${WORKSPACE_DIR}/.git/HEAD.lock ${WORKSPACE_DIR}/.git/FETCH_HEAD.lock ${WORKSPACE_DIR}/.git/ORIG_HEAD.lock 2>/dev/null || true`,
+      `pkill -9 -f '^git($| )' 2>/dev/null || true; rm -f ${workspaceDir}/.git/index.lock ${workspaceDir}/.git/HEAD.lock ${workspaceDir}/.git/FETCH_HEAD.lock ${workspaceDir}/.git/ORIG_HEAD.lock 2>/dev/null || true`,
       "/",
       undefined,
       10,
@@ -117,9 +126,10 @@ export async function remoteBranchExists(
   return await runLoggedGitStep("remoteBranchExists", details, async () => {
     const githubToken = await getInstallationToken(installationId);
     const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const workspaceDir = workspaceDirShell();
     const output = await execGitCommand(
       sandbox,
-      `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git ls-remote --heads origin ${quote([`refs/heads/${branchName}`])}`,
+      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git ls-remote --heads origin ${quote([`refs/heads/${branchName}`])}`,
       timeoutSeconds,
     );
     return output.trim().length > 0;
@@ -172,12 +182,15 @@ export async function createSandbox(
     `installation=${installationId}`,
     snapshotName ? `snapshot=${snapshotName}` : "snapshot=none",
     lifecycle.ephemeral ? "ephemeral=true" : "ephemeral=false",
+    `volumes=${volumes?.length ?? 0}`,
   ].join(", ");
   return await runLoggedGitStep("createSandbox", details, async () => {
     const timeoutSeconds =
       readyTimeoutSeconds ??
       (snapshotName
-        ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
+        ? volumes && volumes.length > 0
+          ? SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS
+          : SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
         : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS);
 
     const githubToken = await getInstallationToken(installationId);
@@ -226,10 +239,11 @@ export async function configureGitHubOrigin(
   await runLoggedGitStep("configureGitHubOrigin", details, async () => {
     const githubToken = await getInstallationToken(installationId);
     const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const workspaceDir = workspaceDirShell();
 
     await execGitCommand(
       sandbox,
-      `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])}`,
+      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])}`,
       20,
     );
   });
@@ -249,11 +263,12 @@ export async function fetchOrigin(
   await runLoggedGitStep("fetchOrigin", details, async () => {
     const githubToken = await getInstallationToken(installationId);
     const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const workspaceDir = workspaceDirShell();
     const pruneArg = opts?.prune === false ? "" : " --prune";
     const refArg = ref ? ` ${quote([ref])}` : "";
     await execGitCommand(
       sandbox,
-      `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch${pruneArg} origin${refArg}`,
+      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch${pruneArg} origin${refArg}`,
       opts?.timeoutSeconds ?? 240,
     );
   });
@@ -267,7 +282,7 @@ export async function fetchBranchRefs(
   branchNames: string[],
   opts?: { prune?: boolean; timeoutSeconds?: number; shallow?: boolean },
 ): Promise<string[]> {
-  const details = `${owner}/${name}, branches=${branchNames.join(",")}`;
+  const details = `${owner}/${name}, branches=${branchNames.join(",")}, timeout=${opts?.timeoutSeconds ?? 240}, shallow=${opts?.shallow === true ? "true" : "false"}`;
   return await runLoggedGitStep("fetchBranchRefs", details, async () => {
     const normalized = normalizeBranchNames(branchNames);
     if (normalized.length === 0) {
@@ -278,11 +293,12 @@ export async function fetchBranchRefs(
     const pruneArg = opts?.prune === false ? "" : " --prune";
     const depthArg = opts?.shallow ? " --depth=1" : "";
     const timeoutSeconds = opts?.timeoutSeconds ?? 240;
+    const workspaceDir = workspaceDirShell();
     const refspecs = normalized.map(
       (b) => `+refs/heads/${b}:refs/remotes/origin/${b}`,
     );
     const refspecArgs = refspecs.map((r) => quote([r])).join(" ");
-    const setupAndFetch = `cd ${WORKSPACE_DIR} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${depthArg}${pruneArg} origin`;
+    const setupAndFetch = `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${depthArg}${pruneArg} origin`;
     try {
       await execGitCommand(
         sandbox,
@@ -355,6 +371,31 @@ export async function syncRepo(
   });
 }
 
+// Determines the best available base ref for branch creation: prefers origin/<base>,
+// falls back to local <base>, then HEAD if neither exists.
+export async function resolveBaseTarget(
+  sandbox: Sandbox,
+  baseBranch: string,
+): Promise<{ ref: string; source: "remote" | "local" | "head" }> {
+  const workspaceDir = workspaceDirShell();
+  const quotedRemoteRef = quote([`refs/remotes/origin/${baseBranch}`]);
+  const quotedLocalRef = quote([`refs/heads/${baseBranch}`]);
+  const output = (
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && if git rev-parse --verify --quiet ${quotedRemoteRef} >/dev/null; then printf remote; elif git rev-parse --verify --quiet ${quotedLocalRef} >/dev/null; then printf local; else printf head; fi`,
+      10,
+    )
+  ).trim();
+  if (output === "remote") {
+    return { ref: `origin/${baseBranch}`, source: "remote" };
+  }
+  if (output === "local") {
+    return { ref: baseBranch, source: "local" };
+  }
+  return { ref: "HEAD", source: "head" };
+}
+
 export async function checkoutSessionBranch(
   sandbox: Sandbox,
   branchName: string,
@@ -362,11 +403,14 @@ export async function checkoutSessionBranch(
 ): Promise<void> {
   const details = `branch=${branchName}, base=${baseBranch}`;
   await runLoggedGitStep("checkoutSessionBranch", details, async () => {
+    const { ref: baseTarget } = await resolveBaseTarget(sandbox, baseBranch);
     const quotedBranch = quote([branchName]);
-    const quotedBase = quote([`origin/${baseBranch}`]);
+    const quotedRemoteBranch = quote([`origin/${branchName}`]);
+    const quotedBase = quote([baseTarget]);
+    const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${WORKSPACE_DIR} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch} ${quotedBase})`,
+      `cd ${workspaceDir} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemoteBranch} || git checkout -b ${quotedBranch} ${quotedBase})`,
       30,
     );
   });
@@ -381,9 +425,10 @@ export async function checkoutFetchedBaseBranch(
   await runLoggedGitStep("checkoutFetchedBaseBranch", details, async () => {
     const quotedBranch = quote([baseBranch]);
     const quotedBase = quote([`origin/${baseBranch}`]);
+    const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${WORKSPACE_DIR} && git checkout ${quotedBranch} && git merge --ff-only ${quotedBase}`,
+      `cd ${workspaceDir} && git checkout ${quotedBranch} && git merge --ff-only ${quotedBase}`,
       timeoutSeconds,
     );
   });
@@ -392,13 +437,14 @@ export async function checkoutFetchedBaseBranch(
 export async function normalizeSnapshotWorktree(
   sandbox: Sandbox,
 ): Promise<void> {
+  const workspaceDir = workspaceDirShell();
   await runLoggedGitStep(
     "normalizeSnapshotWorktree",
     WORKSPACE_DIR,
     async () => {
       await execGitCommand(
         sandbox,
-        `cd ${WORKSPACE_DIR} && git reset --hard HEAD && git clean -fd`,
+        `cd ${workspaceDir} && git reset --hard HEAD && git clean -fd`,
         60,
       );
     },
@@ -409,16 +455,25 @@ async function installDependencies(
   sandbox: Sandbox,
   pm: string,
 ): Promise<void> {
+  const workspaceDir = workspaceDirShell();
   if (pm === "pnpm") {
     await exec(
       sandbox,
-      `npm install -g pnpm && cd ${WORKSPACE_DIR} && pnpm install`,
-      150,
+      `npm install -g pnpm && cd ${workspaceDir} && pnpm install`,
+      PNPM_INSTALL_TIMEOUT_SECONDS,
     );
   } else if (pm === "yarn") {
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && yarn install`, 120);
+    await exec(
+      sandbox,
+      `cd ${workspaceDir} && yarn install`,
+      YARN_INSTALL_TIMEOUT_SECONDS,
+    );
   } else {
-    await exec(sandbox, `cd ${WORKSPACE_DIR} && npm install`, 120);
+    await exec(
+      sandbox,
+      `cd ${workspaceDir} && npm install`,
+      NPM_INSTALL_TIMEOUT_SECONDS,
+    );
   }
 }
 
@@ -427,6 +482,7 @@ export async function cloneAndSetupRepo(
   installationId: number,
   owner: string,
   name: string,
+  shouldInstallDeps: boolean,
   onProgress?: (label: string) => Promise<void>,
 ): Promise<void> {
   if (onProgress) await onProgress("Cloning repository...");
@@ -434,9 +490,12 @@ export async function cloneAndSetupRepo(
   const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
   await execGitCommand(
     sandbox,
-    `rm -rf ${WORKSPACE_DIR} && git clone --depth 1 ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
-    120,
+    `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && git clone --depth 1 ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
+    REPO_CLONE_TIMEOUT_SECONDS,
   );
+  if (!shouldInstallDeps) {
+    return;
+  }
   if (onProgress) await onProgress("Installing dependencies...");
   const pm = await detectPackageManager(sandbox);
   await installDependencies(sandbox, pm);
@@ -449,18 +508,23 @@ export async function setupBranch(
 ): Promise<void> {
   const details = `branch=${branchName}, base=${baseBranch}`;
   await runLoggedGitStep("setupBranch", details, async () => {
+    const { ref: baseTarget, source } = await resolveBaseTarget(
+      sandbox,
+      baseBranch,
+    );
     const quotedBranch = quote([branchName]);
     const quotedRemote = quote([`origin/${branchName}`]);
-    const quotedBase = quote([`origin/${baseBranch}`]);
+    const quotedBase = quote([baseTarget]);
+    const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${WORKSPACE_DIR} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} ${quotedBase})`,
+      `cd ${workspaceDir} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} ${quotedBase})`,
       15,
     );
     const currentBranch = (
       await execGitCommand(
         sandbox,
-        `cd ${WORKSPACE_DIR} && git branch --show-current`,
+        `cd ${workspaceDir} && git branch --show-current`,
         5,
       )
     ).trim();
@@ -469,15 +533,16 @@ export async function setupBranch(
         `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
       );
     }
-    await execGitCommand(
-      sandbox,
-      `cd ${WORKSPACE_DIR} && (git merge --ff-only ${quotedRemote} 2>/dev/null || true) && (git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true)`,
-      30,
-    );
+    // Only merge base into branch if we found a real base ref (not HEAD fallback)
+    const mergeCmd =
+      source !== "head"
+        ? `(git merge --ff-only ${quotedRemote} 2>/dev/null || true) && (git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true)`
+        : `(git merge --ff-only ${quotedRemote} 2>/dev/null || true)`;
+    await execGitCommand(sandbox, `cd ${workspaceDir} && ${mergeCmd}`, 30);
     try {
       await execGitCommand(
         sandbox,
-        `cd ${WORKSPACE_DIR} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
+        `cd ${workspaceDir} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
         60,
       );
     } catch (error) {
@@ -533,6 +598,7 @@ export async function createSandboxAndPrepareRepo(
           installationId,
           owner,
           name,
+          !lifecycle.ephemeral,
           onProgress,
         );
         return { sandbox, usedSnapshot: false };

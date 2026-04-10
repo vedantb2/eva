@@ -1,76 +1,73 @@
 "use client";
 
 import { useCallback } from "react";
-import type { ClaudeModel, ResponseLength } from "@conductor/ui";
+import { useLocalStorage } from "usehooks-ts";
+import type { ResponseLength } from "@conductor/ui";
+import {
+  DEFAULT_AI_MODEL,
+  normalizeAIModel,
+  type AIModel,
+} from "@conductor/backend";
 
-const MODELS: ClaudeModel[] = ["opus", "sonnet", "haiku"];
-const RESPONSE_LENGTHS: ResponseLength[] = ["default", "detailed"];
+const SESSION_MODES = ["ask", "execute", "plan"] as const;
+export type SessionMode = (typeof SESSION_MODES)[number];
 
-function isClaudeModel(v: string): v is ClaudeModel {
-  return MODELS.includes(v as ClaudeModel);
+interface StoredSettings {
+  model: AIModel;
+  responseLength: ResponseLength;
+  mode: SessionMode;
 }
 
-function isResponseLength(v: string): v is ResponseLength {
-  return RESPONSE_LENGTHS.includes(v as ResponseLength);
-}
+const DEFAULT_SETTINGS: StoredSettings = {
+  model: DEFAULT_AI_MODEL,
+  responseLength: "default",
+  mode: "ask",
+};
 
 function storageKey(sessionId: string) {
   return `conductor:session-settings:${sessionId}`;
 }
 
-interface StoredSettings {
-  model?: string;
-  responseLength?: string;
-}
-
-function readSettings(sessionId: string): StoredSettings {
-  try {
-    const raw = sessionStorage.getItem(storageKey(sessionId));
-    if (!raw) return {};
-    return JSON.parse(raw) as StoredSettings;
-  } catch {
-    return {};
-  }
-}
-
-function writeSettings(sessionId: string, settings: StoredSettings) {
-  sessionStorage.setItem(storageKey(sessionId), JSON.stringify(settings));
-}
-
-export function getSessionModel(
+export function useSessionSettings(
   sessionId: string,
-  fallback: ClaudeModel,
-): ClaudeModel {
-  const stored = readSettings(sessionId).model;
-  if (stored && isClaudeModel(stored)) return stored;
-  return fallback;
-}
+  overrides?: { defaultModel?: string | null },
+) {
+  const defaults: StoredSettings = overrides?.defaultModel
+    ? { ...DEFAULT_SETTINGS, model: normalizeAIModel(overrides.defaultModel) }
+    : DEFAULT_SETTINGS;
 
-export function getSessionResponseLength(
-  sessionId: string,
-  fallback: ResponseLength,
-): ResponseLength {
-  const stored = readSettings(sessionId).responseLength;
-  if (stored && isResponseLength(stored)) return stored;
-  return fallback;
-}
-
-export function useSessionModelSetter(sessionId: string) {
-  return useCallback(
-    (model: ClaudeModel) => {
-      const settings = readSettings(sessionId);
-      writeSettings(sessionId, { ...settings, model });
-    },
-    [sessionId],
+  const [settings, setSettings] = useLocalStorage(
+    storageKey(sessionId),
+    defaults,
   );
-}
 
-export function useSessionResponseLengthSetter(sessionId: string) {
-  return useCallback(
+  const setModel = useCallback(
+    (model: AIModel) => {
+      setSettings((prev) => ({ ...prev, model: normalizeAIModel(model) }));
+    },
+    [setSettings],
+  );
+
+  const setMode = useCallback(
+    (mode: SessionMode) => {
+      setSettings((prev) => ({ ...prev, mode }));
+    },
+    [setSettings],
+  );
+
+  const setResponseLength = useCallback(
     (responseLength: ResponseLength) => {
-      const settings = readSettings(sessionId);
-      writeSettings(sessionId, { ...settings, responseLength });
+      setSettings((prev) => ({ ...prev, responseLength }));
     },
-    [sessionId],
+    [setSettings],
   );
+
+  return {
+    model: normalizeAIModel(settings.model),
+    mode: settings.mode,
+    responseLength: settings.responseLength,
+    setModel,
+    setMode,
+    setResponseLength,
+  };
 }

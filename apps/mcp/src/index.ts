@@ -11,8 +11,8 @@ import {
   handleClientRegistration,
   verifyToken,
   extractBearerToken,
-  mintInternalToken,
 } from "./auth.js";
+import { mintInternalToken } from "./internal-auth.js";
 import { registerTools } from "./tools.js";
 import { registerSupabaseTools } from "./supabase-proxy.js";
 import type { ConvexCredentials } from "./auth.js";

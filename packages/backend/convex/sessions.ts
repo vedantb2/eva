@@ -22,4 +22,8 @@ export {
 
 export { updatePtySession, updatePtySessionInternal } from "./_sessions/pty";
 
-export { getInternal, setPrUrl } from "./_sessions/internal";
+export {
+  getInternal,
+  setPrUrl,
+  updateDeploymentStatus,
+} from "./_sessions/internal";

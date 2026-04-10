@@ -4,6 +4,8 @@ import { internal } from "./_generated/api";
 import { type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import {
+  aiModelValidator,
+  normalizeAIModel,
   roleValidator,
   sessionStatusValidator,
   variationValidator,
@@ -27,6 +29,31 @@ const designSessionValidator = v.object({
   selectedVariationIndex: v.optional(v.number()),
   updatedAt: v.optional(v.number()),
   devPort: v.optional(v.number()),
+});
+
+export const designSandboxStartupWorkflow = workflow.define({
+  args: {
+    designSessionId: v.id("designSessions"),
+    existingSandboxId: v.optional(v.string()),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  handler: async (step, args): Promise<void> => {
+    await step.runAction(internal.daytona.startDesignSandbox, {
+      designSessionId: args.designSessionId,
+      existingSandboxId: args.existingSandboxId,
+      installationId: args.installationId,
+      repoOwner: args.repoOwner,
+      repoName: args.repoName,
+      branchName: args.branchName,
+      baseBranch: args.baseBranch,
+      repoId: args.repoId,
+    });
+  },
 });
 
 export const list = authQuery({
@@ -239,16 +266,20 @@ export const startSandbox = authMutation({
       status: "starting",
       updatedAt: Date.now(),
     });
-    await ctx.scheduler.runAfter(0, internal.daytona.startDesignSandbox, {
-      designSessionId: args.id,
-      existingSandboxId: session.sandboxId,
-      installationId: repo.installationId,
-      repoOwner: repo.owner,
-      repoName: repo.name,
-      branchName,
-      baseBranch,
-      repoId: session.repoId,
-    });
+    await workflow.start(
+      ctx,
+      internal.designSessions.designSandboxStartupWorkflow,
+      {
+        designSessionId: args.id,
+        existingSandboxId: session.sandboxId,
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        branchName,
+        baseBranch,
+        repoId: session.repoId,
+      },
+    );
     return null;
   },
 });
@@ -341,6 +372,7 @@ export const executeMessage = authMutation({
   args: {
     id: v.id("designSessions"),
     message: v.string(),
+    model: aiModelValidator,
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
   },
@@ -373,6 +405,7 @@ export const executeMessage = authMutation({
       {
         designSessionId: args.id,
         message: args.message,
+        model: normalizeAIModel(args.model),
         personaId: args.personaId,
         userId: ctx.userId,
         numDesigns: args.numDesigns ?? 3,
@@ -397,6 +430,7 @@ export const enqueueMessage = authMutation({
   args: {
     id: v.id("designSessions"),
     message: v.string(),
+    model: aiModelValidator,
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
   },
@@ -414,6 +448,8 @@ export const enqueueMessage = authMutation({
       parentId: args.id,
       content,
       createdAt: Date.now(),
+      userId: ctx.userId,
+      model: normalizeAIModel(args.model),
       personaId: args.personaId,
       numDesigns: args.numDesigns ?? 3,
     });

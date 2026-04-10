@@ -2,7 +2,7 @@ import type { Id } from "../_generated/dataModel";
 import { buildRootDirectoryInstruction } from "../prompts";
 import { extractFailuresFromJson } from "./auditParser";
 
-export const WORKSPACE_DIR = "/workspace/repo";
+export const WORKSPACE_DIR = "/tmp/repo";
 
 export function buildWorkflowRunNotificationMessage(params: {
   success: boolean;

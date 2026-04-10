@@ -5,6 +5,7 @@ export const workflowCompleteValidator = v.object({
   result: v.union(v.string(), v.null()),
   error: v.union(v.string(), v.null()),
   activityLog: v.union(v.string(), v.null()),
+  pendingQuestion: v.optional(v.string()),
 });
 
 export const taskStatusValidator = v.union(
@@ -126,14 +127,237 @@ export const roleUserValidator = v.union(
   v.literal("dev"),
 );
 
-export const claudeModelValidator = v.union(
+export const aiProviderValidator = v.union(
+  v.literal("claude"),
+  v.literal("codex"),
+);
+
+export const aiModelValidator = v.union(
   v.literal("opus"),
   v.literal("sonnet"),
   v.literal("haiku"),
+  v.literal("claude:opus"),
+  v.literal("claude:sonnet"),
+  v.literal("claude:haiku"),
+  v.literal("codex:gpt-5-codex"),
+  v.literal("codex:gpt-5.1-codex"),
+  v.literal("codex:gpt-5.1-codex-max"),
+  v.literal("codex:gpt-5.1-codex-mini"),
+  v.literal("codex:gpt-5.2-codex"),
+  v.literal("codex:gpt-5.3-codex"),
+  v.literal("codex:codex-mini-latest"),
 );
 
-export const CLAUDE_MODELS = ["opus", "sonnet", "haiku"] as const;
-export type ClaudeModel = (typeof CLAUDE_MODELS)[number];
+export type AIProvider = "claude" | "codex";
+export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
+export type AIModel =
+  | "claude:opus"
+  | "claude:sonnet"
+  | "claude:haiku"
+  | "codex:gpt-5-codex"
+  | "codex:gpt-5.1-codex"
+  | "codex:gpt-5.1-codex-max"
+  | "codex:gpt-5.1-codex-mini"
+  | "codex:gpt-5.2-codex"
+  | "codex:gpt-5.3-codex"
+  | "codex:codex-mini-latest";
+export type PersistedAIModel = AIModel | LegacyClaudeModel;
+
+export interface AIModelOption {
+  id: AIModel;
+  provider: AIProvider;
+  label: string;
+  legacy: boolean;
+  requiresAuth: boolean;
+}
+
+export interface AIProviderAvailability {
+  claude: boolean;
+  codex: boolean;
+}
+
+export const DEFAULT_AI_MODEL: AIModel = "claude:sonnet";
+
+export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
+  {
+    id: "claude:opus",
+    provider: "claude",
+    label: "Opus",
+    legacy: false,
+    requiresAuth: true,
+  },
+  {
+    id: "claude:sonnet",
+    provider: "claude",
+    label: "Sonnet",
+    legacy: false,
+    requiresAuth: true,
+  },
+  {
+    id: "claude:haiku",
+    provider: "claude",
+    label: "Haiku",
+    legacy: false,
+    requiresAuth: true,
+  },
+  {
+    id: "codex:gpt-5.3-codex",
+    provider: "codex",
+    label: "GPT-5.3-Codex",
+    legacy: false,
+    requiresAuth: true,
+  },
+  {
+    id: "codex:gpt-5.2-codex",
+    provider: "codex",
+    label: "GPT-5.2-Codex",
+    legacy: false,
+    requiresAuth: true,
+  },
+  {
+    id: "codex:gpt-5.1-codex-max",
+    provider: "codex",
+    label: "GPT-5.1-Codex-Max",
+    legacy: false,
+    requiresAuth: true,
+  },
+  {
+    id: "codex:gpt-5.1-codex",
+    provider: "codex",
+    label: "GPT-5.1-Codex",
+    legacy: false,
+    requiresAuth: true,
+  },
+  {
+    id: "codex:gpt-5.1-codex-mini",
+    provider: "codex",
+    label: "GPT-5.1-Codex mini",
+    legacy: false,
+    requiresAuth: true,
+  },
+  {
+    id: "codex:gpt-5-codex",
+    provider: "codex",
+    label: "GPT-5-Codex",
+    legacy: true,
+    requiresAuth: true,
+  },
+  {
+    id: "codex:codex-mini-latest",
+    provider: "codex",
+    label: "codex-mini-latest",
+    legacy: true,
+    requiresAuth: true,
+  },
+];
+
+export const CLAUDE_MODELS: ReadonlyArray<AIModel> = [
+  "claude:opus",
+  "claude:sonnet",
+  "claude:haiku",
+];
+export const CODEX_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
+  (option) => option.provider === "codex",
+).map((option) => option.id);
+
+export const CODEX_AUTH_ENV_KEYS: ReadonlyArray<string> = [
+  "CODEX_AUTH_JSON",
+  "CODEX_AUTH_JSON_BASE64",
+];
+export const CODEX_CONFIG_ENV_KEYS: ReadonlyArray<string> = [
+  "CODEX_CONFIG_TOML",
+  "CODEX_CONFIG_TOML_BASE64",
+];
+
+export function getAIProviderAvailability(
+  envVarKeys: Iterable<string>,
+): AIProviderAvailability {
+  const keys = envVarKeys instanceof Set ? envVarKeys : new Set(envVarKeys);
+  return {
+    claude: keys.has("CLAUDE_CODE_OAUTH_TOKEN"),
+    codex: CODEX_AUTH_ENV_KEYS.some((key) => keys.has(key)),
+  };
+}
+
+export function normalizeAIModel(model: string | null | undefined): AIModel {
+  switch (model) {
+    case "opus":
+    case "claude:opus":
+      return "claude:opus";
+    case "haiku":
+    case "claude:haiku":
+      return "claude:haiku";
+    case "codex:gpt-5-codex":
+      return "codex:gpt-5-codex";
+    case "codex:gpt-5.1-codex":
+      return "codex:gpt-5.1-codex";
+    case "codex:gpt-5.1-codex-max":
+      return "codex:gpt-5.1-codex-max";
+    case "codex:gpt-5.1-codex-mini":
+      return "codex:gpt-5.1-codex-mini";
+    case "codex:gpt-5.2-codex":
+      return "codex:gpt-5.2-codex";
+    case "codex:gpt-5.3-codex":
+      return "codex:gpt-5.3-codex";
+    case "codex:codex-mini-latest":
+      return "codex:codex-mini-latest";
+    case "sonnet":
+    case "claude:sonnet":
+    default:
+      return DEFAULT_AI_MODEL;
+  }
+}
+
+export function getAIModelProvider(
+  model: string | null | undefined,
+): AIProvider {
+  return normalizeAIModel(model).startsWith("codex:") ? "codex" : "claude";
+}
+
+export function findAIModelOption(
+  model: string | null | undefined,
+): AIModelOption {
+  const normalized = normalizeAIModel(model);
+  const option = AI_MODEL_OPTIONS.find((entry) => entry.id === normalized);
+  if (option) {
+    return option;
+  }
+  return {
+    id: DEFAULT_AI_MODEL,
+    provider: "claude",
+    label: "Sonnet",
+    legacy: false,
+    requiresAuth: true,
+  };
+}
+
+export function hasCodexAuthEnvVar(envVars: Record<string, string>): boolean {
+  return CODEX_AUTH_ENV_KEYS.some((key) => {
+    const value = envVars[key];
+    return typeof value === "string" && value.trim().length > 0;
+  });
+}
+
+export function getVisibleAIModelOptions(
+  availability: AIProviderAvailability | null | undefined,
+  currentModel: string | null | undefined,
+): ReadonlyArray<AIModelOption> {
+  const normalizedCurrent = normalizeAIModel(currentModel);
+  const currentProvider = getAIModelProvider(normalizedCurrent);
+  const isClaudeVisible =
+    availability === undefined ||
+    availability === null ||
+    availability.claude ||
+    currentProvider === "claude";
+  const isCodexVisible =
+    availability?.codex === true || currentProvider === "codex";
+  return AI_MODEL_OPTIONS.filter((option) => {
+    if (option.provider === "codex") {
+      return isCodexVisible;
+    }
+    return isClaudeVisible;
+  });
+}
 
 export const queryConfirmationStatusValidator = v.union(
   v.literal("pending"),
@@ -259,7 +483,7 @@ export const agentTaskFields = {
   updatedAt: v.number(),
   createdBy: v.optional(v.id("users")),
   assignedTo: v.optional(v.id("users")),
-  model: v.optional(claudeModelValidator),
+  model: v.optional(aiModelValidator),
   baseBranch: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
   scheduledRetryAt: v.optional(v.number()),
@@ -304,6 +528,8 @@ export const sessionFields = {
   activeWorkflowId: v.optional(v.string()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
+  deploymentStatus: v.optional(deploymentStatusValidator),
+  deploymentUrl: v.optional(v.string()),
 };
 
 export const syncSettingFields = {
@@ -323,7 +549,7 @@ export const githubRepoFields = {
   rootDirectory: v.optional(v.string()),
   parentRepoId: v.optional(v.id("githubRepos")),
   defaultBaseBranch: v.optional(v.string()),
-  defaultModel: v.optional(claudeModelValidator),
+  defaultModel: v.optional(aiModelValidator),
   sessionsVncEnabled: v.optional(v.boolean()),
   sessionsVscodeEnabled: v.optional(v.boolean()),
   hidden: v.optional(v.boolean()),
@@ -392,7 +618,7 @@ export const automationFields = {
   title: v.string(),
   description: v.string(),
   cronSchedule: v.string(),
-  model: v.optional(claudeModelValidator),
+  model: v.optional(aiModelValidator),
   enabled: v.boolean(),
   readOnly: v.optional(v.boolean()),
   actionsEnabled: v.optional(v.boolean()),
@@ -439,14 +665,16 @@ export const messageFields = {
   status: v.optional(queryConfirmationStatusValidator),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
+  pendingQuestion: v.optional(v.string()),
 };
 
 export const queuedMessageFields = {
   parentId: v.union(v.id("sessions"), v.id("designSessions")),
   content: v.string(),
   createdAt: v.number(),
+  userId: v.id("users"),
   mode: v.optional(sessionModeValidator),
-  model: v.optional(claudeModelValidator),
+  model: v.optional(aiModelValidator),
   responseLength: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),
   numDesigns: v.optional(v.number()),

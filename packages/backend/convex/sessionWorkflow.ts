@@ -5,9 +5,10 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
-  claudeModelValidator,
+  aiModelValidator,
   sessionModeValidator,
   workflowCompleteValidator,
+  normalizeAIModel,
 } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
@@ -32,7 +33,8 @@ const MODE_TOOLS: Record<"ask" | "plan" | "execute", string> = {
   execute: "Read,Write,Edit,Bash,Glob,Grep",
 };
 
-const WORKSPACE_DIR = "/workspace/repo";
+const WORKSPACE_DIR = "/tmp/repo";
+const LEGACY_WORKSPACE_DIR = "/workspace/repo";
 
 // --- Prompt builders ---
 
@@ -51,6 +53,7 @@ Use Glob, Grep, Read, Bash to explore. Do NOT modify files.
 Rules:
 - Non-technical language only — no code, file paths, function names, or jargon
 - Reference product areas casually ("the login page") but never source files
+- If you find a fixable issue, do NOT say "a developer needs to look at this." Instead, describe the problem and suggest: "Want me to switch to execute mode and fix this?"
 ${getResponseLengthInstruction(responseLength, "ask")}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
@@ -117,12 +120,37 @@ const sessionModeArgValidator = v.union(
   v.literal("plan"),
 );
 
+export const sessionSandboxStartupWorkflow = workflow.define({
+  args: {
+    sessionId: v.id("sessions"),
+    existingSandboxId: v.optional(v.string()),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  handler: async (step, args): Promise<void> => {
+    await step.runAction(internal.daytona.startSessionSandbox, {
+      sessionId: args.sessionId,
+      existingSandboxId: args.existingSandboxId,
+      installationId: args.installationId,
+      repoOwner: args.repoOwner,
+      repoName: args.repoName,
+      branchName: args.branchName,
+      baseBranch: args.baseBranch,
+      repoId: args.repoId,
+    });
+  },
+});
+
 export const sessionExecuteWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeArgValidator,
-    model: claudeModelValidator,
+    model: aiModelValidator,
     responseLength: v.string(),
     userId: v.id("users"),
     installationId: v.number(),
@@ -202,7 +230,7 @@ export const sessionExecuteWorkflow = workflow.define({
     if (args.mode === "plan" && result.success && sandboxId) {
       const planRaw = await step.runAction(internal.daytona.runSandboxCommand, {
         sandboxId,
-        command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
+        command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || cat ${LEGACY_WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
         timeoutSeconds: 10,
         repoId: data.repoId,
       });
@@ -218,7 +246,53 @@ export const sessionExecuteWorkflow = workflow.define({
       error: result.error,
       activityLog: result.activityLog,
       planContent,
+      pendingQuestion: result.pendingQuestion,
     });
+
+    if (args.mode === "execute" && result.success && data.branchName) {
+      await step.runMutation(
+        internal.sessionWorkflow.scheduleSessionDeploymentTracking,
+        {
+          sessionId: args.sessionId,
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          branchName: data.branchName,
+          deploymentProjectName: data.deploymentProjectName,
+        },
+      );
+    }
+  },
+});
+
+// --- Deployment tracking ---
+
+export const scheduleSessionDeploymentTracking = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    deploymentProjectName: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.sessionId, { deploymentStatus: "queued" });
+    await ctx.scheduler.runAfter(
+      30_000,
+      internal.taskWorkflowActions.pollSessionDeploymentStatus,
+      {
+        sessionId: args.sessionId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        branchName: args.branchName,
+        deploymentProjectName: args.deploymentProjectName,
+        attempt: 0,
+      },
+    );
+    return null;
   },
 });
 
@@ -252,7 +326,7 @@ export const getSessionData = internalQuery({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeArgValidator,
-    model: claudeModelValidator,
+    model: aiModelValidator,
     responseLength: v.string(),
   },
   returns: v.object({
@@ -264,7 +338,8 @@ export const getSessionData = internalQuery({
     branchName: v.optional(v.string()),
     baseBranch: v.string(),
     allowedTools: v.string(),
-    model: claudeModelValidator,
+    model: aiModelValidator,
+    deploymentProjectName: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -316,7 +391,8 @@ export const getSessionData = internalQuery({
       branchName,
       baseBranch: repo.defaultBaseBranch ?? "main",
       allowedTools: MODE_TOOLS[args.mode],
-      model: args.model,
+      model: normalizeAIModel(args.model),
+      deploymentProjectName: repo.deploymentProjectName,
     };
   },
 });
@@ -353,6 +429,7 @@ export const saveResult = internalMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     planContent: v.optional(v.string()),
+    pendingQuestion: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -372,6 +449,7 @@ export const saveResult = internalMutation({
       content: string;
       activityLog?: string;
       finishedAt?: number;
+      pendingQuestion?: string;
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -380,6 +458,9 @@ export const saveResult = internalMutation({
     };
     if (args.activityLog) {
       patch.activityLog = args.activityLog;
+    }
+    if (args.pendingQuestion) {
+      patch.pendingQuestion = args.pendingQuestion;
     }
     await ctx.db.patch(last._id, patch);
 
@@ -408,6 +489,7 @@ export const handleCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    pendingQuestion: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -429,6 +511,7 @@ export const handleCompletion = authMutation({
         result: args.result,
         error: args.error,
         activityLog: args.activityLog,
+        pendingQuestion: args.pendingQuestion,
       },
     });
 
@@ -454,7 +537,7 @@ export const startExecute = authMutation({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeValidator,
-    model: claudeModelValidator,
+    model: aiModelValidator,
     responseLength: v.string(),
   },
   returns: v.null(),
@@ -508,7 +591,7 @@ export const enqueueMessage = authMutation({
     sessionId: v.id("sessions"),
     message: v.string(),
     mode: sessionModeValidator,
-    model: claudeModelValidator,
+    model: aiModelValidator,
     responseLength: v.string(),
   },
   returns: v.null(),
@@ -525,6 +608,7 @@ export const enqueueMessage = authMutation({
       parentId: args.sessionId,
       content,
       createdAt: Date.now(),
+      userId: ctx.userId,
       mode: args.mode,
       model: args.model,
       responseLength: args.responseLength,

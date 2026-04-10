@@ -22,8 +22,215 @@ import {
   WorkflowIcon,
   BookOpenIcon,
   WrenchIcon,
+  MessageSquareIcon,
 } from "lucide-react";
 import { memo, useState, useEffect, useRef } from "react";
+
+const SPINNER_VERBS = [
+  "Accomplishing",
+  "Actioning",
+  "Actualizing",
+  "Architecting",
+  "Baking",
+  "Beaming",
+  "Beboppin'",
+  "Befuddling",
+  "Billowing",
+  "Blanching",
+  "Bloviating",
+  "Boogieing",
+  "Boondoggling",
+  "Booping",
+  "Bootstrapping",
+  "Brewing",
+  "Bunning",
+  "Burrowing",
+  "Calculating",
+  "Canoodling",
+  "Caramelizing",
+  "Cascading",
+  "Catapulting",
+  "Cerebrating",
+  "Channeling",
+  "Channelling",
+  "Choreographing",
+  "Churning",
+  "Clauding",
+  "Coalescing",
+  "Cogitating",
+  "Combobulating",
+  "Composing",
+  "Computing",
+  "Concocting",
+  "Considering",
+  "Contemplating",
+  "Cooking",
+  "Crafting",
+  "Creating",
+  "Crunching",
+  "Crystallizing",
+  "Cultivating",
+  "Deciphering",
+  "Deliberating",
+  "Determining",
+  "Dilly-dallying",
+  "Discombobulating",
+  "Doing",
+  "Doodling",
+  "Drizzling",
+  "Ebbing",
+  "Effecting",
+  "Elucidating",
+  "Embellishing",
+  "Enchanting",
+  "Envisioning",
+  "Evaporating",
+  "Fermenting",
+  "Fiddle-faddling",
+  "Finagling",
+  "Flambéing",
+  "Flibbertigibbeting",
+  "Flowing",
+  "Flummoxing",
+  "Fluttering",
+  "Forging",
+  "Forming",
+  "Frolicking",
+  "Frosting",
+  "Gallivanting",
+  "Galloping",
+  "Garnishing",
+  "Generating",
+  "Gesticulating",
+  "Germinating",
+  "Gitifying",
+  "Grooving",
+  "Gusting",
+  "Harmonizing",
+  "Hashing",
+  "Hatching",
+  "Herding",
+  "Honking",
+  "Hullaballooing",
+  "Hyperspacing",
+  "Ideating",
+  "Imagining",
+  "Improvising",
+  "Incubating",
+  "Inferring",
+  "Infusing",
+  "Ionizing",
+  "Jitterbugging",
+  "Julienning",
+  "Kneading",
+  "Leavening",
+  "Levitating",
+  "Lollygagging",
+  "Manifesting",
+  "Marinating",
+  "Meandering",
+  "Metamorphosing",
+  "Misting",
+  "Moonwalking",
+  "Moseying",
+  "Mulling",
+  "Mustering",
+  "Musing",
+  "Nebulizing",
+  "Nesting",
+  "Newspapering",
+  "Noodling",
+  "Nucleating",
+  "Orbiting",
+  "Orchestrating",
+  "Osmosing",
+  "Perambulating",
+  "Percolating",
+  "Perusing",
+  "Philosophising",
+  "Photosynthesizing",
+  "Pollinating",
+  "Pondering",
+  "Pontificating",
+  "Pouncing",
+  "Precipitating",
+  "Prestidigitating",
+  "Processing",
+  "Proofing",
+  "Propagating",
+  "Puttering",
+  "Puzzling",
+  "Quantumizing",
+  "Razzle-dazzling",
+  "Razzmatazzing",
+  "Recombobulating",
+  "Reticulating",
+  "Roosting",
+  "Ruminating",
+  "Sautéing",
+  "Scampering",
+  "Schlepping",
+  "Scurrying",
+  "Seasoning",
+  "Shenaniganing",
+  "Shimmying",
+  "Simmering",
+  "Skedaddling",
+  "Sketching",
+  "Slithering",
+  "Smooshing",
+  "Sock-hopping",
+  "Spelunking",
+  "Spinning",
+  "Sprouting",
+  "Stewing",
+  "Sublimating",
+  "Swirling",
+  "Swooping",
+  "Symbioting",
+  "Synthesizing",
+  "Tempering",
+  "Thinking",
+  "Thundering",
+  "Tinkering",
+  "Tomfoolering",
+  "Topsy-turvying",
+  "Transfiguring",
+  "Transmuting",
+  "Twisting",
+  "Undulating",
+  "Unfurling",
+  "Unravelling",
+  "Vibing",
+  "Waddling",
+  "Wandering",
+  "Warping",
+  "Whatchamacalliting",
+  "Whirlpooling",
+  "Whirring",
+  "Whisking",
+  "Wibbling",
+  "Working",
+  "Wrangling",
+  "Zesting",
+  "Zigzagging",
+] as const;
+
+function getRandomVerb(): string {
+  return SPINNER_VERBS[Math.floor(Math.random() * SPINNER_VERBS.length)];
+}
+
+function useSpinnerVerb(active: boolean): string {
+  const [verb, setVerb] = useState(getRandomVerb);
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => {
+      setVerb(getRandomVerb());
+    }, 3000);
+    return () => clearInterval(id);
+  }, [active]);
+  return verb;
+}
 
 function EvaThinkingIcon({ className }: { className?: string }) {
   return (
@@ -50,6 +257,7 @@ export interface ActivityStep {
     | "subtask"
     | "notebook"
     | "thinking"
+    | "question"
     | "tool";
   label: string;
   detail?: string;
@@ -68,6 +276,7 @@ const stepConfig = {
   subtask: { icon: WorkflowIcon, defaultLabel: "Ran agent" },
   notebook: { icon: BookOpenIcon, defaultLabel: "Edited notebook" },
   thinking: { icon: EvaThinkingIcon, defaultLabel: "Thinking..." },
+  question: { icon: MessageSquareIcon, defaultLabel: "Asked a question" },
   tool: { icon: WrenchIcon, defaultLabel: "Used tool" },
 };
 
@@ -166,6 +375,7 @@ export const ActivitySteps = memo(
 
     if (steps.length === 0) return null;
 
+    const verb = useSpinnerVerb(Boolean(isStreaming));
     const stepsText = `${steps.length} ${steps.length === 1 ? "time" : "times"}`;
     const timeText =
       isStreaming && startedAt
@@ -176,11 +386,11 @@ export const ActivitySteps = memo(
     const headerLabel = isStreaming
       ? name
         ? timeText
-          ? `${name} is cooking... (${stepsText} · ${timeText})`
-          : `${name} is cooking... (${stepsText})`
+          ? `${name} is ${verb.toLowerCase()}... (${stepsText} · ${timeText})`
+          : `${name} is ${verb.toLowerCase()}... (${stepsText})`
         : timeText
-          ? `Cooking... (${stepsText} · ${timeText})`
-          : `Cooking... (${stepsText})`
+          ? `${verb}... (${stepsText} · ${timeText})`
+          : `${verb}... (${stepsText})`
       : name
         ? timeText
           ? `${name} cooked ${stepsText} in ${timeText}`

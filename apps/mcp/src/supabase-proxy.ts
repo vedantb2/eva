@@ -11,32 +11,39 @@ import {
   resolveUserByClerkId,
 } from "./convex-api.js";
 import type { ConvexCredentials } from "./auth.js";
+import { errorResult } from "./tools.js";
 
 const SUPABASE_PREFIX = "supabase_";
 const TOKEN_CACHE_TTL_MS = 5 * 60 * 1000;
+const TOOL_CACHE_TTL_MS = 10 * 60 * 1000;
 const CONNECT_TIMEOUT_MS = 15_000;
 const CALL_TIMEOUT_MS = 30_000;
 
 const SUPABASE_REMOTE_URL = "https://mcp.supabase.com/mcp?read_only=true";
 
-interface CachedToken {
-  clerkUserId: string;
-  token: string;
-  expiresAt: number;
-}
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+const toolDefinitionCache = new Map<
+  string,
+  { tools: Tool[]; expiresAt: number }
+>();
 
-let cachedToken: CachedToken | null = null;
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of toolDefinitionCache) {
+    if (entry.expiresAt < now) toolDefinitionCache.delete(key);
+  }
+  for (const [key, entry] of tokenCache) {
+    if (entry.expiresAt < now) tokenCache.delete(key);
+  }
+}, 60_000);
 
 async function resolveSupabaseToken(
   convexUrl: string,
   clerkUserId: string,
 ): Promise<string | null> {
-  if (
-    cachedToken &&
-    cachedToken.clerkUserId === clerkUserId &&
-    cachedToken.expiresAt > Date.now()
-  ) {
-    return cachedToken.token;
+  const cached = tokenCache.get(clerkUserId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.token;
   }
 
   const deployKey = await getDeployKey(convexUrl);
@@ -46,26 +53,58 @@ async function resolveSupabaseToken(
   const repos = await listUserRepos(convexUrl, deployKey, userId);
   if (repos.length === 0) return null;
 
-  const results = await Promise.allSettled(
+  let found: string | null = null;
+  await Promise.all(
     repos.map(async (repo) => {
-      const vars = await getRepoEnvVars(convexUrl, deployKey, repo.id, userId);
-      const match = vars.find((v) => v.key === "SUPABASE_ACCESS_TOKEN");
-      return match ? match.value : null;
+      if (found) return;
+      try {
+        const vars = await getRepoEnvVars(
+          convexUrl,
+          deployKey,
+          repo.id,
+          userId,
+        );
+        const match = vars.find((v) => v.key === "SUPABASE_ACCESS_TOKEN");
+        if (match && !found) {
+          found = match.value;
+        }
+      } catch {
+        // skip failed repos
+      }
     }),
   );
 
-  for (const result of results) {
-    if (result.status === "fulfilled" && result.value) {
-      cachedToken = {
-        clerkUserId,
-        token: result.value,
-        expiresAt: Date.now() + TOKEN_CACHE_TTL_MS,
-      };
-      return result.value;
-    }
+  if (found) {
+    tokenCache.set(clerkUserId, {
+      token: found,
+      expiresAt: Date.now() + TOKEN_CACHE_TTL_MS,
+    });
   }
 
-  return null;
+  return found;
+}
+
+async function discoverTools(token: string): Promise<Tool[]> {
+  const cached = toolDefinitionCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.tools;
+  }
+
+  const client = await connectClient(token);
+  try {
+    const result = await withTimeout(
+      client.listTools(),
+      CONNECT_TIMEOUT_MS,
+      "Supabase tools/list",
+    );
+    toolDefinitionCache.set(token, {
+      tools: result.tools,
+      expiresAt: Date.now() + TOOL_CACHE_TTL_MS,
+    });
+    return result.tools;
+  } finally {
+    await client.close();
+  }
 }
 
 function withTimeout<T>(
@@ -189,23 +228,11 @@ export async function registerSupabaseTools(
     return;
   }
 
-  console.log(
-    "  Supabase: token found, discovering tools from remote server...",
-  );
+  console.log("  Supabase: token found, discovering tools...");
 
   let tools: Tool[];
   try {
-    const client = await connectClient(token);
-    try {
-      const result = await withTimeout(
-        client.listTools(),
-        CONNECT_TIMEOUT_MS,
-        "Supabase tools/list",
-      );
-      tools = result.tools;
-    } finally {
-      await client.close();
-    }
+    tools = await discoverTools(token);
   } catch (err) {
     console.error("  Supabase: failed to discover tools:", err);
     return;
@@ -231,15 +258,7 @@ export async function registerSupabaseTools(
       async (args: Record<string, unknown>) => {
         const currentToken = await resolveSupabaseToken(convexUrl, clerkUserId);
         if (!currentToken) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: "SUPABASE_ACCESS_TOKEN is no longer available.",
-              },
-            ],
-            isError: true,
-          };
+          return errorResult("SUPABASE_ACCESS_TOKEN is no longer available.");
         }
 
         try {
@@ -296,15 +315,7 @@ export async function registerSupabaseTools(
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `Supabase tool error: ${message}`,
-              },
-            ],
-            isError: true,
-          };
+          return errorResult(`Supabase tool error: ${message}`);
         }
       },
     );

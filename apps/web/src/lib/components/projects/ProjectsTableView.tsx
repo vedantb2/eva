@@ -1,21 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { SortingState } from "@tanstack/react-table";
 import {
-  DataTableProvider,
-  DataTableHeader,
-  DataTableHeaderGroup,
-  DataTableHead,
-  DataTableColumnHeader,
-  DataTableBody,
-  DataTableRow,
-  DataTableCell,
-  type ColumnDef,
-} from "@conductor/ui";
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { TableVirtuoso } from "react-virtuoso";
+import { DataTableColumnHeader, type ColumnDef } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
 import { IconGitBranch } from "@tabler/icons-react";
 import {
@@ -142,52 +139,106 @@ export function ProjectsTableView({
   projects,
   onOpenProject,
 }: ProjectsTableViewProps) {
+  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "created", desc: true },
   ]);
 
+  const scrollRef = useCallback((node: HTMLDivElement | null) => {
+    setScrollParent(node);
+  }, []);
+
+  const table = useReactTable({
+    data: projects,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    onSortingChange: (updater) => {
+      const next = typeof updater === "function" ? updater(sorting) : updater;
+      setSorting(next);
+    },
+    state: { sorting },
+  });
+
+  const rows = table.getRowModel().rows;
+  const headerGroups = table.getHeaderGroups();
+
   return (
     <div className="flex flex-1 min-h-0 flex-col w-full">
-      <div className="flex-1 min-h-0 overflow-auto scrollbar">
-        <DataTableProvider
-          columns={columns}
-          data={projects}
-          sorting={sorting}
-          onSortingChange={setSorting}
-        >
-          {({ headerGroups, rows, columnCount }) => (
-            <>
-              <DataTableHeader headerGroups={headerGroups}>
-                {({ headerGroup }) => (
-                  <DataTableHeaderGroup
-                    key={headerGroup.id}
-                    headerGroup={headerGroup}
-                  >
-                    {({ header }) => (
-                      <DataTableHead key={header.id} header={header} />
-                    )}
-                  </DataTableHeaderGroup>
-                )}
-              </DataTableHeader>
-              <DataTableBody
-                rows={rows}
-                columnCount={columnCount}
-                emptyMessage="No projects match your filters."
-              >
-                {({ row }) => (
-                  <DataTableRow
-                    key={row.id}
-                    row={row}
-                    onClick={() => onOpenProject(row.original._id)}
-                    className="hover:bg-muted/40"
-                  >
-                    {({ cell }) => <DataTableCell key={cell.id} cell={cell} />}
-                  </DataTableRow>
-                )}
-              </DataTableBody>
-            </>
-          )}
-        </DataTableProvider>
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto scrollbar">
+        {scrollParent && (
+          <TableVirtuoso
+            customScrollParent={scrollParent}
+            totalCount={rows.length}
+            overscan={200}
+            fixedHeaderContent={() =>
+              headerGroups.map((headerGroup) => (
+                <tr key={headerGroup.id} className="border-b">
+                  {headerGroup.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      className="h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </th>
+                  ))}
+                </tr>
+              ))
+            }
+            itemContent={(index) => {
+              const row = rows[index];
+              return row.getVisibleCells().map((cell) => (
+                <td
+                  key={cell.id}
+                  className="p-2 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ));
+            }}
+            components={{
+              Table: ({ style, ...props }) => (
+                <table
+                  className="w-full caption-bottom text-sm"
+                  style={style}
+                  {...props}
+                />
+              ),
+              TableRow: ({ style, ...props }) => {
+                const index = props["data-item-index"];
+                const handleClick =
+                  typeof index === "number"
+                    ? () => onOpenProject(rows[index].original._id)
+                    : undefined;
+                return (
+                  <tr
+                    className="border-b transition-colors hover:bg-muted/40 cursor-pointer data-[state=selected]:bg-muted"
+                    style={style}
+                    onClick={handleClick}
+                    {...props}
+                  />
+                );
+              },
+              EmptyPlaceholder: () => (
+                <tbody>
+                  <tr>
+                    <td
+                      className="h-24 text-center text-muted-foreground"
+                      colSpan={columns.length}
+                    >
+                      No projects match your filters.
+                    </td>
+                  </tr>
+                </tbody>
+              ),
+            }}
+          />
+        )}
       </div>
     </div>
   );

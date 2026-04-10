@@ -69,11 +69,6 @@ export const sandboxTabParser = parseAsStringLiteral(sandboxTabs)
   .withDefault("preview")
   .withOptions(tabOptions);
 
-const sessionModes = ["execute", "ask", "plan"] as const;
-export const sessionModeParser = parseAsStringLiteral(sessionModes)
-  .withDefault("execute")
-  .withOptions(tabOptions);
-
 export const designTabParser = parseAsString
   .withDefault("0")
   .withOptions(tabOptions);

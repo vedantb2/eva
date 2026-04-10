@@ -13,7 +13,6 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
-  Badge,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -36,6 +35,13 @@ import {
   PlanContent,
   PlanFooter,
   PlanTrigger,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -50,15 +56,20 @@ import {
   IconCircleCheck,
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
+  IconDots,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { useQueryState } from "nuqs";
-import { sessionModeParser } from "@/lib/search-params";
-import type { ClaudeModel, ResponseLength } from "@conductor/ui";
+import { useHotkey } from "@tanstack/react-hotkeys";
+import type { ResponseLength } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import {
+  api,
+  findAIModelOption,
+  normalizeAIModel,
+  type AIModel,
+} from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -73,12 +84,10 @@ import {
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
-import {
-  getSessionModel,
-  getSessionResponseLength,
-  useSessionModelSetter,
-  useSessionResponseLengthSetter,
-} from "@/lib/hooks/useSessionSettings";
+import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
+import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import type { SessionMode } from "@/lib/hooks/useSessionSettings";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -86,13 +95,58 @@ type SessionMessage = NonNullable<
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
 >[number];
-type SessionMode = NonNullable<SessionMessage["mode"]>;
 
 const REVIEW_AUDITS = [
   "Running code audits",
   "Analyzing results",
   "Generating report",
 ];
+
+interface ParsedQuestion {
+  question: string;
+  header: string;
+  options: Array<{ label: string; description: string }>;
+  multiSelect: boolean;
+}
+
+function isRecord(val: unknown): val is Record<string, unknown> {
+  return typeof val === "object" && val !== null;
+}
+
+function isOptionItem(
+  val: unknown,
+): val is { label: string; description: string } {
+  return (
+    isRecord(val) &&
+    typeof val.label === "string" &&
+    typeof val.description === "string"
+  );
+}
+
+function isParsedQuestion(val: unknown): val is ParsedQuestion {
+  return (
+    isRecord(val) &&
+    typeof val.question === "string" &&
+    typeof val.header === "string" &&
+    typeof val.multiSelect === "boolean" &&
+    Array.isArray(val.options) &&
+    val.options.every(isOptionItem)
+  );
+}
+
+function parsePendingQuestion(
+  raw: string | undefined | null,
+): ParsedQuestion[] | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed) || !Array.isArray(parsed.questions)) return null;
+    const questions = parsed.questions.filter(isParsedQuestion);
+    return questions.length > 0 ? questions : null;
+  } catch {
+    return null;
+  }
+}
 
 interface ChatPanelProps {
   sessionId: Id<"sessions">;
@@ -105,12 +159,14 @@ interface ChatPanelProps {
   planContent?: string;
   streamingActivity?: string;
   streamingContent?: string;
+  streamingPendingQuestion?: string;
   summaryStreamingActivity?: string;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
   isArchived?: boolean;
-  previewUrl?: string;
+  deploymentStatus?: "queued" | "building" | "deployed" | "error";
+  deploymentUrl?: string;
   sandboxCollapsed?: boolean;
   onToggleSandbox?: () => void;
 }
@@ -126,12 +182,14 @@ export function ChatPanel({
   planContent,
   streamingActivity,
   streamingContent,
+  streamingPendingQuestion,
   summaryStreamingActivity,
   isSandboxActive,
   isSandboxToggling,
   onSandboxToggle,
   isArchived,
-  previewUrl,
+  deploymentStatus,
+  deploymentUrl,
   sandboxCollapsed,
   onToggleSandbox,
 }: ChatPanelProps) {
@@ -145,40 +203,19 @@ export function ChatPanel({
     "confirm" | "auditing" | "complete"
   >("confirm");
   const [completedAudits, setCompletedAudits] = useState(0);
-  const [mode, setMode] = useQueryState("mode", sessionModeParser);
 
-  const defaultModel = repo.defaultModel ?? "sonnet";
-  const initialModel = useMemo(
-    () => getSessionModel(sessionId, defaultModel),
-    [sessionId, defaultModel],
-  );
-  const initialResponseLength = useMemo(
-    () => getSessionResponseLength(sessionId, "default"),
-    [sessionId],
-  );
-  const [model, setModelState] = useState<ClaudeModel>(initialModel);
-  const [responseLength, setResponseLengthState] = useState<ResponseLength>(
-    initialResponseLength,
-  );
+  const defaultModel = normalizeAIModel(repo.defaultModel);
+  const { mode, setMode, model, setModel, responseLength, setResponseLength } =
+    useSessionSettings(sessionId, { defaultModel });
+  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
-  const saveModel = useSessionModelSetter(sessionId);
-  const saveResponseLength = useSessionResponseLengthSetter(sessionId);
-
-  const setModel = useCallback(
-    (m: ClaudeModel) => {
-      setModelState(m);
-      saveModel(m);
-    },
-    [saveModel],
-  );
-
-  const setResponseLength = useCallback(
-    (rl: ResponseLength) => {
-      setResponseLengthState(rl);
-      saveResponseLength(rl);
-    },
-    [saveResponseLength],
-  );
+  const SESSION_MODES: SessionMode[] = ["ask", "execute", "plan"];
+  useHotkey("Shift+Tab", (e) => {
+    e.preventDefault();
+    const currentIndex = SESSION_MODES.indexOf(mode);
+    const nextIndex = (currentIndex + 1) % SESSION_MODES.length;
+    setMode(SESSION_MODES[nextIndex]);
+  });
 
   const evaIcon = <EvaIcon />;
 
@@ -201,7 +238,7 @@ export function ChatPanel({
     async (
       message: string,
       sendMode: SessionMode,
-      sendModel: ClaudeModel,
+      sendModel: AIModel,
       sendResponseLength: ResponseLength,
     ) => {
       await startExecution({
@@ -340,7 +377,7 @@ export function ChatPanel({
               : "Ask";
         const detailParts = [
           modeLabel,
-          message.model ? message.model : null,
+          message.model ? findAIModelOption(message.model).label : null,
           message.responseLength && message.responseLength !== "default"
             ? message.responseLength
             : null,
@@ -352,6 +389,29 @@ export function ChatPanel({
         };
       }),
     [queuedMessages],
+  );
+
+  const [questionDismissed, setQuestionDismissed] = useState(false);
+
+  const pendingQuestionRaw =
+    streamingPendingQuestion ?? lastMessage?.pendingQuestion;
+  const activePendingQuestion = useMemo(
+    () => (questionDismissed ? null : parsePendingQuestion(pendingQuestionRaw)),
+    [questionDismissed, pendingQuestionRaw],
+  );
+
+  useEffect(() => {
+    if (pendingQuestionRaw) {
+      setQuestionDismissed(false);
+    }
+  }, [pendingQuestionRaw]);
+
+  const handleQuestionAnswer = useCallback(
+    async (answer: string) => {
+      setQuestionDismissed(true);
+      await handleSend(answer);
+    },
+    [handleSend],
   );
 
   const headerLeft = (
@@ -374,36 +434,7 @@ export function ChatPanel({
 
   const headerRight = (
     <>
-      <Button
-        size="sm"
-        variant="secondary"
-        className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
-        asChild={!!previewUrl}
-        disabled={!previewUrl}
-      >
-        {previewUrl ? (
-          <a href={previewUrl} target="_blank" rel="noopener noreferrer">
-            <IconBrandVercel size={14} />
-            <span className="hidden sm:inline">View Preview</span>
-          </a>
-        ) : (
-          <>
-            <IconBrandVercel size={14} />
-            <span className="hidden sm:inline">View Preview</span>
-          </>
-        )}
-      </Button>
-      {prUrl ? (
-        <a href={prUrl} target="_blank" rel="noopener noreferrer">
-          <Badge
-            variant="outline"
-            className="motion-base gap-1 cursor-pointer hover:scale-[1.01]"
-          >
-            <IconGitPullRequest size={12} />
-            View PR
-          </Badge>
-        </a>
-      ) : branchName ? (
+      {!prUrl && branchName && (
         <Button
           size="sm"
           variant="secondary"
@@ -413,21 +444,56 @@ export function ChatPanel({
           <IconSend size={12} />
           <span className="hidden sm:inline">Send for Review</span>
         </Button>
-      ) : null}
-      <Button
-        size="icon"
-        variant="secondary"
-        onClick={() => setShowSummaryModal(true)}
-        disabled={isSummarizing || !isSandboxActive || messages.length === 0}
-        className="motion-press h-8 w-8 text-primary hover:scale-[1.03] active:scale-[0.97]"
-        title={hasSummary ? "Regenerate summary" : "Generate summary"}
-      >
-        {isSummarizing ? (
-          <Spinner size="sm" />
-        ) : (
-          <IconSparkles className="w-4 h-4" />
-        )}
-      </Button>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+          >
+            More
+            <IconDots size={14} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={() => setShowSummaryModal(true)}
+            disabled={
+              isSummarizing || !isSandboxActive || messages.length === 0
+            }
+          >
+            <IconSparkles size={14} />
+            {hasSummary ? "Regenerate Summary" : "Summarise Session"}
+          </DropdownMenuItem>
+          {deploymentStatus && (
+            <DropdownMenuItem
+              disabled={deploymentStatus !== "deployed"}
+              onClick={() => {
+                if (deploymentStatus === "deployed" && deploymentUrl) {
+                  window.open(deploymentUrl, "_blank", "noopener,noreferrer");
+                }
+              }}
+            >
+              <IconBrandVercel size={14} />
+              View Preview
+              {deploymentStatus === "building" && " (Building...)"}
+              {deploymentStatus === "queued" && " (Queued...)"}
+              {deploymentStatus === "error" && " (Failed)"}
+            </DropdownMenuItem>
+          )}
+          {prUrl && (
+            <DropdownMenuItem
+              onClick={() => {
+                window.open(prUrl, "_blank", "noopener,noreferrer");
+              }}
+            >
+              <IconGitPullRequest size={14} />
+              View PR
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
       {onToggleSandbox && (
         <Button
           size="icon"
@@ -521,7 +587,7 @@ export function ChatPanel({
                     <MessageContent
                       className={
                         message.role === "user"
-                          ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+                          ? "group rounded-xl bg-secondary text-foreground px-4 py-3"
                           : "px-1 py-2"
                       }
                     >
@@ -538,6 +604,15 @@ export function ChatPanel({
                             icon={evaIcon}
                             startedAt={message.timestamp}
                           />
+                          {activePendingQuestion && (
+                            <div className="mt-3">
+                              <MultipleChoiceQuestion
+                                questions={activePendingQuestion}
+                                onAnswer={handleQuestionAnswer}
+                                isLoading={isSending}
+                              />
+                            </div>
+                          )}
                         </>
                       ) : (
                         <>
@@ -561,13 +636,23 @@ export function ChatPanel({
                               {message.videoUrl && (
                                 <VideoPreview url={message.videoUrl} />
                               )}
+                              {message._id === lastMessage?._id &&
+                                activePendingQuestion && (
+                                  <div className="mt-3">
+                                    <MultipleChoiceQuestion
+                                      questions={activePendingQuestion}
+                                      onAnswer={handleQuestionAnswer}
+                                      isLoading={isSending}
+                                    />
+                                  </div>
+                                )}
                             </>
                           ) : (
                             <>
                               <p className="text-sm whitespace-pre-wrap break-words">
                                 {message.content}
                               </p>
-                              <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center justify-between gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {message.mode && (
                                   <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
                                     {message.mode === "execute" && (
@@ -614,7 +699,7 @@ export function ChatPanel({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      {!isArchived && (
+      {!isArchived && !activePendingQuestion && (
         <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
           <QueuedMessagesPanel
             items={queuedMessageItems}
@@ -669,18 +754,18 @@ export function ChatPanel({
             >
               <TabsList className="h-8 rounded-full  p-0.5">
                 <TabsTrigger
-                  value="execute"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
-                >
-                  <IconCode className="w-3 h-3" />
-                  Execute
-                </TabsTrigger>
-                <TabsTrigger
                   value="ask"
                   className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
                 >
                   <IconMessageCircle2 className="w-3 h-3" />
                   Ask
+                </TabsTrigger>
+                <TabsTrigger
+                  value="execute"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
+                >
+                  <IconCode className="w-3 h-3" />
+                  Execute
                 </TabsTrigger>
                 <TabsTrigger
                   value="plan"
@@ -709,6 +794,7 @@ export function ChatPanel({
                 <PromptInputTools>
                   <ModelSelect
                     value={model}
+                    options={modelOptions}
                     onValueChange={setModel}
                     disabled={isInputDisabled}
                   />

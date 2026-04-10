@@ -3,7 +3,7 @@ import { internal } from "../_generated/api";
 import type { WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "../workflowManager";
 import { authMutation, hasTaskAccess } from "../functions";
-import { claudeModelValidator } from "../validators";
+import { aiModelValidator } from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
 import {
   clearStreamingActivity,
@@ -313,7 +313,7 @@ export const triggerExecution = authMutation({
     branchName: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     isFirstTaskOnBranch: v.boolean(),
-    model: v.optional(claudeModelValidator),
+    model: v.optional(aiModelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

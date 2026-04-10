@@ -2,7 +2,7 @@
 
 import { v } from "convex/values";
 import { action } from "../_generated/server";
-import { exec, WORKSPACE_DIR, getSandbox } from "./helpers";
+import { exec, getSandbox, workspaceDirShell } from "./helpers";
 import { setDisplayResolution, launchChrome } from "./desktop";
 
 export const toggleCodeServer = action({
@@ -21,7 +21,7 @@ export const toggleCodeServer = action({
     if (args.action === "start") {
       await exec(
         sandbox,
-        `pgrep -f 'code-server.*8080' > /dev/null 2>&1 || code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${WORKSPACE_DIR} > /tmp/code-server.log 2>&1 &`,
+        `pgrep -f 'code-server.*8080' > /dev/null 2>&1 || code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${workspaceDirShell()} > /tmp/code-server.log 2>&1 &`,
         10,
       );
     } else {

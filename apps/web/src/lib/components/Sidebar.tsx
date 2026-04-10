@@ -46,6 +46,7 @@ import { UserInitials } from "@conductor/shared";
 import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
 import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
+import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
@@ -58,6 +59,7 @@ import { RootSidebarContent } from "@/lib/components/sidebar/RootSidebarContent"
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
+import { usePageTitle } from "@/lib/contexts/PageTitleContext";
 const KNOWN_SUB_PAGES = new Set([
   "projects",
   "designs",
@@ -116,6 +118,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const { user } = useUser();
   const { collapsed, setCollapsed } = useSidebar();
+  const { pageTitle } = usePageTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [contextSidebarMode, setContextSidebarMode] =
     useState<ContextSidebarMode>(() => getInitialContextSidebarMode(pathname));
@@ -347,21 +350,27 @@ export function Sidebar() {
         >
           <IconMenu2 size={20} className="text-muted-foreground" />
         </Button>
-        <Link
-          to="/home"
-          className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
-        >
-          <img
-            src="/icon.png"
-            alt="Eva"
-            width={22}
-            height={22}
-            className="rounded-full"
-          />
-          <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
-            Eva
-          </span>
-        </Link>
+        {pageTitle ? (
+          <h1 className="mx-auto truncate text-base font-semibold tracking-[-0.02em] text-foreground">
+            {pageTitle}
+          </h1>
+        ) : (
+          <Link
+            to="/home"
+            className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
+          >
+            <img
+              src="/icon.png"
+              alt="Eva"
+              width={22}
+              height={22}
+              className="rounded-full"
+            />
+            <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
+              Eva
+            </span>
+          </Link>
+        )}
         <Button size="icon" variant="ghost" onClick={toggleTheme}>
           {theme === "dark" ? (
             <IconSun size={18} className="text-muted-foreground" />
@@ -674,19 +683,18 @@ export function Sidebar() {
                                       return (
                                         <div
                                           key={item.name}
-                                          className="relative"
+                                          className="group relative"
                                         >
-                                          <Link
-                                            to={item.href}
+                                          <button
+                                            type="button"
                                             onClick={() => {
                                               setContextSidebarMode(
                                                 contextMode,
                                               );
-                                              closeMobileSidebar();
                                             }}
                                             className={cn(
                                               navItemClass(isActive),
-                                              "pr-9",
+                                              "w-full pr-9",
                                             )}
                                           >
                                             <item.icon
@@ -711,11 +719,11 @@ export function Sidebar() {
                                                 }
                                               />
                                             )}
-                                          </Link>
+                                          </button>
                                           <Button
                                             size="icon-sm"
                                             variant="ghost"
-                                            className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground hover:text-sidebar-foreground"
+                                            className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground"
                                             onClick={(event) => {
                                               event.preventDefault();
                                               event.stopPropagation();
@@ -742,7 +750,9 @@ export function Sidebar() {
                                           if (contextMode) {
                                             setContextSidebarMode(contextMode);
                                           }
-                                          closeMobileSidebar();
+                                          if (!contextMode) {
+                                            closeMobileSidebar();
+                                          }
                                         }}
                                         title={
                                           collapsed ? item.name : undefined
@@ -763,6 +773,8 @@ export function Sidebar() {
                                             {item.name}
                                           </span>
                                         )}
+                                        {item.name === "Inbox" &&
+                                          !collapsed && <UnreadInboxBadge />}
                                         {item.name === "Quick Tasks" &&
                                           !collapsed &&
                                           repo &&

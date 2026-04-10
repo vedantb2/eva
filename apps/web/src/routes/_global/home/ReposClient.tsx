@@ -1,7 +1,8 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useLocalStorage } from "usehooks-ts";
 import { AnimatePresence } from "motion/react";
 import { api } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -32,7 +33,7 @@ import { RepoGroup } from "./_components/RepoGroup";
 import { HiddenReposSheet } from "./_components/HiddenReposSheet";
 
 const GITHUB_APP_NAME = "vb-eva-dev";
-const WELCOME_DISMISSED_KEY = "eva-welcome-dismissed";
+const WELCOME_STORAGE_KEY = "eva-welcome-dismissed";
 
 export function ReposClient() {
   const navigate = useNavigate();
@@ -42,11 +43,10 @@ export function ReposClient() {
   const [syncing, setSyncing] = useState(false);
   const [hiddenOpen, setHiddenOpen] = useState(false);
   const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
-  const [welcomeDismissed, setWelcomeDismissed] = useState(true);
-
-  useEffect(() => {
-    setWelcomeDismissed(localStorage.getItem(WELCOME_DISMISSED_KEY) === "true");
-  }, []);
+  const [welcomeDismissed, setWelcomeDismissed] = useLocalStorage(
+    WELCOME_STORAGE_KEY,
+    false,
+  );
 
   const handleSync = async () => {
     setSyncing(true);
@@ -59,7 +59,6 @@ export function ReposClient() {
   };
 
   const handleDismissWelcome = () => {
-    localStorage.setItem(WELCOME_DISMISSED_KEY, "true");
     setWelcomeDismissed(true);
   };
 

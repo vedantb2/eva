@@ -16,19 +16,31 @@ import { IconAlertTriangle } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 
 const REQUIRED_KEYS: Array<{
-  key: string;
+  keys: string[];
   required: boolean;
   description: string;
 }> = [
   {
-    key: "CLAUDE_CODE_OAUTH_TOKEN",
+    keys: ["CLAUDE_CODE_OAUTH_TOKEN"],
     required: true,
     description: "OAuth token for Claude Code CLI authentication in sandboxes",
   },
   {
-    key: "DAYTONA_API_KEY",
+    keys: ["DAYTONA_API_KEY"],
     required: true,
     description: "API key for provisioning and managing Daytona sandboxes",
+  },
+  {
+    keys: ["CODEX_AUTH_JSON", "CODEX_AUTH_JSON_BASE64"],
+    required: false,
+    description:
+      "Optional Codex CLI auth file. Prefer CODEX_AUTH_JSON; CODEX_AUTH_JSON_BASE64 also works",
+  },
+  {
+    keys: ["CODEX_CONFIG_TOML", "CODEX_CONFIG_TOML_BASE64"],
+    required: false,
+    description:
+      "Optional Codex CLI config file. Prefer CODEX_CONFIG_TOML; CODEX_CONFIG_TOML_BASE64 also works",
   },
 ];
 
@@ -59,7 +71,7 @@ export function SetupBanner() {
   const allEnvVars = [...teamEnvVars, ...repoEnvVars];
   const presentKeys = new Set(allEnvVars.map((v) => v.key));
   const missingEntries = REQUIRED_KEYS.filter(
-    (entry) => !presentKeys.has(entry.key),
+    (entry) => !entry.keys.some((key) => presentKeys.has(key)),
   );
   const hasRequiredMissing = missingEntries.some((entry) => entry.required);
 
@@ -84,7 +96,9 @@ export function SetupBanner() {
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             To use sandboxes and AI features, you need to configure the
-            following environment variables in your team or repo settings.
+            following environment variables in your team or repo settings. To
+            enable Codex, sign in locally with Codex once, then paste the saved
+            auth JSON into `CODEX_AUTH_JSON`.
           </p>
           <div className="rounded-lg bg-muted/40 p-4">
             <p className="mb-2 text-xs font-medium text-muted-foreground">
@@ -92,10 +106,13 @@ export function SetupBanner() {
             </p>
             <div className="flex flex-col gap-2">
               {missingEntries.map((entry) => (
-                <div key={entry.key} className="flex flex-col gap-0.5">
+                <div
+                  key={entry.keys.join(":")}
+                  className="flex flex-col gap-0.5"
+                >
                   <div className="flex items-center gap-2">
                     <code className="rounded bg-background px-2 py-1 font-mono text-sm">
-                      {entry.key}
+                      {entry.keys.join(" or ")}
                     </code>
                     {entry.required ? (
                       <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400">

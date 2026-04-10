@@ -352,3 +352,120 @@ export const pollDeploymentStatus = internalAction({
     return null;
   },
 });
+
+export const pollSessionDeploymentStatus = internalAction({
+  args: {
+    sessionId: v.id("sessions"),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    deploymentProjectName: v.optional(v.string()),
+    attempt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+
+      const { data: branch } = await octokit.rest.repos.getBranch({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        branch: args.branchName,
+      });
+      const commitSha = branch.commit.sha;
+
+      const { data: deployments } = await octokit.rest.repos.listDeployments({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        sha: commitSha,
+        per_page: 10,
+      });
+
+      if (deployments.length === 0) {
+        console.log(
+          `[session-deployment-poll] No deployment found for ${args.repoOwner}/${args.repoName} branch=${args.branchName} sha=${commitSha} attempt=${args.attempt} project=${args.deploymentProjectName ?? "none"}`,
+        );
+        if (args.attempt < MAX_POLL_ATTEMPTS) {
+          await ctx.scheduler.runAfter(
+            POLL_INTERVAL_MS,
+            internal.taskWorkflowActions.pollSessionDeploymentStatus,
+            { ...args, attempt: args.attempt + 1 },
+          );
+        }
+        return null;
+      }
+
+      const projectNameLower = args.deploymentProjectName?.toLowerCase();
+      const targetDeployment = projectNameLower
+        ? (deployments.find((d) =>
+            d.environment.toLowerCase().includes(projectNameLower),
+          ) ?? deployments[0])
+        : deployments[0];
+
+      const { data: statuses } =
+        await octokit.rest.repos.listDeploymentStatuses({
+          owner: args.repoOwner,
+          repo: args.repoName,
+          deployment_id: targetDeployment.id,
+          per_page: 1,
+        });
+
+      if (statuses.length === 0) {
+        console.log(
+          `[session-deployment-poll] Deployment ${targetDeployment.id} found but no statuses yet, attempt=${args.attempt} project=${args.deploymentProjectName ?? "none"}`,
+        );
+        await ctx.runMutation(internal.sessions.updateDeploymentStatus, {
+          sessionId: args.sessionId,
+          deploymentStatus: "queued",
+        });
+        if (args.attempt < MAX_POLL_ATTEMPTS) {
+          await ctx.scheduler.runAfter(
+            POLL_INTERVAL_MS,
+            internal.taskWorkflowActions.pollSessionDeploymentStatus,
+            { ...args, attempt: args.attempt + 1 },
+          );
+        }
+        return null;
+      }
+
+      const latestStatus = statuses[0];
+      const mappedStatus = mapGitHubDeploymentState(latestStatus.state);
+      const deploymentUrl =
+        latestStatus.environment_url || latestStatus.target_url || undefined;
+
+      console.log(
+        `[session-deployment-poll] ${args.repoOwner}/${args.repoName} branch=${args.branchName}: deployment=${targetDeployment.id} env=${targetDeployment.environment} state=${latestStatus.state} mapped=${mappedStatus} url=${deploymentUrl ?? "none"} project=${args.deploymentProjectName ?? "none"}`,
+      );
+
+      await ctx.runMutation(internal.sessions.updateDeploymentStatus, {
+        sessionId: args.sessionId,
+        deploymentStatus: mappedStatus,
+        deploymentUrl,
+      });
+
+      if (
+        !isTerminalDeploymentStatus(mappedStatus) &&
+        args.attempt < MAX_POLL_ATTEMPTS
+      ) {
+        await ctx.scheduler.runAfter(
+          POLL_INTERVAL_MS,
+          internal.taskWorkflowActions.pollSessionDeploymentStatus,
+          { ...args, attempt: args.attempt + 1 },
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[session-deployment-poll] Error for ${args.repoOwner}/${args.repoName} branch=${args.branchName} attempt=${args.attempt}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      if (args.attempt < MAX_POLL_ATTEMPTS) {
+        await ctx.scheduler.runAfter(
+          POLL_INTERVAL_MS,
+          internal.taskWorkflowActions.pollSessionDeploymentStatus,
+          { ...args, attempt: args.attempt + 1 },
+        );
+      }
+    }
+    return null;
+  },
+});

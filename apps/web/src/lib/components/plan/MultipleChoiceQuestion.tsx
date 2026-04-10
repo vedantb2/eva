@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Input, Card, CardContent } from "@conductor/ui";
+import { Button, Input, Card, CardContent, Badge } from "@conductor/ui";
 import {
   IconCheck,
   IconPencil,
   IconArrowRight,
+  IconArrowLeft,
   IconLoader2,
 } from "@tabler/icons-react";
 
@@ -14,9 +15,17 @@ interface OptionItem {
   description: string;
 }
 
-interface MultipleChoiceQuestionProps {
+interface QuestionItem {
   question: string;
+  header: string;
   options: OptionItem[];
+  multiSelect: boolean;
+}
+
+interface MultipleChoiceQuestionProps {
+  question?: string;
+  options?: OptionItem[];
+  questions?: QuestionItem[];
   onAnswer: (answer: string) => void;
   isLoading?: boolean;
   questionNumber?: number;
@@ -25,56 +34,129 @@ interface MultipleChoiceQuestionProps {
 export function MultipleChoiceQuestion({
   question,
   options,
+  questions,
   onAnswer,
   isLoading = false,
 }: MultipleChoiceQuestionProps) {
-  const [selected, setSelected] = useState("");
-  const [customAnswer, setCustomAnswer] = useState("");
-  const isOther = selected === "__other__";
+  const resolvedQuestions: QuestionItem[] = questions
+    ? questions
+    : question && options
+      ? [{ question, header: "", options, multiSelect: false }]
+      : [];
 
-  const handleSubmit = () => {
-    if (isOther && customAnswer.trim()) {
-      onAnswer(customAnswer.trim());
-      setSelected("");
-      setCustomAnswer("");
-    } else if (selected && selected !== "__other__") {
-      onAnswer(selected);
-      setSelected("");
-      setCustomAnswer("");
+  const [currentStep, setCurrentStep] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, string[]>>({});
+  const [customAnswers, setCustomAnswers] = useState<Record<number, string>>(
+    {},
+  );
+  const [otherActive, setOtherActive] = useState<Record<number, boolean>>({});
+
+  const optionLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const totalSteps = resolvedQuestions.length;
+  const isMultiStep = totalSteps > 1;
+  const q = resolvedQuestions[currentStep];
+  const isLastStep = currentStep === totalSteps - 1;
+
+  const toggleOption = (label: string, multiSelect: boolean) => {
+    const idx = currentStep;
+    setAnswers((prev) => {
+      const current = prev[idx] ?? [];
+      if (multiSelect) {
+        const exists = current.includes(label);
+        return {
+          ...prev,
+          [idx]: exists
+            ? current.filter((l) => l !== label)
+            : [...current, label],
+        };
+      }
+      return { ...prev, [idx]: [label] };
+    });
+    setOtherActive((prev) => ({ ...prev, [idx]: false }));
+  };
+
+  const toggleOther = () => {
+    const idx = currentStep;
+    setOtherActive((prev) => ({ ...prev, [idx]: true }));
+    setAnswers((prev) => ({ ...prev, [idx]: [] }));
+  };
+
+  const currentHasAnswer = otherActive[currentStep]
+    ? (customAnswers[currentStep] ?? "").trim().length > 0
+    : (answers[currentStep] ?? []).length > 0;
+
+  const formatAnswer = () => {
+    return resolvedQuestions
+      .map((rq, idx) => {
+        const answer = otherActive[idx]
+          ? (customAnswers[idx] ?? "").trim()
+          : (answers[idx] ?? []).join(", ");
+        return `Q: ${rq.question}\nA: ${answer}`;
+      })
+      .join("\n\n");
+  };
+
+  const handleNext = () => {
+    if (!currentHasAnswer || isLoading) return;
+    if (isLastStep) {
+      onAnswer(formatAnswer());
+    } else {
+      setCurrentStep((prev) => prev + 1);
     }
   };
 
-  const canSubmit = isOther
-    ? customAnswer.trim().length > 0
-    : selected.length > 0;
-  const optionLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep((prev) => prev - 1);
+    }
+  };
+
+  if (!q) return null;
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
-      <p className="text-[15px] font-semibold leading-snug text-foreground">
-        {question}
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-[15px] font-semibold leading-snug text-foreground">
+          {q.question}
+        </p>
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          {q.header && (
+            <Badge variant="secondary" className="text-[10px] font-semibold">
+              {q.header}
+            </Badge>
+          )}
+          {isMultiStep && (
+            <span className="text-[11px] text-muted-foreground font-medium">
+              {currentStep + 1}/{totalSteps}
+            </span>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-        {options.map((option, idx) => {
-          const isSelected = selected === option.label;
-          const letter = optionLetters[idx] ?? String(idx + 1);
+        {q.options.map((option, optIdx) => {
+          const isSelected = (answers[currentStep] ?? []).includes(
+            option.label,
+          );
+          const letter = optionLetters[optIdx] ?? String(optIdx + 1);
           return (
             <Card
-              key={`${option.label}-${idx}`}
+              key={`${option.label}-${optIdx}`}
               className={`cursor-pointer shadow-none transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
                 isSelected
                   ? "border-primary bg-accent ring-1 ring-primary"
                   : "border-transparent bg-secondary hover:bg-muted"
               } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
-              onClick={() => !isLoading && setSelected(option.label)}
+              onClick={() =>
+                !isLoading && toggleOption(option.label, q.multiSelect)
+              }
               role="button"
               tabIndex={isLoading ? -1 : 0}
               onKeyDown={(e) => {
                 if (isLoading) return;
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  setSelected(option.label);
+                  toggleOption(option.label, q.multiSelect);
                 }
               }}
             >
@@ -113,18 +195,18 @@ export function MultipleChoiceQuestion({
 
         <Card
           className={`cursor-pointer shadow-none transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
-            isOther
+            otherActive[currentStep]
               ? "border-primary bg-accent ring-1 ring-primary"
               : "border-transparent bg-secondary hover:bg-muted"
           } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
-          onClick={() => !isLoading && setSelected("__other__")}
+          onClick={() => !isLoading && toggleOther()}
           role="button"
           tabIndex={isLoading ? -1 : 0}
           onKeyDown={(e) => {
             if (isLoading) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              setSelected("__other__");
+              toggleOther();
             }
           }}
         >
@@ -134,40 +216,45 @@ export function MultipleChoiceQuestion({
                 className={`
                   w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-150
                   ${
-                    isOther
+                    otherActive[currentStep]
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-muted-foreground"
                   }
                 `}
               >
-                {isOther ? (
+                {otherActive[currentStep] ? (
                   <IconCheck size={13} strokeWidth={3} />
                 ) : (
                   <IconPencil size={13} />
                 )}
               </span>
               <span
-                className={`flex-1 text-sm ${isOther ? "text-primary font-medium" : "text-muted-foreground"}`}
+                className={`flex-1 text-sm ${otherActive[currentStep] ? "text-primary font-medium" : "text-muted-foreground"}`}
               >
                 Other...
               </span>
             </div>
-            {isOther && (
+            {otherActive[currentStep] && (
               <div
                 className="mt-2 ml-9 animate-in fade-in slide-in-from-top-1 duration-150"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
                 <Input
-                  value={customAnswer}
-                  onChange={(e) => setCustomAnswer(e.target.value)}
+                  value={customAnswers[currentStep] ?? ""}
+                  onChange={(e) =>
+                    setCustomAnswers((prev) => ({
+                      ...prev,
+                      [currentStep]: e.target.value,
+                    }))
+                  }
                   placeholder="Type your answer..."
                   disabled={isLoading}
                   autoFocus
                   className="h-8 text-sm bg-background border-border shadow-none"
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && canSubmit && !isLoading) {
-                      handleSubmit();
+                    if (e.key === "Enter" && currentHasAnswer && !isLoading) {
+                      handleNext();
                     }
                   }}
                 />
@@ -177,19 +264,32 @@ export function MultipleChoiceQuestion({
         </Card>
       </div>
 
-      <Button
-        className="w-full"
-        onClick={handleSubmit}
-        disabled={!canSubmit || isLoading}
-      >
-        {isLoading ? (
-          <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : null}
-        Submit
-        {!isLoading && (
-          <IconArrowRight size={15} strokeWidth={2.5} className="ml-1" />
+      <div className="flex gap-2">
+        {isMultiStep && currentStep > 0 && (
+          <Button
+            variant="ghost"
+            className="flex-1"
+            onClick={handleBack}
+            disabled={isLoading}
+          >
+            <IconArrowLeft size={15} strokeWidth={2.5} className="mr-1" />
+            Back
+          </Button>
         )}
-      </Button>
+        <Button
+          className="flex-1"
+          onClick={handleNext}
+          disabled={!currentHasAnswer || isLoading}
+        >
+          {isLoading ? (
+            <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : null}
+          {isLastStep ? "Submit" : "Next"}
+          {!isLoading && (
+            <IconArrowRight size={15} strokeWidth={2.5} className="ml-1" />
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

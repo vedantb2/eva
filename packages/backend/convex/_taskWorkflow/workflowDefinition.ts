@@ -1,7 +1,11 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
-import { claudeModelValidator, runModeValidator } from "../validators";
+import {
+  aiModelValidator,
+  DEFAULT_AI_MODEL,
+  runModeValidator,
+} from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
 import { buildAuditPrompt } from "./prompts";
 import { buildPrBody } from "../taskWorkflowActions";
@@ -19,7 +23,7 @@ export const taskExecutionWorkflow = workflow.define({
     branchName: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     isFirstTaskOnBranch: v.boolean(),
-    model: v.optional(claudeModelValidator),
+    model: v.optional(aiModelValidator),
     userId: v.id("users"),
     mode: v.optional(runModeValidator),
   },
@@ -69,7 +73,7 @@ export const taskExecutionWorkflow = workflow.define({
         userId: args.userId,
         completionMutation: "taskWorkflow:handleCompletion",
         entityIdField: "taskId",
-        model: args.model ?? "sonnet",
+        model: args.model ?? DEFAULT_AI_MODEL,
         allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
         repoId: args.repoId,
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),

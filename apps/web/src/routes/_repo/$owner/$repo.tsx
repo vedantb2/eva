@@ -5,6 +5,7 @@ import { SetupBanner } from "@/lib/components/SetupBanner";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { SearchProvider } from "@/lib/contexts/SearchContext";
 import { RepoProvider } from "@/lib/contexts/RepoContext";
+import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
 import { LiveCursors } from "@/lib/components/LiveCursors";
 
 export const Route = createFileRoute("/_repo/$owner/$repo")({
@@ -37,14 +38,16 @@ function RepoLayoutInner() {
   return (
     <RepoProvider owner={owner} repoParam={repo}>
       <SidebarProvider>
-        <SearchProvider>
-          <Sidebar />
-          <MainContent>
-            <Outlet />
-          </MainContent>
-          <SpotlightSearch />
-          <LiveCursors />
-        </SearchProvider>
+        <PageTitleProvider>
+          <SearchProvider>
+            <Sidebar />
+            <MainContent>
+              <Outlet />
+            </MainContent>
+            <SpotlightSearch />
+            <LiveCursors />
+          </SearchProvider>
+        </PageTitleProvider>
       </SidebarProvider>
     </RepoProvider>
   );

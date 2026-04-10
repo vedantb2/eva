@@ -8,6 +8,7 @@ export const get = authQuery({
     v.object({
       currentActivity: v.string(),
       currentContent: v.string(),
+      pendingQuestion: v.optional(v.string()),
     }),
     v.null(),
   ),
@@ -20,6 +21,7 @@ export const get = authQuery({
     return {
       currentActivity: streaming.currentActivity,
       currentContent: streaming.currentContent ?? "",
+      pendingQuestion: streaming.pendingQuestion,
     };
   },
 });
@@ -29,6 +31,7 @@ export const set = authMutation({
     entityId: v.string(),
     currentActivity: v.string(),
     currentContent: v.optional(v.string()),
+    pendingQuestion: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -41,10 +44,13 @@ export const set = authMutation({
     if (existing) {
       const activityChanged = existing.currentActivity !== args.currentActivity;
       const contentChanged = (existing.currentContent ?? "") !== nextContent;
-      if (activityChanged || contentChanged) {
+      const questionChanged =
+        (existing.pendingQuestion ?? "") !== (args.pendingQuestion ?? "");
+      if (activityChanged || contentChanged || questionChanged) {
         await ctx.db.patch(existing._id, {
           currentActivity: args.currentActivity,
           currentContent: nextContent,
+          pendingQuestion: args.pendingQuestion,
           lastUpdatedAt: now,
         });
       } else {
@@ -57,6 +63,7 @@ export const set = authMutation({
         entityId: args.entityId,
         currentActivity: args.currentActivity,
         currentContent: nextContent,
+        pendingQuestion: args.pendingQuestion,
         lastUpdatedAt: now,
       });
     }
@@ -70,6 +77,7 @@ export const internalGet = internalQuery({
     v.object({
       currentActivity: v.string(),
       currentContent: v.string(),
+      pendingQuestion: v.optional(v.string()),
     }),
     v.null(),
   ),
@@ -82,6 +90,7 @@ export const internalGet = internalQuery({
     return {
       currentActivity: streaming.currentActivity,
       currentContent: streaming.currentContent ?? "",
+      pendingQuestion: streaming.pendingQuestion,
     };
   },
 });
@@ -91,6 +100,7 @@ export const internalSet = internalMutation({
     entityId: v.string(),
     currentActivity: v.string(),
     currentContent: v.optional(v.string()),
+    pendingQuestion: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -103,10 +113,13 @@ export const internalSet = internalMutation({
     if (existing) {
       const activityChanged = existing.currentActivity !== args.currentActivity;
       const contentChanged = (existing.currentContent ?? "") !== nextContent;
-      if (activityChanged || contentChanged) {
+      const questionChanged =
+        (existing.pendingQuestion ?? "") !== (args.pendingQuestion ?? "");
+      if (activityChanged || contentChanged || questionChanged) {
         await ctx.db.patch(existing._id, {
           currentActivity: args.currentActivity,
           currentContent: nextContent,
+          pendingQuestion: args.pendingQuestion,
           lastUpdatedAt: now,
         });
       } else {
@@ -119,6 +132,7 @@ export const internalSet = internalMutation({
         entityId: args.entityId,
         currentActivity: args.currentActivity,
         currentContent: nextContent,
+        pendingQuestion: args.pendingQuestion,
         lastUpdatedAt: now,
       });
     }

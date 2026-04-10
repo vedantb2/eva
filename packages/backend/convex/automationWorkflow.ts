@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
-import { claudeModelValidator } from "./validators";
+import { aiModelValidator } from "./validators";
 import { taskCompleteEvent } from "./_taskWorkflow/events";
 import { buildPrBody } from "./taskWorkflowActions";
 import { buildRootDirectoryInstruction } from "./prompts/shared";
@@ -205,7 +205,7 @@ export const automationExecutionWorkflow = workflow.define({
     branchName: v.string(),
     description: v.string(),
     title: v.string(),
-    model: claudeModelValidator,
+    model: aiModelValidator,
     rootDirectory: v.string(),
     userId: v.id("users"),
     readOnly: v.optional(v.boolean()),

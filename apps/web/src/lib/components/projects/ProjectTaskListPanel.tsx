@@ -3,8 +3,11 @@
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type RefCallback } from "react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { Virtuoso } from "react-virtuoso";
 import { useMutation } from "convex/react";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   DndContext,
   closestCenter,
@@ -43,10 +46,12 @@ function SortableTaskWrapper({
   task,
   selectedTaskId,
   onSelectTask,
+  hasError,
 }: {
   task: Task;
   selectedTaskId: Id<"agentTasks"> | null;
   onSelectTask: (id: Id<"agentTasks">) => void;
+  hasError: boolean;
 }) {
   const {
     attributes,
@@ -82,9 +87,9 @@ function SortableTaskWrapper({
           title={task.title}
           description={task.description}
           status={task.status}
+          hasError={hasError}
           taskNumber={task.taskNumber ?? 0}
           tags={task.tags}
-          createdBy={task.createdBy}
           createdAt={task._creationTime}
           scheduledAt={task.scheduledAt}
           isActive={selectedTaskId === task._id}
@@ -112,10 +117,28 @@ export function ProjectTaskListPanel({
   onSelectTask,
   onCreateTask,
 }: ProjectTaskListPanelProps) {
+  const { repoId } = useRepo();
   const [localTodoOrder, setLocalTodoOrder] = useState<
     Id<"agentTasks">[] | null
   >(null);
   const reorderTasks = useMutation(api.agentTasks.reorderProjectTasks);
+  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
+  const scrollRef: RefCallback<HTMLDivElement> = useCallback(
+    (node: HTMLDivElement | null) => {
+      setScrollParent(node);
+    },
+    [],
+  );
+
+  const taskIds = useMemo(() => tasks.map((t) => t._id), [tasks]);
+  const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
+    repoId,
+    taskIds,
+  });
+  const errorTaskIdSet = useMemo(
+    () => new Set(errorTaskIds ?? []),
+    [errorTaskIds],
+  );
 
   const groupedTasks = useMemo(() => {
     const groups: Record<TaskStatus, Task[]> = {
@@ -185,7 +208,7 @@ export function ProjectTaskListPanel({
   );
 
   return (
-    <div className="h-full overflow-y-auto scrollbar">
+    <div ref={scrollRef} className="h-full overflow-y-auto scrollbar">
       <Accordion
         type="multiple"
         className="px-3 [&_hr]:bg-border"
@@ -240,6 +263,7 @@ export function ProjectTaskListPanel({
                           task={task}
                           selectedTaskId={selectedTaskId}
                           onSelectTask={onSelectTask}
+                          hasError={errorTaskIdSet.has(task._id)}
                         />
                       ))}
                     </SortableContext>
@@ -282,28 +306,37 @@ export function ProjectTaskListPanel({
               <AccordionContent className="flex flex-col gap-2 px-3">
                 {statusTasks.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-2">No tasks</p>
-                ) : (
-                  statusTasks.map((task) => (
-                    <QuickTaskCard
-                      key={task._id}
-                      id={task._id}
-                      title={task.title}
-                      description={task.description}
-                      status={task.status}
-                      taskNumber={task.taskNumber ?? 0}
-                      tags={task.tags}
-                      createdBy={task.createdBy}
-                      createdAt={task._creationTime}
-                      scheduledAt={task.scheduledAt}
-                      isActive={selectedTaskId === task._id}
-                      onClick={() => onSelectTask(task._id)}
-                      assignedTo={task.assignedTo}
-                      model={task.model}
-                      projectId={task.projectId}
-                      repoId={task.repoId}
-                    />
-                  ))
-                )}
+                ) : scrollParent ? (
+                  <Virtuoso
+                    customScrollParent={scrollParent}
+                    totalCount={statusTasks.length}
+                    overscan={200}
+                    itemContent={(index) => {
+                      const task = statusTasks[index];
+                      return (
+                        <div className="pb-2">
+                          <QuickTaskCard
+                            id={task._id}
+                            title={task.title}
+                            description={task.description}
+                            status={task.status}
+                            hasError={errorTaskIdSet.has(task._id)}
+                            taskNumber={task.taskNumber ?? 0}
+                            tags={task.tags}
+                            createdAt={task._creationTime}
+                            scheduledAt={task.scheduledAt}
+                            isActive={selectedTaskId === task._id}
+                            onClick={() => onSelectTask(task._id)}
+                            assignedTo={task.assignedTo}
+                            model={task.model}
+                            projectId={task.projectId}
+                            repoId={task.repoId}
+                          />
+                        </div>
+                      );
+                    }}
+                  />
+                ) : null}
               </AccordionContent>
             </AccordionItem>
           );

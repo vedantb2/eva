@@ -87,7 +87,9 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     try {
       await startExecution({ id: taskId });
     } catch (err) {
-      console.error("Failed to start execution:", err);
+      const message =
+        err instanceof Error ? err.message : "Failed to start execution";
+      setExecutionError(message);
     } finally {
       setIsStarting(false);
     }

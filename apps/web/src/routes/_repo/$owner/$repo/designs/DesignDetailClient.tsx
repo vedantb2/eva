@@ -136,7 +136,7 @@ export function DesignDetailClient({
       leftDefaultSize="40%"
       leftMinWidthPx={280}
       rightMinWidthPx={300}
-      collapseCookieName="design-preview-collapsed"
+      storageKey="design-preview-collapsed"
     />
   );
 }

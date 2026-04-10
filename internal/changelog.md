@@ -1,5 +1,78 @@
 # Changelog
 
+## Add Codex as an env-var-backed sandbox provider - 2026-04-09
+
+- **Why**: Claude was the only first-class sandbox provider, which meant teams could not bring their existing ChatGPT-backed Codex access into Conductor. The goal was to add Codex without introducing a new OAuth product flow or more setup friction, so the implementation needed to stay simple: choose a provider in the same UI surfaces and enable Codex by adding env vars only.
+- **Changes**:
+  - Replaced the Claude-only sandbox model contract with shared provider-qualified model ids and a backend model catalog reused by the web app, extension, and shared UI controls.
+  - Added Codex availability gating based on repo/team env vars, so Codex only appears when `CODEX_AUTH_JSON` or its compatible fallback env vars are configured.
+  - Extended the Daytona sandbox runner and persisted session storage to support Codex CLI launches, hydrated `CODEX_HOME` from env vars, and kept Codex session state across sandbox restarts alongside the existing Claude path.
+  - Added a Codex CLI availability check at launch time so older snapshots and plain non-snapshot sandboxes can install Codex on demand the first time a Codex model is used.
+  - Increased the default snapshot create timeout when persistence volumes are mounted, because session/design sandboxes were timing out during Daytona startup before any repo prep could run.
+  - Removed the separate remote branch existence probe from session/design sandbox restore so newly created sandboxes go straight to ref fetching instead of timing out on repeated `ls-remote` checks.
+  - Moved session and design sandbox startup onto workflow-backed steps instead of scheduling the Daytona start actions directly, and added more detailed git/session logs so sandbox restore failures are easier to localize.
+  - Made session branch restore prefer local snapshot refs or snapshot `HEAD` before failing on a base-branch fetch, so flaky network fetches are less likely to block opening an otherwise healthy session sandbox.
+  - Stopped session restore from doing a second network fetch for the base branch when the session branch is missing, and made remote session-branch fetch failure fall back to local snapshot restore after a short timeout instead of blocking startup.
+  - Extracted shared `resolveBaseTarget` helper in `git.ts` so the remote→local→HEAD base-ref fallback chain is defined once and reused by `checkoutSessionBranch`, `setupBranch`, and session restore. Renamed misleading `fetchSessionBaseFallbackBranch` to `resolveSessionBaseRef` since it no longer does network I/O. Bumped session branch fetch timeout from 15s to 30s to avoid premature fallback on slow-but-healthy networks.
+  - Stopped fresh ephemeral sandboxes from blocking on dependency installation before a quick task can start, while still leaving the longer install path available for non-ephemeral sandboxes that benefit from a prepared environment.
+  - Increased fresh sandbox clone and runner startup timeouts so newly synced repos without snapshots are less likely to fail during initial bootstrap or callback readiness on slower sandboxes.
+  - Updated setup and env-var UX to explain the simplest Codex setup path: sign in locally once, then paste the saved auth JSON into an env var.
+- **Reason**: Treating providers as first-class runtime choices keeps the architecture easier to extend than sprinkling Codex support through Claude-specific code paths, while the env-var-only setup keeps the product change low-friction for users.
+
+## Move Daytona workspace to /tmp for non-snapshot repo runs - 2026-04-09
+
+- **Why**: Freshly synced repos without a built snapshot were using the plain Daytona sandbox path, and quick-task execution failed before cloning because `/workspace/repo` was not writable in that environment. The snapshot and non-snapshot paths were assuming the same workspace location without guaranteeing the same filesystem permissions.
+- **Changes**:
+  - Switched the shared Daytona workspace path from `/workspace/repo` to `/tmp/repo` in backend sandbox helpers, workflow prompts, session workflow reads, and the callback runtime script.
+  - Added legacy fallback handling so existing snapshot-backed sandboxes can still resolve `/workspace/repo` until they are rebuilt onto the new path.
+  - Updated snapshot/template workflow Dockerfiles to copy the repo into `/tmp/repo` too, so future snapshots match the runtime workspace path used by fresh sandboxes.
+- **Effect**: New repos can run quick tasks before a snapshot exists, and snapshot-backed sandboxes keep using the same repo path as non-snapshot sandboxes.
+
+## Fix queued messages sent as session owner instead of sender — 2026-04-01
+
+- **Why**: When a user queued messages in a shared session, the messages appeared as the session owner (coworker) instead of the person who actually queued them. The `queuedMessages` table had no `userId` field, so processing fell back to `session.userId`.
+- **Changes**:
+  - Added `userId` field to `queuedMessageFields` in validators.ts (optional for backward compat with existing rows)
+  - Both `enqueueMessage` mutations (sessionWorkflow.ts, designSessions.ts) now store `ctx.userId`
+  - Queue processing in `_queues/helpers.ts` uses `nextMessage.userId ?? session.userId` fallback
+- **Files**: validators.ts, sessionWorkflow.ts, designSessions.ts, \_queues/helpers.ts
+
+## AskUserQuestion renders as interactive multiple choice in session chat — 2026-04-01
+
+- **Why**: When Claude Code uses AskUserQuestion during a session, the question and options were buried in activity logs ("Using AskUserQuestion...") and invisible to the user. Users had no way to see or respond to questions.
+- **Changes**:
+  - Added `pendingQuestion` field to `streamingActivity` table (real-time) and `messages` table (persisted after completion)
+  - Callback script now detects AskUserQuestion tool_use events, extracts the question JSON, and threads it through streaming heartbeats and completion args
+  - Session workflow threads `pendingQuestion` through handleCompletion → event → saveResult → message patch
+  - ChatPanel renders `MultipleChoiceQuestion` component when a pending question is detected (both during streaming and after completion)
+  - Prompt input is hidden when a question is active, forcing user to select an option
+  - MultipleChoiceQuestion component extended to support multiple questions (1-4), multiSelect, and header badges
+  - Added `question` step type to ActivityStep with MessageSquare icon
+- **Files**: schema.ts, validators.ts, streaming.ts, callbackScript.ts, sessionWorkflow.ts, SessionDetailClient.tsx, ChatPanel.tsx, MultipleChoiceQuestion.tsx, activity-steps.tsx
+
+## Kanban board query and animation optimization — 2026-04-01
+
+- **Why**: Kanban board with 40+ task cards made 80+ sequential database reads in a single query (getTaskIdsWithLatestRunError looped through taskIds, doing ctx.db.get + hasTaskAccess + index query per task). View switching also had stacked animations (200ms exit + 200ms enter + 300ms board fade-in) creating 500ms+ delay.
+- **Changes**:
+  - Optimized `getTaskIdsWithLatestRunError` backend query: accept `repoId` arg, do single `hasRepoAccess()` check upfront, then use `Promise.all` to parallelize 40 taskId queries instead of looping sequentially. Reduces from ~160 index range reads to ~42 parallel reads + 1 repo access check.
+  - Updated 3 frontend call sites to pass `repoId`: QuickTasksKanbanBoard, QuickTasksListView, ProjectTaskListPanel.
+  - Wrapped kanban task sort in `useMemo` to prevent re-sorting on every render and stabilize downstream memo dependencies.
+  - Changed `AnimatePresence mode="wait"` to `mode="popLayout"` for simultaneous exit/enter animation (halves view-switch delay).
+  - Removed duplicate `animate-in fade-in duration-300` CSS classes from KanbanBoard (framer-motion parent animation is sufficient).
+- **Effect**: Kanban board loads faster (fewer DB reads, parallel instead of sequential), view transitions feel snappier, re-subscription invalidation surface area smaller (task docs no longer in read set).
+- **Files**: packages/backend/convex/agentRuns.ts, QuickTasksKanbanBoard.tsx, QuickTasksListView.tsx, ProjectTaskListPanel.tsx, QuickTasksClient.tsx, KanbanBoard.tsx
+
+## Quick tasks performance optimization — 2026-04-01
+
+- **Why**: Quick tasks page with 160+ tasks loaded slowly due to N+1 queries (320 Convex subscriptions from per-card UserInitials and listByTask queries), eagerly-rendered menu trees (320 context/dropdown menus in React tree), and no virtualization (all 160+ cards in DOM simultaneously).
+- **Changes**:
+  - Eliminated N+1 `users.get` queries: parents now look up users from the already-fetched `users.listAll` and pass the `user` object to `UserInitials` instead of `userId`. Applies to QuickTaskCard, table view's assignedTo column. Removes 160 subscriptions.
+  - Deduplicated context + dropdown menu items: extracted `TaskCardMenuItems` component that takes a `variant` prop and aliases Radix primitives, eliminating ~190 lines of duplicated JSX.
+  - Deferred menu rendering: menu content is now a child component (`TaskCardMenuItems`) instead of inline JSX, so React only calls it when the portal mounts (i.e., when menu opens). Eliminates hundreds of React elements per card per render.
+  - Added `@tanstack/react-virtual` for virtualization: table view renders only visible rows with spacer `<tr>` elements; kanban columns render only visible cards with absolute positioning. Both use `measureElement` for dynamic sizing.
+  - Moved mutations (`updateStatus`, `updateTask`, `startExecution`) from QuickTaskCard into TaskCardMenuItems, since they're only used by menu actions.
+- **Files**: QuickTaskCard.tsx, TaskCardMenuItems.tsx (new), QuickTasksKanbanBoard.tsx, QuickTasksListView.tsx, QuickTasksTableView.tsx, KanbanBoard.tsx, KanbanColumn.tsx
+
 ## Bundle optimization — reduce initial load by 80% - 2026-03-31
 
 - **Why**: Main bundle was 1,355KB and TaskDetailInline was 1,048KB — both over 1MB. Users downloaded and parsed megabytes of JS before seeing any content, including libraries they'd never use on most pages (tiptap, react-syntax-highlighter, streamdown).

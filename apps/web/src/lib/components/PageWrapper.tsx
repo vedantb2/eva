@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import { Button } from "@conductor/ui";
 import { IconArrowLeft } from "@tabler/icons-react";
+import { usePageTitle } from "@/lib/contexts/PageTitleContext";
 
 interface PageWrapperProps {
   title?: React.ReactNode;
@@ -26,6 +28,14 @@ export function PageWrapper({
   childPadding = true,
   comfortable = false,
 }: PageWrapperProps) {
+  const { setPageTitle } = usePageTitle();
+
+  useEffect(() => {
+    const titleStr = typeof title === "string" ? title : "";
+    setPageTitle(titleStr);
+    return () => setPageTitle("");
+  }, [title, setPageTitle]);
+
   return (
     <div className="flex-1 h-full min-h-0 overflow-hidden animate-in fade-in duration-300">
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -47,7 +57,7 @@ export function PageWrapper({
                 </Button>
               )}
               {title && (
-                <h1 className="min-w-0 whitespace-nowrap text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300">
+                <h1 className="hidden min-w-0 whitespace-nowrap text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 lg:block">
                   {title}
                 </h1>
               )}

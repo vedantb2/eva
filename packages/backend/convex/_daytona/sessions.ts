@@ -6,11 +6,11 @@ import { internal } from "../_generated/api";
 import type { DataModel, Id } from "../_generated/dataModel";
 import {
   exec,
-  WORKSPACE_DIR,
   resolveSandboxContext,
   ensureSandboxRunning,
   errorMessage,
   sleep,
+  workspaceDirShell,
 } from "./helpers";
 import {
   setupBranch,
@@ -18,10 +18,10 @@ import {
   createSandboxAndPrepareRepo,
   createBranchSyncStrategy,
   fetchBranchRefs,
-  remoteBranchExists,
+  resolveBaseTarget,
   SESSION_LIFECYCLE,
 } from "./git";
-import { ensureSessionClaudeVolume } from "./volumes";
+import { ensureSessionPersistenceVolumes } from "./volumes";
 import { detectPackageManager, startSessionServices } from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
@@ -71,6 +71,9 @@ function isRetryableSessionGitError(message: string): boolean {
     lower.includes("etimedout") ||
     lower.includes("socket hang up") ||
     lower.includes("network") ||
+    lower.includes("status code 502") ||
+    lower.includes("status code 503") ||
+    lower.includes("status code 504") ||
     lower.includes("gnutls recv error") ||
     lower.includes("tls connection was non-properly terminated") ||
     lower.includes("remote end hung up unexpectedly") ||
@@ -81,30 +84,35 @@ function isRetryableSessionGitError(message: string): boolean {
   );
 }
 
-async function checkRemoteBranchExistsWithRetry(
+async function fetchBranchRefsWithRetry(
   sandbox: Sandbox,
   installationId: number,
   repoOwner: string,
   repoName: string,
-  branchName: string,
-): Promise<boolean> {
+  branchNames: string[],
+  opts?: { timeoutSeconds?: number; shallow?: boolean },
+): Promise<string[]> {
   const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const exists = await remoteBranchExists(
+      const fetchedBranches = await fetchBranchRefs(
         sandbox,
         installationId,
         repoOwner,
         repoName,
-        branchName,
-        20,
+        branchNames,
+        {
+          prune: false,
+          timeoutSeconds: opts?.timeoutSeconds,
+          shallow: opts?.shallow,
+        },
       );
       if (attempt > 1) {
         logSession(
-          `checkRemoteBranchExistsWithRetry recovered on retry ${attempt}/${maxAttempts} (repo=${repoOwner}/${repoName}, branch=${branchName})`,
+          `fetchBranchRefsWithRetry recovered on retry ${attempt}/${maxAttempts} (repo=${repoOwner}/${repoName}, branches=${branchNames.join(",")})`,
         );
       }
-      return exists;
+      return fetchedBranches;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const canRetry =
@@ -114,57 +122,25 @@ async function checkRemoteBranchExistsWithRetry(
       }
       const delayMs = 1000 * attempt;
       logSession(
-        `checkRemoteBranchExistsWithRetry retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branch=${branchName}): ${message}`,
+        `fetchBranchRefsWithRetry retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branches=${branchNames.join(",")}): ${message}`,
       );
       await sleep(delayMs);
     }
   }
-  return false;
+  return [];
 }
 
-async function fetchSessionBaseFallbackBranch(
+async function resolveSessionBaseRef(
   sandbox: Sandbox,
-  installationId: number,
   repoOwner: string,
   repoName: string,
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const maxAttempts = 3;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      await fetchBranchRefs(
-        sandbox,
-        installationId,
-        repoOwner,
-        repoName,
-        [baseBranch],
-        {
-          prune: false,
-          timeoutSeconds: 15,
-          shallow: true,
-        },
-      );
-      if (attempt > 1) {
-        logSession(
-          `fetchSessionBaseFallbackBranch recovered on retry ${attempt}/${maxAttempts} (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
-        );
-      }
-      return;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const canRetry =
-        attempt < maxAttempts && isRetryableSessionGitError(message);
-      if (!canRetry) {
-        throw error;
-      }
-      const delayMs = 1000 * attempt;
-      logSession(
-        `fetchSessionBaseFallbackBranch retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch}): ${message}`,
-      );
-      await sleep(delayMs);
-    }
-  }
+  const { source } = await resolveBaseTarget(sandbox, baseBranch);
+  logSession(
+    `resolveSessionBaseRef source=${source} (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
+  );
 }
 
 async function checkoutSessionBranchWithRetry(
@@ -206,37 +182,38 @@ async function syncSessionRefsForRestore(
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const sessionBranchExists = await checkRemoteBranchExistsWithRetry(
-    sandbox,
-    installationId,
-    repoOwner,
-    repoName,
-    branchName,
-  );
-  if (sessionBranchExists) {
-    await fetchBranchRefs(
+  let fetchedSessionBranches: string[] = [];
+  try {
+    fetchedSessionBranches = await fetchBranchRefsWithRetry(
       sandbox,
       installationId,
       repoOwner,
       repoName,
       [branchName],
       {
-        prune: false,
-        timeoutSeconds: 240,
+        timeoutSeconds: 30,
         shallow: true,
       },
     );
+  } catch (error) {
+    logSession(
+      `syncSessionRefsForRestore session branch fetch failed, continuing with local snapshot refs (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch}): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  logSession(
+    `syncSessionRefsForRestore fetched session branch candidates=${fetchedSessionBranches.join(",") || "none"} (repo=${repoOwner}/${repoName}, branch=${branchName})`,
+  );
+  if (fetchedSessionBranches.includes(branchName)) {
     logSession(
       `syncSessionRefsForRestore fetched existing remote session branch (repo=${repoOwner}/${repoName}, branch=${branchName})`,
     );
     return;
   }
   logSession(
-    `syncSessionRefsForRestore remote session branch missing, falling back to base branch fetch (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
+    `syncSessionRefsForRestore remote session branch missing, falling back to base branch restore (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
   );
-  await fetchSessionBaseFallbackBranch(
+  await resolveSessionBaseRef(
     sandbox,
-    installationId,
     repoOwner,
     repoName,
     branchName,
@@ -252,26 +229,19 @@ async function syncDesignRefsForSetup(
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const designBranchExists = await checkRemoteBranchExistsWithRetry(
+  const fetchedBranches = await fetchBranchRefsWithRetry(
     sandbox,
     installationId,
     repoOwner,
     repoName,
-    branchName,
-  );
-  const branchNames = designBranchExists
-    ? [baseBranch, branchName]
-    : [baseBranch];
-  await fetchBranchRefs(
-    sandbox,
-    installationId,
-    repoOwner,
-    repoName,
-    branchNames,
+    [baseBranch, branchName],
     {
-      prune: false,
       timeoutSeconds: 240,
     },
+  );
+  const designBranchExists = fetchedBranches.includes(branchName);
+  logSession(
+    `syncDesignRefsForSetup fetched branch candidates=${fetchedBranches.join(",") || "none"} (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
   );
   logSession(
     designBranchExists
@@ -286,7 +256,9 @@ async function installSnapshotDependenciesWithRetry(
 ): Promise<void> {
   const maxAttempts = 3;
   const pm = await detectPackageManager(sandbox, rootDir);
-  const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
+  const dir = rootDir
+    ? `${workspaceDirShell()}/${rootDir}`
+    : workspaceDirShell();
   const installCommand =
     pm === "pnpm"
       ? `npm install -g pnpm && cd ${dir} && pnpm install`
@@ -437,10 +409,10 @@ async function prepareSessionSandboxInternal(
   }
 
   const sessionVolumeMounts = await runLoggedSessionStep(
-    "ensureSessionClaudeVolume",
+    "ensureSessionPersistenceVolumes",
     actionDetails,
     () =>
-      ensureSessionClaudeVolume(
+      ensureSessionPersistenceVolumes(
         daytona,
         args.repoId,
         "sessions",
@@ -626,7 +598,7 @@ export const startDesignSandbox = internalAction({
       const { daytona, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, args.repoId);
 
-      const designVolumeMounts = await ensureSessionClaudeVolume(
+      const designVolumeMounts = await ensureSessionPersistenceVolumes(
         daytona,
         args.repoId,
         "designSessions",

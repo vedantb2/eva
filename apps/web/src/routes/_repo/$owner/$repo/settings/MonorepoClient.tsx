@@ -58,7 +58,7 @@ export function MonorepoClient() {
         owner: repo.owner,
         name: repo.name,
       });
-      setDetected(apps.filter((a) => a.path.startsWith("apps/")));
+      setDetected(apps);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Detection failed");
     }

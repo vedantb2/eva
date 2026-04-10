@@ -1,13 +1,15 @@
 "use node";
 
 import type { Sandbox } from "@daytonaio/sdk";
-import { exec, WORKSPACE_DIR } from "./helpers";
+import { exec, workspaceDirShell } from "./helpers";
 
 export async function detectPackageManager(
   sandbox: Sandbox,
   rootDir = "",
 ): Promise<string> {
-  const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
+  const dir = rootDir
+    ? `${workspaceDirShell()}/${rootDir}`
+    : workspaceDirShell();
   const lockFile = (
     await exec(
       sandbox,
@@ -35,7 +37,9 @@ export async function detectDevPort(
   sandbox: Sandbox,
   rootDir: string,
 ): Promise<number> {
-  const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
+  const dir = rootDir
+    ? `${workspaceDirShell()}/${rootDir}`
+    : workspaceDirShell();
   try {
     const raw = await exec(
       sandbox,
@@ -71,7 +75,9 @@ export async function startSessionServices(
 ): Promise<{ port: number; devCommand: string }> {
   const pm = await detectPackageManager(sandbox, rootDir);
   const port = await detectDevPort(sandbox, rootDir);
-  const dir = rootDir ? `${WORKSPACE_DIR}/${rootDir}` : WORKSPACE_DIR;
+  const dir = rootDir
+    ? `${workspaceDirShell()}/${rootDir}`
+    : workspaceDirShell();
   const devCommand = `cd ${dir} && PORT=${port} ${pm} run dev`;
   return { port, devCommand };
 }

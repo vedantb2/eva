@@ -3,11 +3,13 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { internal, components } from "./_generated/api";
 import { Crons } from "@convex-dev/crons";
 import {
-  claudeModelValidator,
+  aiModelValidator,
   automationFields,
   automationRunFields,
   automationFindingValidator,
   runStatusValidator,
+  DEFAULT_AI_MODEL,
+  normalizeAIModel,
 } from "./validators";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { workflow } from "./workflowManager";
@@ -79,7 +81,7 @@ export const update = authMutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     cronSchedule: v.optional(v.string()),
-    model: v.optional(claudeModelValidator),
+    model: v.optional(aiModelValidator),
     enabled: v.optional(v.boolean()),
     readOnly: v.optional(v.boolean()),
     actionsEnabled: v.optional(v.boolean()),
@@ -247,7 +249,9 @@ export const triggerAutomation = internalMutation({
         branchName,
         description: automation.description,
         title: automation.title,
-        model: automation.model ?? repo.defaultModel ?? "sonnet",
+        model: normalizeAIModel(
+          automation.model ?? repo.defaultModel ?? DEFAULT_AI_MODEL,
+        ),
         rootDirectory: repo.rootDirectory ?? "",
         userId: automation.createdBy,
         readOnly: automation.readOnly === true,
@@ -316,7 +320,9 @@ export const runNow = authMutation({
         branchName,
         description: automation.description,
         title: automation.title,
-        model: automation.model ?? repo.defaultModel ?? "sonnet",
+        model: normalizeAIModel(
+          automation.model ?? repo.defaultModel ?? DEFAULT_AI_MODEL,
+        ),
         rootDirectory: repo.rootDirectory ?? "",
         userId: automation.createdBy,
         readOnly: automation.readOnly === true,

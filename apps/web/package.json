@@ -77,10 +77,12 @@
     "react-day-picker": "^9.13.2",
     "react-dom": "19.2.1",
     "react-resizable-panels": "^4.6.2",
+    "react-virtuoso": "^4.18.3",
     "shiki": "^3.22.0",
     "streamdown": "^2.1.0",
     "tailwind-merge": "^2.6.0",
     "use-stick-to-bottom": "^1.1.2",
+    "usehooks-ts": "^3.1.1",
     "zod": "^4.1.5"
   },
   "devDependencies": {

@@ -3,7 +3,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Spinner,
@@ -21,7 +21,6 @@ import {
   PromptInputSubmit,
   PromptInputSpeech,
   ModelSelect,
-  type ClaudeModel,
   type PromptInputMessage,
 } from "@conductor/ui";
 import {
@@ -42,10 +41,8 @@ import {
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import dayjs from "@conductor/shared/dates";
-import {
-  getSessionModel,
-  useSessionModelSetter,
-} from "@/lib/hooks/useSessionSettings";
+import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 type QueuedDesignMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -97,19 +94,8 @@ export function DesignChatPanel({
     useState<Id<"designPersonas">>();
   const [numDesigns, setNumDesigns] = useState(3);
 
-  const initialModel = useMemo(
-    () => getSessionModel(designSessionId, "sonnet"),
-    [designSessionId],
-  );
-  const [model, setModelState] = useState<ClaudeModel>(initialModel);
-  const saveModel = useSessionModelSetter(designSessionId);
-  const setModel = useCallback(
-    (m: ClaudeModel) => {
-      setModelState(m);
-      saveModel(m);
-    },
-    [saveModel],
-  );
+  const { model, setModel } = useSessionSettings(designSessionId);
+  const { options: modelOptions } = useAvailableAiModels(repoId, model);
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
@@ -135,6 +121,7 @@ export function DesignChatPanel({
       await enqueueMessage({
         id: designSessionId,
         message: text.trim(),
+        model,
         personaId: selectedPersonaId,
         numDesigns,
       });
@@ -145,6 +132,7 @@ export function DesignChatPanel({
       await executeMessage({
         id: designSessionId,
         message: text.trim(),
+        model,
         personaId: selectedPersonaId,
         numDesigns,
       });
@@ -346,6 +334,7 @@ export function DesignChatPanel({
                 <PromptInputTools>
                   <ModelSelect
                     value={model}
+                    options={modelOptions}
                     onValueChange={setModel}
                     disabled={!isSandboxActive}
                   />

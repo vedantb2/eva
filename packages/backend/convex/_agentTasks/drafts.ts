@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { claudeModelValidator } from "../validators";
+import { aiModelValidator } from "../validators";
 import {
   authQuery,
   authMutation,
@@ -76,7 +76,7 @@ export const activateDraft = authMutation({
     title: v.string(),
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
-    model: v.optional(claudeModelValidator),
+    model: v.optional(aiModelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

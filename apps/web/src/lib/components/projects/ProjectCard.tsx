@@ -202,7 +202,7 @@ export function ProjectCard({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{cardContent}</ContextMenuTrigger>
-      <ContextMenuContent>
+      <ContextMenuContent onClick={(e) => e.stopPropagation()}>
         <ContextMenuSub>
           <ContextMenuSubTrigger disabled={!isOwner}>
             <PhaseIcon size={16} className={phaseConfig[phase].text} />

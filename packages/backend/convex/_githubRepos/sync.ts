@@ -54,6 +54,9 @@ export const upsert = internalMutation({
       if (args.teamId && !existing.teamId) {
         updates.teamId = args.teamId;
       }
+      if (existing.installationId !== args.installationId) {
+        updates.installationId = args.installationId;
+      }
       if (existing.owner !== args.owner) {
         updates.owner = args.owner;
       }

@@ -32,7 +32,7 @@ export function TeamEnvVarsTab({ teamId, teamEnvVars }: TeamEnvVarsTabProps) {
       onToggleSandboxExclude={async (key, sandboxExclude) => {
         await toggleSandboxExclude({ teamId, key, sandboxExclude });
       }}
-      description="Team-level variables inherited by all codebases in this team."
+      description="Team-level variables inherited by all codebases in this team. Add CODEX_AUTH_JSON here to enable Codex across the team."
     />
   );
 }

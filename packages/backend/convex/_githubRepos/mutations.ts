@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { authMutation } from "../functions";
 import { normalizePath } from "../repoUtils";
-import { claudeModelValidator } from "../validators";
+import { aiModelValidator } from "../validators";
 import { findAllSiblingRepoIds } from "./helpers";
 
 export const assignToTeam = authMutation({
@@ -155,7 +155,7 @@ export const updateConfig = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     defaultBaseBranch: v.optional(v.string()),
-    defaultModel: v.optional(claudeModelValidator),
+    defaultModel: v.optional(aiModelValidator),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
     deploymentProjectName: v.optional(v.string()),

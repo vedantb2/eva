@@ -1,18 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, CLAUDE_MODELS, type ClaudeModel } from "@conductor/backend";
+import { api, normalizeAIModel, type AIModel } from "@conductor/backend";
 import type { Doc } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { CronScheduleCard } from "@/lib/components/CronScheduleCard";
 import {
   Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Tabs,
   TabsContent,
   TabsList,
@@ -24,6 +19,7 @@ import {
   useElapsedSeconds,
   formatElapsed,
   cn,
+  ModelSelect,
 } from "@conductor/ui";
 import {
   IconAlertTriangle,
@@ -42,6 +38,7 @@ import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 const summaryPlugins = { cjk, math, mermaid };
 
@@ -71,8 +68,8 @@ export function AutomationClient({
     <PageWrapper
       comfortable
       title={
-        <div className="flex items-center gap-3">
-          <span>{automation.title}</span>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="truncate">{automation.title}</span>
           <button
             type="button"
             onClick={() =>
@@ -107,15 +104,26 @@ export function AutomationClient({
         </Button>
       }
     >
-      <Tabs defaultValue="history" className="space-y-4">
+      <Tabs defaultValue="latest" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="latest">Latest</TabsTrigger>
           <TabsTrigger value="history">Run History</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="latest">
+          <LatestRun
+            run={runs?.[0]}
+            loading={runs === undefined}
+            actionsEnabled={automation.actionsEnabled === true}
+            repoOwner={repoOwner}
+            repoName={repoName}
+          />
+        </TabsContent>
+
         <TabsContent value="history">
           <RunHistory
-            runs={runs}
+            runs={runs?.slice(1)}
             actionsEnabled={automation.actionsEnabled === true}
             repoOwner={repoOwner}
             repoName={repoName}
@@ -127,6 +135,52 @@ export function AutomationClient({
         </TabsContent>
       </Tabs>
     </PageWrapper>
+  );
+}
+
+function LatestRun({
+  run,
+  loading,
+  actionsEnabled,
+  repoOwner,
+  repoName,
+}: {
+  run: Doc<"automationRuns"> | undefined;
+  loading: boolean;
+  actionsEnabled: boolean;
+  repoOwner: string;
+  repoName: string;
+}) {
+  const acknowledgeRun = useMutation(api.automations.acknowledgeRun);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!run) {
+    return (
+      <div className="rounded-lg bg-muted/40 p-8 text-center">
+        <p className="text-sm text-muted-foreground">
+          No runs yet. Enable the automation and wait for the cron schedule to
+          trigger, or click &quot;Run Now&quot;.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <RunAccordion
+      run={run}
+      actionsEnabled={actionsEnabled}
+      repoOwner={repoOwner}
+      repoName={repoName}
+      onAcknowledge={() => acknowledgeRun({ runId: run._id })}
+      defaultExpanded
+    />
   );
 }
 
@@ -184,15 +238,17 @@ function RunAccordion({
   repoOwner,
   repoName,
   onAcknowledge,
+  defaultExpanded,
 }: {
   run: Doc<"automationRuns">;
   actionsEnabled: boolean;
   repoOwner: string;
   repoName: string;
   onAcknowledge: () => void;
+  defaultExpanded?: boolean;
 }) {
   const isActive = run.status === "running" || run.status === "queued";
-  const [expanded, setExpanded] = useState(isActive);
+  const [expanded, setExpanded] = useState(defaultExpanded ?? isActive);
   const cancelRun = useMutation(api.automations.cancelRun);
 
   const streamingEntityId = `automation-run-${run._id}`;
@@ -237,7 +293,7 @@ function RunAccordion({
             onAcknowledge();
           }
         }}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+        className="flex w-full flex-wrap items-center gap-2 px-3 py-3 text-left hover:bg-muted/30 transition-colors sm:flex-nowrap sm:gap-3 sm:px-4"
       >
         {expanded ? (
           <IconChevronDown
@@ -251,10 +307,10 @@ function RunAccordion({
           />
         )}
         <Badge variant={badgeVariant}>{run.status}</Badge>
-        <span className="text-sm text-muted-foreground">
-          {dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")}
+        <span className="text-xs text-muted-foreground sm:text-sm">
+          {dayjs(run.startedAt).format("DD/MM HH:mm")}
         </span>
-        <span className="flex-1 truncate text-sm font-medium">
+        <span className="hidden flex-1 truncate text-sm font-medium sm:block">
           {run.resultSummary
             ? run.resultSummary.slice(0, 80)
             : run.error
@@ -375,18 +431,24 @@ function SettingsForm({ automation }: { automation: Automation }) {
   const [title, setTitle] = useState(automation.title);
   const [description, setDescription] = useState(automation.description);
   const [cronSchedule, setCronSchedule] = useState(automation.cronSchedule);
-  const [model, setModel] = useState<ClaudeModel>(automation.model ?? "sonnet");
+  const [model, setModel] = useState<AIModel>(
+    normalizeAIModel(automation.model),
+  );
   const [readOnly, setReadOnly] = useState(automation.readOnly === true);
   const [actionsEnabled, setActionsEnabled] = useState(
     automation.actionsEnabled === true,
   );
   const [isSaving, setIsSaving] = useState(false);
+  const { options: modelOptions } = useAvailableAiModels(
+    automation.repoId,
+    model,
+  );
 
   const hasChanges =
     title !== automation.title ||
     description !== automation.description ||
     cronSchedule !== automation.cronSchedule ||
-    model !== (automation.model ?? "sonnet") ||
+    model !== normalizeAIModel(automation.model) ||
     readOnly !== (automation.readOnly === true) ||
     actionsEnabled !== (automation.actionsEnabled === true);
 
@@ -498,26 +560,13 @@ function SettingsForm({ automation }: { automation: Automation }) {
         <h3 className="text-sm font-medium">Model</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            Claude Model
+            Provider and Model
           </label>
-          <Select
+          <ModelSelect
             value={model}
-            onValueChange={(val) => {
-              const found = CLAUDE_MODELS.find((m) => m === val);
-              if (found) setModel(found);
-            }}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CLAUDE_MODELS.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m.charAt(0).toUpperCase() + m.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={modelOptions}
+            onValueChange={setModel}
+          />
         </div>
       </div>
 

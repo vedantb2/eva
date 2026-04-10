@@ -31,6 +31,31 @@ const designSessionValidator = v.object({
   devPort: v.optional(v.number()),
 });
 
+export const designSandboxStartupWorkflow = workflow.define({
+  args: {
+    designSessionId: v.id("designSessions"),
+    existingSandboxId: v.optional(v.string()),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  handler: async (step, args): Promise<void> => {
+    await step.runAction(internal.daytona.startDesignSandbox, {
+      designSessionId: args.designSessionId,
+      existingSandboxId: args.existingSandboxId,
+      installationId: args.installationId,
+      repoOwner: args.repoOwner,
+      repoName: args.repoName,
+      branchName: args.branchName,
+      baseBranch: args.baseBranch,
+      repoId: args.repoId,
+    });
+  },
+});
+
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(designSessionValidator),
@@ -241,16 +266,20 @@ export const startSandbox = authMutation({
       status: "starting",
       updatedAt: Date.now(),
     });
-    await ctx.scheduler.runAfter(0, internal.daytona.startDesignSandbox, {
-      designSessionId: args.id,
-      existingSandboxId: session.sandboxId,
-      installationId: repo.installationId,
-      repoOwner: repo.owner,
-      repoName: repo.name,
-      branchName,
-      baseBranch,
-      repoId: session.repoId,
-    });
+    await workflow.start(
+      ctx,
+      internal.designSessions.designSandboxStartupWorkflow,
+      {
+        designSessionId: args.id,
+        existingSandboxId: session.sandboxId,
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        branchName,
+        baseBranch,
+        repoId: session.repoId,
+      },
+    );
     return null;
   },
 });

@@ -48,6 +48,7 @@ const REPO_CLONE_TIMEOUT_SECONDS = 300;
 const PNPM_INSTALL_TIMEOUT_SECONDS = 900;
 const YARN_INSTALL_TIMEOUT_SECONDS = 900;
 const NPM_INSTALL_TIMEOUT_SECONDS = 900;
+const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 90;
 
 function formatDurationMs(durationMs: number): string {
   return `${durationMs}ms`;
@@ -181,12 +182,15 @@ export async function createSandbox(
     `installation=${installationId}`,
     snapshotName ? `snapshot=${snapshotName}` : "snapshot=none",
     lifecycle.ephemeral ? "ephemeral=true" : "ephemeral=false",
+    `volumes=${volumes?.length ?? 0}`,
   ].join(", ");
   return await runLoggedGitStep("createSandbox", details, async () => {
     const timeoutSeconds =
       readyTimeoutSeconds ??
       (snapshotName
-        ? SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
+        ? volumes && volumes.length > 0
+          ? SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS
+          : SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
         : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS);
 
     const githubToken = await getInstallationToken(installationId);
@@ -278,7 +282,7 @@ export async function fetchBranchRefs(
   branchNames: string[],
   opts?: { prune?: boolean; timeoutSeconds?: number; shallow?: boolean },
 ): Promise<string[]> {
-  const details = `${owner}/${name}, branches=${branchNames.join(",")}`;
+  const details = `${owner}/${name}, branches=${branchNames.join(",")}, timeout=${opts?.timeoutSeconds ?? 240}, shallow=${opts?.shallow === true ? "true" : "false"}`;
   return await runLoggedGitStep("fetchBranchRefs", details, async () => {
     const normalized = normalizeBranchNames(branchNames);
     if (normalized.length === 0) {
@@ -375,11 +379,15 @@ export async function checkoutSessionBranch(
   const details = `branch=${branchName}, base=${baseBranch}`;
   await runLoggedGitStep("checkoutSessionBranch", details, async () => {
     const quotedBranch = quote([branchName]);
-    const quotedBase = quote([`origin/${baseBranch}`]);
+    const quotedRemoteBranch = quote([`origin/${branchName}`]);
+    const quotedRemoteBaseRef = quote([`refs/remotes/origin/${baseBranch}`]);
+    const quotedRemoteBase = quote([`origin/${baseBranch}`]);
+    const quotedLocalBaseRef = quote([`refs/heads/${baseBranch}`]);
+    const quotedLocalBase = quote([baseBranch]);
     const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quote([`origin/${branchName}`])} || git checkout -b ${quotedBranch} ${quotedBase})`,
+      `cd ${workspaceDir} && base_target=$(if git rev-parse --verify --quiet ${quotedRemoteBaseRef} >/dev/null; then printf %s ${quotedRemoteBase}; elif git rev-parse --verify --quiet ${quotedLocalBaseRef} >/dev/null; then printf %s ${quotedLocalBase}; else printf %s HEAD; fi) && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemoteBranch} || git checkout -b ${quotedBranch} "$base_target")`,
       30,
     );
   });
@@ -479,11 +487,14 @@ export async function setupBranch(
   await runLoggedGitStep("setupBranch", details, async () => {
     const quotedBranch = quote([branchName]);
     const quotedRemote = quote([`origin/${branchName}`]);
-    const quotedBase = quote([`origin/${baseBranch}`]);
+    const quotedRemoteBaseRef = quote([`refs/remotes/origin/${baseBranch}`]);
+    const quotedRemoteBase = quote([`origin/${baseBranch}`]);
+    const quotedLocalBaseRef = quote([`refs/heads/${baseBranch}`]);
+    const quotedLocalBase = quote([baseBranch]);
     const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} ${quotedBase})`,
+      `cd ${workspaceDir} && base_target=$(if git rev-parse --verify --quiet ${quotedRemoteBaseRef} >/dev/null; then printf %s ${quotedRemoteBase}; elif git rev-parse --verify --quiet ${quotedLocalBaseRef} >/dev/null; then printf %s ${quotedLocalBase}; else printf %s HEAD; fi) && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} "$base_target")`,
       15,
     );
     const currentBranch = (
@@ -500,7 +511,7 @@ export async function setupBranch(
     }
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && (git merge --ff-only ${quotedRemote} 2>/dev/null || true) && (git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true)`,
+      `cd ${workspaceDir} && merge_target=$(if git rev-parse --verify --quiet ${quotedRemoteBaseRef} >/dev/null; then printf %s ${quotedRemoteBase}; elif git rev-parse --verify --quiet ${quotedLocalBaseRef} >/dev/null; then printf %s ${quotedLocalBase}; else printf %s ''; fi) && (git merge --ff-only ${quotedRemote} 2>/dev/null || true) && if [ -n "$merge_target" ]; then git merge "$merge_target" --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true; else true; fi`,
       30,
     );
     try {

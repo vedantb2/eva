@@ -120,6 +120,31 @@ const sessionModeArgValidator = v.union(
   v.literal("plan"),
 );
 
+export const sessionSandboxStartupWorkflow = workflow.define({
+  args: {
+    sessionId: v.id("sessions"),
+    existingSandboxId: v.optional(v.string()),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  handler: async (step, args): Promise<void> => {
+    await step.runAction(internal.daytona.startSessionSandbox, {
+      sessionId: args.sessionId,
+      existingSandboxId: args.existingSandboxId,
+      installationId: args.installationId,
+      repoOwner: args.repoOwner,
+      repoName: args.repoName,
+      branchName: args.branchName,
+      baseBranch: args.baseBranch,
+      repoId: args.repoId,
+    });
+  },
+});
+
 export const sessionExecuteWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),

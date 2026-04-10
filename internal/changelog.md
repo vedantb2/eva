@@ -8,6 +8,11 @@
   - Added Codex availability gating based on repo/team env vars, so Codex only appears when `CODEX_AUTH_JSON` or its compatible fallback env vars are configured.
   - Extended the Daytona sandbox runner and persisted session storage to support Codex CLI launches, hydrated `CODEX_HOME` from env vars, and kept Codex session state across sandbox restarts alongside the existing Claude path.
   - Added a Codex CLI availability check at launch time so older snapshots and plain non-snapshot sandboxes can install Codex on demand the first time a Codex model is used.
+  - Increased the default snapshot create timeout when persistence volumes are mounted, because session/design sandboxes were timing out during Daytona startup before any repo prep could run.
+  - Removed the separate remote branch existence probe from session/design sandbox restore so newly created sandboxes go straight to ref fetching instead of timing out on repeated `ls-remote` checks.
+  - Moved session and design sandbox startup onto workflow-backed steps instead of scheduling the Daytona start actions directly, and added more detailed git/session logs so sandbox restore failures are easier to localize.
+  - Made session branch restore prefer local snapshot refs or snapshot `HEAD` before failing on a base-branch fetch, so flaky network fetches are less likely to block opening an otherwise healthy session sandbox.
+  - Stopped session restore from doing a second network fetch for the base branch when the session branch is missing, and made remote session-branch fetch failure fall back to local snapshot restore after a short timeout instead of blocking startup.
   - Stopped fresh ephemeral sandboxes from blocking on dependency installation before a quick task can start, while still leaving the longer install path available for non-ephemeral sandboxes that benefit from a prepared environment.
   - Increased fresh sandbox clone and runner startup timeouts so newly synced repos without snapshots are less likely to fail during initial bootstrap or callback readiness on slower sandboxes.
   - Updated setup and env-var UX to explain the simplest Codex setup path: sign in locally once, then paste the saved auth JSON into an env var.

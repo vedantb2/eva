@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 import { authMutation } from "../functions";
+import { workflow } from "../workflowManager";
 
 export const updateSandbox = authMutation({
   args: {
@@ -59,16 +60,20 @@ export const startSandbox = authMutation({
       status: "starting",
       updatedAt: Date.now(),
     });
-    await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
-      sessionId: args.sessionId,
-      existingSandboxId: session.sandboxId,
-      installationId: repo.installationId,
-      repoOwner: repo.owner,
-      repoName: repo.name,
-      branchName,
-      baseBranch,
-      repoId: session.repoId,
-    });
+    await workflow.start(
+      ctx,
+      internal.sessionWorkflow.sessionSandboxStartupWorkflow,
+      {
+        sessionId: args.sessionId,
+        existingSandboxId: session.sandboxId,
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        branchName,
+        baseBranch,
+        repoId: session.repoId,
+      },
+    );
     return null;
   },
 });

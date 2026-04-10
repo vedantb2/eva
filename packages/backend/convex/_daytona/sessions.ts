@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { DataModel, Id } from "../_generated/dataModel";
+import { quote } from "shell-quote";
 import {
   exec,
   resolveSandboxContext,
@@ -18,7 +19,6 @@ import {
   createSandboxAndPrepareRepo,
   createBranchSyncStrategy,
   fetchBranchRefs,
-  remoteBranchExists,
   SESSION_LIFECYCLE,
 } from "./git";
 import { ensureSessionPersistenceVolumes } from "./volumes";
@@ -71,6 +71,9 @@ function isRetryableSessionGitError(message: string): boolean {
     lower.includes("etimedout") ||
     lower.includes("socket hang up") ||
     lower.includes("network") ||
+    lower.includes("status code 502") ||
+    lower.includes("status code 503") ||
+    lower.includes("status code 504") ||
     lower.includes("gnutls recv error") ||
     lower.includes("tls connection was non-properly terminated") ||
     lower.includes("remote end hung up unexpectedly") ||
@@ -81,30 +84,35 @@ function isRetryableSessionGitError(message: string): boolean {
   );
 }
 
-async function checkRemoteBranchExistsWithRetry(
+async function fetchBranchRefsWithRetry(
   sandbox: Sandbox,
   installationId: number,
   repoOwner: string,
   repoName: string,
-  branchName: string,
-): Promise<boolean> {
+  branchNames: string[],
+  opts?: { timeoutSeconds?: number; shallow?: boolean },
+): Promise<string[]> {
   const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const exists = await remoteBranchExists(
+      const fetchedBranches = await fetchBranchRefs(
         sandbox,
         installationId,
         repoOwner,
         repoName,
-        branchName,
-        20,
+        branchNames,
+        {
+          prune: false,
+          timeoutSeconds: opts?.timeoutSeconds,
+          shallow: opts?.shallow,
+        },
       );
       if (attempt > 1) {
         logSession(
-          `checkRemoteBranchExistsWithRetry recovered on retry ${attempt}/${maxAttempts} (repo=${repoOwner}/${repoName}, branch=${branchName})`,
+          `fetchBranchRefsWithRetry recovered on retry ${attempt}/${maxAttempts} (repo=${repoOwner}/${repoName}, branches=${branchNames.join(",")})`,
         );
       }
-      return exists;
+      return fetchedBranches;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const canRetry =
@@ -114,57 +122,49 @@ async function checkRemoteBranchExistsWithRetry(
       }
       const delayMs = 1000 * attempt;
       logSession(
-        `checkRemoteBranchExistsWithRetry retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branch=${branchName}): ${message}`,
+        `fetchBranchRefsWithRetry retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branches=${branchNames.join(",")}): ${message}`,
       );
       await sleep(delayMs);
     }
   }
-  return false;
+  return [];
+}
+
+async function getLocalBaseCheckoutTarget(
+  sandbox: Sandbox,
+  baseBranch: string,
+): Promise<"remote" | "local" | "head"> {
+  const output = await exec(
+    sandbox,
+    `cd ${workspaceDirShell()} && if git rev-parse --verify --quiet ${quote([`refs/remotes/origin/${baseBranch}`])} >/dev/null; then printf remote; elif git rev-parse --verify --quiet ${quote([`refs/heads/${baseBranch}`])} >/dev/null; then printf local; else printf head; fi`,
+    10,
+  );
+  if (output === "remote" || output === "local") {
+    return output;
+  }
+  return "head";
 }
 
 async function fetchSessionBaseFallbackBranch(
   sandbox: Sandbox,
-  installationId: number,
   repoOwner: string,
   repoName: string,
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const maxAttempts = 3;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      await fetchBranchRefs(
-        sandbox,
-        installationId,
-        repoOwner,
-        repoName,
-        [baseBranch],
-        {
-          prune: false,
-          timeoutSeconds: 15,
-          shallow: true,
-        },
-      );
-      if (attempt > 1) {
-        logSession(
-          `fetchSessionBaseFallbackBranch recovered on retry ${attempt}/${maxAttempts} (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
-        );
-      }
-      return;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const canRetry =
-        attempt < maxAttempts && isRetryableSessionGitError(message);
-      if (!canRetry) {
-        throw error;
-      }
-      const delayMs = 1000 * attempt;
-      logSession(
-        `fetchSessionBaseFallbackBranch retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch}): ${message}`,
-      );
-      await sleep(delayMs);
-    }
+  const localBaseCheckoutTarget = await getLocalBaseCheckoutTarget(
+    sandbox,
+    baseBranch,
+  );
+  if (localBaseCheckoutTarget !== "head") {
+    logSession(
+      `fetchSessionBaseFallbackBranch using local ${localBaseCheckoutTarget} base ref without network fetch (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
+    );
+    return;
   }
+  logSession(
+    `fetchSessionBaseFallbackBranch falling back to snapshot HEAD without network fetch (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
+  );
 }
 
 async function checkoutSessionBranchWithRetry(
@@ -206,37 +206,38 @@ async function syncSessionRefsForRestore(
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const sessionBranchExists = await checkRemoteBranchExistsWithRetry(
-    sandbox,
-    installationId,
-    repoOwner,
-    repoName,
-    branchName,
-  );
-  if (sessionBranchExists) {
-    await fetchBranchRefs(
+  let fetchedSessionBranches: string[] = [];
+  try {
+    fetchedSessionBranches = await fetchBranchRefsWithRetry(
       sandbox,
       installationId,
       repoOwner,
       repoName,
       [branchName],
       {
-        prune: false,
-        timeoutSeconds: 240,
+        timeoutSeconds: 15,
         shallow: true,
       },
     );
+  } catch (error) {
+    logSession(
+      `syncSessionRefsForRestore session branch fetch failed, continuing with local snapshot refs (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch}): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  logSession(
+    `syncSessionRefsForRestore fetched session branch candidates=${fetchedSessionBranches.join(",") || "none"} (repo=${repoOwner}/${repoName}, branch=${branchName})`,
+  );
+  if (fetchedSessionBranches.includes(branchName)) {
     logSession(
       `syncSessionRefsForRestore fetched existing remote session branch (repo=${repoOwner}/${repoName}, branch=${branchName})`,
     );
     return;
   }
   logSession(
-    `syncSessionRefsForRestore remote session branch missing, falling back to base branch fetch (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
+    `syncSessionRefsForRestore remote session branch missing, falling back to base branch restore (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
   );
   await fetchSessionBaseFallbackBranch(
     sandbox,
-    installationId,
     repoOwner,
     repoName,
     branchName,
@@ -252,26 +253,19 @@ async function syncDesignRefsForSetup(
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const designBranchExists = await checkRemoteBranchExistsWithRetry(
+  const fetchedBranches = await fetchBranchRefsWithRetry(
     sandbox,
     installationId,
     repoOwner,
     repoName,
-    branchName,
-  );
-  const branchNames = designBranchExists
-    ? [baseBranch, branchName]
-    : [baseBranch];
-  await fetchBranchRefs(
-    sandbox,
-    installationId,
-    repoOwner,
-    repoName,
-    branchNames,
+    [baseBranch, branchName],
     {
-      prune: false,
       timeoutSeconds: 240,
     },
+  );
+  const designBranchExists = fetchedBranches.includes(branchName);
+  logSession(
+    `syncDesignRefsForSetup fetched branch candidates=${fetchedBranches.join(",") || "none"} (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
   );
   logSession(
     designBranchExists

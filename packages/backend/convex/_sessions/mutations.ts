@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { authMutation, hasRepoAccess } from "../functions";
 import { roleValidator, sessionStatusValidator } from "../validators";
+import { workflow } from "../workflowManager";
 
 export const create = authMutation({
   args: {
@@ -26,15 +27,19 @@ export const create = authMutation({
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });
     const baseBranch = repo.defaultBaseBranch ?? "main";
-    await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
-      sessionId,
-      installationId: repo.installationId,
-      repoOwner: repo.owner,
-      repoName: repo.name,
-      branchName,
-      baseBranch,
-      repoId: args.repoId,
-    });
+    await workflow.start(
+      ctx,
+      internal.sessionWorkflow.sessionSandboxStartupWorkflow,
+      {
+        sessionId,
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        branchName,
+        baseBranch,
+        repoId: args.repoId,
+      },
+    );
     return sessionId;
   },
 });

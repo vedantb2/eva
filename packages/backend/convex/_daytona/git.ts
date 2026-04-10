@@ -90,12 +90,11 @@ async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
   }
 }
 
-/** Strips GitHub tokens from command strings for safe logging. */
+/** Strips GitHub tokens from command strings for safe logging.
+ * Matches all GitHub token prefixes (ghs_, ghp_, gho_, ghu_) regardless of URL escaping.
+ */
 function sanitizeCommand(command: string): string {
-  return command.replace(
-    /https:\/\/[^@]+@github\.com/g,
-    "https://***@github.com",
-  );
+  return command.replace(/gh[spou]_[A-Za-z0-9_]+/g, "***");
 }
 
 /** Executes a git command, cleaning up lock files on timeout errors. */

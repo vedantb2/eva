@@ -1,5 +1,14 @@
 # Changelog
 
+## Silent reload on stale Vercel deployments - 2026-04-10
+
+- **Why**: When Vercel deploys a new version while a user is on the site, old JS chunks become unavailable. This caused two problems: (1) an error page flashed before auto-refresh, and (2) stale JS broke Clerk's internals causing a burst of "Not authenticated" Convex query errors as every active subscription was re-evaluated without auth.
+- **Changes**:
+  - Added `DeploymentErrorFallback` as the TanStack Router `defaultErrorComponent` — detects chunk load errors and silently reloads with loop protection instead of showing an error page.
+  - Added global `error` and `unhandledrejection` handlers alongside `vite:preloadError` to catch chunk failures from all sources, closing the Convex WebSocket before reload to prevent subscription re-evaluation.
+  - Added `useStableAuth` wrapper around Clerk's `useAuth` for `ConvexProviderWithClerk` — debounces unexpected auth loss for 2s so the page reloads (stale deployment) or routes unmount (real logout) before Convex ever sees the token cleared.
+- **Reason**: The error page flash was a bad UX during deployments, and the Convex log noise made real errors harder to spot. Debouncing auth loss at the provider boundary is the narrowest intervention that prevents the cascade without changing the backend auth contract.
+
 ## Add Codex as an env-var-backed sandbox provider - 2026-04-09
 
 - **Why**: Claude was the only first-class sandbox provider, which meant teams could not bring their existing ChatGPT-backed Codex access into Conductor. The goal was to add Codex without introducing a new OAuth product flow or more setup friction, so the implementation needed to stay simple: choose a provider in the same UI surfaces and enable Codex by adding env vars only.

@@ -4,7 +4,6 @@ import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { DataModel, Id } from "../_generated/dataModel";
-import { quote } from "shell-quote";
 import {
   exec,
   resolveSandboxContext,
@@ -19,6 +18,7 @@ import {
   createSandboxAndPrepareRepo,
   createBranchSyncStrategy,
   fetchBranchRefs,
+  resolveBaseTarget,
   SESSION_LIFECYCLE,
 } from "./git";
 import { ensureSessionPersistenceVolumes } from "./volumes";
@@ -130,40 +130,16 @@ async function fetchBranchRefsWithRetry(
   return [];
 }
 
-async function getLocalBaseCheckoutTarget(
-  sandbox: Sandbox,
-  baseBranch: string,
-): Promise<"remote" | "local" | "head"> {
-  const output = await exec(
-    sandbox,
-    `cd ${workspaceDirShell()} && if git rev-parse --verify --quiet ${quote([`refs/remotes/origin/${baseBranch}`])} >/dev/null; then printf remote; elif git rev-parse --verify --quiet ${quote([`refs/heads/${baseBranch}`])} >/dev/null; then printf local; else printf head; fi`,
-    10,
-  );
-  if (output === "remote" || output === "local") {
-    return output;
-  }
-  return "head";
-}
-
-async function fetchSessionBaseFallbackBranch(
+async function resolveSessionBaseRef(
   sandbox: Sandbox,
   repoOwner: string,
   repoName: string,
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const localBaseCheckoutTarget = await getLocalBaseCheckoutTarget(
-    sandbox,
-    baseBranch,
-  );
-  if (localBaseCheckoutTarget !== "head") {
-    logSession(
-      `fetchSessionBaseFallbackBranch using local ${localBaseCheckoutTarget} base ref without network fetch (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
-    );
-    return;
-  }
+  const { source } = await resolveBaseTarget(sandbox, baseBranch);
   logSession(
-    `fetchSessionBaseFallbackBranch falling back to snapshot HEAD without network fetch (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
+    `resolveSessionBaseRef source=${source} (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
   );
 }
 
@@ -215,7 +191,7 @@ async function syncSessionRefsForRestore(
       repoName,
       [branchName],
       {
-        timeoutSeconds: 15,
+        timeoutSeconds: 30,
         shallow: true,
       },
     );
@@ -236,7 +212,7 @@ async function syncSessionRefsForRestore(
   logSession(
     `syncSessionRefsForRestore remote session branch missing, falling back to base branch restore (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
   );
-  await fetchSessionBaseFallbackBranch(
+  await resolveSessionBaseRef(
     sandbox,
     repoOwner,
     repoName,

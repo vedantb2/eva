@@ -371,6 +371,31 @@ export async function syncRepo(
   });
 }
 
+// Determines the best available base ref for branch creation: prefers origin/<base>,
+// falls back to local <base>, then HEAD if neither exists.
+export async function resolveBaseTarget(
+  sandbox: Sandbox,
+  baseBranch: string,
+): Promise<{ ref: string; source: "remote" | "local" | "head" }> {
+  const workspaceDir = workspaceDirShell();
+  const quotedRemoteRef = quote([`refs/remotes/origin/${baseBranch}`]);
+  const quotedLocalRef = quote([`refs/heads/${baseBranch}`]);
+  const output = (
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && if git rev-parse --verify --quiet ${quotedRemoteRef} >/dev/null; then printf remote; elif git rev-parse --verify --quiet ${quotedLocalRef} >/dev/null; then printf local; else printf head; fi`,
+      10,
+    )
+  ).trim();
+  if (output === "remote") {
+    return { ref: `origin/${baseBranch}`, source: "remote" };
+  }
+  if (output === "local") {
+    return { ref: baseBranch, source: "local" };
+  }
+  return { ref: "HEAD", source: "head" };
+}
+
 export async function checkoutSessionBranch(
   sandbox: Sandbox,
   branchName: string,
@@ -378,16 +403,14 @@ export async function checkoutSessionBranch(
 ): Promise<void> {
   const details = `branch=${branchName}, base=${baseBranch}`;
   await runLoggedGitStep("checkoutSessionBranch", details, async () => {
+    const { ref: baseTarget } = await resolveBaseTarget(sandbox, baseBranch);
     const quotedBranch = quote([branchName]);
     const quotedRemoteBranch = quote([`origin/${branchName}`]);
-    const quotedRemoteBaseRef = quote([`refs/remotes/origin/${baseBranch}`]);
-    const quotedRemoteBase = quote([`origin/${baseBranch}`]);
-    const quotedLocalBaseRef = quote([`refs/heads/${baseBranch}`]);
-    const quotedLocalBase = quote([baseBranch]);
+    const quotedBase = quote([baseTarget]);
     const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && base_target=$(if git rev-parse --verify --quiet ${quotedRemoteBaseRef} >/dev/null; then printf %s ${quotedRemoteBase}; elif git rev-parse --verify --quiet ${quotedLocalBaseRef} >/dev/null; then printf %s ${quotedLocalBase}; else printf %s HEAD; fi) && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemoteBranch} || git checkout -b ${quotedBranch} "$base_target")`,
+      `cd ${workspaceDir} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemoteBranch} || git checkout -b ${quotedBranch} ${quotedBase})`,
       30,
     );
   });
@@ -485,16 +508,17 @@ export async function setupBranch(
 ): Promise<void> {
   const details = `branch=${branchName}, base=${baseBranch}`;
   await runLoggedGitStep("setupBranch", details, async () => {
+    const { ref: baseTarget, source } = await resolveBaseTarget(
+      sandbox,
+      baseBranch,
+    );
     const quotedBranch = quote([branchName]);
     const quotedRemote = quote([`origin/${branchName}`]);
-    const quotedRemoteBaseRef = quote([`refs/remotes/origin/${baseBranch}`]);
-    const quotedRemoteBase = quote([`origin/${baseBranch}`]);
-    const quotedLocalBaseRef = quote([`refs/heads/${baseBranch}`]);
-    const quotedLocalBase = quote([baseBranch]);
+    const quotedBase = quote([baseTarget]);
     const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && base_target=$(if git rev-parse --verify --quiet ${quotedRemoteBaseRef} >/dev/null; then printf %s ${quotedRemoteBase}; elif git rev-parse --verify --quiet ${quotedLocalBaseRef} >/dev/null; then printf %s ${quotedLocalBase}; else printf %s HEAD; fi) && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} "$base_target")`,
+      `cd ${workspaceDir} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} ${quotedBase})`,
       15,
     );
     const currentBranch = (
@@ -509,11 +533,12 @@ export async function setupBranch(
         `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
       );
     }
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && merge_target=$(if git rev-parse --verify --quiet ${quotedRemoteBaseRef} >/dev/null; then printf %s ${quotedRemoteBase}; elif git rev-parse --verify --quiet ${quotedLocalBaseRef} >/dev/null; then printf %s ${quotedLocalBase}; else printf %s ''; fi) && (git merge --ff-only ${quotedRemote} 2>/dev/null || true) && if [ -n "$merge_target" ]; then git merge "$merge_target" --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true; else true; fi`,
-      30,
-    );
+    // Only merge base into branch if we found a real base ref (not HEAD fallback)
+    const mergeCmd =
+      source !== "head"
+        ? `(git merge --ff-only ${quotedRemote} 2>/dev/null || true) && (git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true)`
+        : `(git merge --ff-only ${quotedRemote} 2>/dev/null || true)`;
+    await execGitCommand(sandbox, `cd ${workspaceDir} && ${mergeCmd}`, 30);
     try {
       await execGitCommand(
         sandbox,

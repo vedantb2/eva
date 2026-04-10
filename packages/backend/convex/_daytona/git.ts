@@ -537,9 +537,22 @@ export async function cloneAndSetupRepo(
     if (onProgress) await onProgress("Cloning repository...");
     const githubToken = await getInstallationToken(installationId);
     const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    // Pre-clone network check — log DNS + HTTPS connectivity to GitHub
+    try {
+      const netCheck = await exec(
+        sandbox,
+        `echo "dns=$(dig +short github.com | head -1)" && curl -s -o /dev/null -w "http=%{http_code} time=%{time_total}s" https://github.com --connect-timeout 10`,
+        15,
+      );
+      logGit(`cloneAndSetupRepo network check: ${netCheck.trim()}`);
+    } catch (error) {
+      logGit(
+        `cloneAndSetupRepo network check failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     await execGitCommand(
       sandbox,
-      `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && git clone --depth 1 --single-branch --no-tags ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
+      `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && GIT_TERMINAL_PROMPT=0 git clone --depth 1 --single-branch --no-tags ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
       REPO_CLONE_TIMEOUT_SECONDS,
     );
     if (!shouldInstallDeps) {

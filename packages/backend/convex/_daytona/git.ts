@@ -1,7 +1,6 @@
 "use node";
 
 import type {
-  CreateSandboxFromImageParams,
   CreateSandboxFromSnapshotParams,
   Daytona,
   Sandbox,
@@ -56,11 +55,9 @@ const YARN_INSTALL_TIMEOUT_SECONDS = 900;
 const NPM_INSTALL_TIMEOUT_SECONDS = 900;
 const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 90;
 
-const NETWORK_READY_MAX_WAIT_MS = 60_000;
-const NETWORK_READY_POLL_INTERVAL_MS = 3_000;
-
-// Match snapshot resource levels for non-snapshot sandboxes
-const NON_SNAPSHOT_RESOURCES = { cpu: 4, memory: 8, disk: 10 } as const;
+// Daytona built-in snapshot with 4 vCPU, 8 GiB RAM, 10 GiB disk.
+// Used as fallback when a repo has no custom snapshot.
+const DEFAULT_SNAPSHOT = "daytona-large";
 
 /** Formats a duration in milliseconds as a human-readable string. */
 function formatDurationMs(durationMs: number): string {
@@ -295,18 +292,12 @@ export async function createSandbox(
       ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
     };
 
-    // Snapshot-based sandboxes inherit resources from the snapshot definition.
-    // Non-snapshot sandboxes use the image-based creation path so we can specify
-    // resources explicitly — Daytona defaults (cpu=1, mem=1GB) have unreliable networking.
-    const createParams:
-      | CreateSandboxFromSnapshotParams
-      | CreateSandboxFromImageParams = snapshotName
-      ? { ...commonParams, snapshot: snapshotName }
-      : {
-          ...commonParams,
-          image: "node:20-bookworm",
-          resources: NON_SNAPSHOT_RESOURCES,
-        };
+    // Use the repo's custom snapshot, or fall back to daytona-large (4 vCPU / 8 GiB / 10 GiB).
+    // Non-snapshot sandboxes (cpu=1, mem=1GB) have broken outbound networking.
+    const createParams: CreateSandboxFromSnapshotParams = {
+      ...commonParams,
+      snapshot: snapshotName ?? DEFAULT_SNAPSHOT,
+    };
 
     const sandbox = await withTimeout(
       daytona.create(createParams, { timeout: timeoutSeconds }),

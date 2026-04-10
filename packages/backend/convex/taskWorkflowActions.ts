@@ -28,6 +28,10 @@ type ParsedAudit = {
 
 const AUDIT_SECTION_REGEX =
   /<!-- EVA_AUDIT_START -->[\s\S]*?<!-- EVA_AUDIT_END -->\s*/m;
+const PROOF_SECTION_REGEX =
+  /<!-- EVA_PROOF_START -->[\s\S]*?<!-- EVA_PROOF_END -->\s*/m;
+const EDITS_SECTION_REGEX =
+  /<!-- EVA_EDITS_START -->[\s\S]*?<!-- EVA_EDITS_END -->\s*/m;
 
 function escapeTableCell(value: string): string {
   return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
@@ -202,6 +206,130 @@ export const appendAuditToPullRequest = internalAction({
     } catch (error) {
       console.error(
         `Failed to append audit to PR: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return null;
+  },
+});
+
+function buildProofSection(
+  proofs: Array<{
+    url: string;
+    contentType: string;
+    fileName: string | null;
+  }>,
+): string {
+  if (proofs.length === 0) return "";
+
+  const lines: string[] = [
+    "<!-- EVA_PROOF_START -->",
+    "## Proof of Completion",
+    "",
+  ];
+
+  for (const proof of proofs) {
+    if (proof.contentType.startsWith("image/")) {
+      lines.push(`![${proof.fileName ?? "screenshot"}](${proof.url})`);
+    } else if (proof.contentType.startsWith("video/")) {
+      lines.push(`[${proof.fileName ?? "recording"}](${proof.url})`);
+    } else {
+      lines.push(`[${proof.fileName ?? "file"}](${proof.url})`);
+    }
+    lines.push("");
+  }
+
+  lines.push("<!-- EVA_PROOF_END -->");
+  return lines.join("\n");
+}
+
+function buildEditsSection(changeRequests: string[]): string {
+  if (changeRequests.length === 0) return "";
+
+  const lines: string[] = [
+    "<!-- EVA_EDITS_START -->",
+    "## Change Requests",
+    "",
+  ];
+
+  for (const [i, request] of changeRequests.entries()) {
+    lines.push(`${i + 1}. ${escapeTableCell(request)}`);
+  }
+
+  lines.push("", "<!-- EVA_EDITS_END -->");
+  return lines.join("\n");
+}
+
+function mergeBodyWithManagedSections(
+  existingBody: string,
+  editsSection: string,
+  proofSection: string,
+): string {
+  const auditMatch = existingBody.match(AUDIT_SECTION_REGEX);
+  const existingAudit = auditMatch ? auditMatch[0].trim() : "";
+
+  let body = existingBody
+    .replace(AUDIT_SECTION_REGEX, "")
+    .replace(EDITS_SECTION_REGEX, "")
+    .replace(PROOF_SECTION_REGEX, "")
+    .trim();
+
+  if (editsSection) body = `${body}\n\n${editsSection}`;
+  if (proofSection) body = `${body}\n\n${proofSection}`;
+  if (existingAudit) body = `${body}\n\n${existingAudit}`;
+
+  return body;
+}
+
+export const updatePullRequestSections = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    proofEntries: v.array(
+      v.object({
+        url: v.string(),
+        contentType: v.string(),
+        fileName: v.union(v.string(), v.null()),
+      }),
+    ),
+    changeRequests: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    if (args.proofEntries.length === 0 && args.changeRequests.length === 0) {
+      return null;
+    }
+
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      const pulls = await octokit.rest.pulls.list({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        state: "open",
+        head: `${args.repoOwner}:${args.branchName}`,
+        per_page: 1,
+      });
+      const pr = pulls.data[0];
+      if (!pr) return null;
+
+      const proofSection = buildProofSection(args.proofEntries);
+      const editsSection = buildEditsSection(args.changeRequests);
+      const updatedBody = mergeBodyWithManagedSections(
+        pr.body ?? "",
+        editsSection,
+        proofSection,
+      );
+
+      await octokit.rest.pulls.update({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: pr.number,
+        body: updatedBody,
+      });
+    } catch (error) {
+      console.error(
+        `Failed to update PR sections: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     return null;

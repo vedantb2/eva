@@ -139,13 +139,10 @@ export const aiModelValidator = v.union(
   v.literal("claude:opus"),
   v.literal("claude:sonnet"),
   v.literal("claude:haiku"),
-  v.literal("codex:gpt-5-codex"),
-  v.literal("codex:gpt-5.1-codex"),
-  v.literal("codex:gpt-5.1-codex-max"),
-  v.literal("codex:gpt-5.1-codex-mini"),
-  v.literal("codex:gpt-5.2-codex"),
+  v.literal("codex:gpt-5.4"),
+  v.literal("codex:gpt-5.4-mini"),
   v.literal("codex:gpt-5.3-codex"),
-  v.literal("codex:codex-mini-latest"),
+  v.literal("codex:gpt-5.2-codex"),
 );
 
 export type AIProvider = "claude" | "codex";
@@ -154,20 +151,16 @@ export type AIModel =
   | "claude:opus"
   | "claude:sonnet"
   | "claude:haiku"
-  | "codex:gpt-5-codex"
-  | "codex:gpt-5.1-codex"
-  | "codex:gpt-5.1-codex-max"
-  | "codex:gpt-5.1-codex-mini"
-  | "codex:gpt-5.2-codex"
+  | "codex:gpt-5.4"
+  | "codex:gpt-5.4-mini"
   | "codex:gpt-5.3-codex"
-  | "codex:codex-mini-latest";
+  | "codex:gpt-5.2-codex";
 export type PersistedAIModel = AIModel | LegacyClaudeModel;
 
 export interface AIModelOption {
   id: AIModel;
   provider: AIProvider;
   label: string;
-  legacy: boolean;
   requiresAuth: boolean;
 }
 
@@ -179,74 +172,41 @@ export interface AIProviderAvailability {
 export const DEFAULT_AI_MODEL: AIModel = "claude:sonnet";
 
 export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
-  {
-    id: "claude:opus",
-    provider: "claude",
-    label: "Opus",
-    legacy: false,
-    requiresAuth: true,
-  },
+  { id: "claude:opus", provider: "claude", label: "Opus", requiresAuth: true },
   {
     id: "claude:sonnet",
     provider: "claude",
     label: "Sonnet",
-    legacy: false,
     requiresAuth: true,
   },
   {
     id: "claude:haiku",
     provider: "claude",
     label: "Haiku",
-    legacy: false,
+    requiresAuth: true,
+  },
+  {
+    id: "codex:gpt-5.4",
+    provider: "codex",
+    label: "GPT-5.4",
+    requiresAuth: true,
+  },
+  {
+    id: "codex:gpt-5.4-mini",
+    provider: "codex",
+    label: "GPT-5.4 mini",
     requiresAuth: true,
   },
   {
     id: "codex:gpt-5.3-codex",
     provider: "codex",
     label: "GPT-5.3-Codex",
-    legacy: false,
     requiresAuth: true,
   },
   {
     id: "codex:gpt-5.2-codex",
     provider: "codex",
     label: "GPT-5.2-Codex",
-    legacy: false,
-    requiresAuth: true,
-  },
-  {
-    id: "codex:gpt-5.1-codex-max",
-    provider: "codex",
-    label: "GPT-5.1-Codex-Max",
-    legacy: false,
-    requiresAuth: true,
-  },
-  {
-    id: "codex:gpt-5.1-codex",
-    provider: "codex",
-    label: "GPT-5.1-Codex",
-    legacy: false,
-    requiresAuth: true,
-  },
-  {
-    id: "codex:gpt-5.1-codex-mini",
-    provider: "codex",
-    label: "GPT-5.1-Codex mini",
-    legacy: false,
-    requiresAuth: true,
-  },
-  {
-    id: "codex:gpt-5-codex",
-    provider: "codex",
-    label: "GPT-5-Codex",
-    legacy: true,
-    requiresAuth: true,
-  },
-  {
-    id: "codex:codex-mini-latest",
-    provider: "codex",
-    label: "codex-mini-latest",
-    legacy: true,
     requiresAuth: true,
   },
 ];
@@ -289,20 +249,14 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "haiku":
     case "claude:haiku":
       return "claude:haiku";
-    case "codex:gpt-5-codex":
-      return "codex:gpt-5-codex";
-    case "codex:gpt-5.1-codex":
-      return "codex:gpt-5.1-codex";
-    case "codex:gpt-5.1-codex-max":
-      return "codex:gpt-5.1-codex-max";
-    case "codex:gpt-5.1-codex-mini":
-      return "codex:gpt-5.1-codex-mini";
-    case "codex:gpt-5.2-codex":
-      return "codex:gpt-5.2-codex";
+    case "codex:gpt-5.4":
+      return "codex:gpt-5.4";
+    case "codex:gpt-5.4-mini":
+      return "codex:gpt-5.4-mini";
     case "codex:gpt-5.3-codex":
       return "codex:gpt-5.3-codex";
-    case "codex:codex-mini-latest":
-      return "codex:codex-mini-latest";
+    case "codex:gpt-5.2-codex":
+      return "codex:gpt-5.2-codex";
     case "sonnet":
     case "claude:sonnet":
     default:
@@ -330,7 +284,6 @@ export function findAIModelOption(
     id: DEFAULT_AI_MODEL,
     provider: "claude",
     label: "Sonnet",
-    legacy: false,
     requiresAuth: true,
   };
 }

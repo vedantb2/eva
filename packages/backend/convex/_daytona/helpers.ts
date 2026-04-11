@@ -156,6 +156,7 @@ export async function signAndLaunchScript(
     systemPrompt?: string;
     extraEnvVars?: Record<string, string>;
     claudeSessionId?: string;
+    enableMcp?: boolean;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();
@@ -170,23 +171,26 @@ export async function signAndLaunchScript(
       );
       return sandboxToken;
     });
-  const mcpTokenPromise = ctx
-    .runAction(internal.mcpTokenMinter.mintSandboxMcpToken, {
-      userId,
-      repoId,
-    })
-    .then((mcpToken) => {
-      console.log(
-        `[daytona][launch] MCP token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-      );
-      return mcpToken;
-    })
-    .catch((error) => {
-      console.warn(
-        `[mcp] Continuing without MCP config: ${errorMessage(error, "Failed to mint MCP token")}`,
-      );
-      return undefined;
-    });
+  const mcpTokenPromise =
+    opts.enableMcp === false
+      ? Promise.resolve(undefined)
+      : ctx
+          .runAction(internal.mcpTokenMinter.mintSandboxMcpToken, {
+            userId,
+            repoId,
+          })
+          .then((mcpToken) => {
+            console.log(
+              `[daytona][launch] MCP token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+            );
+            return mcpToken;
+          })
+          .catch((error) => {
+            console.warn(
+              `[mcp] Continuing without MCP config: ${errorMessage(error, "Failed to mint MCP token")}`,
+            );
+            return undefined;
+          });
 
   const [sandboxToken, mcpToken] = await Promise.all([
     sandboxTokenPromise,

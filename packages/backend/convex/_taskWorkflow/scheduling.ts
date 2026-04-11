@@ -6,7 +6,7 @@ import { hasActiveRun, isFirstTaskOnBranch } from "../functions";
 import { isDaytonaNetworkIssue, buildQuickTaskRetryDelayMs } from "./recovery";
 import { buildProjectBranchName } from "../_projects/helpers";
 
-/** Schedules an automatic retry for a failed quick task if eligible (no prior retry, no active run). */
+/** Schedules an automatic retry for a failed quick task if the failure looks transient. */
 export const maybeScheduleQuickTaskRetry = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -25,7 +25,9 @@ export const maybeScheduleQuickTaskRetry = internalMutation({
     if (run.exitReason === "auto_retry_scheduled") return null;
 
     const errorMessage = args.error ?? run.error ?? "";
-    if (errorMessage && isDaytonaNetworkIssue(errorMessage)) return null;
+    const retryableFailure =
+      errorMessage.length > 0 && isDaytonaNetworkIssue(errorMessage);
+    if (!retryableFailure) return null;
 
     if (task.scheduledFunctionId) return null;
 

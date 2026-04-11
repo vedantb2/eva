@@ -1,5 +1,15 @@
 # Changelog
 
+## Tighten quick-task runner startup and remove wasted retries - 2026-04-11
+
+- **Why**: Quick tasks were still spending time in the wrong places even after sandbox bootstrap was fixed. The task runner was paying an MCP startup tax it did not need, Claude was allowed to sit for 90 seconds before first output, auto-retry was re-running non-transient failures, and `markRunFinalizing` was referenced by the sandbox callback without being exported from the public task workflow surface.
+- **Changes**:
+  - Exported `markRunFinalizing` from the public `taskWorkflow` module so sandbox callbacks can actually call it.
+  - Added an `enableMcp` flag to sandbox runner launch and disabled MCP/token minting for quick-task and audit runs, keeping those paths local-first.
+  - Added tighter runner budgets for quick tasks and audits so they fail much sooner when the provider never starts producing useful output.
+  - Restricted quick-task auto-retry to transient Daytona-style infrastructure failures instead of retrying generic model or task failures.
+- **Reason**: Quick tasks should fail fast on bad runner/provider states and should not silently pay for features they are not using.
+
 ## Simplify callback runner heartbeat and attempt flow - 2026-04-11
 
 - **Why**: The detached Daytona callback runner had become too stateful and too forgiving in the wrong places. A malformed completion block had already proven the generated-script path was fragile, heartbeat delivery used overlapping retry layers, and the runner could silently launch a second provider attempt without making that retry explicit at the workflow layer. Those behaviors made failures hard to reason about and allowed transient callback transport issues to turn into multi-minute stalls.

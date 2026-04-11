@@ -107,6 +107,10 @@ export const getPreviewUrl = action({
 });
 
 const MAX_SETUP_ELAPSED_MS = 8 * 60 * 1000;
+const QUICK_TASK_FIRST_EVENT_TIMEOUT_MS = "45000";
+const QUICK_TASK_POST_TEXT_STALL_TIMEOUT_MS = "45000";
+const QUICK_TASK_NO_OUTPUT_TIMEOUT_MS = "45000";
+const QUICK_TASK_MAX_TOTAL_RUNTIME_MS = "1200000";
 
 /** Checks if a sandbox setup error is transient and worth retrying. */
 function isSandboxSetupRetryable(message: string): boolean {
@@ -595,6 +599,12 @@ export const launchOnExistingSandbox = internalAction({
         ? "true"
         : "false";
     }
+    extraEnvVars.CLAUDE_FIRST_EVENT_TIMEOUT_MS =
+      QUICK_TASK_FIRST_EVENT_TIMEOUT_MS;
+    extraEnvVars.CLAUDE_POST_TEXT_STALL_TIMEOUT_MS =
+      QUICK_TASK_POST_TEXT_STALL_TIMEOUT_MS;
+    extraEnvVars.CLAUDE_NO_OUTPUT_TIMEOUT_MS = QUICK_TASK_NO_OUTPUT_TIMEOUT_MS;
+    extraEnvVars.CLAUDE_MAX_TOTAL_RUNTIME_MS = QUICK_TASK_MAX_TOTAL_RUNTIME_MS;
 
     const normalizedModel = normalizeAIModel(args.model);
     const claudeSessionId =
@@ -619,6 +629,7 @@ export const launchOnExistingSandbox = internalAction({
         extraEnvVars:
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
         claudeSessionId,
+        enableMcp: false,
       },
     );
     console.log(

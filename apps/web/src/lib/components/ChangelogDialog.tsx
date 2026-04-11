@@ -35,7 +35,7 @@ export function ChangelogDialog() {
 
   return (
     <Dialog open onOpenChange={(open) => !open && handleDismiss()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">

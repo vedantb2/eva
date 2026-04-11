@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { AuthGate } from "@/lib/components/ClientProvider";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
+import { ChangelogDialog } from "@/lib/components/ChangelogDialog";
 
 export const Route = createFileRoute("/_repo")({
   beforeLoad: ({ context }) => {
@@ -23,6 +24,7 @@ function RepoLayout() {
           <Outlet />
         </div>
         <NotificationToastStream />
+        <ChangelogDialog />
       </div>
     </AuthGate>
   );

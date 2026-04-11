@@ -23,18 +23,6 @@ export async function hasRepoReferences(
       .withIndex("by_repo", (q) => q.eq("repoId", repoId))
       .first(),
     ctx.db
-      .query("researchQueries")
-      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-      .first(),
-    ctx.db
-      .query("savedQueries")
-      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-      .first(),
-    ctx.db
-      .query("routines")
-      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-      .first(),
-    ctx.db
       .query("evaluationReports")
       .withIndex("by_repo", (q) => q.eq("repoId", repoId))
       .first(),

@@ -12,6 +12,7 @@ import {
   snapshotWarmupStatusValidator,
 } from "./validators";
 import { authQuery, authMutation } from "./functions";
+import { workflow } from "./workflowManager";
 
 const crons = new Crons(components.crons);
 
@@ -297,7 +298,7 @@ export const triggerScheduledBuild = internalMutation({
       startedAt: now,
     });
 
-    await ctx.scheduler.runAfter(0, internal.snapshotActions.rebuildSnapshot, {
+    await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
       buildId,
       repoSnapshotId: args.repoSnapshotId,
     });
@@ -343,7 +344,7 @@ export const startBuild = authMutation({
       startedAt: now,
     });
 
-    await ctx.scheduler.runAfter(0, internal.snapshotActions.rebuildSnapshot, {
+    await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
       buildId,
       repoSnapshotId: args.repoSnapshotId,
     });
@@ -365,7 +366,7 @@ export const completeBuild = internalMutation({
     const build = await ctx.db.get(args.buildId);
     if (!build) return null;
 
-    // Guard: prevent double-completion from race between rebuildSnapshot and pollSnapshotBuild
+    // Guard: prevent double-completion from concurrent workflow steps
     if (build.status !== "running") return null;
 
     await ctx.db.patch(args.buildId, {
@@ -399,9 +400,9 @@ export const completeBuild = internalMutation({
         startedAt: now,
         retryCount,
       });
-      await ctx.scheduler.runAfter(
-        0,
-        internal.snapshotActions.rebuildSnapshot,
+      await workflow.start(
+        ctx,
+        internal.snapshotWorkflow.snapshotBuildWorkflow,
         {
           buildId: retryBuildId,
           repoSnapshotId: build.repoSnapshotId,

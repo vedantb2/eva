@@ -7,10 +7,21 @@ import { resolveAllEnvVars } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import { getDaytona } from "./_daytona/helpers";
 import { Image } from "@daytonaio/sdk";
+import type { Id } from "./_generated/dataModel";
 
-const POLL_INTERVAL_MS = 60_000;
-const MAX_POLLS = 30;
-const SAFETY_NET_DELAY_MS = 5 * 60 * 1000;
+const DAYTONA_API_URL = "https://app.daytona.io/api";
+
+/** Type guard for record-shaped objects. */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+/** Safely extracts a URL string from an unknown JSON response. */
+function extractUrl(data: unknown): string | null {
+  if (!isRecord(data)) return null;
+  if (typeof data["url"] === "string") return data["url"];
+  return null;
+}
 
 /**
  * Builds a Daytona Image definition that mirrors the old rebuild-snapshot.yml Dockerfile.
@@ -69,14 +80,27 @@ function buildSnapshotImage(
     .runCommands("pnpm install --frozen-lockfile");
 }
 
-/** Builds a Daytona snapshot directly via the SDK, replacing the old GitHub Actions workflow dispatch. */
-export const rebuildSnapshot = internalAction({
+/**
+ * Workflow step 1: Resolve config, delete old snapshot, and kick off the build
+ * via a direct POST to the Daytona API (returns immediately without blocking).
+ * Returns { snapshotName, repoId } on success, or null if an error was recorded.
+ */
+export const kickOffSnapshotBuild = internalAction({
   args: {
     buildId: v.id("snapshotBuilds"),
     repoSnapshotId: v.id("repoSnapshots"),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
+  returns: v.union(
+    v.object({
+      snapshotName: v.string(),
+      repoId: v.id("githubRepos"),
+    }),
+    v.null(),
+  ),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ snapshotName: string; repoId: Id<"githubRepos"> } | null> => {
     const config = await ctx.runQuery(
       internal.repoSnapshots.getRepoSnapshotInternal,
       { repoSnapshotId: args.repoSnapshotId },
@@ -150,6 +174,7 @@ export const rebuildSnapshot = internalAction({
       // Snapshot may not exist yet — that's fine
     }
 
+    // Build the Image definition and extract the Dockerfile content
     const image = buildSnapshotImage(token, repo.owner, repo.name, branch);
 
     await ctx.runMutation(internal.repoSnapshots.appendLogs, {
@@ -157,182 +182,143 @@ export const rebuildSnapshot = internalAction({
       chunk: `Starting Daytona snapshot build for ${repo.owner}/${repo.name} (branch: ${branch})...\n`,
     });
 
-    // Schedule safety-net poller in case this action times out before create() finishes.
-    // The poller checks snapshot state directly via the Daytona API.
-    await ctx.scheduler.runAfter(
-      SAFETY_NET_DELAY_MS,
-      internal.snapshotActions.pollSnapshotBuild,
-      {
-        buildId: args.buildId,
-        snapshotName: config.snapshotName,
-        repoId: config.repoId,
-        attempt: 1,
+    // POST directly to Daytona API to create the snapshot (returns immediately).
+    // We use fetch instead of daytona.snapshot.create() because create() blocks
+    // until the build finishes, which can exceed the Convex action timeout.
+    const resp = await fetch(`${DAYTONA_API_URL}/snapshots`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${daytonaApiKey}`,
       },
-    );
-
-    // Collect build logs in a local buffer (onLogs is synchronous, can't await inside it)
-    let logBuffer = "";
-    try {
-      await daytona.snapshot.create(
-        {
-          name: config.snapshotName,
-          image,
-          resources: { cpu: 4, memory: 8, disk: 10 },
+      body: JSON.stringify({
+        name: config.snapshotName,
+        buildInfo: {
+          dockerfileContent: image.dockerfile,
+          contextHashes: [],
         },
-        {
-          onLogs: (chunk: string) => {
-            logBuffer += chunk + "\n";
-          },
-        },
-      );
+        cpu: 4,
+        memory: 8,
+        disk: 10,
+      }),
+    });
 
-      // Build succeeded — flush logs and complete
-      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: "success",
-        logs: logBuffer + "Snapshot build completed successfully.\n",
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+    if (!resp.ok) {
+      const body = await resp.text();
       await ctx.runMutation(internal.repoSnapshots.completeBuild, {
         buildId: args.buildId,
         status: "error",
-        logs: logBuffer,
-        error: `Snapshot build failed: ${message}`,
+        logs: "",
+        error: `Daytona API error (${resp.status}): ${body}`,
       });
+      return null;
     }
 
-    return null;
+    await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+      buildId: args.buildId,
+      chunk: "Snapshot build initiated on Daytona. Polling for progress...\n",
+    });
+
+    return { snapshotName: config.snapshotName, repoId: config.repoId };
   },
 });
 
 /**
- * Safety-net poller that checks snapshot build state directly via the Daytona API.
- * Handles the case where rebuildSnapshot's action times out before snapshot.create() finishes.
- * If the build was already completed by rebuildSnapshot, this is a no-op.
+ * Workflow step 2 (called in a loop): Checks snapshot build state and streams
+ * build logs from the Daytona API. Returns the current snapshot state string.
+ * Each invocation is a fresh action with its own timeout.
  */
-export const pollSnapshotBuild = internalAction({
+export const pollSnapshotProgress = internalAction({
   args: {
     buildId: v.id("snapshotBuilds"),
     snapshotName: v.string(),
     repoId: v.id("githubRepos"),
     attempt: v.number(),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    // Check if the build was already completed by rebuildSnapshot
-    const buildStatus = await ctx.runQuery(
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    // Check if the build was already completed (e.g. by a retry or race)
+    const buildStatus: string | null = await ctx.runQuery(
       internal.repoSnapshots.getBuildStatus,
       { buildId: args.buildId },
     );
     if (buildStatus !== "running") {
-      return null;
+      return buildStatus ?? "error";
     }
 
-    let daytonaApiKey: string;
-    try {
-      const envVars = await resolveAllEnvVars(ctx, args.repoId);
-      const key = envVars.DAYTONA_API_KEY;
-      if (!key) {
-        throw new Error("DAYTONA_API_KEY not found");
-      }
-      daytonaApiKey = key;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+    const envVars = await resolveAllEnvVars(ctx, args.repoId);
+    const daytonaApiKey = envVars.DAYTONA_API_KEY;
+    if (!daytonaApiKey) {
       await ctx.runMutation(internal.repoSnapshots.completeBuild, {
         buildId: args.buildId,
         status: "error",
-        logs: `[Poll ${args.attempt}] ${message}\n`,
-        error: message,
+        logs: "",
+        error: "DAYTONA_API_KEY not found",
       });
-      return null;
+      return "error";
     }
 
     const daytona = getDaytona(daytonaApiKey);
+    const snapshot = await daytona.snapshot.get(args.snapshotName);
+    const state = String(snapshot.state);
 
-    try {
-      const snapshot = await daytona.snapshot.get(args.snapshotName);
-      const state = String(snapshot.state);
+    // Terminal states: fetch build logs and complete the build
+    if (state === "active" || state === "error" || state === "build_failed") {
+      // Fetch full build logs from the Daytona API (only on terminal state to avoid wasted calls)
+      let logs = "";
+      try {
+        const logsResp = await fetch(
+          `${DAYTONA_API_URL}/snapshots/${snapshot.id}/build-logs-url`,
+          {
+            headers: { Authorization: `Bearer ${daytonaApiKey}` },
+          },
+        );
+        if (logsResp.ok) {
+          const logsData: unknown = await logsResp.json();
+          const url = extractUrl(logsData);
+          if (url) {
+            const logStream = await fetch(url);
+            if (logStream.ok) {
+              logs = await logStream.text();
+            }
+          }
+        }
+      } catch {
+        // Log fetching is best-effort — don't fail the completion for it
+      }
 
       if (state === "active") {
         await ctx.runMutation(internal.repoSnapshots.completeBuild, {
           buildId: args.buildId,
           status: "success",
-          logs: `[Poll ${args.attempt}] Snapshot is active. Build completed successfully.\n`,
+          logs:
+            (logs ? logs + "\n" : "") +
+            `[Poll ${args.attempt}] Snapshot build completed successfully.\n`,
         });
-        return null;
+        return "active";
       }
 
-      if (state === "error" || state === "build_failed") {
-        const reason = snapshot.errorReason
-          ? String(snapshot.errorReason)
-          : "Unknown error";
-        await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-          buildId: args.buildId,
-          status: "error",
-          logs: `[Poll ${args.attempt}] Snapshot state: ${state}\n`,
-          error: `Snapshot build failed: ${reason}`,
-        });
-        return null;
-      }
-
-      // Still building — schedule next poll or give up
-      if (args.attempt >= MAX_POLLS) {
-        await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-          buildId: args.buildId,
-          status: "error",
-          logs: `[Poll ${args.attempt}] Max poll attempts reached.\n`,
-          error:
-            "Snapshot build did not complete within polling window (~30 minutes)",
-        });
-        return null;
-      }
-
-      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+      const reason = snapshot.errorReason
+        ? String(snapshot.errorReason)
+        : "Unknown error";
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
         buildId: args.buildId,
-        chunk: `[Poll ${args.attempt}] Snapshot state: ${state}. Waiting...\n`,
+        status: "error",
+        logs:
+          (logs ? logs + "\n" : "") +
+          `[Poll ${args.attempt}] Snapshot state: ${state}\n`,
+        error: `Snapshot build failed: ${reason}`,
       });
-
-      await ctx.scheduler.runAfter(
-        POLL_INTERVAL_MS,
-        internal.snapshotActions.pollSnapshotBuild,
-        {
-          buildId: args.buildId,
-          snapshotName: args.snapshotName,
-          repoId: args.repoId,
-          attempt: args.attempt + 1,
-        },
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-
-      if (args.attempt >= MAX_POLLS) {
-        await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-          buildId: args.buildId,
-          status: "error",
-          logs: `[Poll ${args.attempt}] Error: ${message}\n`,
-          error: message,
-        });
-      } else {
-        await ctx.runMutation(internal.repoSnapshots.appendLogs, {
-          buildId: args.buildId,
-          chunk: `[Poll ${args.attempt}] Error checking snapshot state: ${message}. Retrying...\n`,
-        });
-
-        await ctx.scheduler.runAfter(
-          POLL_INTERVAL_MS,
-          internal.snapshotActions.pollSnapshotBuild,
-          {
-            buildId: args.buildId,
-            snapshotName: args.snapshotName,
-            repoId: args.repoId,
-            attempt: args.attempt + 1,
-          },
-        );
-      }
+      return state;
     }
 
-    return null;
+    // Still building — log progress
+    await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+      buildId: args.buildId,
+      chunk: `[Poll ${args.attempt}] Snapshot state: ${state}. Waiting...\n`,
+    });
+
+    return state;
   },
 });
 

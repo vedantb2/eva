@@ -114,6 +114,7 @@ import type * as screenshots from "../screenshots.js";
 import type * as sessionWorkflow from "../sessionWorkflow.js";
 import type * as sessions from "../sessions.js";
 import type * as snapshotActions from "../snapshotActions.js";
+import type * as snapshotWorkflow from "../snapshotWorkflow.js";
 import type * as streaming from "../streaming.js";
 import type * as summarizeWorkflow from "../summarizeWorkflow.js";
 import type * as syncSettings from "../syncSettings.js";
@@ -245,6 +246,7 @@ declare const fullApi: ApiFromModules<{
   sessionWorkflow: typeof sessionWorkflow;
   sessions: typeof sessions;
   snapshotActions: typeof snapshotActions;
+  snapshotWorkflow: typeof snapshotWorkflow;
   streaming: typeof streaming;
   summarizeWorkflow: typeof summarizeWorkflow;
   syncSettings: typeof syncSettings;

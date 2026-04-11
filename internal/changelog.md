@@ -4,10 +4,10 @@
 
 - **Why**: Snapshot builds depended on GitHub Actions — requiring `rebuild-snapshot.yml` in every target repo, GitHub App `actions:write` permissions, and a dispatch→poll→complete round-trip through the GitHub API. This was fragile (workflow file missing, permission errors, branch mismatch) and added an external dependency that the platform shouldn't need.
 - **Changes**:
-  - Rewrote `snapshotActions.ts` to build images directly via the Daytona SDK's `Image` builder and `snapshot.create()` API, eliminating all GitHub Actions dispatch/polling code.
+  - Created `snapshotWorkflow.ts` using the `@convex-dev/workflow` component to orchestrate builds as durable multi-step workflows. Each step (kick-off, poll, complete) is a separate action with its own timeout, so builds that take 15–20 minutes don't hit Convex action limits.
+  - Rewrote `snapshotActions.ts`: `kickOffSnapshotBuild` builds images via the Daytona SDK's `Image` builder and POSTs directly to the Daytona API (non-blocking). `pollSnapshotProgress` checks state and streams build logs on each poll.
   - Replaced `COPY . /tmp/repo` with `git clone` using a short-lived GitHub installation token, so the Convex action can build the image without local filesystem access.
-  - Added a safety-net `pollSnapshotBuild` action that polls `snapshot.get()` in case the blocking `snapshot.create()` call outlives the Convex action timeout.
-  - Added a double-completion guard in `completeBuild` to prevent race conditions between the main action and the safety-net poller.
+  - Added a double-completion guard in `completeBuild` to prevent race conditions between concurrent workflow steps.
   - Removed `setWorkflowRunId` mutation and the "View GitHub Actions Run" link from the UI.
   - Relabeled "Workflow Branch" → "Clone Branch" in the snapshot settings UI.
 - **Reason**: The platform should own its own build infrastructure. Using the Daytona SDK directly is simpler, more reliable, and removes the need for users to set up GitHub Actions workflows.

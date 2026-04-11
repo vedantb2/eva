@@ -1,5 +1,15 @@
 # Changelog
 
+## Simplify callback runner heartbeat and attempt flow - 2026-04-11
+
+- **Why**: The detached Daytona callback runner had become too stateful and too forgiving in the wrong places. A malformed completion block had already proven the generated-script path was fragile, heartbeat delivery used overlapping retry layers, and the runner could silently launch a second provider attempt without making that retry explicit at the workflow layer. Those behaviors made failures hard to reason about and allowed transient callback transport issues to turn into multi-minute stalls.
+- **Changes**:
+  - Fixed the generated callback completion block so the emitted `/tmp/run-design.mjs` stays syntactically valid.
+  - Collapsed heartbeat success/failure bookkeeping into one shared helper instead of duplicating the same state updates across flush, ping, startup, and finalization paths.
+  - Reduced callback heartbeat tolerance to a shorter bounded fail-fast path, so the runner terminates itself well before the external 300-second watchdog.
+  - Removed the hidden "retry without saved session" second attempt from inside the callback runner. Session fallback is now an explicit outer-workflow concern instead of an opaque in-script branch.
+- **Reason**: The callback should be a small, predictable bridge between the CLI process and Convex. One provider attempt and one heartbeat path make failures surface faster and keep the runtime easier to maintain.
+
 ## Move snapshot builds from GitHub Actions to Daytona SDK - 2026-04-11
 
 - **Why**: Snapshot builds depended on GitHub Actions — requiring `rebuild-snapshot.yml` in every target repo, GitHub App `actions:write` permissions, and a dispatch→poll→complete round-trip through the GitHub API. This was fragile (workflow file missing, permission errors, branch mismatch) and added an external dependency that the platform shouldn't need.
@@ -40,6 +50,42 @@
   - `setupBranch` no longer does a proactive `git push -u origin` during startup. The agent can push when it actually has work to publish, which removes an unnecessary pre-launch network dependency.
   - `checkoutFetchedBaseBranch` now falls back to local snapshot refs or `HEAD` when no remote base ref has been fetched, so local branch setup still succeeds without mandatory network access.
 - **Reason**: Snapshot-backed task startup should be local-first and fail-fast. Sandboxes should come up quickly from existing repo state, and remote sync should not be a hard prerequisite just to begin work.
+
+## Make Codex task runs local-first instead of MCP-first - 2026-04-11
+
+- **Why**: Codex task runs were spending early turns browsing GitHub through MCP (`github_search`, `github_fetch_file`) instead of reading the checked-out repo directly. That made implementation runs slower, noisier, and confusing in the activity UI even though the files were already present locally in the sandbox.
+- **Changes**:
+  - Stopped hydrating arbitrary persisted `CODEX_HOME` contents into task runs. The callback now restores only Codex session state and auth, which avoids silently carrying forward stale MCP-heavy runtime config from earlier sessions.
+  - Strengthened implementation/conflict/audit-fix prompts to explicitly require local repo reads/searches before any GitHub or MCP lookup.
+  - Mapped Codex `mcp_tool_call` events like `github_fetch_file` and `github_search` into the normal read/search activity labels so the UI reflects what Codex is actually doing.
+- **Reason**: A sandbox-backed coding run should treat the local checkout as the source of truth. MCP should be an optional escape hatch, not the default way Codex inspects code that is already on disk.
+
+## Remove nested Codex sandboxing and collapse provider session volumes - 2026-04-11
+
+- **Why**: After sandbox startup was simplified, Codex task reruns were still failing on local shell access with `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`. The deeper issue was architectural: Codex was trying to start its own inner workspace sandbox inside Daytona, and session persistence was still conceptually split by provider even though both providers belong to the same repo-scoped runtime.
+- **Changes**:
+  - Forced the Codex runtime config written inside Daytona to strip any persisted `sandbox_mode` / `approval_policy` overrides and replace them with a single outer-sandbox model (`approval_policy = "never"`, `sandbox_mode = "danger-full-access"`).
+  - Kept Codex persistence narrow by syncing only resumable state and auth, instead of copying arbitrary `CODEX_HOME` contents back and forth between runs.
+  - Collapsed session persistence onto one shared repo-scoped Daytona volume and mounted Claude/Codex into separate subpaths, preserving provider isolation without managing two independent volumes per repo.
+- **Reason**: Daytona is already the sandbox boundary. Removing the nested Codex sandbox makes local shell access work reliably, and a single shared session volume is simpler to reason about and cheaper to maintain than parallel provider-specific volumes.
+
+## Remove nested session-restore fetch retries from sandbox startup - 2026-04-11
+
+- **Why**: Session sandbox startup still had a hidden multi-minute slow path even after quick-task startup was simplified. The session restore flow wrapped `fetchBranchRefs(...)` in its own retry loop even though the git helper already retried internally, so one flaky or missing remote session branch could burn roughly nine 30-second fetch attempts before falling back to local snapshot refs anyway.
+- **Changes**:
+  - Removed the extra session-level retry wrapper around branch-ref fetching and let the shared git helper own retry policy in one place.
+  - Made session-branch restore fetches fail fast with a single short best-effort attempt before continuing with local snapshot/base refs.
+  - Stopped reused session sandboxes from doing remote ref sync on the hot path; they now rely on their existing local checkout and jump straight to branch checkout and service startup.
+- **Reason**: Session startup should be local-first and bounded. If remote branch sync is needed, it should be cheap and optional, not a multiplicative retry tower on the critical path.
+
+## Fail fast when callback heartbeats stop reaching Convex - 2026-04-11
+
+- **Why**: Some task runs were not actually stuck in sandbox startup or model execution. The detached callback process had lost the ability to update `streamingActivity`, so the UI looked frozen until the watchdog killed the run after 300 seconds with `no heartbeat for 300s`. That made failures slow, opaque, and expensive to auto-retry.
+- **Changes**:
+  - Added explicit tracking of consecutive callback heartbeat failures inside the sandbox runner.
+  - When heartbeat updates fail repeatedly, the runner now aborts the active CLI attempt and surfaces a concrete error message instead of waiting silently for the external watchdog.
+  - Preserved the existing watchdog as a backstop, but moved the primary failure detection closer to the actual heartbeat transport problem.
+- **Reason**: If the runner cannot talk back to Convex, that is already a terminal condition for a streamed task run. Failing fast is better than burning five minutes and only learning about it from the watchdog.
 
 ## Remove pre-clone network polling for fresh sandboxes - 2026-04-10
 

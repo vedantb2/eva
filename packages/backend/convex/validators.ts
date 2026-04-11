@@ -128,25 +128,25 @@ export const roleUserValidator = v.union(
   v.literal("designer"),
 );
 
-/** Hardcoded preset prompts mapped to each user role. */
+/** Hardcoded preset prompts mapped to each user role. These only affect response style and communication tone — they must NOT influence what code edits are made. */
 export const PERSONALISATION_PRESETS = {
   business: {
     label: "Business",
     description: "Non-technical, outcome-focused communication",
     prompt:
-      "Communicate in non-technical language. Focus on business outcomes, ROI, timelines, and user impact. Avoid code snippets unless explicitly asked.",
+      "When explaining your work, use non-technical language. Frame responses around business outcomes, user impact, and timelines rather than implementation details. Avoid code snippets in explanations unless explicitly asked. This only affects how you communicate — make the same code edits you normally would.",
   },
   dev: {
     label: "Developer",
     description: "Technical, code-focused communication",
     prompt:
-      "Be technically precise. Focus on code quality, architecture, performance, and maintainability. Show code examples and implementation details.",
+      "When explaining your work, be technically precise. Include code snippets, reference specific functions, and discuss architecture and performance tradeoffs in your responses. This only affects how you communicate — make the same code edits you normally would.",
   },
   designer: {
     label: "Designer",
-    description: "UX and visual design-focused communication",
+    description: "Design-aware communication style",
     prompt:
-      "Prioritize UX quality, visual consistency, accessibility, and design system adherence. Reference design principles and user experience patterns.",
+      "When explaining your work, frame responses in terms of user experience, visual consistency, accessibility, and design patterns. Reference how changes affect the UI and design system in your explanations. This only affects how you communicate — make the same code edits you normally would.",
   },
 } as const;
 

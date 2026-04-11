@@ -56,8 +56,8 @@ export function PersonalisationClient() {
           <div>
             <h3 className="text-sm font-medium">Role Preset</h3>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Based on your role. These instructions are automatically included
-              in every session.
+              Controls how responses are communicated, not what code edits are
+              made. Included in every session.
             </p>
           </div>
 

@@ -19,6 +19,21 @@ import { taskCompleteEvent } from "./_taskWorkflow/events";
 
 const crons = new Crons(components.crons);
 
+/** Returns the count of unacknowledged automation runs for a repository (capped at 100). */
+export const countUnacknowledged = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const unacknowledged = await ctx.db
+      .query("automationRuns")
+      .withIndex("by_repo_and_acknowledged", (q) =>
+        q.eq("repoId", args.repoId).eq("acknowledged", false),
+      )
+      .take(100);
+    return unacknowledged.length;
+  },
+});
+
 /** Lists all automations for a given repository. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },

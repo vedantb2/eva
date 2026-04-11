@@ -627,9 +627,9 @@ export const messageFields = {
   finishedAt: v.optional(v.number()),
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
-  // TEMP: widened to v.string() so deploy passes with orphaned parentIds.
+  // TEMP: added v.string() so deploy passes with orphaned parentIds from deleted tables.
   // Revert to v.union(v.id("sessions"), v.id("designSessions")) after running cleanupOrphanedMessages.
-  parentId: v.string(),
+  parentId: v.union(v.id("sessions"), v.id("designSessions"), v.string()),
   mode: v.optional(sessionModeValidator),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
@@ -642,7 +642,7 @@ export const messageFields = {
 
 export const queuedMessageFields = {
   // TEMP: same as messageFields — revert after migration
-  parentId: v.string(),
+  parentId: v.union(v.id("sessions"), v.id("designSessions"), v.string()),
   content: v.string(),
   createdAt: v.number(),
   userId: v.id("users"),

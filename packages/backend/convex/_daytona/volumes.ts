@@ -35,12 +35,9 @@ function repoHash(repoId: PersistableRepoId): string {
   return createHash("sha256").update(String(repoId)).digest("hex");
 }
 
-/** Builds a deterministic volume name for a provider and repo combination. */
-function sessionVolumeName(
-  provider: PersistedProvider,
-  repoId: PersistableRepoId,
-): string {
-  return `${provider}-sessions-${repoHash(repoId).slice(0, 24)}`;
+/** Builds a deterministic shared session volume name for a repo. */
+function sessionVolumeName(repoId: PersistableRepoId): string {
+  return `sessions-${repoHash(repoId).slice(0, 24)}`;
 }
 
 /** Builds a subpath within a volume for a specific provider, session kind, and session. */
@@ -67,16 +64,12 @@ export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
   ].join("-");
 }
 
-/** Ensures a provider-specific volume exists and is ready, polling until timeout. */
+/** Ensures the shared session volume exists and is ready, polling until timeout. */
 async function ensureSessionProviderVolume(
   daytona: Daytona,
   repoId: PersistableRepoId,
-  sessionKind: PersistableSessionKind,
-  sessionId: PersistableSessionId,
-  provider: PersistedProvider,
-  mountPath: string,
-): Promise<VolumeMount[]> {
-  const volumeName = sessionVolumeName(provider, repoId);
+): Promise<string> {
+  const volumeName = sessionVolumeName(repoId);
   const deadline = Date.now() + VOLUME_READY_TIMEOUT_MS;
 
   let volume = await daytona.volume.get(volumeName, true);
@@ -95,39 +88,27 @@ async function ensureSessionProviderVolume(
     volume = await daytona.volume.get(volumeName);
   }
 
-  return [
-    {
-      volumeId: volume.id,
-      mountPath,
-      subpath: sessionVolumeSubpath(provider, sessionKind, sessionId),
-    },
-  ];
+  return volume.id;
 }
 
-/** Creates and returns volume mounts for both Claude and Codex persistence for a session. */
+/** Creates and returns shared-session volume mounts for both Claude and Codex persistence. */
 export async function ensureSessionPersistenceVolumes(
   daytona: Daytona,
   repoId: PersistableRepoId,
   sessionKind: PersistableSessionKind,
   sessionId: PersistableSessionId,
 ): Promise<VolumeMount[]> {
-  const [claudeMounts, codexMounts] = await Promise.all([
-    ensureSessionProviderVolume(
-      daytona,
-      repoId,
-      sessionKind,
-      sessionId,
-      "claude",
-      CLAUDE_PERSIST_VOLUME_MOUNT_PATH,
-    ),
-    ensureSessionProviderVolume(
-      daytona,
-      repoId,
-      sessionKind,
-      sessionId,
-      "codex",
-      CODEX_PERSIST_VOLUME_MOUNT_PATH,
-    ),
-  ]);
-  return [...claudeMounts, ...codexMounts];
+  const volumeId = await ensureSessionProviderVolume(daytona, repoId);
+  return [
+    {
+      volumeId,
+      mountPath: CLAUDE_PERSIST_VOLUME_MOUNT_PATH,
+      subpath: sessionVolumeSubpath("claude", sessionKind, sessionId),
+    },
+    {
+      volumeId,
+      mountPath: CODEX_PERSIST_VOLUME_MOUNT_PATH,
+      subpath: sessionVolumeSubpath("codex", sessionKind, sessionId),
+    },
+  ];
 }

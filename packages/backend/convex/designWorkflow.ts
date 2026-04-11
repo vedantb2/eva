@@ -5,7 +5,11 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { aiModelValidator, workflowCompleteValidator } from "./validators";
-import { buildRootDirectoryInstruction, DESIGN_SYSTEM_PROMPT } from "./prompts";
+import {
+  buildRootDirectoryInstruction,
+  buildCustomInstructionsBlock,
+  DESIGN_SYSTEM_PROMPT,
+} from "./prompts";
 import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 import { startNextQueuedDesignMessage } from "./_queues/helpers";
 
@@ -54,6 +58,7 @@ function buildDesignPrompt(
   persona: { name: string; prompt: string } | null,
   rootDirectory: string,
   numDesigns: number,
+  customInstructionsBlock: string,
 ): string {
   const labels = Array.from({ length: numDesigns }, (_, i) =>
     String.fromCharCode(97 + i),
@@ -126,7 +131,7 @@ ${personaContext}
 ${message}
 
 ## Output
-After completing all steps, output ONLY valid JSON matching the format in your system prompt.${buildRootDirectoryInstruction(rootDirectory)}`;
+After completing all steps, output ONLY valid JSON matching the format in your system prompt.${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 /** Extracts the first JSON object from LLM output text. */
@@ -260,6 +265,12 @@ export const getSessionDataAndPrompt = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
+    const user = await ctx.db.get(session.userId);
+    const customInstructionsBlock = buildCustomInstructionsBlock(
+      user?.role ?? undefined,
+      user?.customInstructions ?? undefined,
+    );
+
     const prompt = buildDesignPrompt(
       { owner: repo.owner, name: repo.name },
       args.message,
@@ -268,6 +279,7 @@ export const getSessionDataAndPrompt = internalQuery({
       persona,
       rootDirectory,
       args.numDesigns ?? 3,
+      customInstructionsBlock,
     );
 
     return {

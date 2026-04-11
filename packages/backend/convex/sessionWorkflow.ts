@@ -15,6 +15,7 @@ import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "./_queues/helpers";
 import {
   buildRootDirectoryInstruction,
+  buildCustomInstructionsBlock,
   getResponseLengthInstruction,
 } from "./prompts";
 
@@ -44,6 +45,7 @@ function buildAskPrompt(
   message: string,
   responseLength: string,
   rootDirectory: string,
+  customInstructionsBlock: string,
 ): string {
   return `Answer questions about ${repo.owner}/${repo.name} for a non-technical user. READ-ONLY — do NOT modify files.
 
@@ -55,7 +57,7 @@ Rules:
 - Non-technical language only — no code, file paths, function names, or jargon
 - Reference product areas casually ("the login page") but never source files
 - If you find a fixable issue, do NOT say "a developer needs to look at this." Instead, describe the problem and suggest: "Want me to switch to execute mode and fix this?"
-${getResponseLengthInstruction(responseLength, "ask")}${buildRootDirectoryInstruction(rootDirectory)}`;
+${getResponseLengthInstruction(responseLength, "ask")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 /** Builds a plan-mode prompt for creating or refining a plan.md document. */
@@ -65,6 +67,7 @@ function buildPlanPrompt(
   message: string,
   responseLength: string,
   rootDirectory: string,
+  customInstructionsBlock: string,
 ): string {
   return `PRD planning for ${repo.owner}/${repo.name}. Explore with Glob, Grep, Read.
 
@@ -79,7 +82,7 @@ Rules:
 - ONLY write plan.md — no other files
 - Respond with 1-2 sentences on what changed
 - Non-technical: WHAT and WHY, not HOW
-- Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 /** Builds an execute-mode prompt with full write access for implementing code changes. */
@@ -90,6 +93,7 @@ function buildExecutePrompt(
   message: string,
   responseLength: string,
   rootDirectory: string,
+  customInstructionsBlock: string,
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const planContext = planContent
@@ -112,7 +116,7 @@ Rules:
 - Never commit images/video. Minimal, focused changes. Use lockfile. GITHUB_TOKEN is set.
 - Respond as business outcome, no code/paths/jargon (e.g. "Added dark mode toggle. Pushed to branch.")
 - No commit hashes or process commentary
-- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "execute")}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "execute")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 // --- Workflow ---
@@ -358,6 +362,12 @@ export const getSessionData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
+    const user = await ctx.db.get(session.userId);
+    const customInstructionsBlock = buildCustomInstructionsBlock(
+      user?.role ?? undefined,
+      user?.customInstructions ?? undefined,
+    );
+
     const branchName =
       args.mode === "ask"
         ? undefined
@@ -370,6 +380,7 @@ export const getSessionData = internalQuery({
         args.message,
         args.responseLength,
         rootDirectory,
+        customInstructionsBlock,
       );
     } else if (args.mode === "plan") {
       prompt = buildPlanPrompt(
@@ -378,6 +389,7 @@ export const getSessionData = internalQuery({
         args.message,
         args.responseLength,
         rootDirectory,
+        customInstructionsBlock,
       );
     } else {
       prompt = buildExecutePrompt(
@@ -387,6 +399,7 @@ export const getSessionData = internalQuery({
         args.message,
         args.responseLength,
         rootDirectory,
+        customInstructionsBlock,
       );
     }
 

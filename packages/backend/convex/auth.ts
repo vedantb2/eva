@@ -186,6 +186,34 @@ export const setCustomTheme = authMutation({
   },
 });
 
+/** Returns the current user's personalisation settings (role + custom instructions). */
+export const getPersonalisation = authQuery({
+  args: {},
+  returns: v.object({
+    role: v.union(roleUserValidator, v.null()),
+    customInstructions: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx) => {
+    const user = await ctx.db.get(ctx.userId);
+    return {
+      role: user?.role ?? null,
+      customInstructions: user?.customInstructions ?? null,
+    };
+  },
+});
+
+/** Updates the current user's custom instructions. */
+export const setCustomInstructions = authMutation({
+  args: { customInstructions: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(ctx.userId, {
+      customInstructions: args.customInstructions || undefined,
+    });
+    return null;
+  },
+});
+
 /** Returns whether the toolbar is visible for the current user. */
 export const getToolbarVisible = authQuery({
   args: {},

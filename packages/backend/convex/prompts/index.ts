@@ -1,5 +1,6 @@
 export {
   buildRootDirectoryInstruction,
+  buildCustomInstructionsBlock,
   getResponseLengthInstruction,
 } from "./shared";
 export { PARSE_PROMPT, INTERVIEW_PROMPT, GENERATE_PROMPT } from "./doc";

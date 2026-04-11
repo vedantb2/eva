@@ -125,7 +125,30 @@ export const deploymentStatusValidator = v.union(
 export const roleUserValidator = v.union(
   v.literal("business"),
   v.literal("dev"),
+  v.literal("designer"),
 );
+
+/** Hardcoded preset prompts mapped to each user role. */
+export const PERSONALISATION_PRESETS = {
+  business: {
+    label: "Business",
+    description: "Non-technical, outcome-focused communication",
+    prompt:
+      "Communicate in non-technical language. Focus on business outcomes, ROI, timelines, and user impact. Avoid code snippets unless explicitly asked.",
+  },
+  dev: {
+    label: "Developer",
+    description: "Technical, code-focused communication",
+    prompt:
+      "Be technically precise. Focus on code quality, architecture, performance, and maintainability. Show code examples and implementation details.",
+  },
+  designer: {
+    label: "Designer",
+    description: "UX and visual design-focused communication",
+    prompt:
+      "Prioritize UX quality, visual consistency, accessibility, and design system adherence. Reference design principles and user experience patterns.",
+  },
+} as const;
 
 export const aiProviderValidator = v.union(
   v.literal("claude"),

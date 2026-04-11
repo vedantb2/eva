@@ -44,6 +44,7 @@ const schema = defineSchema({
     theme: v.optional(themeValidator),
     customTheme: v.optional(customThemeValidator),
     toolbarVisible: v.optional(v.boolean()),
+    customInstructions: v.optional(v.string()),
     lastSeenAt: v.optional(v.number()),
   })
     .index("by_clerk_id", ["clerkId"])

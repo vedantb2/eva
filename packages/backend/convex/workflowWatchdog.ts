@@ -33,7 +33,7 @@ async function cancelStaleWorkflow(
 /** Updates the last assistant message with a timeout error if it has no content yet. */
 async function timeoutLastMessage(
   ctx: MutationCtx,
-  parentId: Id<"sessions"> | Id<"designSessions"> | Id<"researchQueries">,
+  parentId: Id<"sessions"> | Id<"designSessions">,
   content: string,
 ): Promise<void> {
   const last = await ctx.db
@@ -102,30 +102,6 @@ export const handleStaleDesignSession = internalMutation({
     });
 
     await startNextQueuedDesignMessage(ctx, args.designSessionId);
-
-    return null;
-  },
-});
-
-/** Cancels a stale research query workflow and marks the last message as timed out. */
-export const handleStaleResearchQuery = internalMutation({
-  args: {
-    queryId: v.id("researchQueries"),
-    workflowId: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const rq = await ctx.db.get(args.queryId);
-    if (!rq || rq.activeWorkflowId !== args.workflowId) return null;
-
-    await cancelStaleWorkflow(ctx, args.workflowId, [String(args.queryId)]);
-
-    await timeoutLastMessage(ctx, args.queryId, "Query execution timed out.");
-
-    await ctx.db.patch(args.queryId, {
-      activeWorkflowId: undefined,
-      updatedAt: Date.now(),
-    });
 
     return null;
   },

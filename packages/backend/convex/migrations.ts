@@ -96,7 +96,6 @@ const STEPS = [
   "tasks",
   "sessions",
   "docs",
-  "researchQueries",
   "designSessions",
   "snapshots",
   "automations",
@@ -287,26 +286,6 @@ export const deleteRepoStep = internalMutation({
         break;
       }
 
-      case "researchQueries": {
-        const rqs = await ctx.db
-          .query("researchQueries")
-          .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-          .collect();
-        for (const rq of rqs) {
-          const messages = await ctx.db
-            .query("messages")
-            .withIndex("by_parent", (q) => q.eq("parentId", rq._id))
-            .collect();
-          for (const m of messages) {
-            await ctx.db.delete(m._id);
-            deleted++;
-          }
-          await ctx.db.delete(rq._id);
-          deleted++;
-        }
-        break;
-      }
-
       case "designSessions": {
         const dss = await ctx.db
           .query("designSessions")
@@ -373,8 +352,6 @@ export const deleteRepoStep = internalMutation({
 
       case "flatTables": {
         const tables = [
-          "savedQueries",
-          "routines",
           "designPersonas",
           "auditCategories",
           "notifications",

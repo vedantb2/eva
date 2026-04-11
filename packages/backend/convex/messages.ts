@@ -6,7 +6,6 @@ import { authQuery, authMutation } from "./functions";
 import {
   roleValidator,
   sessionModeValidator,
-  queryConfirmationStatusValidator,
   variationValidator,
   messageFields,
 } from "./validators";
@@ -69,8 +68,6 @@ export const add = authMutation({
     errorDetail: v.optional(v.string()),
     personaId: v.optional(v.id("designPersonas")),
     variations: v.optional(v.array(variationValidator)),
-    queryCode: v.optional(v.string()),
-    status: v.optional(queryConfirmationStatusValidator),
   },
   returns: v.id("messages"),
   handler: async (ctx, args) => {
@@ -86,8 +83,6 @@ export const add = authMutation({
       errorDetail: args.errorDetail,
       personaId: args.personaId,
       variations: args.variations,
-      queryCode: args.queryCode,
-      status: args.status,
     });
   },
 });
@@ -106,8 +101,6 @@ export const addInternal = internalMutation({
     errorDetail: v.optional(v.string()),
     personaId: v.optional(v.id("designPersonas")),
     variations: v.optional(v.array(variationValidator)),
-    queryCode: v.optional(v.string()),
-    status: v.optional(queryConfirmationStatusValidator),
     imageStorageId: v.optional(v.id("_storage")),
     videoStorageId: v.optional(v.id("_storage")),
   },
@@ -125,8 +118,6 @@ export const addInternal = internalMutation({
       errorDetail: args.errorDetail,
       personaId: args.personaId,
       variations: args.variations,
-      queryCode: args.queryCode,
-      status: args.status,
       imageStorageId: args.imageStorageId,
       videoStorageId: args.videoStorageId,
     });
@@ -140,8 +131,6 @@ export const updateLastInternal = internalMutation({
     content: v.optional(v.string()),
     activityLog: v.optional(v.string()),
     variations: v.optional(v.array(variationValidator)),
-    queryCode: v.optional(v.string()),
-    status: v.optional(queryConfirmationStatusValidator),
     imageStorageId: v.optional(v.id("_storage")),
     videoStorageId: v.optional(v.id("_storage")),
   },
@@ -162,16 +151,12 @@ export const updateLastInternal = internalMutation({
         route?: string;
         filePath?: string;
       }>;
-      queryCode?: string;
-      status?: "pending" | "confirmed" | "cancelled";
       imageStorageId?: Id<"_storage">;
       videoStorageId?: Id<"_storage">;
     } = {};
     if (args.content !== undefined) patch.content = args.content;
     if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
     if (args.variations !== undefined) patch.variations = args.variations;
-    if (args.queryCode !== undefined) patch.queryCode = args.queryCode;
-    if (args.status !== undefined) patch.status = args.status;
     if (args.imageStorageId !== undefined)
       patch.imageStorageId = args.imageStorageId;
     if (args.videoStorageId !== undefined)
@@ -224,8 +209,6 @@ export const patchMessage = internalMutation({
     content: v.optional(v.string()),
     activityLog: v.optional(v.string()),
     variations: v.optional(v.array(variationValidator)),
-    queryCode: v.optional(v.string()),
-    status: v.optional(queryConfirmationStatusValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -237,14 +220,10 @@ export const patchMessage = internalMutation({
         route?: string;
         filePath?: string;
       }>;
-      queryCode?: string;
-      status?: "pending" | "confirmed" | "cancelled";
     } = {};
     if (args.content !== undefined) patch.content = args.content;
     if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
     if (args.variations !== undefined) patch.variations = args.variations;
-    if (args.queryCode !== undefined) patch.queryCode = args.queryCode;
-    if (args.status !== undefined) patch.status = args.status;
 
     await ctx.db.patch(args.messageId, patch);
     return null;

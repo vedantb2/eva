@@ -121,7 +121,12 @@ const schema = defineSchema({
     .index("by_task", ["taskId"])
     .index("by_task_and_depends_on", ["taskId", "dependsOnId"])
     .index("by_dependency", ["dependsOnId"]),
-  messages: defineTable(messageFields).index("by_parent", ["parentId"]),
+  // TEMP: override parentId with v.string() so deploy passes with orphaned data from deleted tables.
+  // Revert to defineTable(messageFields) after running cleanupOrphanedMessages migration.
+  messages: defineTable({
+    ...messageFields,
+    parentId: v.union(v.id("sessions"), v.id("designSessions"), v.string()),
+  }).index("by_parent", ["parentId"]),
   queuedMessages: defineTable(queuedMessageFields).index(
     "by_parent_and_created",
     ["parentId", "createdAt"],

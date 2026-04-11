@@ -25,6 +25,7 @@ const WORK_DIR = existsSync("/tmp/repo")
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
 const FIRST_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000");
 const POST_TEXT_STALL_TIMEOUT_MS = Number(process.env.CLAUDE_POST_TEXT_STALL_TIMEOUT_MS || "90000");
+const FIRST_ASSISTANT_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS || "120000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
 const SCRIPT_STARTED_AT = Date.now();
@@ -1542,6 +1543,7 @@ function buildErrorMessage(
   timedOutForMaxRuntime,
   timedOutForNoOutput,
   timedOutForFirstEvent,
+  timedOutForFirstAssistant,
   timedOutAfterFirstText,
 ) {
   const cliName = PROVIDER === "codex" ? "Codex CLI" : "Claude CLI";
@@ -1553,6 +1555,9 @@ function buildErrorMessage(
   }
   if (timedOutForFirstEvent) {
     return cliName + " produced no parseable stream-json events within " + FIRST_EVENT_TIMEOUT_MS + "ms";
+  }
+  if (timedOutForFirstAssistant) {
+    return cliName + " initialized but produced no assistant response within " + FIRST_ASSISTANT_EVENT_TIMEOUT_MS + "ms — likely MCP initialization or API congestion";
   }
   if (timedOutAfterFirstText) {
     return cliName + " stalled after first text block for " + POST_TEXT_STALL_TIMEOUT_MS + "ms";
@@ -1734,6 +1739,7 @@ async function runCliAttempt(options) {
     let timedOutForNoOutput = false;
     let timedOutForMaxRuntime = false;
     let timedOutForFirstEvent = false;
+    let timedOutForFirstAssistant = false;
     let timedOutAfterFirstText = false;
     const noOutputTimer = setInterval(() => {
       if (fatalHeartbeatErrorMessage) {
@@ -1750,6 +1756,21 @@ async function runCliAttempt(options) {
         Date.now() - attemptStartedAt > FIRST_EVENT_TIMEOUT_MS
       ) {
         timedOutForFirstEvent = true;
+        terminateAttemptProcess(child);
+        return;
+      }
+      if (
+        waitingForFirstAssistantEvent &&
+        claudeInitAt > 0 &&
+        Date.now() - claudeInitAt > FIRST_ASSISTANT_EVENT_TIMEOUT_MS
+      ) {
+        timedOutForFirstAssistant = true;
+        log(
+          options.processLabel +
+            " stalled waiting for first assistant event for " +
+            String(Date.now() - claudeInitAt) +
+            "ms after init; terminating process",
+        );
         terminateAttemptProcess(child);
         return;
       }
@@ -1803,6 +1824,8 @@ async function runCliAttempt(options) {
           timedOutForMaxRuntime +
           ", timedOutForFirstEvent=" +
           timedOutForFirstEvent +
+          ", timedOutForFirstAssistant=" +
+          timedOutForFirstAssistant +
           ", timedOutAfterFirstText=" +
           timedOutAfterFirstText +
           ", outputBytes=" +
@@ -1817,6 +1840,7 @@ async function runCliAttempt(options) {
         timedOutForNoOutput,
         timedOutForMaxRuntime,
         timedOutForFirstEvent,
+        timedOutForFirstAssistant,
         timedOutAfterFirstText,
       });
     });
@@ -1920,6 +1944,7 @@ try {
   let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
   let finalTimedOutForMaxRuntime = Boolean(firstAttempt.timedOutForMaxRuntime);
   let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
+  let finalTimedOutForFirstAssistant = Boolean(firstAttempt.timedOutForFirstAssistant);
   let finalTimedOutAfterFirstText = Boolean(firstAttempt.timedOutAfterFirstText);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   log(
@@ -1955,6 +1980,7 @@ try {
         finalTimedOutForMaxRuntime,
         finalTimedOutForNoOutput,
         finalTimedOutForFirstEvent,
+        finalTimedOutForFirstAssistant,
         finalTimedOutAfterFirstText,
       ),
     );

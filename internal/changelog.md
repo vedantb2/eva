@@ -1,5 +1,16 @@
 # Changelog
 
+## Merge session modes (ask+execute → edit) and fix markRunFinalizing - 2026-04-11
+
+- **Why**: Users kept forgetting to switch from "ask" to "execute" mode and expected edits to work in ask mode. Meanwhile, the separate `markRunFinalizing` HTTP call from the sandbox callback was failing with a 404 because Convex couldn't resolve the function at runtime.
+- **Changes**:
+  - Merged "ask" and "execute" session modes into a single "edit" mode with full tool access. The prompt distinguishes intent — questions get answered without changes, requests get implemented. "Plan" (PRD) mode is unchanged.
+  - Frontend shows 2 tabs (Edit + PRD) instead of 3. Keyboard shortcut toggles between them.
+  - Added batch migration function to convert legacy `ask`/`execute` message modes to `edit`.
+  - Frontend `useSessionSettings` normalizes old localStorage values (`ask`/`execute` → `edit`).
+  - Folded `finalizingAt` timestamp into the existing `handleCompletion` mutation instead of calling it separately from the sandbox. Removed `markRunFinalizing` function and its callback script call site.
+- **Reason**: Fewer modes = less confusion, less code, fewer bugs. Folding finalizingAt into handleCompletion eliminates a fragile separate HTTP call.
+
 ## Show live quick-task reply text while runs are in progress - 2026-04-11
 
 - **Why**: Quick-task runs already stream both structured activity steps and the assistant's incremental reply text, but the task timeline only rendered the activity steps. Once a run reached `Streaming response... / Receiving reply...`, the UI looked frozen even when the callback was actively streaming text into `currentContent`.

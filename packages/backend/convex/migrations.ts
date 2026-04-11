@@ -404,43 +404,6 @@ export const deleteRepoStep = internalMutation({
   },
 });
 
-/** Deletes messages whose parentId doesn't belong to sessions or designSessions. */
-export const cleanupOrphanedMessages = internalMutation({
-  args: {},
-  returns: v.object({ deleted: v.number() }),
-  handler: async (ctx) => {
-    const allMessages = await ctx.db.query("messages").collect();
-    let deleted = 0;
-
-    for (const msg of allMessages) {
-      const sessionId = ctx.db.normalizeId("sessions", msg.parentId);
-      const designSessionId = ctx.db.normalizeId(
-        "designSessions",
-        msg.parentId,
-      );
-
-      if (!sessionId && !designSessionId) {
-        // parentId doesn't belong to either table — orphaned from a deleted table
-        await ctx.db.delete(msg._id);
-        deleted++;
-        continue;
-      }
-
-      // At least one is non-null from the check above
-      const validId = sessionId ?? designSessionId;
-      const parent = validId ? await ctx.db.get(validId) : null;
-      if (!parent) {
-        // parentId is a valid ID format but the document was deleted
-        await ctx.db.delete(msg._id);
-        deleted++;
-      }
-    }
-
-    console.log(`[cleanup] Deleted ${deleted} orphaned messages`);
-    return { deleted };
-  },
-});
-
 /** Schedules deletion of all repos not owned by "evalucom" (or vedantb2/eva). */
 export const deleteNonEvalucomRepos = internalMutation({
   args: {},

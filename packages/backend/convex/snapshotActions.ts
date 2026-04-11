@@ -166,14 +166,6 @@ export const kickOffSnapshotBuild = internalAction({
     const daytona = getDaytona(daytonaApiKey);
     const branch = config.workflowRef ?? "main";
 
-    // Delete existing snapshot before rebuilding
-    try {
-      const existing = await daytona.snapshot.get(config.snapshotName);
-      await daytona.snapshot.delete(existing);
-    } catch {
-      // Snapshot may not exist yet — that's fine
-    }
-
     // Build the Image definition and extract the Dockerfile content
     const image = buildSnapshotImage(token, repo.owner, repo.name, branch);
 
@@ -319,6 +311,59 @@ export const pollSnapshotProgress = internalAction({
     });
 
     return state;
+  },
+});
+
+/**
+ * Workflow step 0: Deletes the existing snapshot and waits for removal to complete.
+ * daytona.snapshot.delete() returns immediately but the snapshot enters a "removing"
+ * state — creating a new one with the same name will 409 until removal finishes.
+ */
+export const deleteExistingSnapshot = internalAction({
+  args: {
+    snapshotName: v.string(),
+    repoId: v.id("githubRepos"),
+    buildId: v.id("snapshotBuilds"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const envVars = await resolveAllEnvVars(ctx, args.repoId);
+    const daytonaApiKey = envVars.DAYTONA_API_KEY;
+    if (!daytonaApiKey) {
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: "DAYTONA_API_KEY not found",
+      });
+      return null;
+    }
+
+    const daytona = getDaytona(daytonaApiKey);
+
+    try {
+      const existing = await daytona.snapshot.get(args.snapshotName);
+      await daytona.snapshot.delete(existing);
+
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk: "Deleting existing snapshot, waiting for removal...\n",
+      });
+
+      // Poll until the snapshot is fully removed (get throws on not-found)
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        try {
+          await daytona.snapshot.get(args.snapshotName);
+        } catch {
+          break;
+        }
+      }
+    } catch {
+      // Snapshot doesn't exist — nothing to delete
+    }
+
+    return null;
   },
 });
 

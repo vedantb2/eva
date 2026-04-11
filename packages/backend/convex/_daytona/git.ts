@@ -241,6 +241,43 @@ function isRetryableGitNetworkError(message: string): boolean {
   );
 }
 
+/** Retries transient git network operations with short backoff. */
+async function retryGitNetworkOperation<T>(
+  label: string,
+  details: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const result = await fn();
+      if (attempt > 1) {
+        logGit(
+          `${label} recovered on retry ${attempt}/${maxAttempts}${details ? ` (${details})` : ""}`,
+        );
+      }
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const shouldRetry =
+        attempt < maxAttempts && isRetryableGitNetworkError(message);
+      if (!shouldRetry) {
+        throw error;
+      }
+      const delayMs = 1000 * attempt;
+      logGit(
+        `${label} retrying in ${delayMs}ms after attempt ${attempt}/${maxAttempts}${details ? ` (${details})` : ""}: ${message}`,
+      );
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, delayMs);
+      });
+    }
+  }
+  throw new Error(
+    `${label} failed without returning a result${details ? ` (${details})` : ""}`,
+  );
+}
+
 /** Creates a new Daytona sandbox with GitHub auth and git configuration. */
 export async function createSandbox(
   daytona: Daytona,
@@ -349,11 +386,13 @@ export async function fetchOrigin(
     const pruneArg = opts?.prune === false ? "" : " --prune";
     const depthArg = opts?.shallow === true ? " --depth 1" : "";
     const refArg = ref ? ` ${quote([ref])}` : "";
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch${pruneArg}${depthArg} origin${refArg}`,
-      opts?.timeoutSeconds ?? 240,
-    );
+    await retryGitNetworkOperation("fetchOrigin", details, async () => {
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${pruneArg}${depthArg} origin${refArg}`,
+        opts?.timeoutSeconds ?? 240,
+      );
+    });
   });
 }
 
@@ -383,39 +422,46 @@ export async function fetchBranchRefs(
     );
     const refspecArgs = refspecs.map((r) => quote([r])).join(" ");
     const setupAndFetch = `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${depthArg}${pruneArg} origin`;
-    try {
-      await execGitCommand(
-        sandbox,
-        `${setupAndFetch} ${refspecArgs}`,
-        timeoutSeconds,
-      );
-      return normalized;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (!isMissingRemoteRefError(message)) {
-        throw error;
-      }
-      const fetchedBranches: string[] = [];
-      for (const [index, refspec] of refspecs.entries()) {
+    return await retryGitNetworkOperation(
+      "fetchBranchRefs",
+      details,
+      async () => {
         try {
           await execGitCommand(
             sandbox,
-            `${setupAndFetch} ${quote([refspec])}`,
+            `${setupAndFetch} ${refspecArgs}`,
             timeoutSeconds,
           );
-          const fetchedBranch = normalized[index];
-          if (fetchedBranch) {
-            fetchedBranches.push(fetchedBranch);
+          return normalized;
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          if (!isMissingRemoteRefError(message)) {
+            throw error;
           }
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (!isMissingRemoteRefError(msg)) {
-            throw e;
+          const fetchedBranches: string[] = [];
+          for (const [index, refspec] of refspecs.entries()) {
+            try {
+              await execGitCommand(
+                sandbox,
+                `${setupAndFetch} ${quote([refspec])}`,
+                timeoutSeconds,
+              );
+              const fetchedBranch = normalized[index];
+              if (fetchedBranch) {
+                fetchedBranches.push(fetchedBranch);
+              }
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e);
+              if (!isMissingRemoteRefError(msg)) {
+                throw e;
+              }
+            }
           }
+          return fetchedBranches;
         }
-      }
-      return fetchedBranches;
-    }
+      },
+    );
   });
 }
 
@@ -450,7 +496,8 @@ export async function syncRepo(
       strategy.branchNames,
       {
         prune: false,
-        timeoutSeconds: 240,
+        timeoutSeconds: 60,
+        shallow: true,
       },
     );
   });
@@ -501,7 +548,7 @@ export async function checkoutSessionBranch(
   });
 }
 
-/** Checks out and fast-forward merges a previously fetched base branch. */
+/** Checks out a base branch, preferring remote refs but falling back to local snapshot refs. */
 export async function checkoutFetchedBaseBranch(
   sandbox: Sandbox,
   baseBranch: string,
@@ -510,11 +557,32 @@ export async function checkoutFetchedBaseBranch(
   const details = `base=${baseBranch}`;
   await runLoggedGitStep("checkoutFetchedBaseBranch", details, async () => {
     const quotedBranch = quote([baseBranch]);
-    const quotedBase = quote([`origin/${baseBranch}`]);
+    const { ref: baseTarget, source } = await resolveBaseTarget(
+      sandbox,
+      baseBranch,
+    );
+    const quotedBase = quote([baseTarget]);
     const workspaceDir = workspaceDirShell();
+    logGit(`checkoutFetchedBaseBranch: using base source=${source}`);
+    if (source === "remote") {
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedBase}) && git merge --ff-only ${quotedBase}`,
+        timeoutSeconds,
+      );
+      return;
+    }
+    if (source === "local") {
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git checkout ${quotedBranch}`,
+        timeoutSeconds,
+      );
+      return;
+    }
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && git checkout ${quotedBranch} && git merge --ff-only ${quotedBase}`,
+      `cd ${workspaceDir} && git checkout -B ${quotedBranch} ${quotedBase}`,
       timeoutSeconds,
     );
   });
@@ -644,7 +712,7 @@ export async function cloneAndSetupRepo(
   });
 }
 
-/** Sets up a working branch from a base, merges upstream changes, and pushes to origin. */
+/** Sets up a working branch from the best available local base ref. */
 export async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
@@ -656,6 +724,7 @@ export async function setupBranch(
       sandbox,
       baseBranch,
     );
+    logGit(`setupBranch: using base source=${source} for branch=${branchName}`);
     const quotedBranch = quote([branchName]);
     const quotedRemote = quote([`origin/${branchName}`]);
     const quotedBase = quote([baseTarget]);
@@ -683,17 +752,6 @@ export async function setupBranch(
         ? `(git merge --ff-only ${quotedRemote} 2>/dev/null || true) && (git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true)`
         : `(git merge --ff-only ${quotedRemote} 2>/dev/null || true)`;
     await execGitCommand(sandbox, `cd ${workspaceDir} && ${mergeCmd}`, 30);
-    try {
-      await execGitCommand(
-        sandbox,
-        `cd ${workspaceDir} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
-        60,
-      );
-    } catch (error) {
-      console.warn(
-        `[daytona] setupBranch push skipped: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
   });
 }
 
@@ -763,6 +821,10 @@ export async function createSandboxAndPrepareRepo(
           !lifecycle.ephemeral,
           onProgress,
         );
+        if (syncStrategy.mode !== "none") {
+          if (onProgress) await onProgress("Syncing repository...");
+          await syncRepo(sandbox, installationId, owner, name, syncStrategy);
+        }
         return { sandbox, usedSnapshot: false };
       },
     );

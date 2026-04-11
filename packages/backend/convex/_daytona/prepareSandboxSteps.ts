@@ -39,13 +39,16 @@ async function emitSteps(
   });
 }
 
-/** Orchestrates sandbox creation, base branch fetch, and branch setup as a multi-step workflow. */
+/** Orchestrates sandbox creation and local branch setup as a multi-step workflow. */
 export async function prepareSandboxSteps(
   step: WorkflowCtx,
   args: PrepareSandboxArgs,
 ): Promise<string> {
   const completedSteps: Array<ProgressStep> = [];
 
+  // Step 1: Create/resume the sandbox only.
+  // Snapshot-backed quick tasks should start from local refs instead of
+  // blocking sandbox acquisition on a network fetch.
   const setupResult = await step.runAction(
     internal.daytona.createOrResumeSandbox,
     {
@@ -69,61 +72,7 @@ export async function prepareSandboxSteps(
     status: "complete",
   });
 
-  if (args.baseBranch) {
-    await emitSteps(step, args.streamingEntityId, [
-      ...completedSteps,
-      { type: "tool", label: "Fetching base branch...", status: "active" },
-    ]);
-
-    await step.runAction(
-      internal.daytona.fetchBaseBranch,
-      {
-        sandboxId,
-        installationId: args.installationId,
-        repoOwner: args.repoOwner,
-        repoName: args.repoName,
-        baseBranch: args.baseBranch,
-        repoId: args.repoId,
-      },
-      STEP_RETRY,
-    );
-
-    completedSteps.push({
-      type: "tool",
-      label: "Fetching base branch...",
-      status: "complete",
-    });
-    if (!args.branchName) {
-      await emitSteps(step, args.streamingEntityId, [
-        ...completedSteps,
-        {
-          type: "tool",
-          label: "Checking out base branch...",
-          status: "active",
-        },
-      ]);
-
-      await step.runAction(
-        internal.daytona.checkoutBaseBranch,
-        {
-          sandboxId,
-          installationId: args.installationId,
-          repoOwner: args.repoOwner,
-          repoName: args.repoName,
-          baseBranch: args.baseBranch,
-          repoId: args.repoId,
-        },
-        STEP_RETRY,
-      );
-
-      completedSteps.push({
-        type: "tool",
-        label: "Checking out base branch...",
-        status: "complete",
-      });
-    }
-  }
-
+  // Step 2: Checkout or create the working branch using local refs.
   if (args.branchName) {
     await emitSteps(step, args.streamingEntityId, [
       ...completedSteps,
@@ -139,6 +88,28 @@ export async function prepareSandboxSteps(
         repoName: args.repoName,
         branchName: args.branchName,
         baseBranch: args.baseBranch ?? "main",
+        repoId: args.repoId,
+      },
+      STEP_RETRY,
+    );
+  } else if (args.baseBranch) {
+    await emitSteps(step, args.streamingEntityId, [
+      ...completedSteps,
+      {
+        type: "tool",
+        label: "Checking out base branch...",
+        status: "active",
+      },
+    ]);
+
+    await step.runAction(
+      internal.daytona.checkoutBaseBranch,
+      {
+        sandboxId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        baseBranch: args.baseBranch,
         repoId: args.repoId,
       },
       STEP_RETRY,

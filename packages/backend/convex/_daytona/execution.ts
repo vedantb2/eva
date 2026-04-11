@@ -21,8 +21,6 @@ import {
   checkoutFetchedBaseBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
-  createBranchSyncStrategy,
-  type RepoSyncStrategy,
   EPHEMERAL_LIFECYCLE,
   SESSION_LIFECYCLE,
 } from "./git";
@@ -110,26 +108,6 @@ export const getPreviewUrl = action({
 
 const MAX_SETUP_ELAPSED_MS = 8 * 60 * 1000;
 
-/** Determines the repo sync strategy based on branch and base branch names. */
-function getSandboxPrepSyncStrategy(
-  branchName: string | undefined,
-  baseBranch: string | undefined,
-): RepoSyncStrategy {
-  if (!branchName && !baseBranch) {
-    return { mode: "none" };
-  }
-  const branchTargets: string[] = [];
-  if (baseBranch) {
-    branchTargets.push(baseBranch);
-  } else if (branchName) {
-    branchTargets.push("main");
-  }
-  if (branchName) {
-    branchTargets.push(branchName);
-  }
-  return createBranchSyncStrategy(branchTargets);
-}
-
 /** Checks if a sandbox setup error is transient and worth retrying. */
 function isSandboxSetupRetryable(message: string): boolean {
   if (isDaytonaNetworkIssue(message)) {
@@ -156,7 +134,7 @@ function isSandboxSetupRetryable(message: string): boolean {
   );
 }
 
-/** Creates or resumes a sandbox with branch setup, desktop, and retry logic. */
+/** Creates or resumes a sandbox with local branch setup, desktop, and retry logic. */
 export const prepareSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
@@ -261,22 +239,6 @@ export const prepareSandbox = internalAction({
           deleteSandboxOnFailure = prepared.isNew;
         }
 
-        if (args.baseBranch) {
-          await emitProgress("Fetching base branch...");
-          await fetchOrigin(
-            sandbox,
-            args.installationId,
-            args.repoOwner,
-            args.repoName,
-            args.baseBranch,
-            { prune: false, timeoutSeconds: 240 },
-          );
-          if (!args.branchName) {
-            await emitProgress("Checking out base branch...");
-            await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
-          }
-        }
-
         if (args.branchName) {
           await emitProgress("Setting up branch...");
           await setupBranch(
@@ -284,6 +246,9 @@ export const prepareSandbox = internalAction({
             args.branchName,
             args.baseBranch ?? "main",
           );
+        } else if (args.baseBranch) {
+          await emitProgress("Checking out base branch...");
+          await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
         }
 
         if (args.startDesktop) {
@@ -343,7 +308,7 @@ export const prepareSandbox = internalAction({
   },
 });
 
-/** Creates or resumes a sandbox with repo syncing and retry logic. */
+/** Creates or resumes a sandbox without performing repo sync. */
 export const createOrResumeSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
@@ -392,12 +357,8 @@ export const createOrResumeSandbox = internalAction({
           args.sessionPersistenceId,
         )
       : undefined;
-    const syncStrategy = getSandboxPrepSyncStrategy(
-      args.branchName,
-      args.baseBranch,
-    );
     console.log(
-      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
+      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
     );
 
     let sandbox: Sandbox | undefined;
@@ -430,7 +391,7 @@ export const createOrResumeSandbox = internalAction({
             sessionVolumeMounts,
             attachRunSandbox,
             emitProgress,
-            syncStrategy,
+            { mode: "none" },
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -446,7 +407,7 @@ export const createOrResumeSandbox = internalAction({
             snapshotName,
             sessionVolumeMounts,
             emitProgress,
-            syncStrategy,
+            { mode: "none" },
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
@@ -532,7 +493,7 @@ export const fetchBaseBranch = internalAction({
       args.repoOwner,
       args.repoName,
       args.baseBranch,
-      { prune: false, timeoutSeconds: 240, shallow: true },
+      { prune: false, timeoutSeconds: 60, shallow: true },
     );
     return null;
   },

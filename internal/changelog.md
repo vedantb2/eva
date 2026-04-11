@@ -21,6 +21,26 @@
   - Added `useStableAuth` wrapper around Clerk's `useAuth` for `ConvexProviderWithClerk` — debounces unexpected auth loss for 2s so the page reloads (stale deployment) or routes unmount (real logout) before Convex ever sees the token cleared.
 - **Reason**: The error page flash was a bad UX during deployments, and the Convex log noise made real errors harder to spot. Debouncing auth loss at the provider boundary is the narrowest intervention that prevents the cascade without changing the backend auth contract.
 
+## Retry branch fetches instead of burning full sandbox-prep timeout - 2026-04-11
+
+- **Why**: Quick-task starts were still failing before the agent launched when the sandbox hit a transient stall talking to GitHub during the base-branch fetch. The old behavior let a single `git fetch` sit for the full command timeout, so one bad network hop could waste four minutes and fail the run with `command execution timeout`.
+- **Changes**:
+  - Added short retry/backoff handling around branch-oriented git fetch helpers so transient Daytona/GitHub transport stalls get another chance before the workflow gives up.
+  - Added `--no-tags` to sandbox prep fetches, keeping quick-task branch sync focused on the refs it actually needs instead of downloading tag metadata too.
+  - Reduced the dedicated `fetchBaseBranch` action timeout from 240s to 60s because shallow single-branch fetches should fail fast and retry, not consume the whole startup budget in one shot.
+- **Reason**: Quick-task startup is more reliable when branch sync behaves like the other hardened sandbox steps: cheap retries for flaky transport, narrower fetch scope, and less willingness to wait several minutes on one stuck command.
+
+## Simplify sandbox startup to local-first branch setup - 2026-04-11
+
+- **Why**: Sandbox startup had drifted back into doing network branch sync during `createOrResumeSandbox`, so a snapshot-backed run could spend minutes stuck in `Syncing repository...` before the agent even launched. That is the wrong dependency order for a task flow that already starts from a prepared snapshot checkout.
+- **Changes**:
+  - `prepareSandboxSteps` now uses `createOrResumeSandbox` only for sandbox acquisition, then performs branch checkout/setup as separate local steps instead of bundling branch sync into sandbox creation.
+  - The shared `prepareSandbox` action now follows the same local-first flow instead of fetching the base branch before every branch checkout or desktop launch.
+  - `createOrResumeSandbox` now always prepares sandboxes with `syncStrategy=none`, restoring the simpler responsibility boundary: create/resume the sandbox, do not fetch refs.
+  - `setupBranch` no longer does a proactive `git push -u origin` during startup. The agent can push when it actually has work to publish, which removes an unnecessary pre-launch network dependency.
+  - `checkoutFetchedBaseBranch` now falls back to local snapshot refs or `HEAD` when no remote base ref has been fetched, so local branch setup still succeeds without mandatory network access.
+- **Reason**: Snapshot-backed task startup should be local-first and fail-fast. Sandboxes should come up quickly from existing repo state, and remote sync should not be a hard prerequisite just to begin work.
+
 ## Remove pre-clone network polling for fresh sandboxes - 2026-04-10
 
 - **Why**: New repos without snapshots were still taking over a minute to start quick tasks because sandbox prep waited for a synthetic `curl github.com` network check before attempting the real `git clone`. The check was both slow and misleading: even after timing out, the code still tried the clone anyway.

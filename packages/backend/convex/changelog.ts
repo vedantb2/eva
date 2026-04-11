@@ -1,14 +1,17 @@
 import { v } from "convex/values";
-import { authQuery, authMutation } from "./functions";
+import { query } from "./_generated/server";
+import { getCurrentUserId } from "./auth";
+import { authMutation } from "./functions";
 
 const CHANGELOG_AUTOMATION_TITLE = "Eva Weekly Changelog";
 
 /**
  * Returns the latest successful changelog automation run and whether the
  * current user should see the popup (i.e. they haven't dismissed it yet).
- * Finds the automation by title rather than hardcoded ID.
+ * Uses a plain query so it returns null for unauthenticated users instead
+ * of throwing — this lets the component live in the root layout.
  */
-export const getLatestChangelog = authQuery({
+export const getLatestChangelog = query({
   args: {},
   returns: v.union(
     v.object({
@@ -19,6 +22,9 @@ export const getLatestChangelog = authQuery({
     v.null(),
   ),
   handler: async (ctx) => {
+    const userId = await getCurrentUserId(ctx);
+    if (!userId) return null;
+
     // Find the changelog automation by title across all repos.
     const allAutomations = await ctx.db.query("automations").collect();
     const automation = allAutomations.find(
@@ -36,7 +42,7 @@ export const getLatestChangelog = authQuery({
 
     if (!latestRun?.resultSummary || !latestRun.finishedAt) return null;
 
-    const user = await ctx.db.get(ctx.userId);
+    const user = await ctx.db.get(userId);
     if (!user) return null;
 
     const dismissed = user.lastChangelogDismissedAt ?? 0;

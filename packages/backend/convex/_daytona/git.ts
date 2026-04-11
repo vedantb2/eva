@@ -196,20 +196,6 @@ function normalizeBranchNames(branchNames: string[]): string[] {
   return normalized;
 }
 
-/** Creates a branch-specific repo sync strategy from a list of branch names. */
-export function createBranchSyncStrategy(
-  branchNames: string[],
-): RepoSyncStrategy {
-  const normalized = normalizeBranchNames(branchNames);
-  if (normalized.length === 0) {
-    return { mode: "none" };
-  }
-  return {
-    mode: "branches",
-    branchNames: normalized,
-  };
-}
-
 /** Checks if an error message indicates a missing remote ref. */
 function isMissingRemoteRefError(message: string): boolean {
   const lower = message.toLowerCase();
@@ -246,8 +232,8 @@ async function retryGitNetworkOperation<T>(
   label: string,
   details: string,
   fn: () => Promise<T>,
+  maxAttempts = 3,
 ): Promise<T> {
-  const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const result = await fn();
@@ -374,7 +360,12 @@ export async function fetchOrigin(
   owner: string,
   name: string,
   ref?: string,
-  opts?: { prune?: boolean; timeoutSeconds?: number; shallow?: boolean },
+  opts?: {
+    prune?: boolean;
+    timeoutSeconds?: number;
+    shallow?: boolean;
+    retryAttempts?: number;
+  },
 ): Promise<void> {
   const details = `${owner}/${name}, ref=${ref ?? "all"}, prune=${
     opts?.prune === false ? "false" : "true"
@@ -386,13 +377,18 @@ export async function fetchOrigin(
     const pruneArg = opts?.prune === false ? "" : " --prune";
     const depthArg = opts?.shallow === true ? " --depth 1" : "";
     const refArg = ref ? ` ${quote([ref])}` : "";
-    await retryGitNetworkOperation("fetchOrigin", details, async () => {
-      await execGitCommand(
-        sandbox,
-        `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${pruneArg}${depthArg} origin${refArg}`,
-        opts?.timeoutSeconds ?? 240,
-      );
-    });
+    await retryGitNetworkOperation(
+      "fetchOrigin",
+      details,
+      async () => {
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${pruneArg}${depthArg} origin${refArg}`,
+          opts?.timeoutSeconds ?? 240,
+        );
+      },
+      opts?.retryAttempts,
+    );
   });
 }
 
@@ -403,7 +399,12 @@ export async function fetchBranchRefs(
   owner: string,
   name: string,
   branchNames: string[],
-  opts?: { prune?: boolean; timeoutSeconds?: number; shallow?: boolean },
+  opts?: {
+    prune?: boolean;
+    timeoutSeconds?: number;
+    shallow?: boolean;
+    retryAttempts?: number;
+  },
 ): Promise<string[]> {
   const details = `${owner}/${name}, branches=${branchNames.join(",")}, timeout=${opts?.timeoutSeconds ?? 240}, shallow=${opts?.shallow === true ? "true" : "false"}`;
   return await runLoggedGitStep("fetchBranchRefs", details, async () => {
@@ -461,6 +462,7 @@ export async function fetchBranchRefs(
           return fetchedBranches;
         }
       },
+      opts?.retryAttempts,
     );
   });
 }

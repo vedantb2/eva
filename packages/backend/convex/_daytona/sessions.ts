@@ -16,7 +16,6 @@ import {
   setupBranch,
   checkoutSessionBranch,
   createSandboxAndPrepareRepo,
-  createBranchSyncStrategy,
   fetchBranchRefs,
   resolveBaseTarget,
   SESSION_LIFECYCLE,
@@ -59,11 +58,6 @@ async function runLoggedSessionStep<T>(
   }
 }
 
-/** Returns the git branch sync strategy for a session branch and its base. */
-function getSessionSyncStrategy(branchName: string, baseBranch: string) {
-  return createBranchSyncStrategy([branchName, baseBranch]);
-}
-
 /** Checks whether a git error message indicates a transient/retryable failure. */
 function isRetryableSessionGitError(message: string): boolean {
   const lower = message.toLowerCase();
@@ -87,53 +81,6 @@ function isRetryableSessionGitError(message: string): boolean {
     lower.includes("connection reset by peer") ||
     lower.includes("rpc failed")
   );
-}
-
-/** Fetches branch refs from remote with automatic retry on transient failures. */
-async function fetchBranchRefsWithRetry(
-  sandbox: Sandbox,
-  installationId: number,
-  repoOwner: string,
-  repoName: string,
-  branchNames: string[],
-  opts?: { timeoutSeconds?: number; shallow?: boolean },
-): Promise<string[]> {
-  const maxAttempts = 3;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      const fetchedBranches = await fetchBranchRefs(
-        sandbox,
-        installationId,
-        repoOwner,
-        repoName,
-        branchNames,
-        {
-          prune: false,
-          timeoutSeconds: opts?.timeoutSeconds,
-          shallow: opts?.shallow,
-        },
-      );
-      if (attempt > 1) {
-        logSession(
-          `fetchBranchRefsWithRetry recovered on retry ${attempt}/${maxAttempts} (repo=${repoOwner}/${repoName}, branches=${branchNames.join(",")})`,
-        );
-      }
-      return fetchedBranches;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const canRetry =
-        attempt < maxAttempts && isRetryableSessionGitError(message);
-      if (!canRetry) {
-        throw error;
-      }
-      const delayMs = 1000 * attempt;
-      logSession(
-        `fetchBranchRefsWithRetry retrying after ${delayMs}ms (attempt ${attempt}/${maxAttempts}, repo=${repoOwner}/${repoName}, branches=${branchNames.join(",")}): ${message}`,
-      );
-      await sleep(delayMs);
-    }
-  }
-  return [];
 }
 
 /** Resolves and logs the base ref target for a session branch. */
@@ -193,15 +140,17 @@ async function syncSessionRefsForRestore(
 ): Promise<void> {
   let fetchedSessionBranches: string[] = [];
   try {
-    fetchedSessionBranches = await fetchBranchRefsWithRetry(
+    fetchedSessionBranches = await fetchBranchRefs(
       sandbox,
       installationId,
       repoOwner,
       repoName,
       [branchName],
       {
-        timeoutSeconds: 30,
+        prune: false,
+        timeoutSeconds: 3,
         shallow: true,
+        retryAttempts: 1,
       },
     );
   } catch (error) {
@@ -239,14 +188,16 @@ async function syncDesignRefsForSetup(
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const fetchedBranches = await fetchBranchRefsWithRetry(
+  const fetchedBranches = await fetchBranchRefs(
     sandbox,
     installationId,
     repoOwner,
     repoName,
     [baseBranch, branchName],
     {
+      prune: false,
       timeoutSeconds: 240,
+      retryAttempts: 1,
     },
   );
   const designBranchExists = fetchedBranches.includes(branchName);
@@ -356,7 +307,6 @@ async function prepareSessionSandboxInternal(
       }),
   );
   const rootDir = repo?.rootDirectory ?? "";
-  const syncStrategy = getSessionSyncStrategy(args.branchName, args.baseBranch);
 
   const { daytona, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
     "resolveSessionSandboxContext",
@@ -364,7 +314,7 @@ async function prepareSessionSandboxInternal(
     () => resolveSandboxContext(ctx, args.repoId),
   );
   logSession(
-    `prepareSessionSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."}, syncStrategy=${syncStrategy.mode === "branches" ? syncStrategy.branchNames.join(",") : syncStrategy.mode})`,
+    `prepareSessionSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
   );
 
   let reusedResult: PreparedSessionSandbox | null = null;
@@ -379,14 +329,6 @@ async function prepareSessionSandboxInternal(
           sandboxDetails,
           async () => {
             await ensureSandboxRunning(sandbox);
-            await syncSessionRefsForRestore(
-              sandbox,
-              args.installationId,
-              args.repoOwner,
-              args.repoName,
-              args.branchName,
-              args.baseBranch,
-            );
             await checkoutSessionBranchWithRetry(
               sandbox,
               args.branchName,

@@ -214,6 +214,18 @@ export const setCustomInstructions = authMutation({
   },
 });
 
+/** Updates the current user's functional role preset. */
+export const setRole = authMutation({
+  args: { role: v.union(roleUserValidator, v.null()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(ctx.userId, {
+      role: args.role ?? undefined,
+    });
+    return null;
+  },
+});
+
 /** Returns whether the toolbar is visible for the current user. */
 export const getToolbarVisible = authQuery({
   args: {},

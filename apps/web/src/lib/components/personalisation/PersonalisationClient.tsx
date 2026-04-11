@@ -19,6 +19,7 @@ const PRESET_KEYS = ["business", "dev", "designer"] as const;
 export function PersonalisationClient() {
   const personalisation = useQuery(api.auth.getPersonalisation);
   const setCustomInstructions = useMutation(api.auth.setCustomInstructions);
+  const setRole = useMutation(api.auth.setRole);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const savedValue = personalisation?.customInstructions ?? "";
@@ -67,13 +68,15 @@ export function PersonalisationClient() {
               const isActive = activeRole === key;
 
               return (
-                <div
+                <button
                   key={key}
+                  type="button"
+                  onClick={() => setRole({ role: isActive ? null : key })}
                   className={cn(
-                    "rounded-lg p-3 transition-colors",
+                    "rounded-lg p-3 text-left transition-colors cursor-pointer",
                     isActive
                       ? "bg-accent text-accent-foreground"
-                      : "bg-muted/40 text-muted-foreground",
+                      : "bg-muted/40 text-muted-foreground hover:bg-muted/60",
                   )}
                 >
                   <div className="flex items-center gap-2">
@@ -83,7 +86,7 @@ export function PersonalisationClient() {
                   <p className="mt-1 text-[11px] opacity-80">
                     {preset.description}
                   </p>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -99,7 +102,7 @@ export function PersonalisationClient() {
             </div>
           ) : (
             <p className="text-xs text-muted-foreground italic">
-              No role selected. Your role can be set during onboarding.
+              No role selected. Click a preset above to activate it.
             </p>
           )}
         </div>

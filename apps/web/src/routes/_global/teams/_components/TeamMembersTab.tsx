@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
@@ -14,6 +15,11 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
 } from "@conductor/ui";
 import { IconTrash, IconUserPlus } from "@tabler/icons-react";
 import { UserInitials } from "@conductor/shared";
@@ -31,8 +37,10 @@ export function TeamMembersTab({
   members,
   isOwner,
 }: TeamMembersTabProps) {
+  const currentUserId = useQuery(api.auth.me);
   const addMember = useMutation(api.teamMembers.add);
   const removeMember = useMutation(api.teamMembers.remove);
+  const updateRole = useMutation(api.teamMembers.updateRole);
 
   const [dialog, setDialog] = useState({
     open: false,
@@ -144,10 +152,27 @@ export function TeamMembersTab({
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <span className="rounded-full bg-secondary px-2 py-1 text-xs">
-                  {member.role}
-                </span>
-                {isOwner && member.role !== "owner" && (
+                {isOwner && member.userId !== currentUserId ? (
+                  <Select
+                    value={member.role}
+                    onValueChange={(role: "owner" | "member") =>
+                      updateRole({ teamId, userId: member.userId, role })
+                    }
+                  >
+                    <SelectTrigger className="h-7 w-[100px] border-0 bg-secondary text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="owner">owner</SelectItem>
+                      <SelectItem value="member">member</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="rounded-full bg-secondary px-2 py-1 text-xs">
+                    {member.role}
+                  </span>
+                )}
+                {isOwner && member.userId !== currentUserId && (
                   <Button
                     size="icon"
                     variant="ghost"

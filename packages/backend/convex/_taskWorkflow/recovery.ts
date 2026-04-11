@@ -18,6 +18,7 @@ export const STALE_RECHECK_MS = 30_000;
 export const STALE_FINISHING_THRESHOLD_MS = 300_000;
 export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
 
+/** Checks whether an error message indicates a Daytona infrastructure/network issue. */
 export function isDaytonaNetworkIssue(errorMsg: string): boolean {
   const message = errorMsg.toLowerCase();
   const networkMarkers = [
@@ -73,6 +74,7 @@ export function isDaytonaNetworkIssue(errorMsg: string): boolean {
   return hasNetworkMarker || hasDaytonaStatusMarker;
 }
 
+/** Calculates a randomized retry delay for quick task auto-retries. */
 export function buildQuickTaskRetryDelayMs(): number {
   return (
     QUICK_TASK_AUTO_RETRY_BASE_DELAY_MS +
@@ -80,6 +82,7 @@ export function buildQuickTaskRetryDelayMs(): number {
   );
 }
 
+/** Cleans up a stale or failed run: cancels workflow, kills sandbox, marks run as error, and schedules retry. */
 export async function cleanUpStaleRun(
   ctx: MutationCtx,
   params: {

@@ -34,8 +34,9 @@ export const logLevelValidator = v.union(
 export const roleValidator = v.union(v.literal("user"), v.literal("assistant"));
 
 export const sessionModeValidator = v.union(
-  v.literal("execute"),
+  v.literal("edit"),
   v.literal("ask"),
+  v.literal("execute"),
   v.literal("plan"),
 );
 
@@ -125,7 +126,30 @@ export const deploymentStatusValidator = v.union(
 export const roleUserValidator = v.union(
   v.literal("business"),
   v.literal("dev"),
+  v.literal("designer"),
 );
+
+/** Hardcoded preset prompts mapped to each user role. These only affect response style and communication tone — they must NOT influence what code edits are made. */
+export const PERSONALISATION_PRESETS = {
+  business: {
+    label: "Business",
+    description: "Non-technical, outcome-focused communication",
+    prompt:
+      "When explaining your work, use non-technical language. Frame responses around business outcomes, user impact, and timelines rather than implementation details. Avoid code snippets in explanations unless explicitly asked. This only affects how you communicate — make the same code edits you normally would.",
+  },
+  dev: {
+    label: "Developer",
+    description: "Technical, code-focused communication",
+    prompt:
+      "When explaining your work, be technically precise. Include code snippets, reference specific functions, and discuss architecture and performance tradeoffs in your responses. This only affects how you communicate — make the same code edits you normally would.",
+  },
+  designer: {
+    label: "Designer",
+    description: "Design-aware communication style",
+    prompt:
+      "When explaining your work, frame responses in terms of user experience, visual consistency, accessibility, and design patterns. Reference how changes affect the UI and design system in your explanations. This only affects how you communicate — make the same code edits you normally would.",
+  },
+} as const;
 
 export const aiProviderValidator = v.union(
   v.literal("claude"),
@@ -139,13 +163,10 @@ export const aiModelValidator = v.union(
   v.literal("claude:opus"),
   v.literal("claude:sonnet"),
   v.literal("claude:haiku"),
-  v.literal("codex:gpt-5-codex"),
-  v.literal("codex:gpt-5.1-codex"),
-  v.literal("codex:gpt-5.1-codex-max"),
-  v.literal("codex:gpt-5.1-codex-mini"),
-  v.literal("codex:gpt-5.2-codex"),
+  v.literal("codex:gpt-5.4"),
+  v.literal("codex:gpt-5.4-mini"),
   v.literal("codex:gpt-5.3-codex"),
-  v.literal("codex:codex-mini-latest"),
+  v.literal("codex:gpt-5.2-codex"),
 );
 
 export type AIProvider = "claude" | "codex";
@@ -154,20 +175,16 @@ export type AIModel =
   | "claude:opus"
   | "claude:sonnet"
   | "claude:haiku"
-  | "codex:gpt-5-codex"
-  | "codex:gpt-5.1-codex"
-  | "codex:gpt-5.1-codex-max"
-  | "codex:gpt-5.1-codex-mini"
-  | "codex:gpt-5.2-codex"
+  | "codex:gpt-5.4"
+  | "codex:gpt-5.4-mini"
   | "codex:gpt-5.3-codex"
-  | "codex:codex-mini-latest";
+  | "codex:gpt-5.2-codex";
 export type PersistedAIModel = AIModel | LegacyClaudeModel;
 
 export interface AIModelOption {
   id: AIModel;
   provider: AIProvider;
   label: string;
-  legacy: boolean;
   requiresAuth: boolean;
 }
 
@@ -179,74 +196,41 @@ export interface AIProviderAvailability {
 export const DEFAULT_AI_MODEL: AIModel = "claude:sonnet";
 
 export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
-  {
-    id: "claude:opus",
-    provider: "claude",
-    label: "Opus",
-    legacy: false,
-    requiresAuth: true,
-  },
+  { id: "claude:opus", provider: "claude", label: "Opus", requiresAuth: true },
   {
     id: "claude:sonnet",
     provider: "claude",
     label: "Sonnet",
-    legacy: false,
     requiresAuth: true,
   },
   {
     id: "claude:haiku",
     provider: "claude",
     label: "Haiku",
-    legacy: false,
+    requiresAuth: true,
+  },
+  {
+    id: "codex:gpt-5.4",
+    provider: "codex",
+    label: "GPT-5.4",
+    requiresAuth: true,
+  },
+  {
+    id: "codex:gpt-5.4-mini",
+    provider: "codex",
+    label: "GPT-5.4 mini",
     requiresAuth: true,
   },
   {
     id: "codex:gpt-5.3-codex",
     provider: "codex",
     label: "GPT-5.3-Codex",
-    legacy: false,
     requiresAuth: true,
   },
   {
     id: "codex:gpt-5.2-codex",
     provider: "codex",
     label: "GPT-5.2-Codex",
-    legacy: false,
-    requiresAuth: true,
-  },
-  {
-    id: "codex:gpt-5.1-codex-max",
-    provider: "codex",
-    label: "GPT-5.1-Codex-Max",
-    legacy: false,
-    requiresAuth: true,
-  },
-  {
-    id: "codex:gpt-5.1-codex",
-    provider: "codex",
-    label: "GPT-5.1-Codex",
-    legacy: false,
-    requiresAuth: true,
-  },
-  {
-    id: "codex:gpt-5.1-codex-mini",
-    provider: "codex",
-    label: "GPT-5.1-Codex mini",
-    legacy: false,
-    requiresAuth: true,
-  },
-  {
-    id: "codex:gpt-5-codex",
-    provider: "codex",
-    label: "GPT-5-Codex",
-    legacy: true,
-    requiresAuth: true,
-  },
-  {
-    id: "codex:codex-mini-latest",
-    provider: "codex",
-    label: "codex-mini-latest",
-    legacy: true,
     requiresAuth: true,
   },
 ];
@@ -269,6 +253,7 @@ export const CODEX_CONFIG_ENV_KEYS: ReadonlyArray<string> = [
   "CODEX_CONFIG_TOML_BASE64",
 ];
 
+/** Determines which AI providers are available based on the presence of required env var keys. */
 export function getAIProviderAvailability(
   envVarKeys: Iterable<string>,
 ): AIProviderAvailability {
@@ -279,6 +264,7 @@ export function getAIProviderAvailability(
   };
 }
 
+/** Normalizes a raw model string (including legacy formats) to a canonical AIModel value. */
 export function normalizeAIModel(model: string | null | undefined): AIModel {
   switch (model) {
     case "opus":
@@ -287,20 +273,14 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "haiku":
     case "claude:haiku":
       return "claude:haiku";
-    case "codex:gpt-5-codex":
-      return "codex:gpt-5-codex";
-    case "codex:gpt-5.1-codex":
-      return "codex:gpt-5.1-codex";
-    case "codex:gpt-5.1-codex-max":
-      return "codex:gpt-5.1-codex-max";
-    case "codex:gpt-5.1-codex-mini":
-      return "codex:gpt-5.1-codex-mini";
-    case "codex:gpt-5.2-codex":
-      return "codex:gpt-5.2-codex";
+    case "codex:gpt-5.4":
+      return "codex:gpt-5.4";
+    case "codex:gpt-5.4-mini":
+      return "codex:gpt-5.4-mini";
     case "codex:gpt-5.3-codex":
       return "codex:gpt-5.3-codex";
-    case "codex:codex-mini-latest":
-      return "codex:codex-mini-latest";
+    case "codex:gpt-5.2-codex":
+      return "codex:gpt-5.2-codex";
     case "sonnet":
     case "claude:sonnet":
     default:
@@ -308,12 +288,14 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
   }
 }
 
+/** Returns the AI provider ("claude" or "codex") for a given model string. */
 export function getAIModelProvider(
   model: string | null | undefined,
 ): AIProvider {
   return normalizeAIModel(model).startsWith("codex:") ? "codex" : "claude";
 }
 
+/** Finds the full AIModelOption metadata for a given model string, falling back to the default. */
 export function findAIModelOption(
   model: string | null | undefined,
 ): AIModelOption {
@@ -326,11 +308,11 @@ export function findAIModelOption(
     id: DEFAULT_AI_MODEL,
     provider: "claude",
     label: "Sonnet",
-    legacy: false,
     requiresAuth: true,
   };
 }
 
+/** Checks whether any Codex authentication environment variable is present and non-empty. */
 export function hasCodexAuthEnvVar(envVars: Record<string, string>): boolean {
   return CODEX_AUTH_ENV_KEYS.some((key) => {
     const value = envVars[key];
@@ -338,6 +320,7 @@ export function hasCodexAuthEnvVar(envVars: Record<string, string>): boolean {
   });
 }
 
+/** Returns the list of AI model options visible to the user based on provider availability. */
 export function getVisibleAIModelOptions(
   availability: AIProviderAvailability | null | undefined,
   currentModel: string | null | undefined,
@@ -358,12 +341,6 @@ export function getVisibleAIModelOptions(
     return isClaudeVisible;
   });
 }
-
-export const queryConfirmationStatusValidator = v.union(
-  v.literal("pending"),
-  v.literal("confirmed"),
-  v.literal("cancelled"),
-);
 
 export const snapshotScheduleValidator = v.string();
 
@@ -651,18 +628,12 @@ export const messageFields = {
   finishedAt: v.optional(v.number()),
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
-  parentId: v.union(
-    v.id("sessions"),
-    v.id("designSessions"),
-    v.id("researchQueries"),
-  ),
+  parentId: v.union(v.id("sessions"), v.id("designSessions")),
   mode: v.optional(sessionModeValidator),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),
   variations: v.optional(v.array(variationValidator)),
-  queryCode: v.optional(v.string()),
-  status: v.optional(queryConfirmationStatusValidator),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
   pendingQuestion: v.optional(v.string()),

@@ -1,9 +1,14 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { authMutation, hasRepoAccess } from "../functions";
-import { roleValidator, sessionStatusValidator } from "../validators";
+import {
+  roleValidator,
+  sessionModeValidator,
+  sessionStatusValidator,
+} from "../validators";
 import { workflow } from "../workflowManager";
 
+/** Creates a new session with a sandbox startup workflow. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -44,14 +49,13 @@ export const create = authMutation({
   },
 });
 
+/** Adds a message to a session conversation. */
 export const addMessage = authMutation({
   args: {
     id: v.id("sessions"),
     role: roleValidator,
     content: v.string(),
-    mode: v.optional(
-      v.union(v.literal("execute"), v.literal("ask"), v.literal("plan")),
-    ),
+    mode: v.optional(sessionModeValidator),
     activityLog: v.optional(v.string()),
   },
   returns: v.null(),
@@ -74,6 +78,7 @@ export const addMessage = authMutation({
   },
 });
 
+/** Updates the status of a session. */
 export const updateStatus = authMutation({
   args: {
     id: v.id("sessions"),
@@ -90,6 +95,7 @@ export const updateStatus = authMutation({
   },
 });
 
+/** Updates editable fields (title, branch, PR URL) on a session. */
 export const update = authMutation({
   args: {
     id: v.id("sessions"),
@@ -112,6 +118,7 @@ export const update = authMutation({
   },
 });
 
+/** Updates the summary bullet points on a session. */
 export const updateSummary = authMutation({
   args: {
     id: v.id("sessions"),
@@ -124,6 +131,7 @@ export const updateSummary = authMutation({
   },
 });
 
+/** Archives a session so it no longer appears in the active list. */
 export const archive = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
@@ -140,6 +148,7 @@ export const archive = authMutation({
   },
 });
 
+/** Stores or updates the plan content for a session. */
 export const updatePlanContent = authMutation({
   args: {
     id: v.id("sessions"),
@@ -154,6 +163,7 @@ export const updatePlanContent = authMutation({
   },
 });
 
+/** Updates the content or activity log of the most recent message in a session. */
 export const updateLastMessage = authMutation({
   args: {
     id: v.id("sessions"),

@@ -63,7 +63,7 @@ export function ConfigClient() {
             <div className="rounded-md bg-muted/40 p-3">
               <div className="flex items-start gap-3">
                 <Checkbox
-                  checked={repo.screenshotsVideosEnabled ?? true}
+                  checked={repo.screenshotsVideosEnabled ?? false}
                   onCheckedChange={(value) =>
                     updateConfig({
                       repoId,

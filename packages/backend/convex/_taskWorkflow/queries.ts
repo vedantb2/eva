@@ -6,6 +6,7 @@ import {
   buildConflictResolutionPrompt,
 } from "./prompts";
 
+/** Fetches task, repo, and audit config to build the prompt and sandbox parameters for a run. */
 export const getTaskData = internalQuery({
   args: {
     taskId: v.id("agentTasks"),
@@ -56,10 +57,7 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    const screenshotsVideosEnabled =
-      args.projectId === undefined
-        ? (repo.screenshotsVideosEnabled ?? true)
-        : true;
+    const screenshotsVideosEnabled = repo.screenshotsVideosEnabled ?? false;
 
     const prompt =
       args.mode === "resolve_conflicts"

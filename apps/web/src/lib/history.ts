@@ -6,7 +6,6 @@ const KNOWN_SUB_PAGES = new Set([
   "docs",
   "sessions",
   "quick-tasks",
-  "analyse",
   "settings",
   "testing-arena",
   "stats",

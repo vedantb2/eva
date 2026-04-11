@@ -14,6 +14,7 @@ const testGenCompleteEvent = defineEvent({
   validator: workflowCompleteValidator,
 });
 
+/** Converts text to a URL-safe lowercase slug, truncated to 50 characters. */
 function slugify(text: string): string {
   const slug = text
     .toLowerCase()
@@ -23,10 +24,12 @@ function slugify(text: string): string {
   return slug || "untitled";
 }
 
+/** Replaces double quotes with single quotes in a commit title for shell safety. */
 function sanitizeCommitTitle(title: string): string {
   return title.replace(/"/g, "'").trim() || "document";
 }
 
+/** Formats a list of requirements as a numbered list for the test generation prompt. */
 function formatRequirements(requirements: string[]): string {
   if (requirements.length === 0) {
     return "1. No explicit requirements provided. Infer coverage from the feature description and user flows.";
@@ -36,6 +39,7 @@ function formatRequirements(requirements: string[]): string {
     .join("\n");
 }
 
+/** Formats user flows as numbered markdown sections for the test generation prompt. */
 function formatUserFlows(
   userFlows: Array<{ name: string; steps: string[] }>,
 ): string {
@@ -56,6 +60,7 @@ function formatUserFlows(
 
 // --- Workflow definition ---
 
+/** Runs the test generation workflow: prepares sandbox, generates tests, and creates a PR. */
 export const testGenWorkflow = workflow.define({
   args: {
     docId: v.id("docs"),
@@ -143,6 +148,7 @@ export const testGenWorkflow = workflow.define({
 
 // --- Supporting internal functions ---
 
+/** Fetches doc and repo data and builds the test generation prompt with requirements and user flows. */
 export const getDocData = internalQuery({
   args: { docId: v.id("docs") },
   returns: v.object({
@@ -214,6 +220,7 @@ ${formatUserFlows(doc.userFlows ?? [])}
   },
 });
 
+/** Sets the doc's test generation status to running and clears any previous PR URL. */
 export const setRunning = internalMutation({
   args: { docId: v.id("docs") },
   returns: v.null(),
@@ -226,6 +233,7 @@ export const setRunning = internalMutation({
   },
 });
 
+/** Saves the test generation result, marking the doc as completed or errored. */
 export const saveResult = internalMutation({
   args: {
     docId: v.id("docs"),
@@ -257,6 +265,7 @@ export const saveResult = internalMutation({
   },
 });
 
+/** Stores the created PR URL on the doc after successful test generation. */
 export const savePrUrl = internalMutation({
   args: {
     docId: v.id("docs"),

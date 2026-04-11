@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { authQuery, authMutation } from "./functions";
 import { teamMemberRoleValidator } from "./validators";
 
+/** Lists all members of a team with their user profiles. Returns empty if the requester isn't a member. */
 export const list = authQuery({
   args: { teamId: v.id("teams") },
   returns: v.array(
@@ -56,6 +57,7 @@ export const list = authQuery({
   },
 });
 
+/** Adds a user to a team by email. Only team owners can add members. */
 export const add = authMutation({
   args: {
     teamId: v.id("teams"),
@@ -105,6 +107,7 @@ export const add = authMutation({
   },
 });
 
+/** Removes a member from a team. Prevents removing the last owner. Only owners can remove. */
 export const remove = authMutation({
   args: {
     teamId: v.id("teams"),
@@ -152,6 +155,7 @@ export const remove = authMutation({
   },
 });
 
+/** Changes a team member's role (owner/member). Only owners can change roles. */
 export const updateRole = authMutation({
   args: {
     teamId: v.id("teams"),

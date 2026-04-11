@@ -1,8 +1,17 @@
 "use node";
 
-import type { Daytona, Sandbox, VolumeMount } from "@daytonaio/sdk";
+import type {
+  CreateSandboxFromSnapshotParams,
+  Daytona,
+  Sandbox,
+  VolumeMount,
+} from "@daytonaio/sdk";
 import { quote } from "shell-quote";
-import { buildGitHubRepoUrl, getInstallationToken } from "../githubAuth";
+import {
+  buildGitHubRepoUrl,
+  getInstallationOctokit,
+  getInstallationToken,
+} from "../githubAuth";
 import {
   exec,
   LEGACY_WORKSPACE_DIR,
@@ -50,20 +59,34 @@ const YARN_INSTALL_TIMEOUT_SECONDS = 900;
 const NPM_INSTALL_TIMEOUT_SECONDS = 900;
 const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 90;
 
+// Daytona built-in snapshot with 4 vCPU, 8 GiB RAM, 10 GiB disk.
+// Used as fallback when a repo has no custom snapshot.
+const DEFAULT_SNAPSHOT = "daytona-large";
+
+/** Formats a duration in milliseconds as a human-readable string. */
 function formatDurationMs(durationMs: number): string {
   return `${durationMs}ms`;
 }
 
+/** Logs a git-related message with a consistent prefix. */
 function logGit(message: string): void {
   console.log(`[daytona][git] ${message}`);
 }
 
+/** Checks if an error message indicates a sandbox execution timeout. */
 function isSandboxExecTimeout(message: string): boolean {
   const lower = message.toLowerCase();
-  return lower.includes("sandbox exec") && lower.includes("timed out");
+  return (
+    (lower.includes("sandbox exec") && lower.includes("timed out")) ||
+    lower.includes("command execution timeout")
+  );
 }
 
+/** Kills stale git processes and removes lock files after a timeout. */
 async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
+  logGit(
+    "cleanupTimedOutGitState: killing stale git processes and removing lock files",
+  );
   try {
     const workspaceDir = workspaceDirShell();
     await sandbox.process.executeCommand(
@@ -72,20 +95,42 @@ async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
       undefined,
       10,
     );
-  } catch {
-    // best effort only
+    logGit("cleanupTimedOutGitState: cleanup completed");
+  } catch (error) {
+    logGit(
+      `cleanupTimedOutGitState: cleanup failed (best-effort): ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
+/** Strips GitHub tokens from command strings for safe logging.
+ * Matches all GitHub token prefixes (ghs_, ghp_, gho_, ghu_) regardless of URL escaping.
+ */
+function sanitizeCommand(command: string): string {
+  return command.replace(/gh[spou]_[A-Za-z0-9_]+/g, "***");
+}
+
+/** Executes a git command, cleaning up lock files on timeout errors. */
 async function execGitCommand(
   sandbox: Sandbox,
   command: string,
   timeoutSeconds: number,
 ): Promise<string> {
+  const sanitized = sanitizeCommand(command);
+  const startedAt = Date.now();
+  logGit(`exec [timeout=${timeoutSeconds}s]: ${sanitized}`);
   try {
-    return await exec(sandbox, command, timeoutSeconds);
+    const result = await exec(sandbox, command, timeoutSeconds);
+    logGit(
+      `exec completed in ${formatDurationMs(Date.now() - startedAt)}: ${sanitized}`,
+    );
+    return result;
   } catch (error) {
+    const elapsed = Date.now() - startedAt;
     const message = error instanceof Error ? error.message : String(error);
+    logGit(
+      `exec failed after ${formatDurationMs(elapsed)} [timeout=${timeoutSeconds}s]: ${sanitized} — ${message}`,
+    );
     if (isSandboxExecTimeout(message)) {
       await cleanupTimedOutGitState(sandbox);
     }
@@ -93,6 +138,7 @@ async function execGitCommand(
   }
 }
 
+/** Wraps a git operation with timing logs and error reporting. */
 async function runLoggedGitStep<T>(
   label: string,
   details: string,
@@ -114,6 +160,7 @@ async function runLoggedGitStep<T>(
   }
 }
 
+/** Checks whether a branch exists on the remote GitHub repository. */
 export async function remoteBranchExists(
   sandbox: Sandbox,
   installationId: number,
@@ -136,6 +183,7 @@ export async function remoteBranchExists(
   });
 }
 
+/** Deduplicates and trims branch names, removing empty entries. */
 function normalizeBranchNames(branchNames: string[]): string[] {
   const normalized: string[] = [];
   for (const branchName of branchNames) {
@@ -148,19 +196,7 @@ function normalizeBranchNames(branchNames: string[]): string[] {
   return normalized;
 }
 
-export function createBranchSyncStrategy(
-  branchNames: string[],
-): RepoSyncStrategy {
-  const normalized = normalizeBranchNames(branchNames);
-  if (normalized.length === 0) {
-    return { mode: "none" };
-  }
-  return {
-    mode: "branches",
-    branchNames: normalized,
-  };
-}
-
+/** Checks if an error message indicates a missing remote ref. */
 function isMissingRemoteRefError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
@@ -169,6 +205,66 @@ function isMissingRemoteRefError(message: string): boolean {
   );
 }
 
+function isRetryableGitNetworkError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    isSandboxExecTimeout(message) ||
+    lower.includes("status code 502") ||
+    lower.includes("status code 503") ||
+    lower.includes("status code 504") ||
+    lower.includes("fetch failed") ||
+    lower.includes("econnreset") ||
+    lower.includes("econnrefused") ||
+    lower.includes("etimedout") ||
+    lower.includes("socket hang up") ||
+    lower.includes("gnutls recv error") ||
+    lower.includes("tls connection was non-properly terminated") ||
+    lower.includes("remote end hung up unexpectedly") ||
+    lower.includes("connection reset by peer") ||
+    lower.includes("rpc failed") ||
+    lower.includes("early eof") ||
+    lower.includes("http/2 stream")
+  );
+}
+
+/** Retries transient git network operations with short backoff. */
+async function retryGitNetworkOperation<T>(
+  label: string,
+  details: string,
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const result = await fn();
+      if (attempt > 1) {
+        logGit(
+          `${label} recovered on retry ${attempt}/${maxAttempts}${details ? ` (${details})` : ""}`,
+        );
+      }
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const shouldRetry =
+        attempt < maxAttempts && isRetryableGitNetworkError(message);
+      if (!shouldRetry) {
+        throw error;
+      }
+      const delayMs = 1000 * attempt;
+      logGit(
+        `${label} retrying in ${delayMs}ms after attempt ${attempt}/${maxAttempts}${details ? ` (${details})` : ""}: ${message}`,
+      );
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, delayMs);
+      });
+    }
+  }
+  throw new Error(
+    `${label} failed without returning a result${details ? ` (${details})` : ""}`,
+  );
+}
+
+/** Creates a new Daytona sandbox with GitHub auth and git configuration. */
 export async function createSandbox(
   daytona: Daytona,
   installationId: number,
@@ -195,31 +291,38 @@ export async function createSandbox(
 
     const githubToken = await getInstallationToken(installationId);
 
+    const commonParams = {
+      ...(volumes ? { volumes } : {}),
+      envVars: {
+        ...sandboxEnvVars,
+        GITHUB_TOKEN: githubToken,
+        INSTALLATION_ID: String(installationId),
+      },
+      autoStopInterval: lifecycle.autoStopInterval,
+      ...(lifecycle.autoDeleteInterval !== undefined
+        ? { autoDeleteInterval: lifecycle.autoDeleteInterval }
+        : {}),
+      ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
+    };
+
+    // Use the repo's custom snapshot, or fall back to daytona-large (4 vCPU / 8 GiB / 10 GiB).
+    // Non-snapshot sandboxes (cpu=1, mem=1GB) have broken outbound networking.
+    const createParams: CreateSandboxFromSnapshotParams = {
+      ...commonParams,
+      snapshot: snapshotName ?? DEFAULT_SNAPSHOT,
+    };
+
     const sandbox = await withTimeout(
-      daytona.create(
-        {
-          ...(snapshotName
-            ? { snapshot: snapshotName }
-            : { language: "typescript" }),
-          ...(volumes ? { volumes } : {}),
-          envVars: {
-            ...sandboxEnvVars,
-            GITHUB_TOKEN: githubToken,
-            INSTALLATION_ID: String(installationId),
-          },
-          autoStopInterval: lifecycle.autoStopInterval,
-          ...(lifecycle.autoDeleteInterval !== undefined
-            ? { autoDeleteInterval: lifecycle.autoDeleteInterval }
-            : {}),
-          ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
-        },
-        { timeout: timeoutSeconds },
-      ),
+      daytona.create(createParams, { timeout: timeoutSeconds }),
       readyTimeoutSeconds
         ? timeoutSeconds * 1000 + 30_000
         : DAYTONA_CREATE_TIMEOUT_MS,
       "create",
     );
+    logGit(
+      `createSandbox: created id=${sandbox.id}, cpu=${sandbox.cpu}, memory=${sandbox.memory}, disk=${sandbox.disk}`,
+    );
+
     await exec(
       sandbox,
       'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
@@ -229,6 +332,7 @@ export async function createSandbox(
   });
 }
 
+/** Sets the git remote origin URL to an authenticated GitHub URL. */
 export async function configureGitHubOrigin(
   sandbox: Sandbox,
   installationId: number,
@@ -249,38 +353,58 @@ export async function configureGitHubOrigin(
   });
 }
 
+/** Fetches refs from the GitHub remote origin, optionally pruning stale refs. */
 export async function fetchOrigin(
   sandbox: Sandbox,
   installationId: number,
   owner: string,
   name: string,
   ref?: string,
-  opts?: { prune?: boolean; timeoutSeconds?: number },
+  opts?: {
+    prune?: boolean;
+    timeoutSeconds?: number;
+    shallow?: boolean;
+    retryAttempts?: number;
+  },
 ): Promise<void> {
   const details = `${owner}/${name}, ref=${ref ?? "all"}, prune=${
     opts?.prune === false ? "false" : "true"
-  }`;
+  }, shallow=${opts?.shallow === true ? "true" : "false"}`;
   await runLoggedGitStep("fetchOrigin", details, async () => {
     const githubToken = await getInstallationToken(installationId);
     const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
     const workspaceDir = workspaceDirShell();
     const pruneArg = opts?.prune === false ? "" : " --prune";
+    const depthArg = opts?.shallow === true ? " --depth 1" : "";
     const refArg = ref ? ` ${quote([ref])}` : "";
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch${pruneArg} origin${refArg}`,
-      opts?.timeoutSeconds ?? 240,
+    await retryGitNetworkOperation(
+      "fetchOrigin",
+      details,
+      async () => {
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${pruneArg}${depthArg} origin${refArg}`,
+          opts?.timeoutSeconds ?? 240,
+        );
+      },
+      opts?.retryAttempts,
     );
   });
 }
 
+/** Fetches specific branch refs from origin, falling back to individual fetches on missing refs. */
 export async function fetchBranchRefs(
   sandbox: Sandbox,
   installationId: number,
   owner: string,
   name: string,
   branchNames: string[],
-  opts?: { prune?: boolean; timeoutSeconds?: number; shallow?: boolean },
+  opts?: {
+    prune?: boolean;
+    timeoutSeconds?: number;
+    shallow?: boolean;
+    retryAttempts?: number;
+  },
 ): Promise<string[]> {
   const details = `${owner}/${name}, branches=${branchNames.join(",")}, timeout=${opts?.timeoutSeconds ?? 240}, shallow=${opts?.shallow === true ? "true" : "false"}`;
   return await runLoggedGitStep("fetchBranchRefs", details, async () => {
@@ -299,42 +423,51 @@ export async function fetchBranchRefs(
     );
     const refspecArgs = refspecs.map((r) => quote([r])).join(" ");
     const setupAndFetch = `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${depthArg}${pruneArg} origin`;
-    try {
-      await execGitCommand(
-        sandbox,
-        `${setupAndFetch} ${refspecArgs}`,
-        timeoutSeconds,
-      );
-      return normalized;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (!isMissingRemoteRefError(message)) {
-        throw error;
-      }
-      const fetchedBranches: string[] = [];
-      for (const [index, refspec] of refspecs.entries()) {
+    return await retryGitNetworkOperation(
+      "fetchBranchRefs",
+      details,
+      async () => {
         try {
           await execGitCommand(
             sandbox,
-            `${setupAndFetch} ${quote([refspec])}`,
+            `${setupAndFetch} ${refspecArgs}`,
             timeoutSeconds,
           );
-          const fetchedBranch = normalized[index];
-          if (fetchedBranch) {
-            fetchedBranches.push(fetchedBranch);
+          return normalized;
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          if (!isMissingRemoteRefError(message)) {
+            throw error;
           }
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (!isMissingRemoteRefError(msg)) {
-            throw e;
+          const fetchedBranches: string[] = [];
+          for (const [index, refspec] of refspecs.entries()) {
+            try {
+              await execGitCommand(
+                sandbox,
+                `${setupAndFetch} ${quote([refspec])}`,
+                timeoutSeconds,
+              );
+              const fetchedBranch = normalized[index];
+              if (fetchedBranch) {
+                fetchedBranches.push(fetchedBranch);
+              }
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e);
+              if (!isMissingRemoteRefError(msg)) {
+                throw e;
+              }
+            }
           }
+          return fetchedBranches;
         }
-      }
-      return fetchedBranches;
-    }
+      },
+      opts?.retryAttempts,
+    );
   });
 }
 
+/** Syncs the sandbox repo with the remote using the given strategy. */
 export async function syncRepo(
   sandbox: Sandbox,
   installationId: number,
@@ -365,14 +498,14 @@ export async function syncRepo(
       strategy.branchNames,
       {
         prune: false,
-        timeoutSeconds: 240,
+        timeoutSeconds: 60,
+        shallow: true,
       },
     );
   });
 }
 
-// Determines the best available base ref for branch creation: prefers origin/<base>,
-// falls back to local <base>, then HEAD if neither exists.
+/** Resolves the best available base ref: prefers origin/<base>, falls back to local, then HEAD. */
 export async function resolveBaseTarget(
   sandbox: Sandbox,
   baseBranch: string,
@@ -396,6 +529,7 @@ export async function resolveBaseTarget(
   return { ref: "HEAD", source: "head" };
 }
 
+/** Checks out a session branch, creating it from a remote or base ref if needed. */
 export async function checkoutSessionBranch(
   sandbox: Sandbox,
   branchName: string,
@@ -416,6 +550,7 @@ export async function checkoutSessionBranch(
   });
 }
 
+/** Checks out a base branch, preferring remote refs but falling back to local snapshot refs. */
 export async function checkoutFetchedBaseBranch(
   sandbox: Sandbox,
   baseBranch: string,
@@ -424,16 +559,38 @@ export async function checkoutFetchedBaseBranch(
   const details = `base=${baseBranch}`;
   await runLoggedGitStep("checkoutFetchedBaseBranch", details, async () => {
     const quotedBranch = quote([baseBranch]);
-    const quotedBase = quote([`origin/${baseBranch}`]);
+    const { ref: baseTarget, source } = await resolveBaseTarget(
+      sandbox,
+      baseBranch,
+    );
+    const quotedBase = quote([baseTarget]);
     const workspaceDir = workspaceDirShell();
+    logGit(`checkoutFetchedBaseBranch: using base source=${source}`);
+    if (source === "remote") {
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedBase}) && git merge --ff-only ${quotedBase}`,
+        timeoutSeconds,
+      );
+      return;
+    }
+    if (source === "local") {
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git checkout ${quotedBranch}`,
+        timeoutSeconds,
+      );
+      return;
+    }
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && git checkout ${quotedBranch} && git merge --ff-only ${quotedBase}`,
+      `cd ${workspaceDir} && git checkout -B ${quotedBranch} ${quotedBase}`,
       timeoutSeconds,
     );
   });
 }
 
+/** Resets the snapshot worktree to a clean state via hard reset and clean. */
 export async function normalizeSnapshotWorktree(
   sandbox: Sandbox,
 ): Promise<void> {
@@ -451,6 +608,7 @@ export async function normalizeSnapshotWorktree(
   );
 }
 
+/** Installs project dependencies using the detected package manager. */
 async function installDependencies(
   sandbox: Sandbox,
   pm: string,
@@ -477,6 +635,30 @@ async function installDependencies(
   }
 }
 
+/** Downloads a repo archive for fast no-sync ephemeral bootstrap and initializes a local git repo. */
+async function downloadRepoArchive(
+  sandbox: Sandbox,
+  installationId: number,
+  owner: string,
+  name: string,
+): Promise<void> {
+  const octokit = await getInstallationOctokit(installationId);
+  const repo = await octokit.rest.repos.get({ owner, repo: name });
+  const defaultBranch = repo.data.default_branch;
+  const githubToken = await getInstallationToken(installationId);
+  const archiveUrl = `https://api.github.com/repos/${owner}/${name}/tarball/${encodeURIComponent(defaultBranch)}`;
+  const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+  logGit(
+    `downloadRepoArchive: bootstrapping ${owner}/${name} from defaultBranch=${defaultBranch}`,
+  );
+  await exec(
+    sandbox,
+    `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} /tmp/repo.tar.gz && mkdir -p ${quote([WORKSPACE_DIR])} && curl -fsSL -H ${quote([`Authorization: Bearer ${githubToken}`])} -H ${quote(["Accept: application/vnd.github+json"])} ${quote([archiveUrl])} -o /tmp/repo.tar.gz && tar -xzf /tmp/repo.tar.gz --strip-components=1 -C ${quote([WORKSPACE_DIR])} && rm -f /tmp/repo.tar.gz && cd ${quote([WORKSPACE_DIR])} && git init -b ${quote([defaultBranch])} && git remote add origin ${quote([repoUrl])} && git add -A && git commit --allow-empty -m "Initial checkout"`,
+    180,
+  );
+}
+
+/** Clones a GitHub repo into the sandbox and optionally installs dependencies. */
 export async function cloneAndSetupRepo(
   sandbox: Sandbox,
   installationId: number,
@@ -485,22 +667,54 @@ export async function cloneAndSetupRepo(
   shouldInstallDeps: boolean,
   onProgress?: (label: string) => Promise<void>,
 ): Promise<void> {
-  if (onProgress) await onProgress("Cloning repository...");
-  const githubToken = await getInstallationToken(installationId);
-  const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
-  await execGitCommand(
-    sandbox,
-    `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && git clone --depth 1 ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`,
-    REPO_CLONE_TIMEOUT_SECONDS,
-  );
-  if (!shouldInstallDeps) {
-    return;
-  }
-  if (onProgress) await onProgress("Installing dependencies...");
-  const pm = await detectPackageManager(sandbox);
-  await installDependencies(sandbox, pm);
+  const details = `${owner}/${name}, installDeps=${shouldInstallDeps}`;
+  await runLoggedGitStep("cloneAndSetupRepo", details, async () => {
+    if (onProgress) await onProgress("Cloning repository...");
+    const githubToken = await getInstallationToken(installationId);
+    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const cloneCommand = `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && GIT_TERMINAL_PROMPT=0 git clone --depth 1 --single-branch --no-tags ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`;
+    const maxCloneAttempts = 3;
+    for (let attempt = 1; attempt <= maxCloneAttempts; attempt += 1) {
+      try {
+        await execGitCommand(sandbox, cloneCommand, REPO_CLONE_TIMEOUT_SECONDS);
+        if (attempt > 1) {
+          logGit(
+            `cloneAndSetupRepo: clone recovered on attempt ${attempt}/${maxCloneAttempts} for ${owner}/${name}`,
+          );
+        }
+        break;
+      } catch (error) {
+        if (!(error instanceof Error)) {
+          throw error;
+        }
+        const shouldRetry =
+          attempt < maxCloneAttempts &&
+          isRetryableGitNetworkError(error.message);
+        if (!shouldRetry) {
+          throw error;
+        }
+        const delayMs = attempt * 2000;
+        logGit(
+          `cloneAndSetupRepo: clone retrying in ${delayMs}ms after attempt ${attempt}/${maxCloneAttempts} for ${owner}/${name}: ${error.message}`,
+        );
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
+      }
+    }
+    if (!shouldInstallDeps) {
+      return;
+    }
+    if (onProgress) await onProgress("Installing dependencies...");
+    const pm = await detectPackageManager(sandbox);
+    logGit(
+      `installDependencies: detected package manager "${pm}" for ${owner}/${name}`,
+    );
+    await installDependencies(sandbox, pm);
+  });
 }
 
+/** Sets up a working branch from the best available local base ref. */
 export async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
@@ -512,6 +726,7 @@ export async function setupBranch(
       sandbox,
       baseBranch,
     );
+    logGit(`setupBranch: using base source=${source} for branch=${branchName}`);
     const quotedBranch = quote([branchName]);
     const quotedRemote = quote([`origin/${branchName}`]);
     const quotedBase = quote([baseTarget]);
@@ -539,20 +754,10 @@ export async function setupBranch(
         ? `(git merge --ff-only ${quotedRemote} 2>/dev/null || true) && (git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true)`
         : `(git merge --ff-only ${quotedRemote} 2>/dev/null || true)`;
     await execGitCommand(sandbox, `cd ${workspaceDir} && ${mergeCmd}`, 30);
-    try {
-      await execGitCommand(
-        sandbox,
-        `cd ${workspaceDir} && git push -u origin ${quotedBranch} 2>/dev/null || true`,
-        60,
-      );
-    } catch (error) {
-      console.warn(
-        `[daytona] setupBranch push skipped: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
   });
 }
 
+/** Creates a sandbox and prepares the repo by cloning or syncing from a snapshot. */
 export async function createSandboxAndPrepareRepo(
   daytona: Daytona,
   installationId: number,
@@ -593,6 +798,23 @@ export async function createSandboxAndPrepareRepo(
           }
           return { sandbox, usedSnapshot: true };
         }
+        if (lifecycle.ephemeral && syncStrategy.mode === "none") {
+          const activeSandbox = sandbox;
+          if (onProgress) await onProgress("Downloading repository...");
+          await runLoggedGitStep(
+            "downloadRepoArchive",
+            `${owner}/${name}`,
+            async () => {
+              await downloadRepoArchive(
+                activeSandbox,
+                installationId,
+                owner,
+                name,
+              );
+            },
+          );
+          return { sandbox: activeSandbox, usedSnapshot: false };
+        }
         await cloneAndSetupRepo(
           sandbox,
           installationId,
@@ -601,6 +823,10 @@ export async function createSandboxAndPrepareRepo(
           !lifecycle.ephemeral,
           onProgress,
         );
+        if (syncStrategy.mode !== "none") {
+          if (onProgress) await onProgress("Syncing repository...");
+          await syncRepo(sandbox, installationId, owner, name, syncStrategy);
+        }
         return { sandbox, usedSnapshot: false };
       },
     );
@@ -614,6 +840,7 @@ export async function createSandboxAndPrepareRepo(
   }
 }
 
+/** Resumes an existing sandbox or creates a new one with repo setup. */
 export async function getOrCreateSandbox(
   daytona: Daytona,
   existingSandboxId: string | undefined,

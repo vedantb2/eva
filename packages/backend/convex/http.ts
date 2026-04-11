@@ -5,6 +5,7 @@ import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
 
 const http = httpRouter();
 
+/** Compares two strings in constant time to prevent timing attacks. */
 function timingSafeEqual(a: string, b: string): boolean {
   const encoder = new TextEncoder();
   const bufA = encoder.encode(a);
@@ -17,6 +18,7 @@ function timingSafeEqual(a: string, b: string): boolean {
   return mismatch === 0;
 }
 
+/** Verifies the MCP bootstrap authorization token from the request header. */
 function verifyMcpBootstrapToken(request: Request): boolean {
   const auth = request.headers.get("Authorization");
   if (!auth) return false;
@@ -25,6 +27,7 @@ function verifyMcpBootstrapToken(request: Request): boolean {
   return timingSafeEqual(auth, `MCPBootstrap ${expected}`);
 }
 
+/** Verifies the EVA deploy key from the request Authorization header. */
 function verifyDeployKey(request: Request): boolean {
   const auth = request.headers.get("Authorization");
   if (!auth) return false;
@@ -33,6 +36,7 @@ function verifyDeployKey(request: Request): boolean {
   return timingSafeEqual(auth, `Convex ${expected}`);
 }
 
+/** Parses and validates the request body for the env-vars endpoint. */
 function parseEnvVarsBody(
   body: unknown,
 ): { repoId: string; userId: string } | null {
@@ -197,20 +201,24 @@ http.route({
   }),
 });
 
+/** Type guard that checks whether a value is a non-null object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/** Safely extracts a string value from an object by key, returning null if not a string. */
 function getString(obj: Record<string, unknown>, key: string): string | null {
   const val = obj[key];
   return typeof val === "string" ? val : null;
 }
 
+/** Safely extracts a boolean value from an object by key, returning null if not a boolean. */
 function getBoolean(obj: Record<string, unknown>, key: string): boolean | null {
   const val = obj[key];
   return typeof val === "boolean" ? val : null;
 }
 
+/** Verifies a GitHub webhook HMAC-SHA256 signature against the shared secret. */
 async function verifyWebhookSignature(
   body: string,
   signature: string,

@@ -19,6 +19,7 @@ const CODEX_FALLBACK_BIN_PATH = `${CODEX_FALLBACK_INSTALL_DIR}/bin/codex`;
 const CALLBACK_READY_TIMEOUT_SECONDS = 75;
 const CALLBACK_READY_POLL_ATTEMPTS = 60;
 
+/** Installs the Codex CLI globally if not already available on the sandbox. */
 async function ensureCodexCliAvailable(sandbox: Sandbox): Promise<void> {
   await exec(
     sandbox,
@@ -27,6 +28,7 @@ async function ensureCodexCliAvailable(sandbox: Sandbox): Promise<void> {
   );
 }
 
+/** Uploads prompt and callback script to the sandbox, then launches the AI runner process. */
 export async function launchScript(
   sandbox: Sandbox,
   prompt: string,

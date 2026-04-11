@@ -29,10 +29,12 @@ type ParsedAudit = {
 const AUDIT_SECTION_REGEX =
   /<!-- EVA_AUDIT_START -->[\s\S]*?<!-- EVA_AUDIT_END -->\s*/m;
 
+/** Escapes pipe characters and newlines so a string is safe for a markdown table cell. */
 function escapeTableCell(value: string): string {
   return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
 }
 
+/** Builds the markdown audit section from parsed audit results or an error message. */
 function buildAuditSection(
   result: string | null,
   error: string | null,
@@ -99,6 +101,7 @@ function buildAuditSection(
   return lines.join("\n");
 }
 
+/** Merges a new audit section into an existing PR body, replacing any previous audit block. */
 function mergeBodyWithAuditSection(
   existingBody: string,
   auditSection: string,
@@ -107,6 +110,7 @@ function mergeBodyWithAuditSection(
   return stripped ? `${stripped}\n\n${auditSection}` : auditSection;
 }
 
+/** Assembles a pull request body from an array of heading/content sections. */
 export function buildPrBody(
   sections: Array<{ heading: string; content: string }>,
 ): string {
@@ -121,6 +125,7 @@ export function buildPrBody(
   return parts.join("\n");
 }
 
+/** Creates a GitHub pull request via the installation Octokit and optionally adds labels. */
 export const createPullRequest = internalAction({
   args: {
     installationId: v.number(),
@@ -164,6 +169,7 @@ export const createPullRequest = internalAction({
   },
 });
 
+/** Appends or updates the audit section in an existing pull request body. */
 export const appendAuditToPullRequest = internalAction({
   args: {
     installationId: v.number(),
@@ -213,6 +219,7 @@ const POLL_INTERVAL_MS = 60_000;
 
 type DeploymentStatus = typeof deploymentStatusValidator.type;
 
+/** Maps a GitHub deployment state string to the internal DeploymentStatus enum. */
 function mapGitHubDeploymentState(state: string): DeploymentStatus {
   switch (state) {
     case "queued":
@@ -232,10 +239,12 @@ function mapGitHubDeploymentState(state: string): DeploymentStatus {
   }
 }
 
+/** Checks whether a deployment status is a final state (deployed or error). */
 function isTerminalDeploymentStatus(status: DeploymentStatus): boolean {
   return status === "deployed" || status === "error";
 }
 
+/** Polls GitHub deployment status for a task run branch, scheduling retries until terminal or max attempts. */
 export const pollDeploymentStatus = internalAction({
   args: {
     runId: v.id("agentRuns"),
@@ -353,6 +362,7 @@ export const pollDeploymentStatus = internalAction({
   },
 });
 
+/** Polls GitHub deployment status for a session branch, scheduling retries until terminal or max attempts. */
 export const pollSessionDeploymentStatus = internalAction({
   args: {
     sessionId: v.id("sessions"),

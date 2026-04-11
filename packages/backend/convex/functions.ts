@@ -21,6 +21,7 @@ import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getCurrentUserId } from "./auth";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 
+/** Checks if a user has access to a repo — either as the connector or via team membership. */
 export async function hasRepoAccess(
   db: GenericDatabaseReader<DataModel>,
   repoId: Id<"githubRepos">,
@@ -40,6 +41,7 @@ export async function hasRepoAccess(
   return membership !== null;
 }
 
+/** Checks if a user can access a task by verifying access to its parent repo or project. */
 export async function hasTaskAccess(
   db: GenericDatabaseReader<DataModel>,
   task: { repoId?: Id<"githubRepos">; projectId?: Id<"projects"> },
@@ -53,6 +55,7 @@ export async function hasTaskAccess(
   return false;
 }
 
+/** Recalculates a project's phase (active/completed) based on the statuses of its tasks. */
 export async function recomputeProjectPhase(
   db: GenericDatabaseWriter<DataModel>,
   projectId: Id<"projects">,
@@ -115,6 +118,7 @@ export async function recomputeProjectPhase(
   }
 }
 
+/** Fetches a project by ID, throwing if not found or the user lacks access. */
 export async function getProjectWithAccess(
   db: GenericDatabaseReader<DataModel>,
   projectId: Id<"projects">,
@@ -128,6 +132,7 @@ export async function getProjectWithAccess(
   return project;
 }
 
+/** Returns true if the given task has any queued or running agent runs. */
 export async function hasActiveRun(
   db: GenericDatabaseReader<DataModel>,
   taskId: Id<"agentTasks">,
@@ -148,6 +153,7 @@ export async function hasActiveRun(
   return running !== null;
 }
 
+/** Determines if this is the first task on a branch (no prior successful runs or no PR yet). */
 export async function isFirstTaskOnBranch(
   db: GenericDatabaseReader<DataModel>,
   taskId: Id<"agentTasks">,
@@ -167,6 +173,7 @@ export async function isFirstTaskOnBranch(
   return successRun === null;
 }
 
+/** Deletes a task and all its related data (runs, dependencies, scheduled functions). */
 export async function deleteTaskRelatedData(
   ctx: MutationCtx,
   taskId: Id<"agentTasks">,
@@ -203,6 +210,7 @@ export async function deleteTaskRelatedData(
   await ctx.db.delete(taskId);
 }
 
+/** Authenticated query wrapper — injects userId into context, throws if not authenticated. */
 export const authQuery = customQuery(
   query,
   customCtx(async (ctx) => {
@@ -214,6 +222,7 @@ export const authQuery = customQuery(
   }),
 );
 
+/** Authenticated mutation wrapper — injects userId into context, throws if not authenticated. */
 export const authMutation = customMutation(
   mutation,
   customCtx(async (ctx) => {
@@ -231,6 +240,7 @@ const getUserIdFromIdentityRef = makeFunctionReference<
   Id<"users"> | null
 >("auth:getUserIdFromIdentity");
 
+/** Resolves the authenticated user's ID from within an action context by running a query. */
 async function resolveActionUserId(ctx: ActionCtx): Promise<Id<"users">> {
   const userId = await ctx.runQuery(getUserIdFromIdentityRef);
   if (!userId) {
@@ -239,6 +249,7 @@ async function resolveActionUserId(ctx: ActionCtx): Promise<Id<"users">> {
   return userId;
 }
 
+/** Authenticated action wrapper — injects userId into context via a query roundtrip. */
 export const authAction = customAction(
   action,
   customCtx(async (ctx: ActionCtx) => {
@@ -247,6 +258,7 @@ export const authAction = customAction(
   }),
 );
 
+/** Internal authenticated query — same as authQuery but for internal-only queries. */
 export const internalAuthQuery = customQuery(
   internalQuery,
   customCtx(async (ctx) => {
@@ -258,6 +270,7 @@ export const internalAuthQuery = customQuery(
   }),
 );
 
+/** Internal authenticated mutation — same as authMutation but for internal-only mutations. */
 export const internalAuthMutation = customMutation(
   internalMutation,
   customCtx(async (ctx) => {
@@ -269,6 +282,7 @@ export const internalAuthMutation = customMutation(
   }),
 );
 
+/** Internal authenticated action — same as authAction but for internal-only actions. */
 export const internalAuthAction = customAction(
   internalAction,
   customCtx(async (ctx: ActionCtx) => {

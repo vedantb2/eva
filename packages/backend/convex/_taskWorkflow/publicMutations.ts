@@ -11,8 +11,9 @@ import {
   getTaskRunStreamingEntityId,
 } from "./helpers";
 import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 
+/** Retrieves the active workflow ID for a task, or null if none exists. */
 async function getActiveWorkflowId(
   ctx: MutationCtx,
   taskId: Id<"agentTasks">,
@@ -22,31 +23,23 @@ async function getActiveWorkflowId(
   return task.activeWorkflowId as WorkflowId;
 }
 
-export const markRunFinalizing = authMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    runId: v.id("agentRuns"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId);
-    if (!task) {
-      throw new Error("Task not found while marking run finalizing");
-    }
-    const run = await ctx.db.get(args.runId);
-    if (!run || run.taskId !== args.taskId) {
-      throw new Error("Run not found while marking run finalizing");
-    }
-    if (run.status !== "running") {
-      return null;
-    }
-    await ctx.db.patch(args.runId, {
-      finalizingAt: Date.now(),
-    });
-    return null;
-  },
-});
+/** Returns the most recently started running task run for a task, or null if none remain. */
+async function getLatestRunningTaskRun(
+  ctx: MutationCtx,
+  taskId: Id<"agentTasks">,
+): Promise<Doc<"agentRuns"> | null> {
+  const runs = await ctx.db
+    .query("agentRuns")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+  return (
+    runs
+      .filter((run) => run.status === "running")
+      .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0] ?? null
+  );
+}
 
+/** Receives the task completion callback, validates it, marks the run as finalizing, and forwards the event to the workflow. */
 export const handleCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -68,13 +61,7 @@ export const handleCompletion = authMutation({
       throw new Error("Active workflow missing while handling completion");
     }
 
-    const runs = await ctx.db
-      .query("agentRuns")
-      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
-      .collect();
-    const latestRunningRun = runs
-      .filter((run) => run.status === "running")
-      .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0];
+    const latestRunningRun = await getLatestRunningTaskRun(ctx, args.taskId);
     if (!latestRunningRun) {
       throw new Error("No running run found while handling completion");
     }
@@ -90,6 +77,11 @@ export const handleCompletion = authMutation({
         throw new Error("Completion callback run did not match active run");
       }
     }
+
+    // Mark run as finalizing before forwarding the completion event
+    await ctx.db.patch(latestRunningRun._id, {
+      finalizingAt: Date.now(),
+    });
 
     try {
       await workflow.sendEvent(ctx, {
@@ -123,6 +115,7 @@ export const handleCompletion = authMutation({
   },
 });
 
+/** Receives the audit completion callback and forwards the event to the workflow. */
 export const handleAuditCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -192,6 +185,7 @@ export const handleAuditCompletion = authMutation({
   },
 });
 
+/** Receives the audit fix completion callback and updates the audit fix status. */
 export const handleAuditFixCompletion = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -253,6 +247,7 @@ export const handleAuditFixCompletion = authMutation({
   },
 });
 
+/** Cancels the active workflow and run for a task, resetting it to todo status. */
 export const cancelExecution = authMutation({
   args: { taskId: v.id("agentTasks") },
   returns: v.null(),
@@ -304,6 +299,7 @@ export const cancelExecution = authMutation({
   },
 });
 
+/** Starts a new task execution workflow for a queued run. */
 export const triggerExecution = authMutation({
   args: {
     runId: v.id("agentRuns"),

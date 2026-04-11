@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 
 type Ctx = { db: GenericDatabaseReader<DataModel> };
 
+/** Checks whether any table in the system still references the given repo. */
 export async function hasRepoReferences(
   ctx: Ctx,
   repoId: Id<"githubRepos">,
@@ -19,18 +20,6 @@ export async function hasRepoReferences(
       .first(),
     ctx.db
       .query("docs")
-      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-      .first(),
-    ctx.db
-      .query("researchQueries")
-      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-      .first(),
-    ctx.db
-      .query("savedQueries")
-      .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-      .first(),
-    ctx.db
-      .query("routines")
       .withIndex("by_repo", (q) => q.eq("repoId", repoId))
       .first(),
     ctx.db
@@ -67,6 +56,7 @@ export async function hasRepoReferences(
   return results.some((r) => r !== null);
 }
 
+/** Trims and strips leading/trailing slashes from a path, returning undefined for empty strings. */
 export function normalizePath(p: string): string | undefined {
   const trimmed = p.trim().replace(/^\/+|\/+$/g, "");
   return trimmed === "" ? undefined : trimmed;

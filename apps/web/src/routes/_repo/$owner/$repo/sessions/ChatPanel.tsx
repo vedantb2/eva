@@ -47,7 +47,6 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
   IconCode,
-  IconMessageCircle2,
   IconClipboardList,
   IconGitPullRequest,
   IconBrandVercel,
@@ -209,12 +208,12 @@ export function ChatPanel({
     useSessionSettings(sessionId, { defaultModel });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
-  const SESSION_MODES: SessionMode[] = ["ask", "execute", "plan"];
+  const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
   useHotkey("Shift+Tab", (e) => {
     e.preventDefault();
-    const currentIndex = SESSION_MODES.indexOf(mode);
-    const nextIndex = (currentIndex + 1) % SESSION_MODES.length;
-    setMode(SESSION_MODES[nextIndex]);
+    const currentIndex = AVAILABLE_MODES.indexOf(mode);
+    const nextIndex = (currentIndex + 1) % AVAILABLE_MODES.length;
+    setMode(AVAILABLE_MODES[nextIndex]);
   });
 
   const evaIcon = <EvaIcon />;
@@ -369,12 +368,7 @@ export function ChatPanel({
   const queuedMessageItems = useMemo(
     () =>
       queuedMessages.map((message) => {
-        const modeLabel =
-          message.mode === "execute"
-            ? "Execute"
-            : message.mode === "plan"
-              ? "PRD"
-              : "Ask";
+        const modeLabel = message.mode === "plan" ? "PRD" : "Edit";
         const detailParts = [
           modeLabel,
           message.model ? findAIModelOption(message.model).label : null,
@@ -655,22 +649,15 @@ export function ChatPanel({
                               <div className="flex items-center justify-between gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {message.mode && (
                                   <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                                    {message.mode === "execute" && (
-                                      <>
-                                        <IconCode className="w-2.5 h-2.5" />{" "}
-                                        Execute
-                                      </>
-                                    )}
-                                    {message.mode === "ask" && (
-                                      <>
-                                        <IconMessageCircle2 className="w-2.5 h-2.5" />{" "}
-                                        Ask
-                                      </>
-                                    )}
-                                    {message.mode === "plan" && (
+                                    {message.mode === "plan" ? (
                                       <>
                                         <IconClipboardList className="w-2.5 h-2.5" />{" "}
                                         PRD
+                                      </>
+                                    ) : (
+                                      <>
+                                        <IconCode className="w-2.5 h-2.5" />{" "}
+                                        Edit
                                       </>
                                     )}
                                   </div>
@@ -732,7 +719,7 @@ export function ChatPanel({
                     <Button
                       size="sm"
                       className="motion-press bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.01] active:scale-[0.99]"
-                      onClick={() => setMode("execute")}
+                      onClick={() => setMode("edit")}
                     >
                       <IconCode className="w-3.5 h-3.5" />
                       Approve Plan
@@ -746,26 +733,19 @@ export function ChatPanel({
             <Tabs
               value={mode}
               onValueChange={(v) => {
-                if (v === "execute" || v === "ask" || v === "plan") {
+                if (v === "edit" || v === "plan") {
                   setMode(v);
                 }
               }}
               className="absolute left-1.5 top-4 z-20 -translate-y-1/2 sm:left-3"
             >
-              <TabsList className="h-8 rounded-full  p-0.5">
+              <TabsList className="h-8 rounded-full p-0.5">
                 <TabsTrigger
-                  value="ask"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
-                >
-                  <IconMessageCircle2 className="w-3 h-3" />
-                  Ask
-                </TabsTrigger>
-                <TabsTrigger
-                  value="execute"
+                  value="edit"
                   className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
                 >
                   <IconCode className="w-3 h-3" />
-                  Execute
+                  Edit
                 </TabsTrigger>
                 <TabsTrigger
                   value="plan"
@@ -782,11 +762,9 @@ export function ChatPanel({
                 placeholder={
                   !isSandboxActive
                     ? "Start the sandbox to begin chatting..."
-                    : mode === "execute"
-                      ? "Describe the changes to make to Eva..."
-                      : mode === "ask"
-                        ? "Ask Eva a question about the codebase..."
-                        : "Describe the feature or product requirements to Eva..."
+                    : mode === "plan"
+                      ? "Describe the feature or product requirements to Eva..."
+                      : "Describe what you need — ask questions or request changes..."
                 }
                 disabled={isInputDisabled}
               />

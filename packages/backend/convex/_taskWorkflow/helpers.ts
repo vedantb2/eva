@@ -4,14 +4,17 @@ import { LlmJson } from "@solvers-hub/llm-json";
 
 export const llmJson = new LlmJson({ attemptCorrection: true });
 
+/** Returns the streaming entity ID used for a task run's activity stream. */
 export function getTaskRunStreamingEntityId(runId: Id<"agentRuns">): string {
   return `task-run-${String(runId)}`;
 }
 
+/** Returns the streaming entity ID used for a task audit's activity stream. */
 export function getTaskAuditStreamingEntityId(runId: Id<"agentRuns">): string {
   return `task-audit-run-${String(runId)}`;
 }
 
+/** Deletes the streaming activity record for a given entity ID. */
 export async function clearStreamingActivity(
   ctx: MutationCtx,
   entityId: string,
@@ -23,6 +26,7 @@ export async function clearStreamingActivity(
   if (streaming) await ctx.db.delete(streaming._id);
 }
 
+/** Creates or updates the streaming activity record for a given entity. */
 export async function upsertStreamingActivity(
   ctx: MutationCtx,
   entityId: string,
@@ -48,6 +52,7 @@ export async function upsertStreamingActivity(
   }
 }
 
+/** Creates or updates a persistent activity log entry for a run. */
 export async function upsertActivityLog(
   ctx: MutationCtx,
   runId: Id<"agentRuns">,
@@ -71,6 +76,7 @@ export async function upsertActivityLog(
   }
 }
 
+/** Copies current streaming activity into a persistent activity log before cleanup. */
 export async function snapshotStreamingActivityToLog(
   ctx: MutationCtx,
   entityId: string,
@@ -85,6 +91,7 @@ export async function snapshotStreamingActivityToLog(
   }
 }
 
+/** Builds a human-readable summary string for a completed run result. */
 export function buildRunResultSummary(
   success: boolean,
   prUrl: string | null,
@@ -99,6 +106,7 @@ export function buildRunResultSummary(
     : "Pushed commit to task branch";
 }
 
+/** Patches the run document with final status, error, PR URL, and result summary. */
 export async function finalizeRunStatus(
   ctx: MutationCtx,
   params: {
@@ -130,6 +138,7 @@ export async function finalizeRunStatus(
   });
 }
 
+/** Extracts a JSON block from text, handling code fences and raw JSON objects. */
 export function extractJsonBlock(text: string): string {
   const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
   if (codeBlockMatch && codeBlockMatch[1]) return codeBlockMatch[1].trim();

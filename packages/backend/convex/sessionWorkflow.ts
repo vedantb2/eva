@@ -15,6 +15,7 @@ import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "./_queues/helpers";
 import {
   buildRootDirectoryInstruction,
+  buildCustomInstructionsBlock,
   getResponseLengthInstruction,
 } from "./prompts";
 
@@ -27,10 +28,9 @@ const sessionCompleteEvent = defineEvent({
 
 // --- Mode config ---
 
-const MODE_TOOLS: Record<"ask" | "plan" | "execute", string> = {
-  ask: "Read,Glob,Grep,Bash",
+const MODE_TOOLS: Record<"edit" | "plan", string> = {
+  edit: "Read,Write,Edit,Bash,Glob,Grep",
   plan: "Read,Write,Glob,Grep",
-  execute: "Read,Write,Edit,Bash,Glob,Grep",
 };
 
 const WORKSPACE_DIR = "/tmp/repo";
@@ -38,31 +38,14 @@ const LEGACY_WORKSPACE_DIR = "/workspace/repo";
 
 // --- Prompt builders ---
 
-function buildAskPrompt(
-  repo: { owner: string; name: string },
-  message: string,
-  responseLength: string,
-  rootDirectory: string,
-): string {
-  return `Answer questions about ${repo.owner}/${repo.name} for a non-technical user. READ-ONLY — do NOT modify files.
-
-${message}
-
-Use Glob, Grep, Read, Bash to explore. Do NOT modify files.
-
-Rules:
-- Non-technical language only — no code, file paths, function names, or jargon
-- Reference product areas casually ("the login page") but never source files
-- If you find a fixable issue, do NOT say "a developer needs to look at this." Instead, describe the problem and suggest: "Want me to switch to execute mode and fix this?"
-${getResponseLengthInstruction(responseLength, "ask")}${buildRootDirectoryInstruction(rootDirectory)}`;
-}
-
+/** Builds a plan-mode prompt for creating or refining a plan.md document. */
 function buildPlanPrompt(
   repo: { owner: string; name: string },
   existingPlan: string,
   message: string,
   responseLength: string,
   rootDirectory: string,
+  customInstructionsBlock: string,
 ): string {
   return `PRD planning for ${repo.owner}/${repo.name}. Explore with Glob, Grep, Read.
 
@@ -77,49 +60,55 @@ Rules:
 - ONLY write plan.md — no other files
 - Respond with 1-2 sentences on what changed
 - Non-technical: WHAT and WHY, not HOW
-- Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-function buildExecutePrompt(
+/** Builds an edit-mode prompt with full read+write access for answering questions and making code changes. */
+function buildEditPrompt(
   repo: { owner: string; name: string },
   branchName: string,
   planContent: string,
   message: string,
   responseLength: string,
   rootDirectory: string,
+  customInstructionsBlock: string,
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const planContext = planContent
     ? `\n\nApproved plan:\n${planContent}\n\nFollow the goals, user stories, and acceptance criteria above.`
     : "";
-  return `Full admin access to this sandbox. ${repo.owner}/${repo.name} on branch "${branchName}".${planContext}
+  return `Full access to ${repo.owner}/${repo.name} on branch "${branchName}".${planContext}
 
 ${message}
 
 Steps:
 1. Read CLAUDE.md if it exists
 2. Find relevant files with Glob, Grep, Read
-3. Make changes with Edit or Write
+3. If changes are needed, make them with Edit or Write
 4. If code changed, commit and push:
    git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}" && git push -u origin ${branchName}
 
 Rules:
 - ONLY work on "${branchName}" — never interact with main
+- If the user is asking a question, answer it — don't make unnecessary changes
 - No PRs, no build/lint/test/dev commands, no commit if no source changed
 - Never commit images/video. Minimal, focused changes. Use lockfile. GITHUB_TOKEN is set.
 - Respond as business outcome, no code/paths/jargon (e.g. "Added dark mode toggle. Pushed to branch.")
 - No commit hashes or process commentary
-- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "execute")}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "edit")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 // --- Workflow ---
 
+// Accepts legacy "ask"/"execute" for in-flight queued messages — treated as "edit" in handlers
 const sessionModeArgValidator = v.union(
-  v.literal("execute"),
+  v.literal("edit"),
   v.literal("ask"),
+  v.literal("execute"),
   v.literal("plan"),
 );
 
+/** Starts a session sandbox (clone + branch setup) as a durable workflow step. */
 export const sessionSandboxStartupWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
@@ -145,6 +134,7 @@ export const sessionSandboxStartupWorkflow = workflow.define({
   },
 });
 
+/** Runs a session message through the sandbox agent in the specified mode (ask/plan/execute). */
 export const sessionExecuteWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
@@ -249,7 +239,7 @@ export const sessionExecuteWorkflow = workflow.define({
       pendingQuestion: result.pendingQuestion,
     });
 
-    if (args.mode === "execute" && result.success && data.branchName) {
+    if (args.mode !== "plan" && result.success && data.branchName) {
       await step.runMutation(
         internal.sessionWorkflow.scheduleSessionDeploymentTracking,
         {
@@ -267,6 +257,7 @@ export const sessionExecuteWorkflow = workflow.define({
 
 // --- Deployment tracking ---
 
+/** Queues deployment status polling for a session branch after a successful execute. */
 export const scheduleSessionDeploymentTracking = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -298,6 +289,7 @@ export const scheduleSessionDeploymentTracking = internalMutation({
 
 // --- Supporting internal functions ---
 
+/** Inserts an empty assistant message into the session for streaming updates. */
 export const addAssistantPlaceholder = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -321,6 +313,7 @@ export const addAssistantPlaceholder = internalMutation({
   },
 });
 
+/** Fetches session and repo data, builds the mode-specific prompt, and resolves branch/tools config. */
 export const getSessionData = internalQuery({
   args: {
     sessionId: v.id("sessions"),
@@ -350,35 +343,37 @@ export const getSessionData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    const branchName =
-      args.mode === "ask"
-        ? undefined
-        : session.branchName || `eva/session-${args.sessionId}`;
+    const user = await ctx.db.get(session.userId);
+    const customInstructionsBlock = buildCustomInstructionsBlock(
+      user?.role ?? undefined,
+      user?.customInstructions ?? undefined,
+    );
+
+    // Normalize legacy "ask"/"execute" to "edit"
+    const effectiveMode: "edit" | "plan" =
+      args.mode === "plan" ? "plan" : "edit";
+
+    const branchName = session.branchName || `eva/session-${args.sessionId}`;
 
     let prompt: string;
-    if (args.mode === "ask") {
-      prompt = buildAskPrompt(
-        { owner: repo.owner, name: repo.name },
-        args.message,
-        args.responseLength,
-        rootDirectory,
-      );
-    } else if (args.mode === "plan") {
+    if (effectiveMode === "plan") {
       prompt = buildPlanPrompt(
         { owner: repo.owner, name: repo.name },
         session.planContent || "",
         args.message,
         args.responseLength,
         rootDirectory,
+        customInstructionsBlock,
       );
     } else {
-      prompt = buildExecutePrompt(
+      prompt = buildEditPrompt(
         { owner: repo.owner, name: repo.name },
-        branchName || "",
+        branchName,
         session.planContent || "",
         args.message,
         args.responseLength,
         rootDirectory,
+        customInstructionsBlock,
       );
     }
 
@@ -390,13 +385,14 @@ export const getSessionData = internalQuery({
       prompt,
       branchName,
       baseBranch: repo.defaultBaseBranch ?? "main",
-      allowedTools: MODE_TOOLS[args.mode],
+      allowedTools: MODE_TOOLS[effectiveMode],
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,
     };
   },
 });
 
+/** Updates the session's sandbox ID and optionally its branch name after sandbox preparation. */
 export const updateSandboxId = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -421,6 +417,7 @@ export const updateSandboxId = internalMutation({
   },
 });
 
+/** Saves the session execution result, updating the last message and starting queued messages. */
 export const saveResult = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -481,6 +478,7 @@ export const saveResult = internalMutation({
   },
 });
 
+/** Receives sandbox completion callback and forwards the event to the active session workflow. */
 export const handleCompletion = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -532,6 +530,7 @@ export const handleCompletion = authMutation({
   },
 });
 
+/** Frontend trigger to start a session execution workflow in the specified mode. */
 export const startExecute = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -547,11 +546,9 @@ export const startExecute = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
-    if (
-      args.mode !== "ask" &&
-      args.mode !== "plan" &&
-      args.mode !== "execute"
-    ) {
+    const normalizedMode =
+      args.mode === "ask" || args.mode === "execute" ? "edit" : args.mode;
+    if (normalizedMode !== "edit" && normalizedMode !== "plan") {
       throw new Error(`Unsupported mode: ${args.mode}`);
     }
 
@@ -586,6 +583,7 @@ export const startExecute = authMutation({
   },
 });
 
+/** Queues a message to be processed after the current active workflow finishes. */
 export const enqueueMessage = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -618,6 +616,7 @@ export const enqueueMessage = authMutation({
   },
 });
 
+/** Cancels the active session workflow, kills the sandbox process, and starts queued messages. */
 export const cancelExecution = authMutation({
   args: {
     sessionId: v.id("sessions"),

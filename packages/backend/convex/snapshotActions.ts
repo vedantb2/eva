@@ -6,35 +6,102 @@ import { internal } from "./_generated/api";
 import { resolveAllEnvVars } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import { getDaytona } from "./_daytona/helpers";
+import { Image } from "@daytonaio/sdk";
+import type { Id } from "./_generated/dataModel";
 
-const POLL_INTERVAL_MS = 60000;
-const MAX_POLLS = 30;
-const MAX_FIND_ATTEMPTS = 5;
-const GITHUB_API = "https://api.github.com";
+const DAYTONA_API_URL = "https://app.daytona.io/api";
 
-function githubFetch(
-  path: string,
-  token: string,
-  options?: { method?: string; body?: string },
-): Promise<Response> {
-  return fetch(`${GITHUB_API}${path}`, {
-    method: options?.method ?? "GET",
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-    body: options?.body,
-  });
+/** Type guard for record-shaped objects. */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
-export const rebuildSnapshot = internalAction({
+/** Safely extracts a URL string from an unknown JSON response. */
+function extractUrl(data: unknown): string | null {
+  if (!isRecord(data)) return null;
+  if (typeof data["url"] === "string") return data["url"];
+  return null;
+}
+
+/**
+ * Builds a Daytona Image definition that mirrors the old rebuild-snapshot.yml Dockerfile.
+ * The key difference is using `git clone` (with an installation token) instead of COPY
+ * so this can run from a Convex action without local filesystem access.
+ */
+function buildSnapshotImage(
+  token: string,
+  owner: string,
+  repoName: string,
+  branch: string,
+): Image {
+  return Image.base("node:20-bookworm")
+    .runCommands(
+      // System tools
+      "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh",
+      // GUI/VNC/X11 packages for desktop mode
+      "apt-get install -y xvfb xfce4 xfce4-terminal x11vnc novnc dbus-x11 x11-utils libx11-6 libxrandr2 libxext6 libxrender1 libxfixes3 libxss1 libxtst6 libxi6",
+      // Chrome
+      'apt-get install -y wget gnupg && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && apt-get update && apt-get install -y google-chrome-stable',
+      // Cleanup
+      "rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*",
+      // Node/pnpm setup
+      "corepack enable",
+      "ln -s /usr/bin/fdfind /usr/local/bin/fd",
+      "git lfs install --system",
+      // Global npm packages
+      "npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex",
+      // Code-server
+      "curl -fsSL https://code-server.dev/install.sh | sh",
+      // Create user and workspace
+      "useradd -m -s /bin/bash eva && mkdir -p /workspace && chown eva:eva /workspace",
+    )
+    .dockerfileCommands(["USER eva"])
+    .workdir("/workspace")
+    .runCommands(
+      // Git config
+      'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
+      // Claude plugins
+      "mkdir -p /home/eva/.claude/plugins/marketplaces",
+      "git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official",
+      "git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93",
+      "git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins",
+      `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
+    )
+    .env({
+      PNPM_HOME: "/home/eva/.pnpm",
+      NODE_PATH: "/usr/lib/node_modules",
+      PATH: "/home/eva/.pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    })
+    .runCommands(
+      "mkdir -p /home/eva/.pnpm",
+      // Clone the target repo and install dependencies for pre-caching
+      `git clone --depth 1 --branch ${branch} https://x-access-token:${token}@github.com/${owner}/${repoName}.git /tmp/repo`,
+    )
+    .workdir("/tmp/repo")
+    .runCommands("pnpm install --frozen-lockfile");
+}
+
+/**
+ * Workflow step 1: Resolve config, delete old snapshot, and kick off the build
+ * via a direct POST to the Daytona API (returns immediately without blocking).
+ * Returns { snapshotName, repoId } on success, or null if an error was recorded.
+ */
+export const kickOffSnapshotBuild = internalAction({
   args: {
     buildId: v.id("snapshotBuilds"),
     repoSnapshotId: v.id("repoSnapshots"),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
+  returns: v.union(
+    v.object({
+      snapshotName: v.string(),
+      repoId: v.id("githubRepos"),
+    }),
+    v.null(),
+  ),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ snapshotName: string; repoId: Id<"githubRepos"> } | null> => {
     const config = await ctx.runQuery(
       internal.repoSnapshots.getRepoSnapshotInternal,
       { repoSnapshotId: args.repoSnapshotId },
@@ -76,256 +143,232 @@ export const rebuildSnapshot = internalAction({
       return null;
     }
 
-    const dispatchedAt = new Date().toISOString();
-
+    let daytonaApiKey: string;
     try {
-      const resp = await githubFetch(
-        `/repos/${repo.owner}/${repo.name}/actions/workflows/rebuild-snapshot.yml/dispatches`,
-        token,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            ref: config.workflowRef ?? "main",
-            inputs: {
-              snapshot_name: config.snapshotName,
-            },
-          }),
-        },
-      );
-
-      if (!resp.ok) {
-        const body = await resp.text();
-        const workflowInputError =
-          resp.status === 422 && body.includes("Unexpected inputs provided");
-        const notFoundError = resp.status === 404;
-        const permissionError =
-          resp.status === 403 &&
-          body.includes("Resource not accessible by integration");
-        await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-          buildId: args.buildId,
-          status: "error",
-          logs: "",
-          error: workflowInputError
-            ? "GitHub workflow dispatch failed: rebuild-snapshot.yml in the target repo does not define the snapshot_name workflow_dispatch input."
-            : notFoundError
-              ? `GitHub workflow dispatch failed (404): rebuild-snapshot.yml not found on branch "${config.workflowRef ?? "main"}". Verify the workflow file exists on the target branch (check Workflow Branch field in config).`
-              : permissionError
-                ? "GitHub workflow dispatch failed (403): The GitHub App does not have 'actions:write' permission. Go to GitHub App settings → Permissions & events → Repository permissions → Actions → Read and write, then save and accept the new permissions on all installations."
-                : `GitHub workflow dispatch failed (${resp.status}): ${body}`,
-        });
-        return null;
+      const envVars = await resolveAllEnvVars(ctx, config.repoId);
+      const key = envVars.DAYTONA_API_KEY;
+      if (!key) {
+        throw new Error(
+          "DAYTONA_API_KEY not found in team or repo environment variables",
+        );
       }
+      daytonaApiKey = key;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await ctx.runMutation(internal.repoSnapshots.completeBuild, {
         buildId: args.buildId,
         status: "error",
         logs: "",
-        error: `Failed to trigger GitHub workflow: ${message}`,
+        error: message,
+      });
+      return null;
+    }
+
+    const daytona = getDaytona(daytonaApiKey);
+    const branch = config.workflowRef ?? "main";
+
+    // Build the Image definition and extract the Dockerfile content
+    const image = buildSnapshotImage(token, repo.owner, repo.name, branch);
+
+    await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+      buildId: args.buildId,
+      chunk: `Starting Daytona snapshot build for ${repo.owner}/${repo.name} (branch: ${branch})...\n`,
+    });
+
+    // POST directly to Daytona API to create the snapshot (returns immediately).
+    // We use fetch instead of daytona.snapshot.create() because create() blocks
+    // until the build finishes, which can exceed the Convex action timeout.
+    const resp = await fetch(`${DAYTONA_API_URL}/snapshots`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${daytonaApiKey}`,
+      },
+      body: JSON.stringify({
+        name: config.snapshotName,
+        buildInfo: {
+          dockerfileContent: image.dockerfile,
+          contextHashes: [],
+        },
+        cpu: 4,
+        memory: 8,
+        disk: 10,
+      }),
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: `Daytona API error (${resp.status}): ${body}`,
       });
       return null;
     }
 
     await ctx.runMutation(internal.repoSnapshots.appendLogs, {
       buildId: args.buildId,
-      chunk: "GitHub Actions workflow triggered. Waiting for run to start...\n",
+      chunk: "Snapshot build initiated on Daytona. Polling for progress...\n",
     });
 
-    await ctx.scheduler.runAfter(
-      20000,
-      internal.snapshotActions.pollWorkflowRun,
-      {
-        buildId: args.buildId,
-        repoOwner: repo.owner,
-        repoName: repo.name,
-        installationId: repo.installationId,
-        dispatchedAt,
-        attempt: 1,
-      },
-    );
-
-    return null;
+    return { snapshotName: config.snapshotName, repoId: config.repoId };
   },
 });
 
-export const pollWorkflowRun = internalAction({
+/**
+ * Workflow step 2 (called in a loop): Checks snapshot build state and streams
+ * build logs from the Daytona API. Returns the current snapshot state string.
+ * Each invocation is a fresh action with its own timeout.
+ */
+export const pollSnapshotProgress = internalAction({
   args: {
     buildId: v.id("snapshotBuilds"),
-    repoOwner: v.string(),
-    repoName: v.string(),
-    installationId: v.number(),
-    dispatchedAt: v.string(),
-    workflowRunId: v.optional(v.number()),
+    snapshotName: v.string(),
+    repoId: v.id("githubRepos"),
     attempt: v.number(),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    let token: string;
-    try {
-      token = await getInstallationToken(args.installationId);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    // Check if the build was already completed (e.g. by a retry or race)
+    const buildStatus: string | null = await ctx.runQuery(
+      internal.repoSnapshots.getBuildStatus,
+      { buildId: args.buildId },
+    );
+    if (buildStatus !== "running") {
+      return buildStatus ?? "error";
+    }
+
+    const envVars = await resolveAllEnvVars(ctx, args.repoId);
+    const daytonaApiKey = envVars.DAYTONA_API_KEY;
+    if (!daytonaApiKey) {
       await ctx.runMutation(internal.repoSnapshots.completeBuild, {
         buildId: args.buildId,
         status: "error",
         logs: "",
-        error: `Failed to get GitHub installation token during polling: ${message}`,
+        error: "DAYTONA_API_KEY not found",
+      });
+      return "error";
+    }
+
+    const daytona = getDaytona(daytonaApiKey);
+    const snapshot = await daytona.snapshot.get(args.snapshotName);
+    const state = String(snapshot.state);
+
+    // Terminal states: fetch build logs and complete the build
+    if (state === "active" || state === "error" || state === "build_failed") {
+      // Fetch full build logs from the Daytona API (only on terminal state to avoid wasted calls)
+      let logs = "";
+      try {
+        const logsResp = await fetch(
+          `${DAYTONA_API_URL}/snapshots/${snapshot.id}/build-logs-url`,
+          {
+            headers: { Authorization: `Bearer ${daytonaApiKey}` },
+          },
+        );
+        if (logsResp.ok) {
+          const logsData: unknown = await logsResp.json();
+          const url = extractUrl(logsData);
+          if (url) {
+            const logStream = await fetch(url);
+            if (logStream.ok) {
+              logs = await logStream.text();
+            }
+          }
+        }
+      } catch {
+        // Log fetching is best-effort — don't fail the completion for it
+      }
+
+      if (state === "active") {
+        await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+          buildId: args.buildId,
+          status: "success",
+          logs:
+            (logs ? logs + "\n" : "") +
+            `[Poll ${args.attempt}] Snapshot build completed successfully.\n`,
+        });
+        return "active";
+      }
+
+      const reason = snapshot.errorReason
+        ? String(snapshot.errorReason)
+        : "Unknown error";
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs:
+          (logs ? logs + "\n" : "") +
+          `[Poll ${args.attempt}] Snapshot state: ${state}\n`,
+        error: `Snapshot build failed: ${reason}`,
+      });
+      return state;
+    }
+
+    // Still building — log progress
+    await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+      buildId: args.buildId,
+      chunk: `[Poll ${args.attempt}] Snapshot state: ${state}. Waiting...\n`,
+    });
+
+    return state;
+  },
+});
+
+/**
+ * Workflow step 0: Deletes the existing snapshot and waits for removal to complete.
+ * daytona.snapshot.delete() returns immediately but the snapshot enters a "removing"
+ * state — creating a new one with the same name will 409 until removal finishes.
+ */
+export const deleteExistingSnapshot = internalAction({
+  args: {
+    snapshotName: v.string(),
+    repoId: v.id("githubRepos"),
+    buildId: v.id("snapshotBuilds"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const envVars = await resolveAllEnvVars(ctx, args.repoId);
+    const daytonaApiKey = envVars.DAYTONA_API_KEY;
+    if (!daytonaApiKey) {
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: "DAYTONA_API_KEY not found",
       });
       return null;
     }
 
+    const daytona = getDaytona(daytonaApiKey);
+
     try {
-      let runId = args.workflowRunId;
-
-      if (runId === undefined) {
-        const resp = await githubFetch(
-          `/repos/${args.repoOwner}/${args.repoName}/actions/workflows/rebuild-snapshot.yml/runs?created=>${args.dispatchedAt}&per_page=5`,
-          token,
-        );
-
-        if (resp.ok) {
-          const data = await resp.json();
-          if (
-            data.workflow_runs &&
-            Array.isArray(data.workflow_runs) &&
-            data.workflow_runs.length > 0
-          ) {
-            runId = Number(data.workflow_runs[0].id);
-            await ctx.runMutation(internal.repoSnapshots.setWorkflowRunId, {
-              buildId: args.buildId,
-              workflowRunId: runId,
-            });
-            await ctx.runMutation(internal.repoSnapshots.appendLogs, {
-              buildId: args.buildId,
-              chunk: `[Poll ${args.attempt}] Found workflow run #${runId}\n`,
-            });
-          }
-        }
-
-        if (runId === undefined) {
-          if (args.attempt >= MAX_FIND_ATTEMPTS) {
-            await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-              buildId: args.buildId,
-              status: "error",
-              logs: `[Poll ${args.attempt}] Could not find GitHub Actions workflow run.\n`,
-              error:
-                "GitHub Actions workflow run not found. Ensure rebuild-snapshot.yml exists in the repo and the GitHub App has actions:write permission.",
-            });
-            return null;
-          }
-
-          await ctx.runMutation(internal.repoSnapshots.appendLogs, {
-            buildId: args.buildId,
-            chunk: `[Poll ${args.attempt}] Waiting for workflow run to appear...\n`,
-          });
-
-          await ctx.scheduler.runAfter(
-            POLL_INTERVAL_MS,
-            internal.snapshotActions.pollWorkflowRun,
-            {
-              buildId: args.buildId,
-              repoOwner: args.repoOwner,
-              repoName: args.repoName,
-              installationId: args.installationId,
-              dispatchedAt: args.dispatchedAt,
-              attempt: args.attempt + 1,
-            },
-          );
-          return null;
-        }
-      }
-
-      const resp = await githubFetch(
-        `/repos/${args.repoOwner}/${args.repoName}/actions/runs/${runId}`,
-        token,
-      );
-
-      if (!resp.ok) {
-        throw new Error(`Failed to get workflow run status (${resp.status})`);
-      }
-
-      const run = await resp.json();
-      const status = String(run.status ?? "");
-      const conclusion = run.conclusion ? String(run.conclusion) : null;
-
-      if (status === "completed") {
-        const runUrl = `https://github.com/${args.repoOwner}/${args.repoName}/actions/runs/${runId}`;
-        if (conclusion === "success") {
-          await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-            buildId: args.buildId,
-            status: "success",
-            logs: `[Poll ${args.attempt}] Workflow completed successfully.\nRun: ${runUrl}\n`,
-          });
-        } else {
-          await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-            buildId: args.buildId,
-            status: "error",
-            logs: `[Poll ${args.attempt}] Workflow completed with conclusion: ${conclusion}\nRun: ${runUrl}\n`,
-            error: `GitHub Actions workflow ${conclusion ?? "failed"}. View logs: ${runUrl}`,
-          });
-        }
-        return null;
-      }
-
-      if (args.attempt >= MAX_POLLS) {
-        await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-          buildId: args.buildId,
-          status: "error",
-          logs: `[Poll ${args.attempt}] Max poll attempts reached.\n`,
-          error:
-            "Snapshot build did not complete within polling window (~30 minutes)",
-        });
-        return null;
-      }
+      const existing = await daytona.snapshot.get(args.snapshotName);
+      await daytona.snapshot.delete(existing);
 
       await ctx.runMutation(internal.repoSnapshots.appendLogs, {
         buildId: args.buildId,
-        chunk: `[Poll ${args.attempt}] Status: ${status}...\n`,
+        chunk: "Deleting existing snapshot, waiting for removal...\n",
       });
 
-      await ctx.scheduler.runAfter(
-        POLL_INTERVAL_MS,
-        internal.snapshotActions.pollWorkflowRun,
-        {
-          buildId: args.buildId,
-          repoOwner: args.repoOwner,
-          repoName: args.repoName,
-          installationId: args.installationId,
-          dispatchedAt: args.dispatchedAt,
-          workflowRunId: runId,
-          attempt: args.attempt + 1,
-        },
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (args.attempt >= MAX_POLLS) {
-        await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-          buildId: args.buildId,
-          status: "error",
-          logs: `[Poll ${args.attempt}] Error: ${message}\n`,
-          error: message,
-        });
-      } else {
-        await ctx.scheduler.runAfter(
-          POLL_INTERVAL_MS,
-          internal.snapshotActions.pollWorkflowRun,
-          {
-            buildId: args.buildId,
-            repoOwner: args.repoOwner,
-            repoName: args.repoName,
-            installationId: args.installationId,
-            dispatchedAt: args.dispatchedAt,
-            workflowRunId: args.workflowRunId,
-            attempt: args.attempt + 1,
-          },
-        );
+      // Poll until the snapshot is fully removed (get throws on not-found)
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        try {
+          await daytona.snapshot.get(args.snapshotName);
+        } catch {
+          break;
+        }
       }
+    } catch {
+      // Snapshot doesn't exist — nothing to delete
     }
 
     return null;
   },
 });
 
+/** Deletes a Daytona snapshot via the Daytona SDK. */
 export const deleteDaytonaSnapshot = internalAction({
   args: { snapshotName: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),

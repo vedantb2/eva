@@ -12,6 +12,7 @@ import {
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
 import { buildProjectBranchName } from "../_projects/helpers";
 
+/** Updates editable fields on an agent task and notifies on assignment changes. */
 export const update = authMutation({
   args: {
     id: v.id("agentTasks"),
@@ -60,6 +61,7 @@ export const update = authMutation({
   },
 });
 
+/** Transitions a task to a new status, enforcing dependency constraints and notifying on completion. */
 export const updateStatus = authMutation({
   args: {
     id: v.id("agentTasks"),
@@ -142,6 +144,7 @@ export const updateStatus = authMutation({
   },
 });
 
+/** Deletes a task and all its related data (runs, dependencies, etc.). */
 export const remove = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),
@@ -154,6 +157,7 @@ export const remove = authMutation({
   },
 });
 
+/** Creates a single task in "todo" status, optionally assigned to a project. */
 export const createQuickTask = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -200,6 +204,7 @@ export const createQuickTask = authMutation({
   },
 });
 
+/** Creates multiple tasks at once for a given repo. */
 export const createQuickTasksBatch = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -236,6 +241,7 @@ export const createQuickTasksBatch = authMutation({
   },
 });
 
+/** Assigns one or more existing tasks to a project with sequential task numbers. */
 export const assignToProject = authMutation({
   args: {
     taskIds: v.array(v.id("agentTasks")),
@@ -277,6 +283,7 @@ export const assignToProject = authMutation({
   },
 });
 
+/** Creates multiple tasks with inter-task dependencies and optionally wraps them in a new project. */
 export const createBatchWithDependencies = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -366,6 +373,7 @@ export const createBatchWithDependencies = authMutation({
   },
 });
 
+/** Reorders tasks within a project by reassigning task numbers. */
 export const reorderProjectTasks = authMutation({
   args: {
     projectId: v.id("projects"),
@@ -393,6 +401,7 @@ export const reorderProjectTasks = authMutation({
   },
 });
 
+/** Deletes a task and all tasks that transitively depend on it. */
 export const deleteCascade = authMutation({
   args: { id: v.id("agentTasks") },
   returns: v.null(),

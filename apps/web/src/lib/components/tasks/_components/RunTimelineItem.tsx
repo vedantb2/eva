@@ -205,6 +205,11 @@ export function RunTimelineItem({
                   </Reasoning>
                 );
               })()}
+            {run.status === "running" && streaming?.currentContent ? (
+              <Streamdown className="text-sm text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                {streaming.currentContent}
+              </Streamdown>
+            ) : null}
             <RunActivityLog runId={run._id} isActive={isActiveRun} />
             {run.resultSummary && (
               <Streamdown

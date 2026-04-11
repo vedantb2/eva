@@ -8,6 +8,7 @@ import {
   buildProjectBranchName,
 } from "./helpers";
 
+/** Converts a finalized project spec into tasks with dependencies and sets the project to active. */
 export const startDevelopment = authMutation({
   args: {
     projectId: v.id("projects"),
@@ -69,6 +70,7 @@ export const startDevelopment = authMutation({
   },
 });
 
+/** Creates a new active project from existing tasks, assigning them sequential task numbers. */
 export const createFromTasks = authMutation({
   args: {
     repoId: v.id("githubRepos"),

@@ -59,7 +59,7 @@ jobs:
 
       - name: Install Daytona CLI
         run: |
-          curl -sfL -o /usr/local/bin/daytona https://github.com/daytonaio/daytona/releases/download/v0.138.0/daytona-linux-amd64
+          curl -sfL -o /usr/local/bin/daytona "https://github.com/daytonaio/daytona/releases/latest/download/daytona-linux-amd64"
           chmod +x /usr/local/bin/daytona
           daytona version
 
@@ -80,4 +80,14 @@ jobs:
           fi
 
       - name: Push snapshot to Daytona
-        run: daytona snapshot push ${{ inputs.snapshot_name }}:build --name ${{ inputs.snapshot_name }} --cpu 4 --memory 8 --disk 10
+        run: |
+          daytona snapshot push ${{ inputs.snapshot_name }}:build --name ${{ inputs.snapshot_name }} --cpu 4 --memory 8 --disk 10 || true
+
+      - name: Verify snapshot exists
+        run: |
+          SNAPSHOT=$(daytona snapshot list --format json | jq -r --arg name "${{ inputs.snapshot_name }}" '.[] | select(.name == $name) | .name // empty')
+          if [ -z "$SNAPSHOT" ]; then
+            echo "ERROR: Snapshot ${{ inputs.snapshot_name }} not found after push"
+            exit 1
+          fi
+          echo "Snapshot ${{ inputs.snapshot_name }} verified"

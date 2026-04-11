@@ -8,6 +8,7 @@ import {
 } from "../functions";
 import { agentTaskValidator } from "./helpers";
 
+/** Lists all draft tasks for the current user in a given repo, sorted by most recently updated. */
 export const listDrafts = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(agentTaskValidator),
@@ -23,6 +24,7 @@ export const listDrafts = authQuery({
   },
 });
 
+/** Creates or updates a draft task. Returns the task ID. */
 export const saveDraft = authMutation({
   args: {
     id: v.optional(v.id("agentTasks")),
@@ -70,6 +72,7 @@ export const saveDraft = authMutation({
   },
 });
 
+/** Promotes a draft task to "todo" status so it can be executed. */
 export const activateDraft = authMutation({
   args: {
     id: v.id("agentTasks"),

@@ -15,6 +15,7 @@ const DAYTONA_API_URL = "https://app.daytona.io/api";
 
 const PTY_WORKSPACE_CANDIDATES = [WORKSPACE_DIR, LEGACY_WORKSPACE_DIR];
 
+/** Creates a PTY session in the sandbox, trying workspace directory candidates in order. */
 async function createPtyInWorkspace(
   sandbox: Sandbox,
   ptyId: string,
@@ -40,6 +41,7 @@ async function createPtyInWorkspace(
   throw new Error("Failed to create PTY");
 }
 
+/** Fetches the toolbox proxy base URL for a Daytona sandbox. */
 async function getToolboxBaseUrl(
   sandboxId: string,
   apiKey: string,
@@ -59,6 +61,7 @@ async function getToolboxBaseUrl(
   return data.url;
 }
 
+/** Connects to or creates a PTY for a session, returning the WebSocket URL. */
 export const connectPty = action({
   args: {
     sessionId: v.id("sessions"),
@@ -143,6 +146,7 @@ export const connectPty = action({
   },
 });
 
+/** Resizes an existing PTY session to the given column and row dimensions. */
 export const resizePty = action({
   args: {
     sessionId: v.id("sessions"),
@@ -172,6 +176,7 @@ export const resizePty = action({
   },
 });
 
+/** Kills the PTY session for a sandbox and clears the stored PTY session ID. */
 export const disconnectPty = action({
   args: {
     sessionId: v.id("sessions"),

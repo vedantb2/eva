@@ -27,6 +27,7 @@ const fixCompleteEvent = defineEvent({
 
 // --- Workflow definition ---
 
+/** Runs an evaluation: analyzes the codebase against doc requirements, then auto-fixes failures. */
 export const evaluationWorkflow = workflow.define({
   args: {
     reportId: v.id("evaluationReports"),
@@ -165,6 +166,7 @@ export const evaluationWorkflow = workflow.define({
 
 // --- Supporting internal functions ---
 
+/** Sets the evaluation report status to running. */
 export const setRunning = internalMutation({
   args: { reportId: v.id("evaluationReports") },
   returns: v.null(),
@@ -177,6 +179,7 @@ export const setRunning = internalMutation({
   },
 });
 
+/** Fetches document and repo data and builds the evaluation prompt with requirements. */
 export const getDocData = internalQuery({
   args: { docId: v.id("docs") },
   returns: v.object({
@@ -231,6 +234,7 @@ No markdown, no explanation, no text outside the JSON.${rootDirInstruction}`;
   },
 });
 
+/** Saves evaluation results, parsing the LLM JSON into per-requirement pass/fail entries. */
 export const saveResult = internalMutation({
   args: {
     reportId: v.id("evaluationReports"),
@@ -299,6 +303,7 @@ export const saveResult = internalMutation({
   },
 });
 
+/** Records a workflow-level failure, handling both eval and fix phase errors. */
 export const saveWorkflowFailure = internalMutation({
   args: {
     reportId: v.id("evaluationReports"),
@@ -375,6 +380,7 @@ export const handleCompletion = authMutation({
   },
 });
 
+/** Fetches failed evaluation results and builds the fix prompt and PR description. */
 export const getFixData = internalQuery({
   args: { reportId: v.id("evaluationReports"), docId: v.id("docs") },
   returns: v.object({
@@ -443,6 +449,7 @@ ${failedResults.map((r) => `- ${r.requirement}: ${r.detail}`).join("\n")}
   },
 });
 
+/** Marks the evaluation report as in the fixing phase with a branch name. */
 export const setFixing = internalMutation({
   args: {
     reportId: v.id("evaluationReports"),
@@ -459,6 +466,7 @@ export const setFixing = internalMutation({
   },
 });
 
+/** Saves the fix result with the PR URL and marks fix as completed. */
 export const saveFixResult = internalMutation({
   args: {
     reportId: v.id("evaluationReports"),
@@ -478,6 +486,7 @@ export const saveFixResult = internalMutation({
   },
 });
 
+/** Marks the fix phase as errored and clears the active workflow. */
 export const saveFixError = internalMutation({
   args: {
     reportId: v.id("evaluationReports"),
@@ -496,6 +505,7 @@ export const saveFixError = internalMutation({
   },
 });
 
+/** Receives sandbox fix completion callback and forwards the event to the active workflow. */
 export const handleFixCompletion = authMutation({
   args: {
     reportId: v.id("evaluationReports"),

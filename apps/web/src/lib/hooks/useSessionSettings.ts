@@ -9,8 +9,15 @@ import {
   type AIModel,
 } from "@conductor/backend";
 
-const SESSION_MODES = ["ask", "execute", "plan"] as const;
+const SESSION_MODES = ["edit", "plan"] as const;
 export type SessionMode = (typeof SESSION_MODES)[number];
+
+/** Migrates old stored mode values ("ask"/"execute") to "edit". */
+function normalizeMode(mode: string): SessionMode {
+  if (mode === "ask" || mode === "execute") return "edit";
+  if (mode === "plan") return "plan";
+  return "edit";
+}
 
 interface StoredSettings {
   model: AIModel;
@@ -21,7 +28,7 @@ interface StoredSettings {
 const DEFAULT_SETTINGS: StoredSettings = {
   model: DEFAULT_AI_MODEL,
   responseLength: "default",
-  mode: "ask",
+  mode: "edit",
 };
 
 function storageKey(sessionId: string) {
@@ -64,7 +71,7 @@ export function useSessionSettings(
 
   return {
     model: normalizeAIModel(settings.model),
-    mode: settings.mode,
+    mode: normalizeMode(settings.mode),
     responseLength: settings.responseLength,
     setModel,
     setMode,

@@ -38,6 +38,7 @@ const LEGACY_WORKSPACE_DIR = "/workspace/repo";
 
 // --- Prompt builders ---
 
+/** Builds a read-only prompt for answering questions about the codebase in non-technical language. */
 function buildAskPrompt(
   repo: { owner: string; name: string },
   message: string,
@@ -57,6 +58,7 @@ Rules:
 ${getResponseLengthInstruction(responseLength, "ask")}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+/** Builds a plan-mode prompt for creating or refining a plan.md document. */
 function buildPlanPrompt(
   repo: { owner: string; name: string },
   existingPlan: string,
@@ -80,6 +82,7 @@ Rules:
 - Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+/** Builds an execute-mode prompt with full write access for implementing code changes. */
 function buildExecutePrompt(
   repo: { owner: string; name: string },
   branchName: string,
@@ -120,6 +123,7 @@ const sessionModeArgValidator = v.union(
   v.literal("plan"),
 );
 
+/** Starts a session sandbox (clone + branch setup) as a durable workflow step. */
 export const sessionSandboxStartupWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
@@ -145,6 +149,7 @@ export const sessionSandboxStartupWorkflow = workflow.define({
   },
 });
 
+/** Runs a session message through the sandbox agent in the specified mode (ask/plan/execute). */
 export const sessionExecuteWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
@@ -267,6 +272,7 @@ export const sessionExecuteWorkflow = workflow.define({
 
 // --- Deployment tracking ---
 
+/** Queues deployment status polling for a session branch after a successful execute. */
 export const scheduleSessionDeploymentTracking = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -298,6 +304,7 @@ export const scheduleSessionDeploymentTracking = internalMutation({
 
 // --- Supporting internal functions ---
 
+/** Inserts an empty assistant message into the session for streaming updates. */
 export const addAssistantPlaceholder = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -321,6 +328,7 @@ export const addAssistantPlaceholder = internalMutation({
   },
 });
 
+/** Fetches session and repo data, builds the mode-specific prompt, and resolves branch/tools config. */
 export const getSessionData = internalQuery({
   args: {
     sessionId: v.id("sessions"),
@@ -397,6 +405,7 @@ export const getSessionData = internalQuery({
   },
 });
 
+/** Updates the session's sandbox ID and optionally its branch name after sandbox preparation. */
 export const updateSandboxId = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -421,6 +430,7 @@ export const updateSandboxId = internalMutation({
   },
 });
 
+/** Saves the session execution result, updating the last message and starting queued messages. */
 export const saveResult = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -476,11 +486,58 @@ export const saveResult = internalMutation({
       sessionPatch.planContent = args.planContent;
     }
     await ctx.db.patch(args.sessionId, sessionPatch);
+
+    // Append edit to PR if session has one and this was a successful execute
+    if (
+      session.prUrl &&
+      session.branchName &&
+      args.success &&
+      args.result &&
+      last.mode === "execute"
+    ) {
+      // Find the user's request message (the one before the assistant placeholder)
+      const recentMessages = await ctx.db
+        .query("messages")
+        .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+        .order("desc")
+        .take(3);
+      const userMsg = recentMessages.find((m) => m.role === "user");
+
+      if (userMsg) {
+        const repo = await ctx.db.get(session.repoId);
+        if (repo) {
+          // Resolve proof URLs if media was captured during execution
+          const proofImageUrl = last.imageStorageId
+            ? ((await ctx.storage.getUrl(last.imageStorageId)) ?? undefined)
+            : undefined;
+          const proofVideoUrl = last.videoStorageId
+            ? ((await ctx.storage.getUrl(last.videoStorageId)) ?? undefined)
+            : undefined;
+
+          await ctx.scheduler.runAfter(
+            0,
+            internal.taskWorkflowActions.appendEditToPullRequest,
+            {
+              installationId: repo.installationId,
+              repoOwner: repo.owner,
+              repoName: repo.name,
+              branchName: session.branchName,
+              userRequest: userMsg.content,
+              editResult: args.result,
+              proofImageUrl,
+              proofVideoUrl,
+            },
+          );
+        }
+      }
+    }
+
     await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
 });
 
+/** Receives sandbox completion callback and forwards the event to the active session workflow. */
 export const handleCompletion = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -532,6 +589,7 @@ export const handleCompletion = authMutation({
   },
 });
 
+/** Frontend trigger to start a session execution workflow in the specified mode. */
 export const startExecute = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -586,6 +644,7 @@ export const startExecute = authMutation({
   },
 });
 
+/** Queues a message to be processed after the current active workflow finishes. */
 export const enqueueMessage = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -618,6 +677,7 @@ export const enqueueMessage = authMutation({
   },
 });
 
+/** Cancels the active session workflow, kills the sandbox process, and starts queued messages. */
 export const cancelExecution = authMutation({
   args: {
     sessionId: v.id("sessions"),

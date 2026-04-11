@@ -29,10 +29,14 @@ type ParsedAudit = {
 const AUDIT_SECTION_REGEX =
   /<!-- EVA_AUDIT_START -->[\s\S]*?<!-- EVA_AUDIT_END -->\s*/m;
 
+const EDIT_END_MARKER = "<!-- EVA_EDITS_END -->";
+
+/** Escapes pipe characters and newlines so a string is safe for a markdown table cell. */
 function escapeTableCell(value: string): string {
   return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
 }
 
+/** Builds the markdown audit section from parsed audit results or an error message. */
 function buildAuditSection(
   result: string | null,
   error: string | null,
@@ -99,6 +103,7 @@ function buildAuditSection(
   return lines.join("\n");
 }
 
+/** Merges a new audit section into an existing PR body, replacing any previous audit block. */
 function mergeBodyWithAuditSection(
   existingBody: string,
   auditSection: string,
@@ -107,6 +112,7 @@ function mergeBodyWithAuditSection(
   return stripped ? `${stripped}\n\n${auditSection}` : auditSection;
 }
 
+/** Assembles a pull request body from an array of heading/content sections. */
 export function buildPrBody(
   sections: Array<{ heading: string; content: string }>,
 ): string {
@@ -121,6 +127,7 @@ export function buildPrBody(
   return parts.join("\n");
 }
 
+/** Creates a GitHub pull request via the installation Octokit and optionally adds labels. */
 export const createPullRequest = internalAction({
   args: {
     installationId: v.number(),
@@ -164,6 +171,7 @@ export const createPullRequest = internalAction({
   },
 });
 
+/** Appends or updates the audit section in an existing pull request body. */
 export const appendAuditToPullRequest = internalAction({
   args: {
     installationId: v.number(),
@@ -208,11 +216,121 @@ export const appendAuditToPullRequest = internalAction({
   },
 });
 
+/** Builds a single edit entry for the PR body from a user request and its result. */
+function buildEditEntry(
+  userRequest: string,
+  editResult: string,
+  proofImageUrl?: string,
+  proofVideoUrl?: string,
+): string {
+  const lines: string[] = [];
+  lines.push(`**Request:** ${escapeTableCell(userRequest)}`);
+  lines.push(`**Changes:** ${escapeTableCell(editResult)}`);
+  if (proofImageUrl) {
+    lines.push(`\n![Proof Screenshot](${proofImageUrl})`);
+  }
+  if (proofVideoUrl) {
+    lines.push(`\n[Proof Video](${proofVideoUrl})`);
+  }
+  return lines.join("\n");
+}
+
+/** Merges a new edit entry into the PR body, appending inside the edits section or creating one. */
+function mergeBodyWithEditEntry(existingBody: string, entry: string): string {
+  const editSection = `<!-- EVA_EDITS_START -->\n## Changes Requested\n\n${entry}\n${EDIT_END_MARKER}`;
+
+  // If there's an existing edit section, append the new entry inside it
+  const endMarkerIdx = existingBody.indexOf(EDIT_END_MARKER);
+  if (endMarkerIdx !== -1) {
+    return (
+      existingBody.slice(0, endMarkerIdx) +
+      "\n---\n\n" +
+      entry +
+      "\n" +
+      existingBody.slice(endMarkerIdx)
+    );
+  }
+
+  // Insert before audit section if present
+  const auditStart = existingBody.indexOf("<!-- EVA_AUDIT_START -->");
+  if (auditStart !== -1) {
+    return (
+      existingBody.slice(0, auditStart) +
+      editSection +
+      "\n\n" +
+      existingBody.slice(auditStart)
+    );
+  }
+
+  // Insert before footer if present
+  const footer = existingBody.lastIndexOf("---\n*Created by Eva AI Agent*");
+  if (footer !== -1) {
+    return (
+      existingBody.slice(0, footer) +
+      editSection +
+      "\n\n" +
+      existingBody.slice(footer)
+    );
+  }
+
+  return existingBody + "\n\n" + editSection;
+}
+
+/** Appends or updates the changes-requested section in an existing pull request body. */
+export const appendEditToPullRequest = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    userRequest: v.string(),
+    editResult: v.string(),
+    proofImageUrl: v.optional(v.string()),
+    proofVideoUrl: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      const pulls = await octokit.rest.pulls.list({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        state: "open",
+        head: `${args.repoOwner}:${args.branchName}`,
+        per_page: 1,
+      });
+      const pr = pulls.data[0];
+      if (!pr) return null;
+
+      const entry = buildEditEntry(
+        args.userRequest,
+        args.editResult,
+        args.proofImageUrl,
+        args.proofVideoUrl,
+      );
+      const updatedBody = mergeBodyWithEditEntry(pr.body ?? "", entry);
+
+      await octokit.rest.pulls.update({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: pr.number,
+        body: updatedBody,
+      });
+    } catch (error) {
+      console.error(
+        `Failed to append edit to PR: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return null;
+  },
+});
+
 const MAX_POLL_ATTEMPTS = 20;
 const POLL_INTERVAL_MS = 60_000;
 
 type DeploymentStatus = typeof deploymentStatusValidator.type;
 
+/** Maps a GitHub deployment state string to the internal DeploymentStatus enum. */
 function mapGitHubDeploymentState(state: string): DeploymentStatus {
   switch (state) {
     case "queued":
@@ -232,10 +350,12 @@ function mapGitHubDeploymentState(state: string): DeploymentStatus {
   }
 }
 
+/** Checks whether a deployment status is a final state (deployed or error). */
 function isTerminalDeploymentStatus(status: DeploymentStatus): boolean {
   return status === "deployed" || status === "error";
 }
 
+/** Polls GitHub deployment status for a task run branch, scheduling retries until terminal or max attempts. */
 export const pollDeploymentStatus = internalAction({
   args: {
     runId: v.id("agentRuns"),
@@ -353,6 +473,7 @@ export const pollDeploymentStatus = internalAction({
   },
 });
 
+/** Polls GitHub deployment status for a session branch, scheduling retries until terminal or max attempts. */
 export const pollSessionDeploymentStatus = internalAction({
   args: {
     sessionId: v.id("sessions"),

@@ -1,5 +1,12 @@
 # Changelog
 
+## Show live quick-task reply text while runs are in progress - 2026-04-11
+
+- **Why**: Quick-task runs already stream both structured activity steps and the assistant's incremental reply text, but the task timeline only rendered the activity steps. Once a run reached `Streaming response... / Receiving reply...`, the UI looked frozen even when the callback was actively streaming text into `currentContent`.
+- **Changes**:
+  - Rendered `streaming.currentContent` in the task run timeline while a run is active, matching the behavior already used in session chat.
+- **Reason**: This is an observability fix. Users need to see the live reply content so they can distinguish real stalls from a run that is still actively streaming.
+
 ## Tighten quick-task runner startup and remove wasted retries - 2026-04-11
 
 - **Why**: Quick tasks were still spending time in the wrong places even after sandbox bootstrap was fixed. The task runner was paying an MCP startup tax it did not need, Claude was allowed to sit for 90 seconds before first output, auto-retry was re-running non-transient failures, and `markRunFinalizing` was referenced by the sandbox callback without being exported from the public task workflow surface.

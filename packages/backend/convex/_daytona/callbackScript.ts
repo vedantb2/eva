@@ -164,17 +164,6 @@ async function callStreamingHeartbeat(entityId, currentActivity, currentContent,
   return await callMutation("streaming:set", args);
 }
 
-/** Marks an agent run as finalizing if this is a task-scoped execution. */
-async function markRunFinalizingIfNeeded() {
-  if (!RUN_ID || ENTITY_ID_FIELD !== "taskId") {
-    return;
-  }
-  await callMutationWithRetry("taskWorkflow:markRunFinalizing", {
-    taskId: ENTITY_ID,
-    runId: RUN_ID,
-  });
-}
-
 /** Shortens a file path to show only the last 3 segments for display. */
 function shortenPath(p) {
   const parts = p.replace(/\\\\\\\\/g, "/").split("/");
@@ -1963,11 +1952,6 @@ try {
   }
 
   await setFinalizingState();
-  try {
-    await markRunFinalizingIfNeeded();
-  } catch (e) {
-    console.error("Failed to mark run finalizing:", e);
-  }
 
   let errorValue = null;
   if (finalResultEvent?.isError) {

@@ -1,7 +1,11 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { authMutation, hasRepoAccess } from "../functions";
-import { roleValidator, sessionStatusValidator } from "../validators";
+import {
+  roleValidator,
+  sessionModeValidator,
+  sessionStatusValidator,
+} from "../validators";
 import { workflow } from "../workflowManager";
 
 /** Creates a new session with a sandbox startup workflow. */
@@ -51,9 +55,7 @@ export const addMessage = authMutation({
     id: v.id("sessions"),
     role: roleValidator,
     content: v.string(),
-    mode: v.optional(
-      v.union(v.literal("execute"), v.literal("ask"), v.literal("plan")),
-    ),
+    mode: v.optional(sessionModeValidator),
     activityLog: v.optional(v.string()),
   },
   returns: v.null(),

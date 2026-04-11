@@ -34,8 +34,9 @@ export const logLevelValidator = v.union(
 export const roleValidator = v.union(v.literal("user"), v.literal("assistant"));
 
 export const sessionModeValidator = v.union(
-  v.literal("execute"),
+  v.literal("edit"),
   v.literal("ask"),
+  v.literal("execute"),
   v.literal("plan"),
 );
 

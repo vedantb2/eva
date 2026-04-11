@@ -28,37 +28,15 @@ const sessionCompleteEvent = defineEvent({
 
 // --- Mode config ---
 
-const MODE_TOOLS: Record<"ask" | "plan" | "execute", string> = {
-  ask: "Read,Glob,Grep,Bash",
+const MODE_TOOLS: Record<"edit" | "plan", string> = {
+  edit: "Read,Write,Edit,Bash,Glob,Grep",
   plan: "Read,Write,Glob,Grep",
-  execute: "Read,Write,Edit,Bash,Glob,Grep",
 };
 
 const WORKSPACE_DIR = "/tmp/repo";
 const LEGACY_WORKSPACE_DIR = "/workspace/repo";
 
 // --- Prompt builders ---
-
-/** Builds a read-only prompt for answering questions about the codebase in non-technical language. */
-function buildAskPrompt(
-  repo: { owner: string; name: string },
-  message: string,
-  responseLength: string,
-  rootDirectory: string,
-  customInstructionsBlock: string,
-): string {
-  return `Answer questions about ${repo.owner}/${repo.name} for a non-technical user. READ-ONLY — do NOT modify files.
-
-${message}
-
-Use Glob, Grep, Read, Bash to explore. Do NOT modify files.
-
-Rules:
-- Non-technical language only — no code, file paths, function names, or jargon
-- Reference product areas casually ("the login page") but never source files
-- If you find a fixable issue, do NOT say "a developer needs to look at this." Instead, describe the problem and suggest: "Want me to switch to execute mode and fix this?"
-${getResponseLengthInstruction(responseLength, "ask")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
-}
 
 /** Builds a plan-mode prompt for creating or refining a plan.md document. */
 function buildPlanPrompt(
@@ -85,8 +63,8 @@ Rules:
 - Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-/** Builds an execute-mode prompt with full write access for implementing code changes. */
-function buildExecutePrompt(
+/** Builds an edit-mode prompt with full read+write access for answering questions and making code changes. */
+function buildEditPrompt(
   repo: { owner: string; name: string },
   branchName: string,
   planContent: string,
@@ -99,31 +77,34 @@ function buildExecutePrompt(
   const planContext = planContent
     ? `\n\nApproved plan:\n${planContent}\n\nFollow the goals, user stories, and acceptance criteria above.`
     : "";
-  return `Full admin access to this sandbox. ${repo.owner}/${repo.name} on branch "${branchName}".${planContext}
+  return `Full access to ${repo.owner}/${repo.name} on branch "${branchName}".${planContext}
 
 ${message}
 
 Steps:
 1. Read CLAUDE.md if it exists
 2. Find relevant files with Glob, Grep, Read
-3. Make changes with Edit or Write
+3. If changes are needed, make them with Edit or Write
 4. If code changed, commit and push:
    git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}" && git push -u origin ${branchName}
 
 Rules:
 - ONLY work on "${branchName}" — never interact with main
+- If the user is asking a question, answer it — don't make unnecessary changes
 - No PRs, no build/lint/test/dev commands, no commit if no source changed
 - Never commit images/video. Minimal, focused changes. Use lockfile. GITHUB_TOKEN is set.
 - Respond as business outcome, no code/paths/jargon (e.g. "Added dark mode toggle. Pushed to branch.")
 - No commit hashes or process commentary
-- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "execute")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "edit")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 // --- Workflow ---
 
+// Accepts legacy "ask"/"execute" for in-flight queued messages — treated as "edit" in handlers
 const sessionModeArgValidator = v.union(
-  v.literal("execute"),
+  v.literal("edit"),
   v.literal("ask"),
+  v.literal("execute"),
   v.literal("plan"),
 );
 
@@ -258,7 +239,7 @@ export const sessionExecuteWorkflow = workflow.define({
       pendingQuestion: result.pendingQuestion,
     });
 
-    if (args.mode === "execute" && result.success && data.branchName) {
+    if (args.mode !== "plan" && result.success && data.branchName) {
       await step.runMutation(
         internal.sessionWorkflow.scheduleSessionDeploymentTracking,
         {
@@ -368,21 +349,14 @@ export const getSessionData = internalQuery({
       user?.customInstructions ?? undefined,
     );
 
-    const branchName =
-      args.mode === "ask"
-        ? undefined
-        : session.branchName || `eva/session-${args.sessionId}`;
+    // Normalize legacy "ask"/"execute" to "edit"
+    const effectiveMode: "edit" | "plan" =
+      args.mode === "plan" ? "plan" : "edit";
+
+    const branchName = session.branchName || `eva/session-${args.sessionId}`;
 
     let prompt: string;
-    if (args.mode === "ask") {
-      prompt = buildAskPrompt(
-        { owner: repo.owner, name: repo.name },
-        args.message,
-        args.responseLength,
-        rootDirectory,
-        customInstructionsBlock,
-      );
-    } else if (args.mode === "plan") {
+    if (effectiveMode === "plan") {
       prompt = buildPlanPrompt(
         { owner: repo.owner, name: repo.name },
         session.planContent || "",
@@ -392,9 +366,9 @@ export const getSessionData = internalQuery({
         customInstructionsBlock,
       );
     } else {
-      prompt = buildExecutePrompt(
+      prompt = buildEditPrompt(
         { owner: repo.owner, name: repo.name },
-        branchName || "",
+        branchName,
         session.planContent || "",
         args.message,
         args.responseLength,
@@ -411,7 +385,7 @@ export const getSessionData = internalQuery({
       prompt,
       branchName,
       baseBranch: repo.defaultBaseBranch ?? "main",
-      allowedTools: MODE_TOOLS[args.mode],
+      allowedTools: MODE_TOOLS[effectiveMode],
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,
     };
@@ -572,11 +546,9 @@ export const startExecute = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
-    if (
-      args.mode !== "ask" &&
-      args.mode !== "plan" &&
-      args.mode !== "execute"
-    ) {
+    const normalizedMode =
+      args.mode === "ask" || args.mode === "execute" ? "edit" : args.mode;
+    if (normalizedMode !== "edit" && normalizedMode !== "plan") {
       throw new Error(`Unsupported mode: ${args.mode}`);
     }
 

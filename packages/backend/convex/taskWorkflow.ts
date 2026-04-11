@@ -28,7 +28,6 @@ export {
 export { getTaskData } from "./_taskWorkflow/queries";
 
 export {
-  markRunFinalizing,
   handleCompletion,
   handleAuditCompletion,
   handleAuditFixCompletion,

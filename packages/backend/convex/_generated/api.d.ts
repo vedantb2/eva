@@ -63,6 +63,7 @@ import type * as auth from "../auth.js";
 import type * as automationWorkflow from "../automationWorkflow.js";
 import type * as automations from "../automations.js";
 import type * as buildWorkflow from "../buildWorkflow.js";
+import type * as changelog from "../changelog.js";
 import type * as daytona from "../daytona.js";
 import type * as designPersonas from "../designPersonas.js";
 import type * as designSessions from "../designSessions.js";
@@ -192,6 +193,7 @@ declare const fullApi: ApiFromModules<{
   automationWorkflow: typeof automationWorkflow;
   automations: typeof automations;
   buildWorkflow: typeof buildWorkflow;
+  changelog: typeof changelog;
   daytona: typeof daytona;
   designPersonas: typeof designPersonas;
   designSessions: typeof designSessions;

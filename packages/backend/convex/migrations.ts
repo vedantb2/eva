@@ -404,6 +404,27 @@ export const deleteRepoStep = internalMutation({
   },
 });
 
+/** Deletes messages whose parentId doesn't belong to sessions or designSessions. */
+export const cleanupOrphanedMessages = internalMutation({
+  args: {},
+  returns: v.object({ deleted: v.number() }),
+  handler: async (ctx) => {
+    const allMessages = await ctx.db.query("messages").collect();
+    let deleted = 0;
+
+    for (const msg of allMessages) {
+      const parent = await ctx.db.get(msg.parentId);
+      if (!parent) {
+        await ctx.db.delete(msg._id);
+        deleted++;
+      }
+    }
+
+    console.log(`[cleanup] Deleted ${deleted} orphaned messages`);
+    return { deleted };
+  },
+});
+
 /** Schedules deletion of all repos not owned by "evalucom" (or vedantb2/eva). */
 export const deleteNonEvalucomRepos = internalMutation({
   args: {},

@@ -364,6 +364,10 @@ export const completeBuild = internalMutation({
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build) return null;
+
+    // Guard: prevent double-completion from race between rebuildSnapshot and pollSnapshotBuild
+    if (build.status !== "running") return null;
+
     await ctx.db.patch(args.buildId, {
       status: args.status,
       logs: build.logs + args.logs,
@@ -444,18 +448,14 @@ export const appendLogs = internalMutation({
   },
 });
 
-/** Stores the GitHub Actions workflow run ID on a snapshot build. */
-export const setWorkflowRunId = internalMutation({
-  args: {
-    buildId: v.id("snapshotBuilds"),
-    workflowRunId: v.number(),
-  },
-  returns: v.null(),
+/** Returns just the build status, used by the safety-net poller to avoid double-completing. */
+export const getBuildStatus = internalQuery({
+  args: { buildId: v.id("snapshotBuilds") },
+  returns: v.union(snapshotBuildStatusValidator, v.null()),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.buildId, {
-      workflowRunId: args.workflowRunId,
-    });
-    return null;
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return null;
+    return build.status;
   },
 });
 

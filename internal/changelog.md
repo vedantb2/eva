@@ -1,5 +1,17 @@
 # Changelog
 
+## Move snapshot builds from GitHub Actions to Daytona SDK - 2026-04-11
+
+- **Why**: Snapshot builds depended on GitHub Actions — requiring `rebuild-snapshot.yml` in every target repo, GitHub App `actions:write` permissions, and a dispatch→poll→complete round-trip through the GitHub API. This was fragile (workflow file missing, permission errors, branch mismatch) and added an external dependency that the platform shouldn't need.
+- **Changes**:
+  - Rewrote `snapshotActions.ts` to build images directly via the Daytona SDK's `Image` builder and `snapshot.create()` API, eliminating all GitHub Actions dispatch/polling code.
+  - Replaced `COPY . /tmp/repo` with `git clone` using a short-lived GitHub installation token, so the Convex action can build the image without local filesystem access.
+  - Added a safety-net `pollSnapshotBuild` action that polls `snapshot.get()` in case the blocking `snapshot.create()` call outlives the Convex action timeout.
+  - Added a double-completion guard in `completeBuild` to prevent race conditions between the main action and the safety-net poller.
+  - Removed `setWorkflowRunId` mutation and the "View GitHub Actions Run" link from the UI.
+  - Relabeled "Workflow Branch" → "Clone Branch" in the snapshot settings UI.
+- **Reason**: The platform should own its own build infrastructure. Using the Daytona SDK directly is simpler, more reliable, and removes the need for users to set up GitHub Actions workflows.
+
 ## Silent reload on stale Vercel deployments - 2026-04-10
 
 - **Why**: When Vercel deploys a new version while a user is on the site, old JS chunks become unavailable. This caused two problems: (1) an error page flashed before auto-refresh, and (2) stale JS broke Clerk's internals causing a burst of "Not authenticated" Convex query errors as every active subscription was re-evaluated without auth.

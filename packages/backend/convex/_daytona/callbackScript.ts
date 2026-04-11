@@ -28,9 +28,12 @@ const POST_TEXT_STALL_TIMEOUT_MS = Number(process.env.CLAUDE_POST_TEXT_STALL_TIM
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
 const SCRIPT_STARTED_AT = Date.now();
-const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || "15000");
+const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || "10000");
 const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
 const CALLBACK_HTTP_RETRY_BASE_MS = 1000;
+const MAX_CONSECUTIVE_HEARTBEAT_FAILURES = Number(
+  process.env.CALLBACK_MAX_CONSECUTIVE_HEARTBEAT_FAILURES || "3",
+);
 const READY_FILE = "/tmp/run-design.ready";
 const CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
 const CLAUDE_RUNTIME_CONFIG_DIR = process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
@@ -41,6 +44,8 @@ const CODEX_BIN_PATH = process.env.CODEX_BIN_PATH || "/tmp/codex-cli/bin/codex";
 const CODEX_STATE_FILE = "session-state.json";
 const CODEX_LOCAL_STATE_FILE = CODEX_RUNTIME_HOME_DIR + "/" + CODEX_STATE_FILE;
 const CODEX_PERSIST_STATE_FILE = CODEX_PERSIST_DIR + "/" + CODEX_STATE_FILE;
+const CODEX_AUTH_FILE = CODEX_RUNTIME_HOME_DIR + "/auth.json";
+const CODEX_PERSIST_AUTH_FILE = CODEX_PERSIST_DIR + "/auth.json";
 const CODEX_AUTH_JSON = process.env.CODEX_AUTH_JSON || "";
 const CODEX_AUTH_JSON_BASE64 = process.env.CODEX_AUTH_JSON_BASE64 || "";
 const CODEX_CONFIG_TOML = process.env.CODEX_CONFIG_TOML || "";
@@ -284,7 +289,37 @@ function codexItemToStep(item) {
     "tool",
     "skill",
   ]);
+  const normalizedDescription = descriptionValue.toLowerCase();
   const pathDetail = pathValue ? shortenPath(String(pathValue)) : "";
+
+  if (normalizedType === "mcp_tool_call") {
+    if (normalizedDescription.includes("fetch_file")) {
+      return {
+        type: "read",
+        label: "Reading file...",
+        detail: descriptionValue || undefined,
+        status: "active",
+      };
+    }
+    if (
+      normalizedDescription.includes("search") ||
+      normalizedDescription.includes("list_repositories") ||
+      normalizedDescription.includes("list_mcp_resources")
+    ) {
+      return {
+        type: "search_code",
+        label: "Searching code...",
+        detail: descriptionValue || undefined,
+        status: "active",
+      };
+    }
+    return {
+      type: "tool",
+      label: "Using MCP...",
+      detail: descriptionValue || undefined,
+      status: "active",
+    };
+  }
 
   if (normalizedType.includes("web")) {
     return {
@@ -562,6 +597,70 @@ let activeAttemptStartedAt = 0;
 let firstAssistantEventAt = 0;
 let firstTextBlockAt = 0;
 let currentStreamedContent = "";
+let activeAttemptChild = null;
+let fatalHeartbeatErrorMessage = "";
+let consecutiveHeartbeatFailures = 0;
+
+/** Builds the serialized streaming payload for the current accumulated steps. */
+function buildStreamingPayload() {
+  return JSON.stringify(accumulatedSteps);
+}
+
+/** Records a successful heartbeat and clears transient heartbeat failure state. */
+function markHeartbeatSuccess(payload) {
+  lastSentPayload = payload;
+  lastSentContent = currentStreamedContent;
+  lastStreamingSentAt = Date.now();
+  if (consecutiveHeartbeatFailures > 0) {
+    console.error(
+      "Heartbeat recovered after " +
+        consecutiveHeartbeatFailures +
+        " consecutive failures",
+    );
+  }
+  consecutiveHeartbeatFailures = 0;
+}
+
+/** Records a heartbeat transport failure and aborts the active CLI attempt once failures become persistent. */
+function noteHeartbeatFailure(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  consecutiveHeartbeatFailures++;
+  console.error(
+    "Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):",
+    message,
+  );
+  if (
+    !fatalHeartbeatErrorMessage &&
+    consecutiveHeartbeatFailures >= MAX_CONSECUTIVE_HEARTBEAT_FAILURES
+  ) {
+    fatalHeartbeatErrorMessage =
+      "Lost streaming heartbeat after " +
+      String(consecutiveHeartbeatFailures) +
+      " consecutive failures: " +
+      message;
+    log(fatalHeartbeatErrorMessage);
+    if (activeAttemptChild) {
+      terminateAttemptProcess(activeAttemptChild);
+    }
+  }
+}
+
+/** Sends a single streaming heartbeat update and records success/failure state. */
+async function sendStreamingHeartbeatUpdate(payload) {
+  try {
+    await callStreamingHeartbeat(
+      STREAMING_ENTITY_ID,
+      payload,
+      currentStreamedContent,
+      pendingQuestionData || undefined,
+    );
+    markHeartbeatSuccess(payload);
+    return true;
+  } catch (error) {
+    noteHeartbeatFailure(error);
+    return false;
+  }
+}
 
 /** Returns milliseconds elapsed since the current attempt started. */
 function elapsedAttemptMs() {
@@ -655,6 +754,31 @@ function writeCodexFileIfConfigured(fileName, rawValue, encodedValue) {
   writeFileSync(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
 }
 
+/** Builds the Codex runtime config, forcing it to rely on the outer Daytona sandbox. */
+function buildCodexRuntimeConfig(rawValue, encodedValue) {
+  const configuredValue = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
+  const preservedLines = configuredValue
+    ? configuredValue
+        .split(/\\r?\\n/)
+        .filter((line) => {
+          const trimmed = line.trim().toLowerCase();
+          return (
+            !trimmed.startsWith("sandbox_mode") &&
+            !trimmed.startsWith("approval_policy")
+          );
+        })
+    : [];
+  const normalizedPreservedLines = preservedLines.filter((line) => line.trim());
+  const runtimeLines = [
+    'approval_policy = "never"',
+    'sandbox_mode = "danger-full-access"',
+  ];
+  if (normalizedPreservedLines.length > 0) {
+    runtimeLines.push(...normalizedPreservedLines);
+  }
+  return runtimeLines.join("\\n") + "\\n";
+}
+
 /** Reads the Codex session state file to get the resume thread ID. */
 function readCodexSessionState() {
   const statePath = existsSync(CODEX_LOCAL_STATE_FILE)
@@ -705,15 +829,40 @@ function writeCodexSessionState() {
 
 /** Restores persisted Codex state and writes auth/config files to the runtime directory. */
 function hydratePersistedCodexState() {
-  copyDirectoryContents(CODEX_PERSIST_DIR, CODEX_RUNTIME_HOME_DIR);
+  mkdirSync(CODEX_RUNTIME_HOME_DIR, { recursive: true });
+  copyFileIfPresent(
+    CODEX_PERSIST_STATE_FILE,
+    CODEX_LOCAL_STATE_FILE,
+    "hydratePersistedCodexState(state)",
+  );
+  if (!CODEX_AUTH_JSON && !CODEX_AUTH_JSON_BASE64) {
+    copyFileIfPresent(
+      CODEX_PERSIST_AUTH_FILE,
+      CODEX_AUTH_FILE,
+      "hydratePersistedCodexState(auth)",
+    );
+  }
   writeCodexFileIfConfigured("auth.json", CODEX_AUTH_JSON, CODEX_AUTH_JSON_BASE64);
-  writeCodexFileIfConfigured("config.toml", CODEX_CONFIG_TOML, CODEX_CONFIG_TOML_BASE64);
+  writeFileSync(
+    CODEX_RUNTIME_HOME_DIR + "/config.toml",
+    buildCodexRuntimeConfig(CODEX_CONFIG_TOML, CODEX_CONFIG_TOML_BASE64),
+  );
 }
 
 /** Syncs Codex session state from runtime to the persist volume. */
 function syncCodexStateToPersist() {
   writeCodexSessionState();
-  copyDirectoryContents(CODEX_RUNTIME_HOME_DIR, CODEX_PERSIST_DIR);
+  mkdirSync(CODEX_PERSIST_DIR, { recursive: true });
+  copyFileIfPresent(
+    CODEX_LOCAL_STATE_FILE,
+    CODEX_PERSIST_STATE_FILE,
+    "syncCodexStateToPersist(state)",
+  );
+  copyFileIfPresent(
+    CODEX_AUTH_FILE,
+    CODEX_PERSIST_AUTH_FILE,
+    "syncCodexStateToPersist(auth)",
+  );
 }
 
 /** Collects all known Claude session IDs from config, persisted state, and active session. */
@@ -797,35 +946,19 @@ async function flushStreaming() {
       }
     }
     if (hasNew) {
-      const payload = JSON.stringify(accumulatedSteps);
+      const payload = buildStreamingPayload();
       if (
         payload === lastSentPayload &&
         currentStreamedContent === lastSentContent
       ) {
         return;
       }
-      try {
-        await callStreamingHeartbeat(
-          STREAMING_ENTITY_ID,
-          payload,
-          currentStreamedContent,
-          pendingQuestionData || undefined,
-        );
-        lastSentPayload = payload;
-        lastSentContent = currentStreamedContent;
-        lastStreamingSentAt = Date.now();
-        consecutiveHeartbeatFailures = 0;
-      } catch (e) {
-        consecutiveHeartbeatFailures++;
-        console.error("flushStreaming failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
-      }
+      await sendStreamingHeartbeatUpdate(payload);
     }
   } finally {
     flushInProgress = false;
   }
 }
-
-let consecutiveHeartbeatFailures = 0;
 
 let pingInProgress = false;
 /** Sends periodic heartbeat pings to keep the streaming connection alive. */
@@ -838,34 +971,7 @@ async function heartbeatPing() {
       const startupStep = buildClaudeStartupStep();
       updateThinkingStep(startupStep.label, startupStep.detail);
     }
-    const payload = JSON.stringify(accumulatedSteps);
-    const maxAttempts = 3;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        await callStreamingHeartbeat(
-          STREAMING_ENTITY_ID,
-          payload,
-          currentStreamedContent,
-          pendingQuestionData || undefined,
-        );
-        lastSentPayload = payload;
-        lastSentContent = currentStreamedContent;
-        lastStreamingSentAt = Date.now();
-        if (consecutiveHeartbeatFailures > 0) {
-          console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
-        }
-        consecutiveHeartbeatFailures = 0;
-        return;
-      } catch (e) {
-        if (attempt < maxAttempts - 1) {
-          const delayMs = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 500);
-          await new Promise((r) => setTimeout(r, delayMs));
-        } else {
-          consecutiveHeartbeatFailures++;
-          console.error("Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
-        }
-      }
-    }
+    await sendStreamingHeartbeatUpdate(buildStreamingPayload());
   } finally {
     pingInProgress = false;
   }
@@ -887,12 +993,14 @@ async function initialHeartbeat() {
   let attempt = 0;
   while (attempt <= 1) {
     try {
+      const payload = buildStreamingPayload();
       await callStreamingHeartbeat(
         STREAMING_ENTITY_ID,
-        JSON.stringify(accumulatedSteps),
+        payload,
         currentStreamedContent,
         pendingQuestionData || undefined,
       );
+      markHeartbeatSuccess(payload);
       log(
         "initialHeartbeat succeeded in " +
           String(Date.now() - startedAt) +
@@ -909,9 +1017,6 @@ async function initialHeartbeat() {
 }
 await initialHeartbeat()
   .then(() => {
-    lastSentPayload = JSON.stringify(accumulatedSteps);
-    lastSentContent = currentStreamedContent;
-    lastStreamingSentAt = Date.now();
     callbackReady = true;
     try {
       writeFileSync(READY_FILE, String(Date.now()));
@@ -958,14 +1063,7 @@ async function setFinalizingState() {
   });
   lastStepType = "thinking";
   try {
-    await callStreamingHeartbeat(
-      STREAMING_ENTITY_ID,
-      JSON.stringify(accumulatedSteps),
-      currentStreamedContent,
-      pendingQuestionData || undefined,
-    );
-    lastStreamingSentAt = Date.now();
-    lastSentContent = currentStreamedContent;
+    await sendStreamingHeartbeatUpdate(buildStreamingPayload());
   } catch {}
 }
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
@@ -1383,12 +1481,7 @@ function handleRealtimeStreamLine(line) {
     log("captured Claude session id " + activeClaudeSessionId);
     const startupStep = buildClaudeStartupStep();
     updateThinkingStep(startupStep.label, startupStep.detail);
-    callStreamingHeartbeat(
-      STREAMING_ENTITY_ID,
-      JSON.stringify(accumulatedSteps),
-      currentStreamedContent,
-      pendingQuestionData || undefined,
-    ).catch(() => {});
+    void sendStreamingHeartbeatUpdate(buildStreamingPayload());
     return;
   }
   if (parsed.type === "assistant") {
@@ -1445,12 +1538,16 @@ function processRealtimeStdoutChunk(text) {
 /** Builds a descriptive error message based on the CLI exit reason and timeout flags. */
 function buildErrorMessage(
   code,
+  fatalHeartbeatError,
   timedOutForMaxRuntime,
   timedOutForNoOutput,
   timedOutForFirstEvent,
   timedOutAfterFirstText,
 ) {
   const cliName = PROVIDER === "codex" ? "Codex CLI" : "Claude CLI";
+  if (fatalHeartbeatError) {
+    return fatalHeartbeatError;
+  }
   if (timedOutForMaxRuntime) {
     return cliName + " terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
   }
@@ -1572,6 +1669,7 @@ function resetAttemptState() {
   currentStreamedContent = "";
   firstAssistantEventAt = 0;
   firstTextBlockAt = 0;
+  fatalHeartbeatErrorMessage = "";
 }
 
 /** Sends SIGTERM then SIGKILL to forcefully stop a CLI process. */
@@ -1621,6 +1719,7 @@ async function runCliAttempt(options) {
       env: options.env,
       stdio: ["pipe", "pipe", "pipe"],
     });
+    activeAttemptChild = child;
     log(
       options.processLabel +
         " process spawned after " +
@@ -1637,6 +1736,10 @@ async function runCliAttempt(options) {
     let timedOutForFirstEvent = false;
     let timedOutAfterFirstText = false;
     const noOutputTimer = setInterval(() => {
+      if (fatalHeartbeatErrorMessage) {
+        terminateAttemptProcess(child);
+        return;
+      }
       if (Date.now() - SCRIPT_STARTED_AT > MAX_TOTAL_RUNTIME_MS) {
         timedOutForMaxRuntime = true;
         terminateAttemptProcess(child);
@@ -1687,6 +1790,7 @@ async function runCliAttempt(options) {
     });
     child.on("close", (code) => {
       clearInterval(noOutputTimer);
+      activeAttemptChild = null;
       log(
         options.attemptLabel +
           " finished in " +
@@ -1818,44 +1922,14 @@ try {
   let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
   let finalTimedOutAfterFirstText = Boolean(firstAttempt.timedOutAfterFirstText);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
-  const shouldRetryWithoutSession =
-    initialSessionMode.mode !== "none" &&
-    (firstAttempt.code !== 0 || Boolean(finalResultEvent?.isError)) &&
-    !hasToolActivity();
-
-  log("firstAttempt result: code=" + firstAttempt.code + " isError=" + Boolean(finalResultEvent?.isError) + " hasToolActivity=" + hasToolActivity() + " shouldRetry=" + shouldRetryWithoutSession);
-
-  if (shouldRetryWithoutSession) {
-    const firstAttemptStderr = stderrOutput.slice(-2000).trim();
-    const firstAttemptStdout = firstAttempt.output.slice(-1000).trim();
-    log("session-retry stderr: " + (firstAttemptStderr || "(empty)"));
-    log("session-retry stdout tail: " + (firstAttemptStdout || "(empty)"));
-    stderrOutput = "";
-    markLastComplete();
-    accumulatedSteps.push({
-      type: "thinking",
-      label: "Retrying without saved session...",
-      status: "active",
-    });
-    callStreamingHeartbeat(
-      STREAMING_ENTITY_ID,
-      JSON.stringify(accumulatedSteps),
-      currentStreamedContent,
-      pendingQuestionData || undefined,
-    ).catch(() => {});
-
-    const secondAttempt = await runProviderAttempt({
-      mode: "none",
-      sessionId: null,
-    });
-    await flushStreaming();
-    finalCode = secondAttempt.code;
-    finalTimedOutForNoOutput = Boolean(secondAttempt.timedOutForNoOutput);
-    finalTimedOutForMaxRuntime = Boolean(secondAttempt.timedOutForMaxRuntime);
-    finalTimedOutForFirstEvent = Boolean(secondAttempt.timedOutForFirstEvent);
-    finalTimedOutAfterFirstText = Boolean(secondAttempt.timedOutAfterFirstText);
-    finalResultEvent = extractResultEvent(secondAttempt.output);
-  }
+  log(
+    "firstAttempt result: code=" +
+      firstAttempt.code +
+      " isError=" +
+      Boolean(finalResultEvent?.isError) +
+      " hasToolActivity=" +
+      hasToolActivity(),
+  );
 
   if (!resultEventSeen) {
     syncProviderStateToPersist("post-attempt");
@@ -1877,6 +1951,7 @@ try {
     errorValue = appendDiagnosticTail(
       buildErrorMessage(
         finalCode,
+        fatalHeartbeatErrorMessage,
         finalTimedOutForMaxRuntime,
         finalTimedOutForNoOutput,
         finalTimedOutForFirstEvent,

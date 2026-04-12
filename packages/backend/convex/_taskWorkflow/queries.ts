@@ -38,10 +38,15 @@ export const getTaskData = internalQuery({
     if (!repo) throw new Error("Repository not found");
 
     let projectSandboxId: string | undefined;
+    let projectContext: { title: string; description?: string } | undefined;
     if (args.projectId) {
       const project = await ctx.db.get(args.projectId);
       if (project) {
         projectSandboxId = project.sandboxId;
+        projectContext = {
+          title: project.title,
+          description: project.description ?? undefined,
+        };
       }
     }
 
@@ -73,6 +78,7 @@ export const getTaskData = internalQuery({
             rootDirectory,
             screenshotsVideosEnabled,
             changeRequests.length > 0 ? changeRequests : undefined,
+            projectContext,
           );
 
     const canonicalRepoId = repo.parentRepoId ?? args.repoId;

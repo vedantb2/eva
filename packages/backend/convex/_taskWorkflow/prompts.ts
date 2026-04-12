@@ -37,6 +37,7 @@ export function buildImplementationPrompt(
   rootDirectory: string,
   screenshotsVideosEnabled: boolean,
   changeRequests?: string[],
+  projectContext?: { title: string; description?: string },
 ): string {
   const commitScope = isQuickTask
     ? "feat"
@@ -86,9 +87,15 @@ Do NOT mention proof capture in your response or commit message.
 If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.`
     : "";
 
+  const projectSection = projectContext
+    ? `## Project: ${projectContext.title}${projectContext.description ? `\n${projectContext.description}` : ""}
+
+`
+    : "";
+
   return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
 
-## Task: ${task.title}
+${projectSection}## Task: ${task.title}
 ## Description: ${task.description || "No description provided"}
 ${changeRequestSection}
 

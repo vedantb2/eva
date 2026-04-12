@@ -7,7 +7,6 @@ import { useMemo, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  IconBrain,
   IconChartBar,
   IconChecklist,
   IconChevronLeft,
@@ -49,7 +48,6 @@ import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
 import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
 import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomationsBadge";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
-import { AnalyseSidebar } from "@/lib/components/sidebar/AnalyseSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
@@ -67,7 +65,6 @@ const KNOWN_SUB_PAGES = new Set([
   "docs",
   "sessions",
   "quick-tasks",
-  "analyse",
   "settings",
   "testing-arena",
   "stats",
@@ -78,7 +75,6 @@ const KNOWN_SUB_PAGES = new Set([
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
   Designs: "designs",
   Sessions: "sessions",
-  Analyse: "analyse",
   Settings: "settings",
   Documents: "docs",
   "Testing Arena": "testing-arena",
@@ -89,7 +85,6 @@ type ContextSidebarMode =
   | "main"
   | "designs"
   | "sessions"
-  | "analyse"
   | "settings"
   | "docs"
   | "testing-arena"
@@ -102,7 +97,6 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
     if (
       s === "designs" ||
       s === "sessions" ||
-      s === "analyse" ||
       s === "settings" ||
       s === "docs" ||
       s === "testing-arena" ||
@@ -248,19 +242,6 @@ export function Sidebar() {
         ],
       },
       {
-        label: "DATA",
-        groupIcon: IconChartBar,
-        devOnly: true,
-        items: [
-          {
-            name: "Analyse",
-            href: `${repoBasePath}/analyse`,
-            icon: IconBrain,
-            devOnly: true,
-          },
-        ],
-      },
-      {
         label: "SETTINGS",
         groupIcon: IconSettings,
         items: [
@@ -326,17 +307,15 @@ export function Sidebar() {
       ? "Designs"
       : contextSidebarMode === "sessions"
         ? "Sessions"
-        : contextSidebarMode === "analyse"
-          ? "Analyse"
-          : contextSidebarMode === "settings"
-            ? "Settings"
-            : contextSidebarMode === "docs"
-              ? "Documents"
-              : contextSidebarMode === "testing-arena"
-                ? "Testing Arena"
-                : contextSidebarMode === "automations"
-                  ? "Automations"
-                  : "";
+        : contextSidebarMode === "settings"
+          ? "Settings"
+          : contextSidebarMode === "docs"
+            ? "Documents"
+            : contextSidebarMode === "testing-arena"
+              ? "Testing Arena"
+              : contextSidebarMode === "automations"
+                ? "Automations"
+                : "";
 
   const closeMobileSidebar = () => setMobileOpen(false);
 
@@ -615,15 +594,8 @@ export function Sidebar() {
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                             />
-                          ) : contextSidebarMode === "automations" ? (
-                            <AutomationsSidebar
-                              repoId={repo._id}
-                              basePath={repoBasePath}
-                              pathname={pathname}
-                              onNavigate={closeMobileSidebar}
-                            />
                           ) : (
-                            <AnalyseSidebar
+                            <AutomationsSidebar
                               repoId={repo._id}
                               basePath={repoBasePath}
                               pathname={pathname}

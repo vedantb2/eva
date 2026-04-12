@@ -1,5 +1,3 @@
-"use client";
-
 import { Badge } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
@@ -10,7 +8,7 @@ export function UnreadAutomationsBadge({
 }: {
   repoId: Id<"githubRepos">;
 }) {
-  const count = useQuery(api.automations.countUnacknowledged, { repoId });
+  const count = useQuery(api.automations.countUnreadByRepo, { repoId });
 
   if (!count) {
     return null;

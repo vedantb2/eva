@@ -23,8 +23,8 @@ type PrepareSandboxArgs = {
   createRetry?: { maxAttempts: number; initialBackoffMs: number; base: number };
 };
 
-const STEP_RETRY = {
-  retry: { maxAttempts: 3, initialBackoffMs: 1000, base: 2 },
+const FETCH_STEP_RETRY = {
+  retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 },
 };
 
 /** Emits progress steps to the streaming entity for real-time UI updates. */
@@ -45,6 +45,7 @@ export async function prepareSandboxSteps(
   args: PrepareSandboxArgs,
 ): Promise<string> {
   const completedSteps: Array<ProgressStep> = [];
+  const baseBranch = args.baseBranch ?? "main";
 
   // Step 1: Create/resume the sandbox only.
   // Snapshot-backed quick tasks should start from local refs instead of
@@ -72,26 +73,82 @@ export async function prepareSandboxSteps(
     status: "complete",
   });
 
-  // Step 2: Checkout or create the working branch using local refs.
+  // Step 2: Fetch latest refs needed for checkout/setup.
+  await emitSteps(step, args.streamingEntityId, [
+    ...completedSteps,
+    { type: "tool", label: "Fetching base branch...", status: "active" },
+  ]);
+  try {
+    await step.runAction(
+      internal.daytona.fetchBaseBranch,
+      {
+        sandboxId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        baseBranch,
+        repoId: args.repoId,
+      },
+      FETCH_STEP_RETRY,
+    );
+  } catch {
+    // Non-fatal: snapshot already has the codebase.
+    // resolveBaseTarget falls back to local refs when remote isn't fetched.
+    console.warn(
+      `[prepareSandbox] fetch base branch (${baseBranch}) failed — continuing with local snapshot refs`,
+    );
+  }
+  completedSteps.push({
+    type: "tool",
+    label: "Fetching base branch...",
+    status: "complete",
+  });
+
+  if (args.branchName) {
+    await emitSteps(step, args.streamingEntityId, [
+      ...completedSteps,
+      { type: "tool", label: "Fetching task branch...", status: "active" },
+    ]);
+    try {
+      await step.runAction(
+        internal.daytona.fetchBaseBranch,
+        {
+          sandboxId,
+          installationId: args.installationId,
+          repoOwner: args.repoOwner,
+          repoName: args.repoName,
+          baseBranch: args.branchName,
+          repoId: args.repoId,
+        },
+        FETCH_STEP_RETRY,
+      );
+      completedSteps.push({
+        type: "tool",
+        label: "Fetching task branch...",
+        status: "complete",
+      });
+    } catch {
+      // Non-fatal: branch may not exist yet (new task) or network unreachable.
+      // setupBranch falls back to local refs via resolveBranchStartTarget.
+      console.warn(
+        `[prepareSandbox] fetch task branch (${args.branchName}) failed — continuing with local refs`,
+      );
+    }
+  }
+
+  // Step 3: Checkout or create the working branch from latest fetched refs.
   if (args.branchName) {
     await emitSteps(step, args.streamingEntityId, [
       ...completedSteps,
       { type: "tool", label: "Setting up branch...", status: "active" },
     ]);
 
-    await step.runAction(
-      internal.daytona.setupSandboxBranch,
-      {
-        sandboxId,
-        installationId: args.installationId,
-        repoOwner: args.repoOwner,
-        repoName: args.repoName,
-        branchName: args.branchName,
-        baseBranch: args.baseBranch ?? "main",
-        repoId: args.repoId,
-      },
-      STEP_RETRY,
-    );
+    await step.runAction(internal.daytona.setupSandboxBranch, {
+      sandboxId,
+      branchName: args.branchName,
+      baseBranch,
+      repoId: args.repoId,
+    });
   } else if (args.baseBranch) {
     await emitSteps(step, args.streamingEntityId, [
       ...completedSteps,
@@ -102,18 +159,11 @@ export async function prepareSandboxSteps(
       },
     ]);
 
-    await step.runAction(
-      internal.daytona.checkoutBaseBranch,
-      {
-        sandboxId,
-        installationId: args.installationId,
-        repoOwner: args.repoOwner,
-        repoName: args.repoName,
-        baseBranch: args.baseBranch,
-        repoId: args.repoId,
-      },
-      STEP_RETRY,
-    );
+    await step.runAction(internal.daytona.checkoutBaseBranch, {
+      sandboxId,
+      baseBranch: args.baseBranch,
+      repoId: args.repoId,
+    });
   }
 
   return sandboxId;

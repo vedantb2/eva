@@ -21,6 +21,12 @@ export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
 /** Checks whether an error message indicates a Daytona infrastructure/network issue. */
 export function isDaytonaNetworkIssue(errorMsg: string): boolean {
   const message = errorMsg.toLowerCase();
+  if (
+    message.includes("failed to fetch latest base branch") ||
+    message.includes("daytona:fetchbasebranch")
+  ) {
+    return false;
+  }
   const networkMarkers = [
     "network",
     "fetch failed",

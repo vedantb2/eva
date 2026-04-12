@@ -39,6 +39,28 @@ async function getLatestRunningTaskRun(
   );
 }
 
+/** Returns the most recently created running audit for a task, or null if none remain. */
+async function getLatestRunningAudit(
+  ctx: MutationCtx,
+  taskId: Id<"agentTasks">,
+): Promise<Doc<"audits"> | null> {
+  const audits = await ctx.db
+    .query("audits")
+    .withIndex("by_entity", (q) => q.eq("entityId", taskId))
+    .collect();
+  return (
+    audits
+      .filter((audit) => audit.status === "running")
+      .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null
+  );
+}
+
+/** Logs and ignores a completion callback that belongs to a run which is no longer active. */
+function ignoreStaleCompletionCallback(reason: string): null {
+  console.warn(`[taskWorkflow] Ignoring stale completion callback: ${reason}`);
+  return null;
+}
+
 /** Receives the task completion callback, validates it, marks the run as finalizing, and forwards the event to the workflow. */
 export const handleCompletion = authMutation({
   args: {
@@ -53,29 +75,43 @@ export const handleCompletion = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
     if (!task) {
-      throw new Error("Task not found while handling completion");
+      return ignoreStaleCompletionCallback(
+        `task ${String(args.taskId)} no longer exists`,
+      );
     }
+    if (!args.runId) {
+      return ignoreStaleCompletionCallback(
+        `task ${String(args.taskId)} completion arrived without runId`,
+      );
+    }
+    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
     if (!workflowId) {
-      throw new Error("Active workflow missing while handling completion");
+      return ignoreStaleCompletionCallback(
+        `task ${String(args.taskId)} has no active workflow`,
+      );
     }
-
+    const callbackRun = await ctx.db.get(args.runId);
+    if (!callbackRun || callbackRun.taskId !== args.taskId) {
+      return ignoreStaleCompletionCallback(
+        `run ${String(args.runId)} is missing or belongs to another task`,
+      );
+    }
+    if (callbackRun.status !== "running") {
+      return ignoreStaleCompletionCallback(
+        `run ${String(args.runId)} is already ${callbackRun.status}`,
+      );
+    }
     const latestRunningRun = await getLatestRunningTaskRun(ctx, args.taskId);
     if (!latestRunningRun) {
-      throw new Error("No running run found while handling completion");
+      return ignoreStaleCompletionCallback(
+        `task ${String(args.taskId)} no longer has a running run`,
+      );
     }
-
-    if (args.runId) {
-      const callbackRun = await ctx.db.get(args.runId);
-      if (
-        !callbackRun ||
-        callbackRun.taskId !== args.taskId ||
-        callbackRun.status !== "running" ||
-        latestRunningRun._id !== args.runId
-      ) {
-        throw new Error("Completion callback run did not match active run");
-      }
+    if (latestRunningRun._id !== args.runId) {
+      return ignoreStaleCompletionCallback(
+        `run ${String(args.runId)} lost the race to active run ${String(latestRunningRun._id)}`,
+      );
     }
 
     // Mark run as finalizing before forwarding the completion event
@@ -128,27 +164,26 @@ export const handleAuditCompletion = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
-    if (!workflowId) {
-      throw new Error(
-        "Active workflow missing while handling audit completion",
+    if (!args.runId) {
+      return ignoreStaleCompletionCallback(
+        `audit completion for task ${String(args.taskId)} arrived without runId`,
       );
     }
-
-    const audits = await ctx.db
-      .query("audits")
-      .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
-      .collect();
-    const latestRunningAudit = audits
-      .filter((audit) => audit.status === "running")
-      .sort((a, b) => b.createdAt - a.createdAt)[0];
-    if (!latestRunningAudit) {
-      throw new Error("No running audit found while handling completion");
+    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
+    if (!workflowId) {
+      return ignoreStaleCompletionCallback(
+        `task ${String(args.taskId)} has no active workflow for audit completion`,
+      );
     }
-
-    if (args.runId && latestRunningAudit.runId !== args.runId) {
-      throw new Error(
-        "Audit completion callback run did not match active audit",
+    const latestRunningAudit = await getLatestRunningAudit(ctx, args.taskId);
+    if (!latestRunningAudit) {
+      return ignoreStaleCompletionCallback(
+        `task ${String(args.taskId)} no longer has a running audit`,
+      );
+    }
+    if (latestRunningAudit.runId !== args.runId) {
+      return ignoreStaleCompletionCallback(
+        `audit completion run ${String(args.runId)} does not match active audit run ${String(latestRunningAudit.runId)}`,
       );
     }
 

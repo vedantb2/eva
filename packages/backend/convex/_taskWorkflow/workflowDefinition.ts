@@ -35,6 +35,8 @@ export const taskExecutionWorkflow = workflow.define({
     let completionPrUrl: string | null = null;
     let completionActivityLog: string | null = null;
     let completionResult: string | null = null;
+    let finalSuccess = false;
+    let finalError: string | null = null;
     let runCompletionRecorded = false;
     let runFinalized = false;
     let sandboxDeleted = false;
@@ -99,8 +101,32 @@ export const taskExecutionWorkflow = workflow.define({
       completionError = result.error;
       completionActivityLog = result.activityLog;
       completionResult = result.result;
+      finalSuccess = result.success;
+      finalError = result.error;
 
-      if (result.success) {
+      if (finalSuccess && sandboxId) {
+        try {
+          await step.runAction(internal.daytona.pushSandboxBranch, {
+            sandboxId,
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            branchName: data.branchName,
+            baseBranch: args.baseBranch ?? "main",
+            repoId: args.repoId,
+          });
+        } catch (error) {
+          finalSuccess = false;
+          finalError =
+            error instanceof Error
+              ? `Failed to push branch: ${error.message}`
+              : "Failed to push branch";
+          completionSuccess = finalSuccess;
+          completionError = finalError;
+        }
+      }
+
+      if (finalSuccess) {
         await step.runMutation(
           internal.taskWorkflow.scheduleDeploymentTracking,
           {
@@ -114,7 +140,7 @@ export const taskExecutionWorkflow = workflow.define({
         );
       }
 
-      if (args.isFirstTaskOnBranch && result.success) {
+      if (args.isFirstTaskOnBranch && finalSuccess) {
         completionPrUrl = await step.runAction(
           internal.taskWorkflowActions.createPullRequest,
           {
@@ -147,8 +173,8 @@ export const taskExecutionWorkflow = workflow.define({
         runId: args.runId,
         taskId: args.taskId,
         projectId: args.projectId,
-        success: result.success,
-        error: result.error,
+        success: finalSuccess,
+        error: finalError,
         prUrl: completionPrUrl,
         activityLog: result.activityLog,
         claudeResult: result.result ?? undefined,
@@ -157,7 +183,12 @@ export const taskExecutionWorkflow = workflow.define({
 
       const auditCategories = data.auditCategories;
 
-      if (result.success && sandboxId && auditCategories.length > 0) {
+      if (
+        finalSuccess &&
+        sandboxId &&
+        auditCategories.length > 0 &&
+        args.projectId
+      ) {
         try {
           const auditId = await step.runMutation(
             internal.taskWorkflow.createAudit,
@@ -211,8 +242,8 @@ export const taskExecutionWorkflow = workflow.define({
         runId: args.runId,
         taskId: args.taskId,
         projectId: args.projectId,
-        success: result.success,
-        error: result.error,
+        success: finalSuccess,
+        error: finalError,
         prUrl: completionPrUrl,
         activityLog: result.activityLog,
         mode: args.mode,
@@ -220,14 +251,14 @@ export const taskExecutionWorkflow = workflow.define({
       });
       runFinalized = true;
 
-      if (!args.projectId && !result.success) {
+      if (!args.projectId && !finalSuccess) {
         try {
           await step.runMutation(
             internal.taskWorkflow.maybeScheduleQuickTaskRetry,
             {
               taskId: args.taskId,
               runId: args.runId,
-              error: result.error ?? undefined,
+              error: finalError ?? undefined,
               delayMs: buildQuickTaskRetryDelayMs(),
             },
           );

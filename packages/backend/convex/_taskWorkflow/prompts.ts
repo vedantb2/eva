@@ -63,7 +63,8 @@ IMPORTANT: This task was already implemented. The branch "${branchName}" has com
   const proofOfCompletionSection = screenshotsVideosEnabled
     ? `
 ## Proof of Completion (REQUIRED):
-After pushing, capture visual proof of your changes using agent-browser.
+After committing, capture visual proof of your changes using agent-browser.
+The platform handles the branch push after you finish successfully.
 Assume proof is needed unless your changes are EXCLUSIVELY backend logic with no rendering impact (e.g. a cron job, a migration, an internal API rate limit).
 Do NOT mention proof capture in your response or commit message.
 
@@ -96,10 +97,10 @@ ${changeRequestSection}
 2. Implement changes by editing source code files
 3. Run the build command to verify no build errors. If errors, fix and re-run (max 3 attempts — if still failing, commit what you have and report the error)
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
-5. Run: git push -u origin ${branchName}
+5. Do NOT push the branch yourself - the platform will push ${branchName} after you finish successfully
 
 ## Summary (REQUIRED):
-After pushing, write a brief summary of the changes you made and why.
+After committing, write a brief summary of the changes you made and why.
 ${proofOfCompletionSection}
 
 ## Rules:
@@ -107,6 +108,7 @@ ${proofOfCompletionSection}
 - Use lockfile for package manager. GITHUB_TOKEN is set.
 - Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 60 npm run build\`, \`timeout 60 npm test\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
+- Do NOT debug git transport or modify remote configuration. If commit succeeds, stop there and let the platform handle push.
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
@@ -124,13 +126,14 @@ export function buildConflictResolutionPrompt(
 3. If there are merge conflicts, resolve them — keep the task branch's implementation intent intact but adapt it to work with the latest base branch changes
 4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
 5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "fix: resolve merge conflicts with ${baseBranch}"
-6. Run: git push origin ${branchName}
+6. Do NOT push the branch yourself - the platform will push ${branchName} after you finish successfully
 
 ## Rules:
 - Do NOT re-implement or change the feature — only resolve conflicts and ensure compatibility
 - Keep the task's implementation intent intact
 - Use lockfile for package manager. GITHUB_TOKEN is set.
 - Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
+- Do NOT debug git transport or modify remote configuration. If commit succeeds, stop there and let the platform handle push.
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
@@ -176,13 +179,14 @@ ${failureList}
 3. Fix each issue listed above with minimal, focused changes
 4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
 5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${failures.length} issue${failures.length === 1 ? "" : "s"}"
-6. Run: git push origin ${branchName}
+6. Do NOT push the branch yourself - the platform will push ${branchName} after you finish successfully
 
 ## Rules:
 - Only fix the specific issues listed above — do NOT refactor or change unrelated code
 - Keep changes minimal and focused
 - Use lockfile for package manager. GITHUB_TOKEN is set.
 - Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
+- Do NOT debug git transport or modify remote configuration. If commit succeeds, stop there and let the platform handle push.
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 

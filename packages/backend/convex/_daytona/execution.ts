@@ -17,7 +17,6 @@ import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import {
   fetchOrigin,
   setupBranch,
-  configureGitHubOrigin,
   checkoutFetchedBaseBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
@@ -26,6 +25,7 @@ import {
 } from "./git";
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
+import { publishSandboxBranch } from "./publish";
 
 /** Checks whether a sandbox is healthy by executing a test command. */
 export const validateSandbox = internalAction({
@@ -497,7 +497,7 @@ export const fetchBaseBranch = internalAction({
       args.repoOwner,
       args.repoName,
       args.baseBranch,
-      { prune: false, timeoutSeconds: 60, shallow: true },
+      { prune: false, timeoutSeconds: 60, shallow: true, retryAttempts: 2 },
     );
     return null;
   },
@@ -507,9 +507,6 @@ export const fetchBaseBranch = internalAction({
 export const checkoutBaseBranch = internalAction({
   args: {
     sandboxId: v.string(),
-    installationId: v.number(),
-    repoOwner: v.string(),
-    repoName: v.string(),
     baseBranch: v.string(),
     repoId: v.id("githubRepos"),
   },
@@ -525,6 +522,22 @@ export const checkoutBaseBranch = internalAction({
 export const setupSandboxBranch = internalAction({
   args: {
     sandboxId: v.string(),
+    branchName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await setupBranch(sandbox, args.branchName, args.baseBranch);
+    return null;
+  },
+});
+
+/** Pushes a prepared sandbox branch to origin after the agent has finished editing and committing. */
+export const pushSandboxBranch = internalAction({
+  args: {
+    sandboxId: v.string(),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -535,13 +548,14 @@ export const setupSandboxBranch = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await configureGitHubOrigin(
+    await publishSandboxBranch(
       sandbox,
       args.installationId,
       args.repoOwner,
       args.repoName,
+      args.branchName,
+      args.baseBranch,
     );
-    await setupBranch(sandbox, args.branchName, args.baseBranch);
     return null;
   },
 });

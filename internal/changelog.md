@@ -1,5 +1,53 @@
 # Changelog
 
+## Replace shell git commands with Daytona SDK and simplify git operations - 2026-04-12
+
+- Replaced shell `git clone` with `sandbox.git.clone()` via new `execSdkGitOperation` wrapper (timeout, logging, stale-process cleanup)
+- Replaced shell `git checkout` with `sandbox.git.checkoutBranch()` in local-branch paths (`checkoutFetchedBaseBranch`, `checkoutSessionBranch`)
+- Replaced shell `git branch` listing with `sandbox.git.branches()` in `resolveBaseTarget`, `resolveBranchStartTarget`, and `checkoutSessionBranch`
+- Deleted dead code: `remoteBranchExists` (zero callers), `downloadRepoArchive` (replaced by `cloneAndSetupRepo`), `configureGitHubOrigin` (folded into publish flow)
+- Simplified `setupBranch` — removed stash/merge/verify choreography, replaced with single `git checkout -B` from best resolved ref
+- Made both fetch steps (base branch + task branch) non-fatal in `prepareSandboxSteps` so tasks proceed with local snapshot refs when sandbox networking is broken
+- Fixed snapshot DNS resolution: xfce4 desktop packages pull in `libnss-mdns` which inserts `mdns4_minimal [NOTFOUND=return]` before `dns` in `/etc/nsswitch.conf`, causing `getaddrinfo()` to fail for external hosts — added `sed` fix to `buildSnapshotImage`
+
+## Make base-branch fetch failures explicit and stop pointless auto-retry loops - 2026-04-12
+
+- **Why**: When sandbox-to-GitHub transport hangs, `fetchBaseBranch` can fail repeatedly with the same timeout and quick-task auto-retry can relaunch the same failure path, burning extra minutes without recovering.
+- **Changes**:
+  - Wrapped quick-task base-branch fetch with an explicit error message that names the failing stage and branch.
+  - Excluded `fetchBaseBranch` transport failures from quick-task auto-retry classification.
+  - Added `GIT_TERMINAL_PROMPT=0` to git fetch/ls-remote paths so blocked credential prompts fail immediately instead of appearing as transport hangs.
+- **Reason**: These failures need a clear operator signal, not a second identical run attempt.
+
+## Bound base-branch fetch stalls to ~50s instead of multi-minute retries - 2026-04-12
+
+- **Why**: Quick-task startup could spend 3+ minutes stuck on `Fetching base branch...` when Daytona `executeCommand` calls timed out at 60s and retry logic stacked at multiple layers.
+- **Changes**:
+  - Reduced per-attempt base-branch fetch timeout from 60s to 25s.
+  - Capped git fetch retries inside `fetchBaseBranch` to 2 attempts.
+  - Disabled extra workflow-step retries for the fetch steps so we don’t run nested retry towers.
+- **Reason**: Startup should fail fast on transport stalls and retry in one place only.
+
+## Fetch latest base/task refs before quick-task branch setup - 2026-04-12
+
+- **Why**: Quick-task sandbox prep was intentionally local-first, but that also meant snapshot-backed runs could start from stale refs and miss newly pushed commits on the selected base branch.
+- **Changes**:
+  - Added an explicit `fetchBaseBranch` step in quick-task sandbox prep before branch checkout/setup.
+  - Added a best-effort fetch for the task branch ref so reruns can start from the latest remote task branch when it exists.
+  - Updated branch start-target resolution to prefer `origin/<task-branch>` over stale local branch refs.
+- **Reason**: Quick tasks must start from the latest remote branch state, then create/switch the working branch deterministically.
+
+## Collapse quick-task git flow to one local checkout + one backend push - 2026-04-12
+
+- **Why**: Quick tasks were still spending minutes in git even after startup became local-first. Branch setup was doing extra stash/merge choreography, backend push was mutating `origin` and retrying long timed-out pushes, and quick tasks still waited for post-run audit even when the actual code change was already complete.
+- **Changes**:
+  - Simplified quick-task branch setup to a single local `git checkout -B` from the best already-available ref: local branch, local remote-tracking branch, or base ref.
+  - Replaced sandbox `git push` publication with backend branch publishing through the GitHub Git Data API, using the sandbox's committed diff instead of relying on flaky sandbox-to-GitHub git transport.
+  - Removed retry wrapping from local branch checkout/base checkout workflow steps because those steps no longer depend on network transport.
+  - Stopped quick tasks from waiting on the post-run audit path; synchronous audit remains for project-style runs only.
+  - Fixed the implementation prompt wording so proof capture happens after commit, not after push, matching the platform-owned push model.
+- **Reason**: The quick-task critical path should be: local checkout, one agent run, one backend branch publish, done. Every extra git step and synchronous post-processing stage multiplies failure modes and makes simple tasks feel broken.
+
 ## Merge session modes (ask+execute → edit) and fix markRunFinalizing - 2026-04-11
 
 - **Why**: Users kept forgetting to switch from "ask" to "execute" mode and expected edits to work in ask mode. Meanwhile, the separate `markRunFinalizing` HTTP call from the sandbox callback was failing with a 404 because Convex couldn't resolve the function at runtime.
@@ -18,11 +66,30 @@
   - Rendered `streaming.currentContent` in the task run timeline while a run is active, matching the behavior already used in session chat.
 - **Reason**: This is an observability fix. Users need to see the live reply content so they can distinguish real stalls from a run that is still actively streaming.
 
+## Move quick-task branch push out of the model path - 2026-04-11
+
+- **Why**: Quick tasks were still wasting large amounts of wall-clock time after the actual code change was finished because the prompt required the model to `git push`. When GitHub transport from the sandbox was flaky, Claude started debugging git config and refspecs instead of finishing the workflow. That work is deterministic infrastructure, not model reasoning.
+- **Changes**:
+  - Added a backend `pushSandboxBranch` action that pushes the prepared branch from the sandbox with bounded retry/logging.
+  - Updated the quick-task workflow to push the branch itself after a successful agent completion and before deployment tracking or PR creation.
+  - Updated implementation/conflict/audit-fix prompts so the model commits changes but explicitly does not push or debug git transport.
+  - Added a platform note documenting that quick-task push ownership belongs to the workflow, not the model.
+- **Reason**: Git transport is better handled as a short, explicit infrastructure step. Removing push from the prompt cuts wasted model time and keeps task failures tied to the real failing step.
+
+## Ignore stale sandbox completions after watchdog cleanup - 2026-04-11
+
+- **Why**: Quick-task runners can still finish or report late after the watchdog has already killed the run, cleared the active workflow, and possibly scheduled a retry. The previous completion mutations treated those late callbacks as invariant violations, which surfaced noisy `Completion callback run did not match active run` errors even though the system had already moved on correctly.
+- **Changes**:
+  - Tightened task completion handling so task callbacks now require a live `runId`, an active workflow, and the current running run before forwarding events into the workflow.
+  - Applied the same stale-callback guard to audit completions so late audit runners are ignored instead of throwing after cleanup/retry.
+  - Added an explicit platform note documenting that stale sandbox completions are expected and must be treated as no-ops.
+- **Reason**: Watchdog cleanup and auto-retry are only robust if late callbacks from the old sandbox become harmless. Ignoring stale completions removes false failures without changing the active run’s behavior.
+
 ## Tighten quick-task runner startup and remove wasted retries - 2026-04-11
 
-- **Why**: Quick tasks were still spending time in the wrong places even after sandbox bootstrap was fixed. The task runner was paying an MCP startup tax it did not need, Claude was allowed to sit for 90 seconds before first output, auto-retry was re-running non-transient failures, and `markRunFinalizing` was referenced by the sandbox callback without being exported from the public task workflow surface.
+- **Why**: Quick tasks were still spending time in the wrong places even after sandbox bootstrap was fixed. The task runner was paying an MCP startup tax it did not need, Claude was allowed to sit for 90 seconds before first output, auto-retry was re-running non-transient failures, and finalizing-state handling had drifted across separate callback paths.
 - **Changes**:
-  - Exported `markRunFinalizing` from the public `taskWorkflow` module so sandbox callbacks can actually call it.
+  - Folded finalizing-state handling into the main completion path instead of relying on a separate public `markRunFinalizing` callback.
   - Added an `enableMcp` flag to sandbox runner launch and disabled MCP/token minting for quick-task and audit runs, keeping those paths local-first.
   - Added tighter runner budgets for quick tasks and audits so they fail much sooner when the provider never starts producing useful output.
   - Restricted quick-task auto-retry to transient Daytona-style infrastructure failures instead of retrying generic model or task failures.

@@ -7,11 +7,7 @@ import type {
   VolumeMount,
 } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
-import {
-  buildGitHubRepoUrl,
-  getInstallationOctokit,
-  getInstallationToken,
-} from "../githubAuth";
+import { buildGitHubRepoUrl, getInstallationToken } from "../githubAuth";
 import {
   exec,
   LEGACY_WORKSPACE_DIR,
@@ -138,6 +134,40 @@ async function execGitCommand(
   }
 }
 
+const SDK_TIMEOUT_BUFFER_MS = 15_000;
+
+/** Wraps a Daytona SDK git call with timeout, logging, and stale-process cleanup. */
+async function execSdkGitOperation<T>(
+  sandbox: Sandbox,
+  label: string,
+  fn: () => Promise<T>,
+  timeoutSeconds: number,
+): Promise<T> {
+  const startedAt = Date.now();
+  logGit(`sdk [timeout=${timeoutSeconds}s]: ${label}`);
+  try {
+    const result = await withTimeout(
+      fn(),
+      timeoutSeconds * 1000 + SDK_TIMEOUT_BUFFER_MS,
+      `sdk ${label} (${timeoutSeconds}s)`,
+    );
+    logGit(
+      `sdk completed in ${formatDurationMs(Date.now() - startedAt)}: ${label}`,
+    );
+    return result;
+  } catch (error) {
+    const elapsed = Date.now() - startedAt;
+    const message = error instanceof Error ? error.message : String(error);
+    logGit(
+      `sdk failed after ${formatDurationMs(elapsed)} [timeout=${timeoutSeconds}s]: ${label} — ${message}`,
+    );
+    if (isSandboxExecTimeout(message)) {
+      await cleanupTimedOutGitState(sandbox);
+    }
+    throw error;
+  }
+}
+
 /** Wraps a git operation with timing logs and error reporting. */
 async function runLoggedGitStep<T>(
   label: string,
@@ -158,29 +188,6 @@ async function runLoggedGitStep<T>(
     );
     throw error;
   }
-}
-
-/** Checks whether a branch exists on the remote GitHub repository. */
-export async function remoteBranchExists(
-  sandbox: Sandbox,
-  installationId: number,
-  owner: string,
-  name: string,
-  branchName: string,
-  timeoutSeconds = 30,
-): Promise<boolean> {
-  const details = `${owner}/${name}, branch=${branchName}`;
-  return await runLoggedGitStep("remoteBranchExists", details, async () => {
-    const githubToken = await getInstallationToken(installationId);
-    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
-    const workspaceDir = workspaceDirShell();
-    const output = await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git ls-remote --heads origin ${quote([`refs/heads/${branchName}`])}`,
-      timeoutSeconds,
-    );
-    return output.trim().length > 0;
-  });
 }
 
 /** Deduplicates and trims branch names, removing empty entries. */
@@ -332,27 +339,6 @@ export async function createSandbox(
   });
 }
 
-/** Sets the git remote origin URL to an authenticated GitHub URL. */
-export async function configureGitHubOrigin(
-  sandbox: Sandbox,
-  installationId: number,
-  owner: string,
-  name: string,
-): Promise<void> {
-  const details = `${owner}/${name}`;
-  await runLoggedGitStep("configureGitHubOrigin", details, async () => {
-    const githubToken = await getInstallationToken(installationId);
-    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
-    const workspaceDir = workspaceDirShell();
-
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])}`,
-      20,
-    );
-  });
-}
-
 /** Fetches refs from the GitHub remote origin, optionally pruning stale refs. */
 export async function fetchOrigin(
   sandbox: Sandbox,
@@ -383,7 +369,7 @@ export async function fetchOrigin(
       async () => {
         await execGitCommand(
           sandbox,
-          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${pruneArg}${depthArg} origin${refArg}`,
+          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg}${depthArg} origin${refArg}`,
           opts?.timeoutSeconds ?? 240,
         );
       },
@@ -422,7 +408,7 @@ export async function fetchBranchRefs(
       (b) => `+refs/heads/${b}:refs/remotes/origin/${b}`,
     );
     const refspecArgs = refspecs.map((r) => quote([r])).join(" ");
-    const setupAndFetch = `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && git fetch --no-tags${depthArg}${pruneArg} origin`;
+    const setupAndFetch = `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${depthArg}${pruneArg} origin`;
     return await retryGitNetworkOperation(
       "fetchBranchRefs",
       details,
@@ -510,23 +496,64 @@ export async function resolveBaseTarget(
   sandbox: Sandbox,
   baseBranch: string,
 ): Promise<{ ref: string; source: "remote" | "local" | "head" }> {
+  // Check remote tracking branch via shell (SDK branches() only lists local)
   const workspaceDir = workspaceDirShell();
-  const quotedRemoteRef = quote([`refs/remotes/origin/${baseBranch}`]);
-  const quotedLocalRef = quote([`refs/heads/${baseBranch}`]);
-  const output = (
+  const remoteCheck = (
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && if git rev-parse --verify --quiet ${quotedRemoteRef} >/dev/null; then printf remote; elif git rev-parse --verify --quiet ${quotedLocalRef} >/dev/null; then printf local; else printf head; fi`,
+      `cd ${workspaceDir} && git rev-parse --verify --quiet refs/remotes/origin/${quote([baseBranch])} >/dev/null 2>&1 && printf yes || printf no`,
       10,
     )
   ).trim();
-  if (output === "remote") {
+  if (remoteCheck === "yes") {
     return { ref: `origin/${baseBranch}`, source: "remote" };
   }
-  if (output === "local") {
+  // Check local branches via SDK
+  const branchList = await execSdkGitOperation(
+    sandbox,
+    `branches`,
+    () => sandbox.git.branches(WORKSPACE_DIR),
+    10,
+  );
+  if (branchList.branches.includes(baseBranch)) {
     return { ref: baseBranch, source: "local" };
   }
   return { ref: "HEAD", source: "head" };
+}
+
+/** Resolves the best local starting ref for a working branch. */
+async function resolveBranchStartTarget(
+  sandbox: Sandbox,
+  branchName: string,
+  baseBranch: string,
+): Promise<{
+  ref: string;
+  source: "localBranch" | "remoteBranch" | "base";
+}> {
+  // Check remote tracking branch via shell (SDK branches() only lists local)
+  const workspaceDir = workspaceDirShell();
+  const remoteCheck = (
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git rev-parse --verify --quiet refs/remotes/origin/${quote([branchName])} >/dev/null 2>&1 && printf yes || printf no`,
+      10,
+    )
+  ).trim();
+  if (remoteCheck === "yes") {
+    return { ref: `origin/${branchName}`, source: "remoteBranch" };
+  }
+  // Check local branches via SDK
+  const branchList = await execSdkGitOperation(
+    sandbox,
+    `branches`,
+    () => sandbox.git.branches(WORKSPACE_DIR),
+    10,
+  );
+  if (branchList.branches.includes(branchName)) {
+    return { ref: branchName, source: "localBranch" };
+  }
+  const { ref } = await resolveBaseTarget(sandbox, baseBranch);
+  return { ref, source: "base" };
 }
 
 /** Checks out a session branch, creating it from a remote or base ref if needed. */
@@ -537,6 +564,24 @@ export async function checkoutSessionBranch(
 ): Promise<void> {
   const details = `branch=${branchName}, base=${baseBranch}`;
   await runLoggedGitStep("checkoutSessionBranch", details, async () => {
+    // Check if branch already exists locally via SDK
+    const branchList = await execSdkGitOperation(
+      sandbox,
+      `branches`,
+      () => sandbox.git.branches(WORKSPACE_DIR),
+      10,
+    );
+    if (branchList.branches.includes(branchName)) {
+      // Branch exists locally — simple checkout via SDK
+      await execSdkGitOperation(
+        sandbox,
+        `checkoutBranch ${branchName}`,
+        () => sandbox.git.checkoutBranch(WORKSPACE_DIR, branchName),
+        20,
+      );
+      return;
+    }
+    // Branch doesn't exist locally — create from remote tracking or base ref
     const { ref: baseTarget } = await resolveBaseTarget(sandbox, baseBranch);
     const quotedBranch = quote([branchName]);
     const quotedRemoteBranch = quote([`origin/${branchName}`]);
@@ -544,7 +589,7 @@ export async function checkoutSessionBranch(
     const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemoteBranch} || git checkout -b ${quotedBranch} ${quotedBase})`,
+      `cd ${workspaceDir} && (git checkout -b ${quotedBranch} ${quotedRemoteBranch} || git checkout -b ${quotedBranch} ${quotedBase})`,
       30,
     );
   });
@@ -575,9 +620,12 @@ export async function checkoutFetchedBaseBranch(
       return;
     }
     if (source === "local") {
-      await execGitCommand(
+      // SDK checkoutBranch — simple checkout, no startpoint needed.
+      // Uses WORKSPACE_DIR directly (SDK needs a real path, not a shell expression).
+      await execSdkGitOperation(
         sandbox,
-        `cd ${workspaceDir} && git checkout ${quotedBranch}`,
+        `checkoutBranch ${baseBranch}`,
+        () => sandbox.git.checkoutBranch(WORKSPACE_DIR, baseBranch),
         timeoutSeconds,
       );
       return;
@@ -635,29 +683,6 @@ async function installDependencies(
   }
 }
 
-/** Downloads a repo archive for fast no-sync ephemeral bootstrap and initializes a local git repo. */
-async function downloadRepoArchive(
-  sandbox: Sandbox,
-  installationId: number,
-  owner: string,
-  name: string,
-): Promise<void> {
-  const octokit = await getInstallationOctokit(installationId);
-  const repo = await octokit.rest.repos.get({ owner, repo: name });
-  const defaultBranch = repo.data.default_branch;
-  const githubToken = await getInstallationToken(installationId);
-  const archiveUrl = `https://api.github.com/repos/${owner}/${name}/tarball/${encodeURIComponent(defaultBranch)}`;
-  const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
-  logGit(
-    `downloadRepoArchive: bootstrapping ${owner}/${name} from defaultBranch=${defaultBranch}`,
-  );
-  await exec(
-    sandbox,
-    `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} /tmp/repo.tar.gz && mkdir -p ${quote([WORKSPACE_DIR])} && curl -fsSL -H ${quote([`Authorization: Bearer ${githubToken}`])} -H ${quote(["Accept: application/vnd.github+json"])} ${quote([archiveUrl])} -o /tmp/repo.tar.gz && tar -xzf /tmp/repo.tar.gz --strip-components=1 -C ${quote([WORKSPACE_DIR])} && rm -f /tmp/repo.tar.gz && cd ${quote([WORKSPACE_DIR])} && git init -b ${quote([defaultBranch])} && git remote add origin ${quote([repoUrl])} && git add -A && git commit --allow-empty -m "Initial checkout"`,
-    180,
-  );
-}
-
 /** Clones a GitHub repo into the sandbox and optionally installs dependencies. */
 export async function cloneAndSetupRepo(
   sandbox: Sandbox,
@@ -671,12 +696,32 @@ export async function cloneAndSetupRepo(
   await runLoggedGitStep("cloneAndSetupRepo", details, async () => {
     if (onProgress) await onProgress("Cloning repository...");
     const githubToken = await getInstallationToken(installationId);
-    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
-    const cloneCommand = `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])} && GIT_TERMINAL_PROMPT=0 git clone --depth 1 --single-branch --no-tags ${quote([repoUrl])} ${quote([WORKSPACE_DIR])}`;
+    const repoUrl = `https://github.com/${owner}/${name}.git`;
+
+    // SDK clone doesn't clean target dir — pre-clean workspace directories
+    await exec(
+      sandbox,
+      `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])}`,
+      30,
+    );
+
     const maxCloneAttempts = 3;
     for (let attempt = 1; attempt <= maxCloneAttempts; attempt += 1) {
       try {
-        await execGitCommand(sandbox, cloneCommand, REPO_CLONE_TIMEOUT_SECONDS);
+        await execSdkGitOperation(
+          sandbox,
+          `clone ${owner}/${name}`,
+          () =>
+            sandbox.git.clone(
+              repoUrl,
+              WORKSPACE_DIR,
+              undefined,
+              undefined,
+              "x-access-token",
+              githubToken,
+            ),
+          REPO_CLONE_TIMEOUT_SECONDS,
+        );
         if (attempt > 1) {
           logGit(
             `cloneAndSetupRepo: clone recovered on attempt ${attempt}/${maxCloneAttempts} for ${owner}/${name}`,
@@ -714,7 +759,7 @@ export async function cloneAndSetupRepo(
   });
 }
 
-/** Sets up a working branch from the best available local base ref. */
+/** Sets up a working branch from the best available local ref with no pre-merge git choreography. */
 export async function setupBranch(
   sandbox: Sandbox,
   branchName: string,
@@ -722,38 +767,22 @@ export async function setupBranch(
 ): Promise<void> {
   const details = `branch=${branchName}, base=${baseBranch}`;
   await runLoggedGitStep("setupBranch", details, async () => {
-    const { ref: baseTarget, source } = await resolveBaseTarget(
+    const { ref: startTarget, source } = await resolveBranchStartTarget(
       sandbox,
+      branchName,
       baseBranch,
     );
-    logGit(`setupBranch: using base source=${source} for branch=${branchName}`);
+    logGit(
+      `setupBranch: using start source=${source} ref=${startTarget} for branch=${branchName}`,
+    );
     const quotedBranch = quote([branchName]);
-    const quotedRemote = quote([`origin/${branchName}`]);
-    const quotedBase = quote([baseTarget]);
+    const quotedStartTarget = quote([startTarget]);
     const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && (git stash --include-untracked 2>/dev/null || true) && (git checkout ${quotedBranch} || git checkout -b ${quotedBranch} ${quotedRemote} || git checkout -b ${quotedBranch} ${quotedBase})`,
+      `cd ${workspaceDir} && git checkout -B ${quotedBranch} ${quotedStartTarget}`,
       15,
     );
-    const currentBranch = (
-      await execGitCommand(
-        sandbox,
-        `cd ${workspaceDir} && git branch --show-current`,
-        5,
-      )
-    ).trim();
-    if (currentBranch !== branchName) {
-      throw new Error(
-        `Failed to switch to branch ${branchName}, currently on: ${currentBranch}`,
-      );
-    }
-    // Only merge base into branch if we found a real base ref (not HEAD fallback)
-    const mergeCmd =
-      source !== "head"
-        ? `(git merge --ff-only ${quotedRemote} 2>/dev/null || true) && (git merge ${quotedBase} --no-edit --allow-unrelated-histories || git merge --abort 2>/dev/null || true)`
-        : `(git merge --ff-only ${quotedRemote} 2>/dev/null || true)`;
-    await execGitCommand(sandbox, `cd ${workspaceDir} && ${mergeCmd}`, 30);
   });
 }
 
@@ -799,21 +828,15 @@ export async function createSandboxAndPrepareRepo(
           return { sandbox, usedSnapshot: true };
         }
         if (lifecycle.ephemeral && syncStrategy.mode === "none") {
-          const activeSandbox = sandbox;
-          if (onProgress) await onProgress("Downloading repository...");
-          await runLoggedGitStep(
-            "downloadRepoArchive",
-            `${owner}/${name}`,
-            async () => {
-              await downloadRepoArchive(
-                activeSandbox,
-                installationId,
-                owner,
-                name,
-              );
-            },
+          await cloneAndSetupRepo(
+            sandbox,
+            installationId,
+            owner,
+            name,
+            false,
+            onProgress,
           );
-          return { sandbox: activeSandbox, usedSnapshot: false };
+          return { sandbox, usedSnapshot: false };
         }
         await cloneAndSetupRepo(
           sandbox,

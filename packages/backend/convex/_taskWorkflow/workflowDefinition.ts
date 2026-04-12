@@ -13,6 +13,7 @@ import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
 
+/** Main durable workflow that orchestrates sandbox setup, task execution, audit, PR creation, and cleanup. */
 export const taskExecutionWorkflow = workflow.define({
   args: {
     runId: v.id("agentRuns"),
@@ -63,7 +64,7 @@ export const taskExecutionWorkflow = workflow.define({
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),
         baseBranch: args.baseBranch,
         branchName: data.branchName,
-        createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
+        createRetry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 },
       });
 
       await step.runAction(internal.daytona.launchOnExistingSandbox, {
@@ -203,6 +204,30 @@ export const taskExecutionWorkflow = workflow.define({
           }
         } catch (err) {
           console.error("Audit step failed:", err);
+        }
+      }
+
+      if (result.success) {
+        try {
+          const enrichmentData = await step.runQuery(
+            internal.taskWorkflow.getPrEnrichmentData,
+            { taskId: args.taskId },
+          );
+
+          await step.runAction(
+            internal.taskWorkflowActions.updatePullRequestBody,
+            {
+              installationId: args.installationId,
+              repoOwner: data.repoOwner,
+              repoName: data.repoName,
+              branchName: data.branchName,
+              taskDescription: data.taskDescription,
+              proofs: enrichmentData.proofs,
+              changeRequests: enrichmentData.changeRequests,
+            },
+          );
+        } catch (err) {
+          console.error("PR enrichment step failed:", err);
         }
       }
 

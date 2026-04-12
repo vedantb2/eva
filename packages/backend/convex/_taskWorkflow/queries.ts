@@ -6,6 +6,61 @@ import {
   buildConflictResolutionPrompt,
 } from "./prompts";
 
+/** Fetches proof URLs and change requests for enriching a PR body. */
+export const getPrEnrichmentData = internalQuery({
+  args: {
+    taskId: v.id("agentTasks"),
+  },
+  returns: v.object({
+    proofs: v.array(
+      v.object({
+        url: v.union(v.string(), v.null()),
+        fileName: v.optional(v.string()),
+        message: v.optional(v.string()),
+        contentType: v.union(v.string(), v.null()),
+      }),
+    ),
+    changeRequests: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const proofDocs = await ctx.db
+      .query("taskProof")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+
+    const proofs = await Promise.all(
+      proofDocs.map(async (p) => {
+        if (!p.storageId) {
+          return {
+            url: null,
+            fileName: p.fileName,
+            message: p.message,
+            contentType: null,
+          };
+        }
+        const meta = await ctx.db.system.get("_storage", p.storageId);
+        return {
+          url: await ctx.storage.getUrl(p.storageId),
+          fileName: p.fileName,
+          message: p.message,
+          contentType: meta?.contentType ?? null,
+        };
+      }),
+    );
+
+    const comments = await ctx.db
+      .query("taskComments")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const changeRequests = comments
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((c) => c.content);
+
+    return { proofs, changeRequests };
+  },
+});
+
+/** Fetches task, repo, and audit config to build the prompt and sandbox parameters for a run. */
 export const getTaskData = internalQuery({
   args: {
     taskId: v.id("agentTasks"),
@@ -56,10 +111,7 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    const screenshotsVideosEnabled =
-      args.projectId === undefined
-        ? (repo.screenshotsVideosEnabled ?? true)
-        : true;
+    const screenshotsVideosEnabled = repo.screenshotsVideosEnabled ?? false;
 
     const prompt =
       args.mode === "resolve_conflicts"

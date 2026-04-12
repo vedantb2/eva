@@ -29,8 +29,6 @@ type ParsedAudit = {
 const AUDIT_SECTION_REGEX =
   /<!-- EVA_AUDIT_START -->[\s\S]*?<!-- EVA_AUDIT_END -->\s*/m;
 
-const EDIT_END_MARKER = "<!-- EVA_EDITS_END -->";
-
 /** Escapes pipe characters and newlines so a string is safe for a markdown table cell. */
 function escapeTableCell(value: string): string {
   return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
@@ -216,80 +214,114 @@ export const appendAuditToPullRequest = internalAction({
   },
 });
 
-/** Builds a single edit entry for the PR body from a user request and its result. */
-function buildEditEntry(
-  userRequest: string,
-  editResult: string,
-  proofImageUrl?: string,
-  proofVideoUrl?: string,
+/** Builds enriched PR body sections from proof and change request data. */
+function buildEnrichedPrSections(params: {
+  taskDescription: string | undefined;
+  proofs: Array<{
+    url: string | null;
+    fileName?: string;
+    message?: string;
+    contentType: string | null;
+  }>;
+  changeRequests: string[];
+}): Array<{ heading: string; content: string }> {
+  const sections: Array<{ heading: string; content: string }> = [];
+
+  sections.push({
+    heading: "Task",
+    content: params.taskDescription ?? "No description",
+  });
+
+  if (params.changeRequests.length > 0) {
+    const editLines = params.changeRequests.map(
+      (req, i) => `${i + 1}. ${escapeTableCell(req)}`,
+    );
+    sections.push({
+      heading: "Edits Requested",
+      content: editLines.join("\n"),
+    });
+  }
+
+  const mediaProofs = params.proofs.filter((p) => p.url && p.contentType);
+  const messageProofs = params.proofs.filter(
+    (p) => p.message && p.message.trim().length > 0,
+  );
+
+  if (mediaProofs.length > 0 || messageProofs.length > 0) {
+    const proofLines: string[] = [];
+
+    for (const proof of mediaProofs) {
+      if (!proof.url) continue;
+      const label = proof.fileName ?? "Proof";
+      const isImage = proof.contentType?.startsWith("image/") ?? false;
+      if (isImage) {
+        proofLines.push(`![${label}](${proof.url})`);
+      } else {
+        proofLines.push(`[${label}](${proof.url})`);
+      }
+    }
+
+    for (const proof of messageProofs) {
+      if (proof.message) {
+        proofLines.push(`> ${escapeTableCell(proof.message)}`);
+      }
+    }
+
+    sections.push({
+      heading: "Proof of Completion",
+      content: proofLines.join("\n\n"),
+    });
+  }
+
+  return sections;
+}
+
+const PROOF_EDITS_REGEX =
+  /<!-- EVA_PROOF_EDITS_START -->[\s\S]*?<!-- EVA_PROOF_EDITS_END -->\s*/m;
+
+/** Builds the proof/edits block wrapped in boundary markers. */
+function buildProofEditsBlock(
+  sections: Array<{ heading: string; content: string }>,
 ): string {
-  const lines: string[] = [];
-  lines.push(`**Request:** ${escapeTableCell(userRequest)}`);
-  lines.push(`**Changes:** ${escapeTableCell(editResult)}`);
-  if (proofImageUrl) {
-    lines.push(`\n![Proof Screenshot](${proofImageUrl})`);
+  const lines: string[] = ["<!-- EVA_PROOF_EDITS_START -->"];
+  for (const section of sections) {
+    lines.push(`## ${section.heading}`);
+    lines.push(section.content);
+    lines.push("");
   }
-  if (proofVideoUrl) {
-    lines.push(`\n[Proof Video](${proofVideoUrl})`);
-  }
+  lines.push("---");
+  lines.push("*Created by Eva AI Agent*");
+  lines.push("<!-- EVA_PROOF_EDITS_END -->");
   return lines.join("\n");
 }
 
-/** Merges a new edit entry into the PR body, appending inside the edits section or creating one. */
-function mergeBodyWithEditEntry(existingBody: string, entry: string): string {
-  const editSection = `<!-- EVA_EDITS_START -->\n## Changes Requested\n\n${entry}\n${EDIT_END_MARKER}`;
-
-  // If there's an existing edit section, append the new entry inside it
-  const endMarkerIdx = existingBody.indexOf(EDIT_END_MARKER);
-  if (endMarkerIdx !== -1) {
-    return (
-      existingBody.slice(0, endMarkerIdx) +
-      "\n---\n\n" +
-      entry +
-      "\n" +
-      existingBody.slice(endMarkerIdx)
-    );
-  }
-
-  // Insert before audit section if present
-  const auditStart = existingBody.indexOf("<!-- EVA_AUDIT_START -->");
-  if (auditStart !== -1) {
-    return (
-      existingBody.slice(0, auditStart) +
-      editSection +
-      "\n\n" +
-      existingBody.slice(auditStart)
-    );
-  }
-
-  // Insert before footer if present
-  const footer = existingBody.lastIndexOf("---\n*Created by Eva AI Agent*");
-  if (footer !== -1) {
-    return (
-      existingBody.slice(0, footer) +
-      editSection +
-      "\n\n" +
-      existingBody.slice(footer)
-    );
-  }
-
-  return existingBody + "\n\n" + editSection;
-}
-
-/** Appends or updates the changes-requested section in an existing pull request body. */
-export const appendEditToPullRequest = internalAction({
+/** Updates an existing PR body with enriched proof, edits, and task description sections. */
+export const updatePullRequestBody = internalAction({
   args: {
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
-    userRequest: v.string(),
-    editResult: v.string(),
-    proofImageUrl: v.optional(v.string()),
-    proofVideoUrl: v.optional(v.string()),
+    taskDescription: v.optional(v.string()),
+    proofs: v.array(
+      v.object({
+        url: v.union(v.string(), v.null()),
+        fileName: v.optional(v.string()),
+        message: v.optional(v.string()),
+        contentType: v.union(v.string(), v.null()),
+      }),
+    ),
+    changeRequests: v.array(v.string()),
   },
   returns: v.null(),
   handler: async (_ctx, args) => {
+    const hasProofs = args.proofs.some(
+      (p) => (p.url && p.contentType) || (p.message && p.message.trim()),
+    );
+    const hasEdits = args.changeRequests.length > 0;
+
+    if (!hasProofs && !hasEdits) return null;
+
     try {
       const octokit = await getInstallationOctokit(args.installationId);
       const pulls = await octokit.rest.pulls.list({
@@ -302,23 +334,34 @@ export const appendEditToPullRequest = internalAction({
       const pr = pulls.data[0];
       if (!pr) return null;
 
-      const entry = buildEditEntry(
-        args.userRequest,
-        args.editResult,
-        args.proofImageUrl,
-        args.proofVideoUrl,
-      );
-      const updatedBody = mergeBodyWithEditEntry(pr.body ?? "", entry);
+      const enrichedSections = buildEnrichedPrSections({
+        taskDescription: args.taskDescription,
+        proofs: args.proofs,
+        changeRequests: args.changeRequests,
+      });
+
+      const proofEditsBlock = buildProofEditsBlock(enrichedSections);
+
+      const existingBody = pr.body ?? "";
+
+      // Extract existing audit block to preserve it
+      const auditMatch = existingBody.match(AUDIT_SECTION_REGEX);
+      const auditBlock = auditMatch ? auditMatch[0].trim() : null;
+
+      // Replace entire body with enriched content, preserving audit block
+      const newBody = auditBlock
+        ? `${proofEditsBlock}\n\n${auditBlock}`
+        : proofEditsBlock;
 
       await octokit.rest.pulls.update({
         owner: args.repoOwner,
         repo: args.repoName,
         pull_number: pr.number,
-        body: updatedBody,
+        body: newBody,
       });
     } catch (error) {
       console.error(
-        `Failed to append edit to PR: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to update PR body: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     return null;

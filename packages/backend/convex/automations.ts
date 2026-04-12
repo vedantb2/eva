@@ -209,6 +209,31 @@ export const acknowledgeRun = authMutation({
   },
 });
 
+/** Counts unacknowledged completed automation runs for a repository (capped at 100). */
+export const countUnreadByRepo = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return 0;
+    }
+    const unread = await ctx.db
+      .query("automationRuns")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("acknowledged"), false),
+          q.or(
+            q.eq(q.field("status"), "success"),
+            q.eq(q.field("status"), "error"),
+          ),
+        ),
+      )
+      .take(100);
+    return unread.length;
+  },
+});
+
 /** Called by the cron scheduler to trigger an automation run if eligible. */
 export const triggerAutomation = internalMutation({
   args: { automationId: v.id("automations") },

@@ -329,7 +329,8 @@ const schema = defineSchema({
 
   automationRuns: defineTable(automationRunFields)
     .index("by_automation", ["automationId"])
-    .index("by_automation_and_status", ["automationId", "status"]),
+    .index("by_automation_and_status", ["automationId", "status"])
+    .index("by_repo", ["repoId"]),
 
   logs: defineTable({
     entityType: v.string(),

@@ -46,6 +46,7 @@ import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
 import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
 import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
+import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomationsBadge";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
@@ -691,6 +692,12 @@ export function Sidebar() {
                                                 }
                                               />
                                             )}
+                                            {item.name === "Automations" &&
+                                              repo && (
+                                                <UnreadAutomationsBadge
+                                                  repoId={repo._id}
+                                                />
+                                              )}
                                           </button>
                                           <Button
                                             size="icon-sm"

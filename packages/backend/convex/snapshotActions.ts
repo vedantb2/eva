@@ -57,8 +57,8 @@ function buildSnapshotImage(
       "npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex",
       // Code-server
       "curl -fsSL https://code-server.dev/install.sh | sh",
-      // Supabase CLI (download .deb from latest GitHub release — npm package has native dep issues)
-      "curl -fsSL $(curl -s https://api.github.com/repos/supabase/cli/releases/latest | jq -r '.assets[] | select(.name | endswith(\"_linux_amd64.deb\")) | .browser_download_url') -o /tmp/supabase.deb && dpkg -i /tmp/supabase.deb && rm /tmp/supabase.deb",
+      // Supabase CLI (pinned version — npm global install not supported, API calls hit rate limits)
+      "curl -fsSL https://github.com/supabase/cli/releases/download/v2.90.0/supabase_2.90.0_linux_amd64.deb -o /tmp/supabase.deb && dpkg -i /tmp/supabase.deb && rm /tmp/supabase.deb",
       // Create user and workspace
       "useradd -m -s /bin/bash eva && usermod -aG docker eva && echo 'eva:100000:65536' >> /etc/subuid && echo 'eva:100000:65536' >> /etc/subgid && mkdir -p /workspace && chown eva:eva /workspace",
     )

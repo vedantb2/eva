@@ -73,11 +73,15 @@ function buildSnapshotImage(
       "git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93",
       "git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins",
       `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
+      // Auto-start rootless Docker daemon if not running (for Docker-in-Docker support)
+      `echo 'if ! docker info &>/dev/null 2>&1; then nohup rootlesskit --net=slirp4netns dockerd &>/dev/null & sleep 2; fi' >> /home/eva/.bashrc`,
     )
     .env({
       PNPM_HOME: "/home/eva/.pnpm",
       NODE_PATH: "/usr/lib/node_modules",
       PATH: "/home/eva/.pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      // Rootless Docker socket path
+      DOCKER_HOST: "unix:///run/user/1001/docker.sock",
     })
     .runCommands(
       "mkdir -p /home/eva/.pnpm",

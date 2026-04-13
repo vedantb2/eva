@@ -45,6 +45,8 @@ function buildSnapshotImage(
       "sed -i 's/mdns4_minimal \\[NOTFOUND=return\\] //' /etc/nsswitch.conf",
       // Chrome
       'apt-get install -y wget gnupg && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && apt-get update && apt-get install -y google-chrome-stable',
+      // Docker Engine (includes Docker Compose V2 plugin)
+      "curl -fsSL https://get.docker.com | VERSION=28.3.3 sh",
       // Cleanup
       "rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*",
       // Node/pnpm setup
@@ -52,11 +54,11 @@ function buildSnapshotImage(
       "ln -s /usr/bin/fdfind /usr/local/bin/fd",
       "git lfs install --system",
       // Global npm packages
-      "npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex",
+      "npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex supabase",
       // Code-server
       "curl -fsSL https://code-server.dev/install.sh | sh",
       // Create user and workspace
-      "useradd -m -s /bin/bash eva && mkdir -p /workspace && chown eva:eva /workspace",
+      "useradd -m -s /bin/bash eva && usermod -aG docker eva && mkdir -p /workspace && chown eva:eva /workspace",
     )
     .dockerfileCommands(["USER eva"])
     .workdir("/workspace")

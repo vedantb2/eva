@@ -20,12 +20,12 @@ import {
   checkoutFetchedBaseBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
+  pushBranchToOrigin,
   EPHEMERAL_LIFECYCLE,
   SESSION_LIFECYCLE,
 } from "./git";
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
-import { publishSandboxBranch } from "./publish";
 
 /** Checks whether a sandbox is healthy by executing a test command. */
 export const validateSandbox = internalAction({
@@ -548,13 +548,12 @@ export const pushSandboxBranch = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await publishSandboxBranch(
+    await pushBranchToOrigin(
       sandbox,
       args.installationId,
       args.repoOwner,
       args.repoName,
       args.branchName,
-      args.baseBranch,
     );
     return null;
   },

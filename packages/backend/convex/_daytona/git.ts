@@ -786,6 +786,39 @@ export async function setupBranch(
   });
 }
 
+/** Pushes the current branch to origin with retry logic. */
+export async function pushBranchToOrigin(
+  sandbox: Sandbox,
+  installationId: number,
+  owner: string,
+  name: string,
+  branchName: string,
+  opts?: {
+    timeoutSeconds?: number;
+    retryAttempts?: number;
+  },
+): Promise<void> {
+  const details = `${owner}/${name}, branch=${branchName}`;
+  await runLoggedGitStep("pushBranchToOrigin", details, async () => {
+    const githubToken = await getInstallationToken(installationId);
+    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const workspaceDir = workspaceDirShell();
+    const quotedBranch = quote([branchName]);
+    await retryGitNetworkOperation(
+      "pushBranchToOrigin",
+      details,
+      async () => {
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedBranch}`,
+          opts?.timeoutSeconds ?? 60,
+        );
+      },
+      opts?.retryAttempts ?? 2,
+    );
+  });
+}
+
 /** Creates a sandbox and prepares the repo by cloning or syncing from a snapshot. */
 export async function createSandboxAndPrepareRepo(
   daytona: Daytona,

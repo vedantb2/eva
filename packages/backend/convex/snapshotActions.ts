@@ -54,9 +54,11 @@ function buildSnapshotImage(
       "ln -s /usr/bin/fdfind /usr/local/bin/fd",
       "git lfs install --system",
       // Global npm packages
-      "npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex supabase",
+      "npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex",
       // Code-server
       "curl -fsSL https://code-server.dev/install.sh | sh",
+      // Supabase CLI (standalone binary — npm package has native dep issues)
+      "curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/scripts/install.sh | sh",
       // Create user and workspace
       "useradd -m -s /bin/bash eva && usermod -aG docker eva && mkdir -p /workspace && chown eva:eva /workspace",
     )

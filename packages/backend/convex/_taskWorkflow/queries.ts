@@ -70,6 +70,8 @@ export const getTaskData = internalQuery({
             branchName,
             task.baseBranch ?? "main",
             rootDirectory,
+            repo.owner,
+            repo.name,
           )
         : buildImplementationPrompt(
             task,
@@ -77,6 +79,8 @@ export const getTaskData = internalQuery({
             !args.projectId,
             rootDirectory,
             screenshotsVideosEnabled,
+            repo.owner,
+            repo.name,
             changeRequests.length > 0 ? changeRequests : undefined,
             projectContext,
           );

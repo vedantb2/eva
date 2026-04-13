@@ -214,7 +214,7 @@ ${failureList}
 3. Fix each issue listed above with minimal, focused changes
 4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
 5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${args.selectedFailures.length} issue${args.selectedFailures.length === 1 ? "" : "s"}"
-6. Run: git push origin ${args.branchName}
+6. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${args.repoOwner}/${args.repoName}.git" && git push -u origin ${args.branchName}
 
 ## Rules:
 - Only fix the specific issues listed above — do NOT refactor or change unrelated code

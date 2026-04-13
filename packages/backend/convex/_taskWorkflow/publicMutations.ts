@@ -9,6 +9,7 @@ import {
   clearStreamingActivity,
   getTaskAuditStreamingEntityId,
   getTaskRunStreamingEntityId,
+  upsertStreamingActivity,
 } from "./helpers";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -118,6 +119,24 @@ export const handleCompletion = authMutation({
     await ctx.db.patch(latestRunningRun._id, {
       finalizingAt: Date.now(),
     });
+
+    // Update streaming activity so the UI shows progress instead of staying
+    // stuck on "Streaming response... Receiving reply..."
+    const finalizingSteps = JSON.stringify([
+      {
+        type: "thinking",
+        label: args.success ? "Finalizing..." : "Processing error...",
+        detail: args.success
+          ? "Syncing changes and pushing to branch..."
+          : "Recording error details...",
+        status: "active",
+      },
+    ]);
+    await upsertStreamingActivity(
+      ctx,
+      getTaskRunStreamingEntityId(latestRunningRun._id),
+      finalizingSteps,
+    );
 
     try {
       await workflow.sendEvent(ctx, {

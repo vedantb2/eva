@@ -11,7 +11,10 @@ import {
   normalizeAIModel,
 } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import {
+  clearStreamingActivity,
+  upsertStreamingActivity,
+} from "./_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "./_queues/helpers";
 import {
   buildRootDirectoryInstruction,
@@ -500,6 +503,20 @@ export const handleCompletion = authMutation({
     console.log(
       `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,
     );
+
+    // Update streaming activity so the UI shows progress instead of staying
+    // stuck on "Streaming response... Receiving reply..."
+    const finalizingSteps = JSON.stringify([
+      {
+        type: "thinking",
+        label: args.success ? "Finalizing..." : "Processing error...",
+        detail: args.success
+          ? "Saving response..."
+          : "Recording error details...",
+        status: "active",
+      },
+    ]);
+    await upsertStreamingActivity(ctx, String(args.sessionId), finalizingSteps);
 
     await workflow.sendEvent(ctx, {
       ...sessionCompleteEvent,

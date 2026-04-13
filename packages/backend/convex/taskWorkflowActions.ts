@@ -289,11 +289,30 @@ export const pollDeploymentStatus = internalAction({
       }
 
       const projectNameLower = args.deploymentProjectName?.toLowerCase();
-      const targetDeployment = projectNameLower
-        ? (deployments.find((d) =>
+      const matchedDeployment = projectNameLower
+        ? deployments.find((d) =>
             d.environment.toLowerCase().includes(projectNameLower),
-          ) ?? deployments[0])
+          )
+        : undefined;
+      // When a project name is configured but no environment matches, keep polling
+      // instead of falling back to deployments[0] (which is the wrong app in monorepos)
+      const targetDeployment = projectNameLower
+        ? matchedDeployment
         : deployments[0];
+
+      if (!targetDeployment) {
+        console.log(
+          `[deployment-poll] ${deployments.length} deployments found but none match project="${args.deploymentProjectName}" (envs: ${deployments.map((d) => d.environment).join(", ")}), attempt=${args.attempt}`,
+        );
+        if (args.attempt < MAX_POLL_ATTEMPTS) {
+          await ctx.scheduler.runAfter(
+            POLL_INTERVAL_MS,
+            internal.taskWorkflowActions.pollDeploymentStatus,
+            { ...args, attempt: args.attempt + 1 },
+          );
+        }
+        return null;
+      }
 
       const { data: statuses } =
         await octokit.rest.repos.listDeploymentStatuses({
@@ -407,11 +426,30 @@ export const pollSessionDeploymentStatus = internalAction({
       }
 
       const projectNameLower = args.deploymentProjectName?.toLowerCase();
-      const targetDeployment = projectNameLower
-        ? (deployments.find((d) =>
+      const matchedDeployment = projectNameLower
+        ? deployments.find((d) =>
             d.environment.toLowerCase().includes(projectNameLower),
-          ) ?? deployments[0])
+          )
+        : undefined;
+      // When a project name is configured but no environment matches, keep polling
+      // instead of falling back to deployments[0] (which is the wrong app in monorepos)
+      const targetDeployment = projectNameLower
+        ? matchedDeployment
         : deployments[0];
+
+      if (!targetDeployment) {
+        console.log(
+          `[session-deployment-poll] ${deployments.length} deployments found but none match project="${args.deploymentProjectName}" (envs: ${deployments.map((d) => d.environment).join(", ")}), attempt=${args.attempt}`,
+        );
+        if (args.attempt < MAX_POLL_ATTEMPTS) {
+          await ctx.scheduler.runAfter(
+            POLL_INTERVAL_MS,
+            internal.taskWorkflowActions.pollSessionDeploymentStatus,
+            { ...args, attempt: args.attempt + 1 },
+          );
+        }
+        return null;
+      }
 
       const { data: statuses } =
         await octokit.rest.repos.listDeploymentStatuses({

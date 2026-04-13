@@ -1,6 +1,7 @@
 import { mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
+/** Validates the provided admin key against the expected environment variable. */
 function validateAdminKey(key: string): void {
   const expected = process.env.EXTENSION_ADMIN_KEY;
   if (!expected || key !== expected) {
@@ -8,6 +9,7 @@ function validateAdminKey(key: string): void {
   }
 }
 
+/** Returns the latest extension release with its download URL (internal query). */
 export const getLatestInternal = internalQuery({
   args: {},
   returns: v.union(
@@ -38,6 +40,7 @@ export const getLatestInternal = internalQuery({
   },
 });
 
+/** Generates a temporary upload URL for uploading a CRX file (admin-only). */
 export const generateUploadUrl = mutation({
   args: { adminKey: v.string() },
   returns: v.string(),
@@ -47,6 +50,7 @@ export const generateUploadUrl = mutation({
   },
 });
 
+/** Records a new extension release, replacing any existing release with the same version. */
 export const recordRelease = mutation({
   args: {
     adminKey: v.string(),

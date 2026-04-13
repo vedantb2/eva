@@ -7,7 +7,6 @@ import {
   IconFlask,
   IconTestPipe,
   IconPlayerPlay,
-  IconBrain,
 } from "@tabler/icons-react";
 import type { ComponentType } from "react";
 
@@ -23,7 +22,6 @@ const ENTITY_TYPE_ICONS: Record<
   evaluation: IconFlask,
   testGen: IconTestPipe,
   automation: IconPlayerPlay,
-  researchQuery: IconBrain,
   sessionAudit: IconTerminal2,
   taskAudit: IconChecklist,
   summarize: IconFileText,
@@ -39,7 +37,6 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   quickTask: "Quick Tasks",
   session: "Sessions",
   designSession: "Design Sessions",
-  researchQuery: "Research Queries",
   project: "Projects",
   doc: "Docs",
   evaluation: "Evaluations",

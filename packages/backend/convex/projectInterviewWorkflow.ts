@@ -24,6 +24,7 @@ interface PreviousAnswer {
   answer: string;
 }
 
+/** Builds a prompt that asks one implementation-focused question based on prior answers and optional rejection feedback. */
 function buildQuestionPrompt(
   featureDescription: string,
   previousAnswers: PreviousAnswer[],
@@ -58,6 +59,7 @@ OR
   return prompt;
 }
 
+/** Replaces the content and activity log of the last entry in a conversation history array. */
 function updateLastConversationEntry<
   T extends {
     role: "user" | "assistant";
@@ -76,6 +78,7 @@ function updateLastConversationEntry<
 
 // --- Workflow definition ---
 
+/** Runs a single project interview step: prepares sandbox, asks one question, and saves the result. */
 export const projectInterviewWorkflow = workflow.define({
   args: {
     projectId: v.id("projects"),
@@ -147,6 +150,7 @@ export const projectInterviewWorkflow = workflow.define({
 
 // --- Supporting internal functions ---
 
+/** Fetches project and repository data needed for sandbox preparation. */
 export const getProjectData = internalQuery({
   args: { projectId: v.id("projects") },
   returns: v.object({
@@ -171,6 +175,7 @@ export const getProjectData = internalQuery({
   },
 });
 
+/** Appends an empty assistant entry to the project conversation for streaming updates. */
 export const addEmptyAssistant = internalMutation({
   args: { projectId: v.id("projects") },
   returns: v.null(),
@@ -187,6 +192,7 @@ export const addEmptyAssistant = internalMutation({
   },
 });
 
+/** Saves the interview workflow result, parsing the LLM JSON and updating the project conversation. */
 export const saveResult = internalMutation({
   args: {
     projectId: v.id("projects"),
@@ -337,6 +343,7 @@ export const startInterview = authMutation({
 
 // --- Spec generation workflow (when interview is ready) ---
 
+/** Generates an implementation spec from completed interview answers using a sandbox agent. */
 export const projectSpecWorkflow = workflow.define({
   args: {
     projectId: v.id("projects"),
@@ -408,6 +415,7 @@ Output ONLY valid JSON.`;
   },
 });
 
+/** Receives sandbox spec completion callback and forwards the event to the active workflow. */
 export const handleSpecCompletion = authMutation({
   args: {
     projectId: v.id("projects"),
@@ -446,6 +454,7 @@ export const handleSpecCompletion = authMutation({
   },
 });
 
+/** Saves the spec generation result, updating the project conversation and generated spec. */
 export const saveSpecResult = internalMutation({
   args: {
     projectId: v.id("projects"),

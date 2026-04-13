@@ -3,6 +3,7 @@
 import type { Sandbox } from "@daytonaio/sdk";
 import { exec, workspaceDirShell } from "./helpers";
 
+/** Detects the package manager (pnpm, yarn, or npm) by checking lock files. */
 export async function detectPackageManager(
   sandbox: Sandbox,
   rootDir = "",
@@ -22,6 +23,7 @@ export async function detectPackageManager(
   return "npm";
 }
 
+/** Type guard that checks if a value is a non-array plain object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -33,6 +35,7 @@ const FRAMEWORK_DEFAULT_PORTS: Record<string, number> = {
   "@angular/core": 4200,
 };
 
+/** Detects the dev server port from package.json scripts or framework defaults. */
 export async function detectDevPort(
   sandbox: Sandbox,
   rootDir: string,
@@ -69,6 +72,7 @@ export async function detectDevPort(
   return 3000;
 }
 
+/** Detects package manager and dev port, returning the dev command for the session. */
 export async function startSessionServices(
   sandbox: Sandbox,
   rootDir: string,

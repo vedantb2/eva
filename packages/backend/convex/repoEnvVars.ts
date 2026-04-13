@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
 
+/** Lists repo env vars for the authenticated user, masking actual values. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(
@@ -25,6 +26,7 @@ export const list = authQuery({
   },
 });
 
+/** Returns all repo env vars with raw encrypted values (internal use only). */
 export const getAllInternal = internalQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(
@@ -44,6 +46,7 @@ export const getAllInternal = internalQuery({
   },
 });
 
+/** Returns repo env vars eligible for sandbox injection (excludes sandbox-excluded vars). */
 export const getForSandbox = internalQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(v.object({ key: v.string(), value: v.string() })),
@@ -59,6 +62,7 @@ export const getForSandbox = internalQuery({
   },
 });
 
+/** Inserts or updates a single env var for a repo (internal use only). */
 export const upsertVarInternal = internalMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -97,6 +101,7 @@ export const upsertVarInternal = internalMutation({
   },
 });
 
+/** Removes an env var by key from a repo's env var document. */
 export const removeVar = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -115,6 +120,7 @@ export const removeVar = authMutation({
   },
 });
 
+/** Toggles the sandboxExclude flag for a specific repo env var. */
 export const toggleSandboxExclude = authMutation({
   args: {
     repoId: v.id("githubRepos"),

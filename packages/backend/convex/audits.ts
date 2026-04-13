@@ -31,6 +31,7 @@ const auditReturnValidator = v.object({
   fixCompletedAt: v.optional(v.number()),
 });
 
+/** Lists all audits for a task, sorted by most recent first. */
 export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(auditReturnValidator),
@@ -59,6 +60,7 @@ export const listByTask = authQuery({
   },
 });
 
+/** Retrieves the activity log for a specific run by type (run, audit, auditFix). */
 export const getActivityLog = authQuery({
   args: {
     runId: v.id("agentRuns"),
@@ -81,6 +83,7 @@ export const getActivityLog = authQuery({
   },
 });
 
+/** Returns the most recent audit for a session. */
 export const getBySession = authQuery({
   args: { sessionId: v.id("sessions") },
   returns: v.union(auditReturnValidator, v.null()),
@@ -110,6 +113,7 @@ export const getBySession = authQuery({
   },
 });
 
+/** Creates a new audit record and kicks off the session audit process in a sandbox. */
 export const startSessionAudit = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -144,6 +148,7 @@ export const startSessionAudit = authMutation({
   },
 });
 
+/** Processes the completion of a session audit, parsing results and logging. */
 export const handleSessionCompletion = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -223,6 +228,7 @@ export const handleSessionCompletion = authMutation({
   },
 });
 
+/** Marks an audit as failed with an error message (internal use). */
 export const fail = internalMutation({
   args: {
     id: v.id("audits"),
@@ -248,6 +254,7 @@ const auditFailureValidator = v.object({
   severity: auditSeverityValidator,
 });
 
+/** Triggers fixes for selected audit failures in the sandbox. */
 export const runSelectedFixes = authMutation({
   args: {
     auditId: v.id("audits"),

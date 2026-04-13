@@ -4,6 +4,7 @@ import { internalMutation } from "../_generated/server";
 import { authMutation } from "../functions";
 import { workflow } from "../workflowManager";
 
+/** Updates sandbox-related fields (sandbox ID, branch, PR URL) on a session. */
 export const updateSandbox = authMutation({
   args: {
     id: v.id("sessions"),
@@ -31,6 +32,7 @@ export const updateSandbox = authMutation({
   },
 });
 
+/** Clears the sandbox association and marks the session as closed. */
 export const clearSandbox = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
@@ -44,6 +46,7 @@ export const clearSandbox = authMutation({
   },
 });
 
+/** Starts or restarts a sandbox for a session by launching the startup workflow. */
 export const startSandbox = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -78,6 +81,7 @@ export const startSandbox = authMutation({
   },
 });
 
+/** Stops and deletes the sandbox for a session, marking it as closed. */
 export const stopSandbox = authMutation({
   args: { sessionId: v.id("sessions") },
   returns: v.null(),
@@ -108,6 +112,7 @@ export const stopSandbox = authMutation({
   },
 });
 
+/** Marks a session sandbox as ready, updating its status to active (internal use). */
 export const sandboxReady = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -142,6 +147,7 @@ export const sandboxReady = internalMutation({
   },
 });
 
+/** Records a sandbox startup failure and marks the session as closed (internal use). */
 export const sandboxError = internalMutation({
   args: {
     sessionId: v.id("sessions"),

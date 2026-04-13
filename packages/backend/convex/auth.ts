@@ -13,6 +13,7 @@ import {
 } from "./validators";
 import { authQuery, authMutation } from "./functions";
 
+/** Resolves the current authenticated user's ID from their Clerk identity, or returns null if unauthenticated. */
 export async function getCurrentUserId(
   ctx: QueryCtx | MutationCtx,
 ): Promise<Id<"users"> | null> {
@@ -32,6 +33,7 @@ export async function getCurrentUserId(
   return null;
 }
 
+/** Returns the Clerk ID for a given user, or null if the user doesn't exist. */
 export const getUserClerkId = internalQuery({
   args: { userId: v.id("users") },
   returns: v.union(v.string(), v.null()),
@@ -41,6 +43,7 @@ export const getUserClerkId = internalQuery({
   },
 });
 
+/** Looks up a full user document by their Clerk ID. */
 export const getUserByClerkId = internalQuery({
   args: { clerkId: v.string() },
   returns: v.union(
@@ -70,6 +73,7 @@ export const getUserByClerkId = internalQuery({
   },
 });
 
+/** Thin wrapper around getCurrentUserId for use as a function reference in actions. */
 export const getUserIdFromIdentity = internalQuery({
   args: {},
   returns: v.union(v.id("users"), v.null()),
@@ -78,6 +82,7 @@ export const getUserIdFromIdentity = internalQuery({
   },
 });
 
+/** Returns the authenticated user's ID. */
 export const me = authQuery({
   args: {},
   returns: v.id("users"),
@@ -86,6 +91,7 @@ export const me = authQuery({
   },
 });
 
+/** Creates a new user record if one doesn't exist for the current Clerk identity, or returns the existing one. */
 export const ensureUserExists = mutation({
   args: {},
   returns: v.object({
@@ -140,6 +146,7 @@ export const ensureUserExists = mutation({
   },
 });
 
+/** Returns the current user's selected theme preference. */
 export const getTheme = authQuery({
   args: {},
   returns: v.union(themeValidator, v.null()),
@@ -149,6 +156,7 @@ export const getTheme = authQuery({
   },
 });
 
+/** Updates the current user's theme preference. */
 export const setTheme = authMutation({
   args: { theme: themeValidator },
   returns: v.null(),
@@ -158,6 +166,7 @@ export const setTheme = authMutation({
   },
 });
 
+/** Returns the current user's custom theme configuration. */
 export const getCustomTheme = authQuery({
   args: {},
   returns: v.union(customThemeValidator, v.null()),
@@ -167,6 +176,7 @@ export const getCustomTheme = authQuery({
   },
 });
 
+/** Updates the current user's custom theme configuration. */
 export const setCustomTheme = authMutation({
   args: { customTheme: customThemeValidator },
   returns: v.null(),
@@ -176,6 +186,47 @@ export const setCustomTheme = authMutation({
   },
 });
 
+/** Returns the current user's personalisation settings (role + custom instructions). */
+export const getPersonalisation = authQuery({
+  args: {},
+  returns: v.object({
+    role: v.union(roleUserValidator, v.null()),
+    customInstructions: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx) => {
+    const user = await ctx.db.get(ctx.userId);
+    return {
+      role: user?.role ?? null,
+      customInstructions: user?.customInstructions ?? null,
+    };
+  },
+});
+
+/** Updates the current user's custom instructions. */
+export const setCustomInstructions = authMutation({
+  args: { customInstructions: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(ctx.userId, {
+      customInstructions: args.customInstructions || undefined,
+    });
+    return null;
+  },
+});
+
+/** Updates the current user's functional role preset. */
+export const setRole = authMutation({
+  args: { role: v.union(roleUserValidator, v.null()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(ctx.userId, {
+      role: args.role ?? undefined,
+    });
+    return null;
+  },
+});
+
+/** Returns whether the toolbar is visible for the current user. */
 export const getToolbarVisible = authQuery({
   args: {},
   returns: v.union(v.boolean(), v.null()),
@@ -185,6 +236,7 @@ export const getToolbarVisible = authQuery({
   },
 });
 
+/** Toggles the toolbar visibility preference for the current user. */
 export const setToolbarVisible = authMutation({
   args: { visible: v.boolean() },
   returns: v.null(),

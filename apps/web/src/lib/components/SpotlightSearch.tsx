@@ -14,7 +14,6 @@ import {
   IconChecklist,
   IconTerminal2,
   IconFileText,
-  IconBrain,
   IconFlask,
   IconChartBar,
   IconShield,
@@ -35,9 +34,6 @@ export function SpotlightSearch() {
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const sessions = useQuery(api.sessions.list, { repoId: repo._id });
   const docs = useQuery(api.docs.list, { repoId: repo._id });
-  const researchQueries = useQuery(api.researchQueries.list, {
-    repoId: repo._id,
-  });
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
 
   useEffect(() => {
@@ -119,15 +115,6 @@ export function SpotlightSearch() {
                 <IconFlask size={16} className="flex-shrink-0" />
                 <span className="flex-1">Testing Arena</span>
                 <span className="text-xs text-muted-foreground">Test</span>
-              </Command.Item>
-              <Command.Item
-                value="Analyse"
-                className={itemClass}
-                onSelect={() => handleSelect(`${basePath}/analyse`)}
-              >
-                <IconBrain size={16} className="flex-shrink-0" />
-                <span className="flex-1">Analyse</span>
-                <span className="text-xs text-muted-foreground">Data</span>
               </Command.Item>
               <Command.Item
                 value="Stats"
@@ -241,27 +228,6 @@ export function SpotlightSearch() {
                     <IconFlask size={16} className="flex-shrink-0" />
                     <span className="flex-1 truncate">{d.title}</span>
                     <span className="text-xs text-muted-foreground">Test</span>
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            )}
-
-            {search && researchQueries && researchQueries.length > 0 && (
-              <Command.Group heading="Queries" className={headingClass}>
-                {researchQueries.map((rq) => (
-                  <Command.Item
-                    key={rq._id}
-                    value={rq.title}
-                    className={itemClass}
-                    onSelect={() =>
-                      handleSelect(`${basePath}/analyse/query/${rq._id}`)
-                    }
-                  >
-                    <IconBrain size={16} className="flex-shrink-0" />
-                    <span className="flex-1 truncate">{rq.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      Analysis Query
-                    </span>
                   </Command.Item>
                 ))}
               </Command.Group>

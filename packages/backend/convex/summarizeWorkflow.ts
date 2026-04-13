@@ -15,6 +15,7 @@ const summarizeCompleteEvent = defineEvent({
 
 // --- Workflow definition ---
 
+/** Runs a session summarization: prepares sandbox, generates bullet-point summary, and saves it. */
 export const summarizeSessionWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
@@ -67,6 +68,7 @@ export const summarizeSessionWorkflow = workflow.define({
 
 // --- Supporting internal functions ---
 
+/** Fetches session data, conversation history, and builds the summarization prompt. */
 export const getSessionData = internalQuery({
   args: { sessionId: v.id("sessions") },
   returns: v.object({
@@ -107,6 +109,7 @@ Respond with ONLY a JSON array of strings, no other text. Example: ["Built login
   },
 });
 
+/** Saves the summarization result, parsing the JSON array of bullet points onto the session. */
 export const saveResult = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -141,6 +144,7 @@ export const saveResult = internalMutation({
   },
 });
 
+/** Receives sandbox completion callback and forwards the event to the active summarize workflow. */
 export const handleCompletion = authMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -180,6 +184,7 @@ export const handleCompletion = authMutation({
   },
 });
 
+/** Frontend trigger to start the session summarization workflow. */
 export const startSummarize = authMutation({
   args: {
     sessionId: v.id("sessions"),

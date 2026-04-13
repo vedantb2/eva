@@ -24,6 +24,7 @@ const agentRunValidator = v.object({
 
 const agentRunSummaryValidator = v.object(agentRunValidator.fields);
 
+/** Builds a human-readable notification message for a completed or failed run. */
 function buildRunNotificationMessage(params: {
   success: boolean;
   projectId: Id<"projects"> | undefined;
@@ -51,6 +52,7 @@ function buildRunNotificationMessage(params: {
   }
   return `Run failed for this ${scopeLabel}.`;
 }
+/** Fetches a single agent run by ID, with access control via task ownership. */
 export const get = authQuery({
   args: { id: v.id("agentRuns") },
   returns: v.union(agentRunSummaryValidator, v.null()),
@@ -65,6 +67,7 @@ export const get = authQuery({
   },
 });
 
+/** Fetches an agent run along with its parent task title and description. */
 export const getWithDetails = authQuery({
   args: { id: v.id("agentRuns") },
   returns: v.union(
@@ -88,6 +91,7 @@ export const getWithDetails = authQuery({
   },
 });
 
+/** Retrieves the activity log text for a specific agent run. */
 export const getActivityLog = authQuery({
   args: { id: v.id("agentRuns") },
   returns: v.union(v.string(), v.null()),
@@ -114,6 +118,7 @@ export const getActivityLog = authQuery({
   },
 });
 
+/** Lists all runs for a given task, sorted by most recent first. */
 export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(agentRunSummaryValidator),
@@ -128,6 +133,7 @@ export const listByTask = authQuery({
   },
 });
 
+/** Returns task IDs whose most recent run ended in error. */
 export const getTaskIdsWithLatestRunError = authQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -151,6 +157,7 @@ export const getTaskIdsWithLatestRunError = authQuery({
   },
 });
 
+/** Updates the status of an in-progress agent run and recomputes project phase if needed. */
 export const updateStatus = authMutation({
   args: {
     id: v.id("agentRuns"),
@@ -179,6 +186,7 @@ export const updateStatus = authMutation({
   },
 });
 
+/** Appends a log entry to a running agent run. */
 export const appendLog = authMutation({
   args: {
     id: v.id("agentRuns"),
@@ -206,6 +214,7 @@ export const appendLog = authMutation({
   },
 });
 
+/** Marks a run as complete, updates the task status, saves activity log, and notifies relevant users. */
 export const complete = authMutation({
   args: {
     id: v.id("agentRuns"),
@@ -291,6 +300,7 @@ export const complete = authMutation({
   },
 });
 
+/** Updates the deployment status and optional URL for an agent run (internal use). */
 export const updateDeploymentStatus = internalMutation({
   args: {
     runId: v.id("agentRuns"),

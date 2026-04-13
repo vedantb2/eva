@@ -6,6 +6,7 @@ import { DEFAULT_AI_MODEL } from "../validators";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
+/** Dequeues and starts the next pending message for a session, launching its workflow. */
 export async function startNextQueuedSessionMessage(
   ctx: MutationCtx,
   sessionId: Id<"sessions">,
@@ -102,6 +103,7 @@ export async function startNextQueuedSessionMessage(
   }
 }
 
+/** Dequeues and starts the next pending message for a design session, launching its workflow. */
 export async function startNextQueuedDesignMessage(
   ctx: MutationCtx,
   designSessionId: Id<"designSessions">,

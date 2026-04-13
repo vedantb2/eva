@@ -19,6 +19,7 @@ import { taskCompleteEvent } from "./_taskWorkflow/events";
 
 const crons = new Crons(components.crons);
 
+/** Lists all automations for a given repository. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(
@@ -36,6 +37,7 @@ export const list = authQuery({
   },
 });
 
+/** Returns a single automation by ID. */
 export const get = authQuery({
   args: { id: v.id("automations") },
   returns: v.union(
@@ -51,6 +53,7 @@ export const get = authQuery({
   },
 });
 
+/** Creates a new automation for a repository with default disabled state. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -75,6 +78,7 @@ export const create = authMutation({
   },
 });
 
+/** Updates automation fields and syncs the cron schedule (re-registers or deletes as needed). */
 export const update = authMutation({
   args: {
     id: v.id("automations"),
@@ -134,6 +138,7 @@ export const update = authMutation({
   },
 });
 
+/** Deletes an automation, its cron job, and all associated runs. */
 export const remove = authMutation({
   args: { id: v.id("automations") },
   returns: v.null(),
@@ -166,6 +171,7 @@ export const remove = authMutation({
   },
 });
 
+/** Lists the most recent 50 runs for a given automation, newest first. */
 export const listRuns = authQuery({
   args: { automationId: v.id("automations") },
   returns: v.array(
@@ -186,6 +192,7 @@ export const listRuns = authQuery({
   },
 });
 
+/** Marks an automation run as acknowledged by the user. */
 export const acknowledgeRun = authMutation({
   args: { runId: v.id("automationRuns") },
   returns: v.null(),
@@ -202,6 +209,32 @@ export const acknowledgeRun = authMutation({
   },
 });
 
+/** Counts unacknowledged completed automation runs for a repository (capped at 100). */
+export const countUnreadByRepo = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return 0;
+    }
+    const unread = await ctx.db
+      .query("automationRuns")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("acknowledged"), false),
+          q.or(
+            q.eq(q.field("status"), "success"),
+            q.eq(q.field("status"), "error"),
+          ),
+        ),
+      )
+      .take(100);
+    return unread.length;
+  },
+});
+
+/** Called by the cron scheduler to trigger an automation run if eligible. */
 export const triggerAutomation = internalMutation({
   args: { automationId: v.id("automations") },
   returns: v.null(),
@@ -267,6 +300,7 @@ export const triggerAutomation = internalMutation({
   },
 });
 
+/** Frontend trigger to immediately run an automation outside its cron schedule. */
 export const runNow = authMutation({
   args: { automationId: v.id("automations") },
   returns: v.null(),
@@ -338,6 +372,7 @@ export const runNow = authMutation({
   },
 });
 
+/** Fetches repository data needed for an automation run. */
 export const getAutomationData = internalQuery({
   args: { automationId: v.id("automations"), repoId: v.id("githubRepos") },
   returns: v.union(
@@ -361,6 +396,7 @@ export const getAutomationData = internalQuery({
   },
 });
 
+/** Updates an automation run's status and optional metadata fields (sandbox, error, PR URL, etc). */
 export const updateRunStatus = internalMutation({
   args: {
     runId: v.id("automationRuns"),
@@ -390,6 +426,7 @@ export const updateRunStatus = internalMutation({
   },
 });
 
+/** Clears the active workflow reference from a completed or failed automation run. */
 export const clearRunWorkflow = internalMutation({
   args: { runId: v.id("automationRuns") },
   returns: v.null(),
@@ -399,6 +436,7 @@ export const clearRunWorkflow = internalMutation({
   },
 });
 
+/** Cancels an active automation run, stopping the workflow and cleaning up streaming state. */
 export const cancelRun = authMutation({
   args: { runId: v.id("automationRuns") },
   returns: v.null(),
@@ -435,6 +473,7 @@ export const cancelRun = authMutation({
   },
 });
 
+/** Receives sandbox completion callback and forwards the event to the active automation workflow. */
 export const handleCompletion = authMutation({
   args: {
     automationRunId: v.id("automationRuns"),
@@ -477,6 +516,7 @@ export const handleCompletion = authMutation({
   },
 });
 
+/** Creates agent tasks from selected automation findings and optionally auto-starts them. */
 export const createTasksFromFindings = authMutation({
   args: {
     runId: v.id("automationRuns"),
@@ -546,6 +586,7 @@ export const createTasksFromFindings = authMutation({
   },
 });
 
+/** Creates a run and starts the task execution workflow for an auto-run automation finding. */
 export const autoStartTask = internalMutation({
   args: {
     taskId: v.id("agentTasks"),

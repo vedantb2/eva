@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authQuery, authMutation } from "./functions";
 
+/** Retrieves the saved annotation pins for a page URL, scoped to the current user. */
 export const getByUrl = authQuery({
   args: { pageUrl: v.string() },
   returns: v.union(v.string(), v.null()),
@@ -15,6 +16,7 @@ export const getByUrl = authQuery({
   },
 });
 
+/** Deletes the annotation for a page URL belonging to the current user. */
 export const remove = authMutation({
   args: { pageUrl: v.string() },
   returns: v.null(),
@@ -30,6 +32,7 @@ export const remove = authMutation({
   },
 });
 
+/** Creates or updates annotation pins for a page URL, scoped to the current user. */
 export const save = authMutation({
   args: { pageUrl: v.string(), pins: v.string() },
   returns: v.null(),

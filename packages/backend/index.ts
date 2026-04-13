@@ -22,4 +22,5 @@ export {
   type AIModelOption,
   type AIProvider,
   type AIProviderAvailability,
+  PERSONALISATION_PRESETS,
 } from "./convex/validators";

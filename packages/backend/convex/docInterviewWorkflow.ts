@@ -19,6 +19,7 @@ interface PreviousAnswer {
   answer: string;
 }
 
+/** Builds a prompt that asks one product-focused question based on previous answers. */
 function buildQuestionPrompt(
   docTitle: string,
   previousAnswers: PreviousAnswer[],
@@ -46,6 +47,7 @@ OR
   return prompt;
 }
 
+/** Replaces the content and activity log of the last entry in an interview history array. */
 function updateLastHistoryEntry<
   T extends {
     role: "user" | "assistant";
@@ -64,6 +66,7 @@ function updateLastHistoryEntry<
 
 // --- Workflow definition ---
 
+/** Runs a single interview step: prepares sandbox, asks one question, and saves the result. */
 export const docInterviewWorkflow = workflow.define({
   args: {
     docId: v.id("docs"),
@@ -134,6 +137,7 @@ export const docInterviewWorkflow = workflow.define({
 
 // --- Supporting internal functions ---
 
+/** Fetches document and repository data needed for sandbox preparation. */
 export const getDocData = internalQuery({
   args: { docId: v.id("docs") },
   returns: v.object({
@@ -158,6 +162,7 @@ export const getDocData = internalQuery({
   },
 });
 
+/** Appends an empty assistant entry to the interview history for streaming updates. */
 export const addEmptyAssistant = internalMutation({
   args: { docId: v.id("docs") },
   returns: v.null(),
@@ -176,6 +181,7 @@ export const addEmptyAssistant = internalMutation({
   },
 });
 
+/** Saves the interview workflow result, parsing the LLM JSON and updating interview history. */
 export const saveResult = internalMutation({
   args: {
     docId: v.id("docs"),
@@ -395,6 +401,7 @@ Output ONLY valid JSON.`;
   },
 });
 
+/** Receives sandbox completion callback for the generate phase and forwards the event. */
 export const handleGenerateCompletion = authMutation({
   args: {
     docId: v.id("docs"),
@@ -433,6 +440,7 @@ export const handleGenerateCompletion = authMutation({
   },
 });
 
+/** Saves the generate phase result, updating doc fields with parsed description, requirements, and user flows. */
 export const saveGenerateResult = internalMutation({
   args: {
     docId: v.id("docs"),

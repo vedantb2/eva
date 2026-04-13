@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useRef } from "react";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 import {
   Group,
   Panel,
@@ -37,9 +37,12 @@ export function ResizablePanelLayout({
   storageKey,
 }: ResizablePanelLayoutProps) {
   const rightPanelRef = usePanelRef();
-  const [rightCollapsed, setRightCollapsed] = useLocalStorage(storageKey, true);
+  const [savedCollapsed, setSavedCollapsed] = useLocalStorage(storageKey, true);
+  const [rightCollapsed, setRightCollapsed] = useState(savedCollapsed);
   const isMobile = useMediaQuery("(max-width: 767px)");
   const lastExpandedSize = useRef<string>(DEFAULT_RIGHT_PANEL_SIZE);
+  // Capture the initial collapsed value once for defaultSize — never changes after mount
+  const initialCollapsed = useRef(savedCollapsed);
 
   const handleToggle = () => {
     if (rightCollapsed) {
@@ -56,8 +59,9 @@ export function ResizablePanelLayout({
         lastExpandedSize.current = `${size.asPercentage}%`;
       }
       setRightCollapsed(collapsed);
+      setSavedCollapsed(collapsed);
     },
-    [setRightCollapsed],
+    [setSavedCollapsed],
   );
 
   const ctx: PanelContext = {
@@ -96,7 +100,7 @@ export function ResizablePanelLayout({
       <Panel
         collapsible
         collapsedSize={0}
-        defaultSize={rightCollapsed ? 0 : DEFAULT_RIGHT_PANEL_SIZE}
+        defaultSize={initialCollapsed.current ? 0 : DEFAULT_RIGHT_PANEL_SIZE}
         minSize={rightMinWidthPx}
         panelRef={rightPanelRef}
         onResize={handleResize}

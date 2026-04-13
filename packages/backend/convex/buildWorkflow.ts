@@ -10,6 +10,7 @@ import { buildProjectBranchName } from "./_projects/helpers";
 
 // --- Workflow ---
 
+/** Orchestrates sequential execution of all todo tasks in a project build. */
 export const buildProjectWorkflow = workflow.define({
   args: {
     projectId: v.id("projects"),
@@ -59,6 +60,7 @@ export const buildProjectWorkflow = workflow.define({
 
 // --- Internal functions ---
 
+/** Returns all todo tasks for a project, sorted by task number ascending. */
 export const getProjectTasks = internalQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(
@@ -174,6 +176,7 @@ export const startTaskForBuild = internalMutation({
   },
 });
 
+/** Marks a project build as complete, optionally recording which task failed. */
 export const completeBuild = internalMutation({
   args: {
     projectId: v.id("projects"),
@@ -288,6 +291,7 @@ export const executeScheduledBuild = internalMutation({
   },
 });
 
+/** Schedules a project build to run at a future timestamp. */
 export const scheduleBuild = authMutation({
   args: {
     projectId: v.id("projects"),
@@ -318,6 +322,7 @@ export const scheduleBuild = authMutation({
   },
 });
 
+/** Cancels a previously scheduled build for a project. */
 export const cancelScheduledBuild = authMutation({
   args: { projectId: v.id("projects") },
   returns: v.null(),
@@ -341,6 +346,7 @@ export const cancelScheduledBuild = authMutation({
   },
 });
 
+/** Cancels an active build, stopping all in-progress tasks and their workflows. */
 export const cancelBuild = authMutation({
   args: { projectId: v.id("projects") },
   returns: v.null(),
@@ -406,6 +412,7 @@ export const cancelBuild = authMutation({
   },
 });
 
+/** Reschedules a project build by cancelling the existing schedule and creating a new one. */
 export const updateScheduledBuild = authMutation({
   args: {
     projectId: v.id("projects"),

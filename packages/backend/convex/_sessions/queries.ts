@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { authQuery, hasRepoAccess } from "../functions";
 import { sessionValidator } from "./helpers";
 
+/** Lists all non-archived sessions for a repo, sorted by most recently updated. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(sessionValidator),
@@ -19,6 +20,7 @@ export const list = authQuery({
   },
 });
 
+/** Lists all archived sessions for a repo, sorted by most recently updated. */
 export const listArchived = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(sessionValidator),
@@ -37,6 +39,7 @@ export const listArchived = authQuery({
   },
 });
 
+/** Counts non-archived sessions with "active" status for a repo. */
 export const countActive = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.number(),
@@ -53,6 +56,7 @@ export const countActive = authQuery({
   },
 });
 
+/** Retrieves a single session by ID, returning null if not found or unauthorized. */
 export const get = authQuery({
   args: { id: v.id("sessions") },
   returns: v.union(sessionValidator, v.null()),

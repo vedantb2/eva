@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { authMutation, authAction } from "./functions";
 
+/** Generates a temporary upload URL for storing screenshot/video files. */
 export const generateUploadUrl = authMutation({
   args: {},
   returns: v.string(),
@@ -10,13 +11,10 @@ export const generateUploadUrl = authMutation({
   },
 });
 
+/** Attaches uploaded image/video storage IDs to the most recent message of a parent entity. */
 export const attachMedia = authAction({
   args: {
-    parentId: v.union(
-      v.id("sessions"),
-      v.id("designSessions"),
-      v.id("researchQueries"),
-    ),
+    parentId: v.union(v.id("sessions"), v.id("designSessions")),
     imageStorageId: v.optional(v.id("_storage")),
     videoStorageId: v.optional(v.id("_storage")),
   },

@@ -5,6 +5,7 @@ import type { DataModel, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { decryptValue } from "./encryption";
 
+/** Resolves and decrypts all env vars (team + repo), including sandbox-excluded ones. Repo vars override team vars. */
 export async function resolveAllEnvVars(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
@@ -34,6 +35,7 @@ export async function resolveAllEnvVars(
   return { ...teamEnvVars, ...repoEnvVars };
 }
 
+/** Resolves and decrypts sandbox-eligible env vars (team + repo). Repo vars override team vars. */
 export async function resolveEnvVars(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
@@ -63,6 +65,7 @@ export async function resolveEnvVars(
   return { ...teamEnvVars, ...repoEnvVars };
 }
 
+/** Extracts the DAYTONA_API_KEY from all env vars and returns it alongside sandbox-eligible env vars. */
 export async function resolveDaytonaApiKey(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,

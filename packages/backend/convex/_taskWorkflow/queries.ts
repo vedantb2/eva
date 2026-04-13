@@ -6,6 +6,7 @@ import {
   buildConflictResolutionPrompt,
 } from "./prompts";
 
+/** Fetches task, repo, and audit config to build the prompt and sandbox parameters for a run. */
 export const getTaskData = internalQuery({
   args: {
     taskId: v.id("agentTasks"),
@@ -37,10 +38,15 @@ export const getTaskData = internalQuery({
     if (!repo) throw new Error("Repository not found");
 
     let projectSandboxId: string | undefined;
+    let projectContext: { title: string; description?: string } | undefined;
     if (args.projectId) {
       const project = await ctx.db.get(args.projectId);
       if (project) {
         projectSandboxId = project.sandboxId;
+        projectContext = {
+          title: project.title,
+          description: project.description ?? undefined,
+        };
       }
     }
 
@@ -56,10 +62,7 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    const screenshotsVideosEnabled =
-      args.projectId === undefined
-        ? (repo.screenshotsVideosEnabled ?? true)
-        : true;
+    const screenshotsVideosEnabled = repo.screenshotsVideosEnabled ?? false;
 
     const prompt =
       args.mode === "resolve_conflicts"
@@ -75,6 +78,7 @@ export const getTaskData = internalQuery({
             rootDirectory,
             screenshotsVideosEnabled,
             changeRequests.length > 0 ? changeRequests : undefined,
+            projectContext,
           );
 
     const canonicalRepoId = repo.parentRepoId ?? args.repoId;

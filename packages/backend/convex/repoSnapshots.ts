@@ -12,9 +12,11 @@ import {
   snapshotWarmupStatusValidator,
 } from "./validators";
 import { authQuery, authMutation } from "./functions";
+import { workflow } from "./workflowManager";
 
 const crons = new Crons(components.crons);
 
+/** Converts a schedule string to a cron expression, returning null for "manual". */
 function resolveCronspec(schedule: string): string | null {
   if (schedule === "manual") return null;
   return schedule;
@@ -23,6 +25,7 @@ function resolveCronspec(schedule: string): string | null {
 const STALE_BUILD_MS = 30 * 60 * 1000;
 const MAX_CRON_RETRIES = 2;
 
+/** Retrieves the snapshot configuration for a repo, falling back to sibling repos. */
 export const getRepoSnapshot = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.union(
@@ -44,6 +47,7 @@ export const getRepoSnapshot = authQuery({
   },
 });
 
+/** Finds a snapshot config for a repo, checking sibling repos with the same owner/name if needed. */
 async function findSnapshotForRepo(
   db: GenericDatabaseReader<DataModel>,
   repoId: Id<"githubRepos">,
@@ -76,6 +80,7 @@ async function findSnapshotForRepo(
   return null;
 }
 
+/** Returns the snapshot name for a repo, only if a successful build exists. */
 export const getRepoSnapshotName = internalQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.union(v.object({ snapshotName: v.string() }), v.null()),
@@ -96,6 +101,7 @@ export const getRepoSnapshotName = internalQuery({
   },
 });
 
+/** Lists the most recent 20 snapshot builds for a given snapshot config. */
 export const listBuilds = authQuery({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.array(
@@ -127,6 +133,7 @@ export const listBuilds = authQuery({
   },
 });
 
+/** Retrieves a single snapshot build by ID. */
 export const getBuild = authQuery({
   args: { buildId: v.id("snapshotBuilds") },
   returns: v.union(
@@ -152,6 +159,7 @@ export const getBuild = authQuery({
   },
 });
 
+/** Creates or updates a snapshot config for a repo, managing the associated cron job. */
 export const saveRepoSnapshot = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -225,6 +233,7 @@ export const saveRepoSnapshot = authMutation({
   },
 });
 
+/** Deletes a snapshot config, its cron job, and the remote Daytona snapshot. */
 export const deleteRepoSnapshot = authMutation({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.null(),
@@ -252,6 +261,7 @@ export const deleteRepoSnapshot = authMutation({
   },
 });
 
+/** Cron-triggered handler that starts a new snapshot build if none is currently running. */
 export const triggerScheduledBuild = internalMutation({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.null(),
@@ -288,7 +298,7 @@ export const triggerScheduledBuild = internalMutation({
       startedAt: now,
     });
 
-    await ctx.scheduler.runAfter(0, internal.snapshotActions.rebuildSnapshot, {
+    await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
       buildId,
       repoSnapshotId: args.repoSnapshotId,
     });
@@ -297,6 +307,7 @@ export const triggerScheduledBuild = internalMutation({
   },
 });
 
+/** Manually starts a new snapshot build, failing if one is already running. */
 export const startBuild = authMutation({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.id("snapshotBuilds"),
@@ -333,7 +344,7 @@ export const startBuild = authMutation({
       startedAt: now,
     });
 
-    await ctx.scheduler.runAfter(0, internal.snapshotActions.rebuildSnapshot, {
+    await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
       buildId,
       repoSnapshotId: args.repoSnapshotId,
     });
@@ -342,6 +353,7 @@ export const startBuild = authMutation({
   },
 });
 
+/** Marks a build as complete (success/error), triggers warmup on success or retries on cron failure. */
 export const completeBuild = internalMutation({
   args: {
     buildId: v.id("snapshotBuilds"),
@@ -353,6 +365,10 @@ export const completeBuild = internalMutation({
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build) return null;
+
+    // Guard: prevent double-completion from concurrent workflow steps
+    if (build.status !== "running") return null;
+
     await ctx.db.patch(args.buildId, {
       status: args.status,
       logs: build.logs + args.logs,
@@ -384,9 +400,9 @@ export const completeBuild = internalMutation({
         startedAt: now,
         retryCount,
       });
-      await ctx.scheduler.runAfter(
-        0,
-        internal.snapshotActions.rebuildSnapshot,
+      await workflow.start(
+        ctx,
+        internal.snapshotWorkflow.snapshotBuildWorkflow,
         {
           buildId: retryBuildId,
           repoSnapshotId: build.repoSnapshotId,
@@ -397,6 +413,7 @@ export const completeBuild = internalMutation({
   },
 });
 
+/** Updates the warmup status and optional error for a snapshot build. */
 export const updateWarmupStatus = internalMutation({
   args: {
     buildId: v.id("snapshotBuilds"),
@@ -415,6 +432,7 @@ export const updateWarmupStatus = internalMutation({
   },
 });
 
+/** Appends a log chunk to an existing snapshot build record. */
 export const appendLogs = internalMutation({
   args: {
     buildId: v.id("snapshotBuilds"),
@@ -431,20 +449,18 @@ export const appendLogs = internalMutation({
   },
 });
 
-export const setWorkflowRunId = internalMutation({
-  args: {
-    buildId: v.id("snapshotBuilds"),
-    workflowRunId: v.number(),
-  },
-  returns: v.null(),
+/** Returns just the build status, used by the safety-net poller to avoid double-completing. */
+export const getBuildStatus = internalQuery({
+  args: { buildId: v.id("snapshotBuilds") },
+  returns: v.union(snapshotBuildStatusValidator, v.null()),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.buildId, {
-      workflowRunId: args.workflowRunId,
-    });
-    return null;
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return null;
+    return build.status;
   },
 });
 
+/** Internal query to get snapshot config fields needed for rebuild actions. */
 export const getRepoSnapshotInternal = internalQuery({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.union(
@@ -466,6 +482,7 @@ export const getRepoSnapshotInternal = internalQuery({
   },
 });
 
+/** Internal query to get GitHub repo metadata (owner, name, installationId). */
 export const getRepo = internalQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.union(

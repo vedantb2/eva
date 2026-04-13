@@ -31,6 +31,7 @@ const designSessionValidator = v.object({
   devPort: v.optional(v.number()),
 });
 
+/** Workflow that provisions or reconnects a sandbox for a design session. */
 export const designSandboxStartupWorkflow = workflow.define({
   args: {
     designSessionId: v.id("designSessions"),
@@ -56,6 +57,7 @@ export const designSandboxStartupWorkflow = workflow.define({
   },
 });
 
+/** Lists active (non-archived) design sessions for a repo, sorted by most recently updated. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(designSessionValidator),
@@ -74,6 +76,7 @@ export const list = authQuery({
   },
 });
 
+/** Lists archived design sessions for a repo. */
 export const listArchived = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(designSessionValidator),
@@ -92,6 +95,7 @@ export const listArchived = authQuery({
   },
 });
 
+/** Counts the number of active, non-archived design sessions for a repo. */
 export const countActive = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.number(),
@@ -105,6 +109,7 @@ export const countActive = authQuery({
   },
 });
 
+/** Fetches a single design session by ID, with repo access control. */
 export const get = authQuery({
   args: { id: v.id("designSessions") },
   returns: v.union(designSessionValidator, v.null()),
@@ -116,6 +121,7 @@ export const get = authQuery({
   },
 });
 
+/** Creates a new design session in a repo with "closed" initial status. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -136,6 +142,7 @@ export const create = authMutation({
   },
 });
 
+/** Updates a design session's title. */
 export const update = authMutation({
   args: {
     id: v.id("designSessions"),
@@ -154,6 +161,7 @@ export const update = authMutation({
   },
 });
 
+/** Adds a chat message to a design session conversation. */
 export const addMessage = authMutation({
   args: {
     id: v.id("designSessions"),
@@ -182,6 +190,7 @@ export const addMessage = authMutation({
   },
 });
 
+/** Updates the most recent message in a design session (for streaming). */
 export const updateLastMessage = authMutation({
   args: {
     id: v.id("designSessions"),
@@ -213,6 +222,7 @@ export const updateLastMessage = authMutation({
   },
 });
 
+/** Selects a design variation by index for the current session. */
 export const selectVariation = authMutation({
   args: {
     id: v.id("designSessions"),
@@ -230,6 +240,7 @@ export const selectVariation = authMutation({
   },
 });
 
+/** Updates the sandbox ID and/or branch name for a design session (internal). */
 export const updateSandbox = internalMutation({
   args: {
     id: v.id("designSessions"),
@@ -250,6 +261,7 @@ export const updateSandbox = internalMutation({
   },
 });
 
+/** Starts a sandbox for a design session by kicking off the startup workflow. */
 export const startSandbox = authMutation({
   args: {
     id: v.id("designSessions"),
@@ -284,6 +296,7 @@ export const startSandbox = authMutation({
   },
 });
 
+/** Stops and deletes the sandbox for a design session. */
 export const stopSandbox = authMutation({
   args: { id: v.id("designSessions") },
   returns: v.null(),
@@ -313,6 +326,7 @@ export const stopSandbox = authMutation({
   },
 });
 
+/** Marks a design session's sandbox as active after successful startup. */
 export const sandboxReady = internalMutation({
   args: {
     designSessionId: v.id("designSessions"),
@@ -343,6 +357,7 @@ export const sandboxReady = internalMutation({
   },
 });
 
+/** Records a sandbox startup failure for a design session. */
 export const sandboxError = internalMutation({
   args: {
     designSessionId: v.id("designSessions"),
@@ -368,6 +383,7 @@ export const sandboxError = internalMutation({
   },
 });
 
+/** Sends a message to the AI for design generation, starting a workflow with timeout watchdog. */
 export const executeMessage = authMutation({
   args: {
     id: v.id("designSessions"),
@@ -426,6 +442,7 @@ export const executeMessage = authMutation({
   },
 });
 
+/** Queues a message for later execution when the session is busy. */
 export const enqueueMessage = authMutation({
   args: {
     id: v.id("designSessions"),
@@ -458,6 +475,7 @@ export const enqueueMessage = authMutation({
   },
 });
 
+/** Cancels the active design workflow and starts processing any queued messages. */
 export const cancelExecution = authMutation({
   args: { id: v.id("designSessions") },
   returns: v.null(),
@@ -495,6 +513,7 @@ export const cancelExecution = authMutation({
   },
 });
 
+/** Archives a design session, removing it from active lists. */
 export const archive = authMutation({
   args: { id: v.id("designSessions") },
   returns: v.null(),

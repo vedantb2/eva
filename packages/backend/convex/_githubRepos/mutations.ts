@@ -5,6 +5,7 @@ import { normalizePath } from "../repoUtils";
 import { aiModelValidator } from "../validators";
 import { findAllSiblingRepoIds } from "./helpers";
 
+/** Assigns a repository to a team (team owner only). */
 export const assignToTeam = authMutation({
   args: {
     teamId: v.id("teams"),
@@ -37,6 +38,7 @@ export const assignToTeam = authMutation({
   },
 });
 
+/** Removes a repository from a team (team owner only). */
 export const removeFromTeam = authMutation({
   args: {
     teamId: v.id("teams"),
@@ -69,6 +71,7 @@ export const removeFromTeam = authMutation({
   },
 });
 
+/** Creates a new GitHub repo entry, handling deduplication and monorepo sub-app setup. */
 export const create = authMutation({
   args: {
     owner: v.string(),
@@ -151,6 +154,7 @@ export const create = authMutation({
   },
 });
 
+/** Updates repository configuration settings, propagating shared settings to sibling repos. */
 export const updateConfig = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -219,6 +223,7 @@ export const updateConfig = authMutation({
   },
 });
 
+/** Toggles the hidden visibility flag on a repository. */
 export const toggleHidden = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -251,6 +256,7 @@ export const toggleHidden = authMutation({
   },
 });
 
+/** Updates the MCP root prompt for a repo and all its siblings. */
 export const updateMcpRootPrompt = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -286,6 +292,7 @@ export const updateMcpRootPrompt = authMutation({
   },
 });
 
+/** Deletes a GitHub repo entry by ID (internal use only). */
 export const deleteInternal = internalMutation({
   args: { id: v.id("githubRepos") },
   returns: v.null(),

@@ -3,6 +3,7 @@ import { internalQuery } from "./_generated/server";
 import { authMutation, authQuery } from "./functions";
 import { syncSettingFields } from "./validators";
 
+/** Lists all sync settings as owner/name/enabled triples (internal use only). */
 export const listAll = internalQuery({
   args: {},
   returns: v.array(
@@ -22,6 +23,7 @@ export const listAll = internalQuery({
   },
 });
 
+/** Lists all sync settings with full document fields for the authenticated user. */
 export const list = authQuery({
   args: {},
   returns: v.array(
@@ -36,6 +38,7 @@ export const list = authQuery({
   },
 });
 
+/** Creates or updates the enabled flag for a single repo's sync setting. */
 export const set = authMutation({
   args: {
     owner: v.string(),
@@ -64,6 +67,7 @@ export const set = authMutation({
   },
 });
 
+/** Creates or updates sync settings for multiple repos under the same owner in one call. */
 export const bulkSet = authMutation({
   args: {
     owner: v.string(),

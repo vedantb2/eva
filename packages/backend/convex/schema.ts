@@ -44,7 +44,9 @@ const schema = defineSchema({
     theme: v.optional(themeValidator),
     customTheme: v.optional(customThemeValidator),
     toolbarVisible: v.optional(v.boolean()),
+    customInstructions: v.optional(v.string()),
     lastSeenAt: v.optional(v.number()),
+    lastChangelogDismissedAt: v.optional(v.number()),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),
@@ -161,43 +163,6 @@ const schema = defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
-  researchQueries: defineTable({
-    repoId: v.id("githubRepos"),
-    userId: v.id("users"),
-    title: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    createdBy: v.optional(v.id("users")),
-    activeWorkflowId: v.optional(v.string()),
-    sandboxId: v.optional(v.string()),
-  })
-    .index("by_repo", ["repoId"])
-    .index("by_user", ["userId"]),
-  savedQueries: defineTable({
-    repoId: v.id("githubRepos"),
-    userId: v.id("users"),
-    researchQueryId: v.optional(v.id("researchQueries")),
-    title: v.string(),
-    query: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_repo", ["repoId"])
-    .index("by_user", ["userId"]),
-  routines: defineTable({
-    repoId: v.id("githubRepos"),
-    userId: v.id("users"),
-    title: v.string(),
-    description: v.optional(v.string()),
-    query: v.string(),
-    schedule: v.optional(v.string()),
-    lastRunAt: v.optional(v.number()),
-    enabled: v.boolean(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_repo", ["repoId"])
-    .index("by_user", ["userId"]),
   annotations: defineTable({
     userId: v.id("users"),
     pageUrl: v.string(),
@@ -364,7 +329,8 @@ const schema = defineSchema({
 
   automationRuns: defineTable(automationRunFields)
     .index("by_automation", ["automationId"])
-    .index("by_automation_and_status", ["automationId", "status"]),
+    .index("by_automation_and_status", ["automationId", "status"])
+    .index("by_repo", ["repoId"]),
 
   logs: defineTable({
     entityType: v.string(),

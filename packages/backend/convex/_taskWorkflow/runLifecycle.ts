@@ -18,6 +18,7 @@ import {
   finalizeRunStatus,
 } from "./helpers";
 
+/** Transitions a queued run to running, sets streaming activity, and schedules watchdog timers. */
 export const updateRunToRunning = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -72,6 +73,7 @@ export const updateRunToRunning = internalMutation({
   },
 });
 
+/** Persists the sandbox ID on a run record after sandbox creation. */
 export const saveSandboxId = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -87,6 +89,7 @@ export const saveSandboxId = internalMutation({
   },
 });
 
+/** Queues deployment status polling for a run after a successful push. */
 export const scheduleDeploymentTracking = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -116,6 +119,7 @@ export const scheduleDeploymentTracking = internalMutation({
   },
 });
 
+/** Updates a project with the active sandbox ID and last activity timestamp. */
 export const updateProjectSandbox = internalMutation({
   args: {
     projectId: v.id("projects"),
@@ -131,6 +135,7 @@ export const updateProjectSandbox = internalMutation({
   },
 });
 
+/** Finalizes the run status after streaming completes and cleans up streaming activity. */
 export const finalizeRunStreamingPhase = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -163,6 +168,7 @@ export const finalizeRunStreamingPhase = internalMutation({
   },
 });
 
+/** Completes a run: finalizes status, updates task, sends notifications, and signals build workflow. */
 export const completeRun = internalMutation({
   args: {
     runId: v.id("agentRuns"),

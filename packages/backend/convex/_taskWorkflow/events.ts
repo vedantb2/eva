@@ -2,11 +2,13 @@ import { v } from "convex/values";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflowCompleteValidator } from "../validators";
 
+/** Workflow event emitted when the main task execution completes. */
 export const taskCompleteEvent = defineEvent({
   name: "taskComplete",
   validator: workflowCompleteValidator,
 });
 
+/** Workflow event emitted when a build-phase task finishes within a project. */
 export const buildTaskDoneEvent = defineEvent({
   name: "buildTaskDone",
   validator: v.object({
@@ -15,6 +17,7 @@ export const buildTaskDoneEvent = defineEvent({
   }),
 });
 
+/** Workflow event emitted when the post-run audit step completes. */
 export const auditCompleteEvent = defineEvent({
   name: "auditComplete",
   validator: v.object({
@@ -25,6 +28,7 @@ export const auditCompleteEvent = defineEvent({
   }),
 });
 
+/** Workflow event emitted when an audit fix attempt completes. */
 export const auditFixCompleteEvent = defineEvent({
   name: "auditFixComplete",
   validator: workflowCompleteValidator,

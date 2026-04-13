@@ -1,6 +1,7 @@
 import { WorkflowManager } from "@convex-dev/workflow";
 import { components } from "./_generated/api";
 
+/** Shared workflow manager instance with retry and parallelism configuration. */
 export const workflow = new WorkflowManager(components.workflow, {
   workpoolOptions: {
     defaultRetryBehavior: {

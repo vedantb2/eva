@@ -4,6 +4,7 @@ import { taskStatusValidator } from "../validators";
 import { authQuery, hasRepoAccess, hasTaskAccess } from "../functions";
 import { agentTaskValidator } from "./helpers";
 
+/** Lists all tasks for a project, sorted by task number. */
 export const listByProject = authQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(agentTaskValidator),
@@ -19,6 +20,7 @@ export const listByProject = authQuery({
   },
 });
 
+/** Retrieves a single task by ID, returning null if not found or unauthorized. */
 export const get = authQuery({
   args: { id: v.id("agentTasks") },
   returns: v.union(agentTaskValidator, v.null()),
@@ -29,6 +31,7 @@ export const get = authQuery({
   },
 });
 
+/** Returns all non-draft, non-done tasks across accessible repos, sorted by most recently updated. */
 export const getActiveTasks = authQuery({
   args: { repoId: v.optional(v.id("githubRepos")) },
   returns: v.array(agentTaskValidator),
@@ -87,6 +90,7 @@ export const getActiveTasks = authQuery({
   },
 });
 
+/** Returns all non-draft tasks for a repo, sorted by creation date. */
 export const getAllTasks = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(agentTaskValidator),
@@ -114,6 +118,7 @@ export const getAllTasks = authQuery({
   },
 });
 
+/** Returns the tasks that depend on a given task (its downstream dependents). */
 export const getDependentTasks = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(
@@ -143,6 +148,7 @@ export const getDependentTasks = authQuery({
   },
 });
 
+/** Returns the status of multiple tasks by their IDs. */
 export const getStatusesByIds = authQuery({
   args: { ids: v.array(v.id("agentTasks")) },
   returns: v.array(

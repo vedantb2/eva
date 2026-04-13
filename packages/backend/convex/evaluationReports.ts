@@ -23,6 +23,7 @@ const reportValidator = v.object({
   updatedAt: v.number(),
 });
 
+/** Lists all evaluation reports for a document, sorted by most recent first. */
 export const listByDoc = authQuery({
   args: { docId: v.id("docs") },
   returns: v.array(reportValidator),
@@ -38,6 +39,7 @@ export const listByDoc = authQuery({
   },
 });
 
+/** Retrieves a single evaluation report by ID. */
 export const get = authQuery({
   args: { id: v.id("evaluationReports") },
   returns: v.union(reportValidator, v.null()),
@@ -49,6 +51,7 @@ export const get = authQuery({
   },
 });
 
+/** Creates a new pending evaluation report for a document. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),

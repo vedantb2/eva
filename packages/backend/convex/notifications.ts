@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { notificationTypeValidator } from "./validators";
 import { authQuery, authMutation } from "./functions";
 
+/** Builds a URL path for a repo, including app name for monorepo sub-apps. */
 function getRepoHref(
   owner: string,
   name: string,
@@ -14,6 +15,7 @@ function getRepoHref(
   return `/${owner}/${name}/${appName}`;
 }
 
+/** Creates a notification for a user, auto-generating an href from repo/project/task context. */
 export async function createNotification(
   ctx: MutationCtx,
   params: {
@@ -66,6 +68,7 @@ const notificationValidator = v.object({
   createdAt: v.number(),
 });
 
+/** Lists the 100 most recent notifications for the current user. */
 export const list = authQuery({
   args: {},
   returns: v.array(notificationValidator),
@@ -78,6 +81,7 @@ export const list = authQuery({
   },
 });
 
+/** Fetches a single notification by ID, only if it belongs to the current user. */
 export const get = authQuery({
   args: { id: v.id("notifications") },
   returns: v.union(notificationValidator, v.null()),
@@ -88,6 +92,7 @@ export const get = authQuery({
   },
 });
 
+/** Returns the number of unread notifications for the current user (capped at 100). */
 export const countUnread = authQuery({
   args: {},
   returns: v.number(),
@@ -102,6 +107,7 @@ export const countUnread = authQuery({
   },
 });
 
+/** Marks a single notification as read. */
 export const markAsRead = authMutation({
   args: { id: v.id("notifications") },
   returns: v.null(),
@@ -116,6 +122,7 @@ export const markAsRead = authMutation({
   },
 });
 
+/** Marks all unread notifications as read for the current user. */
 export const markAllAsRead = authMutation({
   args: {},
   returns: v.null(),

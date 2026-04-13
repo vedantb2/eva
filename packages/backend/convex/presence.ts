@@ -9,6 +9,7 @@ const presence = new Presence(components.presence);
 
 const TWO_MINUTES = 2 * 60 * 1000;
 
+/** Sends a presence heartbeat for the current user in a room, updating lastSeenAt periodically. */
 export const heartbeat = authMutation({
   args: {
     roomId: v.string(),
@@ -38,6 +39,7 @@ export const heartbeat = authMutation({
   },
 });
 
+/** Lists all currently present users in a room. */
 export const list = authQuery({
   args: { roomToken: v.string() },
   handler: async (ctx, { roomToken }) => {
@@ -45,6 +47,7 @@ export const list = authQuery({
   },
 });
 
+/** Disconnects a user's session from a room. */
 export const disconnect = mutation({
   args: { sessionToken: v.string() },
   returns: v.null(),
@@ -56,6 +59,7 @@ export const disconnect = mutation({
   },
 });
 
+/** Updates the current user's cursor position and display info in a room. */
 export const updateCursor = authMutation({
   args: {
     roomId: v.string(),

@@ -7,12 +7,14 @@ import { internal } from "./_generated/api";
 const RETRYABLE_MCP_STATUS_CODES = new Set([429, 502, 503, 504]);
 const MCP_MINT_MAX_ATTEMPTS = 3;
 
+/** Returns the MCP server base URL from environment variables. */
 function getMcpBaseUrl(): string {
   const url = process.env.MCP_BASE_URL;
   if (!url) throw new Error("MCP_BASE_URL environment variable is required");
   return url.replace(/\/$/, "");
 }
 
+/** Returns the MCP bootstrap secret from environment variables. */
 function getMcpBootstrapSecret(): string {
   const secret = process.env.MCP_BOOTSTRAP_SECRET;
   if (!secret)
@@ -20,16 +22,19 @@ function getMcpBootstrapSecret(): string {
   return secret;
 }
 
+/** Pauses execution for the specified number of milliseconds. */
 async function delay(ms: number): Promise<void> {
   await new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
   });
 }
 
+/** Calculates a retry delay with linear backoff and jitter for the given attempt number. */
 function buildRetryDelayMs(attempt: number): number {
   return attempt * 2000 + Math.floor(Math.random() * 500);
 }
 
+/** Mints an MCP authentication token for a sandbox user, with automatic retries on transient failures. */
 export const mintSandboxMcpToken = internalAction({
   args: {
     userId: v.id("users"),

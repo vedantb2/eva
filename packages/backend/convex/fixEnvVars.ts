@@ -1,6 +1,7 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
+/** Migrates env vars from hidden root repos to their child repos, merging without overwriting existing keys. */
 export const run = internalMutation({
   args: {},
   returns: v.object({ moved: v.number() }),

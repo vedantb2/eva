@@ -1,5 +1,198 @@
 # Changelog
 
+## Replace shell git commands with Daytona SDK and simplify git operations - 2026-04-12
+
+- Replaced shell `git clone` with `sandbox.git.clone()` via new `execSdkGitOperation` wrapper (timeout, logging, stale-process cleanup)
+- Replaced shell `git checkout` with `sandbox.git.checkoutBranch()` in local-branch paths (`checkoutFetchedBaseBranch`, `checkoutSessionBranch`)
+- Replaced shell `git branch` listing with `sandbox.git.branches()` in `resolveBaseTarget`, `resolveBranchStartTarget`, and `checkoutSessionBranch`
+- Deleted dead code: `remoteBranchExists` (zero callers), `downloadRepoArchive` (replaced by `cloneAndSetupRepo`), `configureGitHubOrigin` (folded into publish flow)
+- Simplified `setupBranch` — removed stash/merge/verify choreography, replaced with single `git checkout -B` from best resolved ref
+- Made both fetch steps (base branch + task branch) non-fatal in `prepareSandboxSteps` so tasks proceed with local snapshot refs when sandbox networking is broken
+- Fixed snapshot DNS resolution: xfce4 desktop packages pull in `libnss-mdns` which inserts `mdns4_minimal [NOTFOUND=return]` before `dns` in `/etc/nsswitch.conf`, causing `getaddrinfo()` to fail for external hosts — added `sed` fix to `buildSnapshotImage`
+
+## Make base-branch fetch failures explicit and stop pointless auto-retry loops - 2026-04-12
+
+- **Why**: When sandbox-to-GitHub transport hangs, `fetchBaseBranch` can fail repeatedly with the same timeout and quick-task auto-retry can relaunch the same failure path, burning extra minutes without recovering.
+- **Changes**:
+  - Wrapped quick-task base-branch fetch with an explicit error message that names the failing stage and branch.
+  - Excluded `fetchBaseBranch` transport failures from quick-task auto-retry classification.
+  - Added `GIT_TERMINAL_PROMPT=0` to git fetch/ls-remote paths so blocked credential prompts fail immediately instead of appearing as transport hangs.
+- **Reason**: These failures need a clear operator signal, not a second identical run attempt.
+
+## Bound base-branch fetch stalls to ~50s instead of multi-minute retries - 2026-04-12
+
+- **Why**: Quick-task startup could spend 3+ minutes stuck on `Fetching base branch...` when Daytona `executeCommand` calls timed out at 60s and retry logic stacked at multiple layers.
+- **Changes**:
+  - Reduced per-attempt base-branch fetch timeout from 60s to 25s.
+  - Capped git fetch retries inside `fetchBaseBranch` to 2 attempts.
+  - Disabled extra workflow-step retries for the fetch steps so we don’t run nested retry towers.
+- **Reason**: Startup should fail fast on transport stalls and retry in one place only.
+
+## Fetch latest base/task refs before quick-task branch setup - 2026-04-12
+
+- **Why**: Quick-task sandbox prep was intentionally local-first, but that also meant snapshot-backed runs could start from stale refs and miss newly pushed commits on the selected base branch.
+- **Changes**:
+  - Added an explicit `fetchBaseBranch` step in quick-task sandbox prep before branch checkout/setup.
+  - Added a best-effort fetch for the task branch ref so reruns can start from the latest remote task branch when it exists.
+  - Updated branch start-target resolution to prefer `origin/<task-branch>` over stale local branch refs.
+- **Reason**: Quick tasks must start from the latest remote branch state, then create/switch the working branch deterministically.
+
+## Collapse quick-task git flow to one local checkout + one backend push - 2026-04-12
+
+- **Why**: Quick tasks were still spending minutes in git even after startup became local-first. Branch setup was doing extra stash/merge choreography, backend push was mutating `origin` and retrying long timed-out pushes, and quick tasks still waited for post-run audit even when the actual code change was already complete.
+- **Changes**:
+  - Simplified quick-task branch setup to a single local `git checkout -B` from the best already-available ref: local branch, local remote-tracking branch, or base ref.
+  - Replaced sandbox `git push` publication with backend branch publishing through the GitHub Git Data API, using the sandbox's committed diff instead of relying on flaky sandbox-to-GitHub git transport.
+  - Removed retry wrapping from local branch checkout/base checkout workflow steps because those steps no longer depend on network transport.
+  - Stopped quick tasks from waiting on the post-run audit path; synchronous audit remains for project-style runs only.
+  - Fixed the implementation prompt wording so proof capture happens after commit, not after push, matching the platform-owned push model.
+- **Reason**: The quick-task critical path should be: local checkout, one agent run, one backend branch publish, done. Every extra git step and synchronous post-processing stage multiplies failure modes and makes simple tasks feel broken.
+
+## Merge session modes (ask+execute → edit) and fix markRunFinalizing - 2026-04-11
+
+- **Why**: Users kept forgetting to switch from "ask" to "execute" mode and expected edits to work in ask mode. Meanwhile, the separate `markRunFinalizing` HTTP call from the sandbox callback was failing with a 404 because Convex couldn't resolve the function at runtime.
+- **Changes**:
+  - Merged "ask" and "execute" session modes into a single "edit" mode with full tool access. The prompt distinguishes intent — questions get answered without changes, requests get implemented. "Plan" (PRD) mode is unchanged.
+  - Frontend shows 2 tabs (Edit + PRD) instead of 3. Keyboard shortcut toggles between them.
+  - Added batch migration function to convert legacy `ask`/`execute` message modes to `edit`.
+  - Frontend `useSessionSettings` normalizes old localStorage values (`ask`/`execute` → `edit`).
+  - Folded `finalizingAt` timestamp into the existing `handleCompletion` mutation instead of calling it separately from the sandbox. Removed `markRunFinalizing` function and its callback script call site.
+- **Reason**: Fewer modes = less confusion, less code, fewer bugs. Folding finalizingAt into handleCompletion eliminates a fragile separate HTTP call.
+
+## Show live quick-task reply text while runs are in progress - 2026-04-11
+
+- **Why**: Quick-task runs already stream both structured activity steps and the assistant's incremental reply text, but the task timeline only rendered the activity steps. Once a run reached `Streaming response... / Receiving reply...`, the UI looked frozen even when the callback was actively streaming text into `currentContent`.
+- **Changes**:
+  - Rendered `streaming.currentContent` in the task run timeline while a run is active, matching the behavior already used in session chat.
+- **Reason**: This is an observability fix. Users need to see the live reply content so they can distinguish real stalls from a run that is still actively streaming.
+
+## Move quick-task branch push out of the model path - 2026-04-11
+
+- **Why**: Quick tasks were still wasting large amounts of wall-clock time after the actual code change was finished because the prompt required the model to `git push`. When GitHub transport from the sandbox was flaky, Claude started debugging git config and refspecs instead of finishing the workflow. That work is deterministic infrastructure, not model reasoning.
+- **Changes**:
+  - Added a backend `pushSandboxBranch` action that pushes the prepared branch from the sandbox with bounded retry/logging.
+  - Updated the quick-task workflow to push the branch itself after a successful agent completion and before deployment tracking or PR creation.
+  - Updated implementation/conflict/audit-fix prompts so the model commits changes but explicitly does not push or debug git transport.
+  - Added a platform note documenting that quick-task push ownership belongs to the workflow, not the model.
+- **Reason**: Git transport is better handled as a short, explicit infrastructure step. Removing push from the prompt cuts wasted model time and keeps task failures tied to the real failing step.
+
+## Ignore stale sandbox completions after watchdog cleanup - 2026-04-11
+
+- **Why**: Quick-task runners can still finish or report late after the watchdog has already killed the run, cleared the active workflow, and possibly scheduled a retry. The previous completion mutations treated those late callbacks as invariant violations, which surfaced noisy `Completion callback run did not match active run` errors even though the system had already moved on correctly.
+- **Changes**:
+  - Tightened task completion handling so task callbacks now require a live `runId`, an active workflow, and the current running run before forwarding events into the workflow.
+  - Applied the same stale-callback guard to audit completions so late audit runners are ignored instead of throwing after cleanup/retry.
+  - Added an explicit platform note documenting that stale sandbox completions are expected and must be treated as no-ops.
+- **Reason**: Watchdog cleanup and auto-retry are only robust if late callbacks from the old sandbox become harmless. Ignoring stale completions removes false failures without changing the active run’s behavior.
+
+## Tighten quick-task runner startup and remove wasted retries - 2026-04-11
+
+- **Why**: Quick tasks were still spending time in the wrong places even after sandbox bootstrap was fixed. The task runner was paying an MCP startup tax it did not need, Claude was allowed to sit for 90 seconds before first output, auto-retry was re-running non-transient failures, and finalizing-state handling had drifted across separate callback paths.
+- **Changes**:
+  - Folded finalizing-state handling into the main completion path instead of relying on a separate public `markRunFinalizing` callback.
+  - Added an `enableMcp` flag to sandbox runner launch and disabled MCP/token minting for quick-task and audit runs, keeping those paths local-first.
+  - Added tighter runner budgets for quick tasks and audits so they fail much sooner when the provider never starts producing useful output.
+  - Restricted quick-task auto-retry to transient Daytona-style infrastructure failures instead of retrying generic model or task failures.
+- **Reason**: Quick tasks should fail fast on bad runner/provider states and should not silently pay for features they are not using.
+
+## Simplify callback runner heartbeat and attempt flow - 2026-04-11
+
+- **Why**: The detached Daytona callback runner had become too stateful and too forgiving in the wrong places. A malformed completion block had already proven the generated-script path was fragile, heartbeat delivery used overlapping retry layers, and the runner could silently launch a second provider attempt without making that retry explicit at the workflow layer. Those behaviors made failures hard to reason about and allowed transient callback transport issues to turn into multi-minute stalls.
+- **Changes**:
+  - Fixed the generated callback completion block so the emitted `/tmp/run-design.mjs` stays syntactically valid.
+  - Collapsed heartbeat success/failure bookkeeping into one shared helper instead of duplicating the same state updates across flush, ping, startup, and finalization paths.
+  - Reduced callback heartbeat tolerance to a shorter bounded fail-fast path, so the runner terminates itself well before the external 300-second watchdog.
+  - Removed the hidden "retry without saved session" second attempt from inside the callback runner. Session fallback is now an explicit outer-workflow concern instead of an opaque in-script branch.
+- **Reason**: The callback should be a small, predictable bridge between the CLI process and Convex. One provider attempt and one heartbeat path make failures surface faster and keep the runtime easier to maintain.
+
+## Move snapshot builds from GitHub Actions to Daytona SDK - 2026-04-11
+
+- **Why**: Snapshot builds depended on GitHub Actions — requiring `rebuild-snapshot.yml` in every target repo, GitHub App `actions:write` permissions, and a dispatch→poll→complete round-trip through the GitHub API. This was fragile (workflow file missing, permission errors, branch mismatch) and added an external dependency that the platform shouldn't need.
+- **Changes**:
+  - Created `snapshotWorkflow.ts` using the `@convex-dev/workflow` component to orchestrate builds as durable multi-step workflows. Each step (kick-off, poll, complete) is a separate action with its own timeout, so builds that take 15–20 minutes don't hit Convex action limits.
+  - Rewrote `snapshotActions.ts`: `kickOffSnapshotBuild` builds images via the Daytona SDK's `Image` builder and POSTs directly to the Daytona API (non-blocking). `pollSnapshotProgress` checks state and streams build logs on each poll.
+  - Replaced `COPY . /tmp/repo` with `git clone` using a short-lived GitHub installation token, so the Convex action can build the image without local filesystem access.
+  - Added a double-completion guard in `completeBuild` to prevent race conditions between concurrent workflow steps.
+  - Removed `setWorkflowRunId` mutation and the "View GitHub Actions Run" link from the UI.
+  - Relabeled "Workflow Branch" → "Clone Branch" in the snapshot settings UI.
+- **Reason**: The platform should own its own build infrastructure. Using the Daytona SDK directly is simpler, more reliable, and removes the need for users to set up GitHub Actions workflows.
+
+## Silent reload on stale Vercel deployments - 2026-04-10
+
+- **Why**: When Vercel deploys a new version while a user is on the site, old JS chunks become unavailable. This caused two problems: (1) an error page flashed before auto-refresh, and (2) stale JS broke Clerk's internals causing a burst of "Not authenticated" Convex query errors as every active subscription was re-evaluated without auth.
+- **Changes**:
+  - Added `DeploymentErrorFallback` as the TanStack Router `defaultErrorComponent` — detects chunk load errors and silently reloads with loop protection instead of showing an error page.
+  - Added global `error` and `unhandledrejection` handlers alongside `vite:preloadError` to catch chunk failures from all sources, closing the Convex WebSocket before reload to prevent subscription re-evaluation.
+  - Added `useStableAuth` wrapper around Clerk's `useAuth` for `ConvexProviderWithClerk` — debounces unexpected auth loss for 2s so the page reloads (stale deployment) or routes unmount (real logout) before Convex ever sees the token cleared.
+- **Reason**: The error page flash was a bad UX during deployments, and the Convex log noise made real errors harder to spot. Debouncing auth loss at the provider boundary is the narrowest intervention that prevents the cascade without changing the backend auth contract.
+
+## Retry branch fetches instead of burning full sandbox-prep timeout - 2026-04-11
+
+- **Why**: Quick-task starts were still failing before the agent launched when the sandbox hit a transient stall talking to GitHub during the base-branch fetch. The old behavior let a single `git fetch` sit for the full command timeout, so one bad network hop could waste four minutes and fail the run with `command execution timeout`.
+- **Changes**:
+  - Added short retry/backoff handling around branch-oriented git fetch helpers so transient Daytona/GitHub transport stalls get another chance before the workflow gives up.
+  - Added `--no-tags` to sandbox prep fetches, keeping quick-task branch sync focused on the refs it actually needs instead of downloading tag metadata too.
+  - Reduced the dedicated `fetchBaseBranch` action timeout from 240s to 60s because shallow single-branch fetches should fail fast and retry, not consume the whole startup budget in one shot.
+- **Reason**: Quick-task startup is more reliable when branch sync behaves like the other hardened sandbox steps: cheap retries for flaky transport, narrower fetch scope, and less willingness to wait several minutes on one stuck command.
+
+## Simplify sandbox startup to local-first branch setup - 2026-04-11
+
+- **Why**: Sandbox startup had drifted back into doing network branch sync during `createOrResumeSandbox`, so a snapshot-backed run could spend minutes stuck in `Syncing repository...` before the agent even launched. That is the wrong dependency order for a task flow that already starts from a prepared snapshot checkout.
+- **Changes**:
+  - `prepareSandboxSteps` now uses `createOrResumeSandbox` only for sandbox acquisition, then performs branch checkout/setup as separate local steps instead of bundling branch sync into sandbox creation.
+  - The shared `prepareSandbox` action now follows the same local-first flow instead of fetching the base branch before every branch checkout or desktop launch.
+  - `createOrResumeSandbox` now always prepares sandboxes with `syncStrategy=none`, restoring the simpler responsibility boundary: create/resume the sandbox, do not fetch refs.
+  - `setupBranch` no longer does a proactive `git push -u origin` during startup. The agent can push when it actually has work to publish, which removes an unnecessary pre-launch network dependency.
+  - `checkoutFetchedBaseBranch` now falls back to local snapshot refs or `HEAD` when no remote base ref has been fetched, so local branch setup still succeeds without mandatory network access.
+- **Reason**: Snapshot-backed task startup should be local-first and fail-fast. Sandboxes should come up quickly from existing repo state, and remote sync should not be a hard prerequisite just to begin work.
+
+## Make Codex task runs local-first instead of MCP-first - 2026-04-11
+
+- **Why**: Codex task runs were spending early turns browsing GitHub through MCP (`github_search`, `github_fetch_file`) instead of reading the checked-out repo directly. That made implementation runs slower, noisier, and confusing in the activity UI even though the files were already present locally in the sandbox.
+- **Changes**:
+  - Stopped hydrating arbitrary persisted `CODEX_HOME` contents into task runs. The callback now restores only Codex session state and auth, which avoids silently carrying forward stale MCP-heavy runtime config from earlier sessions.
+  - Strengthened implementation/conflict/audit-fix prompts to explicitly require local repo reads/searches before any GitHub or MCP lookup.
+  - Mapped Codex `mcp_tool_call` events like `github_fetch_file` and `github_search` into the normal read/search activity labels so the UI reflects what Codex is actually doing.
+- **Reason**: A sandbox-backed coding run should treat the local checkout as the source of truth. MCP should be an optional escape hatch, not the default way Codex inspects code that is already on disk.
+
+## Remove nested Codex sandboxing and collapse provider session volumes - 2026-04-11
+
+- **Why**: After sandbox startup was simplified, Codex task reruns were still failing on local shell access with `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`. The deeper issue was architectural: Codex was trying to start its own inner workspace sandbox inside Daytona, and session persistence was still conceptually split by provider even though both providers belong to the same repo-scoped runtime.
+- **Changes**:
+  - Forced the Codex runtime config written inside Daytona to strip any persisted `sandbox_mode` / `approval_policy` overrides and replace them with a single outer-sandbox model (`approval_policy = "never"`, `sandbox_mode = "danger-full-access"`).
+  - Kept Codex persistence narrow by syncing only resumable state and auth, instead of copying arbitrary `CODEX_HOME` contents back and forth between runs.
+  - Collapsed session persistence onto one shared repo-scoped Daytona volume and mounted Claude/Codex into separate subpaths, preserving provider isolation without managing two independent volumes per repo.
+- **Reason**: Daytona is already the sandbox boundary. Removing the nested Codex sandbox makes local shell access work reliably, and a single shared session volume is simpler to reason about and cheaper to maintain than parallel provider-specific volumes.
+
+## Remove nested session-restore fetch retries from sandbox startup - 2026-04-11
+
+- **Why**: Session sandbox startup still had a hidden multi-minute slow path even after quick-task startup was simplified. The session restore flow wrapped `fetchBranchRefs(...)` in its own retry loop even though the git helper already retried internally, so one flaky or missing remote session branch could burn roughly nine 30-second fetch attempts before falling back to local snapshot refs anyway.
+- **Changes**:
+  - Removed the extra session-level retry wrapper around branch-ref fetching and let the shared git helper own retry policy in one place.
+  - Made session-branch restore fetches fail fast with a single short best-effort attempt before continuing with local snapshot/base refs.
+  - Stopped reused session sandboxes from doing remote ref sync on the hot path; they now rely on their existing local checkout and jump straight to branch checkout and service startup.
+- **Reason**: Session startup should be local-first and bounded. If remote branch sync is needed, it should be cheap and optional, not a multiplicative retry tower on the critical path.
+
+## Fail fast when callback heartbeats stop reaching Convex - 2026-04-11
+
+- **Why**: Some task runs were not actually stuck in sandbox startup or model execution. The detached callback process had lost the ability to update `streamingActivity`, so the UI looked frozen until the watchdog killed the run after 300 seconds with `no heartbeat for 300s`. That made failures slow, opaque, and expensive to auto-retry.
+- **Changes**:
+  - Added explicit tracking of consecutive callback heartbeat failures inside the sandbox runner.
+  - When heartbeat updates fail repeatedly, the runner now aborts the active CLI attempt and surfaces a concrete error message instead of waiting silently for the external watchdog.
+  - Preserved the existing watchdog as a backstop, but moved the primary failure detection closer to the actual heartbeat transport problem.
+- **Reason**: If the runner cannot talk back to Convex, that is already a terminal condition for a streamed task run. Failing fast is better than burning five minutes and only learning about it from the watchdog.
+
+## Remove pre-clone network polling for fresh sandboxes - 2026-04-10
+
+- **Why**: New repos without snapshots were still taking over a minute to start quick tasks because sandbox prep waited for a synthetic `curl github.com` network check before attempting the real `git clone`. The check was both slow and misleading: even after timing out, the code still tried the clone anyway.
+- **Changes**:
+  - Removed the pre-clone network readiness gate from the non-snapshot sandbox bootstrap path.
+  - Added direct clone retries with short backoff for transient sandbox/GitHub transport failures so the first real git operation happens immediately.
+  - Added clearer retry/recovery logs around clone attempts to make bootstrap failures easier to pinpoint.
+  - Added a dedicated archive-download bootstrap path for fresh ephemeral sandboxes with no branch sync requirements, so they no longer depend on a long-lived `git clone` call just to materialize the working tree.
+  - Broadened outer sandbox setup retry classification to treat 502/503/504-style upstream failures as transient bootstrap errors.
+- **Reason**: Retrying the real git operation is simpler and more accurate than polling a separate connectivity heuristic, and it avoids burning most of the startup budget before any useful work begins.
+
 ## Add Codex as an env-var-backed sandbox provider - 2026-04-09
 
 - **Why**: Claude was the only first-class sandbox provider, which meant teams could not bring their existing ChatGPT-backed Codex access into Conductor. The goal was to add Codex without introducing a new OAuth product flow or more setup friction, so the implementation needed to stay simple: choose a provider in the same UI surfaces and enable Codex by adding env vars only.
@@ -14,6 +207,7 @@
   - Made session branch restore prefer local snapshot refs or snapshot `HEAD` before failing on a base-branch fetch, so flaky network fetches are less likely to block opening an otherwise healthy session sandbox.
   - Stopped session restore from doing a second network fetch for the base branch when the session branch is missing, and made remote session-branch fetch failure fall back to local snapshot restore after a short timeout instead of blocking startup.
   - Extracted shared `resolveBaseTarget` helper in `git.ts` so the remote→local→HEAD base-ref fallback chain is defined once and reused by `checkoutSessionBranch`, `setupBranch`, and session restore. Renamed misleading `fetchSessionBaseFallbackBranch` to `resolveSessionBaseRef` since it no longer does network I/O. Bumped session branch fetch timeout from 15s to 30s to avoid premature fallback on slow-but-healthy networks.
+  - Made `fetchBaseBranch` (quick task sandbox prep) use `--depth 1` shallow fetch so large repos don't time out fetching full history when only the branch tip is needed.
   - Stopped fresh ephemeral sandboxes from blocking on dependency installation before a quick task can start, while still leaving the longer install path available for non-ephemeral sandboxes that benefit from a prepared environment.
   - Increased fresh sandbox clone and runner startup timeouts so newly synced repos without snapshots are less likely to fail during initial bootstrap or callback readiness on slower sandboxes.
   - Updated setup and env-var UX to explain the simplest Codex setup path: sign in locally once, then paste the saved auth JSON into an env var.

@@ -36,8 +36,8 @@ function buildSnapshotImage(
 ): Image {
   return Image.base("node:20-bookworm")
     .runCommands(
-      // System tools
-      "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh",
+      // System tools (uidmap needed for rootless Docker)
+      "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh uidmap",
       // GUI/VNC/X11 packages for desktop mode
       "apt-get install -y xvfb xfce4 xfce4-terminal x11vnc novnc dbus-x11 x11-utils libx11-6 libxrandr2 libxext6 libxrender1 libxfixes3 libxss1 libxtst6 libxi6",
       // Fix DNS: xfce4 pulls in libnss-mdns which inserts mdns4_minimal [NOTFOUND=return]
@@ -60,7 +60,7 @@ function buildSnapshotImage(
       // Supabase CLI (download .deb from latest GitHub release — npm package has native dep issues)
       "curl -fsSL $(curl -s https://api.github.com/repos/supabase/cli/releases/latest | jq -r '.assets[] | select(.name | endswith(\"_linux_amd64.deb\")) | .browser_download_url') -o /tmp/supabase.deb && dpkg -i /tmp/supabase.deb && rm /tmp/supabase.deb",
       // Create user and workspace
-      "useradd -m -s /bin/bash eva && usermod -aG docker eva && mkdir -p /workspace && chown eva:eva /workspace",
+      "useradd -m -s /bin/bash eva && usermod -aG docker eva && echo 'eva:100000:65536' >> /etc/subuid && echo 'eva:100000:65536' >> /etc/subgid && mkdir -p /workspace && chown eva:eva /workspace",
     )
     .dockerfileCommands(["USER eva"])
     .workdir("/workspace")

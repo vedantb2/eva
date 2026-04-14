@@ -7,6 +7,7 @@ import { createAppHistory } from "./lib/history";
 import { clientEnv } from "./env/client";
 import { convex } from "./lib/components/ClientProvider";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
+import { AppSkeleton } from "./lib/components/AppSkeleton";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
 import "./fonts";
 import "./globals.css";
@@ -59,7 +60,7 @@ function InnerApp() {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) {
-    return <div className="min-h-screen w-full bg-background" />;
+    return <AppSkeleton />;
   }
 
   return (

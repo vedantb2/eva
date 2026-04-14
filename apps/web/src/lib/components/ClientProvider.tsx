@@ -17,7 +17,8 @@ import { ThemeModeProvider } from "@/lib/components/ThemeModeProvider";
 import { useEffect, useState } from "react";
 import { Navigate } from "@tanstack/react-router";
 import { ThemeProvider } from "../contexts/ThemeContext";
-import { TooltipProvider, Spinner } from "@conductor/ui";
+import { TooltipProvider } from "@conductor/ui";
+import { AppSkeleton } from "./AppSkeleton";
 import { clientEnv } from "@/env/client";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -118,9 +119,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <>
       <AuthLoading>
-        <div className="min-h-screen w-full bg-background">
-          <Spinner size="lg" />
-        </div>
+        <AppSkeleton />
       </AuthLoading>
       <Unauthenticated>
         <Navigate to="/" />

@@ -1,5 +1,18 @@
 # Changelog
 
+## Optimize Daytona sandbox reuse with stop/resume lifecycle instead of delete/create - 2026-04-14
+
+- **Why**: Session sandbox startup took 30+ seconds because each session close deleted the sandbox and next open created a fresh one. Daytona supports stop/resume which resumes in ~14s instead of creating from scratch in 20-26s.
+- **Changes**:
+  - Removed `autoDeleteInterval` from `SESSION_LIFECYCLE` to let Daytona auto-stop after 15 min idle and auto-archive after 7 days instead of immediate deletion.
+  - Keep `sandboxId` on session close (don't clear it) so `startSandbox` can detect and reuse the existing stopped sandbox.
+  - Added `stopSandbox` internal action for manual stop (called by external cleanup flows, not auto-triggered on session close).
+  - Updated `validateSandbox` to use `ensureSandboxRunning()` which auto-resumes stopped sandboxes via `sandbox.start()`.
+  - Skip git checkout in `checkoutSessionBranch` if already on target branch to avoid unnecessary Daytona API calls.
+  - Added detailed logging to diagnose sandbox startup timing and lifecycle transitions.
+- **User experience**: Users returning within 15 min get instant resume (sandbox still running). After idle, resume takes ~14s. After 7 days stopped, Daytona archives it and next open requires fresh create (~20-26s).
+- **Reason**: Reusing stopped sandboxes cuts session resume time 2-3x and eliminates the waste of throwing away a working sandbox on every close.
+
 ## Replace shell git commands with Daytona SDK and simplify git operations - 2026-04-12
 
 - Replaced shell `git clone` with `sandbox.git.clone()` via new `execSdkGitOperation` wrapper (timeout, logging, stale-process cleanup)

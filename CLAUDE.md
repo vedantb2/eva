@@ -136,3 +136,11 @@ stop adding usestate's useref's for everything, this is the easy way out for eve
 if the user asks you to run a migration, you need to add a migration function to clear the documents with that field in the db, then you run it, then you can get rid of the fields from the schema, then cleanup the migration function
 
 if you are using the agent-browser skill, navigate to `/?agent` to auto sign in as the agent user.
+
+Daytona Sandbox Lifecycle:
+
+- **Stop vs Delete**: `sandbox.stop()` preserves the VM state and can be resumed with `sandbox.start()` (~14s). `sandbox.delete()` removes the entire sandbox. **Always prefer stop for reuse**.
+- **Auto-stop**: Daytona auto-stops sandboxes after `autoStopInterval` (15 min) of idle. Preview URL requests reset the timer.
+- **Auto-archive**: After 7 days stopped, Daytona auto-archives (moves to cheap storage). Cannot be resumed from archive.
+- **Session reuse pattern**: On session close, don't manually call `sandbox.stop()`. Let Daytona auto-stop handle it. Keep `sandboxId` on the session document so next open can detect and reuse the existing sandbox. Use `ensureSandboxRunning()` to auto-resume if needed.
+- **Timing**: Create from scratch = 20-26s. Resume from stopped = ~14s. This 2x speedup justifies the complexity of reuse tracking.

@@ -81,19 +81,16 @@ export const startSandbox = authMutation({
   },
 });
 
-/** Stops the sandbox for a session (preserves state for fast resume), marking it as closed. */
+/** Closes the session UI without stopping the sandbox (lets Daytona auto-stop after 15min idle). */
 export const stopSandbox = authMutation({
   args: { sessionId: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
-    if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
-        sandboxId: session.sandboxId,
-        repoId: session.repoId,
-      });
-    }
+    // Don't stop the sandbox immediately — let Daytona's autoStopInterval (15min) handle it.
+    // If user returns within 15 minutes, sandbox is still running = instant resume.
+    // After 15min idle, Daytona auto-stops it. After 7 days stopped, Daytona auto-archives.
     await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",

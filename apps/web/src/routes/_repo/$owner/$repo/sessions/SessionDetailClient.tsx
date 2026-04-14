@@ -99,6 +99,7 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           devPort={session.devPort}
           devCommand={session.devCommand}
           planContent={session.planContent}
+          isArchived={session.archived === true}
         />
       }
       leftDefaultSize="30%"

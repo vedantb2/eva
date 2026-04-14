@@ -60,6 +60,7 @@ interface SandboxPanelProps {
   devPort?: number;
   devCommand?: string;
   planContent?: string;
+  isArchived?: boolean;
 }
 
 export function SandboxPanel({
@@ -70,6 +71,7 @@ export function SandboxPanel({
   devPort,
   devCommand,
   planContent,
+  isArchived,
 }: SandboxPanelProps) {
   const { repo } = useRepo();
   const sessionIdStr = String(sessionId);
@@ -258,9 +260,12 @@ export function SandboxPanel({
         >
           {activeTab === "prd" && planContent ? (
             <SessionPrdPlanView
+              sessionId={sessionId}
               planContent={planContent}
               onApprovePlan={() => setMode("edit")}
               variant="panel"
+              canEdit={isActive}
+              isArchived={isArchived}
             />
           ) : null}
         </div>

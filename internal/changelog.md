@@ -1,5 +1,10 @@
 # Changelog
 
+## Editable session PRD (Markdown via Tiptap) - 2026-04-14
+
+- **Why**: Product requirements needed in-place editing without a custom HTML↔Markdown bridge; storage stays Markdown in `sessions.planContent` for consistency with agents and Streamdown rendering.
+- **Changes**: `apps/web` uses `@tiptap/markdown` with StarterKit + GFM; `SessionPrdPlanEditor` loads/saves via `contentType: "markdown"` and `getMarkdown()`; `SessionPrdPlanView` toggles view/edit with Cancel/Save, gated by `canEdit` and not archived. `updatePlanContent` enforces `hasRepoAccess` and bumps `updatedAt`.
+
 ## PRD tab on expanded session sandbox panel - 2026-04-14
 
 - **Why**: With the right column open, the PRD plan duplicated space above the chat input; moving it to a dedicated tab keeps one source of truth and frees the composer.

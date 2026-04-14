@@ -1342,7 +1342,11 @@ const systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYS
 const settingsJson = '{"attribution":{"commit":"","pr":""}}';
 const settingsArg = "--settings " + JSON.stringify(settingsJson);
 const mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
-const normalizedClaudeModel = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
+const claudeModelMap: Record<string, string> = {
+  "opusplan": "claude-opus-4-5-20251101",
+};
+const strippedClaudeModel = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
+const normalizedClaudeModel = claudeModelMap[strippedClaudeModel] || strippedClaudeModel;
 const normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
 const codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 const codexPromptCmd = SYSTEM_PROMPT

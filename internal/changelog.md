@@ -1,5 +1,11 @@
 # Changelog
 
+## Harden task streaming heartbeats and completion delivery - 2026-04-14
+
+- **Why**: Transient Convex/network errors caused streaming heartbeats to fail without retries, the callback aborted the CLI after only three failures, and `workflow.sendEvent` failures after `finalizingAt` left runs stuck until the watchdog fired.
+- **Changes**: `streaming:set` now uses the same mutation retry path as other callback HTTP calls; heartbeat termination uses burst/slow-window/absolute caps with longer default HTTP timeout; `handleCompletion` clears `finalizingAt` when `sendEvent` throws and logs a structured error; audit completion logs send failures; `prepareSandboxSteps` retries branch checkout/setup with backoff; finishing watchdog window doubled to 10 minutes.
+- **Reason**: Reliability of long-running sandboxes and completion handoff without spurious kills or stuck finalizing state.
+
 ## Optimize Daytona sandbox reuse with stop/resume lifecycle instead of delete/create - 2026-04-14
 
 - **Why**: Session sandbox startup took 30+ seconds because each session close deleted the sandbox and next open created a fresh one. Daytona supports stop/resume which resumes in ~14s instead of creating from scratch in 20-26s.

@@ -15,7 +15,7 @@ const QUICK_TASK_AUTO_RETRY_JITTER_MS = 20_000;
 export const STALE_THRESHOLD_MS = 300_000;
 export const STALE_CHECK_DELAY_MS = 90_000;
 export const STALE_RECHECK_MS = 30_000;
-export const STALE_FINISHING_THRESHOLD_MS = 300_000;
+export const STALE_FINISHING_THRESHOLD_MS = 600_000;
 export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
 
 /** Checks whether an error message indicates a Daytona infrastructure/network issue. */

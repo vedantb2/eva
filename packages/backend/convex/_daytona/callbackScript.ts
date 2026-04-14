@@ -29,11 +29,23 @@ const FIRST_ASSISTANT_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_ASSISTA
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
 const SCRIPT_STARTED_AT = Date.now();
-const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || "10000");
+const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || "18000");
 const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
 const CALLBACK_HTTP_RETRY_BASE_MS = 1000;
-const MAX_CONSECUTIVE_HEARTBEAT_FAILURES = Number(
-  process.env.CALLBACK_MAX_CONSECUTIVE_HEARTBEAT_FAILURES || "3",
+const STREAMING_HEARTBEAT_MAX_RETRIES = Number(
+  process.env.CALLBACK_STREAMING_HEARTBEAT_MAX_RETRIES || "4",
+);
+const HEARTBEAT_FATAL_BURST = Number(
+  process.env.CALLBACK_HEARTBEAT_FATAL_BURST || "10",
+);
+const HEARTBEAT_FATAL_SLOW_COUNT = Number(
+  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_COUNT || "5",
+);
+const HEARTBEAT_FATAL_SLOW_WINDOW_MS = Number(
+  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_WINDOW_MS || "70000",
+);
+const HEARTBEAT_ABSOLUTE_MAX_FAILURES = Number(
+  process.env.CALLBACK_HEARTBEAT_ABSOLUTE_MAX_FAILURES || "28",
 );
 const READY_FILE = "/tmp/run-design.ready";
 const CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
@@ -161,7 +173,11 @@ async function callStreamingHeartbeat(entityId, currentActivity, currentContent,
   if (pendingQuestion) {
     args.pendingQuestion = pendingQuestion;
   }
-  return await callMutation("streaming:set", args);
+  return await callMutationWithRetry(
+    "streaming:set",
+    args,
+    STREAMING_HEARTBEAT_MAX_RETRIES,
+  );
 }
 
 /** Shortens a file path to show only the last 3 segments for display. */
@@ -590,6 +606,7 @@ let currentStreamedContent = "";
 let activeAttemptChild = null;
 let fatalHeartbeatErrorMessage = "";
 let consecutiveHeartbeatFailures = 0;
+let heartbeatFailureStreakStartedAt = 0;
 
 /** Builds the serialized streaming payload for the current accumulated steps. */
 function buildStreamingPayload() {
@@ -609,20 +626,46 @@ function markHeartbeatSuccess(payload) {
     );
   }
   consecutiveHeartbeatFailures = 0;
+  heartbeatFailureStreakStartedAt = 0;
 }
 
 /** Records a heartbeat transport failure and aborts the active CLI attempt once failures become persistent. */
 function noteHeartbeatFailure(error) {
   const message = error instanceof Error ? error.message : String(error);
   consecutiveHeartbeatFailures++;
+  if (consecutiveHeartbeatFailures === 1) {
+    heartbeatFailureStreakStartedAt = Date.now();
+  }
   console.error(
     "Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):",
     message,
   );
-  if (
-    !fatalHeartbeatErrorMessage &&
-    consecutiveHeartbeatFailures >= MAX_CONSECUTIVE_HEARTBEAT_FAILURES
-  ) {
+  if (consecutiveHeartbeatFailures === 2 || consecutiveHeartbeatFailures === 4) {
+    console.error(
+      "[streaming-heartbeat] degraded: " +
+        consecutiveHeartbeatFailures +
+        " consecutive post-retry failures (burstFatal>=" +
+        HEARTBEAT_FATAL_BURST +
+        " or slowFatal>=" +
+        HEARTBEAT_FATAL_SLOW_COUNT +
+        " over " +
+        HEARTBEAT_FATAL_SLOW_WINDOW_MS +
+        "ms)",
+    );
+  }
+  if (fatalHeartbeatErrorMessage) {
+    return;
+  }
+  const streakAge =
+    heartbeatFailureStreakStartedAt > 0
+      ? Date.now() - heartbeatFailureStreakStartedAt
+      : 0;
+  const burstFatal = consecutiveHeartbeatFailures >= HEARTBEAT_FATAL_BURST;
+  const slowFatal =
+    consecutiveHeartbeatFailures >= HEARTBEAT_FATAL_SLOW_COUNT &&
+    streakAge >= HEARTBEAT_FATAL_SLOW_WINDOW_MS;
+  const absoluteFatal = consecutiveHeartbeatFailures >= HEARTBEAT_ABSOLUTE_MAX_FAILURES;
+  if (burstFatal || slowFatal || absoluteFatal) {
     fatalHeartbeatErrorMessage =
       "Lost streaming heartbeat after " +
       String(consecutiveHeartbeatFailures) +
@@ -1664,6 +1707,7 @@ function resetAttemptState() {
   firstAssistantEventAt = 0;
   firstTextBlockAt = 0;
   fatalHeartbeatErrorMessage = "";
+  heartbeatFailureStreakStartedAt = 0;
 }
 
 /** Sends SIGTERM then SIGKILL to forcefully stop a CLI process. */

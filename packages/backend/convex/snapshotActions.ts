@@ -43,6 +43,8 @@ function buildSnapshotImage(
       // Fix DNS: xfce4 pulls in libnss-mdns which inserts mdns4_minimal [NOTFOUND=return]
       // before dns in nsswitch.conf, causing getaddrinfo() to fail for external hosts
       "sed -i 's/mdns4_minimal \\[NOTFOUND=return\\] //' /etc/nsswitch.conf",
+      // Allow eva to add hosts entries at runtime (Docker regenerates /etc/hosts on container start)
+      "echo 'eva ALL=(ALL) NOPASSWD: /usr/bin/tee -a /etc/hosts' > /etc/sudoers.d/eva-hosts && chmod 440 /etc/sudoers.d/eva-hosts",
       // Chrome
       'apt-get install -y wget gnupg && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && apt-get update && apt-get install -y google-chrome-stable',
       // Docker Engine (includes Docker Compose V2 plugin)

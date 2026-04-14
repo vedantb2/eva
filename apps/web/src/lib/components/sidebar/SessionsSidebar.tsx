@@ -26,6 +26,7 @@ export function SessionsSidebar({
   const archivedSessions = useQuery(api.sessions.listArchived, { repoId });
   const createSession = useMutation(api.sessions.create);
   const archiveSession = useMutation(api.sessions.archive);
+  const unarchiveSession = useMutation(api.sessions.unarchive);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
 
   const updateSession = useMutation(api.sessions.update);
@@ -47,6 +48,9 @@ export function SessionsSidebar({
           await stopSandboxMutation({ sessionId: session._id });
         }
         await archiveSession({ id: session._id });
+      }}
+      onUnarchive={async (session) => {
+        await unarchiveSession({ id: session._id });
       }}
       onRename={async (session, newTitle) => {
         await updateSession({

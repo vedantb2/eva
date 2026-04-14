@@ -522,3 +522,17 @@ export const archive = authMutation({
     return null;
   },
 });
+
+/** Unarchives a design session, restoring it to the active list. */
+export const unarchive = authMutation({
+  args: { id: v.id("designSessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session) throw new Error("Design session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+    await ctx.db.patch(args.id, { archived: false });
+    return null;
+  },
+});

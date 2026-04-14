@@ -7,6 +7,7 @@ export {
   update,
   updateSummary,
   archive,
+  unarchive,
   updatePlanContent,
   updateLastMessage,
 } from "./_sessions/mutations";

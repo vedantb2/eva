@@ -1,15 +1,24 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
-import { sandboxTabParser, previewPortParser } from "@/lib/search-params";
+import { cn } from "@conductor/ui";
+import {
+  sandboxTabParser,
+  previewPortParser,
+  sandboxTermIdsParser,
+  sandboxTermActiveParser,
+} from "@/lib/search-params";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { TerminalPanel } from "./TerminalPanel";
 import { WebPreviewPanel } from "./WebPreviewPanel";
 import { EditorPanel } from "./EditorPanel";
 import { DesktopPanel } from "./DesktopPanel";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
+import { TerminalPaneTabs } from "./_components/TerminalPaneTabs";
+
+const MAX_TERMINAL_PANES = 8;
 
 interface PreviewInfo {
   url: string;
@@ -41,7 +50,7 @@ function clearCachedPreview(sessionId: string, port: number) {
 }
 
 interface SandboxPanelProps {
-  sessionId: string;
+  sessionId: Id<"sessions">;
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
@@ -59,12 +68,18 @@ export function SandboxPanel({
 }: SandboxPanelProps) {
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
+  const [termIds, setTermIds] = useQueryState("termIds", sandboxTermIdsParser);
+  const [termActive, setTermActive] = useQueryState(
+    "termActive",
+    sandboxTermActiveParser,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const [port, setPort] = useQueryState("port", previewPortParser);
   const effectivePort = devPort ?? port;
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
+  const disconnectPtyAction = useAction(api.pty.disconnectPty);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -135,16 +150,63 @@ export function SandboxPanel({
     setPreviewInfo,
   ]);
 
-  const terminal = useMemo(
-    () => (
-      <TerminalPanel
-        sessionId={sessionId}
-        sandboxId={sandboxId}
-        isActive={isActive}
-        devCommand={devCommand}
-      />
-    ),
-    [sessionId, sandboxId, isActive, devCommand],
+  useEffect(() => {
+    if (activeTab !== "terminal" || termIds.length > 0) return;
+    const id = crypto.randomUUID();
+    void setTermIds([id]);
+    void setTermActive(id);
+  }, [activeTab, termIds.length, setTermIds, setTermActive]);
+
+  useEffect(() => {
+    if (termIds.length === 0) return;
+    if (termActive && termIds.includes(termActive)) return;
+    void setTermActive(termIds[0]);
+  }, [termIds, termActive, setTermActive]);
+
+  const resolvedTermActive =
+    termIds.length > 0
+      ? termActive && termIds.includes(termActive)
+        ? termActive
+        : termIds[0]
+      : "";
+
+  const handleNewTerminal = useCallback(() => {
+    if (!isActive || termIds.length >= MAX_TERMINAL_PANES) return;
+    const id = crypto.randomUUID();
+    const next = termIds.length === 0 ? [id] : [...termIds, id];
+    void setTermIds(next);
+    void setTermActive(id);
+    void setActiveTab("terminal");
+  }, [isActive, termIds, setTermIds, setTermActive, setActiveTab]);
+
+  const handleCloseTerminal = useCallback(
+    async (ptyId: string) => {
+      if (termIds[0] === ptyId) return;
+      const removedIdx = termIds.indexOf(ptyId);
+      if (removedIdx < 0) return;
+      const next = termIds.filter((t) => t !== ptyId);
+      try {
+        await disconnectPtyAction({
+          sessionId,
+          ptyInstanceId: ptyId,
+        });
+      } catch {
+        // still remove from UI
+      }
+      void setTermIds(next);
+      if (termActive === ptyId) {
+        const pick = next[removedIdx - 1] ?? next[0] ?? "";
+        void setTermActive(pick);
+      }
+    },
+    [
+      termIds,
+      termActive,
+      disconnectPtyAction,
+      sessionId,
+      setTermIds,
+      setTermActive,
+    ],
   );
 
   const handleTabChange = useCallback(
@@ -154,9 +216,16 @@ export function SandboxPanel({
     [setActiveTab],
   );
 
+  const newTerminalDisabled = !isActive || termIds.length >= MAX_TERMINAL_PANES;
+
   return (
     <div className="h-full flex flex-col">
-      <SandboxTabBar activeTab={activeTab} onTabChange={handleTabChange} />
+      <SandboxTabBar
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        onNewTerminal={handleNewTerminal}
+        newTerminalDisabled={newTerminalDisabled}
+      />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={activeTab === "preview" ? "h-full" : "hidden"}>
           <WebPreviewPanel
@@ -179,9 +248,47 @@ export function SandboxPanel({
             repoId={repoId}
           />
         </div>
-        <div className={activeTab === "terminal" ? "h-full" : "hidden"}>
-          <div className="h-full flex flex-col">
-            <div className="flex-1 min-h-0">{terminal}</div>
+        <div
+          className={
+            activeTab === "terminal" ? "h-full flex flex-col" : "hidden"
+          }
+        >
+          {activeTab === "terminal" ? (
+            <TerminalPaneTabs
+              termIds={termIds}
+              activeId={resolvedTermActive}
+              onSelect={(id) => void setTermActive(id)}
+              onClose={handleCloseTerminal}
+            />
+          ) : null}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {activeTab === "terminal" && termIds.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                Preparing terminal…
+              </div>
+            ) : null}
+            {termIds.map((id) => (
+              <div
+                key={id}
+                className={cn(
+                  resolvedTermActive === id
+                    ? "flex min-h-0 flex-1 flex-col"
+                    : "hidden",
+                )}
+              >
+                <TerminalPanel
+                  sessionId={sessionId}
+                  sandboxId={sandboxId}
+                  isActive={isActive}
+                  ptyInstanceId={id}
+                  isForeground={
+                    resolvedTermActive === id && activeTab === "terminal"
+                  }
+                  runDevCommandOnConnect={id === termIds[0]}
+                  devCommand={devCommand}
+                />
+              </div>
+            ))}
           </div>
         </div>
         <div className={activeTab === "desktop" ? "h-full" : "hidden"}>

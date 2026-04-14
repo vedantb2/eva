@@ -1,5 +1,11 @@
 # Changelog
 
+## Multi-terminal sandbox PTY panes (session right panel) - 2026-04-14
+
+- **Why**: One PTY per session forced a single shell; agents and users need several concurrent shells without leaving the session.
+- **Changes**: Convex `connectPty` / `resizePty` / `disconnectPty` accept optional `ptyInstanceId` so Daytona PTYs are keyed per pane without colliding on `sessions.ptySessionId`. Web: nuqs `termIds` + `termActive`, Chrome-style `+` menu (New Terminal), sub-row for extra shells with close on 2+, stacked `TerminalPanel`s with foreground fit/resize, dev autostart only on the first pane.
+- **Reason**: Multiple independent PTY sessions per sandbox with URL-persisted layout.
+
 ## Harden task streaming heartbeats and completion delivery - 2026-04-14
 
 - **Why**: Transient Convex/network errors caused streaming heartbeats to fail without retries, the callback aborted the CLI after only three failures, and `workflow.sendEvent` failures after `finalizingAt` left runs stuck until the watchdog fired.

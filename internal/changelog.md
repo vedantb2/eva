@@ -1,9 +1,14 @@
 # Changelog
 
+## Session PRD edit without active sandbox - 2026-04-14
+
+- **Why**: `planContent` is stored in Convex and does not depend on Daytona; tying the Edit affordance to `session.status === "active"` blocked edits while the sandbox was stopped or starting.
+- **Changes**: `SessionPrdPlanView` no longer takes `canEdit`; Edit shows whenever the session is not archived (save still uses `updatePlanContent` + `hasRepoAccess`).
+
 ## Editable session PRD (Markdown via Tiptap) - 2026-04-14
 
 - **Why**: Product requirements needed in-place editing without a custom HTML↔Markdown bridge; storage stays Markdown in `sessions.planContent` for consistency with agents and Streamdown rendering.
-- **Changes**: `apps/web` uses `@tiptap/markdown` with StarterKit + GFM; `SessionPrdPlanEditor` loads/saves via `contentType: "markdown"` and `getMarkdown()`; `SessionPrdPlanView` toggles view/edit with Cancel/Save, gated by `canEdit` and not archived. `updatePlanContent` enforces `hasRepoAccess` and bumps `updatedAt`.
+- **Changes**: `apps/web` uses `@tiptap/markdown` with StarterKit + GFM; `SessionPrdPlanEditor` loads/saves via `contentType: "markdown"` and `getMarkdown()`; `SessionPrdPlanView` toggles view/edit with Cancel/Save when not archived. `updatePlanContent` enforces `hasRepoAccess` and bumps `updatedAt`.
 
 ## PRD tab on expanded session sandbox panel - 2026-04-14
 

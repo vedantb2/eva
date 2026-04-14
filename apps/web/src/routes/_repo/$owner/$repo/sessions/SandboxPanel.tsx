@@ -264,7 +264,6 @@ export function SandboxPanel({
               planContent={planContent}
               onApprovePlan={() => setMode("edit")}
               variant="panel"
-              canEdit={isActive}
               isArchived={isArchived}
             />
           ) : null}

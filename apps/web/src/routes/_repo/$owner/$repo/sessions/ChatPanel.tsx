@@ -705,7 +705,6 @@ export function ChatPanel({
                   planContent={planContent}
                   onApprovePlan={() => setMode("edit")}
                   variant="compact"
-                  canEdit={isSandboxActive}
                   isArchived={isArchived}
                 />
               </motion.div>

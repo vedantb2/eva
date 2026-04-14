@@ -23,7 +23,6 @@ interface SessionPrdPlanViewProps {
   planContent: string;
   onApprovePlan: () => void;
   variant: "compact" | "panel";
-  canEdit: boolean;
   isArchived?: boolean;
 }
 
@@ -32,7 +31,6 @@ export function SessionPrdPlanView({
   planContent,
   onApprovePlan,
   variant,
-  canEdit,
   isArchived,
 }: SessionPrdPlanViewProps) {
   const isPanel = variant === "panel";
@@ -41,7 +39,7 @@ export function SessionPrdPlanView({
   const [editKey, setEditKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
-  const showEdit = canEdit && !isArchived && editingSnapshot === null;
+  const showEdit = !isArchived && editingSnapshot === null;
 
   const handleStartEdit = useCallback(() => {
     setEditingSnapshot(planContent);

@@ -81,7 +81,7 @@ export const startSandbox = authMutation({
   },
 });
 
-/** Stops and deletes the sandbox for a session, marking it as closed. */
+/** Stops the sandbox for a session (preserves state for fast resume), marking it as closed. */
 export const stopSandbox = authMutation({
   args: { sessionId: v.id("sessions") },
   returns: v.null(),
@@ -89,7 +89,7 @@ export const stopSandbox = authMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+      await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
       });
@@ -103,7 +103,7 @@ export const stopSandbox = authMutation({
       isSystemAlert: true,
     });
     await ctx.db.patch(args.sessionId, {
-      sandboxId: undefined,
+      // Keep sandboxId so we can resume the stopped sandbox later
       ptySessionId: undefined,
       status: "closed",
       updatedAt: Date.now(),

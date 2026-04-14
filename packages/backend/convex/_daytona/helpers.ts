@@ -46,12 +46,30 @@ export async function ensureSandboxRunning(
   sandbox: Sandbox,
   timeoutSeconds = DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
 ): Promise<void> {
+  const startedAt = Date.now();
   try {
+    console.log(
+      `[daytona] ensureSandboxRunning: checking if sandbox ${sandbox.id} is running...`,
+    );
     await exec(sandbox, "echo 1", 5);
+    console.log(
+      `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} already running (${Date.now() - startedAt}ms)`,
+    );
     return;
-  } catch {
+  } catch (e) {
+    const checkDuration = Date.now() - startedAt;
+    console.log(
+      `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} not running, starting... (check took ${checkDuration}ms, error: ${e instanceof Error ? e.message : String(e)})`,
+    );
+    const startStartedAt = Date.now();
     await sandbox.start(timeoutSeconds);
+    console.log(
+      `[daytona] ensureSandboxRunning: sandbox.start() completed in ${Date.now() - startStartedAt}ms`,
+    );
     await exec(sandbox, "echo 1", 5);
+    console.log(
+      `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} now running (total ${Date.now() - startedAt}ms)`,
+    );
   }
 }
 

@@ -9,6 +9,7 @@ import {
   exec,
   resolveSandboxContext,
   getSandbox,
+  ensureSandboxRunning,
   sleep,
   errorMessage,
   signAndLaunchScript,
@@ -26,7 +27,7 @@ import {
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 
-/** Checks whether a sandbox is healthy by executing a test command. */
+/** Checks whether a sandbox is healthy, starting it if stopped. */
 export const validateSandbox = internalAction({
   args: {
     sandboxId: v.string(),
@@ -36,7 +37,8 @@ export const validateSandbox = internalAction({
   handler: async (ctx, args) => {
     try {
       const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-      await exec(sandbox, "echo ok", 10);
+      // Start the sandbox if it's stopped (fast resume ~3-5s)
+      await ensureSandboxRunning(sandbox);
       return { healthy: true };
     } catch (e) {
       console.error("Sandbox validation failed:", e);

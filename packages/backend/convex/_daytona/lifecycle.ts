@@ -98,6 +98,21 @@ export const killSandboxProcess = internalAction({
   },
 });
 
+/** Stops a Daytona sandbox (preserves state, fast resume). Silently ignores already-stopped sandboxes. */
+export const stopSandbox = internalAction({
+  args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      await sandbox.stop();
+    } catch {
+      // Sandbox may already be stopped, archived, or deleted
+    }
+    return null;
+  },
+});
+
 /** Deletes a Daytona sandbox, silently ignoring already-deleted sandboxes. */
 export const deleteSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },

@@ -9,6 +9,7 @@ import {
   exec,
   resolveSandboxContext,
   getSandbox,
+  ensureSandboxRunning,
   sleep,
   errorMessage,
   signAndLaunchScript,
@@ -25,9 +26,8 @@ import {
 } from "./git";
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
-import { publishSandboxBranch } from "./publish";
 
-/** Checks whether a sandbox is healthy by executing a test command. */
+/** Checks whether a sandbox is healthy, starting it if stopped. */
 export const validateSandbox = internalAction({
   args: {
     sandboxId: v.string(),
@@ -37,7 +37,8 @@ export const validateSandbox = internalAction({
   handler: async (ctx, args) => {
     try {
       const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-      await exec(sandbox, "echo ok", 10);
+      // Start the sandbox if it's stopped (fast resume ~3-5s)
+      await ensureSandboxRunning(sandbox);
       return { healthy: true };
     } catch (e) {
       console.error("Sandbox validation failed:", e);
@@ -530,32 +531,6 @@ export const setupSandboxBranch = internalAction({
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
     await setupBranch(sandbox, args.branchName, args.baseBranch);
-    return null;
-  },
-});
-
-/** Pushes a prepared sandbox branch to origin after the agent has finished editing and committing. */
-export const pushSandboxBranch = internalAction({
-  args: {
-    sandboxId: v.string(),
-    installationId: v.number(),
-    repoOwner: v.string(),
-    repoName: v.string(),
-    branchName: v.string(),
-    baseBranch: v.string(),
-    repoId: v.id("githubRepos"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await publishSandboxBranch(
-      sandbox,
-      args.installationId,
-      args.repoOwner,
-      args.repoName,
-      args.branchName,
-      args.baseBranch,
-    );
     return null;
   },
 });

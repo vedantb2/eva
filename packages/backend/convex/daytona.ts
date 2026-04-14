@@ -3,6 +3,7 @@
 export {
   warmSnapshotCache,
   killSandboxProcess,
+  stopSandbox,
   deleteSandbox,
 } from "./_daytona/lifecycle";
 
@@ -14,7 +15,6 @@ export {
   fetchBaseBranch,
   checkoutBaseBranch,
   setupSandboxBranch,
-  pushSandboxBranch,
   launchOnExistingSandbox,
   validateSandbox,
 } from "./_daytona/execution";

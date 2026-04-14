@@ -104,27 +104,7 @@ export const taskExecutionWorkflow = workflow.define({
       finalSuccess = result.success;
       finalError = result.error;
 
-      if (finalSuccess && sandboxId) {
-        try {
-          await step.runAction(internal.daytona.pushSandboxBranch, {
-            sandboxId,
-            installationId: args.installationId,
-            repoOwner: data.repoOwner,
-            repoName: data.repoName,
-            branchName: data.branchName,
-            baseBranch: args.baseBranch ?? "main",
-            repoId: args.repoId,
-          });
-        } catch (error) {
-          finalSuccess = false;
-          finalError =
-            error instanceof Error
-              ? `Failed to push branch: ${error.message}`
-              : "Failed to push branch";
-          completionSuccess = finalSuccess;
-          completionError = finalError;
-        }
-      }
+      // Agent pushes the branch directly via git push in the sandbox
 
       if (finalSuccess) {
         await step.runMutation(

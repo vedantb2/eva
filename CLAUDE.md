@@ -44,7 +44,7 @@ Implementation:
 - Prefer making a detailed plan over a quick plan
 - Add comments especially for big functions and update comments (if needed) when modifying big functions- When done implementing, explain all your changes made to the user
 - Check web and docs for everything you do
-- If you have learnt anything new from the user, ie their preference of implementing something, then include this in the CLAUDE.md too in a short concise format
+- Only add to CLAUDE.md when the user explicitly asks. Keep entries to 1 sentence (~20 words max), not changelog-style paragraphs
 - Never use `any`
 - Never use `unknown`
 - Never use `as` for type assertions
@@ -109,7 +109,6 @@ Verification Rules after implementation:
 - Run npx tsc in the appropriate codebase and fix any type issues (if related to your changes)
 - Ensure types are inferred where possible.
 - Ensure no unnecessary client components were introduced.
-- Ensure CLAUDE.md is updated if architecture decisions changed and with new learnings.
 
 Implementation Process:
 
@@ -136,5 +135,3 @@ stop adding usestate's useref's for everything, this is the easy way out for eve
 if the user asks you to run a migration, you need to add a migration function to clear the documents with that field in the db, then you run it, then you can get rid of the fields from the schema, then cleanup the migration function
 
 if you are using the agent-browser skill, navigate to `/?agent` to auto sign in as the agent user.
-
-for fresh daytona sandbox bootstrap, do not pre-poll generic network readiness before git operations; attempt the real git command immediately and retry that command with clear logs if the transport is flaky

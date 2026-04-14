@@ -148,6 +148,23 @@ export const archive = authMutation({
   },
 });
 
+/** Unarchives a session, restoring it to the active list. */
+export const unarchive = authMutation({
+  args: { id: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session) {
+      throw new Error("Session not found");
+    }
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, { archived: false });
+    return null;
+  },
+});
+
 /** Stores or updates the plan content for a session. */
 export const updatePlanContent = authMutation({
   args: {

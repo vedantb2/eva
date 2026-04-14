@@ -34,7 +34,7 @@ export type RepoSyncStrategy =
 
 const SESSION_LIFECYCLE: SandboxLifecycle = {
   autoStopInterval: 15,
-  autoDeleteInterval: 60,
+  // No autoDeleteInterval — let Daytona auto-archive after 7 days (default)
 };
 
 const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
@@ -572,11 +572,27 @@ export async function checkoutSessionBranch(
       10,
     );
     if (branchList.branches.includes(branchName)) {
-      // Branch exists locally — simple checkout via SDK
-      await execSdkGitOperation(
+      // Branch exists locally — check if we're already on it
+      const workspaceDir = workspaceDirShell();
+      const currentBranch = (
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git branch --show-current`,
+          5,
+        )
+      ).trim();
+      if (currentBranch === branchName) {
+        // Already on the branch — nothing to do
+        logGit(
+          `checkoutSessionBranch: already on ${branchName}, skipping checkout`,
+        );
+        return;
+      }
+      // Checkout using git command (more reliable than SDK for existing branches)
+      const quotedBranch = quote([branchName]);
+      await execGitCommand(
         sandbox,
-        `checkoutBranch ${branchName}`,
-        () => sandbox.git.checkoutBranch(WORKSPACE_DIR, branchName),
+        `cd ${workspaceDir} && git checkout ${quotedBranch}`,
         20,
       );
       return;
@@ -782,6 +798,39 @@ export async function setupBranch(
       sandbox,
       `cd ${workspaceDir} && git checkout -B ${quotedBranch} ${quotedStartTarget}`,
       15,
+    );
+  });
+}
+
+/** Pushes the current branch to origin with retry logic. */
+export async function pushBranchToOrigin(
+  sandbox: Sandbox,
+  installationId: number,
+  owner: string,
+  name: string,
+  branchName: string,
+  opts?: {
+    timeoutSeconds?: number;
+    retryAttempts?: number;
+  },
+): Promise<void> {
+  const details = `${owner}/${name}, branch=${branchName}`;
+  await runLoggedGitStep("pushBranchToOrigin", details, async () => {
+    const githubToken = await getInstallationToken(installationId);
+    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const workspaceDir = workspaceDirShell();
+    const quotedBranch = quote([branchName]);
+    await retryGitNetworkOperation(
+      "pushBranchToOrigin",
+      details,
+      async () => {
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedBranch}`,
+          opts?.timeoutSeconds ?? 60,
+        );
+      },
+      opts?.retryAttempts ?? 2,
     );
   });
 }

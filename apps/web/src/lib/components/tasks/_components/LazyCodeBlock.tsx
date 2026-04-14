@@ -1,14 +1,14 @@
 "use client";
 
 import { use } from "react";
-import { codeToHtml } from "shiki";
 
 const cache = new Map<string, Promise<string>>();
 
-function highlight(code: string, language: string): Promise<string> {
+async function highlight(code: string, language: string): Promise<string> {
   const key = `${language}:${code}`;
   const cached = cache.get(key);
   if (cached) return cached;
+  const { codeToHtml } = await import("shiki");
   const promise = codeToHtml(code, {
     lang: language,
     themes: { light: "github-light", dark: "github-dark" },

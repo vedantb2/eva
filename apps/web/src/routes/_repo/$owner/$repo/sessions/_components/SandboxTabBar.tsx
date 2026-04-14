@@ -3,6 +3,7 @@ import {
   IconDeviceDesktop,
   IconCode,
   IconTerminal2,
+  IconClipboardList,
   IconPlus,
 } from "@tabler/icons-react";
 import {
@@ -15,13 +16,14 @@ import {
   DropdownMenuItem,
 } from "@conductor/ui";
 
-type SandboxTab = "preview" | "desktop" | "editor" | "terminal";
+type SandboxTab = "preview" | "desktop" | "editor" | "terminal" | "prd";
 
 const SANDBOX_TABS: Set<string> = new Set([
   "preview",
   "desktop",
   "editor",
   "terminal",
+  "prd",
 ]);
 
 const tabs: Array<{
@@ -40,6 +42,7 @@ interface SandboxTabBarProps {
   onTabChange: (tab: SandboxTab) => void;
   onNewTerminal: () => void;
   newTerminalDisabled?: boolean;
+  showPrdTab?: boolean;
 }
 
 function isSandboxTab(value: string): value is SandboxTab {
@@ -51,6 +54,7 @@ export function SandboxTabBar({
   onTabChange,
   onNewTerminal,
   newTerminalDisabled = false,
+  showPrdTab = false,
 }: SandboxTabBarProps) {
   return (
     <div className="relative flex items-end gap-1 px-2 pt-1.5 bg-secondary/50">
@@ -77,6 +81,15 @@ export function SandboxTabBar({
               </TabsTrigger>
             );
           })}
+          {showPrdTab ? (
+            <TabsTrigger
+              value="prd"
+              className="relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary"
+            >
+              <IconClipboardList className="w-3.5 h-3.5" />
+              PRD
+            </TabsTrigger>
+          ) : null}
         </TabsList>
       </Tabs>
       <DropdownMenu>

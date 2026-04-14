@@ -17,6 +17,9 @@ import { EditorPanel } from "./EditorPanel";
 import { DesktopPanel } from "./DesktopPanel";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { TerminalPaneTabs } from "./_components/TerminalPaneTabs";
+import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 const MAX_TERMINAL_PANES = 8;
 
@@ -56,6 +59,7 @@ interface SandboxPanelProps {
   repoId: Id<"githubRepos">;
   devPort?: number;
   devCommand?: string;
+  planContent?: string;
 }
 
 export function SandboxPanel({
@@ -65,7 +69,13 @@ export function SandboxPanel({
   repoId,
   devPort,
   devCommand,
+  planContent,
 }: SandboxPanelProps) {
+  const { repo } = useRepo();
+  const sessionIdStr = String(sessionId);
+  const { mode, setMode } = useSessionSettings(sessionIdStr, {
+    defaultModel: repo.defaultModel,
+  });
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
   const [termIds, setTermIds] = useQueryState("termIds", sandboxTermIdsParser);
@@ -163,6 +173,17 @@ export function SandboxPanel({
     void setTermActive(termIds[0]);
   }, [termIds, termActive, setTermActive]);
 
+  const showPrdTab = Boolean(planContent) && mode === "plan";
+
+  const tabBarValue =
+    activeTab === "prd" && !showPrdTab ? "preview" : activeTab;
+
+  useEffect(() => {
+    if (activeTab !== "prd") return;
+    if (showPrdTab) return;
+    void setActiveTab("preview");
+  }, [activeTab, showPrdTab, setActiveTab]);
+
   const resolvedTermActive =
     termIds.length > 0
       ? termActive && termIds.includes(termActive)
@@ -210,7 +231,7 @@ export function SandboxPanel({
   );
 
   const handleTabChange = useCallback(
-    (tab: "preview" | "desktop" | "editor" | "terminal") => {
+    (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
       setActiveTab(tab);
     },
     [setActiveTab],
@@ -221,12 +242,28 @@ export function SandboxPanel({
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
-        activeTab={activeTab}
+        activeTab={tabBarValue}
         onTabChange={handleTabChange}
         onNewTerminal={handleNewTerminal}
         newTerminalDisabled={newTerminalDisabled}
+        showPrdTab={showPrdTab}
       />
       <div className="flex-1 overflow-hidden bg-card">
+        <div
+          className={
+            activeTab === "prd"
+              ? "flex h-full min-h-0 flex-col overflow-hidden"
+              : "hidden"
+          }
+        >
+          {activeTab === "prd" && planContent ? (
+            <SessionPrdPlanView
+              planContent={planContent}
+              onApprovePlan={() => setMode("edit")}
+              variant="panel"
+            />
+          ) : null}
+        </div>
         <div className={activeTab === "preview" ? "h-full" : "hidden"}>
           <WebPreviewPanel
             isActive={isActive}

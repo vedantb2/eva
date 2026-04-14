@@ -98,6 +98,7 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           repoId={session.repoId}
           devPort={session.devPort}
           devCommand={session.devCommand}
+          planContent={session.planContent}
         />
       }
       leftDefaultSize="30%"

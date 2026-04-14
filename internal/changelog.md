@@ -1,5 +1,10 @@
 # Changelog
 
+## PRD tab on expanded session sandbox panel - 2026-04-14
+
+- **Why**: With the right column open, the PRD plan duplicated space above the chat input; moving it to a dedicated tab keeps one source of truth and frees the composer.
+- **Changes**: `sandboxTab` adds `prd`; `SandboxTabBar` shows PRD when `planContent` exists and session mode is plan; `SessionPrdPlanView` shares compact (collapsed panel) and panel layouts; `ChatPanel` shows inline PRD only when `sandboxCollapsed !== false`; `useSessionSettings` in `SandboxPanel` syncs Approve Plan with chat.
+
 ## Multi-terminal sandbox PTY panes (session right panel) - 2026-04-14
 
 - **Why**: One PTY per session forced a single shell; agents and users need several concurrent shells without leaving the session.

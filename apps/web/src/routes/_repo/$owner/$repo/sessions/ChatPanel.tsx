@@ -29,12 +29,6 @@ import {
   ModelSelect,
   ResponseLengthSelect,
   type PromptInputMessage,
-  Plan,
-  PlanHeader,
-  PlanTitle,
-  PlanContent,
-  PlanFooter,
-  PlanTrigger,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -84,6 +78,7 @@ import {
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
+import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
@@ -698,34 +693,18 @@ export function ChatPanel({
             }}
           />
           <AnimatePresence>
-            {mode === "plan" && planContent && (
+            {mode === "plan" && planContent && sandboxCollapsed !== false && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <Plan defaultOpen className="mb-2">
-                  <PlanHeader className="p-4">
-                    <PlanTitle>Product Requirements</PlanTitle>
-                    <PlanTrigger />
-                  </PlanHeader>
-                  <PlanContent className="px-3 pb-3 pt-0 max-h-40 overflow-y-auto sm:px-4 sm:pb-4 sm:max-h-64">
-                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                      {planContent}
-                    </MessageResponse>
-                  </PlanContent>
-                  <PlanFooter className="px-4 pb-4 pt-0 gap-2">
-                    <Button
-                      size="sm"
-                      className="motion-press bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.01] active:scale-[0.99]"
-                      onClick={() => setMode("edit")}
-                    >
-                      <IconCode className="w-3.5 h-3.5" />
-                      Approve Plan
-                    </Button>
-                  </PlanFooter>
-                </Plan>
+                <SessionPrdPlanView
+                  planContent={planContent}
+                  onApprovePlan={() => setMode("edit")}
+                  variant="compact"
+                />
               </motion.div>
             )}
           </AnimatePresence>

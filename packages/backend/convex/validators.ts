@@ -413,6 +413,12 @@ export const variationValidator = v.object({
   filePath: v.optional(v.string()),
 });
 
+export const queryConfirmationStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("confirmed"),
+  v.literal("cancelled"),
+);
+
 export const accentColorValidator = v.union(
   v.literal("teal"),
   v.literal("blue"),
@@ -652,12 +658,18 @@ export const messageFields = {
   finishedAt: v.optional(v.number()),
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
-  parentId: v.union(v.id("sessions"), v.id("designSessions")),
+  parentId: v.union(
+    v.id("sessions"),
+    v.id("designSessions"),
+    v.id("researchQueries"),
+  ),
   mode: v.optional(sessionModeValidator),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),
   variations: v.optional(v.array(variationValidator)),
+  queryCode: v.optional(v.string()),
+  status: v.optional(queryConfirmationStatusValidator),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
   pendingQuestion: v.optional(v.string()),

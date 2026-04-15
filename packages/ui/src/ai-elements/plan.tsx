@@ -58,10 +58,7 @@ export type PlanHeaderProps = ComponentProps<typeof CardHeader>;
 
 export const PlanHeader = ({ className, ...props }: PlanHeaderProps) => (
   <CardHeader
-    className={cn(
-      "flex flex-row items-center justify-between gap-2",
-      className,
-    )}
+    className={cn("flex items-start justify-between", className)}
     data-slot="plan-header"
     {...props}
   />

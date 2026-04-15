@@ -1,0 +1,518 @@
+import { v } from "convex/values";
+import { internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
+import { workflow } from "./workflowManager";
+import { authMutation } from "./functions";
+import { DEFAULT_AI_MODEL, workflowCompleteValidator } from "./validators";
+import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+
+// --- Shared completion event ---
+
+const queryCompleteEvent = defineEvent({
+  name: "researchQueryComplete",
+  validator: workflowCompleteValidator,
+});
+
+// --- Prompt builders ---
+
+function stripCodeFences(text: string): string {
+  const match = text.match(/```(?:\w+)?\n([\s\S]+?)```/);
+  return (match ? match[1] : text).trim();
+}
+
+function buildGeneratePrompt(repoId: string): string {
+  const now = new Date();
+  return `You are a data analyst. Generate a single Convex database query to answer the user's question.
+
+## Step 1: Read the Schema
+Before generating, read the schema and validators:
+- cat packages/backend/convex/schema.ts
+- cat packages/backend/convex/validators.ts
+
+Use ONLY indexes defined in schema.ts. NEVER invent indexes. To filter without an index, collect all rows then .filter() in JavaScript.
+
+## Current Time
+- UTC: ${now.toISOString()}
+- Timestamp (ms): ${now.getTime()}
+- All timestamps are Unix ms. Use Date.now() for current time. For "today", subtract 24*60*60*1000.
+
+## Repository ID: "${repoId}"
+
+## Output
+Return ONLY raw query code — no markdown, no backticks, no explanation.
+Filter by repoId where applicable. For agentRuns: query tasks first, then runs by taskId.
+
+## Query Format
+import { query } from "convex:/_system/repl/wrappers.js";
+export default query({ handler: async (ctx) => {
+  // your query logic
+  return result;
+}});
+
+## Examples
+- With index: await ctx.db.query("sessions").withIndex("by_repo", q => q.eq("repoId", "${repoId}")).collect()
+- Order desc: await ctx.db.query("agentRuns").order("desc").take(20)
+- Get by ID: await ctx.db.get(someId)`;
+}
+
+function buildAnalysePrompt(repoId: string): string {
+  const now = new Date();
+  return `You are a data analyst. Execute the provided Convex database query and analyze the results.
+
+## How to Execute
+Use the Eva MCP server's run_query tool. It is pre-configured and available automatically.
+
+Call the run_query tool with:
+- repoId: "${repoId}"
+- code: the query handler body (the code inside the handler function, NOT the full import/export wrapper)
+
+If the query fails, fix and retry once.
+
+## Context
+- UTC: ${now.toISOString()} | Timestamp: ${now.getTime()}
+- Repository ID: "${repoId}"
+
+## Analysis Rules
+- Lead with the key metric or direct answer
+- **Bold** important numbers, metrics, and key takeaways
+- Use tables, lists, or breakdowns where appropriate
+- Highlight trends, outliers, percentages, and comparisons
+- NEVER include raw database IDs — use names, titles, statuses, and human-readable labels
+- If results are empty, say so and suggest alternatives`;
+}
+
+// --- Workflow definitions ---
+
+export const generateQueryWorkflow = workflow.define({
+  args: {
+    queryId: v.id("researchQueries"),
+    question: v.string(),
+    repoId: v.id("githubRepos"),
+    model: v.string(),
+    userId: v.id("users"),
+    installationId: v.number(),
+  },
+  handler: async (step, args): Promise<void> => {
+    await step.runMutation(internal.researchQueryWorkflow.addMessages, {
+      queryId: args.queryId,
+      question: args.question,
+    });
+
+    const data = await step.runQuery(
+      internal.researchQueryWorkflow.getGenerateData,
+      { repoId: args.repoId, question: args.question },
+    );
+
+    const { sandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        installationId: args.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        repoId: args.repoId,
+        streamingEntityId: String(args.queryId),
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId,
+      entityId: String(args.queryId),
+      prompt: data.prompt,
+      userId: args.userId,
+      completionMutation: "researchQueryWorkflow:handleCompletion",
+      entityIdField: "queryId",
+      model: args.model || DEFAULT_AI_MODEL,
+      allowedTools: "Bash",
+      repoId: args.repoId,
+    });
+
+    const result = await step.awaitEvent(queryCompleteEvent);
+
+    await step.runMutation(internal.researchQueryWorkflow.saveGenerateResult, {
+      queryId: args.queryId,
+      sandboxId,
+      success: result.success,
+      result: result.result,
+      error: result.error,
+      activityLog: result.activityLog,
+    });
+  },
+});
+
+export const confirmQueryWorkflow = workflow.define({
+  args: {
+    queryId: v.id("researchQueries"),
+    queryCode: v.string(),
+    messageId: v.id("messages"),
+    question: v.string(),
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    installationId: v.number(),
+  },
+  handler: async (step, args): Promise<void> => {
+    await step.runMutation(internal.researchQueryWorkflow.markConfirmed, {
+      queryId: args.queryId,
+      messageId: args.messageId,
+      queryCode: args.queryCode,
+    });
+
+    const data = await step.runQuery(
+      internal.researchQueryWorkflow.getConfirmData,
+      {
+        repoId: args.repoId,
+        question: args.question,
+        queryCode: args.queryCode,
+        queryId: args.queryId,
+      },
+    );
+
+    const { sandboxId: confirmSandboxId } = await step.runAction(
+      internal.daytona.prepareSandbox,
+      {
+        existingSandboxId: data.sandboxId,
+        installationId: args.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        repoId: args.repoId,
+        streamingEntityId: String(args.queryId),
+      },
+    );
+
+    await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      sandboxId: confirmSandboxId,
+      entityId: String(args.queryId),
+      prompt: data.prompt,
+      userId: args.userId,
+      completionMutation: "researchQueryWorkflow:handleCompletion",
+      entityIdField: "queryId",
+      model: "sonnet",
+      allowedTools: "Bash",
+      repoId: args.repoId,
+    });
+
+    const result = await step.awaitEvent(queryCompleteEvent);
+
+    await step.runMutation(internal.researchQueryWorkflow.saveConfirmResult, {
+      queryId: args.queryId,
+      messageId: args.messageId,
+      success: result.success,
+      result: result.result,
+      error: result.error,
+      activityLog: result.activityLog,
+    });
+  },
+});
+
+// --- Supporting internal functions ---
+
+export const addMessages = internalMutation({
+  args: {
+    queryId: v.id("researchQueries"),
+    question: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const rq = await ctx.db.get(args.queryId);
+    if (!rq) throw new Error("Research query not found");
+    const now = Date.now();
+    await ctx.db.insert("messages", {
+      parentId: args.queryId,
+      role: "user",
+      content: args.question,
+      timestamp: now,
+      userId: rq.userId,
+    });
+    await ctx.db.insert("messages", {
+      parentId: args.queryId,
+      role: "assistant",
+      content: "",
+      timestamp: now,
+    });
+    await ctx.db.patch(args.queryId, { updatedAt: now });
+    return null;
+  },
+});
+
+export const getGenerateData = internalQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    question: v.string(),
+  },
+  returns: v.object({
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prompt: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const prompt = `${buildGeneratePrompt(String(args.repoId))}\n\nQuestion: ${args.question}`;
+    return {
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      prompt,
+    };
+  },
+});
+
+export const getConfirmData = internalQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    question: v.string(),
+    queryCode: v.string(),
+    queryId: v.id("researchQueries"),
+  },
+  returns: v.object({
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prompt: v.string(),
+    sandboxId: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const rq = await ctx.db.get(args.queryId);
+
+    const prompt = `${buildAnalysePrompt(String(args.repoId))}\n\nUser's question: ${args.question}\n\nQuery to execute:\n${args.queryCode}`;
+    return {
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      prompt,
+      sandboxId: rq?.sandboxId,
+    };
+  },
+});
+
+export const markConfirmed = internalMutation({
+  args: {
+    queryId: v.id("researchQueries"),
+    messageId: v.id("messages"),
+    queryCode: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.messageId, {
+      status: "confirmed",
+      queryCode: args.queryCode,
+      content: "",
+    });
+    await ctx.db.patch(args.queryId, { updatedAt: Date.now() });
+    return null;
+  },
+});
+
+export const saveGenerateResult = internalMutation({
+  args: {
+    queryId: v.id("researchQueries"),
+    sandboxId: v.string(),
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await clearStreamingActivity(ctx, String(args.queryId));
+
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.queryId))
+      .order("desc")
+      .first();
+    if (!last) return null;
+
+    if (args.success && args.result) {
+      const queryCode = stripCodeFences(args.result);
+      const patch: {
+        content: string;
+        queryCode: string;
+        status: "pending";
+        activityLog?: string;
+      } = {
+        content: queryCode,
+        queryCode,
+        status: "pending",
+      };
+      if (args.activityLog) patch.activityLog = args.activityLog;
+      await ctx.db.patch(last._id, patch);
+    } else {
+      const patch: { content: string; activityLog?: string } = {
+        content: `Error generating query: ${args.error || "Unknown error"}`,
+      };
+      if (args.activityLog) patch.activityLog = args.activityLog;
+      await ctx.db.patch(last._id, patch);
+    }
+
+    await ctx.db.patch(args.queryId, {
+      updatedAt: Date.now(),
+      activeWorkflowId: undefined,
+      sandboxId: args.sandboxId,
+    });
+    return null;
+  },
+});
+
+export const saveConfirmResult = internalMutation({
+  args: {
+    queryId: v.id("researchQueries"),
+    messageId: v.id("messages"),
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await clearStreamingActivity(ctx, String(args.queryId));
+
+    const patch: {
+      content: string;
+      status: "confirmed";
+      activityLog?: string;
+    } = {
+      content:
+        args.success && args.result
+          ? args.result
+          : `Error executing query: ${args.error || "Unknown error"}`,
+      status: "confirmed",
+    };
+    if (args.activityLog) patch.activityLog = args.activityLog;
+    await ctx.db.patch(args.messageId, patch);
+
+    await ctx.db.patch(args.queryId, {
+      updatedAt: Date.now(),
+      activeWorkflowId: undefined,
+    });
+    return null;
+  },
+});
+
+// --- Public mutations ---
+
+export const handleCompletion = authMutation({
+  args: {
+    queryId: v.id("researchQueries"),
+    success: v.boolean(),
+    result: v.union(v.string(), v.null()),
+    error: v.union(v.string(), v.null()),
+    activityLog: v.union(v.string(), v.null()),
+    rawResultEvent: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const rq = await ctx.db.get(args.queryId);
+    if (!rq || !rq.activeWorkflowId) return null;
+
+    await workflow.sendEvent(ctx, {
+      ...queryCompleteEvent,
+      workflowId: rq.activeWorkflowId as WorkflowId,
+      value: {
+        success: args.success,
+        result: args.result,
+        error: args.error,
+        activityLog: args.activityLog,
+      },
+    });
+
+    await ctx.db.insert("logs", {
+      entityType: "researchQuery",
+      entityId: String(args.queryId),
+      entityTitle: rq.title,
+      rawResultEvent: args.rawResultEvent,
+      repoId: rq.repoId,
+      createdAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+export const startGenerate = authMutation({
+  args: {
+    queryId: v.id("researchQueries"),
+    question: v.string(),
+    repoId: v.id("githubRepos"),
+    model: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const rq = await ctx.db.get(args.queryId);
+    if (!rq) throw new Error("Research query not found");
+
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const workflowId = await workflow.start(
+      ctx,
+      internal.researchQueryWorkflow.generateQueryWorkflow,
+      {
+        queryId: args.queryId,
+        question: args.question,
+        repoId: args.repoId,
+        model: args.model,
+        userId: ctx.userId,
+        installationId: repo.installationId,
+      },
+    );
+
+    await ctx.db.patch(args.queryId, {
+      activeWorkflowId: String(workflowId),
+    });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleResearchQuery,
+      { queryId: args.queryId, workflowId: String(workflowId) },
+    );
+
+    return null;
+  },
+});
+
+export const startConfirm = authMutation({
+  args: {
+    queryId: v.id("researchQueries"),
+    queryCode: v.string(),
+    messageId: v.id("messages"),
+    question: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const rq = await ctx.db.get(args.queryId);
+    if (!rq) throw new Error("Research query not found");
+
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const workflowId = await workflow.start(
+      ctx,
+      internal.researchQueryWorkflow.confirmQueryWorkflow,
+      {
+        queryId: args.queryId,
+        queryCode: args.queryCode,
+        messageId: args.messageId,
+        question: args.question,
+        repoId: args.repoId,
+        userId: ctx.userId,
+        installationId: repo.installationId,
+      },
+    );
+
+    await ctx.db.patch(args.queryId, {
+      activeWorkflowId: String(workflowId),
+    });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleResearchQuery,
+      { queryId: args.queryId, workflowId: String(workflowId) },
+    );
+
+    return null;
+  },
+});

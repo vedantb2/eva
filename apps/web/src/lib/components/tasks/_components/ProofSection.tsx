@@ -35,7 +35,7 @@ export function ProofSection({
   const messageProofs = proofs?.filter((p: Proof) => p.message);
   const hasProofContent =
     (mediaProofs?.length ?? 0) > 0 || (messageProofs?.length ?? 0) > 0;
-  const screenshotsVideosEnabled = repo.screenshotsVideosEnabled ?? false;
+  const screenshotsVideosEnabled = repo.screenshotsVideosEnabled ?? true;
 
   return (
     <div className="space-y-3">

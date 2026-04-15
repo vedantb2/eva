@@ -18,9 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { IconTextResize, IconDots } from "@tabler/icons-react";
+import { IconBrain, IconTextResize, IconDots } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
-import { ProviderIcon } from "./provider-icon";
 
 export interface ModelOption<TModel extends string = string> {
   id: TModel;
@@ -124,10 +123,7 @@ export function PromptInputSettings<TModel extends string>({
       <DropdownMenuContent align="start">
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <ProviderIcon
-              provider={selectedModel?.provider ?? "claude"}
-              size={14}
-            />
+            <IconBrain size={14} />
             Model
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
@@ -158,7 +154,6 @@ export function PromptInputSettings<TModel extends string>({
               return (
                 <DropdownMenuSub key={provider.id}>
                   <DropdownMenuSubTrigger>
-                    <ProviderIcon provider={provider.id} size={14} />
                     {provider.label}
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
@@ -245,10 +240,7 @@ export function ModelSelect<TModel extends string>({
           )}
           disabled={disabled}
         >
-          <ProviderIcon
-            provider={selectedModel?.provider ?? "claude"}
-            size={14}
-          />
+          <IconBrain size={14} className="shrink-0" />
           {selectedModel
             ? `${getProviderLabel(selectedModel.provider)} / ${selectedModel.label}`
             : "Select model"}
@@ -279,10 +271,7 @@ export function ModelSelect<TModel extends string>({
           }
           return (
             <DropdownMenuSub key={provider.id}>
-              <DropdownMenuSubTrigger>
-                <ProviderIcon provider={provider.id} size={14} />
-                {provider.label}
-              </DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger>{provider.label}</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
                 <DropdownMenuRadioGroup
                   value={selectedModel?.id}

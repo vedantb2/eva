@@ -43,8 +43,7 @@ Implementation:
 - Feel free to ask AS MANY QUESTIONS AS YOU LIKE, you must have a complete end to end understand of how the user wants something to be implemented, even if the user may not know themselves.
 - Prefer making a detailed plan over a quick plan
 - Add comments especially for big functions and update comments (if needed) when modifying big functions- When done implementing, explain all your changes made to the user
-- Check web and docs for everything you do
-- Only add to CLAUDE.md when the user explicitly asks. Keep entries to 1 sentence (~20 words max), not changelog-style paragraphs
+- If you have learnt anything new from the user, ie their preference of implementing something, then include this in the CLAUDE.md too in a short concise format
 - Never use `any`
 - Never use `unknown`
 - Never use `as` for type assertions
@@ -109,6 +108,7 @@ Verification Rules after implementation:
 - Run npx tsc in the appropriate codebase and fix any type issues (if related to your changes)
 - Ensure types are inferred where possible.
 - Ensure no unnecessary client components were introduced.
+- Ensure CLAUDE.md is updated if architecture decisions changed and with new learnings.
 
 Implementation Process:
 

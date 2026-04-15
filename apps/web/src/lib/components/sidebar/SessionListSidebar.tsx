@@ -25,7 +25,6 @@ import {
 } from "@conductor/ui";
 import {
   IconArchive,
-  IconArchiveOff,
   IconChevronDown,
   IconClipboard,
   IconCopy,
@@ -56,7 +55,6 @@ interface SessionListSidebarProps<T extends SessionItem> {
   createRequestId?: number;
   onCreate: (title: string) => Promise<string>;
   onArchive: (session: T) => Promise<void>;
-  onUnarchive?: (session: T) => Promise<void>;
   onRename?: (session: T, newTitle: string) => Promise<void>;
   onDuplicate?: (session: T) => Promise<string>;
   emptyIcon: React.ReactNode;
@@ -77,7 +75,6 @@ export function SessionListSidebar<T extends SessionItem>({
   createRequestId,
   onCreate,
   onArchive,
-  onUnarchive,
   onRename,
   onDuplicate,
   emptyIcon,
@@ -327,67 +324,31 @@ export function SessionListSidebar<T extends SessionItem>({
                 filteredArchivedSessions.map((session) => {
                   const isSelected = currentSessionId === session._id;
                   return (
-                    <ContextMenu key={session._id}>
-                      <ContextMenuTrigger asChild>
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.15 }}
-                        >
-                          <DynamicLink
-                            to={`${baseUrl}/${session._id}`}
-                            onClick={onNavigate}
-                            className={cn(
-                              "mx-1 block rounded-md px-3 py-2 transition-all duration-200",
-                              isSelected
-                                ? "bg-sidebar-accent text-sidebar-primary"
-                                : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50",
-                            )}
-                          >
-                            <h3 className="truncate text-sm">
-                              {session.title}
-                            </h3>
-                            <span className="text-xs text-muted-foreground/60">
-                              {dayjs(
-                                session.updatedAt ?? session._creationTime,
-                              ).fromNow()}
-                            </span>
-                          </DynamicLink>
-                        </motion.div>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-                        {onUnarchive && (
-                          <ContextMenuItem
-                            onSelect={() => {
-                              void onUnarchive(session);
-                            }}
-                          >
-                            <IconArchiveOff size={16} />
-                            Unarchive
-                          </ContextMenuItem>
+                    <motion.div
+                      key={session._id}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <DynamicLink
+                        to={`${baseUrl}/${session._id}`}
+                        onClick={onNavigate}
+                        className={cn(
+                          "mx-1 block rounded-md px-3 py-2 transition-all duration-200",
+                          isSelected
+                            ? "bg-sidebar-accent text-sidebar-primary"
+                            : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50",
                         )}
-                        <ContextMenuItem
-                          onSelect={() => {
-                            void navigator.clipboard.writeText(session.title);
-                          }}
-                        >
-                          <IconClipboard size={16} />
-                          Copy title
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onSelect={() => {
-                            void navigator.clipboard.writeText(
-                              window.location.origin +
-                                `${baseUrl}/${session._id}`,
-                            );
-                          }}
-                        >
-                          <IconLink size={16} />
-                          Copy link
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
+                      >
+                        <h3 className="truncate text-sm">{session.title}</h3>
+                        <span className="text-xs text-muted-foreground/60">
+                          {dayjs(
+                            session.updatedAt ?? session._creationTime,
+                          ).fromNow()}
+                        </span>
+                      </DynamicLink>
+                    </motion.div>
                   );
                 })}
             </AnimatePresence>

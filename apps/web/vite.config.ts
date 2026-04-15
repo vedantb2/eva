@@ -2,7 +2,6 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import tanstackRouter from "@tanstack/router-plugin/vite";
-import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
 
 function agentLoginPlugin(): Plugin {
@@ -81,14 +80,7 @@ export default defineConfig({
       presets: [reactCompilerPreset()],
     }),
     agentLoginPlugin(),
-    process.env.ANALYZE === "true" &&
-      visualizer({
-        filename: "stats.html",
-        open: true,
-        gzipSize: true,
-        brotliSize: true,
-      }),
-  ].filter(Boolean),
+  ],
   server: {
     host: "0.0.0.0",
     cors: false,
@@ -117,31 +109,6 @@ export default defineConfig({
               name: "vendor-clerk",
               test: /node_modules[\\/]@clerk/,
               priority: 15,
-            },
-            {
-              name: "vendor-streamdown",
-              test: /node_modules[\\/](streamdown|@streamdown)/,
-              priority: 15,
-            },
-            {
-              name: "vendor-motion",
-              test: /node_modules[\\/](motion|framer-motion)/,
-              priority: 15,
-            },
-            {
-              name: "vendor-shiki",
-              test: /node_modules[\\/]shiki/,
-              priority: 20,
-            },
-            {
-              name: "vendor-katex",
-              test: /node_modules[\\/]katex/,
-              priority: 20,
-            },
-            {
-              name: "vendor-mermaid",
-              test: /node_modules[\\/]mermaid/,
-              priority: 20,
             },
           ],
         },

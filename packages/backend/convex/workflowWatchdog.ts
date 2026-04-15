@@ -13,10 +13,8 @@ import {
   startNextQueuedSessionMessage,
 } from "./_queues/helpers";
 
-/** Maximum time a workflow run is allowed before being considered stale (2 hours). */
 export const RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
-/** Cancels a workflow by ID and clears streaming activity for associated entities. */
 async function cancelStaleWorkflow(
   ctx: MutationCtx,
   workflowId: string,
@@ -30,10 +28,9 @@ async function cancelStaleWorkflow(
   }
 }
 
-/** Updates the last assistant message with a timeout error if it has no content yet. */
 async function timeoutLastMessage(
   ctx: MutationCtx,
-  parentId: Id<"sessions"> | Id<"designSessions">,
+  parentId: Id<"sessions"> | Id<"designSessions"> | Id<"researchQueries">,
   content: string,
 ): Promise<void> {
   const last = await ctx.db
@@ -46,7 +43,6 @@ async function timeoutLastMessage(
   }
 }
 
-/** Cancels a stale chat session workflow and starts the next queued message. */
 export const handleStaleSession = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -75,7 +71,6 @@ export const handleStaleSession = internalMutation({
   },
 });
 
-/** Cancels a stale design session workflow and marks the last message as timed out. */
 export const handleStaleDesignSession = internalMutation({
   args: {
     designSessionId: v.id("designSessions"),
@@ -107,7 +102,29 @@ export const handleStaleDesignSession = internalMutation({
   },
 });
 
-/** Cancels a stale evaluation workflow and marks it as timed out or fix error. */
+export const handleStaleResearchQuery = internalMutation({
+  args: {
+    queryId: v.id("researchQueries"),
+    workflowId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const rq = await ctx.db.get(args.queryId);
+    if (!rq || rq.activeWorkflowId !== args.workflowId) return null;
+
+    await cancelStaleWorkflow(ctx, args.workflowId, [String(args.queryId)]);
+
+    await timeoutLastMessage(ctx, args.queryId, "Query execution timed out.");
+
+    await ctx.db.patch(args.queryId, {
+      activeWorkflowId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
 export const handleStaleEvaluation = internalMutation({
   args: {
     reportId: v.id("evaluationReports"),
@@ -139,7 +156,6 @@ export const handleStaleEvaluation = internalMutation({
   },
 });
 
-/** Cancels a stale doc workflow and updates interview history with an error marker. */
 export const handleStaleDoc = internalMutation({
   args: {
     docId: v.id("docs"),
@@ -176,7 +192,6 @@ export const handleStaleDoc = internalMutation({
   },
 });
 
-/** Cancels a stale project workflow and marks the last message as timed out. */
 export const handleStaleProject = internalMutation({
   args: {
     projectId: v.id("projects"),
@@ -206,7 +221,6 @@ export const handleStaleProject = internalMutation({
   },
 });
 
-/** Marks a stale audit as errored if it is still running. */
 export const handleStaleAudit = internalMutation({
   args: {
     auditId: v.id("audits"),
@@ -225,7 +239,6 @@ export const handleStaleAudit = internalMutation({
   },
 });
 
-/** Cancels a stale build workflow and clears the active build reference. */
 export const handleStaleBuild = internalMutation({
   args: {
     projectId: v.id("projects"),

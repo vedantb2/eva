@@ -29,6 +29,12 @@ import {
   ModelSelect,
   ResponseLengthSelect,
   type PromptInputMessage,
+  Plan,
+  PlanHeader,
+  PlanTitle,
+  PlanContent,
+  PlanFooter,
+  PlanTrigger,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -41,6 +47,7 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
   IconCode,
+  IconMessageCircle2,
   IconClipboardList,
   IconGitPullRequest,
   IconBrandVercel,
@@ -78,7 +85,6 @@ import {
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
-import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
@@ -203,12 +209,12 @@ export function ChatPanel({
     useSessionSettings(sessionId, { defaultModel });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
-  const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
+  const SESSION_MODES: SessionMode[] = ["ask", "execute", "plan"];
   useHotkey("Shift+Tab", (e) => {
     e.preventDefault();
-    const currentIndex = AVAILABLE_MODES.indexOf(mode);
-    const nextIndex = (currentIndex + 1) % AVAILABLE_MODES.length;
-    setMode(AVAILABLE_MODES[nextIndex]);
+    const currentIndex = SESSION_MODES.indexOf(mode);
+    const nextIndex = (currentIndex + 1) % SESSION_MODES.length;
+    setMode(SESSION_MODES[nextIndex]);
   });
 
   const evaIcon = <EvaIcon />;
@@ -363,7 +369,12 @@ export function ChatPanel({
   const queuedMessageItems = useMemo(
     () =>
       queuedMessages.map((message) => {
-        const modeLabel = message.mode === "plan" ? "PRD" : "Edit";
+        const modeLabel =
+          message.mode === "execute"
+            ? "Execute"
+            : message.mode === "plan"
+              ? "PRD"
+              : "Ask";
         const detailParts = [
           modeLabel,
           message.model ? findAIModelOption(message.model).label : null,
@@ -644,15 +655,22 @@ export function ChatPanel({
                               <div className="flex items-center justify-between gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {message.mode && (
                                   <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                                    {message.mode === "plan" ? (
+                                    {message.mode === "execute" && (
+                                      <>
+                                        <IconCode className="w-2.5 h-2.5" />{" "}
+                                        Execute
+                                      </>
+                                    )}
+                                    {message.mode === "ask" && (
+                                      <>
+                                        <IconMessageCircle2 className="w-2.5 h-2.5" />{" "}
+                                        Ask
+                                      </>
+                                    )}
+                                    {message.mode === "plan" && (
                                       <>
                                         <IconClipboardList className="w-2.5 h-2.5" />{" "}
                                         PRD
-                                      </>
-                                    ) : (
-                                      <>
-                                        <IconCode className="w-2.5 h-2.5" />{" "}
-                                        Edit
                                       </>
                                     )}
                                   </div>
@@ -693,20 +711,34 @@ export function ChatPanel({
             }}
           />
           <AnimatePresence>
-            {mode === "plan" && planContent && sandboxCollapsed !== false && (
+            {mode === "plan" && planContent && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <SessionPrdPlanView
-                  sessionId={sessionId}
-                  planContent={planContent}
-                  onApprovePlan={() => setMode("edit")}
-                  variant="compact"
-                  isArchived={isArchived}
-                />
+                <Plan defaultOpen className="mb-2">
+                  <PlanHeader className="p-4">
+                    <PlanTitle>Product Requirements</PlanTitle>
+                    <PlanTrigger />
+                  </PlanHeader>
+                  <PlanContent className="px-3 pb-3 pt-0 max-h-40 overflow-y-auto sm:px-4 sm:pb-4 sm:max-h-64">
+                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                      {planContent}
+                    </MessageResponse>
+                  </PlanContent>
+                  <PlanFooter className="px-4 pb-4 pt-0 gap-2">
+                    <Button
+                      size="sm"
+                      className="motion-press bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.01] active:scale-[0.99]"
+                      onClick={() => setMode("execute")}
+                    >
+                      <IconCode className="w-3.5 h-3.5" />
+                      Approve Plan
+                    </Button>
+                  </PlanFooter>
+                </Plan>
               </motion.div>
             )}
           </AnimatePresence>
@@ -714,19 +746,26 @@ export function ChatPanel({
             <Tabs
               value={mode}
               onValueChange={(v) => {
-                if (v === "edit" || v === "plan") {
+                if (v === "execute" || v === "ask" || v === "plan") {
                   setMode(v);
                 }
               }}
               className="absolute left-1.5 top-4 z-20 -translate-y-1/2 sm:left-3"
             >
-              <TabsList className="h-8 rounded-full p-0.5">
+              <TabsList className="h-8 rounded-full  p-0.5">
                 <TabsTrigger
-                  value="edit"
+                  value="ask"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
+                >
+                  <IconMessageCircle2 className="w-3 h-3" />
+                  Ask
+                </TabsTrigger>
+                <TabsTrigger
+                  value="execute"
                   className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
                 >
                   <IconCode className="w-3 h-3" />
-                  Edit
+                  Execute
                 </TabsTrigger>
                 <TabsTrigger
                   value="plan"
@@ -743,9 +782,11 @@ export function ChatPanel({
                 placeholder={
                   !isSandboxActive
                     ? "Start the sandbox to begin chatting..."
-                    : mode === "plan"
-                      ? "Describe the feature or product requirements to Eva..."
-                      : "Describe what you need — ask questions or request changes..."
+                    : mode === "execute"
+                      ? "Describe the changes to make to Eva..."
+                      : mode === "ask"
+                        ? "Ask Eva a question about the codebase..."
+                        : "Describe the feature or product requirements to Eva..."
                 }
                 disabled={isInputDisabled}
               />

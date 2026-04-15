@@ -29,6 +29,7 @@ import {
   IconCheck,
   IconX,
   IconClock,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import { formatDurationMs } from "@/lib/utils/formatDuration";
 
@@ -134,7 +135,7 @@ export function SnapshotsClient() {
           />
 
           <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
-            <h3 className="text-sm font-medium">Clone Branch</h3>
+            <h3 className="text-sm font-medium">Workflow Branch</h3>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                 Branch
@@ -146,16 +147,18 @@ export function SnapshotsClient() {
                 placeholder="Select a branch"
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Branch to clone into the snapshot for dependency pre-caching.
-                Defaults to <code>main</code> if empty.
+                Branch where <code>rebuild-snapshot.yml</code> exists. Defaults
+                to <code>main</code> if empty.
               </p>
             </div>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[11px] text-muted-foreground">
-              Requires <code className="font-mono">DAYTONA_API_KEY</code> in
-              team or repo environment variables.
+              Requires <code className="font-mono">rebuild-snapshot.yml</code>{" "}
+              workflow on target branch and{" "}
+              <code className="font-mono">DAYTONA_API_KEY</code> secret in the
+              repo.
             </p>
             <Button
               size="sm"
@@ -190,7 +193,7 @@ export function SnapshotsClient() {
                   </p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Clone Branch</span>
+                  <span className="text-muted-foreground">Workflow Branch</span>
                   <p className="font-mono mt-0.5">
                     {snapshot.workflowRef ?? "main"}
                   </p>
@@ -284,6 +287,7 @@ export function SnapshotsClient() {
                           build={build}
                           isExpanded={isExpanded}
                           duration={duration}
+                          repoFullName={`${owner}/${repoName}`}
                           onToggle={() =>
                             setExpandedBuild(isExpanded ? null : build._id)
                           }
@@ -319,6 +323,7 @@ function BuildRow({
   build,
   isExpanded,
   duration,
+  repoFullName,
   onToggle,
 }: {
   build: {
@@ -327,6 +332,7 @@ function BuildRow({
     triggeredBy: "cron" | "manual";
     logs: string;
     error?: string;
+    workflowRunId?: number;
     startedAt: number;
     completedAt?: number;
     warmupStatus?: "pending" | "success" | "error";
@@ -334,8 +340,13 @@ function BuildRow({
   };
   isExpanded: boolean;
   duration: string;
+  repoFullName: string;
   onToggle: () => void;
 }) {
+  const runUrl = build.workflowRunId
+    ? `https://github.com/${repoFullName}/actions/runs/${build.workflowRunId}`
+    : null;
+
   return (
     <>
       <tr className="cursor-pointer hover:bg-muted/30" onClick={onToggle}>
@@ -375,6 +386,18 @@ function BuildRow({
               <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 Warmup failed: {build.warmupError}
               </div>
+            )}
+            {runUrl && (
+              <a
+                href={runUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mb-2 inline-flex items-center gap-1 text-xs text-blue-500 hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <IconExternalLink size={12} />
+                View GitHub Actions Run
+              </a>
             )}
             {build.logs ? (
               <pre className="max-h-64 overflow-auto rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap sm:p-3 sm:text-[11px]">

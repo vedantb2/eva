@@ -28,7 +28,6 @@ export function DesignSessionsSidebar({
   });
   const createSession = useMutation(api.designSessions.create);
   const archiveSession = useMutation(api.designSessions.archive);
-  const unarchiveSession = useMutation(api.designSessions.unarchive);
 
   const updateSession = useMutation(api.designSessions.update);
 
@@ -46,9 +45,6 @@ export function DesignSessionsSidebar({
       }}
       onArchive={async (session) => {
         await archiveSession({ id: session._id });
-      }}
-      onUnarchive={async (session) => {
-        await unarchiveSession({ id: session._id });
       }}
       onRename={async (session, newTitle) => {
         await updateSession({

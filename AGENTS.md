@@ -11,8 +11,7 @@ Implementation:
 - If requirements are ambiguous, ask clarifying questions before implementing.
 - Feel free to ask AS MANY QUESTIONS AS YOU LIKE, you must have a complete end to end understand of how the user wants something to be implemented, even if the user may not know themselves.
 - Prefer making a detailed plan over a quick plan
-- Add comments especially for big functions and update comments (if needed) when modifying big functions- When done implementing, explain all your changes made to the user
-- Check web and docs for everything you do
+- Do not add comments unless the user asks you to
 - When done implementing, explain all your changes made to the user
 - Never use `any`
 - Never use `unknown`

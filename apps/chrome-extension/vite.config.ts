@@ -1,11 +1,13 @@
 import { defineConfig, build as viteBuild, normalizePath } from "vite";
-import react from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "tailwindcss";
 import autoprefixer from "autoprefixer";
 import { resolve } from "path";
 import { copyFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 
 const isWatchMode = process.argv.includes("--watch");
+const isDev =
+  process.argv.includes("development") || process.argv.includes("staging");
 const extensionRoot = normalizePath(resolve(__dirname));
 const workspaceRoot = normalizePath(resolve(__dirname, "../.."));
 
@@ -62,15 +64,51 @@ function copyStaticFiles() {
   };
 }
 
+function runContentScriptBuild() {
+  return viteBuild({
+    configFile: false,
+    root: resolve(__dirname),
+    plugins: [react()],
+    resolve: {
+      alias: { "@": resolve(__dirname, "src") },
+    },
+    css: {
+      postcss: {
+        plugins: [
+          tailwindcss({ config: resolve(__dirname, "tailwind.config.js") }),
+          autoprefixer(),
+        ],
+      },
+    },
+    esbuild: { charset: "ascii" },
+    logLevel: "warn",
+    build: {
+      minify: isDev ? false : "esbuild",
+      reportCompressedSize: !isDev,
+      chunkSizeWarningLimit: 3000,
+      write: true,
+      outDir: resolve(__dirname, "dist"),
+      emptyOutDir: false,
+      rollupOptions: {
+        input: { content: resolve(__dirname, "src/content/index.ts") },
+        output: {
+          format: "iife",
+          dir: resolve(__dirname, "dist"),
+          entryFileNames: "[name].js",
+          inlineDynamicImports: true,
+        },
+      },
+    },
+  });
+}
+
 function buildContentScript() {
   let shouldBuildContentScript = true;
 
   return {
     name: "build-content-script",
-    watchChange(id) {
-      if (!isWatchMode) {
-        return;
-      }
+    watchChange(id: string) {
+      if (!isWatchMode) return;
 
       const filePath = normalizePath(id);
 
@@ -88,47 +126,9 @@ function buildContentScript() {
       }
     },
     async closeBundle() {
-      if (isWatchMode && !shouldBuildContentScript) {
-        return;
-      }
-
+      if (isWatchMode && !shouldBuildContentScript) return;
       shouldBuildContentScript = false;
-
-      await viteBuild({
-        configFile: false,
-        root: resolve(__dirname),
-        plugins: [react()],
-        resolve: {
-          alias: { "@": resolve(__dirname, "src") },
-        },
-        css: {
-          postcss: {
-            plugins: [
-              tailwindcss({ config: resolve(__dirname, "tailwind.config.js") }),
-              autoprefixer(),
-            ],
-          },
-        },
-        esbuild: { charset: "ascii" },
-        logLevel: "warn",
-        build: {
-          minify: isWatchMode ? false : "esbuild",
-          reportCompressedSize: !isWatchMode,
-          chunkSizeWarningLimit: 3000,
-          write: true,
-          outDir: resolve(__dirname, "dist"),
-          emptyOutDir: false,
-          rollupOptions: {
-            input: { content: resolve(__dirname, "src/content/index.ts") },
-            output: {
-              format: "iife",
-              dir: resolve(__dirname, "dist"),
-              entryFileNames: "[name].js",
-              inlineDynamicImports: true,
-            },
-          },
-        },
-      });
+      await runContentScriptBuild();
     },
   };
 }
@@ -150,8 +150,8 @@ export default defineConfig({
     }),
     outDir: "dist",
     emptyOutDir: true,
-    minify: isWatchMode ? false : "esbuild",
-    reportCompressedSize: !isWatchMode,
+    minify: isDev ? false : "esbuild",
+    reportCompressedSize: !isDev,
     chunkSizeWarningLimit: 3000,
     rollupOptions: {
       input: {

@@ -13,6 +13,7 @@
     "convex": "pnpm --filter @conductor/backend dev",
     "convex:deploy": "pnpm --filter @conductor/backend run deploy",
     "ext:dev": "pnpm --filter eva-assist-extension dev",
+    "ext:dev:once": "pnpm --filter eva-assist-extension dev:once",
     "ext:build": "pnpm --filter eva-assist-extension build",
     "ext:release": "npx tsx scripts/release-extension.ts",
     "desktop:dev": "pnpm --filter conductor-desktop dev",
@@ -30,6 +31,7 @@
       "@types/react-dom": "19.0.4"
     },
     "onlyBuiltDependencies": [
+      "@swc/core",
       "better-sqlite3",
       "electron",
       "node-pty"

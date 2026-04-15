@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import { importJWK, SignJWT } from "jose";
 import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
 
+/** Signs a short-lived ES256 JWT for sandbox authentication using the user's Clerk ID as subject. */
 export const signSandboxToken = internalAction({
   args: { userId: v.id("users") },
   returns: v.string(),

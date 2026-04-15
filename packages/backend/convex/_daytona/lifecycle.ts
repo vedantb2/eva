@@ -15,6 +15,7 @@ import { createSandbox, WARMING_LIFECYCLE } from "./git";
 const MAX_WARMUP_RETRIES = 2;
 const WARMUP_RETRY_DELAY_MS = 5_000;
 
+/** Warms the Daytona snapshot cache for a repo by creating and immediately deleting a sandbox, with retries. */
 export const warmSnapshotCache = internalAction({
   args: {
     repoId: v.id("githubRepos"),
@@ -75,6 +76,7 @@ export const warmSnapshotCache = internalAction({
   },
 });
 
+/** Kills running CLI processes (claude-code, codex, run-design) inside a sandbox. */
 export const killSandboxProcess = internalAction({
   args: {
     sandboxId: v.string(),
@@ -96,6 +98,22 @@ export const killSandboxProcess = internalAction({
   },
 });
 
+/** Stops a Daytona sandbox (preserves state, fast resume). Silently ignores already-stopped sandboxes. */
+export const stopSandbox = internalAction({
+  args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      await sandbox.stop();
+    } catch {
+      // Sandbox may already be stopped, archived, or deleted
+    }
+    return null;
+  },
+});
+
+/** Deletes a Daytona sandbox, silently ignoring already-deleted sandboxes. */
 export const deleteSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),

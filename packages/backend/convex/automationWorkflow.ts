@@ -7,6 +7,7 @@ import { buildPrBody } from "./taskWorkflowActions";
 import { buildRootDirectoryInstruction } from "./prompts/shared";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
+/** Builds a write-mode prompt for automations that edit code, commit, and push. */
 function buildAutomationPrompt(
   title: string,
   description: string,
@@ -38,6 +39,7 @@ After pushing, write a brief summary of the changes you made. This will be added
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+/** Builds a read-only prompt for automations that analyze the codebase without modifying files. */
 function buildReadOnlyPrompt(
   title: string,
   description: string,
@@ -65,6 +67,7 @@ Provide a clear, structured report answering the prompt. This is the only output
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+/** Builds a read-only prompt that produces structured JSON findings for actionable follow-up. */
 function buildActionableReportPrompt(
   title: string,
   description: string,
@@ -134,10 +137,12 @@ const VALID_SEVERITIES: Record<string, Severity> = {
   critical: "critical",
 };
 
+/** Type guard for checking if a value is a plain object (non-array). */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Extracts structured findings from the FINDINGS_JSON marker in the LLM result text. */
 function parseFindingsFromResult(resultText: string): ParsedFinding[] | null {
   const markerIdx = resultText.indexOf("<!-- FINDINGS_JSON -->");
   if (markerIdx === -1) return null;
@@ -196,6 +201,7 @@ function parseFindingsFromResult(resultText: string): ParsedFinding[] | null {
   }
 }
 
+/** Runs an automation: prepares sandbox, executes the prompt, optionally creates a PR, and cleans up. */
 export const automationExecutionWorkflow = workflow.define({
   args: {
     runId: v.id("automationRuns"),

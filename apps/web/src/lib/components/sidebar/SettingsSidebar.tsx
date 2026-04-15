@@ -10,6 +10,7 @@ import {
   IconReceipt2,
   IconShieldCheck,
   IconPlug,
+  IconUserCog,
 } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
 
@@ -34,6 +35,11 @@ export function SettingsSidebar({
     { name: "Monorepo", href: `${baseUrl}/monorepo`, icon: IconFolders },
     { name: "Theme", href: `${baseUrl}/theme`, icon: IconPalette },
     { name: "MCP Config", href: `${baseUrl}/mcp-config`, icon: IconPlug },
+    {
+      name: "Personalisation",
+      href: `${baseUrl}/personalisation`,
+      icon: IconUserCog,
+    },
     { name: "Logs", href: `${baseUrl}/logs`, icon: IconReceipt2 },
   ];
 

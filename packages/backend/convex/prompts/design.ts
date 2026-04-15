@@ -1,3 +1,4 @@
+/** System prompt for the design agent that generates three React component variations. */
 export const DESIGN_SYSTEM_PROMPT = `You MUST write 3 React component variation files, commit, push, then output ONLY valid JSON:
 {
   "summary": "Brief design decisions",

@@ -4,6 +4,7 @@ import { internalQuery } from "./_generated/server";
 import { roleUserValidator } from "./validators";
 import { authQuery } from "./functions";
 
+/** Returns the Clerk ID for a user (internal use only). */
 export const getInternal = internalQuery({
   args: { userId: v.id("users") },
   returns: v.union(v.object({ clerkId: v.string() }), v.null()),
@@ -14,6 +15,7 @@ export const getInternal = internalQuery({
   },
 });
 
+/** Fetches a user's public profile (name, last seen) by their ID. */
 export const get = authQuery({
   args: { id: v.id("users") },
   returns: v.union(
@@ -37,6 +39,7 @@ export const get = authQuery({
   },
 });
 
+/** Lists teammates across all of the current user's teams who were active in the last 2 minutes. */
 export const listOnlineTeammates = authQuery({
   args: {},
   returns: v.array(
@@ -86,6 +89,7 @@ export const listOnlineTeammates = authQuery({
   },
 });
 
+/** Lists all users in the system with their basic profile info. */
 export const listAll = authQuery({
   args: {},
   returns: v.array(

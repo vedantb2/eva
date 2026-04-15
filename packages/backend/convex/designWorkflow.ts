@@ -5,7 +5,11 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { aiModelValidator, workflowCompleteValidator } from "./validators";
-import { buildRootDirectoryInstruction, DESIGN_SYSTEM_PROMPT } from "./prompts";
+import {
+  buildRootDirectoryInstruction,
+  buildCustomInstructionsBlock,
+  DESIGN_SYSTEM_PROMPT,
+} from "./prompts";
 import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 import { startNextQueuedDesignMessage } from "./_queues/helpers";
 
@@ -22,6 +26,7 @@ const VARIATION_STRATEGIES = [
   "E: Accessible/minimal — maximum legibility, highest contrast, simplified interactions",
 ];
 
+/** Generates the Next.js router scaffold code for lazy-loading design variations. */
 function buildRouterScaffold(labels: string[]): string {
   const entries = labels
     .map((l) => `  ${l}: lazy(() => import('./variations/variation-${l}')),`)
@@ -44,6 +49,7 @@ export default function DesignPreview() {
 \`\`\``;
 }
 
+/** Builds the full design prompt including conversation history, base design, and persona context. */
 function buildDesignPrompt(
   repo: { owner: string; name: string },
   message: string,
@@ -52,6 +58,7 @@ function buildDesignPrompt(
   persona: { name: string; prompt: string } | null,
   rootDirectory: string,
   numDesigns: number,
+  customInstructionsBlock: string,
 ): string {
   const labels = Array.from({ length: numDesigns }, (_, i) =>
     String.fromCharCode(97 + i),
@@ -124,9 +131,10 @@ ${personaContext}
 ${message}
 
 ## Output
-After completing all steps, output ONLY valid JSON matching the format in your system prompt.${buildRootDirectoryInstruction(rootDirectory)}`;
+After completing all steps, output ONLY valid JSON matching the format in your system prompt.${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+/** Extracts the first JSON object from LLM output text. */
 function extractJsonFromText(text: string): string | null {
   const { json } = llmJson.extract(text);
   if (json.length === 0) return null;
@@ -135,6 +143,7 @@ function extractJsonFromText(text: string): string | null {
 
 // --- Workflow definition ---
 
+/** Runs a design session: prepares the sandbox, launches the agent, and saves results. */
 export const designSessionWorkflow = workflow.define({
   args: {
     designSessionId: v.id("designSessions"),
@@ -197,6 +206,7 @@ export const designSessionWorkflow = workflow.define({
 
 // --- Supporting internal functions ---
 
+/** Fetches session data, conversation history, and builds the design prompt. */
 export const getSessionDataAndPrompt = internalQuery({
   args: {
     designSessionId: v.id("designSessions"),
@@ -255,6 +265,12 @@ export const getSessionDataAndPrompt = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
+    const user = await ctx.db.get(session.userId);
+    const customInstructionsBlock = buildCustomInstructionsBlock(
+      user?.role ?? undefined,
+      user?.customInstructions ?? undefined,
+    );
+
     const prompt = buildDesignPrompt(
       { owner: repo.owner, name: repo.name },
       args.message,
@@ -263,6 +279,7 @@ export const getSessionDataAndPrompt = internalQuery({
       persona,
       rootDirectory,
       args.numDesigns ?? 3,
+      customInstructionsBlock,
     );
 
     return {
@@ -276,6 +293,7 @@ export const getSessionDataAndPrompt = internalQuery({
   },
 });
 
+/** Saves the design workflow result, parsing variation JSON and updating the last message. */
 export const saveResult = internalMutation({
   args: {
     designSessionId: v.id("designSessions"),
@@ -341,6 +359,7 @@ export const saveResult = internalMutation({
   },
 });
 
+/** Receives sandbox completion callback and forwards the event to the active workflow. */
 export const handleCompletion = authMutation({
   args: {
     designSessionId: v.id("designSessions"),

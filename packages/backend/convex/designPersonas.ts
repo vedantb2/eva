@@ -10,6 +10,7 @@ const designPersonaValidator = v.object({
   prompt: v.string(),
 });
 
+/** Lists all design personas for a repo. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(designPersonaValidator),
@@ -22,6 +23,7 @@ export const list = authQuery({
   },
 });
 
+/** Fetches a single design persona by ID, with repo access control. */
 export const get = authQuery({
   args: { id: v.id("designPersonas") },
   returns: v.union(designPersonaValidator, v.null()),
@@ -33,6 +35,7 @@ export const get = authQuery({
   },
 });
 
+/** Creates a new design persona for a repo. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -53,6 +56,7 @@ export const create = authMutation({
   },
 });
 
+/** Updates a design persona's name and prompt. */
 export const update = authMutation({
   args: {
     id: v.id("designPersonas"),
@@ -70,6 +74,7 @@ export const update = authMutation({
   },
 });
 
+/** Deletes a design persona. */
 export const remove = authMutation({
   args: { id: v.id("designPersonas") },
   returns: v.null(),

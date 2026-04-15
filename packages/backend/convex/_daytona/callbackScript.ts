@@ -25,12 +25,28 @@ const WORK_DIR = existsSync("/tmp/repo")
 const NO_OUTPUT_TIMEOUT_MS = Number(process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000");
 const FIRST_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000");
 const POST_TEXT_STALL_TIMEOUT_MS = Number(process.env.CLAUDE_POST_TEXT_STALL_TIMEOUT_MS || "90000");
+const FIRST_ASSISTANT_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS || "120000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
 const SCRIPT_STARTED_AT = Date.now();
-const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || "15000");
+const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || "18000");
 const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
 const CALLBACK_HTTP_RETRY_BASE_MS = 1000;
+const STREAMING_HEARTBEAT_MAX_RETRIES = Number(
+  process.env.CALLBACK_STREAMING_HEARTBEAT_MAX_RETRIES || "4",
+);
+const HEARTBEAT_FATAL_BURST = Number(
+  process.env.CALLBACK_HEARTBEAT_FATAL_BURST || "10",
+);
+const HEARTBEAT_FATAL_SLOW_COUNT = Number(
+  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_COUNT || "5",
+);
+const HEARTBEAT_FATAL_SLOW_WINDOW_MS = Number(
+  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_WINDOW_MS || "70000",
+);
+const HEARTBEAT_ABSOLUTE_MAX_FAILURES = Number(
+  process.env.CALLBACK_HEARTBEAT_ABSOLUTE_MAX_FAILURES || "28",
+);
 const READY_FILE = "/tmp/run-design.ready";
 const CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
 const CLAUDE_RUNTIME_CONFIG_DIR = process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
@@ -41,6 +57,8 @@ const CODEX_BIN_PATH = process.env.CODEX_BIN_PATH || "/tmp/codex-cli/bin/codex";
 const CODEX_STATE_FILE = "session-state.json";
 const CODEX_LOCAL_STATE_FILE = CODEX_RUNTIME_HOME_DIR + "/" + CODEX_STATE_FILE;
 const CODEX_PERSIST_STATE_FILE = CODEX_PERSIST_DIR + "/" + CODEX_STATE_FILE;
+const CODEX_AUTH_FILE = CODEX_RUNTIME_HOME_DIR + "/auth.json";
+const CODEX_PERSIST_AUTH_FILE = CODEX_PERSIST_DIR + "/auth.json";
 const CODEX_AUTH_JSON = process.env.CODEX_AUTH_JSON || "";
 const CODEX_AUTH_JSON_BASE64 = process.env.CODEX_AUTH_JSON_BASE64 || "";
 const CODEX_CONFIG_TOML = process.env.CODEX_CONFIG_TOML || "";
@@ -62,6 +80,7 @@ if (GH_TOKEN) {
 process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 
+/** Wraps fetch with an AbortController timeout. */
 async function fetchWithTimeout(url, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -72,12 +91,14 @@ async function fetchWithTimeout(url, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_
   }
 }
 
+/** Calculates exponential backoff delay with jitter for retry attempts. */
 function buildRetryDelayMs(attempt) {
   const exponential = Math.pow(2, attempt - 1) * CALLBACK_HTTP_RETRY_BASE_MS;
   const jitter = Math.floor(Math.random() * 500);
   return exponential + jitter;
 }
 
+/** Calls a Convex mutation via HTTP API. */
 async function callMutation(path, args) {
   const headers = { "Content-Type": "application/json" };
   if (CONVEX_TOKEN) headers["Authorization"] = "Bearer " + CONVEX_TOKEN;
@@ -93,6 +114,7 @@ async function callMutation(path, args) {
   return res.json();
 }
 
+/** Calls a Convex action via HTTP API. */
 async function callAction(path, args) {
   const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
     method: "POST",
@@ -109,6 +131,7 @@ async function callAction(path, args) {
   return res.json();
 }
 
+/** Calls a Convex mutation with automatic retry on failure. */
 async function callMutationWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RETRIES) {
   let attempt = 0;
   while (true) {
@@ -124,6 +147,7 @@ async function callMutationWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_
   }
 }
 
+/** Calls a Convex action with automatic retry on failure. */
 async function callActionWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RETRIES) {
   let attempt = 0;
   while (true) {
@@ -139,6 +163,7 @@ async function callActionWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RE
   }
 }
 
+/** Sends a streaming heartbeat update with current activity and content. */
 async function callStreamingHeartbeat(entityId, currentActivity, currentContent, pendingQuestion) {
   const args = {
     entityId,
@@ -148,19 +173,14 @@ async function callStreamingHeartbeat(entityId, currentActivity, currentContent,
   if (pendingQuestion) {
     args.pendingQuestion = pendingQuestion;
   }
-  return await callMutation("streaming:set", args);
+  return await callMutationWithRetry(
+    "streaming:set",
+    args,
+    STREAMING_HEARTBEAT_MAX_RETRIES,
+  );
 }
 
-async function markRunFinalizingIfNeeded() {
-  if (!RUN_ID || ENTITY_ID_FIELD !== "taskId") {
-    return;
-  }
-  await callMutationWithRetry("taskWorkflow:markRunFinalizing", {
-    taskId: ENTITY_ID,
-    runId: RUN_ID,
-  });
-}
-
+/** Shortens a file path to show only the last 3 segments for display. */
 function shortenPath(p) {
   const parts = p.replace(/\\\\\\\\/g, "/").split("/");
   if (parts.length <= 4) return parts.join("/");
@@ -169,6 +189,7 @@ function shortenPath(p) {
 
 let pendingQuestionData = "";
 
+/** Converts a Claude tool call into a UI progress step object. */
 function toolCallToStep(name, input) {
   const path = input.file_path ? shortenPath(String(input.file_path)) : "";
   switch (name) {
@@ -190,6 +211,7 @@ function toolCallToStep(name, input) {
   }
 }
 
+/** Extracts the first matching field value from a Codex event item. */
 function getCodexFieldValue(item, keys) {
   const sources = [item];
   if (item && typeof item.input === "object" && item.input !== null) {
@@ -208,6 +230,7 @@ function getCodexFieldValue(item, keys) {
   return "";
 }
 
+/** Extracts the thread ID from a Codex stream event. */
 function getCodexThreadId(event) {
   if (typeof event.thread_id === "string" && event.thread_id.trim()) {
     return event.thread_id.trim();
@@ -223,6 +246,7 @@ function getCodexThreadId(event) {
   return "";
 }
 
+/** Extracts the text content from a Codex agent_message item. */
 function getCodexAgentMessageText(item) {
   if (!item || item.type !== "agent_message") {
     return "";
@@ -249,6 +273,7 @@ function getCodexAgentMessageText(item) {
   return parts.join("");
 }
 
+/** Converts a Codex stream item into a UI progress step object. */
 function codexItemToStep(item) {
   const itemType =
     item && typeof item.type === "string" && item.type.trim()
@@ -270,7 +295,37 @@ function codexItemToStep(item) {
     "tool",
     "skill",
   ]);
+  const normalizedDescription = descriptionValue.toLowerCase();
   const pathDetail = pathValue ? shortenPath(String(pathValue)) : "";
+
+  if (normalizedType === "mcp_tool_call") {
+    if (normalizedDescription.includes("fetch_file")) {
+      return {
+        type: "read",
+        label: "Reading file...",
+        detail: descriptionValue || undefined,
+        status: "active",
+      };
+    }
+    if (
+      normalizedDescription.includes("search") ||
+      normalizedDescription.includes("list_repositories") ||
+      normalizedDescription.includes("list_mcp_resources")
+    ) {
+      return {
+        type: "search_code",
+        label: "Searching code...",
+        detail: descriptionValue || undefined,
+        status: "active",
+      };
+    }
+    return {
+      type: "tool",
+      label: "Using MCP...",
+      detail: descriptionValue || undefined,
+      status: "active",
+    };
+  }
 
   if (normalizedType.includes("web")) {
     return {
@@ -385,6 +440,7 @@ const completedLabels = {
   "Asking a question...": "Asked a question",
 };
 
+/** Marks the last accumulated step as complete and updates its label. */
 function markLastComplete() {
   if (accumulatedSteps.length === 0) return;
   const last = accumulatedSteps[accumulatedSteps.length - 1];
@@ -396,6 +452,7 @@ function markLastComplete() {
   }
 }
 
+/** Updates or adds a thinking step in the accumulated steps list. */
 function updateThinkingStep(label, detail) {
   const lastStep = accumulatedSteps[accumulatedSteps.length - 1];
   if (lastStep && lastStep.type === "thinking" && lastStep.label === label) {
@@ -415,6 +472,7 @@ function updateThinkingStep(label, detail) {
   lastStepType = "thinking";
 }
 
+/** Parses a single JSON stream event line and updates accumulated steps. */
 function parseStreamEvent(line) {
   try {
     const event = JSON.parse(line);
@@ -545,11 +603,104 @@ let activeAttemptStartedAt = 0;
 let firstAssistantEventAt = 0;
 let firstTextBlockAt = 0;
 let currentStreamedContent = "";
+let activeAttemptChild = null;
+let fatalHeartbeatErrorMessage = "";
+let consecutiveHeartbeatFailures = 0;
+let heartbeatFailureStreakStartedAt = 0;
 
+/** Builds the serialized streaming payload for the current accumulated steps. */
+function buildStreamingPayload() {
+  return JSON.stringify(accumulatedSteps);
+}
+
+/** Records a successful heartbeat and clears transient heartbeat failure state. */
+function markHeartbeatSuccess(payload) {
+  lastSentPayload = payload;
+  lastSentContent = currentStreamedContent;
+  lastStreamingSentAt = Date.now();
+  if (consecutiveHeartbeatFailures > 0) {
+    console.error(
+      "Heartbeat recovered after " +
+        consecutiveHeartbeatFailures +
+        " consecutive failures",
+    );
+  }
+  consecutiveHeartbeatFailures = 0;
+  heartbeatFailureStreakStartedAt = 0;
+}
+
+/** Records a heartbeat transport failure and aborts the active CLI attempt once failures become persistent. */
+function noteHeartbeatFailure(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  consecutiveHeartbeatFailures++;
+  if (consecutiveHeartbeatFailures === 1) {
+    heartbeatFailureStreakStartedAt = Date.now();
+  }
+  console.error(
+    "Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):",
+    message,
+  );
+  if (consecutiveHeartbeatFailures === 2 || consecutiveHeartbeatFailures === 4) {
+    console.error(
+      "[streaming-heartbeat] degraded: " +
+        consecutiveHeartbeatFailures +
+        " consecutive post-retry failures (burstFatal>=" +
+        HEARTBEAT_FATAL_BURST +
+        " or slowFatal>=" +
+        HEARTBEAT_FATAL_SLOW_COUNT +
+        " over " +
+        HEARTBEAT_FATAL_SLOW_WINDOW_MS +
+        "ms)",
+    );
+  }
+  if (fatalHeartbeatErrorMessage) {
+    return;
+  }
+  const streakAge =
+    heartbeatFailureStreakStartedAt > 0
+      ? Date.now() - heartbeatFailureStreakStartedAt
+      : 0;
+  const burstFatal = consecutiveHeartbeatFailures >= HEARTBEAT_FATAL_BURST;
+  const slowFatal =
+    consecutiveHeartbeatFailures >= HEARTBEAT_FATAL_SLOW_COUNT &&
+    streakAge >= HEARTBEAT_FATAL_SLOW_WINDOW_MS;
+  const absoluteFatal = consecutiveHeartbeatFailures >= HEARTBEAT_ABSOLUTE_MAX_FAILURES;
+  if (burstFatal || slowFatal || absoluteFatal) {
+    fatalHeartbeatErrorMessage =
+      "Lost streaming heartbeat after " +
+      String(consecutiveHeartbeatFailures) +
+      " consecutive failures: " +
+      message;
+    log(fatalHeartbeatErrorMessage);
+    if (activeAttemptChild) {
+      terminateAttemptProcess(activeAttemptChild);
+    }
+  }
+}
+
+/** Sends a single streaming heartbeat update and records success/failure state. */
+async function sendStreamingHeartbeatUpdate(payload) {
+  try {
+    await callStreamingHeartbeat(
+      STREAMING_ENTITY_ID,
+      payload,
+      currentStreamedContent,
+      pendingQuestionData || undefined,
+    );
+    markHeartbeatSuccess(payload);
+    return true;
+  } catch (error) {
+    noteHeartbeatFailure(error);
+    return false;
+  }
+}
+
+/** Returns milliseconds elapsed since the current attempt started. */
 function elapsedAttemptMs() {
   return activeAttemptStartedAt > 0 ? Date.now() - activeAttemptStartedAt : 0;
 }
 
+/** Logs byte size and line count of a Claude transcript file for diagnostics. */
 function logTranscriptStats(sessionId, label) {
   if (!sessionId) {
     log(label + ": no session id");
@@ -581,10 +732,12 @@ function logTranscriptStats(sessionId, label) {
   }
 }
 
+/** Builds the file path for a Claude session transcript JSONL file. */
 function buildClaudeTranscriptPath(projectDir, sessionId) {
   return projectDir + "/" + sessionId + ".jsonl";
 }
 
+/** Copies a file from source to target via bash if the source exists. */
 function copyFileIfPresent(sourcePath, targetPath, label) {
   const copyScript =
     "if [ -f " +
@@ -599,6 +752,7 @@ function copyFileIfPresent(sourcePath, targetPath, label) {
   runTimedBashSync(copyScript, label);
 }
 
+/** Recursively copies all entries from one directory to another. */
 function copyDirectoryContents(sourceDir, targetDir) {
   if (!existsSync(sourceDir)) {
     return;
@@ -618,10 +772,12 @@ function copyDirectoryContents(sourceDir, targetDir) {
   }
 }
 
+/** Decodes a base64-encoded string to UTF-8. */
 function decodeBase64(value) {
   return Buffer.from(value, "base64").toString("utf8");
 }
 
+/** Writes a Codex config file if a raw or base64-encoded value is provided. */
 function writeCodexFileIfConfigured(fileName, rawValue, encodedValue) {
   const value = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
   if (!value) {
@@ -631,6 +787,32 @@ function writeCodexFileIfConfigured(fileName, rawValue, encodedValue) {
   writeFileSync(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
 }
 
+/** Builds the Codex runtime config, forcing it to rely on the outer Daytona sandbox. */
+function buildCodexRuntimeConfig(rawValue, encodedValue) {
+  const configuredValue = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
+  const preservedLines = configuredValue
+    ? configuredValue
+        .split(/\\r?\\n/)
+        .filter((line) => {
+          const trimmed = line.trim().toLowerCase();
+          return (
+            !trimmed.startsWith("sandbox_mode") &&
+            !trimmed.startsWith("approval_policy")
+          );
+        })
+    : [];
+  const normalizedPreservedLines = preservedLines.filter((line) => line.trim());
+  const runtimeLines = [
+    'approval_policy = "never"',
+    'sandbox_mode = "danger-full-access"',
+  ];
+  if (normalizedPreservedLines.length > 0) {
+    runtimeLines.push(...normalizedPreservedLines);
+  }
+  return runtimeLines.join("\\n") + "\\n";
+}
+
+/** Reads the Codex session state file to get the resume thread ID. */
 function readCodexSessionState() {
   const statePath = existsSync(CODEX_LOCAL_STATE_FILE)
     ? CODEX_LOCAL_STATE_FILE
@@ -659,6 +841,7 @@ function readCodexSessionState() {
   return null;
 }
 
+/** Writes the active Codex thread ID to the local session state file. */
 function writeCodexSessionState() {
   if (!activeCodexThreadId) {
     return;
@@ -677,17 +860,45 @@ function writeCodexSessionState() {
   );
 }
 
+/** Restores persisted Codex state and writes auth/config files to the runtime directory. */
 function hydratePersistedCodexState() {
-  copyDirectoryContents(CODEX_PERSIST_DIR, CODEX_RUNTIME_HOME_DIR);
+  mkdirSync(CODEX_RUNTIME_HOME_DIR, { recursive: true });
+  copyFileIfPresent(
+    CODEX_PERSIST_STATE_FILE,
+    CODEX_LOCAL_STATE_FILE,
+    "hydratePersistedCodexState(state)",
+  );
+  if (!CODEX_AUTH_JSON && !CODEX_AUTH_JSON_BASE64) {
+    copyFileIfPresent(
+      CODEX_PERSIST_AUTH_FILE,
+      CODEX_AUTH_FILE,
+      "hydratePersistedCodexState(auth)",
+    );
+  }
   writeCodexFileIfConfigured("auth.json", CODEX_AUTH_JSON, CODEX_AUTH_JSON_BASE64);
-  writeCodexFileIfConfigured("config.toml", CODEX_CONFIG_TOML, CODEX_CONFIG_TOML_BASE64);
+  writeFileSync(
+    CODEX_RUNTIME_HOME_DIR + "/config.toml",
+    buildCodexRuntimeConfig(CODEX_CONFIG_TOML, CODEX_CONFIG_TOML_BASE64),
+  );
 }
 
+/** Syncs Codex session state from runtime to the persist volume. */
 function syncCodexStateToPersist() {
   writeCodexSessionState();
-  copyDirectoryContents(CODEX_RUNTIME_HOME_DIR, CODEX_PERSIST_DIR);
+  mkdirSync(CODEX_PERSIST_DIR, { recursive: true });
+  copyFileIfPresent(
+    CODEX_LOCAL_STATE_FILE,
+    CODEX_PERSIST_STATE_FILE,
+    "syncCodexStateToPersist(state)",
+  );
+  copyFileIfPresent(
+    CODEX_AUTH_FILE,
+    CODEX_PERSIST_AUTH_FILE,
+    "syncCodexStateToPersist(auth)",
+  );
 }
 
+/** Collects all known Claude session IDs from config, persisted state, and active session. */
 function collectClaudeTranscriptSessionIds() {
   const sessionIds = new Set();
   const configuredSessionId = process.env.CLAUDE_SESSION_ID;
@@ -706,6 +917,7 @@ function collectClaudeTranscriptSessionIds() {
   return Array.from(sessionIds);
 }
 
+/** Appends new text to the current streamed content buffer. */
 function appendStreamedContent(text) {
   const nextText = String(text);
   if (!nextText) {
@@ -718,6 +930,7 @@ function appendStreamedContent(text) {
   currentStreamedContent += nextText;
 }
 
+/** Builds the startup progress step label and detail for the Claude CLI. */
 function buildClaudeStartupStep() {
   if (waitingForFirstAssistantEvent && claudeInitAt > 0) {
     const elapsedSeconds = Math.max(
@@ -746,6 +959,7 @@ function buildClaudeStartupStep() {
 }
 
 let flushInProgress = false;
+/** Flushes buffered stream events to the streaming heartbeat endpoint. */
 async function flushStreaming() {
   if (flushInProgress) return;
   if (rawOutput.length <= lastProcessed) return;
@@ -765,37 +979,22 @@ async function flushStreaming() {
       }
     }
     if (hasNew) {
-      const payload = JSON.stringify(accumulatedSteps);
+      const payload = buildStreamingPayload();
       if (
         payload === lastSentPayload &&
         currentStreamedContent === lastSentContent
       ) {
         return;
       }
-      try {
-        await callStreamingHeartbeat(
-          STREAMING_ENTITY_ID,
-          payload,
-          currentStreamedContent,
-          pendingQuestionData || undefined,
-        );
-        lastSentPayload = payload;
-        lastSentContent = currentStreamedContent;
-        lastStreamingSentAt = Date.now();
-        consecutiveHeartbeatFailures = 0;
-      } catch (e) {
-        consecutiveHeartbeatFailures++;
-        console.error("flushStreaming failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
-      }
+      await sendStreamingHeartbeatUpdate(payload);
     }
   } finally {
     flushInProgress = false;
   }
 }
 
-let consecutiveHeartbeatFailures = 0;
-
 let pingInProgress = false;
+/** Sends periodic heartbeat pings to keep the streaming connection alive. */
 async function heartbeatPing() {
   if (pingInProgress) return;
   if (Date.now() - lastStreamingSentAt < 10000) return;
@@ -805,34 +1004,7 @@ async function heartbeatPing() {
       const startupStep = buildClaudeStartupStep();
       updateThinkingStep(startupStep.label, startupStep.detail);
     }
-    const payload = JSON.stringify(accumulatedSteps);
-    const maxAttempts = 3;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        await callStreamingHeartbeat(
-          STREAMING_ENTITY_ID,
-          payload,
-          currentStreamedContent,
-          pendingQuestionData || undefined,
-        );
-        lastSentPayload = payload;
-        lastSentContent = currentStreamedContent;
-        lastStreamingSentAt = Date.now();
-        if (consecutiveHeartbeatFailures > 0) {
-          console.error("Heartbeat recovered after " + consecutiveHeartbeatFailures + " consecutive failures");
-        }
-        consecutiveHeartbeatFailures = 0;
-        return;
-      } catch (e) {
-        if (attempt < maxAttempts - 1) {
-          const delayMs = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 500);
-          await new Promise((r) => setTimeout(r, delayMs));
-        } else {
-          consecutiveHeartbeatFailures++;
-          console.error("Heartbeat failed (consecutive: " + consecutiveHeartbeatFailures + "):", String(e));
-        }
-      }
-    }
+    await sendStreamingHeartbeatUpdate(buildStreamingPayload());
   } finally {
     pingInProgress = false;
   }
@@ -848,17 +1020,20 @@ accumulatedSteps.push({
 });
 
 let callbackReady = false;
+/** Sends the initial heartbeat to confirm callback connectivity. */
 async function initialHeartbeat() {
   const startedAt = Date.now();
   let attempt = 0;
   while (attempt <= 1) {
     try {
+      const payload = buildStreamingPayload();
       await callStreamingHeartbeat(
         STREAMING_ENTITY_ID,
-        JSON.stringify(accumulatedSteps),
+        payload,
         currentStreamedContent,
         pendingQuestionData || undefined,
       );
+      markHeartbeatSuccess(payload);
       log(
         "initialHeartbeat succeeded in " +
           String(Date.now() - startedAt) +
@@ -875,9 +1050,6 @@ async function initialHeartbeat() {
 }
 await initialHeartbeat()
   .then(() => {
-    lastSentPayload = JSON.stringify(accumulatedSteps);
-    lastSentContent = currentStreamedContent;
-    lastStreamingSentAt = Date.now();
     callbackReady = true;
     try {
       writeFileSync(READY_FILE, String(Date.now()));
@@ -900,6 +1072,7 @@ const interval = setInterval(flushStreaming, 500);
 const heartbeatInterval = setInterval(heartbeatPing, 10000);
 let streamingLoopsStopped = false;
 
+/** Stops the flush and heartbeat intervals and performs a final flush. */
 async function stopStreamingLoops() {
   if (streamingLoopsStopped) return;
   streamingLoopsStopped = true;
@@ -908,6 +1081,7 @@ async function stopStreamingLoops() {
   await flushStreaming();
 }
 
+/** Transitions the UI to a finalizing state and sends a heartbeat update. */
 async function setFinalizingState() {
   markLastComplete();
   accumulatedSteps.push({
@@ -922,14 +1096,7 @@ async function setFinalizingState() {
   });
   lastStepType = "thinking";
   try {
-    await callStreamingHeartbeat(
-      STREAMING_ENTITY_ID,
-      JSON.stringify(accumulatedSteps),
-      currentStreamedContent,
-      pendingQuestionData || undefined,
-    );
-    lastStreamingSentAt = Date.now();
-    lastSentContent = currentStreamedContent;
+    await sendStreamingHeartbeatUpdate(buildStreamingPayload());
   } catch {}
 }
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
@@ -940,6 +1107,7 @@ for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
   }
 }
 
+/** Uploads and persists task proof media (video or image) if available. */
 async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFileName) {
   if (videoStorageId || imageStorageId) {
     if (ENTITY_ID_FIELD === "taskId") {
@@ -968,6 +1136,7 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
   }
 }
 
+/** Records a proof failure message for task-scoped executions. */
 async function saveProofFailureMessageIfNeeded(message) {
   if (ENTITY_ID_FIELD !== "taskId") {
     return;
@@ -1000,12 +1169,14 @@ if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {
   } catch {}
 }
 
+/** Logs a timestamped debug message to stderr and the debug log file. */
 function log(msg) {
   const line = "[callback " + new Date().toISOString() + "] " + msg + "\\n";
   console.error(line.trim());
   try { writeFileSync("/tmp/callback-debug.log", line, { flag: "a" }); } catch {}
 }
 
+/** Attempts to parse a JSON string, returning null on failure. */
 function tryParseJson(text) {
   try {
     return JSON.parse(text);
@@ -1014,6 +1185,7 @@ function tryParseJson(text) {
   }
 }
 
+/** Copies base Claude config files to the runtime config directory. */
 function copyBaseClaudeConfig() {
   const startedAt = Date.now();
   if (!existsSync(CLAUDE_BASE_CONFIG_DIR)) {
@@ -1040,6 +1212,7 @@ function copyBaseClaudeConfig() {
   );
 }
 
+/** Runs a bash script synchronously with a timeout, returning success status. */
 function runTimedBashSync(script, label) {
   const result = spawnSync("bash", ["-lc", script], {
     encoding: "utf8",
@@ -1064,6 +1237,7 @@ function runTimedBashSync(script, label) {
   return true;
 }
 
+/** Restores persisted Claude session state and transcripts to the runtime directory. */
 function hydratePersistedClaudeState() {
   const startedAt = Date.now();
   if (!process.env.CLAUDE_SESSION_ID) {
@@ -1104,6 +1278,7 @@ function hydratePersistedClaudeState() {
   );
 }
 
+/** Reads the Claude session state file to get the resume session ID. */
 function readClaudeSessionState() {
   if (!existsSync(CLAUDE_LOCAL_STATE_FILE)) {
     return null;
@@ -1120,6 +1295,7 @@ function readClaudeSessionState() {
   return { resumeSessionId };
 }
 
+/** Writes the current Claude session state to the local state file. */
 function writeClaudeSessionState() {
   if (!process.env.CLAUDE_SESSION_ID) {
     return;
@@ -1146,6 +1322,7 @@ function writeClaudeSessionState() {
   );
 }
 
+/** Determines whether to start a new session, resume an existing one, or run without sessions. */
 function resolveClaudeSessionMode() {
   const configuredSessionId = process.env.CLAUDE_SESSION_ID;
   if (!configuredSessionId) {
@@ -1165,6 +1342,7 @@ function resolveClaudeSessionMode() {
   return { mode: "session", sessionId: configuredSessionId };
 }
 
+/** Syncs Claude session state and transcripts from runtime to the persist volume. */
 function syncClaudeStateToPersist(reason) {
   if (!process.env.CLAUDE_SESSION_ID) {
     return;
@@ -1246,10 +1424,12 @@ const TOOL_STEP_TYPES = new Set([
   "question",
 ]);
 
+/** Checks whether any tool-use steps have been recorded in the accumulated steps. */
 function hasToolActivity() {
   return accumulatedSteps.some((step) => TOOL_STEP_TYPES.has(step.type));
 }
 
+/** Extracts the final result event from CLI output for both Claude and Codex providers. */
 function extractResultEvent(output) {
   if (PROVIDER === "codex") {
     let finalText = "";
@@ -1297,6 +1477,7 @@ function extractResultEvent(output) {
   return resultEvent;
 }
 
+/** Processes a single realtime stream line for session ID capture and state sync. */
 function handleRealtimeStreamLine(line) {
   const parsed = tryParseJson(line);
   if (!parsed || typeof parsed !== "object") {
@@ -1333,12 +1514,7 @@ function handleRealtimeStreamLine(line) {
     log("captured Claude session id " + activeClaudeSessionId);
     const startupStep = buildClaudeStartupStep();
     updateThinkingStep(startupStep.label, startupStep.detail);
-    callStreamingHeartbeat(
-      STREAMING_ENTITY_ID,
-      JSON.stringify(accumulatedSteps),
-      currentStreamedContent,
-      pendingQuestionData || undefined,
-    ).catch(() => {});
+    void sendStreamingHeartbeatUpdate(buildStreamingPayload());
     return;
   }
   if (parsed.type === "assistant") {
@@ -1375,6 +1551,7 @@ function handleRealtimeStreamLine(line) {
   }
 }
 
+/** Buffers stdout chunks and processes complete lines for realtime event handling. */
 function processRealtimeStdoutChunk(text) {
   realtimeOutputBuffer += text;
   while (true) {
@@ -1391,19 +1568,28 @@ function processRealtimeStdoutChunk(text) {
   }
 }
 
+/** Builds a descriptive error message based on the CLI exit reason and timeout flags. */
 function buildErrorMessage(
   code,
+  fatalHeartbeatError,
   timedOutForMaxRuntime,
   timedOutForNoOutput,
   timedOutForFirstEvent,
+  timedOutForFirstAssistant,
   timedOutAfterFirstText,
 ) {
   const cliName = PROVIDER === "codex" ? "Codex CLI" : "Claude CLI";
+  if (fatalHeartbeatError) {
+    return fatalHeartbeatError;
+  }
   if (timedOutForMaxRuntime) {
     return cliName + " terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
   }
   if (timedOutForFirstEvent) {
     return cliName + " produced no parseable stream-json events within " + FIRST_EVENT_TIMEOUT_MS + "ms";
+  }
+  if (timedOutForFirstAssistant) {
+    return cliName + " initialized but produced no assistant response within " + FIRST_ASSISTANT_EVENT_TIMEOUT_MS + "ms — likely MCP initialization or API congestion";
   }
   if (timedOutAfterFirstText) {
     return cliName + " stalled after first text block for " + POST_TEXT_STALL_TIMEOUT_MS + "ms";
@@ -1414,6 +1600,7 @@ function buildErrorMessage(
   return cliName + " exited with code " + code;
 }
 
+/** Appends stdout and stderr tails to an error message for diagnostics. */
 function appendDiagnosticTail(message) {
   const details = [];
   const stdoutTail = rawOutput.slice(-1500).trim();
@@ -1430,6 +1617,7 @@ function appendDiagnosticTail(message) {
   return message + "\\n\\n" + details.join("\\n\\n");
 }
 
+/** Uploads a media file to Convex storage and returns the storage ID. */
 async function uploadMediaFile(filePath, mimeType) {
   const urlRes = await callMutationWithRetry("screenshots:generateUploadUrl", {}, 3);
   const fileData = readFileSync(filePath);
@@ -1451,6 +1639,7 @@ async function uploadMediaFile(filePath, mimeType) {
 
 let stderrOutput = "";
 
+/** Hydrates persisted Claude state and resolves the session mode for the current run. */
 function prepareClaudeSessionState() {
   if (!process.env.CLAUDE_SESSION_ID) {
     activeClaudeSessionMode = "none";
@@ -1485,6 +1674,7 @@ function prepareClaudeSessionState() {
   return sessionMode;
 }
 
+/** Hydrates persisted Codex state and resolves the session mode for the current run. */
 function prepareCodexSessionState() {
   updateThinkingStep("Preparing Codex session...", "Hydrating saved session...");
   hydratePersistedCodexState();
@@ -1500,12 +1690,14 @@ function prepareCodexSessionState() {
     : { mode: "none", sessionId: null };
 }
 
+/** Prepares session state for the active provider (Claude or Codex). */
 function prepareProviderSessionState() {
   return PROVIDER === "codex"
     ? prepareCodexSessionState()
     : prepareClaudeSessionState();
 }
 
+/** Resets per-attempt state variables before a new CLI attempt. */
 function resetAttemptState() {
   realtimeOutputBuffer = "";
   resultEventSeen = false;
@@ -1514,8 +1706,11 @@ function resetAttemptState() {
   currentStreamedContent = "";
   firstAssistantEventAt = 0;
   firstTextBlockAt = 0;
+  fatalHeartbeatErrorMessage = "";
+  heartbeatFailureStreakStartedAt = 0;
 }
 
+/** Sends SIGTERM then SIGKILL to forcefully stop a CLI process. */
 function terminateAttemptProcess(child) {
   try {
     child.kill("SIGTERM");
@@ -1527,6 +1722,7 @@ function terminateAttemptProcess(child) {
   }, 2000);
 }
 
+/** Inspects Codex stdout for agent_message events to track first text block timing. */
 function inspectCodexStdout(text) {
   for (const line of text.split("\\n")) {
     const clean = line.trim();
@@ -1548,6 +1744,7 @@ function inspectCodexStdout(text) {
   }
 }
 
+/** Spawns a CLI process with timeout monitoring and stdout/stderr capture. */
 async function runCliAttempt(options) {
   resetAttemptState();
   activeAttemptStartedAt = Date.now();
@@ -1560,6 +1757,7 @@ async function runCliAttempt(options) {
       env: options.env,
       stdio: ["pipe", "pipe", "pipe"],
     });
+    activeAttemptChild = child;
     log(
       options.processLabel +
         " process spawned after " +
@@ -1574,8 +1772,13 @@ async function runCliAttempt(options) {
     let timedOutForNoOutput = false;
     let timedOutForMaxRuntime = false;
     let timedOutForFirstEvent = false;
+    let timedOutForFirstAssistant = false;
     let timedOutAfterFirstText = false;
     const noOutputTimer = setInterval(() => {
+      if (fatalHeartbeatErrorMessage) {
+        terminateAttemptProcess(child);
+        return;
+      }
       if (Date.now() - SCRIPT_STARTED_AT > MAX_TOTAL_RUNTIME_MS) {
         timedOutForMaxRuntime = true;
         terminateAttemptProcess(child);
@@ -1586,6 +1789,21 @@ async function runCliAttempt(options) {
         Date.now() - attemptStartedAt > FIRST_EVENT_TIMEOUT_MS
       ) {
         timedOutForFirstEvent = true;
+        terminateAttemptProcess(child);
+        return;
+      }
+      if (
+        waitingForFirstAssistantEvent &&
+        claudeInitAt > 0 &&
+        Date.now() - claudeInitAt > FIRST_ASSISTANT_EVENT_TIMEOUT_MS
+      ) {
+        timedOutForFirstAssistant = true;
+        log(
+          options.processLabel +
+            " stalled waiting for first assistant event for " +
+            String(Date.now() - claudeInitAt) +
+            "ms after init; terminating process",
+        );
         terminateAttemptProcess(child);
         return;
       }
@@ -1626,6 +1844,7 @@ async function runCliAttempt(options) {
     });
     child.on("close", (code) => {
       clearInterval(noOutputTimer);
+      activeAttemptChild = null;
       log(
         options.attemptLabel +
           " finished in " +
@@ -1638,6 +1857,8 @@ async function runCliAttempt(options) {
           timedOutForMaxRuntime +
           ", timedOutForFirstEvent=" +
           timedOutForFirstEvent +
+          ", timedOutForFirstAssistant=" +
+          timedOutForFirstAssistant +
           ", timedOutAfterFirstText=" +
           timedOutAfterFirstText +
           ", outputBytes=" +
@@ -1652,6 +1873,7 @@ async function runCliAttempt(options) {
         timedOutForNoOutput,
         timedOutForMaxRuntime,
         timedOutForFirstEvent,
+        timedOutForFirstAssistant,
         timedOutAfterFirstText,
       });
     });
@@ -1662,6 +1884,7 @@ async function runCliAttempt(options) {
   });
 }
 
+/** Runs a single Claude CLI attempt with the resolved session mode. */
 async function runClaudeAttempt(sessionMode) {
   const sessionArg =
     sessionMode.mode === "session" && sessionMode.sessionId
@@ -1697,6 +1920,7 @@ async function runClaudeAttempt(sessionMode) {
   });
 }
 
+/** Runs a single Codex CLI attempt with the resolved session mode. */
 async function runCodexAttempt(sessionMode) {
   const sessionArg =
     sessionMode.mode === "resume" && sessionMode.sessionId
@@ -1728,12 +1952,14 @@ async function runCodexAttempt(sessionMode) {
   });
 }
 
+/** Dispatches a CLI attempt to the active provider (Claude or Codex). */
 async function runProviderAttempt(sessionMode) {
   return PROVIDER === "codex"
     ? await runCodexAttempt(sessionMode)
     : await runClaudeAttempt(sessionMode);
 }
 
+/** Syncs the active provider session state to the persist volume. */
 function syncProviderStateToPersist(reason) {
   if (PROVIDER === "codex") {
     syncCodexStateToPersist();
@@ -1751,46 +1977,17 @@ try {
   let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
   let finalTimedOutForMaxRuntime = Boolean(firstAttempt.timedOutForMaxRuntime);
   let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
+  let finalTimedOutForFirstAssistant = Boolean(firstAttempt.timedOutForFirstAssistant);
   let finalTimedOutAfterFirstText = Boolean(firstAttempt.timedOutAfterFirstText);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
-  const shouldRetryWithoutSession =
-    initialSessionMode.mode !== "none" &&
-    (firstAttempt.code !== 0 || Boolean(finalResultEvent?.isError)) &&
-    !hasToolActivity();
-
-  log("firstAttempt result: code=" + firstAttempt.code + " isError=" + Boolean(finalResultEvent?.isError) + " hasToolActivity=" + hasToolActivity() + " shouldRetry=" + shouldRetryWithoutSession);
-
-  if (shouldRetryWithoutSession) {
-    const firstAttemptStderr = stderrOutput.slice(-2000).trim();
-    const firstAttemptStdout = firstAttempt.output.slice(-1000).trim();
-    log("session-retry stderr: " + (firstAttemptStderr || "(empty)"));
-    log("session-retry stdout tail: " + (firstAttemptStdout || "(empty)"));
-    stderrOutput = "";
-    markLastComplete();
-    accumulatedSteps.push({
-      type: "thinking",
-      label: "Retrying without saved session...",
-      status: "active",
-    });
-    callStreamingHeartbeat(
-      STREAMING_ENTITY_ID,
-      JSON.stringify(accumulatedSteps),
-      currentStreamedContent,
-      pendingQuestionData || undefined,
-    ).catch(() => {});
-
-    const secondAttempt = await runProviderAttempt({
-      mode: "none",
-      sessionId: null,
-    });
-    await flushStreaming();
-    finalCode = secondAttempt.code;
-    finalTimedOutForNoOutput = Boolean(secondAttempt.timedOutForNoOutput);
-    finalTimedOutForMaxRuntime = Boolean(secondAttempt.timedOutForMaxRuntime);
-    finalTimedOutForFirstEvent = Boolean(secondAttempt.timedOutForFirstEvent);
-    finalTimedOutAfterFirstText = Boolean(secondAttempt.timedOutAfterFirstText);
-    finalResultEvent = extractResultEvent(secondAttempt.output);
-  }
+  log(
+    "firstAttempt result: code=" +
+      firstAttempt.code +
+      " isError=" +
+      Boolean(finalResultEvent?.isError) +
+      " hasToolActivity=" +
+      hasToolActivity(),
+  );
 
   if (!resultEventSeen) {
     syncProviderStateToPersist("post-attempt");
@@ -1799,11 +1996,6 @@ try {
   }
 
   await setFinalizingState();
-  try {
-    await markRunFinalizingIfNeeded();
-  } catch (e) {
-    console.error("Failed to mark run finalizing:", e);
-  }
 
   let errorValue = null;
   if (finalResultEvent?.isError) {
@@ -1812,9 +2004,11 @@ try {
     errorValue = appendDiagnosticTail(
       buildErrorMessage(
         finalCode,
+        fatalHeartbeatErrorMessage,
         finalTimedOutForMaxRuntime,
         finalTimedOutForNoOutput,
         finalTimedOutForFirstEvent,
+        finalTimedOutForFirstAssistant,
         finalTimedOutAfterFirstText,
       ),
     );

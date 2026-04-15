@@ -4,6 +4,7 @@ import type { Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
 import { hasRepoReferences, normalizePath } from "../repoUtils";
 
+/** Inserts or updates a GitHub repo entry, matching by GitHub ID or owner/name. */
 export const upsert = internalMutation({
   args: {
     owner: v.string(),
@@ -90,6 +91,7 @@ export const upsert = internalMutation({
   },
 });
 
+/** Updates the connected flag on all repos, marking only the provided IDs as connected. */
 export const syncConnectedStatus = internalMutation({
   args: { connectedIds: v.array(v.id("githubRepos")) },
   returns: v.null(),
@@ -107,6 +109,7 @@ export const syncConnectedStatus = internalMutation({
   },
 });
 
+/** Deletes sub-app repo entries that are no longer detected in the monorepo and have no references. */
 export const cleanupStaleSubApps = internalMutation({
   args: {
     detectedApps: v.array(

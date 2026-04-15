@@ -9,6 +9,7 @@ import type { Id, Doc } from "../_generated/dataModel";
 
 type ConversationMessage = Doc<"projectDetails">["conversationHistory"][number];
 
+/** Builds a git branch name for a project, optionally versioned. */
 export function buildProjectBranchName(
   projectId: Id<"projects">,
   branchVersion?: number,
@@ -20,6 +21,7 @@ export function buildProjectBranchName(
   return `eva/project-${projectId}-v${version}`;
 }
 
+/** Convex validator for a project document with its conversation history and generated spec. */
 export const projectWithDetailsValidator = v.object({
   _id: v.id("projects"),
   _creationTime: v.number(),
@@ -33,8 +35,10 @@ const {
   generatedSpec: _gs,
   ...projectSummaryFields
 } = projectWithDetailsValidator.fields;
+/** Convex validator for a project summary (excludes conversation history and generated spec). */
 export const projectSummaryValidator = v.object(projectSummaryFields);
 
+/** Fetches the projectDetails document for a given project. */
 export async function getProjectDetails(
   db: GenericDatabaseReader<DataModel>,
   projectId: Id<"projects">,
@@ -45,6 +49,7 @@ export async function getProjectDetails(
     .first();
 }
 
+/** Returns the conversation history for a project, or an empty array if none exists. */
 export async function getProjectConversation(
   db: GenericDatabaseReader<DataModel>,
   projectId: Id<"projects">,
@@ -53,6 +58,7 @@ export async function getProjectConversation(
   return details?.conversationHistory ?? [];
 }
 
+/** Returns the generated spec JSON string for a project, or undefined if none exists. */
 export async function getProjectGeneratedSpec(
   db: GenericDatabaseReader<DataModel>,
   projectId: Id<"projects">,
@@ -61,6 +67,7 @@ export async function getProjectGeneratedSpec(
   return details?.generatedSpec;
 }
 
+/** Creates or updates the conversation history for a project. */
 export async function setProjectConversation(
   db: GenericDatabaseWriter<DataModel>,
   projectId: Id<"projects">,
@@ -77,6 +84,7 @@ export async function setProjectConversation(
   }
 }
 
+/** Creates or updates the generated spec for a project. */
 export async function setProjectGeneratedSpec(
   db: GenericDatabaseWriter<DataModel>,
   projectId: Id<"projects">,
@@ -97,6 +105,7 @@ export async function setProjectGeneratedSpec(
   }
 }
 
+/** Deletes the projectDetails document for a given project. */
 export async function deleteProjectDetails(
   db: GenericDatabaseWriter<DataModel>,
   projectId: Id<"projects">,
@@ -122,6 +131,7 @@ interface ParsedSpec {
   tasks: ParsedTask[];
 }
 
+/** Parses a JSON spec string into a structured object with title, description, and tasks. */
 export function parseSpec(specJson: string): ParsedSpec {
   const parsed = JSON.parse(specJson);
   return {

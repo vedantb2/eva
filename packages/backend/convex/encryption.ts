@@ -7,6 +7,7 @@ const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
 const PREFIX = "enc:";
 
+/** Reads and validates the 32-byte AES-256 encryption key from the ENCRYPTION_KEY env var. */
 function getKey(): Buffer {
   const hex = process.env.ENCRYPTION_KEY;
   if (!hex) {
@@ -24,6 +25,7 @@ function getKey(): Buffer {
   return buf;
 }
 
+/** Encrypts a plaintext string using AES-256-GCM, returning a base64-encoded "enc:" prefixed string. */
 export function encryptValue(plaintext: string): string {
   const key = getKey();
   const iv = randomBytes(IV_LENGTH);
@@ -37,6 +39,7 @@ export function encryptValue(plaintext: string): string {
   return PREFIX + payload.toString("base64");
 }
 
+/** Decrypts an "enc:" prefixed AES-256-GCM ciphertext back to plaintext. Passes through non-prefixed strings unchanged. */
 export function decryptValue(stored: string): string {
   if (!stored.startsWith(PREFIX)) {
     return stored;

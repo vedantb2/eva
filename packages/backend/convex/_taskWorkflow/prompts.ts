@@ -4,6 +4,7 @@ import { extractFailuresFromJson } from "./auditParser";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 
+/** Builds a user-facing notification message for a workflow run completion. */
 export function buildWorkflowRunNotificationMessage(params: {
   success: boolean;
   projectId: Id<"projects"> | undefined;
@@ -28,13 +29,17 @@ export function buildWorkflowRunNotificationMessage(params: {
   return `Run failed for this ${scopeLabel}.`;
 }
 
+/** Builds the full implementation prompt sent to the AI agent in the sandbox. */
 export function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
   branchName: string,
   isQuickTask: boolean,
   rootDirectory: string,
   screenshotsVideosEnabled: boolean,
+  repoOwner: string,
+  repoName: string,
   changeRequests?: string[],
+  projectContext?: { title: string; description?: string },
 ): string {
   const commitScope = isQuickTask
     ? "feat"
@@ -61,7 +66,8 @@ IMPORTANT: This task was already implemented. The branch "${branchName}" has com
   const proofOfCompletionSection = screenshotsVideosEnabled
     ? `
 ## Proof of Completion (REQUIRED):
-After pushing, capture visual proof of your changes using agent-browser.
+After committing, capture visual proof of your changes using agent-browser.
+The platform handles the branch push after you finish successfully.
 Assume proof is needed unless your changes are EXCLUSIVELY backend logic with no rendering impact (e.g. a cron job, a migration, an internal API rate limit).
 Do NOT mention proof capture in your response or commit message.
 
@@ -83,9 +89,15 @@ Do NOT mention proof capture in your response or commit message.
 If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.`
     : "";
 
+  const projectSection = projectContext
+    ? `## Project: ${projectContext.title}${projectContext.description ? `\n${projectContext.description}` : ""}
+
+`
+    : "";
+
   return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
 
-## Task: ${task.title}
+${projectSection}## Task: ${task.title}
 ## Description: ${task.description || "No description provided"}
 ${changeRequestSection}
 
@@ -94,10 +106,10 @@ ${changeRequestSection}
 2. Implement changes by editing source code files
 3. Run the build command to verify no build errors. If errors, fix and re-run (max 3 attempts — if still failing, commit what you have and report the error)
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
-5. Run: git push -u origin ${branchName}
+5. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
 
 ## Summary (REQUIRED):
-After pushing, write a brief summary of the changes you made and why.
+After committing and pushing, write a brief summary of the changes you made and why.
 ${proofOfCompletionSection}
 
 ## Rules:
@@ -108,10 +120,13 @@ ${proofOfCompletionSection}
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+/** Builds a prompt for resolving merge conflicts against the base branch. */
 export function buildConflictResolutionPrompt(
   branchName: string,
   baseBranch: string,
   rootDirectory: string,
+  repoOwner: string,
+  repoName: string,
 ): string {
   return `You are resolving merge conflicts. Do NOT re-implement or change any feature — only resolve conflicts and ensure compatibility with the latest base branch.
 
@@ -121,7 +136,7 @@ export function buildConflictResolutionPrompt(
 3. If there are merge conflicts, resolve them — keep the task branch's implementation intent intact but adapt it to work with the latest base branch changes
 4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
 5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "fix: resolve merge conflicts with ${baseBranch}"
-6. Run: git push origin ${branchName}
+6. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
 
 ## Rules:
 - Do NOT re-implement or change the feature — only resolve conflicts and ensure compatibility
@@ -137,6 +152,7 @@ type AuditFailure = {
   detail: string;
 };
 
+/** Parses raw audit result text and extracts the list of failed audit items. */
 export function extractAuditFailures(rawResult: string): AuditFailure[] {
   try {
     const jsonStr =
@@ -151,10 +167,13 @@ export function extractAuditFailures(rawResult: string): AuditFailure[] {
   }
 }
 
+/** Builds a prompt instructing the AI agent to fix specific audit failures. */
 export function buildAuditFixPrompt(
   failures: AuditFailure[],
   branchName: string,
   rootDirectory: string,
+  repoOwner: string,
+  repoName: string,
 ): string {
   const failureList = failures
     .map((f, i) => `${i + 1}. [${f.section}] ${f.requirement}: ${f.detail}`)
@@ -171,7 +190,7 @@ ${failureList}
 3. Fix each issue listed above with minimal, focused changes
 4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
 5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${failures.length} issue${failures.length === 1 ? "" : "s"}"
-6. Run: git push origin ${branchName}
+6. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
 
 ## Rules:
 - Only fix the specific issues listed above — do NOT refactor or change unrelated code
@@ -186,6 +205,7 @@ type AuditCategory = {
   description: string;
 };
 
+/** Builds the code audit prompt with category descriptions and expected JSON output format. */
 export function buildAuditPrompt(categories: AuditCategory[]): string {
   const sectionDescriptions = categories
     .map((s, i) => `${i + 1}. **${s.name}**: ${s.description}`)

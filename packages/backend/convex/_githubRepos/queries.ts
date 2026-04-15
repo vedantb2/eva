@@ -4,6 +4,7 @@ import { authQuery } from "../functions";
 import { githubRepoValidator } from "./helpers";
 import { getAIProviderAvailability } from "../validators";
 
+/** Lists all GitHub repos accessible to the current user across their teams. */
 export const list = authQuery({
   args: {
     includeHidden: v.optional(v.boolean()),
@@ -41,6 +42,7 @@ export const list = authQuery({
   },
 });
 
+/** Gets a single GitHub repo by ID if the current user has access. */
 export const get = authQuery({
   args: { id: v.id("githubRepos") },
   returns: v.union(githubRepoValidator, v.null()),
@@ -66,6 +68,7 @@ export const get = authQuery({
   },
 });
 
+/** Checks which AI providers (Claude, Codex) are available for a repo based on configured env vars. */
 export const getProviderAvailability = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.object({
@@ -119,6 +122,7 @@ export const getProviderAvailability = authQuery({
   },
 });
 
+/** Finds a GitHub repo by owner, name, and optional app name. */
 export const getByOwnerAndName = authQuery({
   args: {
     owner: v.string(),
@@ -160,6 +164,7 @@ export const getByOwnerAndName = authQuery({
   },
 });
 
+/** Returns the team ID associated with a repo (internal use only). */
 export const getTeamIdForRepo = internalQuery({
   args: { repoId: v.string() },
   returns: v.union(v.id("teams"), v.null()),
@@ -174,6 +179,7 @@ export const getTeamIdForRepo = internalQuery({
   },
 });
 
+/** Lists all non-hidden repos belonging to a specific team. */
 export const listByTeam = authQuery({
   args: { teamId: v.id("teams") },
   returns: v.array(githubRepoValidator),
@@ -196,6 +202,7 @@ export const listByTeam = authQuery({
   },
 });
 
+/** Lists sibling monorepo sub-apps for a given repo entry. */
 export const listSiblingApps = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(
@@ -224,6 +231,7 @@ export const listSiblingApps = authQuery({
   },
 });
 
+/** Gets a GitHub repo by ID without access control (internal use only). */
 export const getInternal = internalQuery({
   args: { id: v.id("githubRepos") },
   returns: v.union(githubRepoValidator, v.null()),

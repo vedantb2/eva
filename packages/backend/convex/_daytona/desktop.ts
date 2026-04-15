@@ -12,6 +12,7 @@ const CHROME_LAUNCH_CMD =
   "--remote-debugging-port=9222 --no-first-run --no-default-browser-check --disable-sync " +
   "> /tmp/chrome.log 2>&1 &)";
 
+/** Sets the sandbox display resolution to 1920x1080 via xrandr. */
 export async function setDisplayResolution(sandbox: Sandbox): Promise<void> {
   try {
     await exec(sandbox, "DISPLAY=:1 xrandr --fb 1920x1080", 10);
@@ -30,6 +31,7 @@ export async function setDisplayResolution(sandbox: Sandbox): Promise<void> {
   }
 }
 
+/** Launches Chrome in the sandbox with remote debugging enabled. */
 export async function launchChrome(sandbox: Sandbox): Promise<void> {
   try {
     await sandbox.process.executeCommand(
@@ -43,6 +45,7 @@ export async function launchChrome(sandbox: Sandbox): Promise<void> {
   }
 }
 
+/** Starts the sandbox desktop environment and launches Chrome. */
 export async function startDesktopWithChrome(sandbox: Sandbox): Promise<void> {
   try {
     await sandbox.computerUse.start();

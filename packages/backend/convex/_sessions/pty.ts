@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { authMutation } from "../functions";
 
+/** Updates the PTY session ID on a session (user-facing). */
 export const updatePtySession = authMutation({
   args: {
     id: v.id("sessions"),
@@ -21,6 +22,7 @@ export const updatePtySession = authMutation({
   },
 });
 
+/** Updates the PTY session ID on a session (internal use, no auth check). */
 export const updatePtySessionInternal = internalMutation({
   args: {
     id: v.id("sessions"),

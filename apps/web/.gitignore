@@ -6,3 +6,4 @@ dist-ssr
 .env.*
 tsconfig.tsbuildinfo
 tsconfig.buildinfo
+stats.html

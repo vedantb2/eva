@@ -7,6 +7,12 @@ import { getSandbox, errorMessage, signAndLaunchScript } from "./helpers";
 import { sessionClaudeUuid } from "./volumes";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 
+const AUDIT_FIRST_EVENT_TIMEOUT_MS = "30000";
+const AUDIT_POST_TEXT_STALL_TIMEOUT_MS = "30000";
+const AUDIT_NO_OUTPUT_TIMEOUT_MS = "30000";
+const AUDIT_MAX_TOTAL_RUNTIME_MS = "600000";
+
+/** Builds the system prompt for a session audit given a list of audit categories. */
 function buildSessionAuditPrompt(
   categories: Array<{ name: string; description: string }>,
 ): string {
@@ -45,6 +51,7 @@ ${sectionJson}
 }`;
 }
 
+/** Launches an audit agent on a sandbox to review branch changes. */
 export const launchAudit = internalAction({
   args: {
     sandboxId: v.string(),
@@ -72,7 +79,12 @@ export const launchAudit = internalAction({
         extraEnvVars: {
           STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
           RUN_ID: String(args.runId),
+          CLAUDE_FIRST_EVENT_TIMEOUT_MS: AUDIT_FIRST_EVENT_TIMEOUT_MS,
+          CLAUDE_POST_TEXT_STALL_TIMEOUT_MS: AUDIT_POST_TEXT_STALL_TIMEOUT_MS,
+          CLAUDE_NO_OUTPUT_TIMEOUT_MS: AUDIT_NO_OUTPUT_TIMEOUT_MS,
+          CLAUDE_MAX_TOTAL_RUNTIME_MS: AUDIT_MAX_TOTAL_RUNTIME_MS,
         },
+        enableMcp: false,
       },
     );
 
@@ -80,6 +92,7 @@ export const launchAudit = internalAction({
   },
 });
 
+/** Launches an agent to fix issues found during an audit. */
 export const launchAuditFix = internalAction({
   args: {
     sandboxId: v.string(),
@@ -108,7 +121,12 @@ export const launchAuditFix = internalAction({
         extraEnvVars: {
           STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
           RUN_ID: String(args.runId),
+          CLAUDE_FIRST_EVENT_TIMEOUT_MS: AUDIT_FIRST_EVENT_TIMEOUT_MS,
+          CLAUDE_POST_TEXT_STALL_TIMEOUT_MS: AUDIT_POST_TEXT_STALL_TIMEOUT_MS,
+          CLAUDE_NO_OUTPUT_TIMEOUT_MS: AUDIT_NO_OUTPUT_TIMEOUT_MS,
+          CLAUDE_MAX_TOTAL_RUNTIME_MS: AUDIT_MAX_TOTAL_RUNTIME_MS,
         },
+        enableMcp: false,
       },
     );
 
@@ -116,6 +134,7 @@ export const launchAuditFix = internalAction({
   },
 });
 
+/** Creates or reuses a sandbox and launches fixes for selected audit failures. */
 export const launchSelectedAuditFixes = internalAction({
   args: {
     auditId: v.id("audits"),
@@ -195,7 +214,7 @@ ${failureList}
 3. Fix each issue listed above with minimal, focused changes
 4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
 5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${args.selectedFailures.length} issue${args.selectedFailures.length === 1 ? "" : "s"}"
-6. Run: git push origin ${args.branchName}
+6. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${args.repoOwner}/${args.repoName}.git" && git push -u origin ${args.branchName}
 
 ## Rules:
 - Only fix the specific issues listed above — do NOT refactor or change unrelated code
@@ -221,7 +240,12 @@ ${failureList}
           extraEnvVars: {
             STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
             RUN_ID: String(args.runId),
+            CLAUDE_FIRST_EVENT_TIMEOUT_MS: AUDIT_FIRST_EVENT_TIMEOUT_MS,
+            CLAUDE_POST_TEXT_STALL_TIMEOUT_MS: AUDIT_POST_TEXT_STALL_TIMEOUT_MS,
+            CLAUDE_NO_OUTPUT_TIMEOUT_MS: AUDIT_NO_OUTPUT_TIMEOUT_MS,
+            CLAUDE_MAX_TOTAL_RUNTIME_MS: AUDIT_MAX_TOTAL_RUNTIME_MS,
           },
+          enableMcp: false,
         },
       );
     } catch (err) {
@@ -236,6 +260,7 @@ ${failureList}
   },
 });
 
+/** Runs an audit on a session's sandbox using enabled audit categories. */
 export const runSessionAudit = internalAction({
   args: {
     sessionId: v.id("sessions"),
@@ -280,6 +305,13 @@ export const runSessionAudit = internalAction({
         {
           model: "haiku",
           claudeSessionId: sessionClaudeUuid(args.sessionId),
+          extraEnvVars: {
+            CLAUDE_FIRST_EVENT_TIMEOUT_MS: AUDIT_FIRST_EVENT_TIMEOUT_MS,
+            CLAUDE_POST_TEXT_STALL_TIMEOUT_MS: AUDIT_POST_TEXT_STALL_TIMEOUT_MS,
+            CLAUDE_NO_OUTPUT_TIMEOUT_MS: AUDIT_NO_OUTPUT_TIMEOUT_MS,
+            CLAUDE_MAX_TOTAL_RUNTIME_MS: AUDIT_MAX_TOTAL_RUNTIME_MS,
+          },
+          enableMcp: false,
         },
       );
     } catch (err) {

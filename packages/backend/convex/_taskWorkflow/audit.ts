@@ -9,6 +9,7 @@ import {
 } from "./helpers";
 import { parseSectionsFromJson, extractSummaryFromJson } from "./auditParser";
 
+/** Creates a new audit record for a task run and sets initial streaming activity. */
 export const createAudit = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -40,6 +41,7 @@ export const createAudit = internalMutation({
   },
 });
 
+/** Saves the parsed audit result or records an error, then cleans up streaming state. */
 export const saveAuditResult = internalMutation({
   args: {
     auditId: v.id("audits"),
@@ -55,6 +57,7 @@ export const saveAuditResult = internalMutation({
     }
 
     const runId = audit.runId;
+    /** Clears streaming activity records for this audit run. */
     const clearAuditStreaming = async (): Promise<void> => {
       if (runId) {
         await clearStreamingActivity(ctx, getTaskAuditStreamingEntityId(runId));
@@ -102,6 +105,7 @@ export const saveAuditResult = internalMutation({
   },
 });
 
+/** Updates the fix status on an audit record and persists the fix activity log. */
 export const setFixStatus = internalMutation({
   args: {
     auditId: v.id("audits"),

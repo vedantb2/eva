@@ -134,28 +134,6 @@ export const createSessionPr = action({
         ? session.summary.map((item) => `- ${item}`).join("\n")
         : "No summary available";
 
-    // Gather proof links (images/videos) from session messages
-    const messages = await ctx.runQuery(
-      internal.messages.listByParentInternal,
-      { parentId: args.sessionId },
-    );
-    const proofItems: string[] = [];
-    for (const msg of messages) {
-      if (msg.imageUrl) {
-        proofItems.push(`![Screenshot](${msg.imageUrl})`);
-      }
-      if (msg.videoUrl) {
-        proofItems.push(`[Video Recording](${msg.videoUrl})`);
-      }
-    }
-
-    const sections: Array<{ heading: string; content: string }> = [
-      { heading: "Summary", content: summaryContent },
-    ];
-    if (proofItems.length > 0) {
-      sections.push({ heading: "Proof", content: proofItems.join("\n") });
-    }
-
     const prUrl = await ctx.runAction(
       internal.taskWorkflowActions.createPullRequest,
       {
@@ -164,7 +142,7 @@ export const createSessionPr = action({
         repoName: repo.name,
         branchName: session.branchName,
         title: session.title,
-        body: buildPrBody(sections),
+        body: buildPrBody([{ heading: "Summary", content: summaryContent }]),
         labels: ["eva", "session", ...(appLabel ? [appLabel] : [])],
       },
     );

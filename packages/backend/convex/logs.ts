@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { authQuery, hasRepoAccess } from "./functions";
 
+/** Inserts a new log entry for a repo entity (internal use only). */
 export const log = internalMutation({
   args: {
     entityType: v.string(),
@@ -24,6 +25,7 @@ export const log = internalMutation({
   },
 });
 
+/** Lists log entries for a repo, optionally filtered by start time and entity types. */
 export const listByRepo = authQuery({
   args: {
     repoId: v.id("githubRepos"),

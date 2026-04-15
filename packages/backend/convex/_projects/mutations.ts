@@ -14,6 +14,7 @@ import {
   deleteProjectDetails,
 } from "./helpers";
 
+/** Creates a new project in draft phase with an initial conversation message. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -46,6 +47,7 @@ export const create = authMutation({
   },
 });
 
+/** Updates editable fields on a project, including its generated spec. */
 export const update = authMutation({
   args: {
     id: v.id("projects"),
@@ -80,6 +82,7 @@ export const update = authMutation({
   },
 });
 
+/** Appends a message to the project conversation history. */
 export const addMessage = authMutation({
   args: {
     id: v.id("projects"),
@@ -104,6 +107,7 @@ export const addMessage = authMutation({
   },
 });
 
+/** Deletes a project and its associated details document. */
 export const remove = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
@@ -115,6 +119,7 @@ export const remove = authMutation({
   },
 });
 
+/** Deletes a project along with all its tasks and their related data. */
 export const deleteCascade = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
@@ -133,6 +138,7 @@ export const deleteCascade = authMutation({
   },
 });
 
+/** Clears all conversation messages from a project. */
 export const clearMessages = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
@@ -143,6 +149,7 @@ export const clearMessages = authMutation({
   },
 });
 
+/** Sets the pull request URL on a project. */
 export const updatePrUrl = authMutation({
   args: {
     id: v.id("projects"),
@@ -156,6 +163,7 @@ export const updatePrUrl = authMutation({
   },
 });
 
+/** Associates a sandbox ID with a project and records the activity timestamp. */
 export const updateProjectSandbox = authMutation({
   args: {
     id: v.id("projects"),
@@ -172,6 +180,7 @@ export const updateProjectSandbox = authMutation({
   },
 });
 
+/** Removes the sandbox association from a project and triggers sandbox deletion. */
 export const clearProjectSandbox = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
@@ -191,6 +200,7 @@ export const clearProjectSandbox = authMutation({
   },
 });
 
+/** Updates the last sandbox activity timestamp on a project. */
 export const updateLastSandboxActivity = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
@@ -201,6 +211,7 @@ export const updateLastSandboxActivity = authMutation({
   },
 });
 
+/** Updates the content or activity log of the last conversation message in a project. */
 export const updateLastConversationMessage = authMutation({
   args: {
     id: v.id("projects"),

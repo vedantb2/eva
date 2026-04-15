@@ -5,6 +5,7 @@ import { type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
+/** Finds and resets stale in-progress tasks and their timed-out runs. */
 export const cleanupStaleRuns = internalMutation({
   args: {},
   returns: v.object({ tasksFixed: v.number(), runsFixed: v.number() }),
@@ -95,7 +96,6 @@ const STEPS = [
   "tasks",
   "sessions",
   "docs",
-  "researchQueries",
   "designSessions",
   "snapshots",
   "automations",
@@ -105,12 +105,14 @@ const STEPS = [
 
 type Step = (typeof STEPS)[number];
 
+/** Returns the next deletion step in the ordered pipeline, or null if done. */
 function nextStep(current: Step): Step | null {
   const idx = STEPS.indexOf(current);
   if (idx === -1 || idx === STEPS.length - 1) return null;
   return STEPS[idx + 1];
 }
 
+/** Executes one step of the repo deletion pipeline and schedules the next step. */
 export const deleteRepoStep = internalMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -284,26 +286,6 @@ export const deleteRepoStep = internalMutation({
         break;
       }
 
-      case "researchQueries": {
-        const rqs = await ctx.db
-          .query("researchQueries")
-          .withIndex("by_repo", (q) => q.eq("repoId", repoId))
-          .collect();
-        for (const rq of rqs) {
-          const messages = await ctx.db
-            .query("messages")
-            .withIndex("by_parent", (q) => q.eq("parentId", rq._id))
-            .collect();
-          for (const m of messages) {
-            await ctx.db.delete(m._id);
-            deleted++;
-          }
-          await ctx.db.delete(rq._id);
-          deleted++;
-        }
-        break;
-      }
-
       case "designSessions": {
         const dss = await ctx.db
           .query("designSessions")
@@ -370,8 +352,6 @@ export const deleteRepoStep = internalMutation({
 
       case "flatTables": {
         const tables = [
-          "savedQueries",
-          "routines",
           "designPersonas",
           "auditCategories",
           "notifications",
@@ -424,6 +404,7 @@ export const deleteRepoStep = internalMutation({
   },
 });
 
+/** Schedules deletion of all repos not owned by "evalucom" (or vedantb2/eva). */
 export const deleteNonEvalucomRepos = internalMutation({
   args: {},
   returns: v.object({ reposScheduled: v.number() }),
@@ -451,6 +432,38 @@ export const deleteNonEvalucomRepos = internalMutation({
   },
 });
 
+/** Migrates messages and queuedMessages from legacy "ask"/"execute" mode to "edit". */
+export const migrateSessionModes = internalMutation({
+  args: {},
+  returns: v.object({ messagesUpdated: v.number(), queuedUpdated: v.number() }),
+  handler: async (ctx) => {
+    let messagesUpdated = 0;
+    let queuedUpdated = 0;
+
+    const allMessages = await ctx.db.query("messages").collect();
+    for (const msg of allMessages) {
+      if (msg.mode === "ask" || msg.mode === "execute") {
+        await ctx.db.patch(msg._id, { mode: "edit" });
+        messagesUpdated++;
+      }
+    }
+
+    const allQueued = await ctx.db.query("queuedMessages").collect();
+    for (const qm of allQueued) {
+      if (qm.mode === "ask" || qm.mode === "execute") {
+        await ctx.db.patch(qm._id, { mode: "edit" });
+        queuedUpdated++;
+      }
+    }
+
+    console.log(
+      `[migration] migrateSessionModes: updated ${messagesUpdated} messages, ${queuedUpdated} queued messages`,
+    );
+    return { messagesUpdated, queuedUpdated };
+  },
+});
+
+/** Schedules deletion of all repos owned by "evalucom" (or vedantb2/eva). */
 export const deleteEvalucomRepos = internalMutation({
   args: {},
   returns: v.object({ reposScheduled: v.number() }),

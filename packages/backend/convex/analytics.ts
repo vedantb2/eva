@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { authQuery, hasRepoAccess } from "./functions";
 
+/** Returns aggregate impact metrics (PRs shipped, tasks completed, ship rate) for a repo, with optional period comparison. */
 export const getImpactStats = authQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -50,6 +51,7 @@ export const getImpactStats = authQuery({
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
 
+    /** Computes stats for sessions/tasks/runs starting from an optional timestamp. */
     function computeStats(from: number | undefined) {
       const prUrls = new Set<string>();
       const filtered =
@@ -124,6 +126,7 @@ export const getImpactStats = authQuery({
   },
 });
 
+/** Returns the count of users with active sessions in the repo within the last 5 minutes. */
 export const getActiveUsers = authQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -154,6 +157,7 @@ export const getActiveUsers = authQuery({
   },
 });
 
+/** Returns time-bucketed activity data (tasks, runs, sessions, PRs, active users) for charting. */
 export const getActivityTimeline = authQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -198,6 +202,7 @@ export const getActivityTimeline = authQuery({
       };
       activeUsersByBucket[t] = new Set<Id<"users">>();
     }
+    /** Maps a timestamp to its corresponding bucket start time. */
     const getBucket = (timestamp: number) => {
       const bucketStart =
         Math.floor((timestamp - args.startTime) / args.bucketSizeMs) *
@@ -282,6 +287,7 @@ export const getActivityTimeline = authQuery({
   },
 });
 
+/** Returns daily completed-task and successful-run counts for rendering an activity heatmap. */
 export const getActivityHeatmap = authQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -339,6 +345,7 @@ export const getActivityHeatmap = authQuery({
   },
 });
 
+/** Returns the top 5 users ranked by PRs created and tasks completed for a repo. */
 export const getLeaderboard = authQuery({
   args: {
     repoId: v.id("githubRepos"),

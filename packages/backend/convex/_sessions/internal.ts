@@ -3,6 +3,7 @@ import { internalMutation, internalQuery } from "../_generated/server";
 import { sessionValidator } from "./helpers";
 import { deploymentStatusValidator } from "../validators";
 
+/** Retrieves a session by ID for internal use (no auth check). */
 export const getInternal = internalQuery({
   args: { id: v.id("sessions") },
   returns: v.union(sessionValidator, v.null()),
@@ -11,6 +12,7 @@ export const getInternal = internalQuery({
   },
 });
 
+/** Updates the deployment status and optional URL for a session (internal use). */
 export const updateDeploymentStatus = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -31,6 +33,7 @@ export const updateDeploymentStatus = internalMutation({
   },
 });
 
+/** Sets the pull request URL on a session (internal use). */
 export const setPrUrl = internalMutation({
   args: {
     id: v.id("sessions"),

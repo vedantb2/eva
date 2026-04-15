@@ -20,6 +20,7 @@ interface ParsedDocFields {
   userFlows?: Array<{ name: string; steps: string[] }>;
 }
 
+/** Normalizes and sanitizes parsed doc fields (description, requirements, user flows) from LLM output. */
 function normalizeParsedDocFields(
   raw: Partial<ParsedDocFields>,
 ): ParsedDocFields {
@@ -59,6 +60,7 @@ function normalizeParsedDocFields(
 
 // --- Workflow definition ---
 
+/** Runs the PRD parsing workflow: prepares sandbox, launches the agent, and saves extracted fields. */
 export const docPrdWorkflow = workflow.define({
   args: {
     docId: v.id("docs"),
@@ -112,6 +114,7 @@ export const docPrdWorkflow = workflow.define({
 
 // --- Supporting internal functions ---
 
+/** Fetches document and repo data and builds the PRD parsing prompt. */
 export const getDocData = internalQuery({
   args: {
     docId: v.id("docs"),
@@ -154,6 +157,7 @@ Output ONLY valid JSON.`;
   },
 });
 
+/** Saves the PRD parsing result, normalizing and patching the doc with extracted fields. */
 export const saveResult = internalMutation({
   args: {
     docId: v.id("docs"),

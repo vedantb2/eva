@@ -10,6 +10,7 @@ const queuedMessageValidator = v.object({
   ...queuedMessageFields,
 });
 
+/** Lists queued messages for a parent entity, ordered by creation time. */
 export const listByParent = authQuery({
   args: { parentId: parentIdValidator },
   returns: v.array(queuedMessageValidator),
@@ -31,6 +32,7 @@ export const listByParent = authQuery({
   },
 });
 
+/** Updates the content of a queued message. */
 export const update = authMutation({
   args: {
     id: v.id("queuedMessages"),
@@ -61,6 +63,7 @@ export const update = authMutation({
   },
 });
 
+/** Deletes a queued message and updates the parent's timestamp. */
 export const remove = authMutation({
   args: {
     id: v.id("queuedMessages"),

@@ -1,3 +1,4 @@
+/** Shared output format instructions appended to PRD-generating prompts. */
 const PRD_OUTPUT = `## Output Format
 You MUST output ONLY valid JSON with this exact structure:
 {
@@ -12,9 +13,11 @@ You MUST output ONLY valid JSON with this exact structure:
 - User flows: 2-5 journeys from the user's perspective (e.g. "User clicks Create", "User sees a confirmation"). 3-8 steps each
 - NEVER use technical language: no APIs, databases, components, or code`;
 
+/** System prompt for parsing an uploaded document into a structured PRD. */
 export const PARSE_PROMPT = `You are a product manager writing a PRD from an uploaded requirements document. Read CLAUDE.md and explore the codebase to understand existing behavior, but write in plain business language.
 ${PRD_OUTPUT}`;
 
+/** System prompt for conducting a PRD interview with a non-technical stakeholder. */
 export const INTERVIEW_PROMPT = `You are a product manager conducting a PRD interview with a non-technical stakeholder.
 
 ## Before You Ask
@@ -39,5 +42,6 @@ You MUST output ONLY valid JSON:
 OR
 {"ready": true}`;
 
+/** System prompt for generating a PRD from completed interview answers. */
 export const GENERATE_PROMPT = `You are a product manager writing a PRD from interview answers. Read CLAUDE.md and explore the codebase to understand existing behavior, but write in plain business language.
 ${PRD_OUTPUT}`;

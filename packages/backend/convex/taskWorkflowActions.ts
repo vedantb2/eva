@@ -214,160 +214,6 @@ export const appendAuditToPullRequest = internalAction({
   },
 });
 
-/** Builds enriched PR body sections from proof and change request data. */
-function buildEnrichedPrSections(params: {
-  taskDescription: string | undefined;
-  proofs: Array<{
-    url: string | null;
-    fileName?: string;
-    message?: string;
-    contentType: string | null;
-  }>;
-  changeRequests: string[];
-}): Array<{ heading: string; content: string }> {
-  const sections: Array<{ heading: string; content: string }> = [];
-
-  sections.push({
-    heading: "Task",
-    content: params.taskDescription ?? "No description",
-  });
-
-  if (params.changeRequests.length > 0) {
-    const editLines = params.changeRequests.map(
-      (req, i) => `${i + 1}. ${escapeTableCell(req)}`,
-    );
-    sections.push({
-      heading: "Edits Requested",
-      content: editLines.join("\n"),
-    });
-  }
-
-  const mediaProofs = params.proofs.filter((p) => p.url && p.contentType);
-  const messageProofs = params.proofs.filter(
-    (p) => p.message && p.message.trim().length > 0,
-  );
-
-  if (mediaProofs.length > 0 || messageProofs.length > 0) {
-    const proofLines: string[] = [];
-
-    for (const proof of mediaProofs) {
-      if (!proof.url) continue;
-      const label = proof.fileName ?? "Proof";
-      const isImage = proof.contentType?.startsWith("image/") ?? false;
-      if (isImage) {
-        proofLines.push(`![${label}](${proof.url})`);
-      } else {
-        proofLines.push(`[${label}](${proof.url})`);
-      }
-    }
-
-    for (const proof of messageProofs) {
-      if (proof.message) {
-        proofLines.push(`> ${escapeTableCell(proof.message)}`);
-      }
-    }
-
-    sections.push({
-      heading: "Proof of Completion",
-      content: proofLines.join("\n\n"),
-    });
-  }
-
-  return sections;
-}
-
-const PROOF_EDITS_REGEX =
-  /<!-- EVA_PROOF_EDITS_START -->[\s\S]*?<!-- EVA_PROOF_EDITS_END -->\s*/m;
-
-/** Builds the proof/edits block wrapped in boundary markers. */
-function buildProofEditsBlock(
-  sections: Array<{ heading: string; content: string }>,
-): string {
-  const lines: string[] = ["<!-- EVA_PROOF_EDITS_START -->"];
-  for (const section of sections) {
-    lines.push(`## ${section.heading}`);
-    lines.push(section.content);
-    lines.push("");
-  }
-  lines.push("---");
-  lines.push("*Created by Eva AI Agent*");
-  lines.push("<!-- EVA_PROOF_EDITS_END -->");
-  return lines.join("\n");
-}
-
-/** Updates an existing PR body with enriched proof, edits, and task description sections. */
-export const updatePullRequestBody = internalAction({
-  args: {
-    installationId: v.number(),
-    repoOwner: v.string(),
-    repoName: v.string(),
-    branchName: v.string(),
-    taskDescription: v.optional(v.string()),
-    proofs: v.array(
-      v.object({
-        url: v.union(v.string(), v.null()),
-        fileName: v.optional(v.string()),
-        message: v.optional(v.string()),
-        contentType: v.union(v.string(), v.null()),
-      }),
-    ),
-    changeRequests: v.array(v.string()),
-  },
-  returns: v.null(),
-  handler: async (_ctx, args) => {
-    const hasProofs = args.proofs.some(
-      (p) => (p.url && p.contentType) || (p.message && p.message.trim()),
-    );
-    const hasEdits = args.changeRequests.length > 0;
-
-    if (!hasProofs && !hasEdits) return null;
-
-    try {
-      const octokit = await getInstallationOctokit(args.installationId);
-      const pulls = await octokit.rest.pulls.list({
-        owner: args.repoOwner,
-        repo: args.repoName,
-        state: "open",
-        head: `${args.repoOwner}:${args.branchName}`,
-        per_page: 1,
-      });
-      const pr = pulls.data[0];
-      if (!pr) return null;
-
-      const enrichedSections = buildEnrichedPrSections({
-        taskDescription: args.taskDescription,
-        proofs: args.proofs,
-        changeRequests: args.changeRequests,
-      });
-
-      const proofEditsBlock = buildProofEditsBlock(enrichedSections);
-
-      const existingBody = pr.body ?? "";
-
-      // Extract existing audit block to preserve it
-      const auditMatch = existingBody.match(AUDIT_SECTION_REGEX);
-      const auditBlock = auditMatch ? auditMatch[0].trim() : null;
-
-      // Replace entire body with enriched content, preserving audit block
-      const newBody = auditBlock
-        ? `${proofEditsBlock}\n\n${auditBlock}`
-        : proofEditsBlock;
-
-      await octokit.rest.pulls.update({
-        owner: args.repoOwner,
-        repo: args.repoName,
-        pull_number: pr.number,
-        body: newBody,
-      });
-    } catch (error) {
-      console.error(
-        `Failed to update PR body: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    return null;
-  },
-});
-
 const MAX_POLL_ATTEMPTS = 20;
 const POLL_INTERVAL_MS = 60_000;
 
@@ -443,11 +289,28 @@ export const pollDeploymentStatus = internalAction({
       }
 
       const projectNameLower = args.deploymentProjectName?.toLowerCase();
-      const targetDeployment = projectNameLower
-        ? (deployments.find((d) =>
+      const matchedDeployment = projectNameLower
+        ? deployments.find((d) =>
             d.environment.toLowerCase().includes(projectNameLower),
-          ) ?? deployments[0])
-        : deployments[0];
+          )
+        : undefined;
+      const targetDeployment = matchedDeployment ?? deployments[0];
+
+      // If we have a project name filter but no match, keep polling instead of
+      // falling back to an unrelated deployment (e.g. a faster-building monorepo app).
+      if (projectNameLower && !matchedDeployment) {
+        console.log(
+          `[deployment-poll] ${deployments.length} deployment(s) found but none match project=${args.deploymentProjectName}, envs=[${deployments.map((d) => d.environment).join(", ")}], attempt=${args.attempt}`,
+        );
+        if (args.attempt < MAX_POLL_ATTEMPTS) {
+          await ctx.scheduler.runAfter(
+            POLL_INTERVAL_MS,
+            internal.taskWorkflowActions.pollDeploymentStatus,
+            { ...args, attempt: args.attempt + 1 },
+          );
+        }
+        return null;
+      }
 
       const { data: statuses } =
         await octokit.rest.repos.listDeploymentStatuses({
@@ -561,11 +424,28 @@ export const pollSessionDeploymentStatus = internalAction({
       }
 
       const projectNameLower = args.deploymentProjectName?.toLowerCase();
-      const targetDeployment = projectNameLower
-        ? (deployments.find((d) =>
+      const matchedDeployment = projectNameLower
+        ? deployments.find((d) =>
             d.environment.toLowerCase().includes(projectNameLower),
-          ) ?? deployments[0])
-        : deployments[0];
+          )
+        : undefined;
+      const targetDeployment = matchedDeployment ?? deployments[0];
+
+      // If we have a project name filter but no match, keep polling instead of
+      // falling back to an unrelated deployment (e.g. a faster-building monorepo app).
+      if (projectNameLower && !matchedDeployment) {
+        console.log(
+          `[session-deployment-poll] ${deployments.length} deployment(s) found but none match project=${args.deploymentProjectName}, envs=[${deployments.map((d) => d.environment).join(", ")}], attempt=${args.attempt}`,
+        );
+        if (args.attempt < MAX_POLL_ATTEMPTS) {
+          await ctx.scheduler.runAfter(
+            POLL_INTERVAL_MS,
+            internal.taskWorkflowActions.pollSessionDeploymentStatus,
+            { ...args, attempt: args.attempt + 1 },
+          );
+        }
+        return null;
+      }
 
       const { data: statuses } =
         await octokit.rest.repos.listDeploymentStatuses({

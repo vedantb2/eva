@@ -3,6 +3,7 @@
 import { Octokit } from "octokit";
 import { createAppAuth } from "@octokit/auth-app";
 
+/** Normalizes a PEM private key string by fixing line breaks and formatting. */
 export function normalizePemKey(raw: string): string {
   const cleaned = raw.replace(/\\n/g, "\n").replace(/\\+$/gm, "").trim();
   if (cleaned.includes("\n")) return cleaned;
@@ -27,6 +28,7 @@ export function normalizePemKey(raw: string): string {
   return lines.join("\n");
 }
 
+/** Builds an authenticated GitHub clone URL using an access token. */
 export function buildGitHubRepoUrl(
   owner: string,
   repo: string,
@@ -35,12 +37,14 @@ export function buildGitHubRepoUrl(
   return `https://x-access-token:${token}@github.com/${owner}/${repo}.git`;
 }
 
+/** Builds a base64-encoded authorization header for git HTTP operations. */
 export function buildGitHubExtraHeader(token: string): string {
   return `AUTHORIZATION: basic ${Buffer.from(
     `x-access-token:${token}`,
   ).toString("base64")}`;
 }
 
+/** Reads GitHub App credentials from environment variables. */
 export function getGitHubCredentials() {
   const appId = process.env.GITHUB_APP_ID;
   const rawKey = process.env.GITHUB_PRIVATE_KEY;
@@ -57,6 +61,7 @@ export function getGitHubCredentials() {
   };
 }
 
+/** Generates a short-lived access token for a GitHub App installation. */
 export async function getInstallationToken(
   installationId: number,
 ): Promise<string> {
@@ -69,6 +74,7 @@ export async function getInstallationToken(
   return installationAuth.token;
 }
 
+/** Creates an Octokit client authenticated as a specific GitHub App installation. */
 export async function getInstallationOctokit(
   installationId: number,
 ): Promise<Octokit> {

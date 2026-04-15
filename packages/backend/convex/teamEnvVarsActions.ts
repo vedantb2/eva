@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { encryptValue, decryptValue } from "./encryption";
 
+/** Decrypts and reveals the plaintext value of a specific team env var. */
 export const revealValue = action({
   args: {
     teamId: v.id("teams"),
@@ -29,6 +30,7 @@ export const revealValue = action({
   },
 });
 
+/** Encrypts and upserts a team env var value. */
 export const upsertVar = action({
   args: {
     teamId: v.id("teams"),

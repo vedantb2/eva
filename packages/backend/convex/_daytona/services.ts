@@ -5,6 +5,7 @@ import { action } from "../_generated/server";
 import { exec, getSandbox, workspaceDirShell } from "./helpers";
 import { setDisplayResolution, launchChrome } from "./desktop";
 
+/** Starts or stops a code-server instance inside a sandbox on port 8080. */
 export const toggleCodeServer = action({
   args: {
     sandboxId: v.string(),
@@ -32,6 +33,7 @@ export const toggleCodeServer = action({
   },
 });
 
+/** Starts or stops the desktop (computer-use) server inside a sandbox. */
 export const toggleDesktopServer = action({
   args: {
     sandboxId: v.string(),
@@ -56,6 +58,7 @@ export const toggleDesktopServer = action({
   },
 });
 
+/** Launches Chrome inside the sandbox desktop environment. */
 export const launchChromeInDesktop = action({
   args: {
     sandboxId: v.string(),

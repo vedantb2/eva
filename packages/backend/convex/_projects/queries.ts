@@ -7,6 +7,7 @@ import {
   getProjectGeneratedSpec,
 } from "./helpers";
 
+/** Lists all projects for a repo. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(projectSummaryValidator),
@@ -20,6 +21,7 @@ export const list = authQuery({
   },
 });
 
+/** Retrieves a project by ID with its conversation history and generated spec. */
 export const get = authQuery({
   args: { id: v.id("projects") },
   returns: v.union(projectWithDetailsValidator, v.null()),
@@ -39,6 +41,7 @@ export const get = authQuery({
   },
 });
 
+/** Returns the number of tasks in a project. */
 export const getTaskCount = authQuery({
   args: { projectId: v.id("projects") },
   returns: v.number(),
@@ -54,6 +57,7 @@ export const getTaskCount = authQuery({
   },
 });
 
+/** Counts projects that currently have an active build workflow running. */
 export const countBuilding = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.number(),
@@ -67,6 +71,7 @@ export const countBuilding = authQuery({
   },
 });
 
+/** Returns a breakdown of task counts by status for a project. */
 export const getTaskProgress = authQuery({
   args: { projectId: v.id("projects") },
   returns: v.object({

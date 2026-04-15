@@ -9,6 +9,7 @@ import {
   exec,
   resolveSandboxContext,
   getSandbox,
+  ensureSandboxRunning,
   sleep,
   errorMessage,
   signAndLaunchScript,
@@ -17,18 +18,16 @@ import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import {
   fetchOrigin,
   setupBranch,
-  configureGitHubOrigin,
   checkoutFetchedBaseBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
-  createBranchSyncStrategy,
-  type RepoSyncStrategy,
   EPHEMERAL_LIFECYCLE,
   SESSION_LIFECYCLE,
 } from "./git";
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 
+/** Checks whether a sandbox is healthy, starting it if stopped. */
 export const validateSandbox = internalAction({
   args: {
     sandboxId: v.string(),
@@ -38,7 +37,8 @@ export const validateSandbox = internalAction({
   handler: async (ctx, args) => {
     try {
       const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-      await exec(sandbox, "echo ok", 10);
+      // Start the sandbox if it's stopped (fast resume ~3-5s)
+      await ensureSandboxRunning(sandbox);
       return { healthy: true };
     } catch (e) {
       console.error("Sandbox validation failed:", e);
@@ -47,6 +47,7 @@ export const validateSandbox = internalAction({
   },
 });
 
+/** Executes a shell command on a sandbox and returns the output. */
 export const runSandboxCommand = internalAction({
   args: {
     sandboxId: v.string(),
@@ -63,6 +64,7 @@ export const runSandboxCommand = internalAction({
   },
 });
 
+/** Returns a signed preview URL for a sandbox port, optionally checking readiness. */
 export const getPreviewUrl = action({
   args: {
     sandboxId: v.string(),
@@ -106,32 +108,22 @@ export const getPreviewUrl = action({
 });
 
 const MAX_SETUP_ELAPSED_MS = 8 * 60 * 1000;
+const QUICK_TASK_FIRST_EVENT_TIMEOUT_MS = "45000";
+const QUICK_TASK_POST_TEXT_STALL_TIMEOUT_MS = "45000";
+const QUICK_TASK_NO_OUTPUT_TIMEOUT_MS = "45000";
+const QUICK_TASK_MAX_TOTAL_RUNTIME_MS = "1200000";
 
-function getSandboxPrepSyncStrategy(
-  branchName: string | undefined,
-  baseBranch: string | undefined,
-): RepoSyncStrategy {
-  if (!branchName && !baseBranch) {
-    return { mode: "none" };
-  }
-  const branchTargets: string[] = [];
-  if (baseBranch) {
-    branchTargets.push(baseBranch);
-  } else if (branchName) {
-    branchTargets.push("main");
-  }
-  if (branchName) {
-    branchTargets.push(branchName);
-  }
-  return createBranchSyncStrategy(branchTargets);
-}
-
+/** Checks if a sandbox setup error is transient and worth retrying. */
 function isSandboxSetupRetryable(message: string): boolean {
   if (isDaytonaNetworkIssue(message)) {
     return true;
   }
   const lowered = message.toLowerCase();
   const gitNetworkMarkers = [
+    "status code 502",
+    "status code 503",
+    "status code 504",
+    "fetch failed",
     "gnutls recv error",
     "tls connection was non-properly terminated",
     "remote end hung up unexpectedly",
@@ -142,10 +134,12 @@ function isSandboxSetupRetryable(message: string): boolean {
   ];
   return (
     (lowered.includes("sandbox exec") && lowered.includes("timed out")) ||
+    lowered.includes("command execution timeout") ||
     gitNetworkMarkers.some((marker) => lowered.includes(marker))
   );
 }
 
+/** Creates or resumes a sandbox with local branch setup, desktop, and retry logic. */
 export const prepareSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
@@ -182,6 +176,9 @@ export const prepareSandbox = internalAction({
     };
 
     const setupStartedAt = Date.now();
+    console.log(
+      `[daytona] prepareSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
+    );
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
@@ -192,6 +189,9 @@ export const prepareSandbox = internalAction({
           args.sessionPersistenceId,
         )
       : undefined;
+    console.log(
+      `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
+    );
     let sandbox: Sandbox | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
@@ -244,22 +244,6 @@ export const prepareSandbox = internalAction({
           deleteSandboxOnFailure = prepared.isNew;
         }
 
-        if (args.baseBranch) {
-          await emitProgress("Fetching base branch...");
-          await fetchOrigin(
-            sandbox,
-            args.installationId,
-            args.repoOwner,
-            args.repoName,
-            args.baseBranch,
-            { prune: false, timeoutSeconds: 240 },
-          );
-          if (!args.branchName) {
-            await emitProgress("Checking out base branch...");
-            await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
-          }
-        }
-
         if (args.branchName) {
           await emitProgress("Setting up branch...");
           await setupBranch(
@@ -267,6 +251,9 @@ export const prepareSandbox = internalAction({
             args.branchName,
             args.baseBranch ?? "main",
           );
+        } else if (args.baseBranch) {
+          await emitProgress("Checking out base branch...");
+          await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
         }
 
         if (args.startDesktop) {
@@ -277,6 +264,9 @@ export const prepareSandbox = internalAction({
         break;
       } catch (error) {
         if (deleteSandboxOnFailure && sandbox) {
+          console.warn(
+            `[daytona] prepareSandbox: deleting failed sandbox ${sandbox.id}`,
+          );
           try {
             await sandbox.delete();
           } catch {}
@@ -284,18 +274,24 @@ export const prepareSandbox = internalAction({
 
         const message = errorMessage(error, "Sandbox setup failed");
         const elapsed = Date.now() - setupStartedAt;
-        const shouldRetry =
-          isSandboxSetupRetryable(message) && elapsed < MAX_SETUP_ELAPSED_MS;
+        const retryable = isSandboxSetupRetryable(message);
+        const withinTimeLimit = elapsed < MAX_SETUP_ELAPSED_MS;
+        const shouldRetry = retryable && withinTimeLimit;
+
+        console.warn(
+          `[daytona] prepareSandbox: attempt ${attempt}/${maxSetupAttempts} failed after ${elapsed}ms — retryable=${retryable}, withinTimeLimit=${withinTimeLimit}, shouldRetry=${shouldRetry}: ${message}`,
+        );
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
+          console.error(
+            `[daytona] prepareSandbox: giving up after ${attempt} attempt(s), total elapsed=${elapsed}ms: ${message}`,
+          );
           throw error;
         }
 
         const delayMs =
           2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
-        console.warn(
-          `[daytona] prepareSandbox transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
-        );
+        console.warn(`[daytona] prepareSandbox: retrying in ${delayMs}ms`);
         await sleep(delayMs);
         completedSteps.length = 0;
         await emitProgress("Retrying sandbox setup...");
@@ -309,10 +305,15 @@ export const prepareSandbox = internalAction({
       throw new Error("Sandbox setup failed");
     }
 
+    const totalElapsed = Date.now() - setupStartedAt;
+    console.log(
+      `[daytona] prepareSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
+    );
     return { sandboxId: sandbox.id };
   },
 });
 
+/** Creates or resumes a sandbox without performing repo sync. */
 export const createOrResumeSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
@@ -348,6 +349,9 @@ export const createOrResumeSandbox = internalAction({
     };
 
     const setupStartedAt = Date.now();
+    console.log(
+      `[daytona] createOrResumeSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
+    );
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
     const sessionVolumeMounts = args.sessionPersistenceId
@@ -358,9 +362,8 @@ export const createOrResumeSandbox = internalAction({
           args.sessionPersistenceId,
         )
       : undefined;
-    const syncStrategy = getSandboxPrepSyncStrategy(
-      args.branchName,
-      args.baseBranch,
+    console.log(
+      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
     );
 
     let sandbox: Sandbox | undefined;
@@ -393,7 +396,7 @@ export const createOrResumeSandbox = internalAction({
             sessionVolumeMounts,
             attachRunSandbox,
             emitProgress,
-            syncStrategy,
+            { mode: "none" },
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -409,7 +412,7 @@ export const createOrResumeSandbox = internalAction({
             snapshotName,
             sessionVolumeMounts,
             emitProgress,
-            syncStrategy,
+            { mode: "none" },
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
@@ -425,6 +428,9 @@ export const createOrResumeSandbox = internalAction({
         break;
       } catch (error) {
         if (deleteSandboxOnFailure && sandbox) {
+          console.warn(
+            `[daytona] createOrResumeSandbox: deleting failed sandbox ${sandbox.id}`,
+          );
           try {
             await sandbox.delete();
           } catch {}
@@ -432,17 +438,25 @@ export const createOrResumeSandbox = internalAction({
 
         const message = errorMessage(error, "Sandbox setup failed");
         const elapsed = Date.now() - setupStartedAt;
-        const shouldRetry =
-          isSandboxSetupRetryable(message) && elapsed < MAX_SETUP_ELAPSED_MS;
+        const retryable = isSandboxSetupRetryable(message);
+        const withinTimeLimit = elapsed < MAX_SETUP_ELAPSED_MS;
+        const shouldRetry = retryable && withinTimeLimit;
+
+        console.warn(
+          `[daytona] createOrResumeSandbox: attempt ${attempt}/${maxSetupAttempts} failed after ${elapsed}ms — retryable=${retryable}, withinTimeLimit=${withinTimeLimit}, shouldRetry=${shouldRetry}: ${message}`,
+        );
 
         if (!shouldRetry || attempt >= maxSetupAttempts) {
+          console.error(
+            `[daytona] createOrResumeSandbox: giving up after ${attempt} attempt(s), total elapsed=${elapsed}ms: ${message}`,
+          );
           throw error;
         }
 
         const delayMs =
           2500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 1000);
         console.warn(
-          `[daytona] createOrResumeSandbox transient failure (attempt ${attempt}/${maxSetupAttempts}), retrying in ${delayMs}ms: ${message}`,
+          `[daytona] createOrResumeSandbox: retrying in ${delayMs}ms`,
         );
         await sleep(delayMs);
         completedSteps.length = 0;
@@ -457,10 +471,15 @@ export const createOrResumeSandbox = internalAction({
       throw new Error("Sandbox setup failed");
     }
 
+    const totalElapsed = Date.now() - setupStartedAt;
+    console.log(
+      `[daytona] createOrResumeSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
+    );
     return { sandboxId: sandbox.id };
   },
 });
 
+/** Fetches a base branch from the remote origin into the sandbox. */
 export const fetchBaseBranch = internalAction({
   args: {
     sandboxId: v.string(),
@@ -479,18 +498,16 @@ export const fetchBaseBranch = internalAction({
       args.repoOwner,
       args.repoName,
       args.baseBranch,
-      { prune: false, timeoutSeconds: 240 },
+      { prune: false, timeoutSeconds: 60, shallow: true, retryAttempts: 2 },
     );
     return null;
   },
 });
 
+/** Checks out a previously fetched base branch in the sandbox. */
 export const checkoutBaseBranch = internalAction({
   args: {
     sandboxId: v.string(),
-    installationId: v.number(),
-    repoOwner: v.string(),
-    repoName: v.string(),
     baseBranch: v.string(),
     repoId: v.id("githubRepos"),
   },
@@ -502,12 +519,10 @@ export const checkoutBaseBranch = internalAction({
   },
 });
 
+/** Configures the GitHub origin and sets up a working branch in the sandbox. */
 export const setupSandboxBranch = internalAction({
   args: {
     sandboxId: v.string(),
-    installationId: v.number(),
-    repoOwner: v.string(),
-    repoName: v.string(),
     branchName: v.string(),
     baseBranch: v.string(),
     repoId: v.id("githubRepos"),
@@ -515,17 +530,12 @@ export const setupSandboxBranch = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await configureGitHubOrigin(
-      sandbox,
-      args.installationId,
-      args.repoOwner,
-      args.repoName,
-    );
     await setupBranch(sandbox, args.branchName, args.baseBranch);
     return null;
   },
 });
 
+/** Launches an AI agent script on an existing sandbox with streaming and token setup. */
 export const launchOnExistingSandbox = internalAction({
   args: {
     sandboxId: v.string(),
@@ -578,6 +588,12 @@ export const launchOnExistingSandbox = internalAction({
         ? "true"
         : "false";
     }
+    extraEnvVars.CLAUDE_FIRST_EVENT_TIMEOUT_MS =
+      QUICK_TASK_FIRST_EVENT_TIMEOUT_MS;
+    extraEnvVars.CLAUDE_POST_TEXT_STALL_TIMEOUT_MS =
+      QUICK_TASK_POST_TEXT_STALL_TIMEOUT_MS;
+    extraEnvVars.CLAUDE_NO_OUTPUT_TIMEOUT_MS = QUICK_TASK_NO_OUTPUT_TIMEOUT_MS;
+    extraEnvVars.CLAUDE_MAX_TOTAL_RUNTIME_MS = QUICK_TASK_MAX_TOTAL_RUNTIME_MS;
 
     const normalizedModel = normalizeAIModel(args.model);
     const claudeSessionId =
@@ -602,6 +618,7 @@ export const launchOnExistingSandbox = internalAction({
         extraEnvVars:
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
         claudeSessionId,
+        enableMcp: false,
       },
     );
     console.log(

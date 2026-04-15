@@ -45,10 +45,14 @@ function buildSnapshotImage(
       // Fix DNS: xfce4 pulls in libnss-mdns which inserts mdns4_minimal [NOTFOUND=return]
       // before dns in nsswitch.conf, causing getaddrinfo() to fail for external hosts
       "sed -i 's/mdns4_minimal \\[NOTFOUND=return\\] //' /etc/nsswitch.conf",
+      // Daytona sandboxes do not support IPv6 — force IPv4 DNS resolution
+      "echo 'precedence ::ffff:0:0/96 100' > /etc/gai.conf",
       // Chrome
       'apt-get install -y wget gnupg && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && apt-get update && apt-get install -y google-chrome-stable',
       // Docker Engine (includes Docker Compose V2 plugin)
       "curl -fsSL https://get.docker.com | VERSION=28.3.3 sh",
+      // Docker daemon config: explicit DNS, lower MTU for nested Docker, disable IPv6
+      'mkdir -p /etc/docker && echo \'{"dns":["1.1.1.1","8.8.8.8"],"mtu":1400,"ipv6":false,"ip6tables":false,"max-concurrent-downloads":3}\' > /etc/docker/daemon.json',
       // Passwordless sudo for eva (base64-encoded to avoid parentheses breaking Dockerfile RUN)
       `printf %s ${EVA_SUDOERS_B64}|base64 -d>/etc/sudoers.d/eva&&chmod 440 /etc/sudoers.d/eva`,
       // Cleanup
@@ -82,11 +86,13 @@ function buildSnapshotImage(
       PNPM_HOME: "/home/eva/.pnpm",
       NODE_PATH: "/usr/lib/node_modules",
       PATH: "/home/eva/.pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      // Use Docker Hub instead of ECR — Daytona sandboxes can't reach public.ecr.aws reliably
+      SUPABASE_INTERNAL_IMAGE_REGISTRY: "docker.io",
     })
     .runCommands(
       "mkdir -p /home/eva/.pnpm",
       // Clone the target repo and install dependencies for pre-caching
-      `git clone --depth 1 --branch ${branch} https://x-access-token:${token}@github.com/${owner}/${repoName}.git /tmp/repo`,
+      `git clone --branch ${branch} https://x-access-token:${token}@github.com/${owner}/${repoName}.git /tmp/repo`,
     )
     .workdir("/tmp/repo")
     .runCommands("pnpm install --frozen-lockfile");

@@ -340,8 +340,8 @@ export async function createSandbox(
     try {
       await exec(
         sandbox,
-        "sudo dockerd >/dev/null 2>&1 & sleep 2 && docker info >/dev/null 2>&1",
-        15,
+        "sudo pkill -9 containerd 2>/dev/null; sudo pkill -9 dockerd 2>/dev/null; sleep 1; sudo rm -f /var/run/docker.sock /var/run/docker/containerd/containerd.sock 2>/dev/null; sudo dockerd >/dev/null 2>&1 & sleep 4 && docker info >/dev/null 2>&1",
+        20,
       );
       logGit("createSandbox: Docker daemon started");
     } catch {
@@ -499,8 +499,8 @@ export async function syncRepo(
       strategy.branchNames,
       {
         prune: false,
-        timeoutSeconds: 60,
-        shallow: true,
+        timeoutSeconds: 120,
+        shallow: false,
       },
     );
   });

@@ -339,7 +339,7 @@ export function SessionListSidebar<T extends SessionItem>({
                             to={`${baseUrl}/${session._id}`}
                             onClick={onNavigate}
                             className={cn(
-                              "mx-1 block rounded-md px-3 py-2 transition-all duration-200",
+                              "group mx-1 block rounded-md px-3 py-2 transition-all duration-200",
                               isSelected
                                 ? "bg-sidebar-accent text-sidebar-primary"
                                 : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50",
@@ -348,7 +348,14 @@ export function SessionListSidebar<T extends SessionItem>({
                             <h3 className="truncate text-sm">
                               {session.title}
                             </h3>
-                            <span className="text-xs text-muted-foreground/60">
+                            <span
+                              className={cn(
+                                "text-xs text-muted-foreground/60 transition-opacity",
+                                isSelected
+                                  ? "opacity-100"
+                                  : "opacity-0 group-hover:opacity-100",
+                              )}
+                            >
                               {dayjs(
                                 session.updatedAt ?? session._creationTime,
                               ).fromNow()}

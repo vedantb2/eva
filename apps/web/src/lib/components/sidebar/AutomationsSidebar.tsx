@@ -144,8 +144,15 @@ export function AutomationsSidebar({
                         )}
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {dayjs(automation.updatedAt).fromNow()}
+                    <span
+                      className={cn(
+                        "text-xs text-muted-foreground transition-opacity",
+                        isSelected
+                          ? "opacity-100"
+                          : "opacity-0 group-hover:opacity-100",
+                      )}
+                    >
+                      {dayjs(automation._creationTime).fromNow()}
                     </span>
                   </Link>
                 </div>

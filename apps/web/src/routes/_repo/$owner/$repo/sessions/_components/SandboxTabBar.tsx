@@ -90,28 +90,28 @@ export function SandboxTabBar({
               PRD
             </TabsTrigger>
           ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                disabled={newTerminalDisabled}
+                className="ml-1 flex h-[30px] w-8 shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                aria-label="Open tab menu"
+              >
+                <IconPlus className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[10rem]">
+              <DropdownMenuItem
+                onClick={onNewTerminal}
+                disabled={newTerminalDisabled}
+              >
+                New Terminal
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </TabsList>
       </Tabs>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            disabled={newTerminalDisabled}
-            className="mb-px flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-            aria-label="Open tab menu"
-          >
-            <IconPlus className="h-4 w-4" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[10rem]">
-          <DropdownMenuItem
-            onClick={onNewTerminal}
-            disabled={newTerminalDisabled}
-          >
-            New Terminal
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
       <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
     </div>
   );

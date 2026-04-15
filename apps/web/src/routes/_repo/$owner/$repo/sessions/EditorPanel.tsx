@@ -3,7 +3,13 @@ import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { Spinner, Button } from "@conductor/ui";
-import { IconCode, IconRefresh } from "@tabler/icons-react";
+import {
+  IconCode,
+  IconRefresh,
+  IconMaximize,
+  IconExternalLink,
+  IconPlayerStop,
+} from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { createSessionCache } from "@/lib/utils/sessionCache";
@@ -28,8 +34,10 @@ export function EditorPanel({
   const [url, setUrl] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<EditorState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const attempts = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const toggleCodeServer = useAction(api.daytona.toggleCodeServer);
 
@@ -110,6 +118,20 @@ export function EditorPanel({
     sessionId,
   ]);
 
+  const stopEditor = useCallback(async () => {
+    if (!sandboxId) return;
+    stopPolling();
+    setEditorState("idle");
+    setUrl(null);
+    setError(null);
+    editorCache.clear(sessionId);
+    try {
+      await toggleCodeServer({ sandboxId, repoId, action: "stop" });
+    } catch {
+      // best-effort stop
+    }
+  }, [sandboxId, stopPolling, sessionId, toggleCodeServer, repoId]);
+
   useEffect(() => {
     if (isActive && sandboxId && editorState === "idle") {
       const cached = editorCache.get(sessionId);
@@ -123,6 +145,26 @@ export function EditorPanel({
     }
     return stopPolling;
   }, [isActive, sandboxId, editorState, stopPolling, sessionId]);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    } else {
+      containerRef.current.requestFullscreen();
+      setIsFullscreen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   if (!isActive || !sandboxId) {
     return (
@@ -146,7 +188,32 @@ export function EditorPanel({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" ref={containerRef}>
+      {url && editorState === "running" && (
+        <div className="flex items-center justify-end gap-1 pb-1 mb-1 px-2 py-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            onClick={toggleFullscreen}
+          >
+            <IconMaximize className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="ghost" className="size-8" asChild>
+            <a href={url} target="_blank" rel="noopener noreferrer">
+              <IconExternalLink className="w-4 h-4" />
+            </a>
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8 text-destructive hover:bg-destructive/10"
+            onClick={stopEditor}
+          >
+            <IconPlayerStop className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
       <div className="flex-1 min-h-0 relative">
         {editorState === "starting" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-secondary z-10 gap-3">

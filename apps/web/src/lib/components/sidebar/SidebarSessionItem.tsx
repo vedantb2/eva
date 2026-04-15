@@ -84,7 +84,12 @@ export function SidebarSessionItem({
         <div className="flex -space-x-1">
           <UserInitials userId={userId} />
         </div>
-        <span className="shrink-0 text-xs text-muted-foreground/60">
+        <span
+          className={cn(
+            "shrink-0 text-xs text-muted-foreground/60 transition-opacity",
+            isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          )}
+        >
           {compactTimeAgo(timestamp)}
         </span>
       </div>

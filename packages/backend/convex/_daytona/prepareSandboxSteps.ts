@@ -27,6 +27,10 @@ const FETCH_STEP_RETRY = {
   retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 },
 };
 
+const BRANCH_STEP_RETRY = {
+  retry: { maxAttempts: 3, initialBackoffMs: 2500, base: 2 },
+};
+
 /** Emits progress steps to the streaming entity for real-time UI updates. */
 async function emitSteps(
   step: WorkflowCtx,
@@ -143,12 +147,16 @@ export async function prepareSandboxSteps(
       { type: "tool", label: "Setting up branch...", status: "active" },
     ]);
 
-    await step.runAction(internal.daytona.setupSandboxBranch, {
-      sandboxId,
-      branchName: args.branchName,
-      baseBranch,
-      repoId: args.repoId,
-    });
+    await step.runAction(
+      internal.daytona.setupSandboxBranch,
+      {
+        sandboxId,
+        branchName: args.branchName,
+        baseBranch,
+        repoId: args.repoId,
+      },
+      BRANCH_STEP_RETRY,
+    );
   } else if (args.baseBranch) {
     await emitSteps(step, args.streamingEntityId, [
       ...completedSteps,
@@ -159,11 +167,15 @@ export async function prepareSandboxSteps(
       },
     ]);
 
-    await step.runAction(internal.daytona.checkoutBaseBranch, {
-      sandboxId,
-      baseBranch: args.baseBranch,
-      repoId: args.repoId,
-    });
+    await step.runAction(
+      internal.daytona.checkoutBaseBranch,
+      {
+        sandboxId,
+        baseBranch: args.baseBranch,
+        repoId: args.repoId,
+      },
+      BRANCH_STEP_RETRY,
+    );
   }
 
   return sandboxId;

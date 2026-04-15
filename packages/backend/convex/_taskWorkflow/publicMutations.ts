@@ -114,7 +114,6 @@ export const handleCompletion = authMutation({
       );
     }
 
-    // Mark run as finalizing before forwarding the completion event
     await ctx.db.patch(latestRunningRun._id, {
       finalizingAt: Date.now(),
     });
@@ -131,9 +130,14 @@ export const handleCompletion = authMutation({
         },
       });
     } catch (error) {
-      throw new Error(
-        `Failed to deliver completion event: ${error instanceof Error ? error.message : String(error)}`,
+      await ctx.db.patch(latestRunningRun._id, {
+        finalizingAt: undefined,
+      });
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[taskWorkflow] handleCompletion: workflow.sendEvent failed after finalizing; run=${String(args.runId)} task=${String(args.taskId)}: ${detail}`,
       );
+      throw new Error(`Failed to deliver completion event: ${detail}`);
     }
 
     if (task.repoId) {
@@ -199,9 +203,11 @@ export const handleAuditCompletion = authMutation({
         },
       });
     } catch (error) {
-      throw new Error(
-        `Failed to deliver audit completion event: ${error instanceof Error ? error.message : String(error)}`,
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[taskWorkflow] handleAuditCompletion: workflow.sendEvent failed task=${String(args.taskId)} runId=${String(args.runId)}: ${detail}`,
       );
+      throw new Error(`Failed to deliver audit completion event: ${detail}`);
     }
 
     const task = await ctx.db.get(args.taskId);

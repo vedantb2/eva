@@ -175,7 +175,13 @@ export const updatePlanContent = authMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Session not found");
-    await ctx.db.patch(args.id, { planContent: args.planContent });
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, {
+      planContent: args.planContent,
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });

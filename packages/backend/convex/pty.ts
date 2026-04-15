@@ -41,6 +41,31 @@ async function createPtyInWorkspace(
   throw new Error("Failed to create PTY");
 }
 
+async function ensurePtySessionReady(
+  sandbox: Sandbox,
+  ptyId: string,
+  cols: number,
+  rows: number,
+): Promise<{ isNewPty: boolean }> {
+  try {
+    await sandbox.process.resizePtySession(ptyId, cols, rows);
+    return { isNewPty: false };
+  } catch {
+    try {
+      const handle = await createPtyInWorkspace(sandbox, ptyId, cols, rows);
+      await handle.disconnect();
+      return { isNewPty: true };
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      if (errMsg.includes("already exists")) {
+        await sandbox.process.resizePtySession(ptyId, cols, rows);
+        return { isNewPty: false };
+      }
+      throw e;
+    }
+  }
+}
+
 /** Fetches the toolbox proxy base URL for a Daytona sandbox. */
 async function getToolboxBaseUrl(
   sandboxId: string,
@@ -67,6 +92,7 @@ export const connectPty = action({
     sessionId: v.id("sessions"),
     cols: v.number(),
     rows: v.number(),
+    ptyInstanceId: v.optional(v.string()),
   },
   returns: v.object({
     wsUrl: v.string(),
@@ -90,45 +116,63 @@ export const connectPty = action({
     const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(session.sandboxId);
 
-    const ptyId =
-      session.ptySessionId || `pty-${String(args.sessionId).slice(-8)}`;
-    let isNewPty = false;
+    const explicitId =
+      args.ptyInstanceId !== undefined && args.ptyInstanceId.length > 0
+        ? args.ptyInstanceId
+        : null;
 
-    if (session.ptySessionId) {
-      try {
-        await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
-      } catch {
-        const handle = await createPtyInWorkspace(
-          sandbox,
-          ptyId,
-          args.cols,
-          args.rows,
-        );
-        await handle.disconnect();
+    let ptyId: string;
+    let isNewPty: boolean;
+
+    if (explicitId) {
+      const result = await ensurePtySessionReady(
+        sandbox,
+        explicitId,
+        args.cols,
+        args.rows,
+      );
+      ptyId = explicitId;
+      isNewPty = result.isNewPty;
+    } else {
+      ptyId = session.ptySessionId || `pty-${String(args.sessionId).slice(-8)}`;
+      isNewPty = false;
+
+      if (session.ptySessionId) {
+        try {
+          await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
+        } catch {
+          const handle = await createPtyInWorkspace(
+            sandbox,
+            ptyId,
+            args.cols,
+            args.rows,
+          );
+          await handle.disconnect();
+          isNewPty = true;
+        }
+      } else {
+        try {
+          const handle = await createPtyInWorkspace(
+            sandbox,
+            ptyId,
+            args.cols,
+            args.rows,
+          );
+          await handle.disconnect();
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : String(e);
+          if (errMsg.includes("already exists")) {
+            await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
+          } else {
+            throw e;
+          }
+        }
+        await ctx.runMutation(internal.sessions.updatePtySessionInternal, {
+          id: args.sessionId,
+          ptySessionId: ptyId,
+        });
         isNewPty = true;
       }
-    } else {
-      try {
-        const handle = await createPtyInWorkspace(
-          sandbox,
-          ptyId,
-          args.cols,
-          args.rows,
-        );
-        await handle.disconnect();
-      } catch (e) {
-        const errMsg = e instanceof Error ? e.message : String(e);
-        if (errMsg.includes("already exists")) {
-          await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
-        } else {
-          throw e;
-        }
-      }
-      await ctx.runMutation(internal.sessions.updatePtySessionInternal, {
-        id: args.sessionId,
-        ptySessionId: ptyId,
-      });
-      isNewPty = true;
     }
 
     const [toolboxUrl, previewLink] = await Promise.all([
@@ -152,6 +196,7 @@ export const resizePty = action({
     sessionId: v.id("sessions"),
     cols: v.number(),
     rows: v.number(),
+    ptyInstanceId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
@@ -164,8 +209,13 @@ export const resizePty = action({
     if (!session) throw new Error("Session not found");
     if (!session.sandboxId) throw new Error("Sandbox not active");
 
-    const ptyId =
-      session.ptySessionId || `pty-${String(args.sessionId).slice(-8)}`;
+    const explicitId =
+      args.ptyInstanceId !== undefined && args.ptyInstanceId.length > 0
+        ? args.ptyInstanceId
+        : null;
+    const ptyId = explicitId
+      ? explicitId
+      : session.ptySessionId || `pty-${String(args.sessionId).slice(-8)}`;
 
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, session.repoId);
     const daytona = getDaytona(daytonaApiKey);
@@ -180,6 +230,7 @@ export const resizePty = action({
 export const disconnectPty = action({
   args: {
     sessionId: v.id("sessions"),
+    ptyInstanceId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
@@ -192,8 +243,14 @@ export const disconnectPty = action({
     if (!session) throw new Error("Session not found");
     if (!session.sandboxId) throw new Error("Sandbox not active");
 
-    const ptyId =
-      session.ptySessionId || `pty-${String(args.sessionId).slice(-8)}`;
+    const explicitId =
+      args.ptyInstanceId !== undefined && args.ptyInstanceId.length > 0
+        ? args.ptyInstanceId
+        : null;
+
+    const ptyId = explicitId
+      ? explicitId
+      : session.ptySessionId || `pty-${String(args.sessionId).slice(-8)}`;
 
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, session.repoId);
     const daytona = getDaytona(daytonaApiKey);
@@ -204,10 +261,12 @@ export const disconnectPty = action({
       // PTY may already be dead
     }
 
-    await ctx.runMutation(internal.sessions.updatePtySessionInternal, {
-      id: args.sessionId,
-      ptySessionId: "",
-    });
+    if (!explicitId) {
+      await ctx.runMutation(internal.sessions.updatePtySessionInternal, {
+        id: args.sessionId,
+        ptySessionId: "",
+      });
+    }
 
     return null;
   },

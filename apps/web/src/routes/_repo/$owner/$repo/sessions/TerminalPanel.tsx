@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useLayoutEffect,
+} from "react";
 import { Button, Spinner } from "@conductor/ui";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
 import { useAction } from "convex/react";
@@ -10,9 +16,12 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 
 interface TerminalPanelProps {
-  sessionId: string;
+  sessionId: Id<"sessions">;
   sandboxId: string | undefined;
   isActive: boolean;
+  ptyInstanceId: string;
+  isForeground: boolean;
+  runDevCommandOnConnect: boolean;
   devCommand?: string;
 }
 
@@ -54,6 +63,9 @@ export function TerminalPanel({
   sessionId,
   sandboxId,
   isActive,
+  ptyInstanceId,
+  isForeground,
+  runDevCommandOnConnect,
   devCommand,
 }: TerminalPanelProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -69,17 +81,16 @@ export function TerminalPanel({
   const connectPty = useAction(api.pty.connectPty);
   const resizePtyAction = useAction(api.pty.resizePty);
 
-  const typedSessionId = sessionId as Id<"sessions">;
-
   const resizePtyRef = useRef(resizePtyAction);
   resizePtyRef.current = resizePtyAction;
 
   const connectWebSocket = useCallback(
     async (terminal: Terminal, mounted: { current: boolean }) => {
       const { wsUrl, isNewPty } = await connectPty({
-        sessionId: typedSessionId,
+        sessionId,
         cols: terminal.cols,
         rows: terminal.rows,
+        ptyInstanceId,
       });
 
       if (!mounted.current) return;
@@ -106,6 +117,7 @@ export function TerminalPanel({
                 );
                 if (
                   isNewPty &&
+                  runDevCommandOnConnect &&
                   devCommand &&
                   ws.readyState === WebSocket.OPEN
                 ) {
@@ -170,7 +182,7 @@ export function TerminalPanel({
         }
       });
     },
-    [connectPty, typedSessionId, devCommand],
+    [connectPty, sessionId, devCommand, ptyInstanceId, runDevCommandOnConnect],
   );
 
   useEffect(() => {
@@ -269,7 +281,28 @@ export function TerminalPanel({
         terminalInstanceRef.current = null;
       }
     };
-  }, [isActive, sandboxId, typedSessionId, retryCount, connectWebSocket]);
+  }, [
+    isActive,
+    sandboxId,
+    sessionId,
+    retryCount,
+    connectWebSocket,
+    ptyInstanceId,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!isForeground) {
+      return;
+    }
+    if (!fitAddonRef.current || !terminalInstanceRef.current) {
+      return;
+    }
+    fitAddonRef.current.fit();
+    const { cols, rows } = terminalInstanceRef.current;
+    resizePtyRef
+      .current({ sessionId, cols, rows, ptyInstanceId })
+      .catch(() => {});
+  }, [isForeground, sessionId, ptyInstanceId]);
 
   useEffect(() => {
     if (!terminalRef.current) {
@@ -277,6 +310,9 @@ export function TerminalPanel({
     }
     const el = terminalRef.current;
     const observer = new ResizeObserver((entries) => {
+      if (!isForeground) {
+        return;
+      }
       const entry = entries[0];
       if (
         !entry ||
@@ -289,13 +325,13 @@ export function TerminalPanel({
         fitAddonRef.current.fit();
         const { cols, rows } = terminalInstanceRef.current;
         resizePtyRef
-          .current({ sessionId: typedSessionId, cols, rows })
+          .current({ sessionId, cols, rows, ptyInstanceId })
           .catch(() => {});
       }
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [typedSessionId]);
+  }, [sessionId, ptyInstanceId, isForeground]);
 
   if (!isActive || !sandboxId) {
     return (

@@ -335,11 +335,29 @@ export async function createSandbox(
       'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
       10,
     );
+
+    // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev)
+    try {
+      await exec(
+        sandbox,
+        "sudo pkill -9 containerd 2>/dev/null; sudo pkill -9 dockerd 2>/dev/null; sleep 1; sudo rm -f /var/run/docker.sock /var/run/docker/containerd/containerd.sock 2>/dev/null; sudo dockerd >/dev/null 2>&1 & sleep 4 && docker info >/dev/null 2>&1",
+        20,
+      );
+      logGit("createSandbox: Docker daemon started");
+    } catch {
+      logGit(
+        "createSandbox: Docker not available (old snapshot or not installed)",
+      );
+    }
+
     return sandbox;
   });
 }
 
-/** Fetches refs from the GitHub remote origin, optionally pruning stale refs. */
+/**
+ * Fetches refs from the GitHub remote origin, optionally pruning stale refs.
+ * Always fetches full history (no --depth) — shallow clones cause issues with rebasing, blame, and merges.
+ */
 export async function fetchOrigin(
   sandbox: Sandbox,
   installationId: number,
@@ -349,19 +367,17 @@ export async function fetchOrigin(
   opts?: {
     prune?: boolean;
     timeoutSeconds?: number;
-    shallow?: boolean;
     retryAttempts?: number;
   },
 ): Promise<void> {
   const details = `${owner}/${name}, ref=${ref ?? "all"}, prune=${
     opts?.prune === false ? "false" : "true"
-  }, shallow=${opts?.shallow === true ? "true" : "false"}`;
+  }`;
   await runLoggedGitStep("fetchOrigin", details, async () => {
     const githubToken = await getInstallationToken(installationId);
     const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
     const workspaceDir = workspaceDirShell();
     const pruneArg = opts?.prune === false ? "" : " --prune";
-    const depthArg = opts?.shallow === true ? " --depth 1" : "";
     const refArg = ref ? ` ${quote([ref])}` : "";
     await retryGitNetworkOperation(
       "fetchOrigin",
@@ -369,7 +385,7 @@ export async function fetchOrigin(
       async () => {
         await execGitCommand(
           sandbox,
-          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg}${depthArg} origin${refArg}`,
+          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg} origin${refArg}`,
           opts?.timeoutSeconds ?? 240,
         );
       },
@@ -378,7 +394,10 @@ export async function fetchOrigin(
   });
 }
 
-/** Fetches specific branch refs from origin, falling back to individual fetches on missing refs. */
+/**
+ * Fetches specific branch refs from origin, falling back to individual fetches on missing refs.
+ * Always fetches full history (no --depth) — shallow clones cause issues with rebasing, blame, and merges.
+ */
 export async function fetchBranchRefs(
   sandbox: Sandbox,
   installationId: number,
@@ -388,11 +407,10 @@ export async function fetchBranchRefs(
   opts?: {
     prune?: boolean;
     timeoutSeconds?: number;
-    shallow?: boolean;
     retryAttempts?: number;
   },
 ): Promise<string[]> {
-  const details = `${owner}/${name}, branches=${branchNames.join(",")}, timeout=${opts?.timeoutSeconds ?? 240}, shallow=${opts?.shallow === true ? "true" : "false"}`;
+  const details = `${owner}/${name}, branches=${branchNames.join(",")}, timeout=${opts?.timeoutSeconds ?? 240}`;
   return await runLoggedGitStep("fetchBranchRefs", details, async () => {
     const normalized = normalizeBranchNames(branchNames);
     if (normalized.length === 0) {
@@ -401,14 +419,13 @@ export async function fetchBranchRefs(
     const githubToken = await getInstallationToken(installationId);
     const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
     const pruneArg = opts?.prune === false ? "" : " --prune";
-    const depthArg = opts?.shallow ? " --depth=1" : "";
     const timeoutSeconds = opts?.timeoutSeconds ?? 240;
     const workspaceDir = workspaceDirShell();
     const refspecs = normalized.map(
       (b) => `+refs/heads/${b}:refs/remotes/origin/${b}`,
     );
     const refspecArgs = refspecs.map((r) => quote([r])).join(" ");
-    const setupAndFetch = `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${depthArg}${pruneArg} origin`;
+    const setupAndFetch = `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg} origin`;
     return await retryGitNetworkOperation(
       "fetchBranchRefs",
       details,
@@ -484,8 +501,7 @@ export async function syncRepo(
       strategy.branchNames,
       {
         prune: false,
-        timeoutSeconds: 60,
-        shallow: true,
+        timeoutSeconds: 120,
       },
     );
   });

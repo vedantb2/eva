@@ -1,5 +1,37 @@
 # Changelog
 
+## Remove shallow clone option from git fetch functions - 2026-04-15
+
+- **Why**: Shallow clones (`--depth 1`) cause issues with rebasing, blame, and merges in user repos. Full history is always needed for reliable git operations.
+- **Changes**: Removed `shallow` option from `fetchOrigin` and `fetchBranchRefs` in `git.ts`. All callers now fetch full history by default. Plugin marketplace clones in snapshot images still use `--depth 1` (they're static dependencies, not user repos).
+
+## Session PRD edit without active sandbox - 2026-04-14
+
+- **Why**: `planContent` is stored in Convex and does not depend on Daytona; tying the Edit affordance to `session.status === "active"` blocked edits while the sandbox was stopped or starting.
+- **Changes**: `SessionPrdPlanView` no longer takes `canEdit`; Edit shows whenever the session is not archived (save still uses `updatePlanContent` + `hasRepoAccess`).
+
+## Editable session PRD (Markdown via Tiptap) - 2026-04-14
+
+- **Why**: Product requirements needed in-place editing without a custom HTML↔Markdown bridge; storage stays Markdown in `sessions.planContent` for consistency with agents and Streamdown rendering.
+- **Changes**: `apps/web` uses `@tiptap/markdown` with StarterKit + GFM; `SessionPrdPlanEditor` loads/saves via `contentType: "markdown"` and `getMarkdown()`; `SessionPrdPlanView` toggles view/edit with Cancel/Save when not archived. `updatePlanContent` enforces `hasRepoAccess` and bumps `updatedAt`.
+
+## PRD tab on expanded session sandbox panel - 2026-04-14
+
+- **Why**: With the right column open, the PRD plan duplicated space above the chat input; moving it to a dedicated tab keeps one source of truth and frees the composer.
+- **Changes**: `sandboxTab` adds `prd`; `SandboxTabBar` shows PRD when `planContent` exists and session mode is plan; `SessionPrdPlanView` shares compact (collapsed panel) and panel layouts; `ChatPanel` shows inline PRD only when `sandboxCollapsed !== false`; `useSessionSettings` in `SandboxPanel` syncs Approve Plan with chat.
+
+## Multi-terminal sandbox PTY panes (session right panel) - 2026-04-14
+
+- **Why**: One PTY per session forced a single shell; agents and users need several concurrent shells without leaving the session.
+- **Changes**: Convex `connectPty` / `resizePty` / `disconnectPty` accept optional `ptyInstanceId` so Daytona PTYs are keyed per pane without colliding on `sessions.ptySessionId`. Web: nuqs `termIds` + `termActive`, Chrome-style `+` menu (New Terminal), sub-row for extra shells with close on 2+, stacked `TerminalPanel`s with foreground fit/resize, dev autostart only on the first pane.
+- **Reason**: Multiple independent PTY sessions per sandbox with URL-persisted layout.
+
+## Harden task streaming heartbeats and completion delivery - 2026-04-14
+
+- **Why**: Transient Convex/network errors caused streaming heartbeats to fail without retries, the callback aborted the CLI after only three failures, and `workflow.sendEvent` failures after `finalizingAt` left runs stuck until the watchdog fired.
+- **Changes**: `streaming:set` now uses the same mutation retry path as other callback HTTP calls; heartbeat termination uses burst/slow-window/absolute caps with longer default HTTP timeout; `handleCompletion` clears `finalizingAt` when `sendEvent` throws and logs a structured error; audit completion logs send failures; `prepareSandboxSteps` retries branch checkout/setup with backoff; finishing watchdog window doubled to 10 minutes.
+- **Reason**: Reliability of long-running sandboxes and completion handoff without spurious kills or stuck finalizing state.
+
 ## Optimize Daytona sandbox reuse with stop/resume lifecycle instead of delete/create - 2026-04-14
 
 - **Why**: Session sandbox startup took 30+ seconds because each session close deleted the sandbox and next open created a fresh one. Daytona supports stop/resume which resumes in ~14s instead of creating from scratch in 20-26s.

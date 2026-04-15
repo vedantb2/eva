@@ -148,8 +148,7 @@ async function syncSessionRefsForRestore(
       [branchName],
       {
         prune: false,
-        timeoutSeconds: 3,
-        shallow: true,
+        timeoutSeconds: 60,
         retryAttempts: 1,
       },
     );

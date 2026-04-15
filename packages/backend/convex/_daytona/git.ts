@@ -336,19 +336,17 @@ export async function createSandbox(
       10,
     );
 
-    // Fix curl/git DNS: Docker regenerates /etc/hosts on container start, so we add GitHub IPs at runtime
-    // This requires the sudoers entry added in snapshotActions.ts
+    // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev)
     try {
       await exec(
         sandbox,
-        "echo '140.82.121.3 github.com' | sudo tee -a /etc/hosts > /dev/null && echo '140.82.121.4 api.github.com' | sudo tee -a /etc/hosts > /dev/null",
-        10,
+        "sudo dockerd >/dev/null 2>&1 & sleep 2 && docker info >/dev/null 2>&1",
+        15,
       );
-      logGit("createSandbox: added GitHub hosts entries for DNS fix");
-    } catch (e) {
-      // Non-fatal: old snapshots without sudoers entry will fail, git fetch will use fallback
+      logGit("createSandbox: Docker daemon started");
+    } catch {
       logGit(
-        `createSandbox: failed to add GitHub hosts entries (old snapshot?): ${e instanceof Error ? e.message : String(e)}`,
+        "createSandbox: Docker not available (old snapshot or not installed)",
       );
     }
 

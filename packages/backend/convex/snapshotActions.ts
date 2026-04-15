@@ -11,6 +11,9 @@ import type { Id } from "./_generated/dataModel";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
 
+// "eva ALL=(ALL) NOPASSWD: ALL\n" — base64-encoded to avoid parentheses breaking Dockerfile RUN
+const EVA_SUDOERS_B64 = "ZXZhIEFMTD0oQUxMKSBOT1BBU1NXRDogQUxMCg==";
+
 /** Type guard for record-shaped objects. */
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
@@ -36,19 +39,18 @@ function buildSnapshotImage(
 ): Image {
   return Image.base("node:20-bookworm")
     .runCommands(
-      // System tools (uidmap needed for rootless Docker)
-      "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh uidmap",
+      "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh sudo",
       // GUI/VNC/X11 packages for desktop mode
       "apt-get install -y xvfb xfce4 xfce4-terminal x11vnc novnc dbus-x11 x11-utils libx11-6 libxrandr2 libxext6 libxrender1 libxfixes3 libxss1 libxtst6 libxi6",
       // Fix DNS: xfce4 pulls in libnss-mdns which inserts mdns4_minimal [NOTFOUND=return]
       // before dns in nsswitch.conf, causing getaddrinfo() to fail for external hosts
       "sed -i 's/mdns4_minimal \\[NOTFOUND=return\\] //' /etc/nsswitch.conf",
-      // Allow eva to add hosts entries at runtime (Docker regenerates /etc/hosts on container start)
-      "echo 'eva ALL=(ALL) NOPASSWD: /usr/bin/tee -a /etc/hosts' > /etc/sudoers.d/eva-hosts && chmod 440 /etc/sudoers.d/eva-hosts",
       // Chrome
       'apt-get install -y wget gnupg && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && apt-get update && apt-get install -y google-chrome-stable',
       // Docker Engine (includes Docker Compose V2 plugin)
       "curl -fsSL https://get.docker.com | VERSION=28.3.3 sh",
+      // Passwordless sudo for eva (base64-encoded to avoid parentheses breaking Dockerfile RUN)
+      `printf %s ${EVA_SUDOERS_B64}|base64 -d>/etc/sudoers.d/eva&&chmod 440 /etc/sudoers.d/eva`,
       // Cleanup
       "rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*",
       // Node/pnpm setup
@@ -62,7 +64,7 @@ function buildSnapshotImage(
       // Supabase CLI (pinned version — npm global install not supported, API calls hit rate limits)
       "curl -fsSL https://github.com/supabase/cli/releases/download/v2.90.0/supabase_2.90.0_linux_amd64.deb -o /tmp/supabase.deb && dpkg -i /tmp/supabase.deb && rm /tmp/supabase.deb",
       // Create user and workspace
-      "useradd -m -s /bin/bash eva && usermod -aG docker eva && echo 'eva:100000:65536' >> /etc/subuid && echo 'eva:100000:65536' >> /etc/subgid && mkdir -p /workspace && chown eva:eva /workspace",
+      "useradd -m -s /bin/bash eva && usermod -aG docker eva && mkdir -p /workspace && chown eva:eva /workspace",
     )
     .dockerfileCommands(["USER eva"])
     .workdir("/workspace")
@@ -75,15 +77,11 @@ function buildSnapshotImage(
       "git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93",
       "git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins",
       `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
-      // Auto-start rootless Docker daemon if not running (for Docker-in-Docker support)
-      `echo 'if ! docker info &>/dev/null 2>&1; then nohup rootlesskit --net=slirp4netns dockerd &>/dev/null & sleep 2; fi' >> /home/eva/.bashrc`,
     )
     .env({
       PNPM_HOME: "/home/eva/.pnpm",
       NODE_PATH: "/usr/lib/node_modules",
       PATH: "/home/eva/.pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-      // Rootless Docker socket path
-      DOCKER_HOST: "unix:///run/user/1001/docker.sock",
     })
     .runCommands(
       "mkdir -p /home/eva/.pnpm",

@@ -1,5 +1,10 @@
 # Changelog
 
+## Remove shallow clone option from git fetch functions - 2026-04-15
+
+- **Why**: Shallow clones (`--depth 1`) cause issues with rebasing, blame, and merges in user repos. Full history is always needed for reliable git operations.
+- **Changes**: Removed `shallow` option from `fetchOrigin` and `fetchBranchRefs` in `git.ts`. All callers now fetch full history by default. Plugin marketplace clones in snapshot images still use `--depth 1` (they're static dependencies, not user repos).
+
 ## Session PRD edit without active sandbox - 2026-04-14
 
 - **Why**: `planContent` is stored in Convex and does not depend on Daytona; tying the Edit affordance to `session.status === "active"` blocked edits while the sandbox was stopped or starting.

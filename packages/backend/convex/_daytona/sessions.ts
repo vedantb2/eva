@@ -149,7 +149,6 @@ async function syncSessionRefsForRestore(
       {
         prune: false,
         timeoutSeconds: 60,
-        shallow: false,
         retryAttempts: 1,
       },
     );

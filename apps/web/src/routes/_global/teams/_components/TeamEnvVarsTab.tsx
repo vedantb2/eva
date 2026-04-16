@@ -32,7 +32,7 @@ export function TeamEnvVarsTab({ teamId, teamEnvVars }: TeamEnvVarsTabProps) {
       onToggleSandboxExclude={async (key, sandboxExclude) => {
         await toggleSandboxExclude({ teamId, key, sandboxExclude });
       }}
-      description="Team-level variables inherited by all codebases in this team. Add CODEX_AUTH_JSON to enable Codex. For Opencode, either add OPENCODE_CONFIG_JSON (plus provider keys like OPENAI_API_KEY referenced via {env:OPENAI_API_KEY}) for API-key providers, or OPENCODE_AUTH_JSON (the contents of ~/.local/share/opencode/auth.json after running `opencode auth login` locally) for ChatGPT Plus/Pro OAuth."
+      description="Team-level variables inherited by all codebases in this team. Add CODEX_AUTH_JSON to enable Codex. For Opencode, either add OPENCODE_CONFIG_JSON (plus provider keys like OPENAI_API_KEY referenced via {env:OPENAI_API_KEY}) for API-key providers, or OPENCODE_AUTH_JSON (the contents of ~/.local/share/opencode/auth.json after running `opencode auth login` locally) for ChatGPT Plus/Pro OAuth. Add CURSOR_API_KEY to enable Cursor models."
     />
   );
 }

@@ -54,6 +54,12 @@ const REQUIRED_KEYS: Array<{
     description:
       "Optional Opencode OAuth credentials file (for ChatGPT Plus/Pro). Paste the contents of ~/.local/share/opencode/auth.json after running `opencode auth login` locally. Prefer OPENCODE_AUTH_JSON; OPENCODE_AUTH_JSON_BASE64 also works",
   },
+  {
+    keys: ["CURSOR_API_KEY"],
+    required: false,
+    description:
+      "Optional Cursor CLI API key. Generate from cursor.com/dashboard → Integrations → API Keys, then paste the full key here to enable Cursor models",
+  },
 ];
 
 export function SetupBanner() {

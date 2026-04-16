@@ -8,7 +8,7 @@ interface ProviderIconProps extends Omit<ComponentProps<"svg">, "children"> {
 
 /**
  * Renders the brand icon for an AI provider.
- * Supports "claude" (Claude sparkle mark), "codex" (OpenAI mark), and "opencode" (opencode mark).
+ * Supports "claude" (Claude sparkle mark), "codex" (OpenAI mark), "opencode" (opencode mark), and "cursor" (Cursor hexagonal mark).
  */
 export function ProviderIcon({
   provider,
@@ -24,6 +24,8 @@ export function ProviderIcon({
       return <OpenAIMark {...shared} />;
     case "opencode":
       return <OpencodeMark {...shared} />;
+    case "cursor":
+      return <CursorMark {...shared} />;
     default:
       return <ClaudeMark {...shared} />;
   }
@@ -88,6 +90,30 @@ function OpencodeMark({
       {...props}
     >
       <path d="M8.40005 17.4H19.2001V21H4.80005V13.8H8.40005V17.4ZM15.6001 10.2V13.8H8.40005V10.2H15.6001ZM19.2001 10.2H15.6001V6.6H4.80005V3H19.2001V10.2Z" />
+    </svg>
+  );
+}
+
+function CursorMark({
+  size = 14,
+  className,
+  ...props
+}: Omit<ProviderIconProps, "provider">) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={cn("shrink-0", className)}
+      aria-hidden="true"
+      {...props}
+    >
+      {/* Cursor's hexagonal brand mark rendered as three faceted triangles at different opacities for the signature 3D look. */}
+      <path d="M11.925 24 22.35 18V6L11.925 12Z" opacity="0.9" />
+      <path d="M22.35 18V6L11.925 0V12Z" opacity="0.7" />
+      <path d="M11.925 0 1.5 6v12l10.425 6V12Z" opacity="0.5" />
     </svg>
   );
 }

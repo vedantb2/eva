@@ -12,6 +12,8 @@ export const CODEX_RUNTIME_HOME_DIR = "/tmp/codex-home";
 export const CODEX_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.codex-persist";
 export const OPENCODE_RUNTIME_HOME_DIR = "/tmp/opencode-home";
 export const OPENCODE_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.opencode-persist";
+export const CURSOR_RUNTIME_HOME_DIR = "/tmp/cursor-home";
+export const CURSOR_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.cursor-persist";
 const VOLUME_READY_TIMEOUT_MS = 45_000;
 const VOLUME_READY_POLL_INTERVAL_MS = 1_000;
 
@@ -28,7 +30,7 @@ type PersistableSessionId =
   | Id<"projects">;
 type PersistableSessionKind = "sessions" | "designSessions" | "projects";
 type PersistableRepoId = Id<"githubRepos">;
-type PersistedProvider = "claude" | "codex" | "opencode";
+type PersistedProvider = "claude" | "codex" | "opencode" | "cursor";
 
 /** Generates a SHA-256 hash of a session ID for use in volume naming. */
 function sessionHash(sessionId: PersistableSessionId): string {
@@ -165,6 +167,11 @@ export async function ensureSessionPersistenceVolumes(
       volumeId,
       mountPath: OPENCODE_PERSIST_VOLUME_MOUNT_PATH,
       subpath: sessionVolumeSubpath("opencode", sessionKind, sessionId),
+    },
+    {
+      volumeId,
+      mountPath: CURSOR_PERSIST_VOLUME_MOUNT_PATH,
+      subpath: sessionVolumeSubpath("cursor", sessionKind, sessionId),
     },
   ];
 }

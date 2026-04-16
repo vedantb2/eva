@@ -47,7 +47,7 @@ export function TeamEnvVarsClient() {
     <div className="space-y-4">
       <EnvVarsTable
         vars={teamEnvVars}
-        description="Team-level variables inherited by all codebases in this team. Add CODEX_AUTH_JSON here to enable Codex across the team."
+        description="Team-level variables inherited by all codebases in this team. Add CODEX_AUTH_JSON to enable Codex, OPENCODE_CONFIG_JSON/OPENCODE_AUTH_JSON to enable Opencode, or CURSOR_API_KEY to enable Cursor across the team."
         onUpsert={async (key, value, sandboxExclude) => {
           if (!repo.teamId) return;
           await upsertTeamVar({

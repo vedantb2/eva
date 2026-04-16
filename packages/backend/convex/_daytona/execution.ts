@@ -579,7 +579,7 @@ export const launchOnExistingSandbox = internalAction({
 
     await exec(
       sandbox,
-      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
+      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'opencode' 2>/dev/null; pkill -f 'cursor-agent' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
       10,
     );
     console.log(

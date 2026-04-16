@@ -78,6 +78,13 @@ const OPENCODE_AUTH_FILE = OPENCODE_AUTH_DIR + "/auth.json";
 const OPENCODE_PERSIST_AUTH_FILE = OPENCODE_PERSIST_DIR + "/auth.json";
 const OPENCODE_AUTH_JSON = process.env.OPENCODE_AUTH_JSON || "";
 const OPENCODE_AUTH_JSON_BASE64 = process.env.OPENCODE_AUTH_JSON_BASE64 || "";
+const CURSOR_RUNTIME_HOME_DIR = process.env.CURSOR_RUNTIME_HOME_DIR || "/tmp/cursor-home";
+const CURSOR_PERSIST_DIR = process.env.CURSOR_PERSIST_DIR || "/home/eva/.cursor-persist";
+const CURSOR_BIN_PATH = process.env.CURSOR_BIN_PATH || "/home/eva/.local/bin/cursor-agent";
+const CURSOR_STATE_FILE = "session-state.json";
+const CURSOR_LOCAL_STATE_FILE = CURSOR_RUNTIME_HOME_DIR + "/" + CURSOR_STATE_FILE;
+const CURSOR_PERSIST_STATE_FILE = CURSOR_PERSIST_DIR + "/" + CURSOR_STATE_FILE;
+const CURSOR_API_KEY = process.env.CURSOR_API_KEY || "";
 const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\\//g, "-");
 const CLAUDE_LOCAL_PROJECT_DIR = CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
 const CLAUDE_PERSIST_PROJECT_DIR = CLAUDE_PERSIST_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
@@ -243,6 +250,71 @@ function opencodeToolToStep(part) {
     default:
       return { type: "tool", label: "Using " + tool + "...", status: "active" };
   }
+}
+
+/** Converts a Cursor tool_call event payload into a UI progress step object. */
+function cursorToolToStep(toolCall) {
+  const readToolName = (call) => {
+    if (!call || typeof call !== "object") return "";
+    if (typeof call.name === "string" && call.name) return call.name;
+    if (typeof call.tool === "string" && call.tool) return call.tool;
+    if (typeof call.type === "string" && call.type) return call.type;
+    return "";
+  };
+  const readArgs = (call) => {
+    if (!call || typeof call !== "object") return {};
+    if (call.args && typeof call.args === "object") return call.args;
+    if (call.input && typeof call.input === "object") return call.input;
+    if (call.parameters && typeof call.parameters === "object") return call.parameters;
+    return {};
+  };
+  const tool = (readToolName(toolCall) || "tool").toLowerCase();
+  const args = readArgs(toolCall);
+  const pickString = (keys) => {
+    for (const key of keys) {
+      if (typeof args[key] === "string" && args[key].trim()) {
+        return args[key];
+      }
+    }
+    return "";
+  };
+  const rawPath = pickString(["path", "file_path", "filePath", "target_file", "targetFile"]);
+  const path = rawPath ? shortenPath(String(rawPath)) : "";
+  const command = pickString(["command", "cmd"]);
+  const query = pickString(["query", "pattern", "url"]);
+  if (tool.includes("read")) {
+    return { type: "read", label: "Reading file...", detail: path || undefined, status: "active" };
+  }
+  if (tool.includes("write") || tool.includes("create")) {
+    return { type: "write", label: "Creating file...", detail: path || undefined, status: "active" };
+  }
+  if (tool.includes("edit") || tool.includes("patch") || tool.includes("apply")) {
+    return { type: "edit", label: "Editing file...", detail: path || undefined, status: "active" };
+  }
+  if (tool.includes("glob") || tool.includes("list") || tool.includes("ls")) {
+    return { type: "search_files", label: "Searching files...", detail: query || path || undefined, status: "active" };
+  }
+  if (tool.includes("grep") || tool.includes("search")) {
+    return {
+      type: tool.includes("file") ? "search_files" : "search_code",
+      label: tool.includes("file") ? "Searching files..." : "Searching code...",
+      detail: query || path || undefined,
+      status: "active",
+    };
+  }
+  if (tool.includes("bash") || tool.includes("shell") || tool.includes("exec") || tool.includes("command") || tool.includes("terminal")) {
+    return { type: "bash", label: "Running command...", detail: command ? command.slice(0, 300) : undefined, status: "active" };
+  }
+  if (tool.includes("webfetch") || tool.includes("web_fetch") || tool.includes("fetch")) {
+    return { type: "web_fetch", label: "Fetching URL...", detail: query || undefined, status: "active" };
+  }
+  if (tool.includes("websearch") || tool.includes("web_search")) {
+    return { type: "web_search", label: "Searching web...", detail: query || undefined, status: "active" };
+  }
+  if (tool.includes("todo")) {
+    return { type: "tool", label: "Updating tasks...", status: "active" };
+  }
+  return { type: "tool", label: "Using " + (readToolName(toolCall) || "tool") + "...", status: "active" };
 }
 
 /** Converts a Claude tool call into a UI progress step object. */
@@ -474,9 +546,11 @@ const completedLabels = {
   "Preparing Claude session...": "Prepared Claude session",
   "Preparing Codex session...": "Prepared Codex session",
   "Preparing Opencode session...": "Prepared Opencode session",
+  "Preparing Cursor session...": "Prepared Cursor session",
   "Starting Claude CLI...": "Started Claude CLI",
   "Starting Codex CLI...": "Started Codex CLI",
   "Starting Opencode CLI...": "Started Opencode CLI",
+  "Starting Cursor CLI...": "Started Cursor CLI",
   "Restoring Claude session...": "Restored Claude session",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
@@ -534,6 +608,52 @@ function updateThinkingStep(label, detail) {
 function parseStreamEvent(line) {
   try {
     const event = JSON.parse(line);
+
+    if (PROVIDER === "cursor") {
+      // Cursor emits: {type:"system",subtype:"init"}, {type:"assistant",message:{content:[...]}},
+      // {type:"tool_call",subtype:"started"|"completed",tool_call:{...}}, {type:"result",...}
+      if (event.type === "system" && event.subtype === "init") {
+        updateThinkingStep("Starting Cursor CLI...", "Cursor session initializing...");
+        return true;
+      }
+      if (event.type === "assistant") {
+        const contentBlocks = Array.isArray(event.message?.content)
+          ? event.message.content
+          : [];
+        let added = false;
+        for (const block of contentBlocks) {
+          if (block && block.type === "text" && typeof block.text === "string" && block.text) {
+            appendStreamedContent(block.text);
+            updateThinkingStep("Streaming response...", "Receiving reply...");
+            added = true;
+          }
+        }
+        if (!added && lastStepType !== "thinking") {
+          markLastComplete();
+          accumulatedSteps.push({ type: "thinking", label: "Generating response...", status: "active" });
+          lastStepType = "thinking";
+          added = true;
+        }
+        return added;
+      }
+      if (event.type === "tool_call" && event.subtype === "started" && event.tool_call) {
+        markLastComplete();
+        accumulatedSteps.push(cursorToolToStep(event.tool_call));
+        lastStepType = "tool";
+        return true;
+      }
+      if (event.type === "tool_call" && event.subtype === "completed") {
+        markLastComplete();
+        return true;
+      }
+      if (event.type === "result") {
+        markLastComplete();
+        accumulatedSteps.push({ type: "thinking", label: "Finalizing response...", status: "active" });
+        lastStepType = "thinking";
+        return true;
+      }
+      return false;
+    }
 
     if (PROVIDER === "opencode") {
       if (event.type === "step_start") {
@@ -695,6 +815,7 @@ let activeClaudeSessionId = process.env.CLAUDE_SESSION_ID || "";
 let activeCodexThreadId = "";
 let activeOpencodeSessionId = "";
 let opencodeFinalMessageId = "";
+let activeCursorSessionId = "";
 let resultEventSeen = false;
 let activeClaudeSessionMode = "none";
 let waitingForFirstAssistantEvent = false;
@@ -1097,6 +1218,101 @@ function syncOpencodeStateToPersist() {
   );
 }
 
+/** Reads the Cursor session state file to get the resume session id. */
+function readCursorSessionState() {
+  const statePath = existsSync(CURSOR_LOCAL_STATE_FILE)
+    ? CURSOR_LOCAL_STATE_FILE
+    : existsSync(CURSOR_PERSIST_STATE_FILE)
+      ? CURSOR_PERSIST_STATE_FILE
+      : "";
+  if (!statePath) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(statePath, "utf8"));
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.resumeSessionId === "string" &&
+      parsed.resumeSessionId.trim()
+    ) {
+      return { resumeSessionId: parsed.resumeSessionId.trim() };
+    }
+  } catch (error) {
+    console.error(
+      "Failed to read Cursor session state from " + statePath + ":",
+      String(error),
+    );
+  }
+  return null;
+}
+
+/** Writes the active Cursor session id to the local session state file. */
+function writeCursorSessionState() {
+  if (!activeCursorSessionId) {
+    return;
+  }
+  mkdirSync(CURSOR_RUNTIME_HOME_DIR, { recursive: true });
+  writeFileSync(
+    CURSOR_LOCAL_STATE_FILE,
+    JSON.stringify(
+      {
+        resumeSessionId: activeCursorSessionId,
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+/** Restores persisted Cursor state and writes the workspace MCP config if Eva MCP is configured. */
+function hydratePersistedCursorState() {
+  mkdirSync(CURSOR_RUNTIME_HOME_DIR, { recursive: true });
+  copyFileIfPresent(
+    CURSOR_PERSIST_STATE_FILE,
+    CURSOR_LOCAL_STATE_FILE,
+    "hydratePersistedCursorState(state)",
+  );
+  // Translate Eva's /tmp/eva-mcp.json into Cursor's workspace-relative \`.cursor/mcp.json\`
+  // format so the Cursor CLI picks up the same MCP servers Claude uses.
+  if (existsSync("/tmp/eva-mcp.json")) {
+    try {
+      const evaMcp = JSON.parse(readFileSync("/tmp/eva-mcp.json", "utf8"));
+      const cursorDir = WORK_DIR + "/.cursor";
+      mkdirSync(cursorDir, { recursive: true });
+      const cursorMcp = { mcpServers: {} };
+      if (evaMcp && evaMcp.mcpServers && typeof evaMcp.mcpServers === "object") {
+        for (const [name, server] of Object.entries(evaMcp.mcpServers)) {
+          if (!server || typeof server !== "object") continue;
+          const entry = {};
+          if (typeof server.url === "string") entry.url = server.url;
+          if (server.headers && typeof server.headers === "object") {
+            entry.headers = server.headers;
+          }
+          if (Object.keys(entry).length > 0) {
+            cursorMcp.mcpServers[name] = entry;
+          }
+        }
+      }
+      writeFileSync(cursorDir + "/mcp.json", JSON.stringify(cursorMcp, null, 2));
+    } catch (error) {
+      console.error("Failed to translate MCP config for Cursor:", String(error));
+    }
+  }
+}
+
+/** Syncs Cursor session state from runtime to the persist volume. */
+function syncCursorStateToPersist() {
+  writeCursorSessionState();
+  mkdirSync(CURSOR_PERSIST_DIR, { recursive: true });
+  copyFileIfPresent(
+    CURSOR_LOCAL_STATE_FILE,
+    CURSOR_PERSIST_STATE_FILE,
+    "syncCursorStateToPersist(state)",
+  );
+}
+
 /** Collects all known Claude session IDs from config, persisted state, and active session. */
 function collectClaudeTranscriptSessionIds() {
   const sessionIds = new Set();
@@ -1218,7 +1434,9 @@ accumulatedSteps.push({
       ? "Preparing Codex session..."
       : PROVIDER === "opencode"
         ? "Preparing Opencode session..."
-        : "Preparing Claude session...",
+        : PROVIDER === "cursor"
+          ? "Preparing Cursor session..."
+          : "Preparing Claude session...",
   detail: "Initializing callback...",
   status: "active",
 });
@@ -1297,7 +1515,9 @@ async function setFinalizingState() {
         ? "Codex finished. Sending completion..."
         : PROVIDER === "opencode"
           ? "Opencode finished. Sending completion..."
-          : "Claude finished. Sending completion...",
+          : PROVIDER === "cursor"
+            ? "Cursor finished. Sending completion..."
+            : "Claude finished. Sending completion...",
     status: "active",
   });
   lastStepType = "thinking";
@@ -1594,8 +1814,10 @@ const mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json
 const normalizedClaudeModel = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
 const normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
 const normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
+const normalizedCursorModel = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
 const codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 const opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
+const cursorCommand = existsSync(CURSOR_BIN_PATH) ? JSON.stringify(CURSOR_BIN_PATH) : "cursor-agent";
 const codexPromptCmd = SYSTEM_PROMPT
   ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)"
   : "cat /tmp/design-prompt.txt";
@@ -1608,6 +1830,22 @@ const opencodeExecBaseCmd =
   opencodeCommand +
   " run --format json --model " +
   JSON.stringify(normalizedOpencodeModel);
+// Cursor reads the prompt as a positional argument (not stdin) and uses --force
+// --trust to skip interactive permission prompts in headless mode. The prompt
+// is assembled at runtime via $(cat /tmp/design-prompt.txt) so the full prompt
+// file contents become a single argv string.
+const cursorPromptExpr = SYSTEM_PROMPT
+  ? '"$(printf %s\\\\n\\\\n ' + JSON.stringify(SYSTEM_PROMPT) + '; cat /tmp/design-prompt.txt)"'
+  : '"$(cat /tmp/design-prompt.txt)"';
+const cursorExecBaseCmd =
+  cursorCommand +
+  " -p " +
+  cursorPromptExpr +
+  " --force --trust --workspace " +
+  JSON.stringify(WORK_DIR) +
+  " --model " +
+  JSON.stringify(normalizedCursorModel) +
+  " --output-format stream-json --approve-mcps";
 const claudeBaseCmd =
   "cat /tmp/design-prompt.txt | claude -p --verbose --dangerously-skip-permissions --model " +
   normalizedClaudeModel +
@@ -1642,8 +1880,53 @@ function hasToolActivity() {
   return accumulatedSteps.some((step) => TOOL_STEP_TYPES.has(step.type));
 }
 
-/** Extracts the final result event from CLI output for Claude, Codex, and opencode providers. */
+/** Extracts the final result event from CLI output for Claude, Codex, opencode, and Cursor providers. */
 function extractResultEvent(output) {
+  if (PROVIDER === "cursor") {
+    let resultText = "";
+    let isError = false;
+    let rawLine = "";
+    const assistantParts = [];
+    for (const line of output.split("\\n")) {
+      const clean = line.trim();
+      if (!clean) continue;
+      try {
+        const parsed = JSON.parse(clean);
+        if (parsed.type === "result") {
+          rawLine = clean;
+          isError = Boolean(parsed.is_error);
+          if (typeof parsed.result === "string") {
+            resultText = parsed.result;
+          } else if (parsed.result !== undefined) {
+            resultText = JSON.stringify(parsed.result);
+          }
+          continue;
+        }
+        if (parsed.type === "assistant" && parsed.message && Array.isArray(parsed.message.content)) {
+          for (const block of parsed.message.content) {
+            if (block && block.type === "text" && typeof block.text === "string") {
+              assistantParts.push(block.text);
+            }
+          }
+        }
+      } catch {}
+    }
+    if (rawLine) {
+      return {
+        result: resultText || assistantParts.join(""),
+        isError,
+        rawResultEvent: rawLine,
+      };
+    }
+    if (assistantParts.length > 0) {
+      return {
+        result: assistantParts.join(""),
+        isError: false,
+        rawResultEvent: "",
+      };
+    }
+    return null;
+  }
   if (PROVIDER === "opencode") {
     let finalMessageId = "";
     let lastStopLine = "";
@@ -1775,6 +2058,41 @@ function handleRealtimeStreamLine(line) {
     }
     return;
   }
+  if (PROVIDER === "cursor") {
+    // Cursor's system.init event carries the session_id we need for --resume.
+    if (
+      parsed.type === "system" &&
+      parsed.subtype === "init" &&
+      typeof parsed.session_id === "string" &&
+      parsed.session_id.trim()
+    ) {
+      const sid = parsed.session_id.trim();
+      if (sid !== activeCursorSessionId) {
+        activeCursorSessionId = sid;
+        writeCursorSessionState();
+        void sendStreamingHeartbeatUpdate(buildStreamingPayload());
+      }
+      return;
+    }
+    if (parsed.type === "assistant") {
+      if (firstAssistantEventAt === 0) firstAssistantEventAt = Date.now();
+      const contentBlocks = Array.isArray(parsed.message?.content)
+        ? parsed.message.content
+        : [];
+      for (const block of contentBlocks) {
+        if (block && block.type === "text" && typeof block.text === "string" && firstTextBlockAt === 0) {
+          firstTextBlockAt = Date.now();
+          break;
+        }
+      }
+      return;
+    }
+    if (parsed.type === "result" && !resultEventSeen) {
+      resultEventSeen = true;
+      syncCursorStateToPersist();
+    }
+    return;
+  }
   if (PROVIDER === "opencode") {
     const sessionID =
       typeof parsed.sessionID === "string" && parsed.sessionID.trim()
@@ -1896,7 +2214,9 @@ function buildErrorMessage(
       ? "Codex CLI"
       : PROVIDER === "opencode"
         ? "Opencode CLI"
-        : "Claude CLI";
+        : PROVIDER === "cursor"
+          ? "Cursor CLI"
+          : "Claude CLI";
   if (fatalHeartbeatError) {
     return fatalHeartbeatError;
   }
@@ -2026,13 +2346,34 @@ function prepareOpencodeSessionState() {
   return { mode: "none", sessionId: null };
 }
 
-/** Prepares session state for the active provider (Claude, Codex, or opencode). */
+/** Hydrates persisted Cursor state and resolves the session mode for the current run. */
+function prepareCursorSessionState() {
+  updateThinkingStep("Preparing Cursor session...", "Hydrating saved session...");
+  hydratePersistedCursorState();
+  const persistedState = readCursorSessionState();
+  updateThinkingStep(
+    "Preparing Cursor session...",
+    persistedState
+      ? "Saved session hydrated. Starting Cursor..."
+      : "Preparing fresh Cursor session...",
+  );
+  if (persistedState) {
+    activeCursorSessionId = persistedState.resumeSessionId;
+    return { mode: "resume", sessionId: persistedState.resumeSessionId };
+  }
+  return { mode: "none", sessionId: null };
+}
+
+/** Prepares session state for the active provider (Claude, Codex, opencode, or Cursor). */
 function prepareProviderSessionState() {
   if (PROVIDER === "codex") {
     return prepareCodexSessionState();
   }
   if (PROVIDER === "opencode") {
     return prepareOpencodeSessionState();
+  }
+  if (PROVIDER === "cursor") {
+    return prepareCursorSessionState();
   }
   return prepareClaudeSessionState();
 }
@@ -2321,13 +2662,42 @@ async function runOpencodeAttempt(sessionMode) {
   });
 }
 
-/** Dispatches a CLI attempt to the active provider (Claude, Codex, or opencode). */
+/** Runs a single Cursor CLI attempt with the resolved session mode. */
+async function runCursorAttempt(sessionMode) {
+  const sessionArg =
+    sessionMode.mode === "resume" && sessionMode.sessionId
+      ? " --resume " + JSON.stringify(sessionMode.sessionId)
+      : "";
+  const cmd = cursorExecBaseCmd + sessionArg;
+  const startupStep = {
+    label: "Starting Cursor CLI...",
+    detail:
+      sessionMode.mode === "resume"
+        ? "Restoring saved context..."
+        : "Launching Cursor process...",
+  };
+  return await runCliAttempt({
+    cmd,
+    env: {
+      ...process.env,
+      HOME: CURSOR_RUNTIME_HOME_DIR,
+    },
+    processLabel: "cursor",
+    attemptLabel: "runCursorAttempt",
+    startupStep,
+  });
+}
+
+/** Dispatches a CLI attempt to the active provider (Claude, Codex, opencode, or Cursor). */
 async function runProviderAttempt(sessionMode) {
   if (PROVIDER === "codex") {
     return await runCodexAttempt(sessionMode);
   }
   if (PROVIDER === "opencode") {
     return await runOpencodeAttempt(sessionMode);
+  }
+  if (PROVIDER === "cursor") {
+    return await runCursorAttempt(sessionMode);
   }
   return await runClaudeAttempt(sessionMode);
 }
@@ -2340,6 +2710,10 @@ function syncProviderStateToPersist(reason) {
   }
   if (PROVIDER === "opencode") {
     syncOpencodeStateToPersist();
+    return;
+  }
+  if (PROVIDER === "cursor") {
+    syncCursorStateToPersist();
     return;
   }
   syncClaudeStateToPersist(reason);
@@ -2476,7 +2850,9 @@ try {
             ? "Codex"
             : PROVIDER === "opencode"
               ? "Opencode"
-              : "Claude") +
+              : PROVIDER === "cursor"
+                ? "Cursor"
+                : "Claude") +
           " CLI",
     ),
     activityLog: JSON.stringify(accumulatedSteps),

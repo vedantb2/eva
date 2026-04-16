@@ -155,6 +155,7 @@ export const aiProviderValidator = v.union(
   v.literal("claude"),
   v.literal("codex"),
   v.literal("opencode"),
+  v.literal("cursor"),
 );
 
 export const aiModelValidator = v.union(
@@ -171,9 +172,15 @@ export const aiModelValidator = v.union(
   v.literal("codex:gpt-5.3-codex"),
   v.literal("codex:gpt-5.2-codex"),
   v.literal("opencode:openai/gpt-5-codex"),
+  v.literal("cursor:claude-4-sonnet"),
+  v.literal("cursor:claude-4.6-sonnet"),
+  v.literal("cursor:claude-4.5-opus"),
+  v.literal("cursor:gpt-5.4"),
+  v.literal("cursor:gpt-5.4-mini"),
+  v.literal("cursor:gemini-3-pro"),
 );
 
-export type AIProvider = "claude" | "codex" | "opencode";
+export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
 export type AIModel =
   | "claude:opus"
@@ -185,7 +192,13 @@ export type AIModel =
   | "codex:gpt-5.4-mini"
   | "codex:gpt-5.3-codex"
   | "codex:gpt-5.2-codex"
-  | "opencode:openai/gpt-5-codex";
+  | "opencode:openai/gpt-5-codex"
+  | "cursor:claude-4-sonnet"
+  | "cursor:claude-4.6-sonnet"
+  | "cursor:claude-4.5-opus"
+  | "cursor:gpt-5.4"
+  | "cursor:gpt-5.4-mini"
+  | "cursor:gemini-3-pro";
 export type PersistedAIModel = AIModel | LegacyClaudeModel;
 
 export interface AIModelOption {
@@ -199,6 +212,7 @@ export interface AIProviderAvailability {
   claude: boolean;
   codex: boolean;
   opencode: boolean;
+  cursor: boolean;
 }
 
 export const DEFAULT_AI_MODEL: AIModel = "claude:sonnet";
@@ -259,6 +273,42 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     label: "Opencode GPT-5 Codex",
     requiresAuth: true,
   },
+  {
+    id: "cursor:claude-4-sonnet",
+    provider: "cursor",
+    label: "Claude 4 Sonnet",
+    requiresAuth: true,
+  },
+  {
+    id: "cursor:claude-4.6-sonnet",
+    provider: "cursor",
+    label: "Claude 4.6 Sonnet",
+    requiresAuth: true,
+  },
+  {
+    id: "cursor:claude-4.5-opus",
+    provider: "cursor",
+    label: "Claude 4.5 Opus",
+    requiresAuth: true,
+  },
+  {
+    id: "cursor:gpt-5.4",
+    provider: "cursor",
+    label: "GPT-5.4",
+    requiresAuth: true,
+  },
+  {
+    id: "cursor:gpt-5.4-mini",
+    provider: "cursor",
+    label: "GPT-5.4 mini",
+    requiresAuth: true,
+  },
+  {
+    id: "cursor:gemini-3-pro",
+    provider: "cursor",
+    label: "Gemini 3 Pro",
+    requiresAuth: true,
+  },
 ];
 
 export const CLAUDE_MODELS: ReadonlyArray<AIModel> = [
@@ -273,6 +323,9 @@ export const CODEX_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
 ).map((option) => option.id);
 export const OPENCODE_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
   (option) => option.provider === "opencode",
+).map((option) => option.id);
+export const CURSOR_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
+  (option) => option.provider === "cursor",
 ).map((option) => option.id);
 
 export const CODEX_AUTH_ENV_KEYS: ReadonlyArray<string> = [
@@ -289,6 +342,7 @@ export const OPENCODE_AUTH_ENV_KEYS: ReadonlyArray<string> = [
   "OPENCODE_AUTH_JSON",
   "OPENCODE_AUTH_JSON_BASE64",
 ];
+export const CURSOR_AUTH_ENV_KEYS: ReadonlyArray<string> = ["CURSOR_API_KEY"];
 
 /** Determines which AI providers are available based on the presence of required env var keys. */
 export function getAIProviderAvailability(
@@ -299,6 +353,7 @@ export function getAIProviderAvailability(
     claude: keys.has("CLAUDE_CODE_OAUTH_TOKEN"),
     codex: CODEX_AUTH_ENV_KEYS.some((key) => keys.has(key)),
     opencode: OPENCODE_AUTH_ENV_KEYS.some((key) => keys.has(key)),
+    cursor: CURSOR_AUTH_ENV_KEYS.some((key) => keys.has(key)),
   };
 }
 
@@ -327,6 +382,18 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
       return "codex:gpt-5.2-codex";
     case "opencode:openai/gpt-5-codex":
       return "opencode:openai/gpt-5-codex";
+    case "cursor:claude-4-sonnet":
+      return "cursor:claude-4-sonnet";
+    case "cursor:claude-4.6-sonnet":
+      return "cursor:claude-4.6-sonnet";
+    case "cursor:claude-4.5-opus":
+      return "cursor:claude-4.5-opus";
+    case "cursor:gpt-5.4":
+      return "cursor:gpt-5.4";
+    case "cursor:gpt-5.4-mini":
+      return "cursor:gpt-5.4-mini";
+    case "cursor:gemini-3-pro":
+      return "cursor:gemini-3-pro";
     case "sonnet":
     case "claude:sonnet":
     default:
@@ -341,6 +408,7 @@ export function getAIModelProvider(
   const normalized = normalizeAIModel(model);
   if (normalized.startsWith("codex:")) return "codex";
   if (normalized.startsWith("opencode:")) return "opencode";
+  if (normalized.startsWith("cursor:")) return "cursor";
   return "claude";
 }
 
@@ -385,12 +453,17 @@ export function getVisibleAIModelOptions(
     availability?.codex === true || currentProvider === "codex";
   const isOpencodeVisible =
     availability?.opencode === true || currentProvider === "opencode";
+  const isCursorVisible =
+    availability?.cursor === true || currentProvider === "cursor";
   return AI_MODEL_OPTIONS.filter((option) => {
     if (option.provider === "codex") {
       return isCodexVisible;
     }
     if (option.provider === "opencode") {
       return isOpencodeVisible;
+    }
+    if (option.provider === "cursor") {
+      return isCursorVisible;
     }
     return isClaudeVisible;
   });

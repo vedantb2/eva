@@ -46,6 +46,8 @@ function getProviderLabel(provider: string): string {
       return "Codex";
     case "opencode":
       return "Opencode";
+    case "cursor":
+      return "Cursor";
     default:
       return provider;
   }

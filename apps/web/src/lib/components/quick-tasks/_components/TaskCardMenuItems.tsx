@@ -227,7 +227,9 @@ export function TaskCardMenuItems({
                     ? "Codex"
                     : provider === "opencode"
                       ? "Opencode"
-                      : "Claude"}
+                      : provider === "cursor"
+                        ? "Cursor"
+                        : "Claude"}
                 </SubTrigger>
                 <SubContent>
                   <RadioGroup

@@ -62,7 +62,7 @@ function buildSnapshotImage(
       "ln -s /usr/bin/fdfind /usr/local/bin/fd",
       "git lfs install --system",
       // Global npm packages
-      "npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex",
+      "npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex",
       // Code-server
       "curl -fsSL https://code-server.dev/install.sh | sh",
       // Supabase CLI (pinned version — npm global install not supported, API calls hit rate limits)
@@ -75,6 +75,8 @@ function buildSnapshotImage(
     .runCommands(
       // Git config
       'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
+      // Cursor CLI (installs `cursor-agent` to /home/eva/.local/bin — curl-bash, not npm)
+      "curl -fsS https://cursor.com/install | bash",
       // Claude plugins
       "mkdir -p /home/eva/.claude/plugins/marketplaces",
       "git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official",
@@ -85,7 +87,7 @@ function buildSnapshotImage(
     .env({
       PNPM_HOME: "/home/eva/.pnpm",
       NODE_PATH: "/usr/lib/node_modules",
-      PATH: "/home/eva/.pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      PATH: "/home/eva/.pnpm:/home/eva/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
       // Use Docker Hub instead of ECR — Daytona sandboxes can't reach public.ecr.aws reliably
       SUPABASE_INTERNAL_IMAGE_REGISTRY: "docker.io",
     })

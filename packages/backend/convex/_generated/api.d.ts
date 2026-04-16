@@ -85,6 +85,7 @@ import type * as githubWebhook from "../githubWebhook.js";
 import type * as http from "../http.js";
 import type * as linearActions from "../linearActions.js";
 import type * as logs from "../logs.js";
+import type * as mcpOAuth from "../mcpOAuth.js";
 import type * as mcpQueries from "../mcpQueries.js";
 import type * as mcpRoutes from "../mcpRoutes.js";
 import type * as mcpTokenMinter from "../mcpTokenMinter.js";
@@ -215,6 +216,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   linearActions: typeof linearActions;
   logs: typeof logs;
+  mcpOAuth: typeof mcpOAuth;
   mcpQueries: typeof mcpQueries;
   mcpRoutes: typeof mcpRoutes;
   mcpTokenMinter: typeof mcpTokenMinter;

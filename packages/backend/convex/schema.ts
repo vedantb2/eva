@@ -348,6 +348,23 @@ const schema = defineSchema({
     "owner",
     "name",
   ]),
+
+  mcpAuthCodes: defineTable({
+    code: v.string(),
+    clerkUserId: v.string(),
+    codeChallenge: v.string(),
+    codeChallengeMethod: v.string(),
+    redirectUri: v.string(),
+    clientId: v.string(),
+    expiresAt: v.number(),
+  }).index("by_code", ["code"]),
+
+  mcpClientRegistrations: defineTable({
+    clientId: v.string(),
+    clientSecret: v.optional(v.string()),
+    redirectUris: v.array(v.string()),
+    registeredAt: v.number(),
+  }).index("by_clientId", ["clientId"]),
 });
 
 export default schema;

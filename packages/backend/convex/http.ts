@@ -295,4 +295,150 @@ http.route({
   }),
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MCP OAuth State Endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+http.route({
+  path: "/api/mcp/oauth/clients",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!verifyDeployKey(request)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const body: unknown = await request.json();
+    if (!isRecord(body)) {
+      return new Response("Invalid request body", { status: 400 });
+    }
+
+    const clientId = getString(body, "clientId");
+    const clientSecret = getString(body, "clientSecret");
+    const rawUris = body["redirectUris"];
+    const redirectUris: string[] = [];
+    if (Array.isArray(rawUris)) {
+      for (const uri of rawUris) {
+        if (typeof uri === "string") {
+          redirectUris.push(uri);
+        }
+      }
+    }
+
+    if (!clientId) {
+      return new Response("clientId required", { status: 400 });
+    }
+
+    await ctx.runMutation(internal.mcpOAuth.registerClient, {
+      clientId,
+      clientSecret: clientSecret ?? undefined,
+      redirectUris,
+    });
+
+    return new Response("OK", { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/api/mcp/oauth/clients/:clientId",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    if (!verifyDeployKey(request)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const clientId = pathParts[pathParts.length - 1];
+
+    if (!clientId) {
+      return new Response("clientId required", { status: 400 });
+    }
+
+    const client = await ctx.runQuery(internal.mcpOAuth.getClient, {
+      clientId,
+    });
+
+    if (!client) {
+      return Response.json({ found: false }, { status: 404 });
+    }
+
+    return Response.json({ found: true, client });
+  }),
+});
+
+http.route({
+  path: "/api/mcp/oauth/auth-codes",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!verifyDeployKey(request)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const body: unknown = await request.json();
+    if (!isRecord(body)) {
+      return new Response("Invalid request body", { status: 400 });
+    }
+
+    const code = getString(body, "code");
+    const clerkUserId = getString(body, "clerkUserId");
+    const codeChallenge = getString(body, "codeChallenge");
+    const codeChallengeMethod = getString(body, "codeChallengeMethod");
+    const redirectUri = getString(body, "redirectUri");
+    const clientId = getString(body, "clientId");
+    const expiresAt = body["expiresAt"];
+
+    if (
+      !code ||
+      !clerkUserId ||
+      !codeChallenge ||
+      !codeChallengeMethod ||
+      !redirectUri ||
+      !clientId ||
+      typeof expiresAt !== "number"
+    ) {
+      return new Response("Missing required fields", { status: 400 });
+    }
+
+    await ctx.runMutation(internal.mcpOAuth.storeAuthCode, {
+      code,
+      clerkUserId,
+      codeChallenge,
+      codeChallengeMethod,
+      redirectUri,
+      clientId,
+      expiresAt,
+    });
+
+    return new Response("OK", { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/api/mcp/oauth/auth-codes/:code",
+  method: "DELETE",
+  handler: httpAction(async (ctx, request) => {
+    if (!verifyDeployKey(request)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const code = pathParts[pathParts.length - 1];
+
+    if (!code) {
+      return new Response("code required", { status: 400 });
+    }
+
+    const entry = await ctx.runMutation(internal.mcpOAuth.consumeAuthCode, {
+      code,
+    });
+
+    if (!entry) {
+      return Response.json({ found: false }, { status: 404 });
+    }
+
+    return Response.json({ found: true, entry });
+  }),
+});
+
 export default http;

@@ -342,7 +342,8 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_repo_and_created", ["repoId", "createdAt"])
-    .index("by_entity_type", ["entityType"]),
+    .index("by_entity_type", ["entityType"])
+    .index("by_repo_and_entity", ["repoId", "entityId"]),
 
   syncSettings: defineTable(syncSettingFields).index("by_owner_and_name", [
     "owner",

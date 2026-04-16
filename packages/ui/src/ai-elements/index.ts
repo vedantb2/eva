@@ -18,3 +18,4 @@ export * from "./code-block";
 export * from "./sandbox";
 export * from "./chain-of-thought";
 export * from "./activity-steps";
+export * from "./context";

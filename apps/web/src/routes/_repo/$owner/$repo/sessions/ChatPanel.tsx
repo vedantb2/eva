@@ -82,6 +82,7 @@ import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import { EntityContextUsage } from "@/lib/components/context-usage";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -423,6 +424,7 @@ export function ChatPanel({
 
   const headerRight = (
     <>
+      <EntityContextUsage repoId={repo._id} entityId={sessionId} />
       {!prUrl && branchName && (
         <Button
           size="sm"

@@ -19,7 +19,8 @@ type PrepareSandboxArgs = {
   attachRunId?: Id<"agentRuns">;
   baseBranch?: string;
   branchName?: string;
-  sessionPersistenceId?: Id<"sessions">;
+  sessionPersistenceId?: Id<"sessions"> | Id<"projects">;
+  sessionPersistenceKind?: "sessions" | "projects";
   createRetry?: { maxAttempts: number; initialBackoffMs: number; base: number };
 };
 
@@ -65,6 +66,7 @@ export async function prepareSandboxSteps(
       repoId: args.repoId,
       attachRunId: args.attachRunId,
       sessionPersistenceId: args.sessionPersistenceId,
+      sessionPersistenceKind: args.sessionPersistenceKind,
       streamingEntityId: args.streamingEntityId,
     },
     args.createRetry ? { retry: args.createRetry } : undefined,

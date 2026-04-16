@@ -24,21 +24,12 @@ interface PreviousAnswer {
   answer: string;
 }
 
-/** Builds a prompt that asks one implementation-focused question based on prior answers and optional rejection feedback. */
+/** Builds a prompt that asks one implementation-focused question. Session persistence provides prior context. */
 function buildQuestionPrompt(
   featureDescription: string,
-  previousAnswers: PreviousAnswer[],
   rejectionReason?: string,
 ): string {
   let prompt = `## Feature Request\n"${featureDescription}"\n\n`;
-
-  if (previousAnswers.length > 0) {
-    prompt += `## Already Decided\n`;
-    previousAnswers.forEach((a, i) => {
-      prompt += `${i + 1}. ${a.question} → ${a.answer}\n`;
-    });
-    prompt += "\n";
-  }
 
   if (rejectionReason) {
     prompt += `## Important Context\nThe user previously received a generated plan but rejected it with this feedback: "${rejectionReason}"\nAsk a question that directly addresses what the user felt was missing or wrong.\n\n`;
@@ -105,7 +96,6 @@ export const projectInterviewWorkflow = workflow.define({
 
     const questionPrompt = buildQuestionPrompt(
       args.featureDescription,
-      args.previousAnswers,
       args.rejectionReason,
     );
     const fullPrompt = `${PROJECT_INTERVIEW_SYSTEM_PROMPT} ${questionPrompt}`;
@@ -119,6 +109,8 @@ export const projectInterviewWorkflow = workflow.define({
         repoName: projectData.repoName,
         repoId: projectData.repoId,
         streamingEntityId: args.projectId,
+        sessionPersistenceId: args.projectId,
+        sessionPersistenceKind: "projects",
       },
     );
 
@@ -132,6 +124,7 @@ export const projectInterviewWorkflow = workflow.define({
       model: "sonnet",
       allowedTools: "Read,Glob,Grep",
       repoId: projectData.repoId,
+      sessionPersistenceId: args.projectId,
     });
 
     // Step 4: Wait for callback
@@ -341,6 +334,47 @@ export const startInterview = authMutation({
   },
 });
 
+/**
+ * Public mutation to start spec generation after interview is complete.
+ */
+export const startSpec = authMutation({
+  args: {
+    projectId: v.id("projects"),
+    featureDescription: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+
+    const repo = await ctx.db.get(project.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const workflowId = await workflow.start(
+      ctx,
+      internal.projectInterviewWorkflow.projectSpecWorkflow,
+      {
+        projectId: args.projectId,
+        featureDescription: args.featureDescription,
+        userId: ctx.userId,
+        installationId: repo.installationId,
+      },
+    );
+
+    await ctx.db.patch(args.projectId, {
+      activeWorkflowId: String(workflowId),
+    });
+
+    await ctx.scheduler.runAfter(
+      RUN_TIMEOUT_MS,
+      internal.workflowWatchdog.handleStaleProject,
+      { projectId: args.projectId, workflowId: String(workflowId) },
+    );
+
+    return null;
+  },
+});
+
 // --- Spec generation workflow (when interview is ready) ---
 
 /** Generates an implementation spec from completed interview answers using a sandbox agent. */
@@ -348,9 +382,6 @@ export const projectSpecWorkflow = workflow.define({
   args: {
     projectId: v.id("projects"),
     featureDescription: v.string(),
-    previousAnswers: v.array(
-      v.object({ question: v.string(), answer: v.string() }),
-    ),
     userId: v.id("users"),
     installationId: v.number(),
   },
@@ -365,18 +396,11 @@ export const projectSpecWorkflow = workflow.define({
       { projectId: args.projectId },
     );
 
-    const answersText = args.previousAnswers
-      .map((a, i) => `Q${i + 1}: ${a.question}\nA: ${a.answer}`)
-      .join("\n\n");
-
     const prompt = `${SPEC_SYSTEM_PROMPT}
 
 Feature: "${args.featureDescription}"
 
-Interview answers:
-${answersText}
-
-Generate an implementation spec with 2-5 tasks. Each task should represent a complete ownership boundary (e.g., "backend infrastructure" or "UI integration"), not a single micro-edit. Tasks should be comprehensive enough that completing one task means that entire area of the codebase is done.
+Based on the interview conversation above, generate an implementation spec with 2-5 tasks. Each task should represent a complete ownership boundary (e.g., "backend infrastructure" or "UI integration"), not a single micro-edit. Tasks should be comprehensive enough that completing one task means that entire area of the codebase is done.
 
 Output ONLY valid JSON.`;
 
@@ -389,6 +413,8 @@ Output ONLY valid JSON.`;
         repoName: projectData.repoName,
         repoId: projectData.repoId,
         streamingEntityId: args.projectId,
+        sessionPersistenceId: args.projectId,
+        sessionPersistenceKind: "projects",
       },
     );
 
@@ -402,6 +428,7 @@ Output ONLY valid JSON.`;
       model: "sonnet",
       allowedTools: "Read,Glob,Grep",
       repoId: projectData.repoId,
+      sessionPersistenceId: args.projectId,
     });
 
     const result = await step.awaitEvent(projectInterviewCompleteEvent);

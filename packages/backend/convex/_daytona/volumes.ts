@@ -20,8 +20,11 @@ const VOLUME_INVALID_STATES = new Set([
   "pending_delete",
 ]);
 
-type PersistableSessionId = Id<"sessions"> | Id<"designSessions">;
-type PersistableSessionKind = "sessions" | "designSessions";
+type PersistableSessionId =
+  | Id<"sessions">
+  | Id<"designSessions">
+  | Id<"projects">;
+type PersistableSessionKind = "sessions" | "designSessions" | "projects";
 type PersistableRepoId = Id<"githubRepos">;
 type PersistedProvider = "claude" | "codex";
 

@@ -37,6 +37,7 @@ export const summarizeSessionWorkflow = workflow.define({
         repoName: sessionData.repoName,
         repoId: sessionData.repoId,
         sessionPersistenceId: args.sessionId,
+        sessionPersistenceKind: "sessions",
         streamingEntityId: `summary:${args.sessionId}`,
       },
     );

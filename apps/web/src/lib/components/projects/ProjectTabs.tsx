@@ -47,25 +47,6 @@ export function ProjectTabs({
     setPendingSpec(null);
   }, [clearMessagesDb, updateProject, projectId]);
 
-  const answersFromHistory: Array<{ question: string; answer: string }> = [];
-  for (let i = 0; i < conversationHistory.length - 1; i++) {
-    const msg = conversationHistory[i];
-    const nextMsg = conversationHistory[i + 1];
-    if (msg.role === "assistant" && nextMsg?.role === "user") {
-      try {
-        const parsed = JSON.parse(msg.content);
-        if (parsed.question) {
-          answersFromHistory.push({
-            question: parsed.question,
-            answer: nextMsg.content,
-          });
-        }
-      } catch {
-        continue;
-      }
-    }
-  }
-
   const handleRejectSpec = useCallback(
     async (reason: string) => {
       await updateProject({ id: projectId, phase: "draft" });
@@ -74,20 +55,13 @@ export function ProjectTabs({
       await startProjectInterview({
         projectId,
         featureDescription: rawInput,
-        previousAnswers: answersFromHistory,
+        previousAnswers: [], // Session persistence provides context
         rejectionReason: reason,
       });
 
       setPendingSpec(null);
     },
-    [
-      projectId,
-      rawInput,
-      updateProject,
-      addMessageDb,
-      startProjectInterview,
-      answersFromHistory,
-    ],
+    [projectId, rawInput, updateProject, addMessageDb, startProjectInterview],
   );
 
   const specToShow =

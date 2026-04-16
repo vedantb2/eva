@@ -29,6 +29,12 @@ interface BranchSelectProps {
   className?: string;
   disabled?: boolean;
   placeholder?: string;
+  /** Override the repo used to fetch branches (defaults to current RepoContext). */
+  repoOverride?: {
+    owner: string;
+    name: string;
+    installationId: number;
+  };
 }
 
 export function BranchSelect({
@@ -37,15 +43,20 @@ export function BranchSelect({
   className,
   disabled,
   placeholder = "Select a branch",
+  repoOverride,
 }: BranchSelectProps) {
   const { repo } = useRepo();
+  const effectiveOwner = repoOverride?.owner ?? repo.owner;
+  const effectiveName = repoOverride?.name ?? repo.name;
+  const effectiveInstallationId =
+    repoOverride?.installationId ?? repo.installationId;
   const [open, setOpen] = useState(false);
   const [shouldFetch, setShouldFetch] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const { branches, isLoading } = useBranches(
-    repo.owner,
-    repo.name,
-    repo.installationId,
+    effectiveOwner,
+    effectiveName,
+    effectiveInstallationId,
     shouldFetch,
   );
   const listRef = useRef<HTMLDivElement>(null);

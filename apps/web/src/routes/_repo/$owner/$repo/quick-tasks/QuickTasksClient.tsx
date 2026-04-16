@@ -21,6 +21,7 @@ import {
   searchParser,
   quickTaskViewParser,
   projectFilterParser,
+  userFilterParser,
 } from "@/lib/search-params";
 import { IconChecklist } from "@tabler/icons-react";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
@@ -43,14 +44,16 @@ export function QuickTasksClient() {
   const [activeBulkAction, setActiveBulkAction] = useState<BulkAction | null>(
     null,
   );
-  const [{ q, view, project }, setParams] = useQueryStates({
+  const [{ q, view, project, user }, setParams] = useQueryStates({
     q: searchParser,
     view: quickTaskViewParser,
     project: projectFilterParser,
+    user: userFilterParser,
   });
   const searchQuery = q;
 
   const projects = useQuery(api.projects.list, { repoId: repo._id });
+  const users = useQuery(api.users.listAll);
 
   const projectNames = useMemo(() => {
     const map = new Map<string, string>();
@@ -64,10 +67,18 @@ export function QuickTasksClient() {
 
   const quickTasks = useMemo(() => {
     if (!tasks) return [];
-    if (project === "all") return tasks;
-    if (project === "none") return tasks.filter((t) => !t.projectId);
-    return tasks.filter((t) => t.projectId === project);
-  }, [tasks, project]);
+    let filtered = tasks;
+    if (project !== "all") {
+      filtered =
+        project === "none"
+          ? filtered.filter((t) => !t.projectId)
+          : filtered.filter((t) => t.projectId === project);
+    }
+    if (user !== "all") {
+      filtered = filtered.filter((t) => t.createdBy === user);
+    }
+    return filtered;
+  }, [tasks, project, user]);
   const hasAnyTasks = (tasks ?? []).length > 0;
   const hasQuickTasks = quickTasks.length > 0;
 
@@ -157,6 +168,9 @@ export function QuickTasksClient() {
             projects={projects}
             projectFilter={project}
             onProjectFilterChange={(v) => setParams({ project: v })}
+            users={users}
+            userFilter={user}
+            onUserFilterChange={(v) => setParams({ user: v })}
           />
         }
       >

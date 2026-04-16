@@ -7,6 +7,7 @@ export {
   listByTeam,
   listSiblingApps,
   getInternal,
+  listGroupedByCodebase,
 } from "./_githubRepos/queries";
 
 export {

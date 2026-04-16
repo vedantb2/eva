@@ -7,6 +7,7 @@ import {
   AccordionTrigger,
   AccordionContent,
   Spinner,
+  MessageResponse,
 } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -65,11 +66,11 @@ export function TaskDescription({
           <p className="text-sm text-muted-foreground italic">
             Click to add description...
           </p>
-        ) : (
+        ) : isEditingDescription ? (
           <Suspense fallback={<Spinner size="sm" />}>
             <FormattedText
               content={mainDesc}
-              editable={isEditingDescription}
+              editable
               className="text-sm leading-7 text-muted-foreground whitespace-pre-wrap break-words [&_.tiptap]:outline-none [&_.tiptap_p]:my-0 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6"
               onBlur={(markdown) => {
                 const trimmed = markdown.trim();
@@ -83,6 +84,10 @@ export function TaskDescription({
               }}
             />
           </Suspense>
+        ) : (
+          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+            {mainDesc}
+          </MessageResponse>
         )}
       </div>
       {!isEditingDescription && elementDetails && (

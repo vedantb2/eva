@@ -4,7 +4,7 @@ import { internal } from "../_generated/api";
 import type { WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "../workflowManager";
 import { createNotification } from "../notifications";
-import { runModeValidator } from "../validators";
+import { runModeValidator, errorTypeValidator } from "../validators";
 import type { Id } from "../_generated/dataModel";
 import { RUN_TIMEOUT_MS } from "../workflowWatchdog";
 import { buildWorkflowRunNotificationMessage } from "./prompts";
@@ -147,6 +147,7 @@ export const finalizeRunStreamingPhase = internalMutation({
     activityLog: v.union(v.string(), v.null()),
     exitReason: v.optional(v.string()),
     claudeResult: v.optional(v.string()),
+    errorType: v.optional(errorTypeValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -158,6 +159,7 @@ export const finalizeRunStreamingPhase = internalMutation({
       prUrl: args.prUrl,
       exitReason: args.exitReason,
       claudeResult: args.claudeResult,
+      errorType: args.errorType,
     });
     if (args.activityLog) {
       await upsertActivityLog(ctx, args.runId, args.activityLog);
@@ -181,6 +183,7 @@ export const completeRun = internalMutation({
     exitReason: v.optional(v.string()),
     mode: v.optional(runModeValidator),
     claudeResult: v.optional(v.string()),
+    errorType: v.optional(errorTypeValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -194,6 +197,7 @@ export const completeRun = internalMutation({
       prUrl: args.prUrl,
       exitReason: args.exitReason,
       claudeResult: args.claudeResult,
+      errorType: args.errorType,
     });
 
     if (args.activityLog) {

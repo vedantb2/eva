@@ -12,9 +12,11 @@ const EXTENSIONS = [
   }),
   Underline,
   Markdown.configure({
-    markedOptions: {
-      gfm: true,
-    },
+    html: true,
+    tightLists: true,
+    breaks: true,
+    transformPastedText: true,
+    transformCopiedText: true,
   }),
 ];
 
@@ -37,7 +39,6 @@ export const FormattedText = forwardRef<
     extensions: EXTENSIONS,
     content,
     editable,
-    contentType: "markdown",
     immediatelyRender: false,
     onBlur: ({ editor: e }) => {
       if (onBlur) {

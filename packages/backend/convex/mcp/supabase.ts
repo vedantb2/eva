@@ -161,7 +161,7 @@ export async function registerSupabaseTools(
   // Try to resolve Supabase token
   let token: string | null;
   try {
-    token = await ctx.runAction(internal.mcpNodeActions.resolveSupabaseToken, {
+    token = await ctx.runAction(internal.mcp.nodeActions.resolveSupabaseToken, {
       clerkUserId,
     });
   } catch (err) {
@@ -204,7 +204,7 @@ export async function registerSupabaseTools(
       async (args: Record<string, unknown>) => {
         // Re-resolve token in case it expired
         const currentToken = await ctx.runAction(
-          internal.mcpNodeActions.resolveSupabaseToken,
+          internal.mcp.nodeActions.resolveSupabaseToken,
           { clerkUserId },
         );
         if (!currentToken) {

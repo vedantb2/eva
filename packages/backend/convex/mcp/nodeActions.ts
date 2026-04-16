@@ -1,18 +1,18 @@
 "use node";
 
 import { v } from "convex/values";
-import { internalAction } from "./_generated/server";
+import { internalAction } from "../_generated/server";
 import {
   createClerkClient,
   verifyToken as clerkVerifyToken,
 } from "@clerk/backend";
 import { jwtVerify, SignJWT, importJWK } from "jose";
 import { z } from "zod";
-import { internal } from "./_generated/api";
+import { internal } from "../_generated/api";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { registerTools } from "./mcp/tools";
-import { registerSupabaseTools } from "./mcp/supabase";
+import { registerTools } from "./tools";
+import { registerSupabaseTools } from "./supabase";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment Helpers
@@ -620,7 +620,7 @@ export const getRepoConvexCredentials = internalAction({
     }
 
     const vars: EnvVar[] = await ctx.runAction(
-      internal.mcpRoutes.getDecryptedRepoEnvVars,
+      internal.mcp.routes.getDecryptedRepoEnvVars,
       { repoId },
     );
 
@@ -925,7 +925,7 @@ export const resolveSupabaseToken = internalAction({
     for (const repoId of repoIds) {
       try {
         const vars: EnvVar[] = await ctx.runAction(
-          internal.mcpRoutes.getDecryptedRepoEnvVars,
+          internal.mcp.routes.getDecryptedRepoEnvVars,
           { repoId },
         );
         const match: EnvVar | undefined = vars.find(

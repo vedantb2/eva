@@ -82,7 +82,7 @@ http.route({
     }
 
     const hasAccess: boolean = await ctx.runQuery(
-      internal.mcpQueries.checkRepoAccessForUser,
+      internal.mcp.queries.checkRepoAccessForUser,
       { repoId: parsed.repoId, userId: parsed.userId },
     );
     if (!hasAccess) {
@@ -90,7 +90,7 @@ http.route({
     }
 
     const vars = await ctx.runAction(
-      internal.mcpRoutes.getDecryptedRepoEnvVars,
+      internal.mcp.routes.getDecryptedRepoEnvVars,
       { repoId: parsed.repoId },
     );
     return Response.json(vars);
@@ -328,7 +328,7 @@ http.route({
       return new Response("clientId required", { status: 400 });
     }
 
-    await ctx.runMutation(internal.mcpOAuth.registerClient, {
+    await ctx.runMutation(internal.mcp.oauth.registerClient, {
       clientId,
       clientSecret: clientSecret ?? undefined,
       redirectUris,
@@ -354,7 +354,7 @@ http.route({
       return new Response("clientId required", { status: 400 });
     }
 
-    const client = await ctx.runQuery(internal.mcpOAuth.getClient, {
+    const client = await ctx.runQuery(internal.mcp.oauth.getClient, {
       clientId,
     });
 
@@ -399,7 +399,7 @@ http.route({
       return new Response("Missing required fields", { status: 400 });
     }
 
-    await ctx.runMutation(internal.mcpOAuth.storeAuthCode, {
+    await ctx.runMutation(internal.mcp.oauth.storeAuthCode, {
       code,
       clerkUserId,
       codeChallenge,
@@ -429,7 +429,7 @@ http.route({
       return new Response("code required", { status: 400 });
     }
 
-    const entry = await ctx.runMutation(internal.mcpOAuth.consumeAuthCode, {
+    const entry = await ctx.runMutation(internal.mcp.oauth.consumeAuthCode, {
       code,
     });
 
@@ -455,7 +455,7 @@ import {
   mcpHandler,
   mintInternalToken,
   health,
-} from "./mcpNative";
+} from "./mcp/native";
 
 // OAuth metadata endpoints
 http.route({

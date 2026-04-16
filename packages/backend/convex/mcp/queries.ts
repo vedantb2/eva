@@ -1,6 +1,6 @@
-import { internalQuery } from "./_generated/server";
+import { internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 
 /** Checks whether a user has access to a repo (via ownership or team membership). */
 export const checkRepoAccessForUser = internalQuery({

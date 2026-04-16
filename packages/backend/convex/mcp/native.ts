@@ -1,5 +1,5 @@
-import { httpAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { httpAction } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { z } from "zod";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ export const register = httpAction(async (ctx, request) => {
       }
     }
 
-    await ctx.runMutation(internal.mcpOAuth.registerClient, {
+    await ctx.runMutation(internal.mcp.oauth.registerClient, {
       clientId,
       redirectUris,
     });
@@ -122,7 +122,7 @@ export const authorizeGet = httpAction(async (ctx, request) => {
 
     const params = authorizeQuerySchema.parse(query);
 
-    const client = await ctx.runQuery(internal.mcpOAuth.getClient, {
+    const client = await ctx.runQuery(internal.mcp.oauth.getClient, {
       clientId: params.client_id,
     });
 
@@ -135,7 +135,7 @@ export const authorizeGet = httpAction(async (ctx, request) => {
 
     // Get publishable key from action (runs in Node.js)
     const publishableKey = await ctx.runAction(
-      internal.mcpNodeActions.getClerkPublishableKey,
+      internal.mcp.nodeActions.getClerkPublishableKey,
       {},
     );
 
@@ -261,7 +261,7 @@ export const authorizePost = httpAction(async (ctx, request) => {
     });
 
     // Validate client exists and redirect_uri matches
-    const client = await ctx.runQuery(internal.mcpOAuth.getClient, {
+    const client = await ctx.runQuery(internal.mcp.oauth.getClient, {
       clientId: body.client_id ?? "",
     });
 
@@ -291,7 +291,7 @@ export const authorizePost = httpAction(async (ctx, request) => {
 
     // Verify Clerk token and get user ID (runs in Node.js)
     const clerkUserId = await ctx.runAction(
-      internal.mcpNodeActions.verifyClerkTokenAction,
+      internal.mcp.nodeActions.verifyClerkTokenAction,
       { token: body.clerk_token ?? "" },
     );
 
@@ -313,7 +313,7 @@ export const authorizePost = httpAction(async (ctx, request) => {
 
     const CODE_TTL_MS = 5 * 60 * 1000;
 
-    await ctx.runMutation(internal.mcpOAuth.storeAuthCode, {
+    await ctx.runMutation(internal.mcp.oauth.storeAuthCode, {
       code,
       clerkUserId,
       codeChallenge: body.code_challenge ?? "",
@@ -394,7 +394,7 @@ export const token = httpAction(async (ctx, request) => {
   const refreshParse = refreshBodySchema.safeParse(body);
   if (refreshParse.success) {
     console.log("[MCP][token] handling refresh_token grant");
-    const result = await ctx.runAction(internal.mcpNodeActions.refreshToken, {
+    const result = await ctx.runAction(internal.mcp.nodeActions.refreshToken, {
       refreshToken: refreshParse.data.refresh_token,
     });
     if (!result.success) {
@@ -428,7 +428,7 @@ export const token = httpAction(async (ctx, request) => {
   const params = parseResult.data;
   console.log("[MCP][token] parsed auth_code params OK, consuming code");
 
-  const entry = await ctx.runMutation(internal.mcpOAuth.consumeAuthCode, {
+  const entry = await ctx.runMutation(internal.mcp.oauth.consumeAuthCode, {
     code: params.code,
   });
 
@@ -487,7 +487,7 @@ export const token = httpAction(async (ctx, request) => {
   console.log("[MCP][token] PKCE OK, issuing tokens");
 
   // Issue tokens (runs in Node.js)
-  const tokens = await ctx.runAction(internal.mcpNodeActions.issueTokens, {
+  const tokens = await ctx.runAction(internal.mcp.nodeActions.issueTokens, {
     clerkUserId: entry.clerkUserId,
   });
 
@@ -531,7 +531,7 @@ export const mcpHandler = httpAction(async (ctx, request) => {
 
   console.log("[MCP][mcpHandler] verifying access token");
   const credentials = await ctx.runAction(
-    internal.mcpNodeActions.verifyAccessToken,
+    internal.mcp.nodeActions.verifyAccessToken,
     {
       token,
     },
@@ -580,11 +580,14 @@ export const mcpHandler = httpAction(async (ctx, request) => {
 
   // Delegate to Node.js action for MCP protocol handling
   // The MCP SDK requires Node.js runtime
-  const result = await ctx.runAction(internal.mcpNodeActions.handleMcpRequest, {
-    clerkUserId: credentials.clerkUserId,
-    scopedRepoId: credentials.scopedRepoId,
-    body: JSON.stringify(body),
-  });
+  const result = await ctx.runAction(
+    internal.mcp.nodeActions.handleMcpRequest,
+    {
+      clerkUserId: credentials.clerkUserId,
+      scopedRepoId: credentials.scopedRepoId,
+      body: JSON.stringify(body),
+    },
+  );
 
   console.log(
     "[MCP][mcpHandler] handleMcpRequest returned status:",
@@ -630,7 +633,7 @@ export const mintInternalToken = httpAction(async (ctx, request) => {
 
   // Delegate to Node.js action (which has access to MCP_INTERNAL_SECRET)
   const result = await ctx.runAction(
-    internal.mcpNodeActions.mintInternalToken,
+    internal.mcp.nodeActions.mintInternalToken,
     {
       clerkUserId,
       repoId,

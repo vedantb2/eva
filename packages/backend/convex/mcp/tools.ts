@@ -47,14 +47,14 @@ export function registerTools(
   // ─────────────────────────────────────────────────────────────────────────────
 
   async function getContext(): Promise<{ deployKey: string; userId: string }> {
-    const result = await ctx.runAction(internal.mcpNodeActions.getContext, {
+    const result = await ctx.runAction(internal.mcp.nodeActions.getContext, {
       clerkUserId,
     });
     return result;
   }
 
   async function getUserRepos(userId: string): Promise<RepoInfo[]> {
-    return ctx.runAction(internal.mcpNodeActions.listUserRepos, { userId });
+    return ctx.runAction(internal.mcp.nodeActions.listUserRepos, { userId });
   }
 
   async function resolveTargetWithAccess(
@@ -69,7 +69,7 @@ export function registerTools(
     }
 
     const hasAccess = await ctx.runQuery(
-      internal.mcpQueries.checkRepoAccessForUser,
+      internal.mcp.queries.checkRepoAccessForUser,
       { repoId, userId },
     );
     if (!hasAccess) {
@@ -77,7 +77,7 @@ export function registerTools(
     }
 
     const repoCreds = await ctx.runAction(
-      internal.mcpNodeActions.getRepoConvexCredentials,
+      internal.mcp.nodeActions.getRepoConvexCredentials,
       { repoId, userId },
     );
     if (!repoCreds) {
@@ -149,7 +149,7 @@ export function registerTools(
       const { deployKey, userId } = await getContext();
       const target = await resolveTargetWithAccess(repoId, deployKey, userId);
 
-      const tables = await ctx.runAction(internal.mcpNodeActions.listTables, {
+      const tables = await ctx.runAction(internal.mcp.nodeActions.listTables, {
         convexUrl: target.convexUrl,
         deployKey: target.deployKey,
       });
@@ -190,7 +190,7 @@ export function registerTools(
       const { deployKey, userId } = await getContext();
       const target = await resolveTargetWithAccess(repoId, deployKey, userId);
 
-      const result = await ctx.runAction(internal.mcpNodeActions.queryTable, {
+      const result = await ctx.runAction(internal.mcp.nodeActions.queryTable, {
         convexUrl: target.convexUrl,
         deployKey: target.deployKey,
         table,
@@ -234,11 +234,14 @@ export function registerTools(
       const { deployKey, userId } = await getContext();
       const target = await resolveTargetWithAccess(repoId, deployKey, userId);
 
-      const result = await ctx.runAction(internal.mcpNodeActions.runTestQuery, {
-        convexUrl: target.convexUrl,
-        deployKey: target.deployKey,
-        code: `return await ctx.db.get(${JSON.stringify(id)});`,
-      });
+      const result = await ctx.runAction(
+        internal.mcp.nodeActions.runTestQuery,
+        {
+          convexUrl: target.convexUrl,
+          deployKey: target.deployKey,
+          code: `return await ctx.db.get(${JSON.stringify(id)});`,
+        },
+      );
 
       const output: { document: unknown; logLines?: string[] } = {
         document: result.value,
@@ -280,11 +283,14 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       const { deployKey, userId } = await getContext();
       const target = await resolveTargetWithAccess(repoId, deployKey, userId);
 
-      const result = await ctx.runAction(internal.mcpNodeActions.runTestQuery, {
-        convexUrl: target.convexUrl,
-        deployKey: target.deployKey,
-        code,
-      });
+      const result = await ctx.runAction(
+        internal.mcp.nodeActions.runTestQuery,
+        {
+          convexUrl: target.convexUrl,
+          deployKey: target.deployKey,
+          code,
+        },
+      );
 
       const output: { result: unknown; logLines?: string[] } = {
         result: result.value,
@@ -321,11 +327,14 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       const { deployKey, userId } = await getContext();
       const target = await resolveTargetWithAccess(repoId, deployKey, userId);
 
-      const result = await ctx.runAction(internal.mcpNodeActions.runTestQuery, {
-        convexUrl: target.convexUrl,
-        deployKey: target.deployKey,
-        code: `const docs = await ctx.db.query(${JSON.stringify(table)}).collect(); return docs.length;`,
-      });
+      const result = await ctx.runAction(
+        internal.mcp.nodeActions.runTestQuery,
+        {
+          convexUrl: target.convexUrl,
+          deployKey: target.deployKey,
+          code: `const docs = await ctx.db.query(${JSON.stringify(table)}).collect(); return docs.length;`,
+        },
+      );
 
       return textResult({ table, count: result.value });
     },
@@ -443,7 +452,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
     if ("isError" in resolved) return resolved;
     const { repo } = resolved;
 
-    const taskId = await ctx.runAction(internal.mcpNodeActions.createTask, {
+    const taskId = await ctx.runAction(internal.mcp.nodeActions.createTask, {
       clerkUserId,
       repoId: repo.id,
       title: input.title,
@@ -464,7 +473,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       const result = await createTaskForRepo(input, userId);
       if ("isError" in result) return result;
 
-      await ctx.runAction(internal.mcpNodeActions.startTaskExecution, {
+      await ctx.runAction(internal.mcp.nodeActions.startTaskExecution, {
         clerkUserId,
         taskId: result.taskId,
       });
@@ -574,7 +583,7 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
       }));
 
       const result = await ctx.runAction(
-        internal.mcpNodeActions.createTasksBatch,
+        internal.mcp.nodeActions.createTasksBatch,
         {
           clerkUserId,
           repoId: repo.id,

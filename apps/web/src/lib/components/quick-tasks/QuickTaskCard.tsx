@@ -30,8 +30,9 @@ import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
 import { MoveTaskDialog } from "./_components/MoveTaskDialog";
 import { TaskCardMenuItems } from "./_components/TaskCardMenuItems";
 
-type SiblingApp = { _id: Id<"githubRepos">; appName: string };
-
+type GroupedCodebase = FunctionReturnType<
+  typeof api.githubRepos.listGroupedByCodebase
+>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -47,7 +48,7 @@ interface QuickTaskCardProps {
   createdAt: number;
   projectName?: string;
   hasError?: boolean;
-  siblingApps?: SiblingApp[];
+  groupedCodebases?: GroupedCodebase[];
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -73,7 +74,7 @@ export function QuickTaskCard({
   createdAt,
   projectName,
   hasError = false,
-  siblingApps,
+  groupedCodebases,
   onClick,
   isSelecting,
   isSelected,
@@ -95,8 +96,20 @@ export function QuickTaskCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [moveTarget, setMoveTarget] = useState<Id<"githubRepos"> | null>(null);
 
-  const moveTargetAppName =
-    siblingApps?.find((a) => a._id === moveTarget)?.appName ?? "";
+  // Find the app name for the move target across all codebases
+  const moveTargetAppName = (() => {
+    if (!moveTarget || !groupedCodebases) return "";
+    for (const codebase of groupedCodebases) {
+      const app = codebase.apps.find((a) => a._id === moveTarget);
+      if (app) {
+        // For monorepos, show "codebase/app", for single repos just the name
+        return codebase.isMonorepo
+          ? `${codebase.displayName}/${app.appName}`
+          : codebase.displayName;
+      }
+    }
+    return "";
+  })();
 
   const menuProps = {
     id,
@@ -106,7 +119,7 @@ export function QuickTaskCard({
     model,
     projectId,
     repoId,
-    siblingApps,
+    groupedCodebases,
     users,
     currentUserId,
     projects,

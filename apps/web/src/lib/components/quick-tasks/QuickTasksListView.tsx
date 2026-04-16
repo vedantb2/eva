@@ -65,7 +65,7 @@ export function QuickTasksListView({
 }: QuickTasksListViewProps) {
   const { repoId } = useRepo();
   const currentUserId = useQuery(api.auth.me);
-  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
+  const groupedCodebases = useQuery(api.githubRepos.listGroupedByCodebase);
   const users = useQuery(api.users.listAll);
   const projectsList = useQuery(api.projects.list, { repoId });
   const updateStatus = useMutation(api.agentTasks.updateStatus);
@@ -307,7 +307,9 @@ export function QuickTasksListView({
                                       onToggleSelect={() =>
                                         onToggleSelect(task._id)
                                       }
-                                      siblingApps={siblingApps ?? undefined}
+                                      groupedCodebases={
+                                        groupedCodebases ?? undefined
+                                      }
                                       assignedTo={task.assignedTo}
                                       model={task.model}
                                       projectId={task.projectId}

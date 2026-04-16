@@ -239,3 +239,110 @@ export const getInternal = internalQuery({
     return await ctx.db.get(args.id);
   },
 });
+
+/** Lists all repos grouped by codebase (owner/name). Each codebase shows root repo + sub-apps. */
+export const listGroupedByCodebase = authQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      /** Codebase identifier: "owner/name" */
+      codebase: v.string(),
+      /** Display name for the codebase */
+      displayName: v.string(),
+      /** Whether this codebase has multiple apps (monorepo) */
+      isMonorepo: v.boolean(),
+      /** Apps within this codebase */
+      apps: v.array(
+        v.object({
+          _id: v.id("githubRepos"),
+          /** App name (rootDirectory folder name) or repo name if root */
+          appName: v.string(),
+          /** Full root directory path, null for root repo */
+          rootDirectory: v.union(v.string(), v.null()),
+        }),
+      ),
+    }),
+  ),
+  handler: async (ctx) => {
+    const userTeamMemberships = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .collect();
+
+    const teamRepoResults = await Promise.all(
+      userTeamMemberships.map((m) =>
+        ctx.db
+          .query("githubRepos")
+          .withIndex("by_team", (q) => q.eq("teamId", m.teamId))
+          .collect(),
+      ),
+    );
+
+    const connectedRepos = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_connected_by", (q) => q.eq("connectedBy", ctx.userId))
+      .collect();
+
+    const seen = new Set<string>();
+    const repos = [];
+    for (const repo of [...connectedRepos, ...teamRepoResults.flat()]) {
+      if (seen.has(String(repo._id))) continue;
+      seen.add(String(repo._id));
+      if (repo.hidden === true) continue;
+      repos.push(repo);
+    }
+
+    // Group by owner/name
+    const codebaseMap = new Map<
+      string,
+      {
+        owner: string;
+        name: string;
+        apps: Array<{
+          _id: (typeof repos)[number]["_id"];
+          appName: string;
+          rootDirectory: string | null;
+        }>;
+      }
+    >();
+
+    for (const repo of repos) {
+      const codebaseKey = `${repo.owner}/${repo.name}`;
+      if (!codebaseMap.has(codebaseKey)) {
+        codebaseMap.set(codebaseKey, {
+          owner: repo.owner,
+          name: repo.name,
+          apps: [],
+        });
+      }
+
+      const appName = repo.rootDirectory
+        ? (repo.rootDirectory.split("/").pop() ?? repo.name)
+        : repo.name;
+
+      codebaseMap.get(codebaseKey)?.apps.push({
+        _id: repo._id,
+        appName,
+        rootDirectory: repo.rootDirectory ?? null,
+      });
+    }
+
+    // Convert to array and sort
+    const result = Array.from(codebaseMap.entries()).map(
+      ([codebase, { name, apps }]) => ({
+        codebase,
+        displayName: name,
+        isMonorepo: apps.length > 1,
+        apps: apps.sort((a, b) => {
+          // Root repo first, then alphabetically by app name
+          if (a.rootDirectory === null) return -1;
+          if (b.rootDirectory === null) return 1;
+          return a.appName.localeCompare(b.appName);
+        }),
+      }),
+    );
+
+    // Sort codebases alphabetically
+    return result.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  },
+});

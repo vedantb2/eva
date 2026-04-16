@@ -31,7 +31,7 @@ jobs:
           RUN corepack enable
           RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
           RUN git lfs install --system
-          RUN npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex
+          RUN npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex
           RUN curl -fsSL https://code-server.dev/install.sh | sh
 
           RUN useradd -m -s /bin/bash eva && mkdir -p /workspace && chown eva:eva /workspace

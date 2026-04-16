@@ -63,6 +63,21 @@ const CODEX_AUTH_JSON = process.env.CODEX_AUTH_JSON || "";
 const CODEX_AUTH_JSON_BASE64 = process.env.CODEX_AUTH_JSON_BASE64 || "";
 const CODEX_CONFIG_TOML = process.env.CODEX_CONFIG_TOML || "";
 const CODEX_CONFIG_TOML_BASE64 = process.env.CODEX_CONFIG_TOML_BASE64 || "";
+const OPENCODE_RUNTIME_HOME_DIR = process.env.OPENCODE_RUNTIME_HOME_DIR || "/tmp/opencode-home";
+const OPENCODE_PERSIST_DIR = process.env.OPENCODE_PERSIST_DIR || "/home/eva/.opencode-persist";
+const OPENCODE_BIN_PATH = process.env.OPENCODE_BIN_PATH || "/tmp/opencode-cli/bin/opencode";
+const OPENCODE_STATE_FILE = "session-state.json";
+const OPENCODE_LOCAL_STATE_FILE = OPENCODE_RUNTIME_HOME_DIR + "/" + OPENCODE_STATE_FILE;
+const OPENCODE_PERSIST_STATE_FILE = OPENCODE_PERSIST_DIR + "/" + OPENCODE_STATE_FILE;
+const OPENCODE_CONFIG_JSON = process.env.OPENCODE_CONFIG_JSON || "";
+const OPENCODE_CONFIG_JSON_BASE64 = process.env.OPENCODE_CONFIG_JSON_BASE64 || "";
+// Opencode reads OAuth credentials from $XDG_DATA_HOME/opencode/auth.json (default ~/.local/share/opencode/auth.json).
+// We keep the canonical path under /home/eva so the CLI finds it without any extra env var override.
+const OPENCODE_AUTH_DIR = "/home/eva/.local/share/opencode";
+const OPENCODE_AUTH_FILE = OPENCODE_AUTH_DIR + "/auth.json";
+const OPENCODE_PERSIST_AUTH_FILE = OPENCODE_PERSIST_DIR + "/auth.json";
+const OPENCODE_AUTH_JSON = process.env.OPENCODE_AUTH_JSON || "";
+const OPENCODE_AUTH_JSON_BASE64 = process.env.OPENCODE_AUTH_JSON_BASE64 || "";
 const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\\//g, "-");
 const CLAUDE_LOCAL_PROJECT_DIR = CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
 const CLAUDE_PERSIST_PROJECT_DIR = CLAUDE_PERSIST_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
@@ -188,6 +203,47 @@ function shortenPath(p) {
 }
 
 let pendingQuestionData = "";
+
+/** Converts an opencode tool call event part into a UI progress step object. */
+function opencodeToolToStep(part) {
+  const tool = typeof part.tool === "string" ? part.tool : "tool";
+  const input =
+    part.state && typeof part.state === "object" && part.state.input && typeof part.state.input === "object"
+      ? part.state.input
+      : {};
+  const path = input.filePath
+    ? shortenPath(String(input.filePath))
+    : input.file_path
+      ? shortenPath(String(input.file_path))
+      : input.path
+        ? shortenPath(String(input.path))
+        : "";
+  switch (tool) {
+    case "read":
+      return { type: "read", label: "Reading file...", detail: path || undefined, status: "active" };
+    case "glob":
+      return { type: "search_files", label: "Searching files...", detail: input.pattern ? String(input.pattern) : undefined, status: "active" };
+    case "grep":
+      return { type: "search_code", label: "Searching code...", detail: input.pattern ? String(input.pattern) : undefined, status: "active" };
+    case "write":
+      return { type: "write", label: "Creating file...", detail: path || undefined, status: "active" };
+    case "edit":
+      return { type: "edit", label: "Editing file...", detail: path || undefined, status: "active" };
+    case "bash":
+      return { type: "bash", label: "Running command...", detail: input.command ? String(input.command).slice(0, 300) : undefined, status: "active" };
+    case "webfetch":
+      return { type: "web_fetch", label: "Fetching URL...", detail: input.url ? String(input.url) : undefined, status: "active" };
+    case "websearch":
+      return { type: "web_search", label: "Searching web...", detail: input.query ? String(input.query) : undefined, status: "active" };
+    case "task":
+      return { type: "subtask", label: "Running agent...", detail: input.description ? String(input.description) : undefined, status: "active" };
+    case "todowrite":
+    case "todoread":
+      return { type: "tool", label: "Updating tasks...", status: "active" };
+    default:
+      return { type: "tool", label: "Using " + tool + "...", status: "active" };
+  }
+}
 
 /** Converts a Claude tool call into a UI progress step object. */
 function toolCallToStep(name, input) {
@@ -417,8 +473,10 @@ let lastStepType = "";
 const completedLabels = {
   "Preparing Claude session...": "Prepared Claude session",
   "Preparing Codex session...": "Prepared Codex session",
+  "Preparing Opencode session...": "Prepared Opencode session",
   "Starting Claude CLI...": "Started Claude CLI",
   "Starting Codex CLI...": "Started Codex CLI",
+  "Starting Opencode CLI...": "Started Opencode CLI",
   "Restoring Claude session...": "Restored Claude session",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
@@ -476,6 +534,46 @@ function updateThinkingStep(label, detail) {
 function parseStreamEvent(line) {
   try {
     const event = JSON.parse(line);
+
+    if (PROVIDER === "opencode") {
+      if (event.type === "step_start") {
+        markLastComplete();
+        accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: "Opencode is reasoning...", status: "active" });
+        lastStepType = "thinking";
+        return true;
+      }
+      if (event.type === "text" && event.part && typeof event.part.text === "string" && event.part.text) {
+        appendStreamedContent(event.part.text);
+        updateThinkingStep("Streaming response...", "Receiving reply...");
+        return true;
+      }
+      if (event.type === "tool_use" && event.part && typeof event.part === "object") {
+        const state = event.part.state || {};
+        const status = typeof state.status === "string" ? state.status : "";
+        if (status === "running") {
+          markLastComplete();
+          accumulatedSteps.push(opencodeToolToStep(event.part));
+          lastStepType = "tool";
+          return true;
+        }
+        if (status === "completed" || status === "error") {
+          markLastComplete();
+          return true;
+        }
+        return false;
+      }
+      if (event.type === "step_finish") {
+        const reason =
+          event.part && typeof event.part.reason === "string" ? event.part.reason : "";
+        if (reason === "stop") {
+          markLastComplete();
+          accumulatedSteps.push({ type: "thinking", label: "Finalizing response...", status: "active" });
+          lastStepType = "thinking";
+        }
+        return true;
+      }
+      return false;
+    }
 
     if (PROVIDER === "codex") {
       const threadId = getCodexThreadId(event);
@@ -595,6 +693,8 @@ let parsedStreamEventCount = 0;
 let realtimeOutputBuffer = "";
 let activeClaudeSessionId = process.env.CLAUDE_SESSION_ID || "";
 let activeCodexThreadId = "";
+let activeOpencodeSessionId = "";
+let opencodeFinalMessageId = "";
 let resultEventSeen = false;
 let activeClaudeSessionMode = "none";
 let waitingForFirstAssistantEvent = false;
@@ -898,6 +998,105 @@ function syncCodexStateToPersist() {
   );
 }
 
+/** Reads the opencode session state file to get the resume session id. */
+function readOpencodeSessionState() {
+  const statePath = existsSync(OPENCODE_LOCAL_STATE_FILE)
+    ? OPENCODE_LOCAL_STATE_FILE
+    : existsSync(OPENCODE_PERSIST_STATE_FILE)
+      ? OPENCODE_PERSIST_STATE_FILE
+      : "";
+  if (!statePath) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(statePath, "utf8"));
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.resumeSessionId === "string" &&
+      parsed.resumeSessionId.trim()
+    ) {
+      return { resumeSessionId: parsed.resumeSessionId.trim() };
+    }
+  } catch (error) {
+    console.error(
+      "Failed to read opencode session state from " + statePath + ":",
+      String(error),
+    );
+  }
+  return null;
+}
+
+/** Writes the active opencode session id to the local session state file. */
+function writeOpencodeSessionState() {
+  if (!activeOpencodeSessionId) {
+    return;
+  }
+  mkdirSync(OPENCODE_RUNTIME_HOME_DIR, { recursive: true });
+  writeFileSync(
+    OPENCODE_LOCAL_STATE_FILE,
+    JSON.stringify(
+      {
+        resumeSessionId: activeOpencodeSessionId,
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+/** Restores persisted opencode state and configures runtime env for opencode run. */
+function hydratePersistedOpencodeState() {
+  mkdirSync(OPENCODE_RUNTIME_HOME_DIR, { recursive: true });
+  copyFileIfPresent(
+    OPENCODE_PERSIST_STATE_FILE,
+    OPENCODE_LOCAL_STATE_FILE,
+    "hydratePersistedOpencodeState(state)",
+  );
+  const configJson =
+    OPENCODE_CONFIG_JSON ||
+    (OPENCODE_CONFIG_JSON_BASE64 ? decodeBase64(OPENCODE_CONFIG_JSON_BASE64) : "");
+  if (configJson) {
+    process.env.OPENCODE_CONFIG_CONTENT = configJson;
+  }
+  // Hydrate the ChatGPT Plus/Pro OAuth credentials file. Prefer the env-var value (fresh token
+  // pasted by the user); if absent, fall back to the persisted copy from a previous sandbox run
+  // so auto-refreshed tokens survive across sandbox tear-downs.
+  mkdirSync(OPENCODE_AUTH_DIR, { recursive: true });
+  const authJson =
+    OPENCODE_AUTH_JSON ||
+    (OPENCODE_AUTH_JSON_BASE64 ? decodeBase64(OPENCODE_AUTH_JSON_BASE64) : "");
+  if (authJson) {
+    writeFileSync(OPENCODE_AUTH_FILE, authJson);
+  } else {
+    copyFileIfPresent(
+      OPENCODE_PERSIST_AUTH_FILE,
+      OPENCODE_AUTH_FILE,
+      "hydratePersistedOpencodeState(auth)",
+    );
+  }
+  process.env.OPENCODE_PERMISSION = '"allow"';
+  process.env.OPENCODE_DISABLE_AUTOUPDATE = "1";
+}
+
+/** Syncs opencode session state from runtime to the persist volume. */
+function syncOpencodeStateToPersist() {
+  writeOpencodeSessionState();
+  mkdirSync(OPENCODE_PERSIST_DIR, { recursive: true });
+  copyFileIfPresent(
+    OPENCODE_LOCAL_STATE_FILE,
+    OPENCODE_PERSIST_STATE_FILE,
+    "syncOpencodeStateToPersist(state)",
+  );
+  // Persist the refreshed auth.json so rotated OAuth tokens survive sandbox tear-down.
+  copyFileIfPresent(
+    OPENCODE_AUTH_FILE,
+    OPENCODE_PERSIST_AUTH_FILE,
+    "syncOpencodeStateToPersist(auth)",
+  );
+}
+
 /** Collects all known Claude session IDs from config, persisted state, and active session. */
 function collectClaudeTranscriptSessionIds() {
   const sessionIds = new Set();
@@ -1014,7 +1213,12 @@ try { unlinkSync(READY_FILE); } catch {}
 
 accumulatedSteps.push({
   type: "thinking",
-  label: PROVIDER === "codex" ? "Preparing Codex session..." : "Preparing Claude session...",
+  label:
+    PROVIDER === "codex"
+      ? "Preparing Codex session..."
+      : PROVIDER === "opencode"
+        ? "Preparing Opencode session..."
+        : "Preparing Claude session...",
   detail: "Initializing callback...",
   status: "active",
 });
@@ -1091,7 +1295,9 @@ async function setFinalizingState() {
       ? "Syncing response and saved session..."
       : PROVIDER === "codex"
         ? "Codex finished. Sending completion..."
-        : "Claude finished. Sending completion...",
+        : PROVIDER === "opencode"
+          ? "Opencode finished. Sending completion..."
+          : "Claude finished. Sending completion...",
     status: "active",
   });
   lastStepType = "thinking";
@@ -1387,14 +1593,21 @@ const settingsArg = "--settings " + JSON.stringify(settingsJson);
 const mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
 const normalizedClaudeModel = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
 const normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
+const normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
 const codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
+const opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
 const codexPromptCmd = SYSTEM_PROMPT
   ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)"
   : "cat /tmp/design-prompt.txt";
+const opencodePromptCmd = codexPromptCmd;
 const codexExecBaseCmd =
   codexCommand +
   " exec --skip-git-repo-check --full-auto --json --model " +
   JSON.stringify(normalizedCodexModel);
+const opencodeExecBaseCmd =
+  opencodeCommand +
+  " run --format json --model " +
+  JSON.stringify(normalizedOpencodeModel);
 const claudeBaseCmd =
   "cat /tmp/design-prompt.txt | claude -p --verbose --dangerously-skip-permissions --model " +
   normalizedClaudeModel +
@@ -1429,8 +1642,74 @@ function hasToolActivity() {
   return accumulatedSteps.some((step) => TOOL_STEP_TYPES.has(step.type));
 }
 
-/** Extracts the final result event from CLI output for both Claude and Codex providers. */
+/** Extracts the final result event from CLI output for Claude, Codex, and opencode providers. */
 function extractResultEvent(output) {
+  if (PROVIDER === "opencode") {
+    let finalMessageId = "";
+    let lastStopLine = "";
+    let errorLine = "";
+    let errorMessage = "";
+    const textByMessageId = new Map();
+    for (const line of output.split("\\n")) {
+      const clean = line.trim();
+      if (!clean) continue;
+      try {
+        const parsed = JSON.parse(clean);
+        if (
+          parsed.type === "step_finish" &&
+          parsed.part &&
+          parsed.part.reason === "stop" &&
+          typeof parsed.part.messageID === "string" &&
+          parsed.part.messageID
+        ) {
+          finalMessageId = parsed.part.messageID;
+          lastStopLine = clean;
+          continue;
+        }
+        if (
+          parsed.type === "text" &&
+          parsed.part &&
+          typeof parsed.part.messageID === "string" &&
+          parsed.part.messageID &&
+          typeof parsed.part.text === "string"
+        ) {
+          const existing = textByMessageId.get(parsed.part.messageID) || "";
+          textByMessageId.set(parsed.part.messageID, existing + parsed.part.text);
+          continue;
+        }
+        if (parsed.type === "error") {
+          errorLine = clean;
+          if (
+            parsed.error &&
+            parsed.error.data &&
+            typeof parsed.error.data.message === "string"
+          ) {
+            errorMessage = parsed.error.data.message;
+          } else if (parsed.error && typeof parsed.error.name === "string") {
+            errorMessage = parsed.error.name;
+          } else {
+            errorMessage = "Opencode error";
+          }
+        }
+      } catch {}
+    }
+    if (finalMessageId) {
+      const result = textByMessageId.get(finalMessageId) || "";
+      return {
+        result,
+        isError: false,
+        rawResultEvent: lastStopLine,
+      };
+    }
+    if (errorMessage) {
+      return {
+        result: errorMessage,
+        isError: true,
+        rawResultEvent: errorLine,
+      };
+    }
+    return null;
+  }
   if (PROVIDER === "codex") {
     let finalText = "";
     for (const line of output.split("\\n")) {
@@ -1493,6 +1772,40 @@ function handleRealtimeStreamLine(line) {
     if (parsed.type === "turn.completed" && !resultEventSeen) {
       resultEventSeen = true;
       syncCodexStateToPersist();
+    }
+    return;
+  }
+  if (PROVIDER === "opencode") {
+    const sessionID =
+      typeof parsed.sessionID === "string" && parsed.sessionID.trim()
+        ? parsed.sessionID.trim()
+        : "";
+    if (sessionID && sessionID !== activeOpencodeSessionId) {
+      activeOpencodeSessionId = sessionID;
+      writeOpencodeSessionState();
+      void sendStreamingHeartbeatUpdate(buildStreamingPayload());
+    }
+    if (parsed.type === "step_start") {
+      if (firstAssistantEventAt === 0) {
+        firstAssistantEventAt = Date.now();
+      }
+    }
+    if (parsed.type === "text" && parsed.part && typeof parsed.part.text === "string" && parsed.part.text) {
+      if (firstTextBlockAt === 0) {
+        firstTextBlockAt = Date.now();
+      }
+    }
+    if (
+      parsed.type === "step_finish" &&
+      parsed.part &&
+      parsed.part.reason === "stop" &&
+      !resultEventSeen
+    ) {
+      if (typeof parsed.part.messageID === "string" && parsed.part.messageID) {
+        opencodeFinalMessageId = parsed.part.messageID;
+      }
+      resultEventSeen = true;
+      syncOpencodeStateToPersist();
     }
     return;
   }
@@ -1578,7 +1891,12 @@ function buildErrorMessage(
   timedOutForFirstAssistant,
   timedOutAfterFirstText,
 ) {
-  const cliName = PROVIDER === "codex" ? "Codex CLI" : "Claude CLI";
+  const cliName =
+    PROVIDER === "codex"
+      ? "Codex CLI"
+      : PROVIDER === "opencode"
+        ? "Opencode CLI"
+        : "Claude CLI";
   if (fatalHeartbeatError) {
     return fatalHeartbeatError;
   }
@@ -1690,11 +2008,33 @@ function prepareCodexSessionState() {
     : { mode: "none", sessionId: null };
 }
 
-/** Prepares session state for the active provider (Claude or Codex). */
+/** Hydrates persisted opencode state and resolves the session mode for the current run. */
+function prepareOpencodeSessionState() {
+  updateThinkingStep("Preparing Opencode session...", "Hydrating saved session...");
+  hydratePersistedOpencodeState();
+  const persistedState = readOpencodeSessionState();
+  updateThinkingStep(
+    "Preparing Opencode session...",
+    persistedState
+      ? "Saved session hydrated. Starting Opencode..."
+      : "Preparing fresh Opencode session...",
+  );
+  if (persistedState) {
+    activeOpencodeSessionId = persistedState.resumeSessionId;
+    return { mode: "resume", sessionId: persistedState.resumeSessionId };
+  }
+  return { mode: "none", sessionId: null };
+}
+
+/** Prepares session state for the active provider (Claude, Codex, or opencode). */
 function prepareProviderSessionState() {
-  return PROVIDER === "codex"
-    ? prepareCodexSessionState()
-    : prepareClaudeSessionState();
+  if (PROVIDER === "codex") {
+    return prepareCodexSessionState();
+  }
+  if (PROVIDER === "opencode") {
+    return prepareOpencodeSessionState();
+  }
+  return prepareClaudeSessionState();
 }
 
 /** Resets per-attempt state variables before a new CLI attempt. */
@@ -1952,17 +2292,54 @@ async function runCodexAttempt(sessionMode) {
   });
 }
 
-/** Dispatches a CLI attempt to the active provider (Claude or Codex). */
+/** Runs a single opencode CLI attempt with the resolved session mode. */
+async function runOpencodeAttempt(sessionMode) {
+  const sessionArg =
+    sessionMode.mode === "resume" && sessionMode.sessionId
+      ? " -s " + JSON.stringify(sessionMode.sessionId)
+      : "";
+  const cmd =
+    opencodePromptCmd +
+    " | " +
+    opencodeExecBaseCmd +
+    sessionArg;
+  const startupStep = {
+    label: "Starting Opencode CLI...",
+    detail:
+      sessionMode.mode === "resume"
+        ? "Restoring saved context..."
+        : "Launching Opencode process...",
+  };
+  return await runCliAttempt({
+    cmd,
+    env: {
+      ...process.env,
+    },
+    processLabel: "opencode",
+    attemptLabel: "runOpencodeAttempt",
+    startupStep,
+  });
+}
+
+/** Dispatches a CLI attempt to the active provider (Claude, Codex, or opencode). */
 async function runProviderAttempt(sessionMode) {
-  return PROVIDER === "codex"
-    ? await runCodexAttempt(sessionMode)
-    : await runClaudeAttempt(sessionMode);
+  if (PROVIDER === "codex") {
+    return await runCodexAttempt(sessionMode);
+  }
+  if (PROVIDER === "opencode") {
+    return await runOpencodeAttempt(sessionMode);
+  }
+  return await runClaudeAttempt(sessionMode);
 }
 
 /** Syncs the active provider session state to the persist volume. */
 function syncProviderStateToPersist(reason) {
   if (PROVIDER === "codex") {
     syncCodexStateToPersist();
+    return;
+  }
+  if (PROVIDER === "opencode") {
+    syncOpencodeStateToPersist();
     return;
   }
   syncClaudeStateToPersist(reason);
@@ -2092,7 +2469,15 @@ try {
     success: false,
     result: null,
     error: appendDiagnosticTail(
-      err instanceof Error ? err.message : "Failed to run Claude CLI",
+      err instanceof Error
+        ? err.message
+        : "Failed to run " +
+          (PROVIDER === "codex"
+            ? "Codex"
+            : PROVIDER === "opencode"
+              ? "Opencode"
+              : "Claude") +
+          " CLI",
     ),
     activityLog: JSON.stringify(accumulatedSteps),
   };

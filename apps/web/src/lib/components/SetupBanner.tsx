@@ -42,6 +42,18 @@ const REQUIRED_KEYS: Array<{
     description:
       "Optional Codex CLI config file. Prefer CODEX_CONFIG_TOML; CODEX_CONFIG_TOML_BASE64 also works",
   },
+  {
+    keys: ["OPENCODE_CONFIG_JSON", "OPENCODE_CONFIG_JSON_BASE64"],
+    required: false,
+    description:
+      "Optional Opencode inline config JSON. Reference provider keys via {env:OPENAI_API_KEY}. Prefer OPENCODE_CONFIG_JSON; OPENCODE_CONFIG_JSON_BASE64 also works",
+  },
+  {
+    keys: ["OPENCODE_AUTH_JSON", "OPENCODE_AUTH_JSON_BASE64"],
+    required: false,
+    description:
+      "Optional Opencode OAuth credentials file (for ChatGPT Plus/Pro). Paste the contents of ~/.local/share/opencode/auth.json after running `opencode auth login` locally. Prefer OPENCODE_AUTH_JSON; OPENCODE_AUTH_JSON_BASE64 also works",
+  },
 ];
 
 export function SetupBanner() {

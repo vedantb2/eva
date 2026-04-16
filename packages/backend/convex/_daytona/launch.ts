@@ -11,11 +11,16 @@ import {
   CLAUDE_RUNTIME_CONFIG_DIR,
   CODEX_PERSIST_VOLUME_MOUNT_PATH,
   CODEX_RUNTIME_HOME_DIR,
+  OPENCODE_PERSIST_VOLUME_MOUNT_PATH,
+  OPENCODE_RUNTIME_HOME_DIR,
 } from "./volumes";
 
 const CODEX_INSTALL_TIMEOUT_SECONDS = 300;
 const CODEX_FALLBACK_INSTALL_DIR = "/tmp/codex-cli";
 const CODEX_FALLBACK_BIN_PATH = `${CODEX_FALLBACK_INSTALL_DIR}/bin/codex`;
+const OPENCODE_INSTALL_TIMEOUT_SECONDS = 300;
+const OPENCODE_FALLBACK_INSTALL_DIR = "/tmp/opencode-cli";
+const OPENCODE_FALLBACK_BIN_PATH = `${OPENCODE_FALLBACK_INSTALL_DIR}/bin/opencode`;
 const CALLBACK_READY_TIMEOUT_SECONDS = 75;
 const CALLBACK_READY_POLL_ATTEMPTS = 60;
 
@@ -25,6 +30,15 @@ async function ensureCodexCliAvailable(sandbox: Sandbox): Promise<void> {
     sandbox,
     `if ! command -v codex >/dev/null 2>&1 && [ ! -x ${quote([CODEX_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CODEX_FALLBACK_INSTALL_DIR])} @openai/codex; fi`,
     CODEX_INSTALL_TIMEOUT_SECONDS,
+  );
+}
+
+/** Installs the opencode CLI globally if not already available on the sandbox. */
+async function ensureOpencodeCliAvailable(sandbox: Sandbox): Promise<void> {
+  await exec(
+    sandbox,
+    `if ! command -v opencode >/dev/null 2>&1 && [ ! -x ${quote([OPENCODE_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([OPENCODE_FALLBACK_INSTALL_DIR])} opencode-ai; fi`,
+    OPENCODE_INSTALL_TIMEOUT_SECONDS,
   );
 }
 
@@ -54,6 +68,8 @@ export async function launchScript(
   const provider = getAIModelProvider(normalizedModel);
   if (provider === "codex") {
     await ensureCodexCliAvailable(sandbox);
+  } else if (provider === "opencode") {
+    await ensureOpencodeCliAvailable(sandbox);
   }
   const uploadTasks: Array<Promise<void>> = [
     sandbox.fs
@@ -112,6 +128,9 @@ export async function launchScript(
     `CODEX_RUNTIME_HOME_DIR=${quote([CODEX_RUNTIME_HOME_DIR])}`,
     `CODEX_PERSIST_DIR=${quote([CODEX_PERSIST_VOLUME_MOUNT_PATH])}`,
     `CODEX_BIN_PATH=${quote([CODEX_FALLBACK_BIN_PATH])}`,
+    `OPENCODE_RUNTIME_HOME_DIR=${quote([OPENCODE_RUNTIME_HOME_DIR])}`,
+    `OPENCODE_PERSIST_DIR=${quote([OPENCODE_PERSIST_VOLUME_MOUNT_PATH])}`,
+    `OPENCODE_BIN_PATH=${quote([OPENCODE_FALLBACK_BIN_PATH])}`,
   ];
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);

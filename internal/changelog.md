@@ -1,5 +1,14 @@
 # Changelog
 
+## Add opencode CLI as third AI provider - 2026-04-16
+
+- **Why**: Platform supported only Claude Code and Codex. Adding opencode unlocks a wider model catalog (OpenAI + Groq/OpenRouter/Gemini via API-key config, or ChatGPT Plus/Pro/Team via OAuth) under the same per-task model selector, with full session resume parity.
+- **Changes (runtime)**: `opencode-ai` baked into the Daytona snapshot with a `/tmp/opencode-cli` fallback install path. `validators.ts` gains `"opencode"` provider + `opencode:openai/gpt-5-codex` model literal; `getAIProviderAvailability` flips `opencode: true` when any `OPENCODE_*` env var is set. `_daytona/launch.ts` dispatches opencode provider to `ensureOpencodeCliAvailable` and threads `OPENCODE_RUNTIME_HOME_DIR` / `OPENCODE_PERSIST_DIR` / `OPENCODE_BIN_PATH` into the runner.
+- **Changes (callback)**: `callbackScript.ts` adds a full opencode branch: hydrates `OPENCODE_CONFIG_JSON` into `process.env.OPENCODE_CONFIG_CONTENT` for API-key providers, writes `OPENCODE_AUTH_JSON` to `/home/eva/.local/share/opencode/auth.json` for ChatGPT OAuth; constructs `opencode run --format json --model ...` with `-s <id>` resume; parses the `step_start` / `text` / `tool_use` / `step_finish` event envelope; persists session state + (refreshed) auth.json to the volume on completion so rotated OAuth tokens survive sandbox tear-down.
+- **Changes (persistence)**: New `OPENCODE_PERSIST_VOLUME_MOUNT_PATH` mount joins the existing Claude and Codex subpaths under the shared session volume, so resume works symmetrically with the other providers.
+- **Changes (UI)**: `ProviderIcon` + `getProviderLabel` gain a dedicated "Opencode" case with the real opencode brand mark (from models.dev). Model selectors in ChatPanel, ProjectChatArea, ConfigClient, StatusFieldsSection, and TaskCardMenuItems render the opencode logo + label automatically. `SetupBanner` and `TeamEnvVarsTab` document the two auth paths.
+- **Operational**: Users paste either `OPENCODE_CONFIG_JSON` (inline provider config with `{env:OPENAI_API_KEY}` substitutions) or `OPENCODE_AUTH_JSON` (contents of `~/.local/share/opencode/auth.json` after running `opencode auth login` locally) as a team env var. Rebuilding the Daytona snapshot is required to ship the CLI.
+
 ## Claude session persistence for project interviews - 2026-04-16
 
 - **Why**: Project interviews were re-injecting previous Q&A pairs as text each time Claude asked a question, forcing manual context management. Sessions already had true Claude session persistence via volume mounts and `--resume` flags; projects now use the same infrastructure for full conversational context.

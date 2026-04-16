@@ -223,7 +223,11 @@ export function TaskCardMenuItems({
             return providers.map((provider) => (
               <Sub key={provider}>
                 <SubTrigger>
-                  {provider === "codex" ? "Codex" : "Claude"}
+                  {provider === "codex"
+                    ? "Codex"
+                    : provider === "opencode"
+                      ? "Opencode"
+                      : "Claude"}
                 </SubTrigger>
                 <SubContent>
                   <RadioGroup

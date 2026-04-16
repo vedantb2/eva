@@ -154,6 +154,7 @@ export const PERSONALISATION_PRESETS = {
 export const aiProviderValidator = v.union(
   v.literal("claude"),
   v.literal("codex"),
+  v.literal("opencode"),
 );
 
 export const aiModelValidator = v.union(
@@ -169,9 +170,10 @@ export const aiModelValidator = v.union(
   v.literal("codex:gpt-5.4-mini"),
   v.literal("codex:gpt-5.3-codex"),
   v.literal("codex:gpt-5.2-codex"),
+  v.literal("opencode:openai/gpt-5-codex"),
 );
 
-export type AIProvider = "claude" | "codex";
+export type AIProvider = "claude" | "codex" | "opencode";
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
 export type AIModel =
   | "claude:opus"
@@ -182,7 +184,8 @@ export type AIModel =
   | "codex:gpt-5.4"
   | "codex:gpt-5.4-mini"
   | "codex:gpt-5.3-codex"
-  | "codex:gpt-5.2-codex";
+  | "codex:gpt-5.2-codex"
+  | "opencode:openai/gpt-5-codex";
 export type PersistedAIModel = AIModel | LegacyClaudeModel;
 
 export interface AIModelOption {
@@ -195,6 +198,7 @@ export interface AIModelOption {
 export interface AIProviderAvailability {
   claude: boolean;
   codex: boolean;
+  opencode: boolean;
 }
 
 export const DEFAULT_AI_MODEL: AIModel = "claude:sonnet";
@@ -249,6 +253,12 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     label: "GPT-5.2-Codex",
     requiresAuth: true,
   },
+  {
+    id: "opencode:openai/gpt-5-codex",
+    provider: "opencode",
+    label: "Opencode GPT-5 Codex",
+    requiresAuth: true,
+  },
 ];
 
 export const CLAUDE_MODELS: ReadonlyArray<AIModel> = [
@@ -261,6 +271,9 @@ export const CLAUDE_MODELS: ReadonlyArray<AIModel> = [
 export const CODEX_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
   (option) => option.provider === "codex",
 ).map((option) => option.id);
+export const OPENCODE_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
+  (option) => option.provider === "opencode",
+).map((option) => option.id);
 
 export const CODEX_AUTH_ENV_KEYS: ReadonlyArray<string> = [
   "CODEX_AUTH_JSON",
@@ -269,6 +282,12 @@ export const CODEX_AUTH_ENV_KEYS: ReadonlyArray<string> = [
 export const CODEX_CONFIG_ENV_KEYS: ReadonlyArray<string> = [
   "CODEX_CONFIG_TOML",
   "CODEX_CONFIG_TOML_BASE64",
+];
+export const OPENCODE_AUTH_ENV_KEYS: ReadonlyArray<string> = [
+  "OPENCODE_CONFIG_JSON",
+  "OPENCODE_CONFIG_JSON_BASE64",
+  "OPENCODE_AUTH_JSON",
+  "OPENCODE_AUTH_JSON_BASE64",
 ];
 
 /** Determines which AI providers are available based on the presence of required env var keys. */
@@ -279,6 +298,7 @@ export function getAIProviderAvailability(
   return {
     claude: keys.has("CLAUDE_CODE_OAUTH_TOKEN"),
     codex: CODEX_AUTH_ENV_KEYS.some((key) => keys.has(key)),
+    opencode: OPENCODE_AUTH_ENV_KEYS.some((key) => keys.has(key)),
   };
 }
 
@@ -305,6 +325,8 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
       return "codex:gpt-5.3-codex";
     case "codex:gpt-5.2-codex":
       return "codex:gpt-5.2-codex";
+    case "opencode:openai/gpt-5-codex":
+      return "opencode:openai/gpt-5-codex";
     case "sonnet":
     case "claude:sonnet":
     default:
@@ -312,11 +334,14 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
   }
 }
 
-/** Returns the AI provider ("claude" or "codex") for a given model string. */
+/** Returns the AI provider ("claude" | "codex" | "opencode") for a given model string. */
 export function getAIModelProvider(
   model: string | null | undefined,
 ): AIProvider {
-  return normalizeAIModel(model).startsWith("codex:") ? "codex" : "claude";
+  const normalized = normalizeAIModel(model);
+  if (normalized.startsWith("codex:")) return "codex";
+  if (normalized.startsWith("opencode:")) return "opencode";
+  return "claude";
 }
 
 /** Finds the full AIModelOption metadata for a given model string, falling back to the default. */
@@ -358,9 +383,14 @@ export function getVisibleAIModelOptions(
     currentProvider === "claude";
   const isCodexVisible =
     availability?.codex === true || currentProvider === "codex";
+  const isOpencodeVisible =
+    availability?.opencode === true || currentProvider === "opencode";
   return AI_MODEL_OPTIONS.filter((option) => {
     if (option.provider === "codex") {
       return isCodexVisible;
+    }
+    if (option.provider === "opencode") {
+      return isOpencodeVisible;
     }
     return isClaudeVisible;
   });

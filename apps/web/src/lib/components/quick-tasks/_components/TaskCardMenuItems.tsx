@@ -299,8 +299,7 @@ export function TaskCardMenuItems({
                   return (
                     <Item
                       key={app._id}
-                      onSelect={(e) => {
-                        e.preventDefault();
+                      onSelect={() => {
                         onMove(app._id);
                       }}
                     >
@@ -361,8 +360,7 @@ export function TaskCardMenuItems({
 
       <Item
         className="text-destructive focus:text-destructive"
-        onSelect={(e) => {
-          e.preventDefault();
+        onSelect={() => {
           onDelete();
         }}
       >

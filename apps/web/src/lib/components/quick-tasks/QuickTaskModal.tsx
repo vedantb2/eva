@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,11 @@ import {
   PopoverTrigger,
   PopoverContent,
   ModelSelect,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -24,12 +29,19 @@ import {
   normalizeAIModel,
   type AIModel,
 } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import type { Id, Doc } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconFileText, IconTrash } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
+
+function getAppDisplayName(repo: Doc<"githubRepos">): string {
+  if (repo.rootDirectory) {
+    return repo.rootDirectory.split("/").pop() ?? repo.name;
+  }
+  return repo.name;
+}
 
 interface QuickTaskModalProps {
   isOpen: boolean;
@@ -53,15 +65,45 @@ export function QuickTaskModal({
   );
   const [confirmDeleteId, setConfirmDeleteId] =
     useState<Id<"agentTasks"> | null>(null);
+  const [contextRepoId, setContextRepoId] = useState<string>("");
+
+  const allRepos = useQuery(api.githubRepos.list, {});
+  const contextRepo = useMemo(() => {
+    if (!contextRepoId || !allRepos) return null;
+    return allRepos.find((r) => r._id === contextRepoId) ?? null;
+  }, [contextRepoId, allRepos]);
+
+  const effectiveRepo = contextRepo ?? repo;
+  const effectiveRepoId = effectiveRepo._id;
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const saveDraft = useMutation(api.agentTasks.saveDraft);
   const activateDraft = useMutation(api.agentTasks.activateDraft);
   const removeDraft = useMutation(api.agentTasks.remove);
   const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
-  const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
+  const defaultModel = normalizeAIModel(
+    effectiveRepo.defaultModel ?? DEFAULT_AI_MODEL,
+  );
   const [model, setModel] = useState<AIModel>(defaultModel);
-  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+  const { options: modelOptions } = useAvailableAiModels(
+    effectiveRepoId,
+    model,
+  );
+
+  const repoOptions = useMemo(() => {
+    if (!allRepos) return [];
+    return allRepos
+      .map((r) => ({ id: r._id, label: getAppDisplayName(r) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [allRepos]);
+
+  const branchRepoOverride = contextRepo
+    ? {
+        owner: contextRepo.owner,
+        name: contextRepo.name,
+        installationId: contextRepo.installationId,
+      }
+    : undefined;
 
   const hasContent = title.trim() || description.trim();
 
@@ -71,13 +113,14 @@ export function QuickTaskModal({
     setBaseBranch(defaultBranch);
     setModel(defaultModel);
     setActiveDraftId(null);
+    setContextRepoId("");
   }, [defaultBranch, defaultModel]);
 
   const handleClose = useCallback(async () => {
     if (hasContent) {
       await saveDraft({
         id: activeDraftId ?? undefined,
-        repoId: repo._id,
+        repoId: effectiveRepoId,
         title: title.trim() || undefined,
         description: description.trim() || undefined,
         baseBranch,
@@ -90,7 +133,7 @@ export function QuickTaskModal({
     hasContent,
     saveDraft,
     activeDraftId,
-    repo._id,
+    effectiveRepoId,
     title,
     description,
     baseBranch,
@@ -100,7 +143,7 @@ export function QuickTaskModal({
   ]);
 
   const handleSubmit = async () => {
-    if (!title.trim() || !baseBranch || !repo) return;
+    if (!title.trim() || !baseBranch) return;
 
     setIsLoading(true);
     try {
@@ -114,7 +157,7 @@ export function QuickTaskModal({
         });
       } else {
         await createQuickTask({
-          repoId: repo._id,
+          repoId: effectiveRepoId,
           title: title.trim(),
           description: description.trim() || undefined,
           baseBranch,
@@ -171,6 +214,32 @@ export function QuickTaskModal({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {repoOptions.length > 1 && (
+            <Select
+              value={contextRepoId}
+              onValueChange={(value) => {
+                setContextRepoId(value);
+                const selected = allRepos?.find((r) => r._id === value);
+                if (selected) {
+                  setBaseBranch(selected.defaultBaseBranch ?? "main");
+                  setModel(
+                    normalizeAIModel(selected.defaultModel ?? DEFAULT_AI_MODEL),
+                  );
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select app context (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                {repoOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Input
             placeholder="What needs to be done?"
             value={title}
@@ -190,6 +259,7 @@ export function QuickTaskModal({
               onValueChange={setBaseBranch}
               placeholder="Select a base branch"
               className="h-10 flex-1"
+              repoOverride={branchRepoOverride}
             />
             <ModelSelect
               value={model}

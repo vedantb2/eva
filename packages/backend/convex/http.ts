@@ -441,4 +441,91 @@ http.route({
   }),
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Convex-Native MCP Server (Node.js runtime)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import {
+  oauthMetadata,
+  protectedResourceMetadata,
+  register,
+  authorizeGet,
+  authorizePost,
+  token,
+  mcpHandler,
+  mintInternalToken,
+  health,
+} from "./mcpNative";
+
+// OAuth metadata endpoints
+http.route({
+  path: "/.well-known/oauth-authorization-server",
+  method: "GET",
+  handler: oauthMetadata,
+});
+
+http.route({
+  path: "/.well-known/oauth-protected-resource",
+  method: "GET",
+  handler: protectedResourceMetadata,
+});
+
+// OAuth flow endpoints
+http.route({
+  path: "/mcp/oauth/register",
+  method: "POST",
+  handler: register,
+});
+
+http.route({
+  path: "/mcp/oauth/authorize",
+  method: "GET",
+  handler: authorizeGet,
+});
+
+http.route({
+  path: "/mcp/oauth/authorize",
+  method: "POST",
+  handler: authorizePost,
+});
+
+http.route({
+  path: "/mcp/oauth/token",
+  method: "POST",
+  handler: token,
+});
+
+// MCP endpoint
+http.route({
+  path: "/mcp",
+  method: "GET",
+  handler: mcpHandler,
+});
+
+http.route({
+  path: "/mcp",
+  method: "POST",
+  handler: mcpHandler,
+});
+
+http.route({
+  path: "/mcp",
+  method: "DELETE",
+  handler: mcpHandler,
+});
+
+// Internal token minting (for scoped repo access from Eva sandboxes)
+http.route({
+  path: "/api/internal/mint-token",
+  method: "POST",
+  handler: mintInternalToken,
+});
+
+// Health check
+http.route({
+  path: "/health",
+  method: "GET",
+  handler: health,
+});
+
 export default http;

@@ -29,6 +29,7 @@ import {
   type BulkAction,
 } from "./_components/QuickTasksBulkBar";
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
+import { QuickTasksFilterBar } from "./_components/QuickTasksFilterBar";
 
 export function QuickTasksClient() {
   const navigate = useNavigate();
@@ -154,13 +155,17 @@ export function QuickTasksClient() {
             onStartSelecting={() => setIsSelecting(true)}
             onCreateTask={() => setIsCreating(true)}
             onImport={() => setIsImporting(true)}
-            projects={projects}
-            projectFilter={project}
-            onProjectFilterChange={(v) => setParams({ project: v })}
           />
         }
       >
         <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
+          {hasAnyTasks && (
+            <QuickTasksFilterBar
+              projects={projects}
+              projectFilter={project}
+              onProjectFilterChange={(v) => setParams({ project: v })}
+            />
+          )}
           <AnimatePresence mode="wait">
             {!hasQuickTasks ? (
               <motion.div

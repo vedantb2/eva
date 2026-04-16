@@ -8,8 +8,6 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuItem,
   DropdownMenuSub,
@@ -24,7 +22,6 @@ import {
   IconLayoutKanban,
   IconList,
   IconFileImport,
-  IconFolder,
   IconSettings,
   IconFilter,
   IconTable,
@@ -34,13 +31,10 @@ import {
   TASK_STATUSES,
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
 import { statusesParser } from "@/lib/search-params";
 
 type QuickTaskView = "kanban" | "list" | "table";
-type Project = FunctionReturnType<typeof api.projects.list>[number];
 
 interface QuickTasksToolbarProps {
   view: QuickTaskView;
@@ -52,9 +46,6 @@ interface QuickTasksToolbarProps {
   onStartSelecting: () => void;
   onCreateTask: () => void;
   onImport: () => void;
-  projects: Project[] | undefined;
-  projectFilter: string;
-  onProjectFilterChange: (v: string) => void;
 }
 
 export function QuickTasksToolbar({
@@ -67,17 +58,7 @@ export function QuickTasksToolbar({
   onStartSelecting,
   onCreateTask,
   onImport,
-  projects,
-  projectFilter,
-  onProjectFilterChange,
 }: QuickTasksToolbarProps) {
-  const filterLabel =
-    projectFilter === "all"
-      ? "All Tasks"
-      : projectFilter === "none"
-        ? "No Project"
-        : (projects?.find((p) => p._id === projectFilter)?.title ?? "Project");
-
   const [{ statuses }, setStatusParams] = useQueryStates({
     statuses: statusesParser,
   });
@@ -190,35 +171,6 @@ export function QuickTasksToolbar({
               Import from Linear
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <IconFolder size={16} className="mr-2" />
-                {filterLabel}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={projectFilter}
-                  onValueChange={onProjectFilterChange}
-                >
-                  <DropdownMenuRadioItem value="all">
-                    All Tasks
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="none">
-                    No Project
-                  </DropdownMenuRadioItem>
-                  {projects && projects.length > 0 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      {projects.map((p) => (
-                        <DropdownMenuRadioItem key={p._id} value={p._id}>
-                          {p.title}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </>
-                  )}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <IconFilter size={16} className="mr-2" />

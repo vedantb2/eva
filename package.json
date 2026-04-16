@@ -29,7 +29,8 @@
   "pnpm": {
     "overrides": {
       "@types/react": "19.0.10",
-      "@types/react-dom": "19.0.4"
+      "@types/react-dom": "19.0.4",
+      "convex-helpers": "0.1.114"
     },
     "onlyBuiltDependencies": [
       "@swc/core",

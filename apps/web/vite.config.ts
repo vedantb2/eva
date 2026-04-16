@@ -97,6 +97,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: ["convex-helpers", "convex", "react", "react-dom"],
   },
   build: {
     rolldownOptions: {

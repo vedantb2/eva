@@ -801,7 +801,7 @@ export function Sidebar() {
                 <UserButton
                   appearance={{
                     elements: {
-                      avatarBox: "h-8 w-8",
+                      avatarBox: "h-6 w-6",
                     },
                   }}
                 />

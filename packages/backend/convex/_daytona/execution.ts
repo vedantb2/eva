@@ -27,6 +27,18 @@ import {
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 
+const sessionPersistenceKindValidator = v.union(
+  v.literal("sessions"),
+  v.literal("designSessions"),
+  v.literal("projects"),
+);
+
+const sessionPersistenceIdValidator = v.union(
+  v.id("sessions"),
+  v.id("designSessions"),
+  v.id("projects"),
+);
+
 /** Checks whether a sandbox is healthy, starting it if stopped. */
 export const validateSandbox = internalAction({
   args: {
@@ -151,7 +163,8 @@ export const prepareSandbox = internalAction({
     ephemeral: v.optional(v.boolean()),
     repoId: v.id("githubRepos"),
     attachRunId: v.optional(v.id("agentRuns")),
-    sessionPersistenceId: v.optional(v.id("sessions")),
+    sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
+    sessionPersistenceKind: v.optional(sessionPersistenceKindValidator),
     startDesktop: v.optional(v.boolean()),
     streamingEntityId: v.optional(v.string()),
   },
@@ -181,14 +194,15 @@ export const prepareSandbox = internalAction({
     );
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
-    const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionPersistenceVolumes(
-          daytona,
-          args.repoId,
-          "sessions",
-          args.sessionPersistenceId,
-        )
-      : undefined;
+    const sessionVolumeMounts =
+      args.sessionPersistenceId && args.sessionPersistenceKind
+        ? await ensureSessionPersistenceVolumes(
+            daytona,
+            args.repoId,
+            args.sessionPersistenceKind,
+            args.sessionPersistenceId,
+          )
+        : undefined;
     console.log(
       `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
     );
@@ -324,7 +338,8 @@ export const createOrResumeSandbox = internalAction({
     baseBranch: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
     repoId: v.id("githubRepos"),
-    sessionPersistenceId: v.optional(v.id("sessions")),
+    sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
+    sessionPersistenceKind: v.optional(sessionPersistenceKindValidator),
     attachRunId: v.optional(v.id("agentRuns")),
     streamingEntityId: v.optional(v.string()),
   },
@@ -354,14 +369,15 @@ export const createOrResumeSandbox = internalAction({
     );
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
-    const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionPersistenceVolumes(
-          daytona,
-          args.repoId,
-          "sessions",
-          args.sessionPersistenceId,
-        )
-      : undefined;
+    const sessionVolumeMounts =
+      args.sessionPersistenceId && args.sessionPersistenceKind
+        ? await ensureSessionPersistenceVolumes(
+            daytona,
+            args.repoId,
+            args.sessionPersistenceKind,
+            args.sessionPersistenceId,
+          )
+        : undefined;
     console.log(
       `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
     );
@@ -550,7 +566,7 @@ export const launchOnExistingSandbox = internalAction({
     repoId: v.id("githubRepos"),
     streamingEntityId: v.optional(v.string()),
     runId: v.optional(v.string()),
-    sessionPersistenceId: v.optional(v.id("sessions")),
+    sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
     taskProofCaptureEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),

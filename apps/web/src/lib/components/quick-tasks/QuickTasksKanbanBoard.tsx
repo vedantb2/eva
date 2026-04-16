@@ -35,7 +35,7 @@ export function QuickTasksKanbanBoard({
 }: QuickTasksKanbanBoardProps) {
   const { repoId } = useRepo();
   const currentUserId = useQuery(api.auth.me);
-  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
+  const groupedCodebases = useQuery(api.githubRepos.listGroupedByCodebase);
   const users = useQuery(api.users.listAll);
   const projects = useQuery(api.projects.list, { repoId });
   const updateStatus = useMutation(api.agentTasks.updateStatus);
@@ -142,7 +142,7 @@ export function QuickTasksKanbanBoard({
             projectName={
               task.projectId ? projectNames.get(task.projectId) : undefined
             }
-            siblingApps={siblingApps ?? undefined}
+            groupedCodebases={groupedCodebases ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
             onToggleSelect={() => onToggleSelect(task._id)}
@@ -169,7 +169,7 @@ export function QuickTasksKanbanBoard({
             projectName={
               task.projectId ? projectNames.get(task.projectId) : undefined
             }
-            siblingApps={siblingApps ?? undefined}
+            groupedCodebases={groupedCodebases ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
             assignedTo={task.assignedTo}

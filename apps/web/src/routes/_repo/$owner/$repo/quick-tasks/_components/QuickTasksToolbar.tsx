@@ -28,6 +28,7 @@ import {
   IconSettings,
   IconFilter,
   IconTable,
+  IconUser,
 } from "@tabler/icons-react";
 import {
   statusConfig,
@@ -41,6 +42,7 @@ import { statusesParser } from "@/lib/search-params";
 
 type QuickTaskView = "kanban" | "list" | "table";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
+type User = FunctionReturnType<typeof api.users.listAll>[number];
 
 interface QuickTasksToolbarProps {
   view: QuickTaskView;
@@ -55,6 +57,9 @@ interface QuickTasksToolbarProps {
   projects: Project[] | undefined;
   projectFilter: string;
   onProjectFilterChange: (v: string) => void;
+  users: User[] | undefined;
+  userFilter: string;
+  onUserFilterChange: (v: string) => void;
 }
 
 export function QuickTasksToolbar({
@@ -70,6 +75,9 @@ export function QuickTasksToolbar({
   projects,
   projectFilter,
   onProjectFilterChange,
+  users,
+  userFilter,
+  onUserFilterChange,
 }: QuickTasksToolbarProps) {
   const filterLabel =
     projectFilter === "all"
@@ -77,6 +85,13 @@ export function QuickTasksToolbar({
       : projectFilter === "none"
         ? "No Project"
         : (projects?.find((p) => p._id === projectFilter)?.title ?? "Project");
+
+  const userFilterLabel =
+    userFilter === "all"
+      ? "All Users"
+      : (users?.find((u) => u._id === userFilter)?.fullName ??
+        users?.find((u) => u._id === userFilter)?.firstName ??
+        "User");
 
   const [{ statuses }, setStatusParams] = useQueryStates({
     statuses: statusesParser,
@@ -212,6 +227,32 @@ export function QuickTasksToolbar({
                       {projects.map((p) => (
                         <DropdownMenuRadioItem key={p._id} value={p._id}>
                           {p.title}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </>
+                  )}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <IconUser size={16} className="mr-2" />
+                {userFilterLabel}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={userFilter}
+                  onValueChange={onUserFilterChange}
+                >
+                  <DropdownMenuRadioItem value="all">
+                    All Users
+                  </DropdownMenuRadioItem>
+                  {users && users.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      {users.map((u) => (
+                        <DropdownMenuRadioItem key={u._id} value={u._id}>
+                          {u.fullName ?? u.firstName ?? "Unknown"}
                         </DropdownMenuRadioItem>
                       ))}
                     </>

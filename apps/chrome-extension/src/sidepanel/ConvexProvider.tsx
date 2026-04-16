@@ -1,5 +1,6 @@
 import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider";
 import { useAuth } from "@clerk/chrome-extension";
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL;
@@ -13,7 +14,7 @@ const convex = new ConvexReactClient(CONVEX_URL);
 export function ConvexProvider({ children }: { children: React.ReactNode }) {
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-      {children}
+      <ConvexQueryCacheProvider>{children}</ConvexQueryCacheProvider>
     </ConvexProviderWithClerk>
   );
 }

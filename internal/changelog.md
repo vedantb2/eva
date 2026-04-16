@@ -1,5 +1,10 @@
 # Changelog
 
+## Claude session persistence for project interviews - 2026-04-16
+
+- **Why**: Project interviews were re-injecting previous Q&A pairs as text each time Claude asked a question, forcing manual context management. Sessions already had true Claude session persistence via volume mounts and `--resume` flags; projects now use the same infrastructure for full conversational context.
+- **Changes**: Extended session persistence to support projects (`"projects"` added to `PersistableSessionKind`). `prepareSandbox` and `launchOnExistingSandbox` now accept `sessionPersistenceId` + `sessionPersistenceKind` (sessions/projects). Interview prompts no longer include "Already Decided" section—Claude has full transcript via `--resume`. Added `startSpec` mutation to trigger spec generation when interview returns `{"ready": true}`. Frontend detects `ready` and calls `startSpec` with same session context. Simplified frontend: removed `previousAnswers` tracking from `ProjectChatTab`, simplified mutation signatures.
+
 ## Remove shallow clone option from git fetch functions - 2026-04-15
 
 - **Why**: Shallow clones (`--depth 1`) cause issues with rebasing, blame, and merges in user repos. Full history is always needed for reliable git operations.

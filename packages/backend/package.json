@@ -24,7 +24,7 @@
     "@solvers-hub/llm-json": "^0.1.8",
     "@tiptap/pm": "^3.20.1",
     "convex": "^1.24.5",
-    "convex-helpers": "^0.1.111",
+    "convex-helpers": "0.1.114",
     "convex-timeline": "^0.1.2",
     "jose": "^6.0.11",
     "octokit": "^5.0.5",

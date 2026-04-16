@@ -12,11 +12,9 @@ const EXTENSIONS = [
   }),
   Underline,
   Markdown.configure({
-    html: true,
-    tightLists: true,
-    breaks: true,
-    transformPastedText: true,
-    transformCopiedText: true,
+    markedOptions: {
+      breaks: true,
+    },
   }),
 ];
 

@@ -7,11 +7,17 @@ import {
   AccordionTrigger,
   AccordionContent,
   Spinner,
-  MessageResponse,
 } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { Streamdown } from "streamdown";
+import { cjk } from "@streamdown/cjk";
+import { code } from "@streamdown/code";
+import { math } from "@streamdown/math";
+import { mermaid } from "@streamdown/mermaid";
+
+const streamdownPlugins = { cjk, code, math, mermaid };
 
 const FormattedText = lazy(() =>
   import("./FormattedText").then((m) => ({ default: m.FormattedText })),
@@ -85,9 +91,12 @@ export function TaskDescription({
             />
           </Suspense>
         ) : (
-          <MessageResponse className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+          <Streamdown
+            plugins={streamdownPlugins}
+            className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+          >
             {mainDesc}
-          </MessageResponse>
+          </Streamdown>
         )}
       </div>
       {!isEditingDescription && elementDetails && (

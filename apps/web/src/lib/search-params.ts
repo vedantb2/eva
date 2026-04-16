@@ -116,6 +116,10 @@ export const projectFilterParser = parseAsString
   .withDefault("none")
   .withOptions(searchOptions);
 
+export const userFilterParser = parseAsString
+  .withDefault("all")
+  .withOptions(searchOptions);
+
 export const previewPortParser = parseAsInteger
   .withDefault(3001)
   .withOptions(searchOptions);

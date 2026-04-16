@@ -97,7 +97,18 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    dedupe: ["convex-helpers", "convex", "react", "react-dom"],
+    // Packages using React Context MUST be deduplicated to prevent "Context not found" errors
+    // When pnpm installs multiple copies (different peer deps), each has its own context instance
+    // This forces all imports to resolve to the same instance at bundle time
+    dedupe: [
+      "react",
+      "react-dom",
+      "convex",
+      "convex-helpers",
+      "@tanstack/react-router",
+      "@tanstack/react-query",
+      "@clerk/clerk-react",
+    ],
   },
   build: {
     rolldownOptions: {

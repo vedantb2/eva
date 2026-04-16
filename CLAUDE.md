@@ -95,6 +95,11 @@ TanStack Router (eva web app):
 - Never use `window.location.href` for navigation. Always use `useNavigate` from `@tanstack/react-router` or the `<Link>` component.
 - `window.location.href` causes a full page reload, losing client-side state. TanStack Router navigation preserves SPA behavior.
 
+Vite (apps/web):
+
+- **Dedupe context-sensitive packages**: Any package using React Context must be in `resolve.dedupe` in vite.config.ts. pnpm can install multiple copies (different peer deps), causing "Context not found" runtime errors. Dedupe forces all imports to the same instance.
+- When adding a new dependency that provides React hooks/context (e.g., @tanstack/_, @clerk/_, state managers), add it to the dedupe array.
+
 Nuqs:
 
 - If you are required to implement filters, or sort by methods, make sure nuqs is installed in the codebase and use it to create searchParams.ts and use the useQueryState/useQueryStates hook from nuqs to implement the filters / sorting methods. This is preferred over local state as it stores the state in the URL so can be shared with other users.

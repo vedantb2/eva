@@ -88,8 +88,12 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
                       {evt.model}
                     </Badge>
                     <span className="text-xs tabular-nums text-muted-foreground">
-                      {formatTokens(evt.inputTokens)} in /{" "}
-                      {formatTokens(evt.outputTokens)} out
+                      {formatTokens(
+                        evt.inputTokens +
+                          evt.cacheReadTokens +
+                          evt.cacheCreationTokens,
+                      )}{" "}
+                      in / {formatTokens(evt.outputTokens)} out
                     </span>
                     {evt.durationMs > 0 && (
                       <span className="text-xs tabular-nums text-muted-foreground">

@@ -12,12 +12,14 @@ import {
   ContextContentFooter,
   ContextInputUsage,
   ContextOutputUsage,
-  ContextCacheUsage,
+  ContextCacheReadUsage,
+  ContextCacheWriteUsage,
 } from "@conductor/ui";
 import { parseResultEvent } from "@/lib/utils/logs";
 import { useMemo } from "react";
 
-// Model context window sizes (in tokens)
+// Model context window sizes (in tokens). Used for the usage percentage display;
+// not for cost (cost comes from Claude's `total_cost_usd` in the result event).
 const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   "claude-sonnet-4-20250514": 200000,
   "claude-3-5-sonnet-20241022": 200000,
@@ -31,20 +33,6 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   "gpt-4": 8192,
   "gpt-3.5-turbo": 16385,
 };
-
-// Map our model names to tokenlens ModelId format
-function toTokenlensModelId(model: string): string {
-  // Anthropic models
-  if (model.startsWith("claude-")) {
-    return `anthropic:${model}`;
-  }
-  // OpenAI models
-  if (model.startsWith("gpt-")) {
-    return `openai:${model}`;
-  }
-  // Default to anthropic prefix for unknown models
-  return `anthropic:${model}`;
-}
 
 function getMaxTokens(model: string): number {
   return MODEL_CONTEXT_WINDOWS[model] ?? 200000;
@@ -68,6 +56,7 @@ export function EntityContextUsage({
     let totalOutputTokens = 0;
     let totalCacheReadTokens = 0;
     let totalCacheCreationTokens = 0;
+    let totalCostUsd = 0;
     let latestModel = "";
 
     for (const log of logs) {
@@ -76,13 +65,19 @@ export function EntityContextUsage({
       totalOutputTokens += parsed.outputTokens;
       totalCacheReadTokens += parsed.cacheReadTokens;
       totalCacheCreationTokens += parsed.cacheCreationTokens;
+      totalCostUsd += parsed.costUsd;
       if (parsed.model !== "-" && !latestModel) {
         latestModel = parsed.model;
       }
     }
 
+    // Total tokens consumed counts every input-side token: pure input, cache
+    // reads (still occupy context), cache writes (written into prompt), plus output.
     const totalUsedTokens =
-      totalInputTokens + totalOutputTokens + totalCacheReadTokens;
+      totalInputTokens +
+      totalOutputTokens +
+      totalCacheReadTokens +
+      totalCacheCreationTokens;
 
     return {
       usedTokens: totalUsedTokens,
@@ -90,9 +85,12 @@ export function EntityContextUsage({
       usage: {
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
-        cachedInputTokens: totalCacheReadTokens + totalCacheCreationTokens,
+        cachedInputReadTokens: totalCacheReadTokens,
+        cachedInputWriteTokens: totalCacheCreationTokens,
       },
-      modelId: latestModel ? toTokenlensModelId(latestModel) : undefined,
+      costs: {
+        totalUSD: totalCostUsd,
+      },
     };
   }, [logs]);
 
@@ -106,7 +104,7 @@ export function EntityContextUsage({
       usedTokens={aggregatedData.usedTokens}
       maxTokens={aggregatedData.maxTokens}
       usage={aggregatedData.usage}
-      modelId={aggregatedData.modelId}
+      costs={aggregatedData.costs}
     >
       <ContextTrigger />
       <ContextContent>
@@ -114,7 +112,8 @@ export function EntityContextUsage({
         <ContextContentBody className="space-y-1">
           <ContextInputUsage />
           <ContextOutputUsage />
-          <ContextCacheUsage />
+          <ContextCacheReadUsage />
+          <ContextCacheWriteUsage />
         </ContextContentBody>
         <ContextContentFooter />
       </ContextContent>

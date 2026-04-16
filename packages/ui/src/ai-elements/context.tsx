@@ -2,7 +2,6 @@
 
 import type { ComponentProps } from "react";
 import { createContext, useContext, useMemo } from "react";
-import { getUsage } from "tokenlens";
 
 import { Button } from "../ui/button";
 import {
@@ -19,20 +18,35 @@ const ICON_VIEWBOX = 24;
 const ICON_CENTER = 12;
 const ICON_STROKE_WIDTH = 2;
 
-type ModelId = string;
-
+/**
+ * Per-category token counts. Cache reads and writes are priced very differently
+ * (reads ~0.1x input, writes ~1.25x input), so they are tracked separately.
+ */
 interface LanguageModelUsage {
   inputTokens?: number;
   outputTokens?: number;
-  reasoningTokens?: number;
-  cachedInputTokens?: number;
+  cachedInputReadTokens?: number;
+  cachedInputWriteTokens?: number;
+}
+
+/**
+ * Pre-computed costs (USD). Pass these when the authoritative cost is known
+ * (e.g. Claude returns `total_cost_usd` directly). Avoids needing a pricing
+ * catalog at render time.
+ */
+interface ContextCosts {
+  totalUSD?: number;
+  inputUSD?: number;
+  outputUSD?: number;
+  cacheReadUSD?: number;
+  cacheWriteUSD?: number;
 }
 
 interface ContextSchema {
   usedTokens: number;
   maxTokens: number;
   usage?: LanguageModelUsage;
-  modelId?: ModelId;
+  costs?: ContextCosts;
 }
 
 const ContextContext = createContext<ContextSchema | null>(null);
@@ -53,12 +67,12 @@ export const Context = ({
   usedTokens,
   maxTokens,
   usage,
-  modelId,
+  costs,
   ...props
 }: ContextProps) => {
   const contextValue = useMemo(
-    () => ({ maxTokens, modelId, usage, usedTokens }),
-    [maxTokens, modelId, usage, usedTokens],
+    () => ({ costs, maxTokens, usage, usedTokens }),
+    [costs, maxTokens, usage, usedTokens],
   );
 
   return (
@@ -196,6 +210,18 @@ export const ContextContentBody = ({
   </div>
 );
 
+const formatUSD = (value: number) =>
+  new Intl.NumberFormat("en-US", {
+    currency: "USD",
+    // Claude's per-call cost is often sub-cent; show enough precision to be useful.
+    maximumFractionDigits: 4,
+    minimumFractionDigits: 2,
+    style: "currency",
+  }).format(value);
+
+const formatTokens = (value: number) =>
+  new Intl.NumberFormat("en-US", { notation: "compact" }).format(value);
+
 export type ContextContentFooterProps = ComponentProps<"div">;
 
 export const ContextContentFooter = ({
@@ -203,28 +229,8 @@ export const ContextContentFooter = ({
   className,
   ...props
 }: ContextContentFooterProps) => {
-  const { modelId, usage } = useContextValue();
-  let costUSD: number | undefined;
-
-  if (modelId) {
-    try {
-      const result = getUsage({
-        modelId,
-        usage: {
-          input: usage?.inputTokens ?? 0,
-          output: usage?.outputTokens ?? 0,
-        },
-      });
-      costUSD = result.costUSD?.totalUSD;
-    } catch {
-      // Model not found in tokenlens, skip cost calculation
-    }
-  }
-
-  const totalCost = new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    style: "currency",
-  }).format(costUSD ?? 0);
+  const { costs } = useContextValue();
+  const totalCost = costs?.totalUSD;
 
   return (
     <div
@@ -237,166 +243,119 @@ export const ContextContentFooter = ({
       {children ?? (
         <>
           <span className="text-muted-foreground">Total cost</span>
-          <span>{totalCost}</span>
+          <span className="font-mono tabular-nums">
+            {totalCost === undefined ? "—" : formatUSD(totalCost)}
+          </span>
         </>
       )}
     </div>
   );
 };
 
-const TokensWithCost = ({
+const UsageRow = ({
+  label,
   tokens,
-  costText,
-}: {
-  tokens?: number;
-  costText?: string;
-}) => (
-  <span>
-    {tokens === undefined
-      ? "—"
-      : new Intl.NumberFormat("en-US", {
-          notation: "compact",
-        }).format(tokens)}
-    {costText ? (
-      <span className="ml-2 text-muted-foreground">• {costText}</span>
-    ) : null}
-  </span>
-);
-
-export type ContextInputUsageProps = ComponentProps<"div">;
-
-export const ContextInputUsage = ({
+  costUSD,
   className,
-  children,
-  ...props
-}: ContextInputUsageProps) => {
-  const { usage, modelId } = useContextValue();
-  const inputTokens = usage?.inputTokens ?? 0;
-
-  if (children) {
-    return <>{children}</>;
-  }
-
-  if (!inputTokens) {
-    return null;
-  }
-
-  let inputCost: number | undefined;
-  if (modelId) {
-    try {
-      const result = getUsage({
-        modelId,
-        usage: { input: inputTokens, output: 0 },
-      });
-      inputCost = result.costUSD?.totalUSD;
-    } catch {
-      // Model not found
-    }
-  }
-  const inputCostText = new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    style: "currency",
-  }).format(inputCost ?? 0);
-
+  ...rest
+}: {
+  label: string;
+  tokens: number;
+  costUSD?: number;
+} & ComponentProps<"div">) => {
+  if (!tokens) return null;
   return (
     <div
       className={cn("flex items-center justify-between text-xs", className)}
-      {...props}
+      {...rest}
     >
-      <span className="text-muted-foreground">Input</span>
-      <TokensWithCost costText={inputCostText} tokens={inputTokens} />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="tabular-nums">
+        {formatTokens(tokens)}
+        {costUSD !== undefined ? (
+          <span className="ml-2 font-mono text-muted-foreground">
+            {formatUSD(costUSD)}
+          </span>
+        ) : null}
+      </span>
     </div>
+  );
+};
+
+export type ContextInputUsageProps = ComponentProps<"div">;
+
+export const ContextInputUsage = (props: ContextInputUsageProps) => {
+  const { usage, costs } = useContextValue();
+  return (
+    <UsageRow
+      label="Input"
+      tokens={usage?.inputTokens ?? 0}
+      costUSD={costs?.inputUSD}
+      {...props}
+    />
   );
 };
 
 export type ContextOutputUsageProps = ComponentProps<"div">;
 
-export const ContextOutputUsage = ({
-  className,
-  children,
-  ...props
-}: ContextOutputUsageProps) => {
-  const { usage, modelId } = useContextValue();
-  const outputTokens = usage?.outputTokens ?? 0;
-
-  if (children) {
-    return <>{children}</>;
-  }
-
-  if (!outputTokens) {
-    return null;
-  }
-
-  let outputCost: number | undefined;
-  if (modelId) {
-    try {
-      const result = getUsage({
-        modelId,
-        usage: { input: 0, output: outputTokens },
-      });
-      outputCost = result.costUSD?.totalUSD;
-    } catch {
-      // Model not found
-    }
-  }
-  const outputCostText = new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    style: "currency",
-  }).format(outputCost ?? 0);
-
+export const ContextOutputUsage = (props: ContextOutputUsageProps) => {
+  const { usage, costs } = useContextValue();
   return (
-    <div
-      className={cn("flex items-center justify-between text-xs", className)}
+    <UsageRow
+      label="Output"
+      tokens={usage?.outputTokens ?? 0}
+      costUSD={costs?.outputUSD}
       {...props}
-    >
-      <span className="text-muted-foreground">Output</span>
-      <TokensWithCost costText={outputCostText} tokens={outputTokens} />
-    </div>
+    />
   );
 };
 
-export type ContextCacheUsageProps = ComponentProps<"div">;
+export type ContextCacheReadUsageProps = ComponentProps<"div">;
 
-export const ContextCacheUsage = ({
-  className,
-  children,
-  ...props
-}: ContextCacheUsageProps) => {
-  const { usage, modelId } = useContextValue();
-  const cacheTokens = usage?.cachedInputTokens ?? 0;
-
-  if (children) {
-    return <>{children}</>;
-  }
-
-  if (!cacheTokens) {
-    return null;
-  }
-
-  let cacheCost: number | undefined;
-  if (modelId) {
-    try {
-      const result = getUsage({
-        modelId,
-        usage: { cacheReads: cacheTokens, input: 0, output: 0 },
-      });
-      cacheCost = result.costUSD?.totalUSD;
-    } catch {
-      // Model not found
-    }
-  }
-  const cacheCostText = new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    style: "currency",
-  }).format(cacheCost ?? 0);
-
+export const ContextCacheReadUsage = (props: ContextCacheReadUsageProps) => {
+  const { usage, costs } = useContextValue();
   return (
-    <div
-      className={cn("flex items-center justify-between text-xs", className)}
+    <UsageRow
+      label="Cache read"
+      tokens={usage?.cachedInputReadTokens ?? 0}
+      costUSD={costs?.cacheReadUSD}
       {...props}
-    >
-      <span className="text-muted-foreground">Cache</span>
-      <TokensWithCost costText={cacheCostText} tokens={cacheTokens} />
-    </div>
+    />
+  );
+};
+
+export type ContextCacheWriteUsageProps = ComponentProps<"div">;
+
+export const ContextCacheWriteUsage = (props: ContextCacheWriteUsageProps) => {
+  const { usage, costs } = useContextValue();
+  return (
+    <UsageRow
+      label="Cache write"
+      tokens={usage?.cachedInputWriteTokens ?? 0}
+      costUSD={costs?.cacheWriteUSD}
+      {...props}
+    />
+  );
+};
+
+/**
+ * @deprecated Use ContextCacheReadUsage and ContextCacheWriteUsage separately.
+ * Kept for backwards compat — shows combined cache reads + writes as one row.
+ */
+export const ContextCacheUsage = (props: ComponentProps<"div">) => {
+  const { usage, costs } = useContextValue();
+  const cacheTokens =
+    (usage?.cachedInputReadTokens ?? 0) + (usage?.cachedInputWriteTokens ?? 0);
+  const cacheCost =
+    costs?.cacheReadUSD !== undefined || costs?.cacheWriteUSD !== undefined
+      ? (costs?.cacheReadUSD ?? 0) + (costs?.cacheWriteUSD ?? 0)
+      : undefined;
+  return (
+    <UsageRow
+      label="Cache"
+      tokens={cacheTokens}
+      costUSD={cacheCost}
+      {...props}
+    />
   );
 };

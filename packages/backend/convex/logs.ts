@@ -25,6 +25,46 @@ export const log = internalMutation({
   },
 });
 
+/** Gets all log entries for a specific entity (task, session, etc.). */
+export const getByEntityId = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    entityId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("logs"),
+      entityType: v.string(),
+      entityId: v.string(),
+      entityTitle: v.string(),
+      rawResultEvent: v.optional(v.string()),
+      createdAt: v.number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return [];
+    }
+
+    const logs = await ctx.db
+      .query("logs")
+      .withIndex("by_repo_and_entity", (q) =>
+        q.eq("repoId", args.repoId).eq("entityId", args.entityId),
+      )
+      .order("desc")
+      .collect();
+
+    return logs.map((entry) => ({
+      _id: entry._id,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      entityTitle: entry.entityTitle,
+      rawResultEvent: entry.rawResultEvent,
+      createdAt: entry.createdAt,
+    }));
+  },
+});
+
 /** Lists log entries for a repo, optionally filtered by start time and entity types. */
 export const listByRepo = authQuery({
   args: {

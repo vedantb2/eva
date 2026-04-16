@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery } from "../_generated/server";
 
 /**
  * Store an OAuth authorization code.

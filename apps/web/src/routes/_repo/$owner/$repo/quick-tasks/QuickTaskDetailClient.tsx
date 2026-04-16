@@ -12,6 +12,7 @@ import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 import { quickTaskViewParser } from "@/lib/search-params";
 import { Route } from "./$taskId";
+import { EntityContextUsage } from "@/lib/components/context-usage";
 
 export function QuickTaskDetailClient() {
   const { taskId } = Route.useParams();
@@ -106,23 +107,26 @@ export function QuickTaskDetailClient() {
       fillHeight
       childPadding={false}
       headerRight={
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={handleNavigatePrev}
-            disabled={!prevTaskId}
-            className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-            title="Previous task"
-          >
-            <IconChevronLeft size={16} />
-          </button>
-          <button
-            onClick={handleNavigateNext}
-            disabled={!nextTaskId}
-            className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-            title="Next task"
-          >
-            <IconChevronRight size={16} />
-          </button>
+        <div className="flex items-center gap-1">
+          <EntityContextUsage repoId={repo._id} entityId={taskId} />
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={handleNavigatePrev}
+              disabled={!prevTaskId}
+              className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              title="Previous task"
+            >
+              <IconChevronLeft size={16} />
+            </button>
+            <button
+              onClick={handleNavigateNext}
+              disabled={!nextTaskId}
+              className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              title="Next task"
+            >
+              <IconChevronRight size={16} />
+            </button>
+          </div>
         </div>
       }
     >

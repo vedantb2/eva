@@ -82,7 +82,7 @@ http.route({
     }
 
     const hasAccess: boolean = await ctx.runQuery(
-      internal.mcpQueries.checkRepoAccessForUser,
+      internal.mcp.queries.checkRepoAccessForUser,
       { repoId: parsed.repoId, userId: parsed.userId },
     );
     if (!hasAccess) {
@@ -90,7 +90,7 @@ http.route({
     }
 
     const vars = await ctx.runAction(
-      internal.mcpRoutes.getDecryptedRepoEnvVars,
+      internal.mcp.routes.getDecryptedRepoEnvVars,
       { repoId: parsed.repoId },
     );
     return Response.json(vars);
@@ -328,7 +328,7 @@ http.route({
       return new Response("clientId required", { status: 400 });
     }
 
-    await ctx.runMutation(internal.mcpOAuth.registerClient, {
+    await ctx.runMutation(internal.mcp.oauth.registerClient, {
       clientId,
       clientSecret: clientSecret ?? undefined,
       redirectUris,
@@ -354,7 +354,7 @@ http.route({
       return new Response("clientId required", { status: 400 });
     }
 
-    const client = await ctx.runQuery(internal.mcpOAuth.getClient, {
+    const client = await ctx.runQuery(internal.mcp.oauth.getClient, {
       clientId,
     });
 
@@ -399,7 +399,7 @@ http.route({
       return new Response("Missing required fields", { status: 400 });
     }
 
-    await ctx.runMutation(internal.mcpOAuth.storeAuthCode, {
+    await ctx.runMutation(internal.mcp.oauth.storeAuthCode, {
       code,
       clerkUserId,
       codeChallenge,
@@ -429,7 +429,7 @@ http.route({
       return new Response("code required", { status: 400 });
     }
 
-    const entry = await ctx.runMutation(internal.mcpOAuth.consumeAuthCode, {
+    const entry = await ctx.runMutation(internal.mcp.oauth.consumeAuthCode, {
       code,
     });
 
@@ -439,6 +439,93 @@ http.route({
 
     return Response.json({ found: true, entry });
   }),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Convex-Native MCP Server (Node.js runtime)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import {
+  oauthMetadata,
+  protectedResourceMetadata,
+  register,
+  authorizeGet,
+  authorizePost,
+  token,
+  mcpHandler,
+  mintInternalToken,
+  health,
+} from "./mcp/native";
+
+// OAuth metadata endpoints
+http.route({
+  path: "/.well-known/oauth-authorization-server",
+  method: "GET",
+  handler: oauthMetadata,
+});
+
+http.route({
+  path: "/.well-known/oauth-protected-resource",
+  method: "GET",
+  handler: protectedResourceMetadata,
+});
+
+// OAuth flow endpoints
+http.route({
+  path: "/mcp/oauth/register",
+  method: "POST",
+  handler: register,
+});
+
+http.route({
+  path: "/mcp/oauth/authorize",
+  method: "GET",
+  handler: authorizeGet,
+});
+
+http.route({
+  path: "/mcp/oauth/authorize",
+  method: "POST",
+  handler: authorizePost,
+});
+
+http.route({
+  path: "/mcp/oauth/token",
+  method: "POST",
+  handler: token,
+});
+
+// MCP endpoint
+http.route({
+  path: "/mcp",
+  method: "GET",
+  handler: mcpHandler,
+});
+
+http.route({
+  path: "/mcp",
+  method: "POST",
+  handler: mcpHandler,
+});
+
+http.route({
+  path: "/mcp",
+  method: "DELETE",
+  handler: mcpHandler,
+});
+
+// Internal token minting (for scoped repo access from Eva sandboxes)
+http.route({
+  path: "/api/internal/mint-token",
+  method: "POST",
+  handler: mintInternalToken,
+});
+
+// Health check
+http.route({
+  path: "/health",
+  method: "GET",
+  handler: health,
 });
 
 export default http;

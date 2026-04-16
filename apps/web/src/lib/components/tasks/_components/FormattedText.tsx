@@ -3,26 +3,34 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
-import { useEffect, useRef } from "react";
+import { Markdown } from "@tiptap/markdown";
+import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 
 const EXTENSIONS = [
   StarterKit.configure({
-    heading: false,
+    heading: { levels: [1, 2, 3, 4, 5, 6] },
   }),
   Underline,
+  Markdown.configure({
+    markedOptions: {
+      breaks: true,
+    },
+  }),
 ];
 
-export function FormattedText({
-  content,
-  editable,
-  className,
-  onBlur,
-}: {
-  content: string;
-  editable: boolean;
-  className?: string;
-  onBlur?: (html: string) => void;
-}) {
+export interface FormattedTextHandle {
+  getMarkdown: () => string;
+}
+
+export const FormattedText = forwardRef<
+  FormattedTextHandle,
+  {
+    content: string;
+    editable: boolean;
+    className?: string;
+    onBlur?: (markdown: string) => void;
+  }
+>(function FormattedText({ content, editable, className, onBlur }, ref) {
   const prevEditable = useRef(editable);
 
   const editor = useEditor({
@@ -32,10 +40,14 @@ export function FormattedText({
     immediatelyRender: false,
     onBlur: ({ editor: e }) => {
       if (onBlur) {
-        onBlur(e.getHTML());
+        onBlur(e.getMarkdown());
       }
     },
   });
+
+  useImperativeHandle(ref, () => ({
+    getMarkdown: () => editor?.getMarkdown() ?? "",
+  }));
 
   useEffect(() => {
     if (!editor) return;
@@ -52,4 +64,4 @@ export function FormattedText({
   }, [editor, content, editable]);
 
   return <EditorContent editor={editor} className={className} />;
-}
+});

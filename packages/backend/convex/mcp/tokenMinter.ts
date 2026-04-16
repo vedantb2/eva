@@ -1,8 +1,8 @@
 "use node";
 
 import { v } from "convex/values";
-import { internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { internalAction } from "../_generated/server";
+import { internal } from "../_generated/api";
 
 const RETRYABLE_MCP_STATUS_CODES = new Set([429, 502, 503, 504]);
 const MCP_MINT_MAX_ATTEMPTS = 3;

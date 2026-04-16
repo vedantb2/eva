@@ -193,7 +193,7 @@ export async function signAndLaunchScript(
     opts.enableMcp === false
       ? Promise.resolve(undefined)
       : ctx
-          .runAction(internal.mcpTokenMinter.mintSandboxMcpToken, {
+          .runAction(internal.mcp.tokenMinter.mintSandboxMcpToken, {
             userId,
             repoId,
           })

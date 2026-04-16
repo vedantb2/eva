@@ -11,7 +11,7 @@
     "@conductor/backend": "workspace:*",
     "@conductor/ui": "workspace:*",
     "convex": ">=1.0.0",
-    "convex-helpers": "^0.1.88",
+    "convex-helpers": "0.1.114",
     "dayjs": ">=1.0.0",
     "facehash": ">=0.0.7",
     "react": ">=19.0.0"

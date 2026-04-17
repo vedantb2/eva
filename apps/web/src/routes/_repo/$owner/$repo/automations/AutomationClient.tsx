@@ -29,8 +29,11 @@ import {
   IconExternalLink,
   IconPlayerPlay,
   IconPlayerStop,
+  IconTrash,
 } from "@tabler/icons-react";
+import { useNavigate } from "@tanstack/react-router";
 import { FindingsList } from "./_components/FindingsList";
+import { AutomationDeleteDialog } from "./_components/AutomationDeleteDialog";
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@/lib/utils/formatDuration";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
@@ -131,7 +134,11 @@ export function AutomationClient({
         </TabsContent>
 
         <TabsContent value="settings">
-          <SettingsForm automation={automation} />
+          <SettingsForm
+            automation={automation}
+            repoOwner={repoOwner}
+            repoName={repoName}
+          />
         </TabsContent>
       </Tabs>
     </PageWrapper>
@@ -426,8 +433,18 @@ function RunAccordion({
   );
 }
 
-function SettingsForm({ automation }: { automation: Automation }) {
+function SettingsForm({
+  automation,
+  repoOwner,
+  repoName,
+}: {
+  automation: Automation;
+  repoOwner: string;
+  repoName: string;
+}) {
+  const navigate = useNavigate();
   const updateAutomation = useMutation(api.automations.update);
+  const removeAutomation = useMutation(api.automations.remove);
   const [title, setTitle] = useState(automation.title);
   const [description, setDescription] = useState(automation.description);
   const [cronSchedule, setCronSchedule] = useState(automation.cronSchedule);
@@ -439,10 +456,25 @@ function SettingsForm({ automation }: { automation: Automation }) {
     automation.actionsEnabled === true,
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { options: modelOptions } = useAvailableAiModels(
     automation.repoId,
     model,
   );
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await removeAutomation({ id: automation._id });
+      navigate({
+        to: "/$owner/$repo/automations",
+        params: { owner: repoOwner, repo: repoName },
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const hasChanges =
     title !== automation.title ||
@@ -576,6 +608,38 @@ function SettingsForm({ automation }: { automation: Automation }) {
           Save
         </Button>
       </div>
+
+      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-destructive">
+              Delete Automation
+            </h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Permanently remove this automation and all its run history
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <IconTrash size={14} />
+            Delete
+          </Button>
+        </div>
+      </div>
+
+      <AutomationDeleteDialog
+        automation={
+          showDeleteDialog
+            ? { id: automation._id, title: automation.title }
+            : null
+        }
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={handleDelete}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }

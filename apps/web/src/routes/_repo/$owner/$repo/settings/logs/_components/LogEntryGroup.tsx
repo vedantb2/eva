@@ -9,6 +9,7 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from "@conductor/ui";
+import { ProviderIcon } from "@conductor/ui/ai";
 import { IconChevronRight, IconCode } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { formatDurationMsShort } from "@/lib/utils/formatDuration";
@@ -85,6 +86,13 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <Badge variant="outline" className="font-mono text-[11px]">
+                      {evt.provider && (
+                        <ProviderIcon
+                          provider={evt.provider}
+                          size={11}
+                          className="mr-1"
+                        />
+                      )}
                       {evt.model}
                     </Badge>
                     <span className="text-xs tabular-nums text-muted-foreground">

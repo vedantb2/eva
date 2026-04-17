@@ -1907,10 +1907,11 @@ function computeCodexCostUsd(model, inputTokens, cachedInputTokens, outputTokens
   );
 }
 
-/** Builds a Claude-shaped type:"result" JSON string so the shared UI parser in apps/web/src/lib/utils/logs.ts can read cost/tokens/model/duration uniformly across providers. */
+/** Builds a Claude-shaped type:"result" JSON string so the shared UI parser in apps/web/src/lib/utils/logs.ts can read cost/tokens/model/duration/provider uniformly across providers. */
 function buildClaudeShapedResult(args) {
   return JSON.stringify({
     type: "result",
+    provider: args.provider,
     total_cost_usd: args.totalCostUsd,
     duration_ms: args.durationMs,
     usage: {
@@ -1970,6 +1971,7 @@ function extractResultEvent(output) {
         result: resultText || assistantParts.join(""),
         isError,
         rawResultEvent: buildClaudeShapedResult({
+          provider: "cursor",
           totalCostUsd: 0,
           durationMs: durationMs || attemptElapsedMs(),
           inputTokens: 0,
@@ -2066,6 +2068,7 @@ function extractResultEvent(output) {
         result,
         isError: false,
         rawResultEvent: buildClaudeShapedResult({
+          provider: "opencode",
           totalCostUsd,
           durationMs: attemptElapsedMs(),
           inputTokens,
@@ -2131,6 +2134,7 @@ function extractResultEvent(output) {
       result: finalText,
       isError: false,
       rawResultEvent: buildClaudeShapedResult({
+        provider: "codex",
         totalCostUsd,
         durationMs: attemptElapsedMs(),
         inputTokens: nonCachedInput,
@@ -2149,10 +2153,13 @@ function extractResultEvent(output) {
       const parsed = JSON.parse(clean);
       if (parsed.type === "result") {
         const r = parsed.result ?? "";
+        // Inject provider:"claude" into the native event so the logs UI can
+        // show a provider badge uniformly across all four providers.
+        const withProvider = JSON.stringify({ ...parsed, provider: "claude" });
         resultEvent = {
           result: typeof r === "string" ? r : JSON.stringify(r),
           isError: Boolean(parsed.is_error),
-          rawResultEvent: clean,
+          rawResultEvent: withProvider,
         };
       }
     } catch {}

@@ -193,7 +193,7 @@ export function ProjectChatTab({
   return (
     <div className="flex flex-col h-full">
       <Conversation className="flex-1 min-h-0">
-        <ConversationContent className="gap-3 p-3">
+        <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
           {initialMessages.map((m, i) => {
             if (m.role === "assistant") {
               if (!m.content) {
@@ -280,7 +280,7 @@ export function ProjectChatTab({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="p-3 sm:p-4 space-y-3">
+      <div className="p-3 sm:p-4 space-y-3 max-w-3xl mx-auto w-full">
         {showQuestion && (
           <MultipleChoiceQuestion
             question={currentQuestion.question}

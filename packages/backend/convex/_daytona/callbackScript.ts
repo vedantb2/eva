@@ -39,13 +39,21 @@ const HEARTBEAT_FATAL_BURST = Number(
   process.env.CALLBACK_HEARTBEAT_FATAL_BURST || "10",
 );
 const HEARTBEAT_FATAL_SLOW_COUNT = Number(
-  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_COUNT || "5",
+  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_COUNT || "8",
 );
+// Wider window so a full Convex redeploy cycle (observed 24-30s) does not trip the fatal cap.
 const HEARTBEAT_FATAL_SLOW_WINDOW_MS = Number(
-  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_WINDOW_MS || "70000",
+  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_WINDOW_MS || "180000",
 );
 const HEARTBEAT_ABSOLUTE_MAX_FAILURES = Number(
   process.env.CALLBACK_HEARTBEAT_ABSOLUTE_MAX_FAILURES || "28",
+);
+// Cap on rawOutput / attemptOutput / stderrOutput in bytes. When exceeded the head is
+// dropped and the tail is retained, so extractResultEvent and appendDiagnosticTail still
+// see the final lines. Protects the callback Node process from OOM on noisy builds in a
+// cgroup with 8 GiB RAM and no swap.
+const OUTPUT_BUFFER_MAX_BYTES = Number(
+  process.env.CALLBACK_OUTPUT_BUFFER_MAX_BYTES || "2000000",
 );
 const READY_FILE = "/tmp/run-design.ready";
 const CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
@@ -644,10 +652,12 @@ function parseStreamEvent(line) {
         markLastComplete();
         accumulatedSteps.push(cursorToolToStep(event.tool_call));
         lastStepType = "tool";
+        inFlightToolUses++;
         return true;
       }
       if (event.type === "tool_call" && event.subtype === "completed") {
         markLastComplete();
+        if (inFlightToolUses > 0) inFlightToolUses--;
         return true;
       }
       if (event.type === "result") {
@@ -678,10 +688,12 @@ function parseStreamEvent(line) {
           markLastComplete();
           accumulatedSteps.push(opencodeToolToStep(event.part));
           lastStepType = "tool";
+          inFlightToolUses++;
           return true;
         }
         if (status === "completed" || status === "error") {
           markLastComplete();
+          if (inFlightToolUses > 0) inFlightToolUses--;
           return true;
         }
         return false;
@@ -720,6 +732,12 @@ function parseStreamEvent(line) {
         markLastComplete();
         accumulatedSteps.push(step);
         lastStepType = step.type === "thinking" ? "thinking" : "tool";
+        // Only tool-kind items pause the no-output watchdog. Thinking items are Codex
+        // reasoning — their silence still needs to be caught by the stdout-idle check.
+        if (step.type !== "thinking" && typeof event.item.id === "string") {
+          codexToolItemIds.add(event.item.id);
+          inFlightToolUses++;
+        }
         return true;
       }
       if (
@@ -742,6 +760,15 @@ function parseStreamEvent(line) {
         event.item.type !== "agent_message"
       ) {
         markLastComplete();
+        // Only decrement if we recorded the start of this item as a tool. Using the id
+        // set rather than a counter avoids underflow if an item.started was missed.
+        if (
+          typeof event.item.id === "string" &&
+          codexToolItemIds.delete(event.item.id) &&
+          inFlightToolUses > 0
+        ) {
+          inFlightToolUses--;
+        }
         return true;
       }
       if (event.type === "turn.completed") {
@@ -758,6 +785,7 @@ function parseStreamEvent(line) {
 
     if (event.type === "tool_result") {
       markLastComplete();
+      if (inFlightToolUses > 0) inFlightToolUses--;
       return true;
     }
 
@@ -772,6 +800,7 @@ function parseStreamEvent(line) {
         accumulatedSteps.push(toolCallToStep(block.name, block.input ?? {}));
         lastStepType = "tool";
         added = true;
+        inFlightToolUses++;
         if (block.name === "AskUserQuestion" && block.input) {
           pendingQuestionData = JSON.stringify(block.input);
         }
@@ -832,6 +861,33 @@ let activeAttemptChild = null;
 let fatalHeartbeatErrorMessage = "";
 let consecutiveHeartbeatFailures = 0;
 let heartbeatFailureStreakStartedAt = 0;
+
+// Number of tool_use blocks emitted by the CLI for which no matching tool_result has
+// arrived yet. When > 0 the no-output watchdog is paused — a legitimate long tool call
+// (e.g. pnpm build, pytest, large curl) is allowed to run without the CLI being killed
+// for stdout silence. Balanced by resetAttemptState() on each attempt and by the hard
+// MAX_TOTAL_RUNTIME_MS cap which still applies unconditionally.
+let inFlightToolUses = 0;
+// Codex does not tag tool_use/tool_result events — it emits item.started / item.completed
+// with an item.id. Track the set of tool-kind item ids so we only decrement when the
+// matching completion arrives (thinking items are never added to this set).
+const codexToolItemIds = new Set();
+
+/** Trims a string to at most OUTPUT_BUFFER_MAX_BYTES bytes, dropping from the head. */
+function trimBufferHead(buf) {
+  if (buf.length <= OUTPUT_BUFFER_MAX_BYTES) return buf;
+  return buf.slice(buf.length - OUTPUT_BUFFER_MAX_BYTES);
+}
+
+/** Appends to rawOutput with head trimming. Shifts lastProcessed by the same amount so
+ * flushStreaming's line cursor stays aligned with the retained tail after a trim. */
+function appendToRawOutput(text) {
+  rawOutput += text;
+  if (rawOutput.length <= OUTPUT_BUFFER_MAX_BYTES) return;
+  const trimAmount = rawOutput.length - OUTPUT_BUFFER_MAX_BYTES;
+  rawOutput = rawOutput.slice(trimAmount);
+  lastProcessed = Math.max(0, lastProcessed - trimAmount);
+}
 
 /** Builds the serialized streaming payload for the current accumulated steps. */
 function buildStreamingPayload() {
@@ -2517,6 +2573,8 @@ function resetAttemptState() {
   firstTextBlockAt = 0;
   fatalHeartbeatErrorMessage = "";
   heartbeatFailureStreakStartedAt = 0;
+  inFlightToolUses = 0;
+  codexToolItemIds.clear();
 }
 
 /** Sends SIGTERM then SIGKILL to forcefully stop a CLI process. */
@@ -2616,6 +2674,13 @@ async function runCliAttempt(options) {
         terminateAttemptProcess(child);
         return;
       }
+      // While a tool_use is in flight (bash command, long build, web fetch, ...) the
+      // CLI legitimately produces no stdout until tool_result arrives. Skip the
+      // activity-silence checks below; the hard MAX_TOTAL_RUNTIME_MS / FIRST_EVENT /
+      // FIRST_ASSISTANT caps above still apply and are the real upper bound.
+      if (inFlightToolUses > 0) {
+        return;
+      }
       if (
         firstTextBlockAt > 0 &&
         !resultEventSeen &&
@@ -2640,8 +2705,8 @@ async function runCliAttempt(options) {
 
     child.stdout.on("data", (chunk) => {
       const text = chunk.toString();
-      attemptOutput += text;
-      rawOutput += text;
+      attemptOutput = trimBufferHead(attemptOutput + text);
+      appendToRawOutput(text);
       lastStdoutAt = Date.now();
       processRealtimeStdoutChunk(text);
       if (options.onStdoutText) {
@@ -2649,7 +2714,7 @@ async function runCliAttempt(options) {
       }
     });
     child.stderr.on("data", (chunk) => {
-      stderrOutput += chunk.toString();
+      stderrOutput = trimBufferHead(stderrOutput + chunk.toString());
     });
     child.on("close", (code) => {
       clearInterval(noOutputTimer);

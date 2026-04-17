@@ -65,7 +65,11 @@ const CODEX_CONFIG_TOML = process.env.CODEX_CONFIG_TOML || "";
 const CODEX_CONFIG_TOML_BASE64 = process.env.CODEX_CONFIG_TOML_BASE64 || "";
 const OPENCODE_RUNTIME_HOME_DIR = process.env.OPENCODE_RUNTIME_HOME_DIR || "/tmp/opencode-home";
 const OPENCODE_PERSIST_DIR = process.env.OPENCODE_PERSIST_DIR || "/home/eva/.opencode-persist";
-const OPENCODE_BIN_PATH = process.env.OPENCODE_BIN_PATH || "/tmp/opencode-cli/bin/opencode";
+// NB: renamed from OPENCODE_BIN_PATH to avoid colliding with opencode-ai's
+// own wrapper, which reads OPENCODE_BIN_PATH as an override and spawnSyncs
+// whatever path it finds — producing ENOENT when we point it at a fallback
+// path we never created (snapshot has opencode globally installed).
+const OPENCODE_BIN_PATH = process.env.EVA_OPENCODE_BIN_PATH || "/tmp/opencode-cli/bin/opencode";
 const OPENCODE_STATE_FILE = "session-state.json";
 const OPENCODE_LOCAL_STATE_FILE = OPENCODE_RUNTIME_HOME_DIR + "/" + OPENCODE_STATE_FILE;
 const OPENCODE_PERSIST_STATE_FILE = OPENCODE_PERSIST_DIR + "/" + OPENCODE_STATE_FILE;

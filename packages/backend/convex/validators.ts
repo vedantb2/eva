@@ -172,6 +172,10 @@ export const aiModelValidator = v.union(
   v.literal("codex:gpt-5.3-codex"),
   v.literal("codex:gpt-5.2-codex"),
   v.literal("opencode:openai/gpt-5-codex"),
+  v.literal("opencode:openai/gpt-5.2"),
+  v.literal("opencode:openai/gpt-5.3-codex"),
+  v.literal("opencode:openai/gpt-5.4"),
+  v.literal("opencode:openai/gpt-5.4-mini"),
   v.literal("cursor:claude-4-sonnet"),
   v.literal("cursor:claude-4.6-sonnet-medium"),
   v.literal("cursor:claude-4.5-opus-high"),
@@ -195,6 +199,10 @@ export type AIModel =
   | "codex:gpt-5.3-codex"
   | "codex:gpt-5.2-codex"
   | "opencode:openai/gpt-5-codex"
+  | "opencode:openai/gpt-5.2"
+  | "opencode:openai/gpt-5.3-codex"
+  | "opencode:openai/gpt-5.4"
+  | "opencode:openai/gpt-5.4-mini"
   | "cursor:claude-4-sonnet"
   | "cursor:claude-4.6-sonnet-medium"
   | "cursor:claude-4.5-opus-high"
@@ -275,6 +283,30 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     id: "opencode:openai/gpt-5-codex",
     provider: "opencode",
     label: "Opencode GPT-5 Codex",
+    requiresAuth: true,
+  },
+  {
+    id: "opencode:openai/gpt-5.4",
+    provider: "opencode",
+    label: "Opencode GPT-5.4",
+    requiresAuth: true,
+  },
+  {
+    id: "opencode:openai/gpt-5.4-mini",
+    provider: "opencode",
+    label: "Opencode GPT-5.4 mini",
+    requiresAuth: true,
+  },
+  {
+    id: "opencode:openai/gpt-5.3-codex",
+    provider: "opencode",
+    label: "Opencode GPT-5.3 Codex",
+    requiresAuth: true,
+  },
+  {
+    id: "opencode:openai/gpt-5.2",
+    provider: "opencode",
+    label: "Opencode GPT-5.2",
     requiresAuth: true,
   },
   {
@@ -398,6 +430,14 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
       return "codex:gpt-5.2-codex";
     case "opencode:openai/gpt-5-codex":
       return "opencode:openai/gpt-5-codex";
+    case "opencode:openai/gpt-5.2":
+      return "opencode:openai/gpt-5.2";
+    case "opencode:openai/gpt-5.3-codex":
+      return "opencode:openai/gpt-5.3-codex";
+    case "opencode:openai/gpt-5.4":
+      return "opencode:openai/gpt-5.4";
+    case "opencode:openai/gpt-5.4-mini":
+      return "opencode:openai/gpt-5.4-mini";
     case "cursor:claude-4-sonnet":
       return "cursor:claude-4-sonnet";
     case "cursor:claude-4.6-sonnet-medium":

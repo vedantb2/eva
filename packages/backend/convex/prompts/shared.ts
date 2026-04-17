@@ -34,6 +34,6 @@ export function getResponseLengthInstruction(
   if (mode === "plan") return "";
 
   if (responseLength === "detailed")
-    return "\n\nResponse length: Summarise what you did with context on why and the business impact.";
+    return "\n\nResponse length: Explain what you did, why, and the business impact.";
   return "\n\nResponse length: Brief summary of what you did and the outcome.";
 }

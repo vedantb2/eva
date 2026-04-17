@@ -1884,12 +1884,57 @@ function hasToolActivity() {
   return accumulatedSteps.some((step) => TOOL_STEP_TYPES.has(step.type));
 }
 
-/** Extracts the final result event from CLI output for Claude, Codex, opencode, and Cursor providers. */
+// Codex pricing in USD per 1M tokens. Codex stream-json emits token_count events
+// but no cost field, so we compute it client-side. Figures are approximate based
+// on the OpenAI gpt-5 family list pricing (late 2025); update when pricing changes.
+const CODEX_PRICING_PER_MILLION = {
+  "gpt-5.4": { input: 1.25, cached: 0.125, output: 10.0 },
+  "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2.0 },
+  "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10.0 },
+  "gpt-5.2-codex": { input: 1.25, cached: 0.125, output: 10.0 },
+  "gpt-5-codex": { input: 1.25, cached: 0.125, output: 10.0 },
+};
+
+/** Computes USD cost for a Codex turn. Returns 0 when the model is unknown. */
+function computeCodexCostUsd(model, inputTokens, cachedInputTokens, outputTokens) {
+  const pricing = CODEX_PRICING_PER_MILLION[model];
+  if (!pricing) return 0;
+  const nonCachedInput = Math.max(0, inputTokens - cachedInputTokens);
+  return (
+    (nonCachedInput * pricing.input) / 1_000_000 +
+    (cachedInputTokens * pricing.cached) / 1_000_000 +
+    (outputTokens * pricing.output) / 1_000_000
+  );
+}
+
+/** Builds a Claude-shaped type:"result" JSON string so the shared UI parser in apps/web/src/lib/utils/logs.ts can read cost/tokens/model/duration uniformly across providers. */
+function buildClaudeShapedResult(args) {
+  return JSON.stringify({
+    type: "result",
+    total_cost_usd: args.totalCostUsd,
+    duration_ms: args.durationMs,
+    usage: {
+      input_tokens: args.inputTokens,
+      output_tokens: args.outputTokens,
+      cache_read_input_tokens: args.cacheReadInputTokens,
+      cache_creation_input_tokens: args.cacheCreationInputTokens,
+    },
+    modelUsage: args.model ? { [args.model]: {} } : {},
+  });
+}
+
+/** Milliseconds elapsed since the CLI attempt started; 0 before it begins. */
+function attemptElapsedMs() {
+  return activeAttemptStartedAt > 0 ? Date.now() - activeAttemptStartedAt : 0;
+}
+
+/** Extracts the final result event from CLI output for Claude, Codex, opencode, and Cursor providers. Non-Claude branches emit a synthesized Claude-shaped rawResultEvent so downstream cost/token parsing stays provider-agnostic. */
 function extractResultEvent(output) {
   if (PROVIDER === "cursor") {
     let resultText = "";
     let isError = false;
-    let rawLine = "";
+    let sawResult = false;
+    let durationMs = 0;
     const assistantParts = [];
     for (const line of output.split("\\n")) {
       const clean = line.trim();
@@ -1897,8 +1942,9 @@ function extractResultEvent(output) {
       try {
         const parsed = JSON.parse(clean);
         if (parsed.type === "result") {
-          rawLine = clean;
+          sawResult = true;
           isError = Boolean(parsed.is_error);
+          if (typeof parsed.duration_ms === "number") durationMs = parsed.duration_ms;
           if (typeof parsed.result === "string") {
             resultText = parsed.result;
           } else if (parsed.result !== undefined) {
@@ -1915,11 +1961,23 @@ function extractResultEvent(output) {
         }
       } catch {}
     }
-    if (rawLine) {
+    // Cursor's stream-json does not emit token or cost fields (confirmed via
+    // cursor.com/docs/cli/reference/output-format as of late 2025). We still
+    // synthesize a Claude-shaped event so the model name and duration surface
+    // in the logs UI; cost/tokens are zeroed until upstream adds them.
+    if (sawResult) {
       return {
         result: resultText || assistantParts.join(""),
         isError,
-        rawResultEvent: rawLine,
+        rawResultEvent: buildClaudeShapedResult({
+          totalCostUsd: 0,
+          durationMs: durationMs || attemptElapsedMs(),
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+          model: normalizedCursorModel,
+        }),
       };
     }
     if (assistantParts.length > 0) {
@@ -1933,24 +1991,46 @@ function extractResultEvent(output) {
   }
   if (PROVIDER === "opencode") {
     let finalMessageId = "";
-    let lastStopLine = "";
+    let sawStopStep = false;
     let errorLine = "";
     let errorMessage = "";
     const textByMessageId = new Map();
+    // Opencode emits step_finish per model step; each carries part.cost
+    // (USD, pre-computed) and part.tokens with input/output/reasoning and
+    // cache.read/cache.write breakdowns. Sum across steps for the run total.
+    let totalCostUsd = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let cacheReadTokens = 0;
+    let cacheWriteTokens = 0;
+    let stepModel = "";
     for (const line of output.split("\\n")) {
       const clean = line.trim();
       if (!clean) continue;
       try {
         const parsed = JSON.parse(clean);
-        if (
-          parsed.type === "step_finish" &&
-          parsed.part &&
-          parsed.part.reason === "stop" &&
-          typeof parsed.part.messageID === "string" &&
-          parsed.part.messageID
-        ) {
-          finalMessageId = parsed.part.messageID;
-          lastStopLine = clean;
+        if (parsed.type === "step_finish" && parsed.part) {
+          if (typeof parsed.part.cost === "number") totalCostUsd += parsed.part.cost;
+          const t = parsed.part.tokens;
+          if (t && typeof t === "object") {
+            if (typeof t.input === "number") inputTokens += t.input;
+            if (typeof t.output === "number") outputTokens += t.output;
+            if (t.cache && typeof t.cache === "object") {
+              if (typeof t.cache.read === "number") cacheReadTokens += t.cache.read;
+              if (typeof t.cache.write === "number") cacheWriteTokens += t.cache.write;
+            }
+          }
+          if (typeof parsed.part.modelID === "string" && parsed.part.modelID) {
+            stepModel = parsed.part.modelID;
+          }
+          if (
+            parsed.part.reason === "stop" &&
+            typeof parsed.part.messageID === "string" &&
+            parsed.part.messageID
+          ) {
+            finalMessageId = parsed.part.messageID;
+            sawStopStep = true;
+          }
           continue;
         }
         if (
@@ -1980,12 +2060,20 @@ function extractResultEvent(output) {
         }
       } catch {}
     }
-    if (finalMessageId) {
+    if (sawStopStep) {
       const result = textByMessageId.get(finalMessageId) || "";
       return {
         result,
         isError: false,
-        rawResultEvent: lastStopLine,
+        rawResultEvent: buildClaudeShapedResult({
+          totalCostUsd,
+          durationMs: attemptElapsedMs(),
+          inputTokens,
+          outputTokens,
+          cacheReadInputTokens: cacheReadTokens,
+          cacheCreationInputTokens: cacheWriteTokens,
+          model: stepModel || normalizedOpencodeModel,
+        }),
       };
     }
     if (errorMessage) {
@@ -1999,6 +2087,12 @@ function extractResultEvent(output) {
   }
   if (PROVIDER === "codex") {
     let finalText = "";
+    // Codex emits token_count events after each turn; info.total_token_usage
+    // is cumulative across the run, so the last one wins. Cost is not emitted —
+    // we compute it from CODEX_PRICING_PER_MILLION.
+    let lastInputTokens = 0;
+    let lastCachedInputTokens = 0;
+    let lastOutputTokens = 0;
     for (const line of output.split("\\n")) {
       const clean = line.trim();
       if (!clean) continue;
@@ -2013,16 +2107,39 @@ function extractResultEvent(output) {
           if (messageText) {
             finalText = messageText;
           }
+          continue;
+        }
+        if (parsed.type === "token_count" && parsed.info) {
+          const total = parsed.info.total_token_usage;
+          if (total && typeof total === "object") {
+            if (typeof total.input_tokens === "number") lastInputTokens = total.input_tokens;
+            if (typeof total.cached_input_tokens === "number") lastCachedInputTokens = total.cached_input_tokens;
+            if (typeof total.output_tokens === "number") lastOutputTokens = total.output_tokens;
+          }
         }
       } catch {}
     }
-    return finalText
-      ? {
-          result: finalText,
-          isError: false,
-          rawResultEvent: finalText,
-        }
-      : null;
+    if (!finalText) return null;
+    const nonCachedInput = Math.max(0, lastInputTokens - lastCachedInputTokens);
+    const totalCostUsd = computeCodexCostUsd(
+      normalizedCodexModel,
+      lastInputTokens,
+      lastCachedInputTokens,
+      lastOutputTokens,
+    );
+    return {
+      result: finalText,
+      isError: false,
+      rawResultEvent: buildClaudeShapedResult({
+        totalCostUsd,
+        durationMs: attemptElapsedMs(),
+        inputTokens: nonCachedInput,
+        outputTokens: lastOutputTokens,
+        cacheReadInputTokens: lastCachedInputTokens,
+        cacheCreationInputTokens: 0,
+        model: normalizedCodexModel,
+      }),
+    };
   }
   let resultEvent = null;
   for (const line of output.split("\\n")) {

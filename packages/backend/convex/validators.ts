@@ -282,31 +282,31 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
   {
     id: "opencode:openai/gpt-5-codex",
     provider: "opencode",
-    label: "Opencode GPT-5 Codex",
+    label: "GPT-5 Codex",
     requiresAuth: true,
   },
   {
     id: "opencode:openai/gpt-5.4",
     provider: "opencode",
-    label: "Opencode GPT-5.4",
+    label: "GPT-5.4",
     requiresAuth: true,
   },
   {
     id: "opencode:openai/gpt-5.4-mini",
     provider: "opencode",
-    label: "Opencode GPT-5.4 mini",
+    label: "GPT-5.4 mini",
     requiresAuth: true,
   },
   {
     id: "opencode:openai/gpt-5.3-codex",
     provider: "opencode",
-    label: "Opencode GPT-5.3 Codex",
+    label: "GPT-5.3 Codex",
     requiresAuth: true,
   },
   {
     id: "opencode:openai/gpt-5.2",
     provider: "opencode",
-    label: "Opencode GPT-5.2",
+    label: "GPT-5.2",
     requiresAuth: true,
   },
   {

@@ -173,11 +173,13 @@ export const aiModelValidator = v.union(
   v.literal("codex:gpt-5.2-codex"),
   v.literal("opencode:openai/gpt-5-codex"),
   v.literal("cursor:claude-4-sonnet"),
-  v.literal("cursor:claude-4.6-sonnet"),
-  v.literal("cursor:claude-4.5-opus"),
-  v.literal("cursor:gpt-5.4"),
-  v.literal("cursor:gpt-5.4-mini"),
-  v.literal("cursor:gemini-3-pro"),
+  v.literal("cursor:claude-4.6-sonnet-medium"),
+  v.literal("cursor:claude-4.5-opus-high"),
+  v.literal("cursor:gpt-5.4-high"),
+  v.literal("cursor:gpt-5.4-mini-high"),
+  v.literal("cursor:gemini-3.1-pro"),
+  v.literal("cursor:composer-2"),
+  v.literal("cursor:composer-2-fast"),
 );
 
 export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
@@ -194,11 +196,13 @@ export type AIModel =
   | "codex:gpt-5.2-codex"
   | "opencode:openai/gpt-5-codex"
   | "cursor:claude-4-sonnet"
-  | "cursor:claude-4.6-sonnet"
-  | "cursor:claude-4.5-opus"
-  | "cursor:gpt-5.4"
-  | "cursor:gpt-5.4-mini"
-  | "cursor:gemini-3-pro";
+  | "cursor:claude-4.6-sonnet-medium"
+  | "cursor:claude-4.5-opus-high"
+  | "cursor:gpt-5.4-high"
+  | "cursor:gpt-5.4-mini-high"
+  | "cursor:gemini-3.1-pro"
+  | "cursor:composer-2"
+  | "cursor:composer-2-fast";
 export type PersistedAIModel = AIModel | LegacyClaudeModel;
 
 export interface AIModelOption {
@@ -280,33 +284,45 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-4.6-sonnet",
+    id: "cursor:claude-4.6-sonnet-medium",
     provider: "cursor",
     label: "Claude 4.6 Sonnet",
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-4.5-opus",
+    id: "cursor:claude-4.5-opus-high",
     provider: "cursor",
     label: "Claude 4.5 Opus",
     requiresAuth: true,
   },
   {
-    id: "cursor:gpt-5.4",
+    id: "cursor:gpt-5.4-high",
     provider: "cursor",
     label: "GPT-5.4",
     requiresAuth: true,
   },
   {
-    id: "cursor:gpt-5.4-mini",
+    id: "cursor:gpt-5.4-mini-high",
     provider: "cursor",
     label: "GPT-5.4 mini",
     requiresAuth: true,
   },
   {
-    id: "cursor:gemini-3-pro",
+    id: "cursor:gemini-3.1-pro",
     provider: "cursor",
     label: "Gemini 3 Pro",
+    requiresAuth: true,
+  },
+  {
+    id: "cursor:composer-2",
+    provider: "cursor",
+    label: "Composer 2",
+    requiresAuth: true,
+  },
+  {
+    id: "cursor:composer-2-fast",
+    provider: "cursor",
+    label: "Composer 2 Fast",
     requiresAuth: true,
   },
 ];
@@ -384,16 +400,20 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
       return "opencode:openai/gpt-5-codex";
     case "cursor:claude-4-sonnet":
       return "cursor:claude-4-sonnet";
-    case "cursor:claude-4.6-sonnet":
-      return "cursor:claude-4.6-sonnet";
-    case "cursor:claude-4.5-opus":
-      return "cursor:claude-4.5-opus";
-    case "cursor:gpt-5.4":
-      return "cursor:gpt-5.4";
-    case "cursor:gpt-5.4-mini":
-      return "cursor:gpt-5.4-mini";
-    case "cursor:gemini-3-pro":
-      return "cursor:gemini-3-pro";
+    case "cursor:claude-4.6-sonnet-medium":
+      return "cursor:claude-4.6-sonnet-medium";
+    case "cursor:claude-4.5-opus-high":
+      return "cursor:claude-4.5-opus-high";
+    case "cursor:gpt-5.4-high":
+      return "cursor:gpt-5.4-high";
+    case "cursor:gpt-5.4-mini-high":
+      return "cursor:gpt-5.4-mini-high";
+    case "cursor:gemini-3.1-pro":
+      return "cursor:gemini-3.1-pro";
+    case "cursor:composer-2":
+      return "cursor:composer-2";
+    case "cursor:composer-2-fast":
+      return "cursor:composer-2-fast";
     case "sonnet":
     case "claude:sonnet":
     default:

@@ -209,7 +209,7 @@ export const acknowledgeRun = authMutation({
   },
 });
 
-/** Counts unacknowledged completed automation runs for a repository (capped at 100). */
+/** Counts automations whose latest run is unacknowledged and completed. */
 export const countUnreadByRepo = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.number(),
@@ -217,20 +217,28 @@ export const countUnreadByRepo = authQuery({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       return 0;
     }
-    const unread = await ctx.db
-      .query("automationRuns")
+    const automations = await ctx.db
+      .query("automations")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("acknowledged"), false),
-          q.or(
-            q.eq(q.field("status"), "success"),
-            q.eq(q.field("status"), "error"),
-          ),
-        ),
-      )
-      .take(100);
-    return unread.length;
+      .collect();
+
+    let count = 0;
+    for (const automation of automations) {
+      const latestRun = await ctx.db
+        .query("automationRuns")
+        .withIndex("by_automation", (q) => q.eq("automationId", automation._id))
+        .order("desc")
+        .first();
+
+      if (
+        latestRun &&
+        !latestRun.acknowledged &&
+        (latestRun.status === "success" || latestRun.status === "error")
+      ) {
+        count++;
+      }
+    }
+    return count;
   },
 });
 

@@ -2964,6 +2964,34 @@ try {
   const completionSuccess = finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
   log("completion: success=" + completionSuccess + " code=" + finalCode + " hasResult=" + Boolean(finalResultEvent) + " error=" + (errorValue ? errorValue.slice(0, 200) : "none") + " steps=" + accumulatedSteps.length);
 
+  let detectedErrorType = null;
+  if (!completionSuccess && errorValue) {
+    const errLower = errorValue.toLowerCase();
+    const stderrLower = stderrOutput.toLowerCase();
+    const combined = errLower + " " + stderrLower;
+    const rateLimitIndicators = [
+      "usage limit",
+      "rate_limit_error",
+      "rate_limit",
+      "rate limit",
+      "token limit",
+      "credit balance is too low",
+      "billing",
+      "insufficient_quota",
+      "exceeded your current quota",
+      "out of credits",
+      "you've hit your",
+      "your limit will reset",
+      "overloaded_error",
+    ];
+    for (const indicator of rateLimitIndicators) {
+      if (combined.includes(indicator)) {
+        detectedErrorType = "rate_limit";
+        break;
+      }
+    }
+  }
+
   const completionArgs = {
     [ENTITY_ID_FIELD]: ENTITY_ID,
     ...(RUN_ID ? { runId: RUN_ID } : {}),
@@ -2971,6 +2999,7 @@ try {
     result: finalResultEvent?.result ?? rawOutput,
     error: errorValue,
     activityLog,
+    ...(detectedErrorType ? { errorType: detectedErrorType } : {}),
     ...(finalResultEvent?.rawResultEvent ? { rawResultEvent: finalResultEvent.rawResultEvent } : {}),
     ...(pendingQuestionData ? { pendingQuestion: pendingQuestionData } : {}),
   };

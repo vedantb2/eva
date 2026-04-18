@@ -6,6 +6,7 @@ export const workflowCompleteValidator = v.object({
   error: v.union(v.string(), v.null()),
   activityLog: v.union(v.string(), v.null()),
   pendingQuestion: v.optional(v.string()),
+  errorType: v.optional(v.union(v.literal("rate_limit"), v.literal("generic"))),
 });
 
 export const taskStatusValidator = v.union(

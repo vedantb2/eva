@@ -253,6 +253,9 @@ export const handleCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    errorType: v.optional(
+      v.union(v.literal("rate_limit"), v.literal("generic")),
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -410,6 +413,9 @@ export const handleGenerateCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    errorType: v.optional(
+      v.union(v.literal("rate_limit"), v.literal("generic")),
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

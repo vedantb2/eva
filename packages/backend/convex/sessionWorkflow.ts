@@ -490,6 +490,9 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    errorType: v.optional(
+      v.union(v.literal("rate_limit"), v.literal("generic")),
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

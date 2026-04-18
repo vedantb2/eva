@@ -117,6 +117,7 @@ export async function finalizeRunStatus(
     prUrl: string | null;
     exitReason?: string;
     claudeResult?: string;
+    errorType?: "rate_limit" | "generic";
   },
 ): Promise<void> {
   const run = await ctx.db.get(params.runId);
@@ -135,6 +136,7 @@ export async function finalizeRunStatus(
     prUrl: params.prUrl ?? undefined,
     error: params.success ? undefined : (params.error ?? "Unknown error"),
     exitReason: params.exitReason ?? (params.success ? "completed" : "error"),
+    errorType: params.success ? undefined : params.errorType,
   });
 }
 

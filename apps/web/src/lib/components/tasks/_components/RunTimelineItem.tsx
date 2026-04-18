@@ -219,6 +219,18 @@ export function RunTimelineItem({
                 {run.resultSummary}
               </Streamdown>
             )}
+            {run.errorType === "rate_limit" && (
+              <div className="p-3 bg-warning/10 rounded text-sm space-y-1">
+                <p className="font-medium text-warning-foreground">
+                  Usage limit reached
+                </p>
+                <p className="text-muted-foreground">
+                  The AI provider&apos;s token or usage limit has been exceeded.
+                  This usually resets automatically — try again later or check
+                  your API billing settings.
+                </p>
+              </div>
+            )}
             {run.error && (
               <div className="p-2 bg-destructive/10 rounded text-sm text-destructive">
                 {run.error}

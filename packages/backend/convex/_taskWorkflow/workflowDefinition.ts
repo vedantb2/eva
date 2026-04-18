@@ -35,6 +35,7 @@ export const taskExecutionWorkflow = workflow.define({
     let completionPrUrl: string | null = null;
     let completionActivityLog: string | null = null;
     let completionResult: string | null = null;
+    let completionErrorType: "rate_limit" | "generic" | undefined;
     let finalSuccess = false;
     let finalError: string | null = null;
     let runCompletionRecorded = false;
@@ -101,6 +102,7 @@ export const taskExecutionWorkflow = workflow.define({
       completionError = result.error;
       completionActivityLog = result.activityLog;
       completionResult = result.result;
+      completionErrorType = result.errorType;
       finalSuccess = result.success;
       finalError = result.error;
 
@@ -158,6 +160,7 @@ export const taskExecutionWorkflow = workflow.define({
         prUrl: completionPrUrl,
         activityLog: result.activityLog,
         claudeResult: result.result ?? undefined,
+        errorType: result.errorType,
       });
       runCompletionRecorded = true;
 
@@ -228,6 +231,7 @@ export const taskExecutionWorkflow = workflow.define({
         activityLog: result.activityLog,
         mode: args.mode,
         claudeResult: result.result ?? undefined,
+        errorType: result.errorType,
       });
       runFinalized = true;
 
@@ -279,6 +283,7 @@ export const taskExecutionWorkflow = workflow.define({
             activityLog: completionActivityLog,
             exitReason: fallbackExitReason,
             claudeResult: completionResult ?? undefined,
+            errorType: completionErrorType,
           },
         );
       }
@@ -295,6 +300,7 @@ export const taskExecutionWorkflow = workflow.define({
           exitReason: fallbackExitReason,
           mode: args.mode,
           claudeResult: completionResult ?? undefined,
+          errorType: completionErrorType,
         });
       }
 

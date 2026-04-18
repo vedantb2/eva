@@ -317,6 +317,7 @@ export const syncRepos = action({
       name: string;
       paths: string[];
     }> = [];
+    const monorepos: Array<{ owner: string; name: string }> = [];
     let totalAdded = 0;
     for (const installation of installations.data) {
       const octokit = await getInstallationOctokit(installation.id);
@@ -367,7 +368,11 @@ export const syncRepos = action({
           name: repo.name,
           paths: appPaths,
         });
-        connectedIds.push(id);
+        if (apps.length === 0) {
+          connectedIds.push(id);
+        } else {
+          monorepos.push({ owner: repo.owner.login, name: repo.name });
+        }
         totalAdded++;
       }
     }
@@ -378,6 +383,10 @@ export const syncRepos = action({
 
     await ctx.runMutation(internal.githubRepos.cleanupStaleSubApps, {
       detectedApps,
+    });
+
+    await ctx.runMutation(internal.githubRepos.cleanupMonorepoRoots, {
+      monorepos,
     });
 
     return { success: true, synced: totalAdded };

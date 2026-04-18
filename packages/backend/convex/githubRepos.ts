@@ -24,4 +24,5 @@ export {
   upsert,
   syncConnectedStatus,
   cleanupStaleSubApps,
+  cleanupMonorepoRoots,
 } from "./_githubRepos/sync";

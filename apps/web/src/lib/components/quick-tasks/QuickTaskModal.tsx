@@ -277,7 +277,7 @@ export function QuickTaskModal({
                               )}
                             </span>
                             <button
-                              className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded hover:bg-destructive/10 hover:text-destructive transition-all"
+                              className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded hover:bg-destructive/10 hover:text-destructive transition-[opacity,background-color,color]"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setConfirmDeleteId(draft._id);

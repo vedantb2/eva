@@ -125,7 +125,7 @@ export function QuickTasksToolbar({
               <Button
                 variant={view === "kanban" ? "secondary" : "ghost"}
                 size="icon"
-                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => onViewChange("kanban")}
               >
                 <IconLayoutKanban size={16} />
@@ -138,7 +138,7 @@ export function QuickTasksToolbar({
               <Button
                 variant={view === "list" ? "secondary" : "ghost"}
                 size="icon"
-                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => onViewChange("list")}
               >
                 <IconList size={16} />
@@ -151,7 +151,7 @@ export function QuickTasksToolbar({
               <Button
                 variant={view === "table" ? "secondary" : "ghost"}
                 size="icon"
-                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => onViewChange("table")}
               >
                 <IconTable size={16} />
@@ -175,7 +175,7 @@ export function QuickTasksToolbar({
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+                  className="motion-press hover:scale-[1.01] active:scale-[0.96]"
                   onClick={onStartSelecting}
                 >
                   <IconCheckbox size={16} />
@@ -193,7 +193,7 @@ export function QuickTasksToolbar({
             <Button
               size="sm"
               variant="secondary"
-              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+              className="motion-press hover:scale-[1.01] active:scale-[0.96]"
             >
               <IconSettings size={16} />
               <span className="hidden sm:inline">Options</span>
@@ -289,7 +289,7 @@ export function QuickTasksToolbar({
       )}
       <Button
         size="sm"
-        className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+        className="motion-press hover:scale-[1.01] active:scale-[0.96]"
         onClick={onCreateTask}
       >
         <IconPlus size={16} />

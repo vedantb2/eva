@@ -26,7 +26,7 @@ export function Leaderboard({ entries }: LeaderboardProps) {
     return (
       <Card className="bg-muted/40 shadow-none animate-in fade-in duration-300">
         <CardContent className="p-3 sm:p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4">
+          <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4 text-balance">
             Top Contributors
           </h3>
           <div className="py-8 text-center text-muted-foreground">
@@ -40,14 +40,14 @@ export function Leaderboard({ entries }: LeaderboardProps) {
   return (
     <Card className="bg-muted/40 shadow-none animate-in fade-in duration-300">
       <CardContent className="p-3 sm:p-4">
-        <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4">
+        <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4 text-balance">
           Top Contributors
         </h3>
         <div className="space-y-3">
           {entries.map((entry, index) => (
             <div
               key={entry.clerkId}
-              className="motion-base flex items-center gap-2 rounded-lg p-1.5 transition-all duration-200 hover:translate-x-0.5 hover:bg-muted sm:gap-3 sm:p-2"
+              className="motion-base flex items-center gap-2 rounded-lg p-1.5 transition-[transform,background-color] duration-200 hover:translate-x-0.5 hover:bg-muted sm:gap-3 sm:p-2"
             >
               <div className={`w-6 text-center font-bold ${rankColors[index]}`}>
                 {index === 0 ? (

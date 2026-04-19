@@ -237,7 +237,7 @@ export function QuickTaskCard({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                  className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors relative after:absolute after:inset-[-8px]"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <IconDots size={14} />
@@ -257,7 +257,7 @@ export function QuickTaskCard({
   );
 
   const wrappedCard = isInProgress ? (
-    <div className="qt-in-progress-border rounded-lg p-px">{card}</div>
+    <div className="qt-in-progress-border rounded-[9px] p-px">{card}</div>
   ) : (
     card
   );

@@ -44,18 +44,18 @@ export function SidebarLayoutWrapper({
         <Button
           size="icon-sm"
           variant="ghost"
-          className="motion-press hover:scale-[1.03] active:scale-[0.97]"
+          className="motion-press hover:scale-[1.03] active:scale-[0.96]"
           onClick={() => setMobileOpen(true)}
         >
           <IconLayoutSidebarLeftExpand size={16} />
         </Button>
-        <h1 className="text-lg font-semibold text-foreground flex-1">
+        <h1 className="text-lg font-semibold text-foreground flex-1 text-balance">
           {title}
         </h1>
         {renderHeaderActions()}
       </div>
 
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {mobileOpen && (
           <motion.div
             className="lg:hidden fixed inset-0 z-40 bg-background/60 "
@@ -68,7 +68,7 @@ export function SidebarLayoutWrapper({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {mobileOpen && (
           <motion.div
             className="lg:hidden fixed inset-y-0 left-0 z-50 w-[min(19.5rem,calc(100vw-2rem))]"
@@ -80,7 +80,7 @@ export function SidebarLayoutWrapper({
             <div className="h-full">
               <div className="flex h-full flex-col overflow-hidden bg-sidebar lg:bg-sidebar/95">
                 <div className="flex items-center justify-between bg-sidebar-accent/30 px-4 py-3">
-                  <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
+                  <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground text-balance">
                     {title}
                   </h1>
                   <div className="flex items-center gap-1.5">
@@ -88,7 +88,7 @@ export function SidebarLayoutWrapper({
                     <Button
                       size="icon-sm"
                       variant="ghost"
-                      className="motion-press hover:scale-[1.03] active:scale-[0.97]"
+                      className="motion-press hover:scale-[1.03] active:scale-[0.96]"
                       onClick={() => setMobileOpen(false)}
                     >
                       <IconX size={16} />
@@ -128,7 +128,7 @@ export function SidebarLayoutWrapper({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="motion-press flex-shrink-0 hover:scale-[1.03] active:scale-[0.97]"
+                        className="motion-press flex-shrink-0 hover:scale-[1.03] active:scale-[0.96]"
                         onClick={() => setCollapsed(!collapsed)}
                       >
                         <IconLayoutSidebarLeftExpand size={16} />
@@ -143,7 +143,7 @@ export function SidebarLayoutWrapper({
                       exit={{ opacity: 0, x: -8 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground">
+                      <h1 className="text-xl font-semibold tracking-[-0.02em] text-foreground text-balance">
                         {title}
                       </h1>
                       <div className="flex items-center gap-3">
@@ -151,7 +151,7 @@ export function SidebarLayoutWrapper({
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="motion-press flex-shrink-0 hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press flex-shrink-0 hover:scale-[1.03] active:scale-[0.96]"
                           onClick={() => setCollapsed(!collapsed)}
                         >
                           <IconLayoutSidebarLeftCollapse size={16} />

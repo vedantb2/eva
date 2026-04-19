@@ -5,7 +5,7 @@ export function EvaIcon({ size = 20 }: { size?: number }) {
       alt="Eva"
       width={size}
       height={size}
-      className="rounded-full"
+      className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
     />
   );
 }

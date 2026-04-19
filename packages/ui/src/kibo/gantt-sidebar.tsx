@@ -64,7 +64,9 @@ export const GanttSidebarItem: FC<GanttSidebarItemProps> = ({
       <p className="pointer-events-none flex-1 truncate text-left font-medium">
         {feature.name}
       </p>
-      <p className="pointer-events-none text-muted-foreground">{duration}</p>
+      <p className="pointer-events-none text-muted-foreground tabular-nums">
+        {duration}
+      </p>
     </div>
   );
 };

@@ -59,7 +59,7 @@ export const CodeBlockCopyButton = ({
   return (
     <Button
       className={cn(
-        "absolute right-2 top-2 size-7 p-0 text-muted-foreground hover:text-foreground",
+        "absolute right-2 top-2 size-7 p-0 text-muted-foreground hover:text-foreground after:absolute after:inset-[-6px]",
         className,
       )}
       size="sm"

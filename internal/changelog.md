@@ -1,5 +1,18 @@
 # Changelog
 
+## Comprehensive interface design refinements across web and UI components - 2026-04-19
+
+- **Why**: Interfaces feel polished through accumulated small details: consistent tactile feedback on buttons, smooth non-jarring animations, proper text spacing, extended touch targets, and subtle visual depth. These changes compound into a more intentional and refined experience across the entire platform.
+- **Scale on press**: Standardized all `active:scale-*` to `0.96` across 40+ button components (was `0.97`, `0.985`, `0.99`, or missing). A consistent `0.96` provides reliable tactile feedback without feeling exaggerated.
+- **Transition specificity**: Replaced 30+ instances of `transition-all` with specific properties (`transition-colors`, `transition-[width]`, `transition-[transform,background-color]`, etc.). Eliminates unnecessary animations on properties that aren't changing, improving perceived performance and reducing visual noise.
+- **Tabular numbers**: Added `font-variant-numeric: tabular-nums` to 15+ dynamic number displays (percentages, counts, durations, tokens). Fixed width prevents layout shift when values update, critical for progress bars and real-time stats.
+- **Text balance**: Applied `text-wrap: balance` to 20+ headings to prevent awkward line breaks and orphaned words. Text flows naturally at any viewport size.
+- **Hit area extensions**: Added 40×40px minimum hit areas to 8 small interactive elements (close buttons, toggles) using `after:absolute after:inset-[-Xpx]` pseudo-elements. Improves accessibility on mobile and reduces frustration on small targets.
+- **Image outlines**: Added subtle `1px` outlines (`outline outline-1 outline-black/10 dark:outline-white/10`) to 4 images (icons, avatars). Creates consistent depth and separates images from their backgrounds.
+- **AnimatePresence safeguards**: Added `initial={false}` to 6 `AnimatePresence` components to prevent animations during first render, keeping page load feeling instant.
+- **Concentric border radius**: Fixed nested element border radius in InputGroup and QuickTaskCard to use proper concentric calculations (outer = inner + padding). Prevents visual misalignment on nested surfaces.
+- **Scope**: 50+ files across `apps/web/src` and `packages/ui/src` touched; no behavioral changes, purely aesthetic/UX polish.
+
 ## Add Cursor CLI as fourth AI provider - 2026-04-17
 
 - **Why**: Platform supported Claude Code, Codex, and opencode. Adding Cursor unlocks Cursor's hosted model routing (Claude 4 Sonnet/Opus variants, GPT-5.4, Gemini 3 Pro) under the same per-task model selector with full session resume parity. Users auth with a single `CURSOR_API_KEY` env var — simpler than opencode's dual OAuth/config paths.

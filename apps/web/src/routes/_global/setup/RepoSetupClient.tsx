@@ -149,7 +149,7 @@ export function RepoSetupClient({
   return (
     <Container>
       <div className="max-w-2xl mx-auto py-4 sm:py-8">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2 text-balance">
           GitHub App Installed
         </h1>
         <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">

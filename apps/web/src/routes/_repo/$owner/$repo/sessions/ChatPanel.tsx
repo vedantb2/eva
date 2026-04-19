@@ -410,7 +410,7 @@ export function ChatPanel({
       variant={isSandboxActive ? "destructive" : "secondary"}
       onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
       disabled={isSandboxToggling}
-      className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
+      className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96] ${isSandboxActive ? "" : "text-success"}`}
     >
       {isSandboxToggling ? (
         <Spinner size="sm" />
@@ -429,7 +429,7 @@ export function ChatPanel({
         <Button
           size="sm"
           variant="secondary"
-          className="motion-press text-success hover:scale-[1.01] active:scale-[0.99]"
+          className="motion-press text-success hover:scale-[1.01] active:scale-[0.96]"
           onClick={() => setShowReviewModal(true)}
         >
           <IconSend size={12} />
@@ -441,7 +441,7 @@ export function ChatPanel({
           <Button
             size="sm"
             variant="secondary"
-            className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+            className="motion-press hover:scale-[1.01] active:scale-[0.96]"
           >
             More
             <IconDots size={14} />
@@ -489,7 +489,7 @@ export function ChatPanel({
         <Button
           size="icon"
           variant="ghost"
-          className="size-8 motion-press hover:scale-[1.03] active:scale-[0.97]"
+          className="size-8 motion-press hover:scale-[1.03] active:scale-[0.96]"
           onClick={onToggleSandbox}
           title={sandboxCollapsed ? "Show sandbox panel" : "Hide sandbox panel"}
         >
@@ -510,7 +510,7 @@ export function ChatPanel({
       headerLeft={headerLeft}
       headerRight={headerRight}
     >
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {(showSummaryStreaming || hasSummary) && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
@@ -694,7 +694,7 @@ export function ChatPanel({
               await deleteQueuedMessage({ id });
             }}
           />
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {mode === "plan" && planContent && sandboxCollapsed !== false && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
@@ -725,14 +725,14 @@ export function ChatPanel({
               <TabsList className="h-8 rounded-full p-0.5">
                 <TabsTrigger
                   value="edit"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-colors data-[state=active]:text-primary"
                 >
                   <IconCode className="w-3 h-3" />
                   Edit
                 </TabsTrigger>
                 <TabsTrigger
                   value="plan"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-colors data-[state=active]:text-primary"
                 >
                   <IconClipboardList className="w-3 h-3" />
                   PRD
@@ -831,7 +831,7 @@ export function ChatPanel({
         }}
       >
         <DialogContent>
-          <AnimatePresence mode="wait">
+          <AnimatePresence initial={false} mode="wait">
             {reviewStep === "confirm" && (
               <motion.div
                 key="confirm"

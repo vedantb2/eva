@@ -93,7 +93,9 @@ export function ProjectPlanTab({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <IconCircleCheck size={20} className="text-success" />
-            <h2 className="text-xl font-bold">{parsedSpec.title}</h2>
+            <h2 className="text-xl font-bold text-balance">
+              {parsedSpec.title}
+            </h2>
           </div>
           <p className="text-muted-foreground">{parsedSpec.description}</p>
         </div>

@@ -331,7 +331,7 @@ export function Sidebar() {
           <IconMenu2 size={20} className="text-muted-foreground" />
         </Button>
         {pageTitle ? (
-          <h1 className="mx-auto truncate text-base font-semibold tracking-[-0.02em] text-foreground">
+          <h1 className="mx-auto truncate text-base font-semibold tracking-[-0.02em] text-foreground text-balance">
             {pageTitle}
           </h1>
         ) : (
@@ -344,7 +344,7 @@ export function Sidebar() {
               alt="Eva"
               width={22}
               height={22}
-              className="rounded-full"
+              className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
             />
             <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
               Eva
@@ -360,7 +360,7 @@ export function Sidebar() {
         </Button>
       </header>
 
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {mobileOpen && (
           <motion.div
             className="fixed inset-0 z-40 bg-background/62  lg:hidden"
@@ -413,7 +413,7 @@ export function Sidebar() {
                           size="icon-sm"
                           variant="ghost"
                           onClick={() => setContextSidebarMode("main")}
-                          className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
                           title="Back to main sidebar"
                         >
                           <IconChevronLeft size={16} />
@@ -429,7 +429,7 @@ export function Sidebar() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.96]"
                           onClick={closeMobileSidebar}
                         >
                           <IconX size={18} className="text-muted-foreground" />
@@ -437,7 +437,7 @@ export function Sidebar() {
                         <Button
                           size="icon-sm"
                           variant="ghost"
-                          className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.96]"
                           onClick={() => setCollapsed(!collapsed)}
                           title={
                             collapsed ? "Expand sidebar" : "Collapse sidebar"
@@ -464,7 +464,7 @@ export function Sidebar() {
                           size="icon-sm"
                           variant="ghost"
                           onClick={() => navigate({ to: "/home" })}
-                          className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
                           title="Back to home"
                         >
                           <IconChevronLeft size={16} />
@@ -480,7 +480,7 @@ export function Sidebar() {
                             alt="Eva"
                             width={20}
                             height={20}
-                            className="shrink-0 rounded"
+                            className="shrink-0 rounded outline outline-1 outline-black/10 dark:outline-white/10"
                           />
                           <span className="text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
                             Eva
@@ -497,7 +497,7 @@ export function Sidebar() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press lg:hidden hover:scale-[1.03] active:scale-[0.96]"
                           onClick={closeMobileSidebar}
                         >
                           <IconX size={18} className="text-muted-foreground" />
@@ -505,7 +505,7 @@ export function Sidebar() {
                         <Button
                           size="icon-sm"
                           variant="ghost"
-                          className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.97]"
+                          className="motion-press hidden h-8 w-8 lg:inline-flex hover:scale-[1.03] active:scale-[0.96]"
                           onClick={() => setCollapsed(!collapsed)}
                           title={
                             collapsed ? "Expand sidebar" : "Collapse sidebar"
@@ -702,7 +702,7 @@ export function Sidebar() {
                                           <Button
                                             size="icon-sm"
                                             variant="ghost"
-                                            className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground"
+                                            className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground after:absolute after:inset-[-8px]"
                                             onClick={(event) => {
                                               event.preventDefault();
                                               event.stopPropagation();

@@ -80,6 +80,11 @@
       "source": "get-convex/agent-skills",
       "sourceType": "github",
       "computedHash": "0e299633b83f579b494e45b91ba2f2c4690caba4a8c26acaaf26d8bd47a2be36"
+    },
+    "make-interfaces-feel-better": {
+      "source": "jakubkrehel/make-interfaces-feel-better",
+      "sourceType": "github",
+      "computedHash": "2c3576e63d8c39d75ed327f1dcf6aab7aec0edf293a55f6cb3f7b8571974a01c"
     }
   }
 }

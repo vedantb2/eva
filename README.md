@@ -83,76 +83,133 @@ Eva is self-hosted — there is no managed cloud version. You create your own Co
 
 ### Prerequisites
 
-- Node.js
+- Node.js 20+
 - pnpm
-- A Convex project
-- A Daytona account
-- A Clerk account
-- A GitHub App (see [Creating a GitHub App](#creating-a-github-app) below)
+- Convex account
+- Clerk account
+- Daytona account
+- GitHub account (for GitHub App)
 
-### Creating a GitHub App
-
-Eva uses a GitHub App to access repositories, create branches, open pull requests, and receive webhook events. You need to create one in your GitHub account or organization.
-
-1. Go to **GitHub Settings → Developer settings → GitHub Apps → New GitHub App**
-2. Fill in the app details:
-   - **GitHub App name**: e.g. `Eva (your-org)`
-   - **Homepage URL**: your Eva instance URL
-   - **Webhook URL**: your Convex HTTP actions URL (found in the Convex dashboard) + `/github/webhook` (e.g. `https://your-deployment.convex.site/github/webhook`)
-   - **Webhook secret**: generate a random secret and save it — this becomes your `GITHUB_WEBHOOK_SECRET` env var
-3. Set the following **Repository permissions**:
-   - **Contents**: Read & write (clone repos, create branches, push commits)
-   - **Pull requests**: Read & write (create and update PRs)
-   - **Issues**: Read & write (add labels to PRs)
-   - **Metadata**: Read-only (required by GitHub)
-   - **Webhooks**: Read-only
-4. Subscribe to these **events**:
-   - `Push`
-   - `Pull request`
-   - `Installation`
-5. Set **Where can this GitHub App be installed?** to "Only on this account" (or "Any account" if you want others to install it)
-6. Click **Create GitHub App**
-7. After creation:
-   - Note the **App ID** → `GITHUB_APP_ID`
-   - Note the **Client ID** → `GITHUB_CLIENT_ID`
-   - Generate a **Client secret** → `GITHUB_CLIENT_SECRET`
-   - Generate a **Private key** (downloads a `.pem` file) → `GITHUB_PRIVATE_KEY` (paste the full PEM contents)
-8. **Install the app** on your account/org and grant access to the repositories you want Eva to manage
-
-### Environment Variables
-
-#### Web App (`apps/web`)
-
-| Variable                     | Required | Purpose                                   |
-| ---------------------------- | -------- | ----------------------------------------- |
-| `VITE_CONVEX_URL`            | Yes      | Your Convex deployment URL                |
-| `VITE_CLERK_PUBLISHABLE_KEY` | Yes      | Clerk publishable key                     |
-| `VITE_ENV`                   | Yes      | `development`, `staging`, or `production` |
-
-#### Convex (set in Convex dashboard or `npx convex env set`)
-
-| Variable                  | Required | Purpose                                 |
-| ------------------------- | -------- | --------------------------------------- |
-| `CLERK_JWT_ISSUER_DOMAIN` | Yes      | Clerk JWT issuer for auth               |
-| `ENCRYPTION_KEY`          | Yes      | Encryption key for sensitive data       |
-| `EVA_DEPLOY_KEY`          | Yes      | Deploy key for Eva operations           |
-| `DAYTONA_API_KEY`         | Yes      | Sandbox creation and management         |
-| `GITHUB_APP_ID`           | Yes      | GitHub App ID for repo access           |
-| `GITHUB_CLIENT_ID`        | Yes      | GitHub OAuth client ID                  |
-| `GITHUB_CLIENT_SECRET`    | Yes      | GitHub OAuth client secret              |
-| `GITHUB_PRIVATE_KEY`      | Yes      | GitHub App private key                  |
-| `GITHUB_WEBHOOK_SECRET`   | Yes      | GitHub webhook signature verification   |
-| `ENVIRONMENT`             | No       | Set to `production` to disable sign-ups |
-
-Add any repo-specific env vars through the repo/team settings in the dashboard.
-
-### Install and Run
+### Step 1: Clone and Install
 
 ```bash
+git clone https://github.com/your-org/conductor.git
+cd conductor
 pnpm install
+```
+
+### Step 2: Set Up Convex
+
+```bash
 npx convex dev
+```
+
+Follow the prompts to create or link a Convex project. Note your deployment URL (e.g. `https://your-deployment.convex.cloud`).
+
+### Step 3: Set Up Clerk
+
+1. Create a Clerk application at [clerk.com](https://clerk.com)
+2. Note your **Publishable Key** (starts with `pk_`)
+3. Note your **JWT Issuer Domain** from Clerk Dashboard → JWT Templates (e.g. `https://your-app.clerk.accounts.dev`)
+
+### Step 4: Create GitHub App
+
+1. Go to **GitHub Settings → Developer settings → GitHub Apps → New GitHub App**
+2. Configure:
+   - **Name**: `Eva (your-org)`
+   - **Homepage URL**: your Eva instance URL
+   - **Webhook URL**: `https://your-deployment.convex.site/api/github/webhook`
+   - **Webhook secret**: generate a random string (save for `GITHUB_WEBHOOK_SECRET`)
+3. **Repository permissions**:
+   - Contents: Read & write
+   - Pull requests: Read & write
+   - Issues: Read & write
+   - Metadata: Read-only
+4. **Subscribe to events**: Push, Pull request, Installation
+5. Click **Create GitHub App**
+6. After creation, note:
+   - **App ID** → `GITHUB_APP_ID`
+   - **Client ID** → `GITHUB_CLIENT_ID`
+7. Generate:
+   - **Client secret** → `GITHUB_CLIENT_SECRET`
+   - **Private key** (.pem file) → `GITHUB_PRIVATE_KEY`
+8. **Install the app** on your account/org
+
+### Step 5: Generate Keys
+
+```bash
+# Generate 32-byte encryption key (hex)
+openssl rand -hex 32
+# → Use for ENCRYPTION_KEY
+
+# Generate deploy key
+openssl rand -hex 32
+# → Use for EVA_DEPLOY_KEY
+
+# Generate ES256 key pair for sandbox JWT
+openssl ecparam -genkey -name prime256v1 -noout -out private.pem
+openssl ec -in private.pem -pubout -out public.pem
+# Convert to JWK format (use online tool or jose CLI)
+# → SANDBOX_JWT_PRIVATE_KEY (full JWK with "d" parameter)
+# → SANDBOX_JWT_JWKS (JWKS with public key only)
+```
+
+### Step 6: Set Environment Variables
+
+#### Web App (`apps/web/.env.local`)
+
+```env
+VITE_CONVEX_URL=https://your-deployment.convex.cloud
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+VITE_ENV=development
+```
+
+#### Convex (`npx convex env set VAR value`)
+
+**Required:**
+
+| Variable                  | Value                                 |
+| ------------------------- | ------------------------------------- |
+| `CLERK_JWT_ISSUER_DOMAIN` | `https://your-app.clerk.accounts.dev` |
+| `ENCRYPTION_KEY`          | 64-char hex string from Step 5        |
+| `EVA_DEPLOY_KEY`          | 64-char hex string from Step 5        |
+| `GITHUB_APP_ID`           | App ID from GitHub App                |
+| `GITHUB_CLIENT_ID`        | Client ID from GitHub App             |
+| `GITHUB_CLIENT_SECRET`    | Client secret from GitHub App         |
+| `GITHUB_PRIVATE_KEY`      | Full contents of `.pem` file          |
+| `GITHUB_WEBHOOK_SECRET`   | Random string from Step 4             |
+
+**Optional:**
+
+| Variable                  | Purpose                                        |
+| ------------------------- | ---------------------------------------------- |
+| `ENVIRONMENT`             | Set to `production` to disable public sign-ups |
+| `SANDBOX_JWT_PRIVATE_KEY` | ES256 JWK for sandbox auth (JSON)              |
+| `SANDBOX_JWT_JWKS`        | Public JWKS for sandbox auth (JSON)            |
+| `MCP_BOOTSTRAP_SECRET`    | Secret for MCP bootstrap API                   |
+| `MCP_JWT_SECRET`          | Secret for MCP JWT signing                     |
+| `CLERK_SECRET_KEY`        | Clerk secret key (for MCP server)              |
+| `CLERK_PUBLISHABLE_KEY`   | Clerk publishable key (for MCP server)         |
+
+### Step 7: Add Daytona API Key
+
+The Daytona API key is stored as a **team or repo env var** in the dashboard (not as a Convex deployment env var).
+
+1. Get your API key from [Daytona](https://app.daytona.io)
+2. In Eva dashboard, go to **Team Settings → Environment Variables**
+3. Add `DAYTONA_API_KEY` with your key
+
+### Step 8: Run
+
+```bash
+# Terminal 1: Convex dev server
+npx convex dev
+
+# Terminal 2: Web app
 pnpm dev
 ```
+
+Open `http://localhost:5173`
 
 ## MCP Connections
 

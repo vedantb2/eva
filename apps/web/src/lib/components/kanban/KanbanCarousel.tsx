@@ -4,8 +4,10 @@ import { useState, useMemo, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@conductor/ui";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 
-const MAX_VISIBLE_COLUMNS = 5;
+const MAX_VISIBLE_COLUMNS_MOBILE = 2;
+const MAX_VISIBLE_COLUMNS_DESKTOP = 5;
 
 interface KanbanCarouselProps<T> {
   items: T[];
@@ -21,16 +23,24 @@ export function KanbanCarousel<T>({
   fillHeight = false,
 }: KanbanCarouselProps<T>) {
   const [startIndex, setStartIndex] = useState(0);
+  const isDesktop = useMediaQuery("(min-width: 640px)");
+  const maxVisibleColumns = isDesktop
+    ? MAX_VISIBLE_COLUMNS_DESKTOP
+    : MAX_VISIBLE_COLUMNS_MOBILE;
 
-  const needsCarousel = items.length > MAX_VISIBLE_COLUMNS;
+  const needsCarousel = items.length > maxVisibleColumns;
 
   const visibleItems = useMemo(() => {
     if (!needsCarousel) return items;
-    return items.slice(startIndex, startIndex + MAX_VISIBLE_COLUMNS);
-  }, [items, startIndex, needsCarousel]);
+    const safeStartIndex = Math.min(
+      startIndex,
+      Math.max(0, items.length - maxVisibleColumns),
+    );
+    return items.slice(safeStartIndex, safeStartIndex + maxVisibleColumns);
+  }, [items, startIndex, needsCarousel, maxVisibleColumns]);
 
   const canGoBack = startIndex > 0;
-  const canGoForward = startIndex + MAX_VISIBLE_COLUMNS < items.length;
+  const canGoForward = startIndex + maxVisibleColumns < items.length;
 
   const goBack = () => {
     setStartIndex((prev) => Math.max(0, prev - 1));
@@ -38,7 +48,7 @@ export function KanbanCarousel<T>({
 
   const goForward = () => {
     setStartIndex((prev) =>
-      Math.min(items.length - MAX_VISIBLE_COLUMNS, prev + 1),
+      Math.min(items.length - maxVisibleColumns, prev + 1),
     );
   };
 

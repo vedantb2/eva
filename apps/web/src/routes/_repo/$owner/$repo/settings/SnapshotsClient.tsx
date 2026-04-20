@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -34,8 +34,17 @@ import {
 } from "@tabler/icons-react";
 import { formatDurationMs } from "@/lib/utils/formatDuration";
 
+/** Parses startup commands from textarea value. */
+function parseStartupCommands(text: string): string[] | undefined {
+  const commands = text
+    .split("\n")
+    .map((cmd) => cmd.trim())
+    .filter((cmd) => cmd.length > 0);
+  return commands.length > 0 ? commands : undefined;
+}
+
 export function SnapshotsClient() {
-  const { repoId, owner, name: repoName } = useRepo();
+  const { repoId } = useRepo();
   const snapshot = useQuery(api.repoSnapshots.getRepoSnapshot, { repoId });
   const builds = useQuery(
     api.repoSnapshots.listBuilds,
@@ -45,54 +54,52 @@ export function SnapshotsClient() {
   const deleteRepoSnapshot = useMutation(api.repoSnapshots.deleteRepoSnapshot);
   const startBuild = useMutation(api.repoSnapshots.startBuild);
 
-  const [schedule, setSchedule] = useState("manual");
-  const [workflowRef, setWorkflowRef] = useState("main");
-  const [startupCommands, setStartupCommands] = useState("");
-  const [saving, setSaving] = useState(false);
+  // UI-only state (not data)
   const [building, setBuilding] = useState(false);
   const [expandedBuild, setExpandedBuild] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (snapshot === undefined) return;
+  // Derive values directly from Convex
+  const schedule = snapshot?.schedule ?? "manual";
+  const workflowRef = snapshot?.workflowRef ?? "main";
+  const startupCommands = snapshot?.startupCommands?.join("\n") ?? "";
 
-    if (snapshot) {
-      setSchedule(snapshot.schedule);
-      setWorkflowRef(snapshot.workflowRef ?? "main");
-      setStartupCommands(snapshot.startupCommands?.join("\n") ?? "");
-      return;
-    }
+  // Save on change for schedule
+  const handleScheduleChange = (newSchedule: string) => {
+    saveRepoSnapshot({
+      repoId,
+      schedule: newSchedule,
+      workflowRef: workflowRef.trim() || undefined,
+      startupCommands: parseStartupCommands(startupCommands),
+    });
+  };
 
-    setSchedule("manual");
-    setWorkflowRef("main");
-    setStartupCommands("");
-  }, [snapshot?._id, snapshot?.updatedAt, snapshot === null]);
+  // Save on change for branch
+  const handleBranchChange = (newBranch: string) => {
+    saveRepoSnapshot({
+      repoId,
+      schedule,
+      workflowRef: newBranch.trim() || undefined,
+      startupCommands: parseStartupCommands(startupCommands),
+    });
+  };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      // Parse startup commands: split by newlines, trim, filter empty
-      const commands = startupCommands
-        .split("\n")
-        .map((cmd) => cmd.trim())
-        .filter((cmd) => cmd.length > 0);
-
-      await saveRepoSnapshot({
-        repoId,
-        schedule,
-        workflowRef: workflowRef.trim() || undefined,
-        startupCommands: commands.length > 0 ? commands : undefined,
-      });
-    } finally {
-      setSaving(false);
-    }
+  // Save on blur for startup commands
+  const handleStartupCommandsBlur = (
+    e: React.FocusEvent<HTMLTextAreaElement>,
+  ) => {
+    const newCommands = e.target.value;
+    if (newCommands === startupCommands) return; // No change
+    saveRepoSnapshot({
+      repoId,
+      schedule,
+      workflowRef: workflowRef.trim() || undefined,
+      startupCommands: parseStartupCommands(newCommands),
+    });
   };
 
   const handleDelete = async () => {
     if (!snapshot) return;
     await deleteRepoSnapshot({ repoSnapshotId: snapshot._id });
-    setSchedule("manual");
-    setWorkflowRef("main");
-    setStartupCommands("");
   };
 
   const handleRebuild = async () => {
@@ -143,7 +150,7 @@ export function SnapshotsClient() {
 
           <CronScheduleCard
             value={schedule}
-            onChange={setSchedule}
+            onChange={handleScheduleChange}
             allowManual
           />
 
@@ -155,7 +162,7 @@ export function SnapshotsClient() {
               </label>
               <BranchSelect
                 value={workflowRef}
-                onValueChange={setWorkflowRef}
+                onValueChange={handleBranchChange}
                 className="h-8 text-xs"
                 placeholder="Select a branch"
               />
@@ -173,8 +180,9 @@ export function SnapshotsClient() {
                 Commands to run when sandbox starts
               </label>
               <textarea
-                value={startupCommands}
-                onChange={(e) => setStartupCommands(e.target.value)}
+                key={snapshot?._id ?? "new"}
+                defaultValue={startupCommands}
+                onBlur={handleStartupCommandsBlur}
                 className="w-full h-24 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
                 placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /tmp/sandbox-config/seed.sql"
               />
@@ -187,21 +195,10 @@ export function SnapshotsClient() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[11px] text-muted-foreground">
-              Requires <code className="font-mono">DAYTONA_API_KEY</code> in
-              team or repo environment variables.
-            </p>
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={saving}
-              className="shrink-0"
-            >
-              {saving ? <Spinner size="sm" className="mr-1.5" /> : null}
-              Save
-            </Button>
-          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Requires <code className="font-mono">DAYTONA_API_KEY</code> in team
+            or repo environment variables.
+          </p>
         </TabsContent>
 
         <TabsContent value="status" className="space-y-6">

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useMemo, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useEffect, type ReactNode } from "react";
+import useEmblaCarousel from "embla-carousel-react";
 import { Button } from "@conductor/ui";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 
 const MAX_VISIBLE_COLUMNS_MOBILE = 2;
-const MAX_VISIBLE_COLUMNS_DESKTOP = 5;
+const MAX_VISIBLE_COLUMNS_DESKTOP = 4;
 
 interface KanbanCarouselProps<T> {
   items: T[];
@@ -22,7 +22,6 @@ export function KanbanCarousel<T>({
   renderColumn,
   fillHeight = false,
 }: KanbanCarouselProps<T>) {
-  const [startIndex, setStartIndex] = useState(0);
   const isDesktop = useMediaQuery("(min-width: 640px)");
   const maxVisibleColumns = isDesktop
     ? MAX_VISIBLE_COLUMNS_DESKTOP
@@ -30,27 +29,30 @@ export function KanbanCarousel<T>({
 
   const needsCarousel = items.length > maxVisibleColumns;
 
-  const visibleItems = useMemo(() => {
-    if (!needsCarousel) return items;
-    const safeStartIndex = Math.min(
-      startIndex,
-      Math.max(0, items.length - maxVisibleColumns),
-    );
-    return items.slice(safeStartIndex, safeStartIndex + maxVisibleColumns);
-  }, [items, startIndex, needsCarousel, maxVisibleColumns]);
+  const slidesToScroll = 1;
+  const slideSize = 100 / maxVisibleColumns;
 
-  const canGoBack = startIndex > 0;
-  const canGoForward = startIndex + maxVisibleColumns < items.length;
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: needsCarousel,
+    align: "start",
+    slidesToScroll,
+    containScroll: false,
+    active: needsCarousel,
+  });
 
-  const goBack = () => {
-    setStartIndex((prev) => Math.max(0, prev - 1));
-  };
+  useEffect(() => {
+    if (emblaApi) {
+      emblaApi.reInit();
+    }
+  }, [emblaApi, maxVisibleColumns, needsCarousel]);
 
-  const goForward = () => {
-    setStartIndex((prev) =>
-      Math.min(items.length - maxVisibleColumns, prev + 1),
-    );
-  };
+  const scrollPrev = useCallback(() => {
+    if (emblaApi) emblaApi.scrollPrev();
+  }, [emblaApi]);
+
+  const scrollNext = useCallback(() => {
+    if (emblaApi) emblaApi.scrollNext();
+  }, [emblaApi]);
 
   return (
     <div
@@ -64,33 +66,39 @@ export function KanbanCarousel<T>({
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-full transition-[transform,background-color]"
-            onClick={goBack}
-            disabled={!canGoBack}
+            onClick={scrollPrev}
           >
             <IconChevronLeft size={18} />
           </Button>
         </div>
       )}
       <div
-        className={`flex w-full items-stretch gap-2 sm:gap-3 ${
-          fillHeight ? "min-h-0 min-w-0 flex-1 overflow-hidden" : ""
+        ref={emblaRef}
+        className={`w-full overflow-hidden ${
+          fillHeight ? "min-h-0 min-w-0 flex-1" : ""
         }`}
       >
-        <AnimatePresence initial={false} mode="popLayout">
-          {visibleItems.map((item) => (
-            <motion.div
+        <div
+          className={`flex items-stretch ${fillHeight ? "h-full" : ""}`}
+          style={{ gap: isDesktop ? "0.75rem" : "0.5rem" }}
+        >
+          {items.map((item) => (
+            <div
               key={getKey(item)}
-              layout
-              className="flex min-h-0 min-w-0 flex-1 self-stretch"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
+              className={`flex min-w-0 flex-shrink-0 self-stretch ${
+                fillHeight ? "h-full" : ""
+              }`}
+              style={{
+                flexBasis: needsCarousel
+                  ? `calc(${slideSize}% - ${(isDesktop ? 0.75 : 0.5) * ((maxVisibleColumns - 1) / maxVisibleColumns)}rem)`
+                  : undefined,
+                flex: needsCarousel ? "0 0 auto" : "1 1 0%",
+              }}
             >
               {renderColumn(item)}
-            </motion.div>
+            </div>
           ))}
-        </AnimatePresence>
+        </div>
       </div>
       {needsCarousel && (
         <div className="flex flex-shrink-0 items-center pl-1">
@@ -98,8 +106,7 @@ export function KanbanCarousel<T>({
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-full transition-[transform,background-color]"
-            onClick={goForward}
-            disabled={!canGoForward}
+            onClick={scrollNext}
           >
             <IconChevronRight size={18} />
           </Button>

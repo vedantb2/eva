@@ -37,6 +37,7 @@ export const getRepoSnapshot = authQuery({
       schedule: snapshotScheduleValidator,
       cronJobId: v.optional(v.string()),
       workflowRef: v.optional(v.string()),
+      startupCommands: v.optional(v.array(v.string())),
       createdAt: v.number(),
       updatedAt: v.number(),
     }),
@@ -165,6 +166,7 @@ export const saveRepoSnapshot = authMutation({
     repoId: v.id("githubRepos"),
     schedule: snapshotScheduleValidator,
     workflowRef: v.optional(v.string()),
+    startupCommands: v.optional(v.array(v.string())),
   },
   returns: v.id("repoSnapshots"),
   handler: async (ctx, args) => {
@@ -202,6 +204,7 @@ export const saveRepoSnapshot = authMutation({
         schedule: args.schedule,
         cronJobId,
         workflowRef: args.workflowRef,
+        startupCommands: args.startupCommands,
         updatedAt: Date.now(),
       });
       return existing._id;
@@ -213,6 +216,7 @@ export const saveRepoSnapshot = authMutation({
       snapshotName,
       schedule: args.schedule,
       workflowRef: args.workflowRef,
+      startupCommands: args.startupCommands,
       createdAt: now,
       updatedAt: now,
     });
@@ -468,6 +472,7 @@ export const getRepoSnapshotInternal = internalQuery({
       repoId: v.id("githubRepos"),
       snapshotName: v.string(),
       workflowRef: v.optional(v.string()),
+      startupCommands: v.optional(v.array(v.string())),
     }),
     v.null(),
   ),
@@ -478,7 +483,19 @@ export const getRepoSnapshotInternal = internalQuery({
       repoId: doc.repoId,
       snapshotName: doc.snapshotName,
       workflowRef: doc.workflowRef,
+      startupCommands: doc.startupCommands,
     };
+  },
+});
+
+/** Returns the startup commands for a repo's snapshot config, if any. */
+export const getStartupCommands = internalQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.union(v.array(v.string()), v.null()),
+  handler: async (ctx, args) => {
+    const snapshot = await findSnapshotForRepo(ctx.db, args.repoId);
+    if (!snapshot) return null;
+    return snapshot.startupCommands ?? null;
   },
 });
 

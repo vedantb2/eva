@@ -29,6 +29,11 @@ import {
   IconFilter,
   IconTable,
   IconUser,
+  IconTag,
+  IconUserCheck,
+  IconSortDescending,
+  IconClock,
+  IconX,
 } from "@tabler/icons-react";
 import {
   statusConfig,
@@ -38,11 +43,21 @@ import {
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
-import { statusesParser } from "@/lib/search-params";
+import {
+  statusesParser,
+  assigneeFilterParser,
+  tagsFilterParser,
+  quickTaskSortFieldParser,
+  quickTaskSortDirParser,
+  quickTaskTimeRangeParser,
+} from "@/lib/search-params";
 
 type QuickTaskView = "kanban" | "list" | "table";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
+type SortField = "created" | "updated" | "title";
+type SortDir = "asc" | "desc";
+type TimeRange = "7d" | "30d" | "90d" | "all";
 
 interface QuickTasksToolbarProps {
   view: QuickTaskView;
@@ -60,7 +75,21 @@ interface QuickTasksToolbarProps {
   users: User[] | undefined;
   userFilter: string;
   onUserFilterChange: (v: string) => void;
+  allTags: string[];
 }
+
+const SORT_FIELD_LABELS: Record<SortField, string> = {
+  created: "Created",
+  updated: "Updated",
+  title: "Title",
+};
+
+const TIME_RANGE_LABELS: Record<TimeRange, string> = {
+  "7d": "Last 7 days",
+  "30d": "Last 30 days",
+  "90d": "Last 90 days",
+  all: "All time",
+};
 
 export function QuickTasksToolbar({
   view,
@@ -78,6 +107,7 @@ export function QuickTasksToolbar({
   users,
   userFilter,
   onUserFilterChange,
+  allTags,
 }: QuickTasksToolbarProps) {
   const filterLabel =
     projectFilter === "all"
@@ -93,10 +123,28 @@ export function QuickTasksToolbar({
         users?.find((u) => u._id === userFilter)?.firstName ??
         "User");
 
-  const [{ statuses }, setStatusParams] = useQueryStates({
+  const [
+    { statuses, assignee, tags, sortField, sortDir, timeRange },
+    setParams,
+  ] = useQueryStates({
     statuses: statusesParser,
+    assignee: assigneeFilterParser,
+    tags: tagsFilterParser,
+    sortField: quickTaskSortFieldParser,
+    sortDir: quickTaskSortDirParser,
+    timeRange: quickTaskTimeRangeParser,
   });
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
+  const selectedTags = useMemo(() => new Set(tags), [tags]);
+
+  const assigneeLabel =
+    assignee === "all"
+      ? "All Assignees"
+      : assignee === "unassigned"
+        ? "Unassigned"
+        : (users?.find((u) => u._id === assignee)?.fullName ??
+          users?.find((u) => u._id === assignee)?.firstName ??
+          "Assignee");
 
   const handleStatusToggle = (status: DisplayTaskStatus) => {
     const next = new Set(visibleStatuses);
@@ -106,7 +154,36 @@ export function QuickTasksToolbar({
     } else {
       next.add(status);
     }
-    setStatusParams({ statuses: [...next] });
+    setParams({ statuses: [...next] });
+  };
+
+  const handleTagToggle = (tag: string) => {
+    const next = new Set(selectedTags);
+    if (next.has(tag)) {
+      next.delete(tag);
+    } else {
+      next.add(tag);
+    }
+    setParams({ tags: [...next] });
+  };
+
+  const hasActiveFilters =
+    projectFilter !== "all" ||
+    userFilter !== "all" ||
+    assignee !== "all" ||
+    visibleStatuses.size !== TASK_STATUSES.length ||
+    selectedTags.size > 0 ||
+    timeRange !== "all";
+
+  const clearAllFilters = () => {
+    onProjectFilterChange("all");
+    onUserFilterChange("all");
+    setParams({
+      assignee: "all",
+      tags: [],
+      statuses: [...TASK_STATUSES],
+      timeRange: "all",
+    });
   };
 
   return (
@@ -125,7 +202,7 @@ export function QuickTasksToolbar({
               <Button
                 variant={view === "kanban" ? "secondary" : "ghost"}
                 size="icon"
-                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => onViewChange("kanban")}
               >
                 <IconLayoutKanban size={16} />
@@ -138,7 +215,7 @@ export function QuickTasksToolbar({
               <Button
                 variant={view === "list" ? "secondary" : "ghost"}
                 size="icon"
-                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => onViewChange("list")}
               >
                 <IconList size={16} />
@@ -151,7 +228,7 @@ export function QuickTasksToolbar({
               <Button
                 variant={view === "table" ? "secondary" : "ghost"}
                 size="icon"
-                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => onViewChange("table")}
               >
                 <IconTable size={16} />
@@ -175,7 +252,7 @@ export function QuickTasksToolbar({
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+                  className="motion-press hover:scale-[1.01] active:scale-[0.96]"
                   onClick={onStartSelecting}
                 >
                   <IconCheckbox size={16} />
@@ -193,17 +270,51 @@ export function QuickTasksToolbar({
             <Button
               size="sm"
               variant="secondary"
-              className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+              className="motion-press hover:scale-[1.01] active:scale-[0.96]"
             >
               <IconSettings size={16} />
               <span className="hidden sm:inline">Options</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem onSelect={onImport}>
               <IconFileImport size={16} className="mr-2" />
               Import from Linear
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <IconSortDescending size={16} className="mr-2" />
+                Sort: {SORT_FIELD_LABELS[sortField]}{" "}
+                {sortDir === "asc" ? "↑" : "↓"}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={sortField}
+                  onValueChange={(v) =>
+                    setParams({ sortField: v as SortField })
+                  }
+                >
+                  {(Object.keys(SORT_FIELD_LABELS) as SortField[]).map((f) => (
+                    <DropdownMenuRadioItem key={f} value={f}>
+                      {SORT_FIELD_LABELS[f]}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={sortDir}
+                  onValueChange={(v) => setParams({ sortDir: v as SortDir })}
+                >
+                  <DropdownMenuRadioItem value="desc">
+                    Descending ↓
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="asc">
+                    Ascending ↑
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
@@ -262,6 +373,35 @@ export function QuickTasksToolbar({
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
+                <IconUserCheck size={16} className="mr-2" />
+                {assigneeLabel}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={assignee}
+                  onValueChange={(v) => setParams({ assignee: v })}
+                >
+                  <DropdownMenuRadioItem value="all">
+                    All Assignees
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="unassigned">
+                    Unassigned
+                  </DropdownMenuRadioItem>
+                  {users && users.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      {users.map((u) => (
+                        <DropdownMenuRadioItem key={u._id} value={u._id}>
+                          {u.fullName ?? u.firstName ?? "Unknown"}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </>
+                  )}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
                 <IconFilter size={16} className="mr-2" />
                 {visibleStatuses.size === TASK_STATUSES.length
                   ? "All Statuses"
@@ -284,12 +424,63 @@ export function QuickTasksToolbar({
                 })}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            {allTags.length > 0 && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <IconTag size={16} className="mr-2" />
+                  {selectedTags.size === 0
+                    ? "All Tags"
+                    : `${selectedTags.size} Tag${selectedTags.size > 1 ? "s" : ""}`}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {allTags.map((tag) => (
+                    <DropdownMenuCheckboxItem
+                      key={tag}
+                      checked={selectedTags.has(tag)}
+                      onCheckedChange={() => handleTagToggle(tag)}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {tag}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <IconClock size={16} className="mr-2" />
+                {TIME_RANGE_LABELS[timeRange]}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={timeRange}
+                  onValueChange={(v) =>
+                    setParams({ timeRange: v as TimeRange })
+                  }
+                >
+                  {(Object.keys(TIME_RANGE_LABELS) as TimeRange[]).map((r) => (
+                    <DropdownMenuRadioItem key={r} value={r}>
+                      {TIME_RANGE_LABELS[r]}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            {hasActiveFilters && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={clearAllFilters}>
+                  <IconX size={16} className="mr-2" />
+                  Clear all filters
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
       <Button
         size="sm"
-        className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+        className="motion-press hover:scale-[1.01] active:scale-[0.96]"
         onClick={onCreateTask}
       >
         <IconPlus size={16} />

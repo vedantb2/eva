@@ -138,7 +138,7 @@ export function DesignPreviewPanel({
             className="flex-1 m-0 min-h-0 relative bg-muted/30"
           >
             <div
-              className={`transition-all duration-150 ${view === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
+              className={`transition-[width,height,inset] duration-150 ${view === "mobile" ? "absolute inset-0 mx-auto my-auto max-h-[100%] aspect-[9/16] border border-border rounded-xl overflow-hidden bg-background" : "absolute inset-0"}`}
             >
               {previewUrl ? (
                 <iframe

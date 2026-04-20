@@ -39,13 +39,21 @@ const HEARTBEAT_FATAL_BURST = Number(
   process.env.CALLBACK_HEARTBEAT_FATAL_BURST || "10",
 );
 const HEARTBEAT_FATAL_SLOW_COUNT = Number(
-  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_COUNT || "5",
+  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_COUNT || "8",
 );
+// Wider window so a full Convex redeploy cycle (observed 24-30s) does not trip the fatal cap.
 const HEARTBEAT_FATAL_SLOW_WINDOW_MS = Number(
-  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_WINDOW_MS || "70000",
+  process.env.CALLBACK_HEARTBEAT_FATAL_SLOW_WINDOW_MS || "180000",
 );
 const HEARTBEAT_ABSOLUTE_MAX_FAILURES = Number(
   process.env.CALLBACK_HEARTBEAT_ABSOLUTE_MAX_FAILURES || "28",
+);
+// Cap on rawOutput / attemptOutput / stderrOutput in bytes. When exceeded the head is
+// dropped and the tail is retained, so extractResultEvent and appendDiagnosticTail still
+// see the final lines. Protects the callback Node process from OOM on noisy builds in a
+// cgroup with 8 GiB RAM and no swap.
+const OUTPUT_BUFFER_MAX_BYTES = Number(
+  process.env.CALLBACK_OUTPUT_BUFFER_MAX_BYTES || "2000000",
 );
 const READY_FILE = "/tmp/run-design.ready";
 const CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
@@ -63,6 +71,32 @@ const CODEX_AUTH_JSON = process.env.CODEX_AUTH_JSON || "";
 const CODEX_AUTH_JSON_BASE64 = process.env.CODEX_AUTH_JSON_BASE64 || "";
 const CODEX_CONFIG_TOML = process.env.CODEX_CONFIG_TOML || "";
 const CODEX_CONFIG_TOML_BASE64 = process.env.CODEX_CONFIG_TOML_BASE64 || "";
+const OPENCODE_RUNTIME_HOME_DIR = process.env.OPENCODE_RUNTIME_HOME_DIR || "/tmp/opencode-home";
+const OPENCODE_PERSIST_DIR = process.env.OPENCODE_PERSIST_DIR || "/home/eva/.opencode-persist";
+// NB: renamed from OPENCODE_BIN_PATH to avoid colliding with opencode-ai's
+// own wrapper, which reads OPENCODE_BIN_PATH as an override and spawnSyncs
+// whatever path it finds — producing ENOENT when we point it at a fallback
+// path we never created (snapshot has opencode globally installed).
+const OPENCODE_BIN_PATH = process.env.EVA_OPENCODE_BIN_PATH || "/tmp/opencode-cli/bin/opencode";
+const OPENCODE_STATE_FILE = "session-state.json";
+const OPENCODE_LOCAL_STATE_FILE = OPENCODE_RUNTIME_HOME_DIR + "/" + OPENCODE_STATE_FILE;
+const OPENCODE_PERSIST_STATE_FILE = OPENCODE_PERSIST_DIR + "/" + OPENCODE_STATE_FILE;
+const OPENCODE_CONFIG_JSON = process.env.OPENCODE_CONFIG_JSON || "";
+const OPENCODE_CONFIG_JSON_BASE64 = process.env.OPENCODE_CONFIG_JSON_BASE64 || "";
+// Opencode reads OAuth credentials from $XDG_DATA_HOME/opencode/auth.json (default ~/.local/share/opencode/auth.json).
+// We keep the canonical path under /home/eva so the CLI finds it without any extra env var override.
+const OPENCODE_AUTH_DIR = "/home/eva/.local/share/opencode";
+const OPENCODE_AUTH_FILE = OPENCODE_AUTH_DIR + "/auth.json";
+const OPENCODE_PERSIST_AUTH_FILE = OPENCODE_PERSIST_DIR + "/auth.json";
+const OPENCODE_AUTH_JSON = process.env.OPENCODE_AUTH_JSON || "";
+const OPENCODE_AUTH_JSON_BASE64 = process.env.OPENCODE_AUTH_JSON_BASE64 || "";
+const CURSOR_RUNTIME_HOME_DIR = process.env.CURSOR_RUNTIME_HOME_DIR || "/tmp/cursor-home";
+const CURSOR_PERSIST_DIR = process.env.CURSOR_PERSIST_DIR || "/home/eva/.cursor-persist";
+const CURSOR_BIN_PATH = process.env.CURSOR_BIN_PATH || "/home/eva/.local/bin/cursor-agent";
+const CURSOR_STATE_FILE = "session-state.json";
+const CURSOR_LOCAL_STATE_FILE = CURSOR_RUNTIME_HOME_DIR + "/" + CURSOR_STATE_FILE;
+const CURSOR_PERSIST_STATE_FILE = CURSOR_PERSIST_DIR + "/" + CURSOR_STATE_FILE;
+const CURSOR_API_KEY = process.env.CURSOR_API_KEY || "";
 const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\\//g, "-");
 const CLAUDE_LOCAL_PROJECT_DIR = CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
 const CLAUDE_PERSIST_PROJECT_DIR = CLAUDE_PERSIST_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
@@ -188,6 +222,112 @@ function shortenPath(p) {
 }
 
 let pendingQuestionData = "";
+
+/** Converts an opencode tool call event part into a UI progress step object. */
+function opencodeToolToStep(part) {
+  const tool = typeof part.tool === "string" ? part.tool : "tool";
+  const input =
+    part.state && typeof part.state === "object" && part.state.input && typeof part.state.input === "object"
+      ? part.state.input
+      : {};
+  const path = input.filePath
+    ? shortenPath(String(input.filePath))
+    : input.file_path
+      ? shortenPath(String(input.file_path))
+      : input.path
+        ? shortenPath(String(input.path))
+        : "";
+  switch (tool) {
+    case "read":
+      return { type: "read", label: "Reading file...", detail: path || undefined, status: "active" };
+    case "glob":
+      return { type: "search_files", label: "Searching files...", detail: input.pattern ? String(input.pattern) : undefined, status: "active" };
+    case "grep":
+      return { type: "search_code", label: "Searching code...", detail: input.pattern ? String(input.pattern) : undefined, status: "active" };
+    case "write":
+      return { type: "write", label: "Creating file...", detail: path || undefined, status: "active" };
+    case "edit":
+      return { type: "edit", label: "Editing file...", detail: path || undefined, status: "active" };
+    case "bash":
+      return { type: "bash", label: "Running command...", detail: input.command ? String(input.command).slice(0, 300) : undefined, status: "active" };
+    case "webfetch":
+      return { type: "web_fetch", label: "Fetching URL...", detail: input.url ? String(input.url) : undefined, status: "active" };
+    case "websearch":
+      return { type: "web_search", label: "Searching web...", detail: input.query ? String(input.query) : undefined, status: "active" };
+    case "task":
+      return { type: "subtask", label: "Running agent...", detail: input.description ? String(input.description) : undefined, status: "active" };
+    case "todowrite":
+    case "todoread":
+      return { type: "tool", label: "Updating tasks...", status: "active" };
+    default:
+      return { type: "tool", label: "Using " + tool + "...", status: "active" };
+  }
+}
+
+/** Converts a Cursor tool_call event payload into a UI progress step object. */
+function cursorToolToStep(toolCall) {
+  const readToolName = (call) => {
+    if (!call || typeof call !== "object") return "";
+    if (typeof call.name === "string" && call.name) return call.name;
+    if (typeof call.tool === "string" && call.tool) return call.tool;
+    if (typeof call.type === "string" && call.type) return call.type;
+    return "";
+  };
+  const readArgs = (call) => {
+    if (!call || typeof call !== "object") return {};
+    if (call.args && typeof call.args === "object") return call.args;
+    if (call.input && typeof call.input === "object") return call.input;
+    if (call.parameters && typeof call.parameters === "object") return call.parameters;
+    return {};
+  };
+  const tool = (readToolName(toolCall) || "tool").toLowerCase();
+  const args = readArgs(toolCall);
+  const pickString = (keys) => {
+    for (const key of keys) {
+      if (typeof args[key] === "string" && args[key].trim()) {
+        return args[key];
+      }
+    }
+    return "";
+  };
+  const rawPath = pickString(["path", "file_path", "filePath", "target_file", "targetFile"]);
+  const path = rawPath ? shortenPath(String(rawPath)) : "";
+  const command = pickString(["command", "cmd"]);
+  const query = pickString(["query", "pattern", "url"]);
+  if (tool.includes("read")) {
+    return { type: "read", label: "Reading file...", detail: path || undefined, status: "active" };
+  }
+  if (tool.includes("write") || tool.includes("create")) {
+    return { type: "write", label: "Creating file...", detail: path || undefined, status: "active" };
+  }
+  if (tool.includes("edit") || tool.includes("patch") || tool.includes("apply")) {
+    return { type: "edit", label: "Editing file...", detail: path || undefined, status: "active" };
+  }
+  if (tool.includes("glob") || tool.includes("list") || tool.includes("ls")) {
+    return { type: "search_files", label: "Searching files...", detail: query || path || undefined, status: "active" };
+  }
+  if (tool.includes("grep") || tool.includes("search")) {
+    return {
+      type: tool.includes("file") ? "search_files" : "search_code",
+      label: tool.includes("file") ? "Searching files..." : "Searching code...",
+      detail: query || path || undefined,
+      status: "active",
+    };
+  }
+  if (tool.includes("bash") || tool.includes("shell") || tool.includes("exec") || tool.includes("command") || tool.includes("terminal")) {
+    return { type: "bash", label: "Running command...", detail: command ? command.slice(0, 300) : undefined, status: "active" };
+  }
+  if (tool.includes("webfetch") || tool.includes("web_fetch") || tool.includes("fetch")) {
+    return { type: "web_fetch", label: "Fetching URL...", detail: query || undefined, status: "active" };
+  }
+  if (tool.includes("websearch") || tool.includes("web_search")) {
+    return { type: "web_search", label: "Searching web...", detail: query || undefined, status: "active" };
+  }
+  if (tool.includes("todo")) {
+    return { type: "tool", label: "Updating tasks...", status: "active" };
+  }
+  return { type: "tool", label: "Using " + (readToolName(toolCall) || "tool") + "...", status: "active" };
+}
 
 /** Converts a Claude tool call into a UI progress step object. */
 function toolCallToStep(name, input) {
@@ -417,8 +557,12 @@ let lastStepType = "";
 const completedLabels = {
   "Preparing Claude session...": "Prepared Claude session",
   "Preparing Codex session...": "Prepared Codex session",
+  "Preparing Opencode session...": "Prepared Opencode session",
+  "Preparing Cursor session...": "Prepared Cursor session",
   "Starting Claude CLI...": "Started Claude CLI",
   "Starting Codex CLI...": "Started Codex CLI",
+  "Starting Opencode CLI...": "Started Opencode CLI",
+  "Starting Cursor CLI...": "Started Cursor CLI",
   "Restoring Claude session...": "Restored Claude session",
   "Thinking...": "Thought",
   "Generating response...": "Generated response",
@@ -477,6 +621,96 @@ function parseStreamEvent(line) {
   try {
     const event = JSON.parse(line);
 
+    if (PROVIDER === "cursor") {
+      // Cursor emits: {type:"system",subtype:"init"}, {type:"assistant",message:{content:[...]}},
+      // {type:"tool_call",subtype:"started"|"completed",tool_call:{...}}, {type:"result",...}
+      if (event.type === "system" && event.subtype === "init") {
+        updateThinkingStep("Starting Cursor CLI...", "Cursor session initializing...");
+        return true;
+      }
+      if (event.type === "assistant") {
+        const contentBlocks = Array.isArray(event.message?.content)
+          ? event.message.content
+          : [];
+        let added = false;
+        for (const block of contentBlocks) {
+          if (block && block.type === "text" && typeof block.text === "string" && block.text) {
+            appendStreamedContent(block.text);
+            updateThinkingStep("Streaming response...", "Receiving reply...");
+            added = true;
+          }
+        }
+        if (!added && lastStepType !== "thinking") {
+          markLastComplete();
+          accumulatedSteps.push({ type: "thinking", label: "Generating response...", status: "active" });
+          lastStepType = "thinking";
+          added = true;
+        }
+        return added;
+      }
+      if (event.type === "tool_call" && event.subtype === "started" && event.tool_call) {
+        markLastComplete();
+        accumulatedSteps.push(cursorToolToStep(event.tool_call));
+        lastStepType = "tool";
+        inFlightToolUses++;
+        return true;
+      }
+      if (event.type === "tool_call" && event.subtype === "completed") {
+        markLastComplete();
+        if (inFlightToolUses > 0) inFlightToolUses--;
+        return true;
+      }
+      if (event.type === "result") {
+        markLastComplete();
+        accumulatedSteps.push({ type: "thinking", label: "Finalizing response...", status: "active" });
+        lastStepType = "thinking";
+        return true;
+      }
+      return false;
+    }
+
+    if (PROVIDER === "opencode") {
+      if (event.type === "step_start") {
+        markLastComplete();
+        accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: "Opencode is reasoning...", status: "active" });
+        lastStepType = "thinking";
+        return true;
+      }
+      if (event.type === "text" && event.part && typeof event.part.text === "string" && event.part.text) {
+        appendStreamedContent(event.part.text);
+        updateThinkingStep("Streaming response...", "Receiving reply...");
+        return true;
+      }
+      if (event.type === "tool_use" && event.part && typeof event.part === "object") {
+        const state = event.part.state || {};
+        const status = typeof state.status === "string" ? state.status : "";
+        if (status === "running") {
+          markLastComplete();
+          accumulatedSteps.push(opencodeToolToStep(event.part));
+          lastStepType = "tool";
+          inFlightToolUses++;
+          return true;
+        }
+        if (status === "completed" || status === "error") {
+          markLastComplete();
+          if (inFlightToolUses > 0) inFlightToolUses--;
+          return true;
+        }
+        return false;
+      }
+      if (event.type === "step_finish") {
+        const reason =
+          event.part && typeof event.part.reason === "string" ? event.part.reason : "";
+        if (reason === "stop") {
+          markLastComplete();
+          accumulatedSteps.push({ type: "thinking", label: "Finalizing response...", status: "active" });
+          lastStepType = "thinking";
+        }
+        return true;
+      }
+      return false;
+    }
+
     if (PROVIDER === "codex") {
       const threadId = getCodexThreadId(event);
       if (event.type === "thread.started" && threadId) {
@@ -498,6 +732,12 @@ function parseStreamEvent(line) {
         markLastComplete();
         accumulatedSteps.push(step);
         lastStepType = step.type === "thinking" ? "thinking" : "tool";
+        // Only tool-kind items pause the no-output watchdog. Thinking items are Codex
+        // reasoning — their silence still needs to be caught by the stdout-idle check.
+        if (step.type !== "thinking" && typeof event.item.id === "string") {
+          codexToolItemIds.add(event.item.id);
+          inFlightToolUses++;
+        }
         return true;
       }
       if (
@@ -520,6 +760,15 @@ function parseStreamEvent(line) {
         event.item.type !== "agent_message"
       ) {
         markLastComplete();
+        // Only decrement if we recorded the start of this item as a tool. Using the id
+        // set rather than a counter avoids underflow if an item.started was missed.
+        if (
+          typeof event.item.id === "string" &&
+          codexToolItemIds.delete(event.item.id) &&
+          inFlightToolUses > 0
+        ) {
+          inFlightToolUses--;
+        }
         return true;
       }
       if (event.type === "turn.completed") {
@@ -536,6 +785,7 @@ function parseStreamEvent(line) {
 
     if (event.type === "tool_result") {
       markLastComplete();
+      if (inFlightToolUses > 0) inFlightToolUses--;
       return true;
     }
 
@@ -550,6 +800,7 @@ function parseStreamEvent(line) {
         accumulatedSteps.push(toolCallToStep(block.name, block.input ?? {}));
         lastStepType = "tool";
         added = true;
+        inFlightToolUses++;
         if (block.name === "AskUserQuestion" && block.input) {
           pendingQuestionData = JSON.stringify(block.input);
         }
@@ -595,6 +846,9 @@ let parsedStreamEventCount = 0;
 let realtimeOutputBuffer = "";
 let activeClaudeSessionId = process.env.CLAUDE_SESSION_ID || "";
 let activeCodexThreadId = "";
+let activeOpencodeSessionId = "";
+let opencodeFinalMessageId = "";
+let activeCursorSessionId = "";
 let resultEventSeen = false;
 let activeClaudeSessionMode = "none";
 let waitingForFirstAssistantEvent = false;
@@ -607,6 +861,33 @@ let activeAttemptChild = null;
 let fatalHeartbeatErrorMessage = "";
 let consecutiveHeartbeatFailures = 0;
 let heartbeatFailureStreakStartedAt = 0;
+
+// Number of tool_use blocks emitted by the CLI for which no matching tool_result has
+// arrived yet. When > 0 the no-output watchdog is paused — a legitimate long tool call
+// (e.g. pnpm build, pytest, large curl) is allowed to run without the CLI being killed
+// for stdout silence. Balanced by resetAttemptState() on each attempt and by the hard
+// MAX_TOTAL_RUNTIME_MS cap which still applies unconditionally.
+let inFlightToolUses = 0;
+// Codex does not tag tool_use/tool_result events — it emits item.started / item.completed
+// with an item.id. Track the set of tool-kind item ids so we only decrement when the
+// matching completion arrives (thinking items are never added to this set).
+const codexToolItemIds = new Set();
+
+/** Trims a string to at most OUTPUT_BUFFER_MAX_BYTES bytes, dropping from the head. */
+function trimBufferHead(buf) {
+  if (buf.length <= OUTPUT_BUFFER_MAX_BYTES) return buf;
+  return buf.slice(buf.length - OUTPUT_BUFFER_MAX_BYTES);
+}
+
+/** Appends to rawOutput with head trimming. Shifts lastProcessed by the same amount so
+ * flushStreaming's line cursor stays aligned with the retained tail after a trim. */
+function appendToRawOutput(text) {
+  rawOutput += text;
+  if (rawOutput.length <= OUTPUT_BUFFER_MAX_BYTES) return;
+  const trimAmount = rawOutput.length - OUTPUT_BUFFER_MAX_BYTES;
+  rawOutput = rawOutput.slice(trimAmount);
+  lastProcessed = Math.max(0, lastProcessed - trimAmount);
+}
 
 /** Builds the serialized streaming payload for the current accumulated steps. */
 function buildStreamingPayload() {
@@ -898,6 +1179,200 @@ function syncCodexStateToPersist() {
   );
 }
 
+/** Reads the opencode session state file to get the resume session id. */
+function readOpencodeSessionState() {
+  const statePath = existsSync(OPENCODE_LOCAL_STATE_FILE)
+    ? OPENCODE_LOCAL_STATE_FILE
+    : existsSync(OPENCODE_PERSIST_STATE_FILE)
+      ? OPENCODE_PERSIST_STATE_FILE
+      : "";
+  if (!statePath) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(statePath, "utf8"));
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.resumeSessionId === "string" &&
+      parsed.resumeSessionId.trim()
+    ) {
+      return { resumeSessionId: parsed.resumeSessionId.trim() };
+    }
+  } catch (error) {
+    console.error(
+      "Failed to read opencode session state from " + statePath + ":",
+      String(error),
+    );
+  }
+  return null;
+}
+
+/** Writes the active opencode session id to the local session state file. */
+function writeOpencodeSessionState() {
+  if (!activeOpencodeSessionId) {
+    return;
+  }
+  mkdirSync(OPENCODE_RUNTIME_HOME_DIR, { recursive: true });
+  writeFileSync(
+    OPENCODE_LOCAL_STATE_FILE,
+    JSON.stringify(
+      {
+        resumeSessionId: activeOpencodeSessionId,
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+/** Restores persisted opencode state and configures runtime env for opencode run. */
+function hydratePersistedOpencodeState() {
+  mkdirSync(OPENCODE_RUNTIME_HOME_DIR, { recursive: true });
+  copyFileIfPresent(
+    OPENCODE_PERSIST_STATE_FILE,
+    OPENCODE_LOCAL_STATE_FILE,
+    "hydratePersistedOpencodeState(state)",
+  );
+  const configJson =
+    OPENCODE_CONFIG_JSON ||
+    (OPENCODE_CONFIG_JSON_BASE64 ? decodeBase64(OPENCODE_CONFIG_JSON_BASE64) : "");
+  if (configJson) {
+    process.env.OPENCODE_CONFIG_CONTENT = configJson;
+  }
+  // Hydrate the ChatGPT Plus/Pro OAuth credentials file. Prefer the env-var value (fresh token
+  // pasted by the user); if absent, fall back to the persisted copy from a previous sandbox run
+  // so auto-refreshed tokens survive across sandbox tear-downs.
+  mkdirSync(OPENCODE_AUTH_DIR, { recursive: true });
+  const authJson =
+    OPENCODE_AUTH_JSON ||
+    (OPENCODE_AUTH_JSON_BASE64 ? decodeBase64(OPENCODE_AUTH_JSON_BASE64) : "");
+  if (authJson) {
+    writeFileSync(OPENCODE_AUTH_FILE, authJson);
+  } else {
+    copyFileIfPresent(
+      OPENCODE_PERSIST_AUTH_FILE,
+      OPENCODE_AUTH_FILE,
+      "hydratePersistedOpencodeState(auth)",
+    );
+  }
+  process.env.OPENCODE_PERMISSION = '"allow"';
+  process.env.OPENCODE_DISABLE_AUTOUPDATE = "1";
+}
+
+/** Syncs opencode session state from runtime to the persist volume. */
+function syncOpencodeStateToPersist() {
+  writeOpencodeSessionState();
+  mkdirSync(OPENCODE_PERSIST_DIR, { recursive: true });
+  copyFileIfPresent(
+    OPENCODE_LOCAL_STATE_FILE,
+    OPENCODE_PERSIST_STATE_FILE,
+    "syncOpencodeStateToPersist(state)",
+  );
+  // Persist the refreshed auth.json so rotated OAuth tokens survive sandbox tear-down.
+  copyFileIfPresent(
+    OPENCODE_AUTH_FILE,
+    OPENCODE_PERSIST_AUTH_FILE,
+    "syncOpencodeStateToPersist(auth)",
+  );
+}
+
+/** Reads the Cursor session state file to get the resume session id. */
+function readCursorSessionState() {
+  const statePath = existsSync(CURSOR_LOCAL_STATE_FILE)
+    ? CURSOR_LOCAL_STATE_FILE
+    : existsSync(CURSOR_PERSIST_STATE_FILE)
+      ? CURSOR_PERSIST_STATE_FILE
+      : "";
+  if (!statePath) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(statePath, "utf8"));
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.resumeSessionId === "string" &&
+      parsed.resumeSessionId.trim()
+    ) {
+      return { resumeSessionId: parsed.resumeSessionId.trim() };
+    }
+  } catch (error) {
+    console.error(
+      "Failed to read Cursor session state from " + statePath + ":",
+      String(error),
+    );
+  }
+  return null;
+}
+
+/** Writes the active Cursor session id to the local session state file. */
+function writeCursorSessionState() {
+  if (!activeCursorSessionId) {
+    return;
+  }
+  mkdirSync(CURSOR_RUNTIME_HOME_DIR, { recursive: true });
+  writeFileSync(
+    CURSOR_LOCAL_STATE_FILE,
+    JSON.stringify(
+      {
+        resumeSessionId: activeCursorSessionId,
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+/** Restores persisted Cursor state and writes the workspace MCP config if Eva MCP is configured. */
+function hydratePersistedCursorState() {
+  mkdirSync(CURSOR_RUNTIME_HOME_DIR, { recursive: true });
+  copyFileIfPresent(
+    CURSOR_PERSIST_STATE_FILE,
+    CURSOR_LOCAL_STATE_FILE,
+    "hydratePersistedCursorState(state)",
+  );
+  // Translate Eva's /tmp/eva-mcp.json into Cursor's workspace-relative \`.cursor/mcp.json\`
+  // format so the Cursor CLI picks up the same MCP servers Claude uses.
+  if (existsSync("/tmp/eva-mcp.json")) {
+    try {
+      const evaMcp = JSON.parse(readFileSync("/tmp/eva-mcp.json", "utf8"));
+      const cursorDir = WORK_DIR + "/.cursor";
+      mkdirSync(cursorDir, { recursive: true });
+      const cursorMcp = { mcpServers: {} };
+      if (evaMcp && evaMcp.mcpServers && typeof evaMcp.mcpServers === "object") {
+        for (const [name, server] of Object.entries(evaMcp.mcpServers)) {
+          if (!server || typeof server !== "object") continue;
+          const entry = {};
+          if (typeof server.url === "string") entry.url = server.url;
+          if (server.headers && typeof server.headers === "object") {
+            entry.headers = server.headers;
+          }
+          if (Object.keys(entry).length > 0) {
+            cursorMcp.mcpServers[name] = entry;
+          }
+        }
+      }
+      writeFileSync(cursorDir + "/mcp.json", JSON.stringify(cursorMcp, null, 2));
+    } catch (error) {
+      console.error("Failed to translate MCP config for Cursor:", String(error));
+    }
+  }
+}
+
+/** Syncs Cursor session state from runtime to the persist volume. */
+function syncCursorStateToPersist() {
+  writeCursorSessionState();
+  mkdirSync(CURSOR_PERSIST_DIR, { recursive: true });
+  copyFileIfPresent(
+    CURSOR_LOCAL_STATE_FILE,
+    CURSOR_PERSIST_STATE_FILE,
+    "syncCursorStateToPersist(state)",
+  );
+}
+
 /** Collects all known Claude session IDs from config, persisted state, and active session. */
 function collectClaudeTranscriptSessionIds() {
   const sessionIds = new Set();
@@ -1014,7 +1489,14 @@ try { unlinkSync(READY_FILE); } catch {}
 
 accumulatedSteps.push({
   type: "thinking",
-  label: PROVIDER === "codex" ? "Preparing Codex session..." : "Preparing Claude session...",
+  label:
+    PROVIDER === "codex"
+      ? "Preparing Codex session..."
+      : PROVIDER === "opencode"
+        ? "Preparing Opencode session..."
+        : PROVIDER === "cursor"
+          ? "Preparing Cursor session..."
+          : "Preparing Claude session...",
   detail: "Initializing callback...",
   status: "active",
 });
@@ -1091,7 +1573,11 @@ async function setFinalizingState() {
       ? "Syncing response and saved session..."
       : PROVIDER === "codex"
         ? "Codex finished. Sending completion..."
-        : "Claude finished. Sending completion...",
+        : PROVIDER === "opencode"
+          ? "Opencode finished. Sending completion..."
+          : PROVIDER === "cursor"
+            ? "Cursor finished. Sending completion..."
+            : "Claude finished. Sending completion...",
     status: "active",
   });
   lastStepType = "thinking";
@@ -1387,14 +1873,39 @@ const settingsArg = "--settings " + JSON.stringify(settingsJson);
 const mcpArg = existsSync("/tmp/eva-mcp.json") ? "--mcp-config /tmp/eva-mcp.json" : "";
 const normalizedClaudeModel = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
 const normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
+const normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
+const normalizedCursorModel = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
 const codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
+const opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
+const cursorCommand = existsSync(CURSOR_BIN_PATH) ? JSON.stringify(CURSOR_BIN_PATH) : "cursor-agent";
 const codexPromptCmd = SYSTEM_PROMPT
   ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)"
   : "cat /tmp/design-prompt.txt";
+const opencodePromptCmd = codexPromptCmd;
 const codexExecBaseCmd =
   codexCommand +
   " exec --skip-git-repo-check --full-auto --json --model " +
   JSON.stringify(normalizedCodexModel);
+const opencodeExecBaseCmd =
+  opencodeCommand +
+  " run --format json --model " +
+  JSON.stringify(normalizedOpencodeModel);
+// Cursor reads the prompt as a positional argument (not stdin) and uses --force
+// --trust to skip interactive permission prompts in headless mode. The prompt
+// is assembled at runtime via $(cat /tmp/design-prompt.txt) so the full prompt
+// file contents become a single argv string.
+const cursorPromptExpr = SYSTEM_PROMPT
+  ? '"$(printf %s\\\\n\\\\n ' + JSON.stringify(SYSTEM_PROMPT) + '; cat /tmp/design-prompt.txt)"'
+  : '"$(cat /tmp/design-prompt.txt)"';
+const cursorExecBaseCmd =
+  cursorCommand +
+  " -p " +
+  cursorPromptExpr +
+  " --force --trust --workspace " +
+  JSON.stringify(WORK_DIR) +
+  " --model " +
+  JSON.stringify(normalizedCursorModel) +
+  " --output-format stream-json --approve-mcps";
 const claudeBaseCmd =
   "cat /tmp/design-prompt.txt | claude -p --verbose --dangerously-skip-permissions --model " +
   normalizedClaudeModel +
@@ -1429,10 +1940,218 @@ function hasToolActivity() {
   return accumulatedSteps.some((step) => TOOL_STEP_TYPES.has(step.type));
 }
 
-/** Extracts the final result event from CLI output for both Claude and Codex providers. */
+// Codex pricing in USD per 1M tokens. Codex stream-json emits token_count events
+// but no cost field, so we compute it client-side. Figures are approximate based
+// on the OpenAI gpt-5 family list pricing (late 2025); update when pricing changes.
+const CODEX_PRICING_PER_MILLION = {
+  "gpt-5.4": { input: 1.25, cached: 0.125, output: 10.0 },
+  "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2.0 },
+  "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10.0 },
+  "gpt-5.2-codex": { input: 1.25, cached: 0.125, output: 10.0 },
+  "gpt-5-codex": { input: 1.25, cached: 0.125, output: 10.0 },
+};
+
+/** Computes USD cost for a Codex turn. Returns 0 when the model is unknown. */
+function computeCodexCostUsd(model, inputTokens, cachedInputTokens, outputTokens) {
+  const pricing = CODEX_PRICING_PER_MILLION[model];
+  if (!pricing) return 0;
+  const nonCachedInput = Math.max(0, inputTokens - cachedInputTokens);
+  return (
+    (nonCachedInput * pricing.input) / 1_000_000 +
+    (cachedInputTokens * pricing.cached) / 1_000_000 +
+    (outputTokens * pricing.output) / 1_000_000
+  );
+}
+
+/** Builds a Claude-shaped type:"result" JSON string so the shared UI parser in apps/web/src/lib/utils/logs.ts can read cost/tokens/model/duration/provider uniformly across providers. */
+function buildClaudeShapedResult(args) {
+  return JSON.stringify({
+    type: "result",
+    provider: args.provider,
+    total_cost_usd: args.totalCostUsd,
+    duration_ms: args.durationMs,
+    usage: {
+      input_tokens: args.inputTokens,
+      output_tokens: args.outputTokens,
+      cache_read_input_tokens: args.cacheReadInputTokens,
+      cache_creation_input_tokens: args.cacheCreationInputTokens,
+    },
+    modelUsage: args.model ? { [args.model]: {} } : {},
+  });
+}
+
+/** Milliseconds elapsed since the CLI attempt started; 0 before it begins. */
+function attemptElapsedMs() {
+  return activeAttemptStartedAt > 0 ? Date.now() - activeAttemptStartedAt : 0;
+}
+
+/** Extracts the final result event from CLI output for Claude, Codex, opencode, and Cursor providers. Non-Claude branches emit a synthesized Claude-shaped rawResultEvent so downstream cost/token parsing stays provider-agnostic. */
 function extractResultEvent(output) {
+  if (PROVIDER === "cursor") {
+    let resultText = "";
+    let isError = false;
+    let sawResult = false;
+    let durationMs = 0;
+    const assistantParts = [];
+    for (const line of output.split("\\n")) {
+      const clean = line.trim();
+      if (!clean) continue;
+      try {
+        const parsed = JSON.parse(clean);
+        if (parsed.type === "result") {
+          sawResult = true;
+          isError = Boolean(parsed.is_error);
+          if (typeof parsed.duration_ms === "number") durationMs = parsed.duration_ms;
+          if (typeof parsed.result === "string") {
+            resultText = parsed.result;
+          } else if (parsed.result !== undefined) {
+            resultText = JSON.stringify(parsed.result);
+          }
+          continue;
+        }
+        if (parsed.type === "assistant" && parsed.message && Array.isArray(parsed.message.content)) {
+          for (const block of parsed.message.content) {
+            if (block && block.type === "text" && typeof block.text === "string") {
+              assistantParts.push(block.text);
+            }
+          }
+        }
+      } catch {}
+    }
+    // Cursor's stream-json does not emit token or cost fields (confirmed via
+    // cursor.com/docs/cli/reference/output-format as of late 2025). We still
+    // synthesize a Claude-shaped event so the model name and duration surface
+    // in the logs UI; cost/tokens are zeroed until upstream adds them.
+    if (sawResult) {
+      return {
+        result: resultText || assistantParts.join(""),
+        isError,
+        rawResultEvent: buildClaudeShapedResult({
+          provider: "cursor",
+          totalCostUsd: 0,
+          durationMs: durationMs || attemptElapsedMs(),
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+          model: normalizedCursorModel,
+        }),
+      };
+    }
+    if (assistantParts.length > 0) {
+      return {
+        result: assistantParts.join(""),
+        isError: false,
+        rawResultEvent: "",
+      };
+    }
+    return null;
+  }
+  if (PROVIDER === "opencode") {
+    let finalMessageId = "";
+    let sawStopStep = false;
+    let errorLine = "";
+    let errorMessage = "";
+    const textByMessageId = new Map();
+    // Opencode emits step_finish per model step; each carries part.cost
+    // (USD, pre-computed) and part.tokens with input/output/reasoning and
+    // cache.read/cache.write breakdowns. Sum across steps for the run total.
+    let totalCostUsd = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let cacheReadTokens = 0;
+    let cacheWriteTokens = 0;
+    let stepModel = "";
+    for (const line of output.split("\\n")) {
+      const clean = line.trim();
+      if (!clean) continue;
+      try {
+        const parsed = JSON.parse(clean);
+        if (parsed.type === "step_finish" && parsed.part) {
+          if (typeof parsed.part.cost === "number") totalCostUsd += parsed.part.cost;
+          const t = parsed.part.tokens;
+          if (t && typeof t === "object") {
+            if (typeof t.input === "number") inputTokens += t.input;
+            if (typeof t.output === "number") outputTokens += t.output;
+            if (t.cache && typeof t.cache === "object") {
+              if (typeof t.cache.read === "number") cacheReadTokens += t.cache.read;
+              if (typeof t.cache.write === "number") cacheWriteTokens += t.cache.write;
+            }
+          }
+          if (typeof parsed.part.modelID === "string" && parsed.part.modelID) {
+            stepModel = parsed.part.modelID;
+          }
+          if (
+            parsed.part.reason === "stop" &&
+            typeof parsed.part.messageID === "string" &&
+            parsed.part.messageID
+          ) {
+            finalMessageId = parsed.part.messageID;
+            sawStopStep = true;
+          }
+          continue;
+        }
+        if (
+          parsed.type === "text" &&
+          parsed.part &&
+          typeof parsed.part.messageID === "string" &&
+          parsed.part.messageID &&
+          typeof parsed.part.text === "string"
+        ) {
+          const existing = textByMessageId.get(parsed.part.messageID) || "";
+          textByMessageId.set(parsed.part.messageID, existing + parsed.part.text);
+          continue;
+        }
+        if (parsed.type === "error") {
+          errorLine = clean;
+          if (
+            parsed.error &&
+            parsed.error.data &&
+            typeof parsed.error.data.message === "string"
+          ) {
+            errorMessage = parsed.error.data.message;
+          } else if (parsed.error && typeof parsed.error.name === "string") {
+            errorMessage = parsed.error.name;
+          } else {
+            errorMessage = "Opencode error";
+          }
+        }
+      } catch {}
+    }
+    if (sawStopStep) {
+      const result = textByMessageId.get(finalMessageId) || "";
+      return {
+        result,
+        isError: false,
+        rawResultEvent: buildClaudeShapedResult({
+          provider: "opencode",
+          totalCostUsd,
+          durationMs: attemptElapsedMs(),
+          inputTokens,
+          outputTokens,
+          cacheReadInputTokens: cacheReadTokens,
+          cacheCreationInputTokens: cacheWriteTokens,
+          model: stepModel || normalizedOpencodeModel,
+        }),
+      };
+    }
+    if (errorMessage) {
+      return {
+        result: errorMessage,
+        isError: true,
+        rawResultEvent: errorLine,
+      };
+    }
+    return null;
+  }
   if (PROVIDER === "codex") {
     let finalText = "";
+    // Codex emits token_count events after each turn; info.total_token_usage
+    // is cumulative across the run, so the last one wins. Cost is not emitted —
+    // we compute it from CODEX_PRICING_PER_MILLION.
+    let lastInputTokens = 0;
+    let lastCachedInputTokens = 0;
+    let lastOutputTokens = 0;
     for (const line of output.split("\\n")) {
       const clean = line.trim();
       if (!clean) continue;
@@ -1447,16 +2166,40 @@ function extractResultEvent(output) {
           if (messageText) {
             finalText = messageText;
           }
+          continue;
+        }
+        if (parsed.type === "token_count" && parsed.info) {
+          const total = parsed.info.total_token_usage;
+          if (total && typeof total === "object") {
+            if (typeof total.input_tokens === "number") lastInputTokens = total.input_tokens;
+            if (typeof total.cached_input_tokens === "number") lastCachedInputTokens = total.cached_input_tokens;
+            if (typeof total.output_tokens === "number") lastOutputTokens = total.output_tokens;
+          }
         }
       } catch {}
     }
-    return finalText
-      ? {
-          result: finalText,
-          isError: false,
-          rawResultEvent: finalText,
-        }
-      : null;
+    if (!finalText) return null;
+    const nonCachedInput = Math.max(0, lastInputTokens - lastCachedInputTokens);
+    const totalCostUsd = computeCodexCostUsd(
+      normalizedCodexModel,
+      lastInputTokens,
+      lastCachedInputTokens,
+      lastOutputTokens,
+    );
+    return {
+      result: finalText,
+      isError: false,
+      rawResultEvent: buildClaudeShapedResult({
+        provider: "codex",
+        totalCostUsd,
+        durationMs: attemptElapsedMs(),
+        inputTokens: nonCachedInput,
+        outputTokens: lastOutputTokens,
+        cacheReadInputTokens: lastCachedInputTokens,
+        cacheCreationInputTokens: 0,
+        model: normalizedCodexModel,
+      }),
+    };
   }
   let resultEvent = null;
   for (const line of output.split("\\n")) {
@@ -1466,10 +2209,13 @@ function extractResultEvent(output) {
       const parsed = JSON.parse(clean);
       if (parsed.type === "result") {
         const r = parsed.result ?? "";
+        // Inject provider:"claude" into the native event so the logs UI can
+        // show a provider badge uniformly across all four providers.
+        const withProvider = JSON.stringify({ ...parsed, provider: "claude" });
         resultEvent = {
           result: typeof r === "string" ? r : JSON.stringify(r),
           isError: Boolean(parsed.is_error),
-          rawResultEvent: clean,
+          rawResultEvent: withProvider,
         };
       }
     } catch {}
@@ -1493,6 +2239,75 @@ function handleRealtimeStreamLine(line) {
     if (parsed.type === "turn.completed" && !resultEventSeen) {
       resultEventSeen = true;
       syncCodexStateToPersist();
+    }
+    return;
+  }
+  if (PROVIDER === "cursor") {
+    // Cursor's system.init event carries the session_id we need for --resume.
+    if (
+      parsed.type === "system" &&
+      parsed.subtype === "init" &&
+      typeof parsed.session_id === "string" &&
+      parsed.session_id.trim()
+    ) {
+      const sid = parsed.session_id.trim();
+      if (sid !== activeCursorSessionId) {
+        activeCursorSessionId = sid;
+        writeCursorSessionState();
+        void sendStreamingHeartbeatUpdate(buildStreamingPayload());
+      }
+      return;
+    }
+    if (parsed.type === "assistant") {
+      if (firstAssistantEventAt === 0) firstAssistantEventAt = Date.now();
+      const contentBlocks = Array.isArray(parsed.message?.content)
+        ? parsed.message.content
+        : [];
+      for (const block of contentBlocks) {
+        if (block && block.type === "text" && typeof block.text === "string" && firstTextBlockAt === 0) {
+          firstTextBlockAt = Date.now();
+          break;
+        }
+      }
+      return;
+    }
+    if (parsed.type === "result" && !resultEventSeen) {
+      resultEventSeen = true;
+      syncCursorStateToPersist();
+    }
+    return;
+  }
+  if (PROVIDER === "opencode") {
+    const sessionID =
+      typeof parsed.sessionID === "string" && parsed.sessionID.trim()
+        ? parsed.sessionID.trim()
+        : "";
+    if (sessionID && sessionID !== activeOpencodeSessionId) {
+      activeOpencodeSessionId = sessionID;
+      writeOpencodeSessionState();
+      void sendStreamingHeartbeatUpdate(buildStreamingPayload());
+    }
+    if (parsed.type === "step_start") {
+      if (firstAssistantEventAt === 0) {
+        firstAssistantEventAt = Date.now();
+      }
+    }
+    if (parsed.type === "text" && parsed.part && typeof parsed.part.text === "string" && parsed.part.text) {
+      if (firstTextBlockAt === 0) {
+        firstTextBlockAt = Date.now();
+      }
+    }
+    if (
+      parsed.type === "step_finish" &&
+      parsed.part &&
+      parsed.part.reason === "stop" &&
+      !resultEventSeen
+    ) {
+      if (typeof parsed.part.messageID === "string" && parsed.part.messageID) {
+        opencodeFinalMessageId = parsed.part.messageID;
+      }
+      resultEventSeen = true;
+      syncOpencodeStateToPersist();
     }
     return;
   }
@@ -1578,7 +2393,14 @@ function buildErrorMessage(
   timedOutForFirstAssistant,
   timedOutAfterFirstText,
 ) {
-  const cliName = PROVIDER === "codex" ? "Codex CLI" : "Claude CLI";
+  const cliName =
+    PROVIDER === "codex"
+      ? "Codex CLI"
+      : PROVIDER === "opencode"
+        ? "Opencode CLI"
+        : PROVIDER === "cursor"
+          ? "Cursor CLI"
+          : "Claude CLI";
   if (fatalHeartbeatError) {
     return fatalHeartbeatError;
   }
@@ -1690,11 +2512,54 @@ function prepareCodexSessionState() {
     : { mode: "none", sessionId: null };
 }
 
-/** Prepares session state for the active provider (Claude or Codex). */
+/** Hydrates persisted opencode state and resolves the session mode for the current run. */
+function prepareOpencodeSessionState() {
+  updateThinkingStep("Preparing Opencode session...", "Hydrating saved session...");
+  hydratePersistedOpencodeState();
+  const persistedState = readOpencodeSessionState();
+  updateThinkingStep(
+    "Preparing Opencode session...",
+    persistedState
+      ? "Saved session hydrated. Starting Opencode..."
+      : "Preparing fresh Opencode session...",
+  );
+  if (persistedState) {
+    activeOpencodeSessionId = persistedState.resumeSessionId;
+    return { mode: "resume", sessionId: persistedState.resumeSessionId };
+  }
+  return { mode: "none", sessionId: null };
+}
+
+/** Hydrates persisted Cursor state and resolves the session mode for the current run. */
+function prepareCursorSessionState() {
+  updateThinkingStep("Preparing Cursor session...", "Hydrating saved session...");
+  hydratePersistedCursorState();
+  const persistedState = readCursorSessionState();
+  updateThinkingStep(
+    "Preparing Cursor session...",
+    persistedState
+      ? "Saved session hydrated. Starting Cursor..."
+      : "Preparing fresh Cursor session...",
+  );
+  if (persistedState) {
+    activeCursorSessionId = persistedState.resumeSessionId;
+    return { mode: "resume", sessionId: persistedState.resumeSessionId };
+  }
+  return { mode: "none", sessionId: null };
+}
+
+/** Prepares session state for the active provider (Claude, Codex, opencode, or Cursor). */
 function prepareProviderSessionState() {
-  return PROVIDER === "codex"
-    ? prepareCodexSessionState()
-    : prepareClaudeSessionState();
+  if (PROVIDER === "codex") {
+    return prepareCodexSessionState();
+  }
+  if (PROVIDER === "opencode") {
+    return prepareOpencodeSessionState();
+  }
+  if (PROVIDER === "cursor") {
+    return prepareCursorSessionState();
+  }
+  return prepareClaudeSessionState();
 }
 
 /** Resets per-attempt state variables before a new CLI attempt. */
@@ -1708,6 +2573,8 @@ function resetAttemptState() {
   firstTextBlockAt = 0;
   fatalHeartbeatErrorMessage = "";
   heartbeatFailureStreakStartedAt = 0;
+  inFlightToolUses = 0;
+  codexToolItemIds.clear();
 }
 
 /** Sends SIGTERM then SIGKILL to forcefully stop a CLI process. */
@@ -1807,6 +2674,13 @@ async function runCliAttempt(options) {
         terminateAttemptProcess(child);
         return;
       }
+      // While a tool_use is in flight (bash command, long build, web fetch, ...) the
+      // CLI legitimately produces no stdout until tool_result arrives. Skip the
+      // activity-silence checks below; the hard MAX_TOTAL_RUNTIME_MS / FIRST_EVENT /
+      // FIRST_ASSISTANT caps above still apply and are the real upper bound.
+      if (inFlightToolUses > 0) {
+        return;
+      }
       if (
         firstTextBlockAt > 0 &&
         !resultEventSeen &&
@@ -1831,8 +2705,8 @@ async function runCliAttempt(options) {
 
     child.stdout.on("data", (chunk) => {
       const text = chunk.toString();
-      attemptOutput += text;
-      rawOutput += text;
+      attemptOutput = trimBufferHead(attemptOutput + text);
+      appendToRawOutput(text);
       lastStdoutAt = Date.now();
       processRealtimeStdoutChunk(text);
       if (options.onStdoutText) {
@@ -1840,7 +2714,7 @@ async function runCliAttempt(options) {
       }
     });
     child.stderr.on("data", (chunk) => {
-      stderrOutput += chunk.toString();
+      stderrOutput = trimBufferHead(stderrOutput + chunk.toString());
     });
     child.on("close", (code) => {
       clearInterval(noOutputTimer);
@@ -1952,17 +2826,87 @@ async function runCodexAttempt(sessionMode) {
   });
 }
 
-/** Dispatches a CLI attempt to the active provider (Claude or Codex). */
+/** Runs a single opencode CLI attempt with the resolved session mode. */
+async function runOpencodeAttempt(sessionMode) {
+  const sessionArg =
+    sessionMode.mode === "resume" && sessionMode.sessionId
+      ? " -s " + JSON.stringify(sessionMode.sessionId)
+      : "";
+  const cmd =
+    opencodePromptCmd +
+    " | " +
+    opencodeExecBaseCmd +
+    sessionArg;
+  const startupStep = {
+    label: "Starting Opencode CLI...",
+    detail:
+      sessionMode.mode === "resume"
+        ? "Restoring saved context..."
+        : "Launching Opencode process...",
+  };
+  return await runCliAttempt({
+    cmd,
+    env: {
+      ...process.env,
+    },
+    processLabel: "opencode",
+    attemptLabel: "runOpencodeAttempt",
+    startupStep,
+  });
+}
+
+/** Runs a single Cursor CLI attempt with the resolved session mode. */
+async function runCursorAttempt(sessionMode) {
+  const sessionArg =
+    sessionMode.mode === "resume" && sessionMode.sessionId
+      ? " --resume " + JSON.stringify(sessionMode.sessionId)
+      : "";
+  const cmd = cursorExecBaseCmd + sessionArg;
+  const startupStep = {
+    label: "Starting Cursor CLI...",
+    detail:
+      sessionMode.mode === "resume"
+        ? "Restoring saved context..."
+        : "Launching Cursor process...",
+  };
+  return await runCliAttempt({
+    cmd,
+    env: {
+      ...process.env,
+      HOME: CURSOR_RUNTIME_HOME_DIR,
+    },
+    processLabel: "cursor",
+    attemptLabel: "runCursorAttempt",
+    startupStep,
+  });
+}
+
+/** Dispatches a CLI attempt to the active provider (Claude, Codex, opencode, or Cursor). */
 async function runProviderAttempt(sessionMode) {
-  return PROVIDER === "codex"
-    ? await runCodexAttempt(sessionMode)
-    : await runClaudeAttempt(sessionMode);
+  if (PROVIDER === "codex") {
+    return await runCodexAttempt(sessionMode);
+  }
+  if (PROVIDER === "opencode") {
+    return await runOpencodeAttempt(sessionMode);
+  }
+  if (PROVIDER === "cursor") {
+    return await runCursorAttempt(sessionMode);
+  }
+  return await runClaudeAttempt(sessionMode);
 }
 
 /** Syncs the active provider session state to the persist volume. */
 function syncProviderStateToPersist(reason) {
   if (PROVIDER === "codex") {
     syncCodexStateToPersist();
+    return;
+  }
+  if (PROVIDER === "opencode") {
+    syncOpencodeStateToPersist();
+    return;
+  }
+  if (PROVIDER === "cursor") {
+    syncCursorStateToPersist();
     return;
   }
   syncClaudeStateToPersist(reason);
@@ -2092,7 +3036,17 @@ try {
     success: false,
     result: null,
     error: appendDiagnosticTail(
-      err instanceof Error ? err.message : "Failed to run Claude CLI",
+      err instanceof Error
+        ? err.message
+        : "Failed to run " +
+          (PROVIDER === "codex"
+            ? "Codex"
+            : PROVIDER === "opencode"
+              ? "Opencode"
+              : PROVIDER === "cursor"
+                ? "Cursor"
+                : "Claude") +
+          " CLI",
     ),
     activityLog: JSON.stringify(accumulatedSteps),
   };

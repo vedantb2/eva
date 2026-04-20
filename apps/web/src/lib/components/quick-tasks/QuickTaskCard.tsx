@@ -127,6 +127,8 @@ export function QuickTaskCard({
     onMove: (targetId: Id<"githubRepos">) => setMoveTarget(targetId),
   };
 
+  const hasDialogOpen = showDeleteConfirm || moveTarget !== null;
+
   const card = (
     <Card
       className={`group relative overflow-hidden border-0 transition-[transform,background-color] duration-200 ${
@@ -142,11 +144,14 @@ export function QuickTaskCard({
           ? "cursor-pointer hover:-translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
       }`}
-      onClick={onClick}
+      onClick={() => {
+        if (hasDialogOpen) return;
+        onClick?.();
+      }}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={(event) => {
-        if (!onClick) return;
+        if (!onClick || hasDialogOpen) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onClick();
@@ -237,7 +242,7 @@ export function QuickTaskCard({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                  className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors relative after:absolute after:inset-[-8px]"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <IconDots size={14} />
@@ -257,7 +262,7 @@ export function QuickTaskCard({
   );
 
   const wrappedCard = isInProgress ? (
-    <div className="qt-in-progress-border rounded-lg p-px">{card}</div>
+    <div className="qt-in-progress-border rounded-[9px] p-px">{card}</div>
   ) : (
     card
   );

@@ -78,7 +78,7 @@ export function RepoHomeClient() {
                   alt="Eva"
                   width={30}
                   height={30}
-                  className="rounded-full"
+                  className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
                 />
                 <span className="text-xl tracking-tight font-semibold text-primary">
                   Eva's Stats

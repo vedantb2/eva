@@ -92,10 +92,10 @@ export const ChainOfThoughtHeader = memo(
               alt="Eva"
               width={16}
               height={16}
-              className="size-4 rounded-full"
+              className="size-4 rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
             />
           )}
-          <span className="flex-1 text-left">
+          <span className="flex-1 text-left tabular-nums">
             {children ?? "Chain of Thought"}
           </span>
           <ChevronDownIcon

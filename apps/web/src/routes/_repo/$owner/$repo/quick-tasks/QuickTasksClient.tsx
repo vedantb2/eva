@@ -22,6 +22,12 @@ import {
   quickTaskViewParser,
   projectFilterParser,
   userFilterParser,
+  assigneeFilterParser,
+  tagsFilterParser,
+  quickTaskSortFieldParser,
+  quickTaskSortDirParser,
+  quickTaskTimeRangeParser,
+  statusesParser,
 } from "@/lib/search-params";
 import { IconChecklist } from "@tabler/icons-react";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
@@ -44,11 +50,31 @@ export function QuickTasksClient() {
   const [activeBulkAction, setActiveBulkAction] = useState<BulkAction | null>(
     null,
   );
-  const [{ q, view, project, user }, setParams] = useQueryStates({
+  const [
+    {
+      q,
+      view,
+      project,
+      user,
+      assignee,
+      tags,
+      sortField,
+      sortDir,
+      timeRange,
+      statuses,
+    },
+    setParams,
+  ] = useQueryStates({
     q: searchParser,
     view: quickTaskViewParser,
     project: projectFilterParser,
     user: userFilterParser,
+    assignee: assigneeFilterParser,
+    tags: tagsFilterParser,
+    sortField: quickTaskSortFieldParser,
+    sortDir: quickTaskSortDirParser,
+    timeRange: quickTaskTimeRangeParser,
+    statuses: statusesParser,
   });
   const searchQuery = q;
 
@@ -65,20 +91,95 @@ export function QuickTasksClient() {
     return map;
   }, [projects]);
 
+  const allTags = useMemo(() => {
+    if (!tasks) return [];
+    const tagSet = new Set<string>();
+    for (const t of tasks) {
+      if (t.tags) {
+        for (const tag of t.tags) {
+          tagSet.add(tag);
+        }
+      }
+    }
+    return [...tagSet].sort();
+  }, [tasks]);
+
   const quickTasks = useMemo(() => {
     if (!tasks) return [];
     let filtered = tasks;
+
+    // Project filter
     if (project !== "all") {
       filtered =
         project === "none"
           ? filtered.filter((t) => !t.projectId)
           : filtered.filter((t) => t.projectId === project);
     }
+
+    // Created by filter
     if (user !== "all") {
       filtered = filtered.filter((t) => t.createdBy === user);
     }
-    return filtered;
-  }, [tasks, project, user]);
+
+    // Assignee filter
+    if (assignee !== "all") {
+      filtered =
+        assignee === "unassigned"
+          ? filtered.filter((t) => !t.assignedTo)
+          : filtered.filter((t) => t.assignedTo === assignee);
+    }
+
+    // Status filter (exclude drafts, they're not shown in quick tasks view)
+    const statusSet = new Set<string>(statuses);
+    filtered = filtered.filter(
+      (t) => t.status !== "draft" && statusSet.has(t.status),
+    );
+
+    // Tags filter
+    if (tags.length > 0) {
+      const tagSet = new Set(tags);
+      filtered = filtered.filter(
+        (t) => t.tags && t.tags.some((tag) => tagSet.has(tag)),
+      );
+    }
+
+    // Time range filter
+    if (timeRange !== "all") {
+      const now = Date.now();
+      const msMap: Record<string, number> = {
+        "7d": 7 * 24 * 60 * 60 * 1000,
+        "30d": 30 * 24 * 60 * 60 * 1000,
+        "90d": 90 * 24 * 60 * 60 * 1000,
+      };
+      const cutoff = now - (msMap[timeRange] ?? 0);
+      filtered = filtered.filter((t) => t.createdAt >= cutoff);
+    }
+
+    // Sorting
+    const sorted = [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === "created") {
+        cmp = a.createdAt - b.createdAt;
+      } else if (sortField === "updated") {
+        cmp = a.updatedAt - b.updatedAt;
+      } else if (sortField === "title") {
+        cmp = a.title.localeCompare(b.title);
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return sorted;
+  }, [
+    tasks,
+    project,
+    user,
+    assignee,
+    statuses,
+    tags,
+    timeRange,
+    sortField,
+    sortDir,
+  ]);
   const hasAnyTasks = (tasks ?? []).length > 0;
   const hasQuickTasks = quickTasks.length > 0;
 
@@ -171,6 +272,7 @@ export function QuickTasksClient() {
             users={users}
             userFilter={user}
             onUserFilterChange={(v) => setParams({ user: v })}
+            allTags={allTags}
           />
         }
       >

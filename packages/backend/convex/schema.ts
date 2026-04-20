@@ -268,6 +268,7 @@ const schema = defineSchema({
     schedule: snapshotScheduleValidator,
     cronJobId: v.optional(v.string()),
     workflowRef: v.optional(v.string()),
+    startupCommands: v.optional(v.array(v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
@@ -287,6 +288,14 @@ const schema = defineSchema({
     .index("by_repo_snapshot", ["repoSnapshotId"])
     .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])
     .index("by_status", ["status"]),
+  sandboxConfigFiles: defineTable({
+    repoId: v.id("githubRepos"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    fileSize: v.number(),
+    uploadedBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_repo", ["repoId"]),
   teams: defineTable({
     name: v.string(),
     createdBy: v.id("users"),

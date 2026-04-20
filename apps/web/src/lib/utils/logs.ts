@@ -4,6 +4,7 @@ export const GBP_TO_USD = 1.34;
 export interface ParsedResultEvent {
   costUsd: number;
   model: string;
+  provider: string;
   inputTokens: number;
   outputTokens: number;
   durationMs: number;
@@ -14,6 +15,7 @@ export interface ParsedResultEvent {
 const EMPTY_PARSED: ParsedResultEvent = {
   costUsd: 0,
   model: "-",
+  provider: "",
   inputTokens: 0,
   outputTokens: 0,
   durationMs: 0,
@@ -39,6 +41,7 @@ export function parseResultEvent(raw: string | undefined): ParsedResultEvent {
       costUsd:
         typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : 0,
       model: modelKeys.length > 0 ? modelKeys[0] : "-",
+      provider: typeof parsed.provider === "string" ? parsed.provider : "",
       inputTokens:
         typeof usage.input_tokens === "number" ? usage.input_tokens : 0,
       outputTokens:

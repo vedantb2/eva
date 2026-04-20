@@ -9,6 +9,7 @@ export {
 
 export {
   runSandboxCommand,
+  runStartupCommands,
   getPreviewUrl,
   prepareSandbox,
   createOrResumeSandbox,

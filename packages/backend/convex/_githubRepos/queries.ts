@@ -68,17 +68,25 @@ export const get = authQuery({
   },
 });
 
-/** Checks which AI providers (Claude, Codex) are available for a repo based on configured env vars. */
+/** Checks which AI providers (Claude, Codex, Opencode, Cursor) are available for a repo based on configured env vars. */
 export const getProviderAvailability = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.object({
     claude: v.boolean(),
     codex: v.boolean(),
+    opencode: v.boolean(),
+    cursor: v.boolean(),
   }),
   handler: async (ctx, args) => {
+    const unavailable = {
+      claude: false,
+      codex: false,
+      opencode: false,
+      cursor: false,
+    };
     const repo = await ctx.db.get(args.repoId);
     if (!repo) {
-      return { claude: false, codex: false };
+      return unavailable;
     }
 
     if (repo.connectedBy !== ctx.userId) {
@@ -91,10 +99,10 @@ export const getProviderAvailability = authQuery({
           )
           .first();
         if (!membership) {
-          return { claude: false, codex: false };
+          return unavailable;
         }
       } else {
-        return { claude: false, codex: false };
+        return unavailable;
       }
     }
 

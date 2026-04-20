@@ -137,7 +137,7 @@ export const ContextTrigger = ({ children, ...props }: ContextTriggerProps) => {
     <HoverCardTrigger asChild>
       {children ?? (
         <Button type="button" variant="ghost" size="sm" {...props}>
-          <span className="font-medium text-muted-foreground text-xs">
+          <span className="font-medium text-muted-foreground text-xs tabular-nums">
             {renderedPercent}
           </span>
           <ContextIcon />
@@ -183,7 +183,7 @@ export const ContextContentHeader = ({
     <div className={cn("w-full space-y-2 p-3", className)} {...props}>
       {children ?? (
         <>
-          <div className="flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center justify-between gap-3 text-xs tabular-nums">
             <p>{displayPct}</p>
             <p className="font-mono text-muted-foreground">
               {used} / {total}

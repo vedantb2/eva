@@ -39,7 +39,7 @@ export function ChatMessage({
       alt="Eva"
       width={20}
       height={20}
-      className="rounded-full"
+      className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
     />
   );
 

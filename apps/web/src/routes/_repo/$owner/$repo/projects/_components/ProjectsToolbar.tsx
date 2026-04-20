@@ -77,7 +77,7 @@ export function ProjectsToolbar({
               <Button
                 variant={view === opt.key ? "secondary" : "ghost"}
                 size="icon"
-                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.97]"
+                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => onViewChange(opt.key)}
               >
                 <opt.icon size={16} />

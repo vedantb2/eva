@@ -150,13 +150,22 @@ export const createPullRequest = internalAction({
         base: args.baseBranch ?? "staging",
       });
 
+      // The PR exists on GitHub from here on. Label failures must NOT
+      // invalidate the URL — if we drop it, the app can't reconcile the PR
+      // when the merge webhook fires later, and the task status never updates.
       if (args.labels.length > 0) {
-        await octokit.rest.issues.addLabels({
-          owner: args.repoOwner,
-          repo: args.repoName,
-          issue_number: pr.data.number,
-          labels: args.labels,
-        });
+        try {
+          await octokit.rest.issues.addLabels({
+            owner: args.repoOwner,
+            repo: args.repoName,
+            issue_number: pr.data.number,
+            labels: args.labels,
+          });
+        } catch (labelError) {
+          console.error(
+            `Failed to add labels to PR ${pr.data.html_url}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
+          );
+        }
       }
 
       return pr.data.html_url;

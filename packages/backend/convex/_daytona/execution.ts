@@ -76,6 +76,77 @@ export const runSandboxCommand = internalAction({
   },
 });
 
+/** Runs startup commands on a sandbox if configured. Returns success status. */
+export const runStartupCommands = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({
+    ran: v.boolean(),
+    commandCount: v.number(),
+    errors: v.array(v.string()),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ ran: boolean; commandCount: number; errors: string[] }> => {
+    // Get startup commands for this repo
+    const commands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getStartupCommands,
+      { repoId: args.repoId },
+    );
+
+    if (!commands || commands.length === 0) {
+      return { ran: false, commandCount: 0, errors: [] };
+    }
+
+    // Check if startup commands have already run (marker file)
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    try {
+      await exec(sandbox, "test -f /tmp/.startup-commands-done", 5);
+      // Marker exists, commands already ran
+      console.log(
+        `[daytona] runStartupCommands: marker exists, skipping ${commands.length} commands`,
+      );
+      return { ran: false, commandCount: 0, errors: [] };
+    } catch {
+      // Marker doesn't exist, proceed
+    }
+
+    console.log(
+      `[daytona] runStartupCommands: executing ${commands.length} startup command(s)`,
+    );
+
+    const errors: string[] = [];
+    for (const command of commands) {
+      console.log(`[daytona] runStartupCommands: running: ${command}`);
+      try {
+        // 10 minute timeout per command (supabase start can take a while)
+        const output = await exec(sandbox, command, 600);
+        console.log(`[daytona] runStartupCommands: completed: ${command}`);
+        if (output.trim()) {
+          console.log(`[daytona] output: ${output.slice(0, 500)}`);
+        }
+      } catch (e) {
+        const msg = errorMessage(e, "unknown error");
+        console.error(`[daytona] runStartupCommands: failed: ${command}`, msg);
+        errors.push(`${command}: ${msg}`);
+        // Continue with other commands even if one fails
+      }
+    }
+
+    // Create marker file to prevent re-running on sandbox resume
+    try {
+      await exec(sandbox, "touch /tmp/.startup-commands-done", 5);
+    } catch {
+      // Non-fatal
+    }
+
+    return { ran: true, commandCount: commands.length, errors };
+  },
+});
+
 /** Returns a signed preview URL for a sandbox port, optionally checking readiness. */
 export const getPreviewUrl = action({
   args: {
@@ -579,7 +650,7 @@ export const launchOnExistingSandbox = internalAction({
 
     await exec(
       sandbox,
-      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
+      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'opencode' 2>/dev/null; pkill -f 'cursor-agent' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
       10,
     );
     console.log(

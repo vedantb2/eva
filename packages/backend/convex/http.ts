@@ -285,9 +285,16 @@ http.route({
         return new Response("OK", { status: 200 });
       }
 
+      // head.ref carries the source branch name. Passed through so the
+      // handler can fall back to branch-based reconciliation when no run has
+      // the PR URL recorded (e.g. if it was lost during PR creation).
+      const head = pullRequest["head"];
+      const branchName = isRecord(head) ? getString(head, "ref") : null;
+
       await ctx.scheduler.runAfter(0, internal.githubWebhook.handlePrClosed, {
         prUrl,
         merged,
+        branchName: branchName ?? undefined,
       });
     }
 

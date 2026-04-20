@@ -21,7 +21,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
         {steps.map((step, i) => (
           <div key={step.num} className="flex items-center gap-2">
             <div
-              className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-all ${
+              className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-[background-color,color,box-shadow] ${
                 step.active
                   ? "bg-primary text-background ring-2 ring-primary/25 ring-offset-1 ring-offset-background"
                   : "bg-secondary text-muted-foreground"
@@ -59,7 +59,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
             <IconBrandGithub size={26} className="text-primary" />
           </div>
         </div>
-        <h2 className="mb-2 text-xl font-semibold tracking-tight text-foreground">
+        <h2 className="mb-2 text-xl font-semibold tracking-tight text-foreground text-balance">
           Connect your GitHub
         </h2>
         <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
@@ -68,7 +68,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
         </p>
         <Button
           asChild
-          className="bg-foreground px-6 font-medium text-background hover:scale-[1.01] active:scale-[0.99]"
+          className="bg-foreground px-6 font-medium text-background active:scale-[0.96]"
         >
           <a href={connectUrl}>
             <IconBrandGithub size={16} />

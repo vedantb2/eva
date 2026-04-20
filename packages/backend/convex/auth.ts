@@ -61,6 +61,7 @@ export const getUserByClerkId = internalQuery({
       customTheme: v.optional(customThemeValidator),
       toolbarVisible: v.optional(v.boolean()),
       lastSeenAt: v.optional(v.number()),
+      lastChangelogDismissedAt: v.optional(v.number()),
     }),
     v.null(),
   ),

@@ -69,11 +69,11 @@ export const updateCursor = authMutation({
   handler: async (ctx, { roomId, x, y }) => {
     const user = await ctx.db.get(ctx.userId);
     if (!user) return;
-    await presence.updateRoomUser(ctx, roomId, ctx.userId, {
-      x,
-      y,
-      firstName: user.firstName,
-      accentColor: user.customTheme?.accentColor ?? "teal",
-    });
+    // await presence.updateRoomUser(ctx, roomId, ctx.userId, {
+    //   x,
+    //   y,
+    //   firstName: user.firstName ?? user.fullName ?? "User",
+    //   accentColor: user.customTheme?.accentColor ?? "teal",
+    // });
   },
 });

@@ -18,6 +18,7 @@ import {
   ContextMenuLabel,
   DropdownMenuLabel,
 } from "@conductor/ui";
+import { ProviderIcon } from "@conductor/ui/ai";
 import {
   AI_MODEL_OPTIONS,
   getAIModelProvider,
@@ -223,7 +224,14 @@ export function TaskCardMenuItems({
             return providers.map((provider) => (
               <Sub key={provider}>
                 <SubTrigger>
-                  {provider === "codex" ? "Codex" : "Claude"}
+                  <ProviderIcon provider={provider} size={14} />
+                  {provider === "codex"
+                    ? "Codex"
+                    : provider === "opencode"
+                      ? "Opencode"
+                      : provider === "cursor"
+                        ? "Cursor"
+                        : "Claude"}
                 </SubTrigger>
                 <SubContent>
                   <RadioGroup

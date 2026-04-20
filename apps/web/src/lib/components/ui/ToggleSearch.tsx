@@ -90,7 +90,7 @@ export function ToggleSearch({
               <Button
                 variant="ghost"
                 size="icon"
-                className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97]"
+                className="motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96]"
                 onClick={() => setIsOpen(true)}
               >
                 <IconSearch size={16} />

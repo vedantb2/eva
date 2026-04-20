@@ -157,6 +157,7 @@ export const sessionExecuteWorkflow = workflow.define({
       mode: args.mode,
       model: args.model,
       responseLength: args.responseLength,
+      userId: args.userId,
     });
 
     let validatedSandboxId: string | null = null;
@@ -321,6 +322,7 @@ export const getSessionData = internalQuery({
     mode: sessionModeArgValidator,
     model: aiModelValidator,
     responseLength: v.string(),
+    userId: v.id("users"),
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
@@ -343,7 +345,7 @@ export const getSessionData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    const user = await ctx.db.get(session.userId);
+    const user = await ctx.db.get(args.userId);
     const customInstructionsBlock = buildCustomInstructionsBlock(
       user?.role ?? undefined,
       user?.customInstructions ?? undefined,

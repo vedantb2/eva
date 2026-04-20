@@ -157,7 +157,7 @@ function SplitRunButton({
   const isScheduled = scheduledAt !== undefined;
 
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-200 hover:-translate-y-[1px] active:scale-[0.985]">
+    <div className="group/split flex items-center transition-[transform,background-color] duration-200 hover:-translate-y-[1px] active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>

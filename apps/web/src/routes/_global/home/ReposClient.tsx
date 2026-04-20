@@ -100,7 +100,7 @@ export function ReposClient() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.99]"
+                    className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.96]"
                   >
                     <IconDots size={16} />
                   </Button>
@@ -170,7 +170,7 @@ export function ReposClient() {
           <Button
             size="sm"
             asChild
-            className="motion-press bg-foreground font-medium text-background hover:scale-[1.01] active:scale-[0.99]"
+            className="motion-press bg-foreground font-medium text-background hover:scale-[1.01] active:scale-[0.96]"
           >
             <a
               href={hasRepos ? configureUrl : connectUrl}
@@ -194,7 +194,7 @@ export function ReposClient() {
         <EmptyOnboarding connectUrl={connectUrl} />
       ) : (
         <>
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {!welcomeDismissed && (
               <WelcomeBanner onDismiss={handleDismissWelcome} />
             )}

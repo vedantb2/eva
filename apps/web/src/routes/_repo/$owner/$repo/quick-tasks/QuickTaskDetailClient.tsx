@@ -87,10 +87,10 @@ export function QuickTaskDetailClient() {
   return (
     <PageWrapper
       title={
-        <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-base sm:text-lg md:text-xl">
           <button
             onClick={handleBack}
-            className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
+            className="text-muted-foreground hover:text-foreground transition-colors font-semibold whitespace-nowrap flex-shrink-0"
           >
             Quick Tasks
           </button>
@@ -98,7 +98,7 @@ export function QuickTaskDetailClient() {
             size={14}
             className="text-muted-foreground/50 flex-shrink-0"
           />
-          <span className="truncate font-semibold">
+          <span className="min-w-0 flex-1 truncate font-semibold">
             {selectedTask?.taskNumber ? `#${selectedTask.taskNumber}` : ""}
             {selectedTask?.title ? ` ${selectedTask.title}` : ""}
           </span>

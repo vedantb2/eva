@@ -45,7 +45,9 @@ export function PageWrapper({
           <div
             className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
           >
-            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div
+              className={`flex min-w-0 items-center gap-2 sm:gap-3 ${!headerCenter ? "md:col-span-2" : ""}`}
+            >
               {showBack && (
                 <Button
                   size="icon"
@@ -62,12 +64,10 @@ export function PageWrapper({
                 </h1>
               )}
             </div>
-            {headerCenter ? (
+            {headerCenter && (
               <div className="hidden min-w-0 justify-center md:flex animate-in fade-in duration-300">
                 <div className="w-full max-w-xl">{headerCenter}</div>
               </div>
-            ) : (
-              <div className="hidden md:block" />
             )}
             <div className="flex min-h-10 items-center justify-end gap-1.5 sm:gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
               {headerRight}

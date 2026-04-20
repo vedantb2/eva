@@ -29,11 +29,11 @@ import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconFileText, IconTrash } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import type { FormattedTextHandle } from "@/lib/components/tasks/_components/FormattedText";
+import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
 
-const FormattedText = lazy(() =>
-  import("@/lib/components/tasks/_components/FormattedText").then((m) => ({
-    default: m.FormattedText,
+const MarkdownEditor = lazy(() =>
+  import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
+    default: m.MarkdownEditor,
   })),
 );
 
@@ -60,7 +60,7 @@ export function QuickTaskModal({
   const [confirmDeleteId, setConfirmDeleteId] =
     useState<Id<"agentTasks"> | null>(null);
 
-  const editorRef = useRef<FormattedTextHandle>(null);
+  const editorRef = useRef<MarkdownEditorHandle>(null);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const saveDraft = useMutation(api.agentTasks.saveDraft);
@@ -194,11 +194,13 @@ export function QuickTaskModal({
                 </div>
               }
             >
-              <FormattedText
+              <MarkdownEditor
                 ref={editorRef}
                 content={description}
                 editable
-                className="text-sm leading-7 [&_.tiptap]:outline-none [&_.tiptap]:min-h-[120px] [&_.tiptap]:px-3 [&_.tiptap]:py-2 [&_.tiptap_p]:my-0 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap:empty]:before:content-['Add_more_details_(optional)'] [&_.tiptap:empty]:before:text-muted-foreground [&_.tiptap:empty]:before:pointer-events-none"
+                placeholder="Add more details (optional)"
+                minHeight="min-h-[120px]"
+                className="text-sm [&_.tiptap]:px-3 [&_.tiptap]:py-2"
                 onBlur={(md) => setDescription(md)}
               />
             </Suspense>

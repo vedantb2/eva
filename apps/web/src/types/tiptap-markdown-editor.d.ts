@@ -1,12 +1,3 @@
-import type { MarkdownManager } from "@tiptap/markdown";
-
-declare module "@tiptap/core" {
-  interface EditorOptions {
-    contentType?: "markdown" | "json" | "html";
-  }
-
-  interface Editor {
-    markdown: MarkdownManager;
-    getMarkdown: () => string;
-  }
-}
+// Type augmentations are now provided by @tiptap/markdown v3.20+
+// This file kept for backwards compatibility / documentation
+export {};

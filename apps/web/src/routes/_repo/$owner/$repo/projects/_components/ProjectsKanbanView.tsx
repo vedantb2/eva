@@ -5,6 +5,7 @@ import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { Virtuoso } from "react-virtuoso";
 import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
+import { KanbanCarousel } from "@/lib/components/kanban/KanbanCarousel";
 import {
   phaseConfig,
   PROJECT_PHASES,
@@ -31,22 +32,26 @@ export function ProjectsKanbanView({
   onOpenProject,
   onDelete,
 }: ProjectsKanbanViewProps) {
+  const visiblePhasesArray = PROJECT_PHASES.filter((phase) =>
+    visiblePhases.has(phase),
+  );
+
   return (
-    <>
-      {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
-        (phase) => (
-          <VirtualProjectColumn
-            key={phase}
-            phase={phase}
-            projects={projectsByPhase[phase]}
-            owner={owner}
-            name={name}
-            onOpenProject={onOpenProject}
-            onDelete={onDelete}
-          />
-        ),
+    <KanbanCarousel
+      items={visiblePhasesArray}
+      getKey={(phase) => phase}
+      fillHeight
+      renderColumn={(phase) => (
+        <VirtualProjectColumn
+          phase={phase}
+          projects={projectsByPhase[phase]}
+          owner={owner}
+          name={name}
+          onOpenProject={onOpenProject}
+          onDelete={onDelete}
+        />
       )}
-    </>
+    />
   );
 }
 

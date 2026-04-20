@@ -23,6 +23,7 @@ import {
 } from "@conductor/ui";
 import { searchParser, statusesParser } from "@/lib/search-params";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
+import { KanbanCarousel } from "./KanbanCarousel";
 import {
   statusConfig,
   type TaskStatus,
@@ -205,38 +206,23 @@ export function KanbanBoard<T extends BaseTask>({
           ) : null
         }
       >
-        <div
-          className={`flex w-full items-stretch gap-2 pb-1 sm:gap-3 ${
-            fillHeight
-              ? "min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden scrollbar snap-x snap-mandatory sm:snap-none"
-              : ""
-          }`}
-        >
-          <AnimatePresence initial={false}>
-            {KANBAN_STATUSES.filter((status) =>
-              visibleStatuses.has(status),
-            ).map((status) => (
-              <motion.div
-                key={status}
-                layout
-                className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch snap-center"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <VirtualKanbanColumn
-                  status={status}
-                  items={itemsByStatus.get(status) ?? []}
-                  count={countByStatus[status] ?? 0}
-                  headerExtra={columnExtra?.(status)}
-                  renderCard={renderCard}
-                  onItemClick={onItemClick}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+        <KanbanCarousel
+          items={KANBAN_STATUSES.filter((status) =>
+            visibleStatuses.has(status),
+          )}
+          getKey={(status) => status}
+          fillHeight={fillHeight}
+          renderColumn={(status) => (
+            <VirtualKanbanColumn
+              status={status}
+              items={itemsByStatus.get(status) ?? []}
+              count={countByStatus[status] ?? 0}
+              headerExtra={columnExtra?.(status)}
+              renderCard={renderCard}
+              onItemClick={onItemClick}
+            />
+          )}
+        />
       </KanbanProvider>
     </div>
   );

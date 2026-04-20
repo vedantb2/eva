@@ -310,7 +310,7 @@ export function ProjectsClient() {
               {view === "kanban" ? (
                 <motion.div
                   key="projects-kanban-view"
-                  className="flex flex-1 min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar [&>*]:min-w-[220px] sm:[&>*]:min-w-0"
+                  className="flex flex-1 min-h-0 items-stretch"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}

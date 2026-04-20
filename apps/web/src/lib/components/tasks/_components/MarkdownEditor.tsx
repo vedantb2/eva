@@ -80,10 +80,13 @@ export const MarkdownEditor = forwardRef<
     prevEditable.current = editable;
   }, [editor, editable]);
 
-  // Sync content from external source when not editing
+  // Sync content from external source when not editing or when resetting to empty
   useEffect(() => {
-    if (!editor || editable) return;
-    // Only update if content actually changed (avoid unnecessary re-renders)
+    if (!editor) return;
+    // Always sync when content is reset to empty (for form resets)
+    // Otherwise only sync when not editable (for external content changes)
+    const shouldSync = content === "" || !editable;
+    if (!shouldSync) return;
     if (prevContent.current !== content) {
       editor.commands.setContent(content, { contentType: "markdown" });
       prevContent.current = content;

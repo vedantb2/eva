@@ -198,7 +198,7 @@ export const kickOffSnapshotBuild = internalAction({
     const branch = config.workflowRef ?? "main";
 
     // Query sandbox config files for this repo
-    const configFiles = await ctx.runQuery(
+    const configFiles: ConfigFile[] = await ctx.runQuery(
       internal.sandboxConfigFiles.getConfigFilesForSnapshot,
       { repoId: config.repoId },
     );

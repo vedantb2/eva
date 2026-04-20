@@ -1,13 +1,23 @@
 # Changelog
 
-## Sandbox config files baked into snapshots - 2026-04-20
+## Sandbox config files and startup commands - 2026-04-20
 
-- **Why**: Users need to seed databases with sensitive files (e.g., `seed.sql`) that cannot be committed to the repo. Snapshots now include a config file upload mechanism that bakes files into the snapshot image so they're pre-installed at `/tmp/sandbox-config/` in every sandbox, eliminating download delays at startup.
-- **Storage**: New `sandboxConfigFiles` table in Convex stores per-repo file metadata (filename, size, uploader, storage ID). File content lives in Convex file storage; storage URLs are fetched fresh at snapshot build time so URLs remain valid during the 15-20 minute Docker build.
-- **Snapshot build integration**: `buildSnapshotImage()` now accepts config files and generates `curl` commands to download them into `/tmp/sandbox-config/` before the repo clone. Files appear in snapshot build logs and are transparently included in the final image.
-- **UI**: New "Config Files" tab in Snapshots settings (alongside Configuration, Status, Builds) shows an upload interface, file table (name/size/date), and delete buttons. Warning banner reminds users that files only appear in sandboxes after rebuilding the snapshot. Optional "Rebuild Snapshot" button triggers a fresh build.
-- **Filename validation**: Filenames restricted to `[a-zA-Z0-9._-]+` for shell safety in curl commands. Invalid filenames rejected at upload time with clear error.
-- **Operational**: Any repo member can upload/delete files. Changes only take effect after snapshot rebuild (manual via "Rebuild Now" or next scheduled build). Failed downloads during build are non-fatal (logged but don't block snapshot completion).
+- **Why**: Users need to seed databases with sensitive files (e.g., `seed.sql`) that cannot be committed to the repo, and run setup commands like `supabase start` once per sandbox. Two new features address this: config files baked into snapshots, and startup commands that run when sandboxes first start.
+
+### Config Files (baked into snapshots)
+
+- **Storage**: New `sandboxConfigFiles` table stores per-repo file metadata. File content lives in Convex file storage; URLs fetched fresh at snapshot build time.
+- **Snapshot integration**: `buildSnapshotImage()` generates `curl` commands to download files into `/tmp/sandbox-config/` before the repo clone.
+- **UI**: New "Config Files" tab in Snapshots settings with upload interface, file table, and warning banner about rebuild requirement.
+- **Filename validation**: Restricted to `[a-zA-Z0-9._-]+` for shell safety.
+
+### Startup Commands (run on sandbox start)
+
+- **Why**: Commands like `supabase start` need a running Docker daemon (unavailable during image build). Startup commands run once when a sandbox first starts from a snapshot.
+- **Schema**: Added `startupCommands` field to `repoSnapshots` table (array of shell commands).
+- **Execution**: `runStartupCommands` action runs commands in sequence with 10-minute timeout each. Creates `/tmp/.startup-commands-done` marker to skip on sandbox resume.
+- **Integration**: Added to `prepareSandboxSteps` workflow after branch setup. Non-fatal on failure (logs errors, continues).
+- **UI**: New "Startup Commands" section in Snapshots Configuration tab with textarea (one command per line) and helper text.
 
 ## Comprehensive interface design refinements across web and UI components - 2026-04-19
 

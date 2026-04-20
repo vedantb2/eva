@@ -47,6 +47,7 @@ export function SnapshotsClient() {
 
   const [schedule, setSchedule] = useState("manual");
   const [workflowRef, setWorkflowRef] = useState("main");
+  const [startupCommands, setStartupCommands] = useState("");
   const [saving, setSaving] = useState(false);
   const [building, setBuilding] = useState(false);
   const [expandedBuild, setExpandedBuild] = useState<string | null>(null);
@@ -57,20 +58,29 @@ export function SnapshotsClient() {
     if (snapshot) {
       setSchedule(snapshot.schedule);
       setWorkflowRef(snapshot.workflowRef ?? "main");
+      setStartupCommands(snapshot.startupCommands?.join("\n") ?? "");
       return;
     }
 
     setSchedule("manual");
     setWorkflowRef("main");
+    setStartupCommands("");
   }, [snapshot?._id, snapshot?.updatedAt, snapshot === null]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Parse startup commands: split by newlines, trim, filter empty
+      const commands = startupCommands
+        .split("\n")
+        .map((cmd) => cmd.trim())
+        .filter((cmd) => cmd.length > 0);
+
       await saveRepoSnapshot({
         repoId,
         schedule,
         workflowRef: workflowRef.trim() || undefined,
+        startupCommands: commands.length > 0 ? commands : undefined,
       });
     } finally {
       setSaving(false);
@@ -82,6 +92,7 @@ export function SnapshotsClient() {
     await deleteRepoSnapshot({ repoSnapshotId: snapshot._id });
     setSchedule("manual");
     setWorkflowRef("main");
+    setStartupCommands("");
   };
 
   const handleRebuild = async () => {
@@ -151,6 +162,27 @@ export function SnapshotsClient() {
               <p className="mt-1 text-[11px] text-muted-foreground">
                 Branch to clone into the snapshot for dependency pre-caching.
                 Defaults to <code>main</code> if empty.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+            <h3 className="text-sm font-medium">Startup Commands</h3>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Commands to run when sandbox starts
+              </label>
+              <textarea
+                value={startupCommands}
+                onChange={(e) => setStartupCommands(e.target.value)}
+                className="w-full h-24 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /tmp/sandbox-config/seed.sql"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                One command per line. Runs once when sandbox first starts (after
+                snapshot loads). Use for services like{" "}
+                <code>supabase start</code> or database seeding. Commands have a
+                10-minute timeout each.
               </p>
             </div>
           </div>

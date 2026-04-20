@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useQueryState } from "nuqs";
+import { useQueryStates } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -10,7 +10,11 @@ import { Spinner } from "@conductor/ui";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
-import { quickTaskViewParser } from "@/lib/search-params";
+import {
+  quickTaskViewParser,
+  projectFilterParser,
+  userFilterParser,
+} from "@/lib/search-params";
 import { Route } from "./$taskId";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 
@@ -18,7 +22,11 @@ export function QuickTaskDetailClient() {
   const { taskId } = Route.useParams();
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
-  const [view] = useQueryState("view", quickTaskViewParser);
+  const [{ view, project, user }] = useQueryStates({
+    view: quickTaskViewParser,
+    project: projectFilterParser,
+    user: userFilterParser,
+  });
   const typedTaskId = taskId as Id<"agentTasks">;
 
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
@@ -28,15 +36,30 @@ export function QuickTaskDetailClient() {
     return tasks.find((t) => t._id === typedTaskId);
   }, [typedTaskId, tasks]);
 
-  const orderedTasks = useMemo(() => {
+  const filteredTasks = useMemo(() => {
     if (!tasks) return [];
-    const byStatus = new Map<string, typeof tasks>();
-    for (const task of tasks) {
+    let filtered = tasks;
+    if (project !== "all") {
+      filtered =
+        project === "none"
+          ? filtered.filter((t) => !t.projectId)
+          : filtered.filter((t) => t.projectId === project);
+    }
+    if (user !== "all") {
+      filtered = filtered.filter((t) => t.createdBy === user);
+    }
+    return filtered;
+  }, [tasks, project, user]);
+
+  const orderedTasks = useMemo(() => {
+    if (filteredTasks.length === 0) return [];
+    const byStatus = new Map<string, typeof filteredTasks>();
+    for (const task of filteredTasks) {
       const list = byStatus.get(task.status) ?? [];
       list.push(task);
       byStatus.set(task.status, list);
     }
-    const result: typeof tasks = [];
+    const result: typeof filteredTasks = [];
     for (const status of TASK_STATUSES) {
       const group = byStatus.get(status);
       if (group) {
@@ -45,7 +68,7 @@ export function QuickTaskDetailClient() {
       }
     }
     return result;
-  }, [tasks]);
+  }, [filteredTasks]);
 
   const { prevTaskId, nextTaskId } = useMemo(() => {
     if (orderedTasks.length === 0) {
@@ -60,20 +83,27 @@ export function QuickTaskDetailClient() {
     };
   }, [typedTaskId, orderedTasks]);
 
-  const viewParam = view === "kanban" ? "" : `?view=${view}`;
+  const queryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (view !== "kanban") params.set("view", view);
+    if (project !== "none") params.set("project", project);
+    if (user !== "all") params.set("user", user);
+    const str = params.toString();
+    return str ? `?${str}` : "";
+  }, [view, project, user]);
 
   const handleBack = () => {
-    navigate({ to: `${basePath}/quick-tasks${viewParam}` });
+    navigate({ to: `${basePath}/quick-tasks${queryParams}` });
   };
 
   const handleNavigatePrev = () => {
     if (prevTaskId)
-      navigate({ to: `${basePath}/quick-tasks/${prevTaskId}${viewParam}` });
+      navigate({ to: `${basePath}/quick-tasks/${prevTaskId}${queryParams}` });
   };
 
   const handleNavigateNext = () => {
     if (nextTaskId)
-      navigate({ to: `${basePath}/quick-tasks/${nextTaskId}${viewParam}` });
+      navigate({ to: `${basePath}/quick-tasks/${nextTaskId}${queryParams}` });
   };
 
   if (tasks === undefined) {

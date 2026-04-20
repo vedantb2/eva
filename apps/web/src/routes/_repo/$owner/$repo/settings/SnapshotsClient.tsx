@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -29,6 +29,8 @@ import {
   IconCheck,
   IconX,
   IconClock,
+  IconUpload,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { formatDurationMs } from "@/lib/utils/formatDuration";
 
@@ -115,6 +117,7 @@ export function SnapshotsClient() {
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="status">Status</TabsTrigger>
           <TabsTrigger value="builds">Builds</TabsTrigger>
+          <TabsTrigger value="config-files">Config Files</TabsTrigger>
         </TabsList>
 
         <TabsContent value="configuration" className="space-y-4">
@@ -310,6 +313,10 @@ export function SnapshotsClient() {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="config-files" className="space-y-6">
+          <ConfigFilesSection repoId={repoId} snapshotId={snapshot?._id} />
+        </TabsContent>
       </Tabs>
     </PageWrapper>
   );
@@ -450,5 +457,208 @@ function WarmupStatusBadge({
       <IconX size={12} />
       Failed
     </span>
+  );
+}
+
+/** Formats bytes into human-readable size. */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Config files section for uploading files to be baked into snapshots. */
+function ConfigFilesSection({
+  repoId,
+  snapshotId,
+}: {
+  repoId: Id<"githubRepos">;
+  snapshotId?: Id<"repoSnapshots">;
+}) {
+  const files = useQuery(api.sandboxConfigFiles.list, { repoId });
+  const generateUploadUrl = useMutation(
+    api.sandboxConfigFiles.generateUploadUrl,
+  );
+  const saveFile = useMutation(api.sandboxConfigFiles.save);
+  const removeFile = useMutation(api.sandboxConfigFiles.remove);
+  const startBuild = useMutation(api.repoSnapshots.startBuild);
+
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      // Get upload URL
+      const uploadUrl = await generateUploadUrl({ repoId });
+
+      // Upload file to Convex storage
+      const result = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+
+      if (!result.ok) {
+        throw new Error("Failed to upload file");
+      }
+
+      const { storageId } = (await result.json()) as {
+        storageId: Id<"_storage">;
+      };
+
+      // Save file record
+      await saveFile({
+        repoId,
+        storageId,
+        fileName: file.name,
+        fileSize: file.size,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      setError(message);
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRebuild = async () => {
+    if (!snapshotId) return;
+    try {
+      await startBuild({ repoSnapshotId: snapshotId });
+    } catch {
+      // Error shown via build status
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Warning banner */}
+      <div className="flex items-start gap-3 rounded-lg bg-amber-500/10 p-3">
+        <IconAlertTriangle
+          size={18}
+          className="mt-0.5 shrink-0 text-amber-500"
+        />
+        <div className="text-xs">
+          <p className="font-medium text-amber-500">
+            Rebuild required after changes
+          </p>
+          <p className="mt-0.5 text-muted-foreground">
+            Files are baked into snapshots during build. After adding or
+            removing files, rebuild the snapshot for changes to take effect.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg bg-muted/40 p-4 space-y-4">
+        <div>
+          <h3 className="text-sm font-medium">Sandbox Config Files</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Files uploaded here will be baked into snapshots at{" "}
+            <code className="font-mono text-[11px]">/tmp/sandbox-config/</code>.
+            Use for sensitive files like database seeds that cannot be committed
+            to the repo.
+          </p>
+        </div>
+
+        {error && (
+          <div className="rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {error}
+          </div>
+        )}
+
+        {/* Upload button */}
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleUpload}
+            disabled={uploading}
+            className="hidden"
+            id="config-file-upload"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploading ? (
+              <Spinner size="sm" className="mr-1.5" />
+            ) : (
+              <IconUpload size={14} className="mr-1.5" />
+            )}
+            Upload File
+          </Button>
+          {snapshotId && files && files.length > 0 && (
+            <Button size="sm" onClick={handleRebuild}>
+              <IconPlayerPlay size={14} className="mr-1.5" />
+              Rebuild Snapshot
+            </Button>
+          )}
+        </div>
+
+        {/* Files table */}
+        {files && files.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-muted-foreground">
+                  <th className="px-2 py-2 font-medium">File Name</th>
+                  <th className="px-2 py-2 font-medium">Size</th>
+                  <th className="px-2 py-2 font-medium">Uploaded</th>
+                  <th className="px-2 py-2 font-medium w-10" />
+                </tr>
+              </thead>
+              <tbody>
+                {files.map((file) => (
+                  <tr key={file._id} className="hover:bg-muted/30">
+                    <td className="px-2 py-2 font-mono">{file.fileName}</td>
+                    <td className="px-2 py-2">
+                      {formatFileSize(file.fileSize)}
+                    </td>
+                    <td className="px-2 py-2">
+                      {new Date(file.createdAt).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </td>
+                    <td className="px-2 py-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeFile({ id: file._id })}
+                        className="h-6 w-6 p-0"
+                      >
+                        <IconTrash size={14} />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : files && files.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No config files uploaded yet.
+          </p>
+        ) : (
+          <div className="flex items-center justify-center py-4">
+            <Spinner size="sm" />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

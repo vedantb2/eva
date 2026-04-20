@@ -26,6 +26,9 @@ function extractUrl(data: unknown): string | null {
   return null;
 }
 
+/** Config file with URL for snapshot build. */
+type ConfigFile = { fileName: string; url: string | null };
+
 /**
  * Builds a Daytona Image definition that mirrors the old rebuild-snapshot.yml Dockerfile.
  * The key difference is using `git clone` (with an installation token) instead of COPY
@@ -36,6 +39,7 @@ function buildSnapshotImage(
   owner: string,
   repoName: string,
   branch: string,
+  configFiles: ConfigFile[] = [],
 ): Image {
   return Image.base("node:20-bookworm")
     .runCommands(
@@ -93,6 +97,13 @@ function buildSnapshotImage(
     })
     .runCommands(
       "mkdir -p /home/eva/.pnpm",
+      // Create sandbox config directory and download config files
+      "mkdir -p /tmp/sandbox-config",
+      ...configFiles
+        .filter((f): f is { fileName: string; url: string } => f.url !== null)
+        .map(
+          (f) => `curl -fsSL -o '/tmp/sandbox-config/${f.fileName}' '${f.url}'`,
+        ),
       // Clone the target repo and install dependencies for pre-caching
       `git clone --branch ${branch} https://x-access-token:${token}@github.com/${owner}/${repoName}.git /tmp/repo`,
     )
@@ -186,12 +197,29 @@ export const kickOffSnapshotBuild = internalAction({
     const daytona = getDaytona(daytonaApiKey);
     const branch = config.workflowRef ?? "main";
 
-    // Build the Image definition and extract the Dockerfile content
-    const image = buildSnapshotImage(token, repo.owner, repo.name, branch);
+    // Query sandbox config files for this repo
+    const configFiles = await ctx.runQuery(
+      internal.sandboxConfigFiles.getConfigFilesForSnapshot,
+      { repoId: config.repoId },
+    );
 
+    // Build the Image definition and extract the Dockerfile content
+    const image = buildSnapshotImage(
+      token,
+      repo.owner,
+      repo.name,
+      branch,
+      configFiles,
+    );
+
+    const configFileCount = configFiles.filter((f) => f.url !== null).length;
     await ctx.runMutation(internal.repoSnapshots.appendLogs, {
       buildId: args.buildId,
-      chunk: `Starting Daytona snapshot build for ${repo.owner}/${repo.name} (branch: ${branch})...\n`,
+      chunk:
+        `Starting Daytona snapshot build for ${repo.owner}/${repo.name} (branch: ${branch})...\n` +
+        (configFileCount > 0
+          ? `Including ${configFileCount} sandbox config file(s): ${configFiles.map((f) => f.fileName).join(", ")}\n`
+          : ""),
     });
 
     // POST directly to Daytona API to create the snapshot (returns immediately).

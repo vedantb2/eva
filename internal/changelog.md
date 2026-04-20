@@ -1,5 +1,14 @@
 # Changelog
 
+## Sandbox config files baked into snapshots - 2026-04-20
+
+- **Why**: Users need to seed databases with sensitive files (e.g., `seed.sql`) that cannot be committed to the repo. Snapshots now include a config file upload mechanism that bakes files into the snapshot image so they're pre-installed at `/tmp/sandbox-config/` in every sandbox, eliminating download delays at startup.
+- **Storage**: New `sandboxConfigFiles` table in Convex stores per-repo file metadata (filename, size, uploader, storage ID). File content lives in Convex file storage; storage URLs are fetched fresh at snapshot build time so URLs remain valid during the 15-20 minute Docker build.
+- **Snapshot build integration**: `buildSnapshotImage()` now accepts config files and generates `curl` commands to download them into `/tmp/sandbox-config/` before the repo clone. Files appear in snapshot build logs and are transparently included in the final image.
+- **UI**: New "Config Files" tab in Snapshots settings (alongside Configuration, Status, Builds) shows an upload interface, file table (name/size/date), and delete buttons. Warning banner reminds users that files only appear in sandboxes after rebuilding the snapshot. Optional "Rebuild Snapshot" button triggers a fresh build.
+- **Filename validation**: Filenames restricted to `[a-zA-Z0-9._-]+` for shell safety in curl commands. Invalid filenames rejected at upload time with clear error.
+- **Operational**: Any repo member can upload/delete files. Changes only take effect after snapshot rebuild (manual via "Rebuild Now" or next scheduled build). Failed downloads during build are non-fatal (logged but don't block snapshot completion).
+
 ## Comprehensive interface design refinements across web and UI components - 2026-04-19
 
 - **Why**: Interfaces feel polished through accumulated small details: consistent tactile feedback on buttons, smooth non-jarring animations, proper text spacing, extended touch targets, and subtle visual depth. These changes compound into a more intentional and refined experience across the entire platform.

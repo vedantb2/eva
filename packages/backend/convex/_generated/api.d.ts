@@ -112,6 +112,7 @@ import type * as repoEnvVarsActions from "../repoEnvVarsActions.js";
 import type * as repoSnapshots from "../repoSnapshots.js";
 import type * as repoUtils from "../repoUtils.js";
 import type * as sandboxAuthConfig from "../sandboxAuthConfig.js";
+import type * as sandboxConfigFiles from "../sandboxConfigFiles.js";
 import type * as sandboxJwt from "../sandboxJwt.js";
 import type * as screenshots from "../screenshots.js";
 import type * as sessionWorkflow from "../sessionWorkflow.js";
@@ -247,6 +248,7 @@ declare const fullApi: ApiFromModules<{
   repoSnapshots: typeof repoSnapshots;
   repoUtils: typeof repoUtils;
   sandboxAuthConfig: typeof sandboxAuthConfig;
+  sandboxConfigFiles: typeof sandboxConfigFiles;
   sandboxJwt: typeof sandboxJwt;
   screenshots: typeof screenshots;
   sessionWorkflow: typeof sessionWorkflow;

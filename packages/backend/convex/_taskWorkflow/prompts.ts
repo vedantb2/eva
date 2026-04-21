@@ -104,7 +104,7 @@ ${changeRequestSection}
 ## Steps:
 1. Read the files you plan to modify before editing them — understand existing code first
 2. Implement changes by editing source code files
-3. Do typechecking to verify no type errors. If errors, fix and re-run (max 2 attempts — if still failing, commit what you have and report the error)
+3. Run the project's build command (e.g. \`timeout 120 pnpm run build\` or \`timeout 120 npm run build\`) to verify no type or build errors. If errors, fix them and re-run (max 2 attempts — if still failing, commit what you have and report the error)
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
 5. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
 
@@ -113,7 +113,7 @@ After committing and pushing, write a short plain-text summary of what changed, 
 ${proofOfCompletionSection}
 
 ## Rules:
-- Do NOT create .md plan files or run lint/build/test/dev commands (except the dev server for proof when proof capture is enabled)
+- Do NOT create .md plan files or run lint/test/dev commands (except the build command in step 3, and the dev server for proof when proof capture is enabled)
 - Use lockfile for package manager. GITHUB_TOKEN is set.
 - Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`

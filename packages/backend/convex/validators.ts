@@ -656,6 +656,7 @@ export const agentTaskFields = {
   status: taskStatusValidator,
   createdAt: v.number(),
   updatedAt: v.number(),
+  lastRunAt: v.optional(v.number()),
   createdBy: v.optional(v.id("users")),
   assignedTo: v.optional(v.id("users")),
   model: v.optional(aiModelValidator),

@@ -124,10 +124,12 @@ export const executeScheduledTask = internalMutation({
       startedAt: Date.now(),
     });
 
+    const now = Date.now();
     await ctx.db.patch(args.taskId, {
       ...clearSchedule,
       status: "in_progress",
-      updatedAt: Date.now(),
+      updatedAt: now,
+      lastRunAt: now,
     });
 
     let branchName: string | undefined;

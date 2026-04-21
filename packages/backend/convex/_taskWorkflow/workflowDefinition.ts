@@ -114,6 +114,7 @@ export const taskExecutionWorkflow = workflow.define({
             installationId: args.installationId,
             repoOwner: data.repoOwner,
             repoName: data.repoName,
+            repoId: args.repoId,
             branchName: data.branchName,
             deploymentProjectName: data.deploymentProjectName,
           },

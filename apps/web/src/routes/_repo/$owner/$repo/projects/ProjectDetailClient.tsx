@@ -29,6 +29,7 @@ import {
   IconChevronRight,
   IconChevronDown,
   IconCalendarClock,
+  IconBrandVercel,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useNavigate } from "@tanstack/react-router";
@@ -50,6 +51,10 @@ export function ProjectDetailClient() {
 
   const project = useQuery(api.projects.get, { id: typedProjectId });
   const streaming = useQuery(api.streaming.get, { entityId: projectId });
+  const latestDeployment = useQuery(
+    api.agentRuns.getLatestDeploymentByProject,
+    { projectId: typedProjectId },
+  );
   const currentUserId = useQuery(api.auth.me);
   const isOwner = project ? currentUserId === project.userId : false;
 
@@ -108,6 +113,24 @@ export function ProjectDetailClient() {
       headerRight={
         !isDraftOrFinalized ? (
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {latestDeployment?.deploymentStatus === "deployed" &&
+              latestDeployment.deploymentUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  asChild
+                >
+                  <a
+                    href={latestDeployment.deploymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconBrandVercel size={16} />
+                    <span className="hidden sm:inline">View Preview</span>
+                  </a>
+                </Button>
+              )}
             {project.prUrl && (
               <Button
                 variant="outline"

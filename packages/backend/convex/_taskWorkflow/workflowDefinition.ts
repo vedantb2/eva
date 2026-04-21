@@ -8,7 +8,7 @@ import {
 } from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
 import { buildAuditPrompt } from "./prompts";
-import { buildPrBody } from "../taskWorkflowActions";
+import { buildPrBody } from "../prBody";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";

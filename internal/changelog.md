@@ -1,5 +1,17 @@
 # Changelog
 
+## Focus "Make changes" runs on new comments only - 2026-04-21
+
+- **Why**: When a quick task accumulated multiple comments and the user clicked "Make changes" multiple times, the agent was asked to address every comment from the entire task history again, not just the new feedback — wasting tokens and confusing users who'd already seen the first comment fixed.
+- **How it works**: `getTaskData` query now filters `taskComments` to only those created after the most recent successful `agentRun` on the task started. Failed/errored runs don't act as cutoffs (so comments carry over to retries), and first-time tasks get all comments. The prompt already contained the right instruction ("Focus ONLY on addressing the change requests above"); it was just being fed stale data.
+- **Scope**: Backend only (`_taskWorkflow/queries.ts`). No schema changes, no prompt wording changes, no UI changes.
+
+## Fixed Convex bundling error with Node.js built-in modules - 2026-04-21
+
+- **Why**: `npx convex codegen --typecheck enable` was failing with "Could not resolve node:crypto" even though `encryption.ts` correctly used the `"use node"` directive. Root cause: non-"use node" files (`workflowDefinition.ts`, `automationWorkflow.ts`, `testGenWorkflow.ts`, `evaluationWorkflow.ts`) imported `buildPrBody` from `taskWorkflowActions.ts` (which has `"use node"`), creating a transitive import chain that pulled `node:crypto` into the V8 runtime bundle where it can't be resolved.
+- **Fix**: Extracted `buildPrBody` (a pure string builder with no Node APIs) into its own neutral module `prBody.ts`. Updated all consumers (5 files) to import from the new location. Bundler no longer tries to include Node.js modules in the V8 bundle.
+- **Result**: `npx convex codegen` and typecheck now pass cleanly. No behavioral changes.
+
 ## Persistent per-PR preview URLs - 2026-04-21
 
 - **Why**: Preview URLs stored on runs, sessions, and projects came from GitHub Deployment Status and were scoped per-commit (`{project}-{hash}.vercel.app`), so every new push made the stored URL go stale. Users want the stable branch alias Vercel auto-creates per PR (`{project}-git-{branch}-{team}.vercel.app`), which persists across commits and always points at the latest build. Constructing the alias client-side fails when the subdomain exceeds the 63-char DNS limit (Vercel truncates + appends a non-deterministic hash), so the only reliable source is Vercel's API.

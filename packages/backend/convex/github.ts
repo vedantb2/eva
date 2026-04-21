@@ -12,7 +12,7 @@ import {
   getInstallationOctokit,
   getInstallationToken,
 } from "./githubAuth";
-import { buildPrBody } from "./taskWorkflowActions";
+import { buildPrBody } from "./prBody";
 
 /** Creates an Octokit client authenticated as the GitHub App itself (not an installation). */
 function getAppOctokit(): Octokit {

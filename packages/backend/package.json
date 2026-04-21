@@ -7,6 +7,9 @@
   },
   "scripts": {
     "dev": "npx convex dev",
+    "dev:personal": "cross-env CONVEX_DEPLOYMENT=dev:elegant-snail-639 npx convex dev",
+    "dev:evalucom": "cross-env CONVEX_DEPLOYMENT=dev:good-mule-506 npx convex dev",
+    "dev:all": "concurrently -n personal,evalucom -c blue,green \"pnpm dev:personal\" \"pnpm dev:evalucom\"",
     "deploy": "npx convex deploy"
   },
   "author": "",
@@ -34,6 +37,8 @@
   "devDependencies": {
     "@types/node": "^22.18.5",
     "@types/shell-quote": "^1.7.5",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
     "typescript": "^5.8.3"
   }
 }

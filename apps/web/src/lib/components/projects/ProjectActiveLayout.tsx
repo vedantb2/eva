@@ -5,12 +5,11 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { Button, Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 import { PlanContextPanel } from "./PlanContextPanel";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
-import { IconChecklist, IconBrandVercel } from "@tabler/icons-react";
+import { IconChecklist } from "@tabler/icons-react";
 import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 
 interface Project {
@@ -53,10 +52,6 @@ export function ProjectActiveLayout({
   );
 
   const tasks = useQuery(api.agentTasks.listByProject, { projectId });
-  const latestDeployment = useQuery(
-    api.agentRuns.getLatestDeploymentByProject,
-    { projectId },
-  );
   const clearProjectSandbox = useMutation(api.projects.clearProjectSandbox);
 
   useEffect(() => {
@@ -87,52 +82,6 @@ export function ProjectActiveLayout({
               generatedSpec={generatedSpec}
               conversationHistory={conversationHistory}
             />
-          </div>
-        )}
-        {latestDeployment?.deploymentStatus && (
-          <div className="px-3 pt-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Button
-                    asChild={
-                      latestDeployment.deploymentStatus === "deployed" &&
-                      !!latestDeployment.deploymentUrl
-                    }
-                    variant="outline"
-                    size="sm"
-                    disabled={latestDeployment.deploymentStatus !== "deployed"}
-                    className="w-full"
-                  >
-                    {latestDeployment.deploymentStatus === "deployed" &&
-                    latestDeployment.deploymentUrl ? (
-                      <a
-                        href={latestDeployment.deploymentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <IconBrandVercel size={16} />
-                        View Preview
-                      </a>
-                    ) : (
-                      <>
-                        <IconBrandVercel size={16} />
-                        View Preview
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                {latestDeployment.deploymentStatus === "deployed"
-                  ? "Open preview deployment"
-                  : latestDeployment.deploymentStatus === "error"
-                    ? "Deployment failed"
-                    : latestDeployment.deploymentStatus === "building"
-                      ? "Deployment is building..."
-                      : "Deployment is queued..."}
-              </TooltipContent>
-            </Tooltip>
           </div>
         )}
         <ProjectProgressBar projectId={projectId} className="mx-3 mt-2 mb-3" />

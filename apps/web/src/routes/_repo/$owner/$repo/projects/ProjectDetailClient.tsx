@@ -153,7 +153,7 @@ export function ProjectDetailClient() {
                 size="sm"
                 variant="destructive"
                 onClick={() => setShowStopBuildConfirm(true)}
-                disabled={!isOwner || isStoppingBuild}
+                disabled={isStoppingBuild}
               >
                 {isStoppingBuild ? (
                   <IconLoader2 size={16} className="animate-spin" />
@@ -166,7 +166,6 @@ export function ProjectDetailClient() {
               <SplitBuildButton
                 projectId={typedProjectId}
                 scheduledBuildAt={project.scheduledBuildAt}
-                isOwner={isOwner}
                 hasActiveBuild={!!project.activeBuildWorkflowId}
                 onBuild={() => setIsBuildModalOpen(true)}
               />
@@ -261,13 +260,11 @@ const SPLIT_BUTTON_HALF =
 function SplitBuildButton({
   projectId,
   scheduledBuildAt,
-  isOwner,
   hasActiveBuild,
   onBuild,
 }: {
   projectId: Id<"projects">;
   scheduledBuildAt: number | undefined;
-  isOwner: boolean;
   hasActiveBuild: boolean;
   onBuild: () => void;
 }) {
@@ -284,7 +281,6 @@ function SplitBuildButton({
               onClick={
                 isScheduled ? () => chevronRef.current?.click() : onBuild
               }
-              disabled={!isOwner}
               className={`rounded-r-none ${SPLIT_BUTTON_HALF}`}
             >
               {isScheduled ? (
@@ -300,21 +296,19 @@ function SplitBuildButton({
             </Button>
           </div>
         </TooltipTrigger>
-        {!isOwner ? (
-          <TooltipContent>Only the project owner can build</TooltipContent>
-        ) : isScheduled ? (
+        {isScheduled ? (
           <TooltipContent>Click to change or remove schedule</TooltipContent>
         ) : null}
       </Tooltip>
       <ScheduleBuildPopover
         projectId={projectId}
         scheduledBuildAt={scheduledBuildAt}
-        disabled={!isOwner || hasActiveBuild}
+        disabled={hasActiveBuild}
         trigger={
           <Button
             ref={chevronRef}
             size="sm"
-            disabled={!isOwner || hasActiveBuild}
+            disabled={hasActiveBuild}
             className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 ${SPLIT_BUTTON_HALF}`}
           >
             <IconChevronDown size={14} />

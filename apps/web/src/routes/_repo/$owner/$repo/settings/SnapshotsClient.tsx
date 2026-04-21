@@ -184,7 +184,7 @@ export function SnapshotsClient() {
                 defaultValue={startupCommands}
                 onBlur={handleStartupCommandsBlur}
                 className="w-full h-24 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /tmp/sandbox-config/seed.sql"
+                placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /home/eva/sandbox-config/seed.sql"
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
                 One command per line. Runs once when sandbox first starts (after
@@ -594,9 +594,13 @@ function ConfigFilesSection({
           <h3 className="text-sm font-medium">Sandbox Config Files</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Files uploaded here will be baked into snapshots at{" "}
-            <code className="font-mono text-[11px]">/tmp/sandbox-config/</code>.
-            Use for sensitive files like database seeds that cannot be committed
-            to the repo.
+            <code className="font-mono text-[11px]">
+              /home/eva/sandbox-config/
+            </code>{" "}
+            (also symlinked at{" "}
+            <code className="font-mono text-[11px]">/tmp/sandbox-config/</code>
+            ). Use for sensitive files like database seeds that cannot be
+            committed to the repo.
           </p>
         </div>
 

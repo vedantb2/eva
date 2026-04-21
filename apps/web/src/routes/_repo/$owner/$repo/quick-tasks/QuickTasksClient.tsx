@@ -30,7 +30,9 @@ import {
   statusesParser,
 } from "@/lib/search-params";
 import { IconChecklist } from "@tabler/icons-react";
+import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
+import { ActiveFiltersBar } from "./_components/ActiveFiltersBar";
 import {
   QuickTasksBulkBar,
   type BulkAction,
@@ -227,9 +229,121 @@ export function QuickTasksClient() {
     setActiveBulkAction(null);
   };
 
+  const activeFilterLabels = useMemo(() => {
+    const labels: Array<{ key: string; label: string }> = [];
+    if (project === "all") {
+      labels.push({ key: "project", label: "All Projects" });
+    } else if (project !== "none") {
+      const name = projects?.find((p) => p._id === project)?.title ?? "Project";
+      labels.push({ key: "project", label: `Project: ${name}` });
+    }
+    if (user !== "all") {
+      const u = users?.find((u) => u._id === user);
+      labels.push({
+        key: "user",
+        label: `Created by: ${u?.fullName ?? u?.firstName ?? "User"}`,
+      });
+    }
+    if (assignee !== "all") {
+      const name =
+        assignee === "unassigned"
+          ? "Unassigned"
+          : (users?.find((u) => u._id === assignee)?.fullName ??
+            users?.find((u) => u._id === assignee)?.firstName ??
+            "Assignee");
+      labels.push({ key: "assignee", label: `Assigned to: ${name}` });
+    }
+    if (statuses.length !== TASK_STATUSES.length) {
+      labels.push({
+        key: "statuses",
+        label: `${statuses.length} Status${statuses.length !== 1 ? "es" : ""}`,
+      });
+    }
+    if (tags.length > 0) {
+      labels.push({
+        key: "tags",
+        label: `${tags.length} Tag${tags.length !== 1 ? "s" : ""}`,
+      });
+    }
+    if (timeRange !== "all") {
+      const rangeLabels: Record<string, string> = {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "90d": "Last 90 days",
+      };
+      labels.push({
+        key: "timeRange",
+        label: rangeLabels[timeRange] ?? timeRange,
+      });
+    }
+    return labels;
+  }, [project, projects, user, users, assignee, statuses, tags, timeRange]);
+
+  const clearFilter = (key: string) => {
+    switch (key) {
+      case "project":
+        setParams({ project: "none" });
+        break;
+      case "user":
+        setParams({ user: "all" });
+        break;
+      case "assignee":
+        setParams({ assignee: "all" });
+        break;
+      case "statuses":
+        setParams({ statuses: [...TASK_STATUSES] });
+        break;
+      case "tags":
+        setParams({ tags: [] });
+        break;
+      case "timeRange":
+        setParams({ timeRange: "all" });
+        break;
+    }
+  };
+
+  const clearAllFilters = () => {
+    setParams({
+      project: "none",
+      user: "all",
+      assignee: "all",
+      statuses: [...TASK_STATUSES],
+      tags: [],
+      timeRange: "all",
+    });
+  };
+
+  const filterQueryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (view !== "kanban") params.set("view", view);
+    if (project !== "none") params.set("project", project);
+    if (user !== "all") params.set("user", user);
+    if (assignee !== "all") params.set("assignee", assignee);
+    if (statuses.length !== TASK_STATUSES.length) {
+      for (const s of statuses) params.append("statuses", s);
+    }
+    if (tags.length > 0) {
+      for (const t of tags) params.append("tags", t);
+    }
+    if (timeRange !== "all") params.set("timeRange", timeRange);
+    if (sortField !== "created") params.set("sortField", sortField);
+    if (sortDir !== "desc") params.set("sortDir", sortDir);
+    const str = params.toString();
+    return str ? `?${str}` : "";
+  }, [
+    view,
+    project,
+    user,
+    assignee,
+    statuses,
+    tags,
+    timeRange,
+    sortField,
+    sortDir,
+  ]);
+
   const handleOpenTask = (id: string) => {
-    const viewParam = view === "kanban" ? "" : `?view=${view}`;
-    navigate({ to: `${basePath}/quick-tasks/${id}${viewParam}` });
+    navigate({ to: `${basePath}/quick-tasks/${id}${filterQueryString}` });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);
@@ -277,6 +391,13 @@ export function QuickTasksClient() {
         }
       >
         <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
+          {activeFilterLabels.length > 0 && (
+            <ActiveFiltersBar
+              filters={activeFilterLabels}
+              onClearFilter={clearFilter}
+              onClearAll={clearAllFilters}
+            />
+          )}
           <AnimatePresence mode="wait">
             {!hasQuickTasks ? (
               <motion.div

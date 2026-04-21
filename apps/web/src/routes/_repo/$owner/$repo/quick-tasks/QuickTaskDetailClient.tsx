@@ -14,6 +14,12 @@ import {
   quickTaskViewParser,
   projectFilterParser,
   userFilterParser,
+  assigneeFilterParser,
+  tagsFilterParser,
+  quickTaskSortFieldParser,
+  quickTaskSortDirParser,
+  quickTaskTimeRangeParser,
+  statusesParser,
 } from "@/lib/search-params";
 import { Route } from "./$taskId";
 import { EntityContextUsage } from "@/lib/components/context-usage";
@@ -22,10 +28,28 @@ export function QuickTaskDetailClient() {
   const { taskId } = Route.useParams();
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
-  const [{ view, project, user }] = useQueryStates({
+  const [
+    {
+      view,
+      project,
+      user,
+      assignee,
+      tags,
+      sortField,
+      sortDir,
+      timeRange,
+      statuses,
+    },
+  ] = useQueryStates({
     view: quickTaskViewParser,
     project: projectFilterParser,
     user: userFilterParser,
+    assignee: assigneeFilterParser,
+    tags: tagsFilterParser,
+    sortField: quickTaskSortFieldParser,
+    sortDir: quickTaskSortDirParser,
+    timeRange: quickTaskTimeRangeParser,
+    statuses: statusesParser,
   });
   const typedTaskId = taskId as Id<"agentTasks">;
 
@@ -48,8 +72,34 @@ export function QuickTaskDetailClient() {
     if (user !== "all") {
       filtered = filtered.filter((t) => t.createdBy === user);
     }
+    if (assignee !== "all") {
+      filtered =
+        assignee === "unassigned"
+          ? filtered.filter((t) => !t.assignedTo)
+          : filtered.filter((t) => t.assignedTo === assignee);
+    }
+    const statusSet = new Set<string>(statuses);
+    filtered = filtered.filter(
+      (t) => t.status !== "draft" && statusSet.has(t.status),
+    );
+    if (tags.length > 0) {
+      const tagSet = new Set(tags);
+      filtered = filtered.filter(
+        (t) => t.tags && t.tags.some((tag) => tagSet.has(tag)),
+      );
+    }
+    if (timeRange !== "all") {
+      const now = Date.now();
+      const msMap: Record<string, number> = {
+        "7d": 7 * 24 * 60 * 60 * 1000,
+        "30d": 30 * 24 * 60 * 60 * 1000,
+        "90d": 90 * 24 * 60 * 60 * 1000,
+      };
+      const cutoff = now - (msMap[timeRange] ?? 0);
+      filtered = filtered.filter((t) => t.createdAt >= cutoff);
+    }
     return filtered;
-  }, [tasks, project, user]);
+  }, [tasks, project, user, assignee, statuses, tags, timeRange]);
 
   const orderedTasks = useMemo(() => {
     if (filteredTasks.length === 0) return [];
@@ -88,9 +138,29 @@ export function QuickTaskDetailClient() {
     if (view !== "kanban") params.set("view", view);
     if (project !== "none") params.set("project", project);
     if (user !== "all") params.set("user", user);
+    if (assignee !== "all") params.set("assignee", assignee);
+    if (statuses.length !== TASK_STATUSES.length) {
+      for (const s of statuses) params.append("statuses", s);
+    }
+    if (tags.length > 0) {
+      for (const t of tags) params.append("tags", t);
+    }
+    if (timeRange !== "all") params.set("timeRange", timeRange);
+    if (sortField !== "created") params.set("sortField", sortField);
+    if (sortDir !== "desc") params.set("sortDir", sortDir);
     const str = params.toString();
     return str ? `?${str}` : "";
-  }, [view, project, user]);
+  }, [
+    view,
+    project,
+    user,
+    assignee,
+    statuses,
+    tags,
+    timeRange,
+    sortField,
+    sortDir,
+  ]);
 
   const handleBack = () => {
     navigate({ to: `${basePath}/quick-tasks${queryParams}` });

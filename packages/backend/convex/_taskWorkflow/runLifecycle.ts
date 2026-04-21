@@ -38,7 +38,6 @@ export const updateRunToRunning = internalMutation({
     await ctx.db.patch(args.taskId, {
       status: "in_progress",
       updatedAt: startedAt,
-      lastRunAt: startedAt,
     });
     await upsertStreamingActivity(
       ctx,

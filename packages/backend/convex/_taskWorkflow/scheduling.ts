@@ -129,7 +129,6 @@ export const executeScheduledTask = internalMutation({
       ...clearSchedule,
       status: "in_progress",
       updatedAt: now,
-      lastRunAt: now,
     });
 
     let branchName: string | undefined;

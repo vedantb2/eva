@@ -160,10 +160,10 @@ export function QuickTasksClient() {
     // Sorting
     const sorted = [...filtered].sort((a, b) => {
       let cmp = 0;
-      if (sortField === "created") {
-        cmp = a.createdAt - b.createdAt;
-      } else if (sortField === "updated") {
+      if (sortField === "updated") {
         cmp = a.updatedAt - b.updatedAt;
+      } else if (sortField === "created") {
+        cmp = a.createdAt - b.createdAt;
       } else if (sortField === "title") {
         cmp = a.title.localeCompare(b.title);
       }
@@ -326,7 +326,7 @@ export function QuickTasksClient() {
       for (const t of tags) params.append("tags", t);
     }
     if (timeRange !== "all") params.set("timeRange", timeRange);
-    if (sortField !== "created") params.set("sortField", sortField);
+    if (sortField !== "updated") params.set("sortField", sortField);
     if (sortDir !== "desc") params.set("sortDir", sortDir);
     const str = params.toString();
     return str ? `?${str}` : "";

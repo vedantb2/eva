@@ -128,11 +128,11 @@ export const tagsFilterParser = parseAsArrayOf(parseAsString)
   .withDefault([])
   .withOptions(searchOptions);
 
-const quickTaskSortFields = ["created", "updated", "title"] as const;
+const quickTaskSortFields = ["updated", "created", "title"] as const;
 export const quickTaskSortFieldParser = parseAsStringLiteral(
   quickTaskSortFields,
 )
-  .withDefault("created")
+  .withDefault("updated")
   .withOptions(searchOptions);
 
 export const quickTaskSortDirParser = parseAsStringLiteral(sortDirections)

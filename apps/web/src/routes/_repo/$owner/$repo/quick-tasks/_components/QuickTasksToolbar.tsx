@@ -55,7 +55,7 @@ import {
 type QuickTaskView = "kanban" | "list" | "table";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
-type SortField = "created" | "updated" | "title";
+type SortField = "updated" | "created" | "title";
 type SortDir = "asc" | "desc";
 type TimeRange = "7d" | "30d" | "90d" | "all";
 
@@ -79,8 +79,8 @@ interface QuickTasksToolbarProps {
 }
 
 const SORT_FIELD_LABELS: Record<SortField, string> = {
-  created: "Created",
   updated: "Updated",
+  created: "Created",
   title: "Title",
 };
 

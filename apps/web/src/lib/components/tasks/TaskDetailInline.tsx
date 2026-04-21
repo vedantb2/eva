@@ -184,7 +184,6 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
                       activeRunElapsed={activeRunElapsed}
                       auditElapsed={auditElapsed}
                       fixElapsed={fixElapsed}
-                      isOwner={isOwner}
                       isStopping={isStopping}
                       onStopConfirm={() => setShowStopConfirm(true)}
                     />

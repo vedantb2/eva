@@ -13,7 +13,7 @@ import {
   getInstallationToken,
 } from "./githubAuth";
 import { buildPrBody } from "./prBody";
-import { buildEvaSessionUrl } from "./taskWorkflowActions";
+import { buildEvaSessionUrl } from "./_taskWorkflow/urls";
 
 /** Creates an Octokit client authenticated as the GitHub App itself (not an installation). */
 function getAppOctokit(): Octokit {

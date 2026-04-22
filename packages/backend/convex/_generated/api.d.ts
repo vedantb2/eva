@@ -52,6 +52,7 @@ import type * as _taskWorkflow_queries from "../_taskWorkflow/queries.js";
 import type * as _taskWorkflow_recovery from "../_taskWorkflow/recovery.js";
 import type * as _taskWorkflow_runLifecycle from "../_taskWorkflow/runLifecycle.js";
 import type * as _taskWorkflow_scheduling from "../_taskWorkflow/scheduling.js";
+import type * as _taskWorkflow_urls from "../_taskWorkflow/urls.js";
 import type * as _taskWorkflow_watchdog from "../_taskWorkflow/watchdog.js";
 import type * as _taskWorkflow_workflowDefinition from "../_taskWorkflow/workflowDefinition.js";
 import type * as agentRuns from "../agentRuns.js";
@@ -190,6 +191,7 @@ declare const fullApi: ApiFromModules<{
   "_taskWorkflow/recovery": typeof _taskWorkflow_recovery;
   "_taskWorkflow/runLifecycle": typeof _taskWorkflow_runLifecycle;
   "_taskWorkflow/scheduling": typeof _taskWorkflow_scheduling;
+  "_taskWorkflow/urls": typeof _taskWorkflow_urls;
   "_taskWorkflow/watchdog": typeof _taskWorkflow_watchdog;
   "_taskWorkflow/workflowDefinition": typeof _taskWorkflow_workflowDefinition;
   agentRuns: typeof agentRuns;

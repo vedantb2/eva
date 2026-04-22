@@ -9,7 +9,7 @@ import {
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
 import { buildAuditPrompt } from "./prompts";
 import { buildPrBody } from "../prBody";
-import { buildEvaTaskUrl } from "../taskWorkflowActions";
+import { buildEvaTaskUrl } from "./urls";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";

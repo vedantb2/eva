@@ -1,5 +1,11 @@
 # Changelog
 
+## Fixed Convex bundling error: URL builders pulling Node.js modules into V8 runtime - 2026-04-22
+
+- **Why**: `npx convex dev` was failing with "Could not resolve node:crypto" in `encryption.ts`. Root cause: `workflowDefinition.ts` (no `"use node"`) imported `buildEvaTaskUrl` from `taskWorkflowActions.ts`, which imported `envVarResolver.ts` → `encryption.ts` → `node:crypto`. Bundler included the entire chain in the V8 runtime bundle.
+- **Fix**: Extracted `buildEvaTaskUrl()` and `buildEvaSessionUrl()` into new module `_taskWorkflow/urls.ts` with zero dependencies. Updated consumers (`workflowDefinition.ts`, `github.ts`) to import from new location. `taskWorkflowActions.ts` re-exports for backwards compatibility.
+- **Result**: Bundler no longer pulls Node.js modules into V8 bundle. `npx convex dev` passes cleanly.
+
 ## Focus "Make changes" runs on new comments only - 2026-04-21
 
 - **Why**: When a quick task accumulated multiple comments and the user clicked "Make changes" multiple times, the agent was asked to address every comment from the entire task history again, not just the new feedback — wasting tokens and confusing users who'd already seen the first comment fixed.

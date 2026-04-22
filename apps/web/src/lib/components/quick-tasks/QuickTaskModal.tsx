@@ -98,7 +98,6 @@ export function QuickTaskModal({
   const editorRef = useRef<MarkdownEditorHandle>(null);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
-  const updateTask = useMutation(api.agentTasks.update);
   const saveDraft = useMutation(api.agentTasks.saveDraft);
   const activateDraft = useMutation(api.agentTasks.activateDraft);
   const removeDraft = useMutation(api.agentTasks.remove);
@@ -161,12 +160,10 @@ export function QuickTaskModal({
           baseBranch,
           model,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
+          assignedTo,
         });
-        if (assignedTo) {
-          await updateTask({ id: activeDraftId, assignedTo });
-        }
       } else {
-        const taskId = await createQuickTask({
+        await createQuickTask({
           repoId: repo._id,
           title: title.trim(),
           description: desc || undefined,
@@ -174,10 +171,8 @@ export function QuickTaskModal({
           model,
           projectId: selectedProjectId,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
+          assignedTo,
         });
-        if (assignedTo) {
-          await updateTask({ id: taskId, assignedTo });
-        }
       }
       resetForm();
       onClose();

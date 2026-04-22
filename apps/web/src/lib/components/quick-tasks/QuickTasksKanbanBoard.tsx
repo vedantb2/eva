@@ -49,20 +49,17 @@ export function QuickTasksKanbanBoard({
   );
 
   const taskIds = useMemo(() => tasks.map((t) => t._id), [tasks]);
-  const errorTaskIds = useQuery(api.agentRuns.getTaskIdsWithLatestRunError, {
-    repoId,
-    taskIds,
-  });
+  const errorTaskIds = useQuery(
+    api.agentRuns.getTaskIdsWithLatestRunError,
+    taskIds.length > 0 ? { repoId, taskIds } : "skip",
+  );
   const errorTaskIdSet = useMemo(
     () => new Set(errorTaskIds ?? []),
     [errorTaskIds],
   );
   const deploymentStatuses = useQuery(
     api.agentRuns.getLatestDeploymentStatuses,
-    {
-      repoId,
-      taskIds,
-    },
+    taskIds.length > 0 ? { repoId, taskIds } : "skip",
   );
   const deploymentStatusMap = useMemo(() => {
     const map = new Map<string, "queued" | "building" | "deployed" | "error">();

@@ -41,7 +41,6 @@ export const MarkdownEditor = forwardRef<
   ref,
 ) {
   const prevEditable = useRef(editable);
-  const prevContent = useRef(content);
 
   const editor = useEditor({
     extensions: EXTENSIONS,
@@ -87,9 +86,9 @@ export const MarkdownEditor = forwardRef<
     // Otherwise only sync when not editable (for external content changes)
     const shouldSync = content === "" || !editable;
     if (!shouldSync) return;
-    if (prevContent.current !== content) {
+    const currentMarkdown = editor.getMarkdown();
+    if (currentMarkdown !== content) {
       editor.commands.setContent(content, { contentType: "markdown" });
-      prevContent.current = content;
     }
   }, [editor, content, editable]);
 

@@ -102,6 +102,7 @@ export function ProjectActiveLayout({
           <TaskDetailInline
             taskId={selectedTaskId}
             onClose={() => setSelectedTaskId(null)}
+            allTags={allTags}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2 p-4">
@@ -116,7 +117,6 @@ export function ProjectActiveLayout({
         isOpen={createTaskOpen}
         onClose={() => setCreateTaskOpen(false)}
         projectId={projectId}
-        allTags={allTags}
       />
     </div>
   );

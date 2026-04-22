@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, lazy, Suspense } from "react";
 import {
+  Badge,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -13,6 +14,10 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
   ModelSelect,
 } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -27,7 +32,7 @@ import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { BranchSelect } from "@/lib/components/BranchSelect";
-import { IconFileText, IconTrash } from "@tabler/icons-react";
+import { IconFileText, IconTag, IconTrash, IconX } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
 
@@ -41,12 +46,14 @@ interface QuickTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectId?: Id<"projects">;
+  allTags?: string[];
 }
 
 export function QuickTaskModal({
   isOpen,
   onClose,
   projectId,
+  allTags = [],
 }: QuickTaskModalProps) {
   const { repo } = useRepo();
   const defaultBranch = repo.defaultBaseBranch ?? "main";
@@ -69,6 +76,7 @@ export function QuickTaskModal({
   const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [model, setModel] = useState<AIModel>(defaultModel);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
   const getDescription = () => editorRef.current?.getMarkdown() ?? description;
@@ -78,6 +86,7 @@ export function QuickTaskModal({
     setDescription("");
     setBaseBranch(defaultBranch);
     setModel(defaultModel);
+    setSelectedTags([]);
     setActiveDraftId(null);
   }, [defaultBranch, defaultModel]);
 
@@ -113,6 +122,7 @@ export function QuickTaskModal({
     const desc = getDescription().trim();
     setIsLoading(true);
     try {
+      const tagsArg = selectedTags.length > 0 ? selectedTags : undefined;
       if (activeDraftId) {
         await activateDraft({
           id: activeDraftId,
@@ -120,6 +130,7 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch,
           model,
+          tags: tagsArg,
         });
       } else {
         await createQuickTask({
@@ -129,6 +140,7 @@ export function QuickTaskModal({
           baseBranch,
           model,
           projectId,
+          tags: tagsArg,
         });
       }
       resetForm();
@@ -218,6 +230,56 @@ export function QuickTaskModal({
               onValueChange={setModel}
             />
           </div>
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                  >
+                    <IconTag size={14} />
+                    Tags
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="max-h-56 overflow-y-auto"
+                >
+                  {allTags.map((tag) => (
+                    <DropdownMenuCheckboxItem
+                      key={tag}
+                      checked={selectedTags.includes(tag)}
+                      onCheckedChange={(checked) => {
+                        setSelectedTags((prev) =>
+                          checked
+                            ? [...prev, tag]
+                            : prev.filter((t) => t !== tag),
+                        );
+                      }}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {tag}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {selectedTags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="secondary"
+                  className="gap-0.5 pl-1.5 pr-1 py-0 text-xs cursor-pointer"
+                  onClick={() =>
+                    setSelectedTags((prev) => prev.filter((t) => t !== tag))
+                  }
+                >
+                  {tag}
+                  <IconX size={12} />
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           <div>

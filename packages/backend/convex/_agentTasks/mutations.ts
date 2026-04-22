@@ -166,6 +166,7 @@ export const createQuickTask = authMutation({
     baseBranch: v.optional(v.string()),
     model: v.optional(aiModelValidator),
     projectId: v.optional(v.id("projects")),
+    tags: v.optional(v.array(v.string())),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -200,6 +201,7 @@ export const createQuickTask = authMutation({
       model: args.model ?? repo.defaultModel,
       projectId: args.projectId,
       taskNumber,
+      tags: normalizeTaskTags(args.tags),
     });
   },
 });

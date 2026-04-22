@@ -494,6 +494,7 @@ export function QuickTasksClient() {
       <QuickTaskModal
         isOpen={isCreating}
         onClose={() => setIsCreating(false)}
+        allTags={allTags}
       />
       <ImportLinearModal
         isOpen={isImporting}

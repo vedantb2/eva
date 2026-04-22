@@ -135,7 +135,12 @@ export const createSessionPr = action({
         ? session.summary.map((item) => `- ${item}`).join("\n")
         : "No summary available";
 
-    const evaUrl = buildEvaSessionUrl(repo.owner, repo.name, args.sessionId);
+    const evaUrl = buildEvaSessionUrl(
+      repo.owner,
+      repo.name,
+      args.sessionId,
+      repo.rootDirectory,
+    );
 
     const prUrl = await ctx.runAction(
       internal.taskWorkflowActions.createPullRequest,

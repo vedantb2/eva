@@ -436,7 +436,7 @@ Automatically generated fix for failing requirements in **${doc.title}**.
 ${failedResults.map((r) => `- ${r.requirement}: ${r.detail}`).join("\n")}
 
 ---
-*Implemented by Eva AI Agent*`;
+*Implemented by Eva*`;
 
     return {
       repoOwner: repo.owner,

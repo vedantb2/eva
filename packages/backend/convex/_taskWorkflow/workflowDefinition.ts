@@ -175,6 +175,7 @@ export const taskExecutionWorkflow = workflow.define({
           data.repoName,
           args.taskId,
           args.projectId,
+          data.rootDirectory || undefined,
         );
         const enrichedBody = buildPrBody(prSections, evaUrl);
 

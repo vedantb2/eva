@@ -11,9 +11,9 @@ export function buildPrBody(
   }
   parts.push("---");
   if (evaUrl) {
-    parts.push(`[View in Eva](${evaUrl}) | *Created by Eva AI Agent*`);
+    parts.push(`[View in Eva](${evaUrl}) | *Created by Eva*`);
   } else {
-    parts.push("*Created by Eva AI Agent*");
+    parts.push("*Created by Eva*");
   }
   return parts.join("\n");
 }

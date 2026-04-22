@@ -6,7 +6,12 @@ import {
   hasRepoAccess,
   recomputeProjectPhase,
 } from "../functions";
-import { agentTaskValidator, normalizeTaskTags } from "./helpers";
+import { createNotification } from "../notifications";
+import {
+  agentTaskValidator,
+  normalizeTaskTags,
+  buildTaskNotificationMessage,
+} from "./helpers";
 
 /** Lists all draft tasks for the current user in a given repo, sorted by most recently updated. */
 export const listDrafts = authQuery({
@@ -81,6 +86,7 @@ export const activateDraft = authMutation({
     baseBranch: v.optional(v.string()),
     model: v.optional(aiModelValidator),
     tags: v.optional(v.array(v.string())),
+    assignedTo: v.optional(v.id("users")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -96,7 +102,22 @@ export const activateDraft = authMutation({
       status: "todo",
       updatedAt: Date.now(),
       tags: normalizeTaskTags(args.tags),
+      assignedTo: args.assignedTo,
     });
+    if (args.assignedTo && args.assignedTo !== ctx.userId) {
+      await createNotification(ctx, {
+        userId: args.assignedTo,
+        type: "task_assigned",
+        title: `Assigned: "${args.title}"`,
+        repoId: task.repoId,
+        projectId: task.projectId,
+        taskId: args.id,
+        message: buildTaskNotificationMessage(
+          { ...task, status: "todo" },
+          "assigned",
+        ),
+      });
+    }
     if (task.projectId) {
       await recomputeProjectPhase(ctx.db, task.projectId);
     }

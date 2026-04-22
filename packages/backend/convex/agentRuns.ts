@@ -157,6 +157,49 @@ export const getTaskIdsWithLatestRunError = authQuery({
   },
 });
 
+/** Returns the latest deployment status for each task that has one. */
+export const getLatestDeploymentStatuses = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    taskIds: v.array(v.id("agentTasks")),
+  },
+  returns: v.array(
+    v.object({
+      taskId: v.id("agentTasks"),
+      deploymentStatus: deploymentStatusValidator,
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+
+    const results = await Promise.all(
+      args.taskIds.map(async (taskId) => {
+        const latestRunWithDeployment = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", taskId))
+          .order("desc")
+          .filter((q) => q.neq(q.field("deploymentStatus"), undefined))
+          .first();
+        if (latestRunWithDeployment?.deploymentStatus) {
+          return {
+            taskId,
+            deploymentStatus: latestRunWithDeployment.deploymentStatus,
+          };
+        }
+        return null;
+      }),
+    );
+    return results.filter(
+      (
+        r,
+      ): r is {
+        taskId: Id<"agentTasks">;
+        deploymentStatus: "queued" | "building" | "deployed" | "error";
+      } => r !== null,
+    );
+  },
+});
+
 /** Updates the status of an in-progress agent run and recomputes project phase if needed. */
 export const updateStatus = authMutation({
   args: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, lazy, Suspense } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,6 @@ import {
   DialogFooter,
   Button,
   Input,
-  Textarea,
   Spinner,
   Popover,
   PopoverTrigger,
@@ -30,6 +29,13 @@ import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconFileText, IconTrash } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
+
+const MarkdownEditor = lazy(() =>
+  import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
+    default: m.MarkdownEditor,
+  })),
+);
 
 interface QuickTaskModalProps {
   isOpen: boolean;
@@ -54,6 +60,8 @@ export function QuickTaskModal({
   const [confirmDeleteId, setConfirmDeleteId] =
     useState<Id<"agentTasks"> | null>(null);
 
+  const editorRef = useRef<MarkdownEditorHandle>(null);
+
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const saveDraft = useMutation(api.agentTasks.saveDraft);
   const activateDraft = useMutation(api.agentTasks.activateDraft);
@@ -63,7 +71,7 @@ export function QuickTaskModal({
   const [model, setModel] = useState<AIModel>(defaultModel);
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
-  const hasContent = title.trim() || description.trim();
+  const getDescription = () => editorRef.current?.getMarkdown() ?? description;
 
   const resetForm = useCallback(() => {
     setTitle("");
@@ -74,12 +82,13 @@ export function QuickTaskModal({
   }, [defaultBranch, defaultModel]);
 
   const handleClose = useCallback(async () => {
-    if (hasContent) {
+    const desc = getDescription().trim();
+    if (title.trim() || desc) {
       await saveDraft({
         id: activeDraftId ?? undefined,
         repoId: repo._id,
         title: title.trim() || undefined,
-        description: description.trim() || undefined,
+        description: desc || undefined,
         baseBranch,
         projectId,
       });
@@ -87,7 +96,6 @@ export function QuickTaskModal({
     resetForm();
     onClose();
   }, [
-    hasContent,
     saveDraft,
     activeDraftId,
     repo._id,
@@ -102,13 +110,14 @@ export function QuickTaskModal({
   const handleSubmit = async () => {
     if (!title.trim() || !baseBranch || !repo) return;
 
+    const desc = getDescription().trim();
     setIsLoading(true);
     try {
       if (activeDraftId) {
         await activateDraft({
           id: activeDraftId,
           title: title.trim(),
-          description: description.trim() || undefined,
+          description: desc || undefined,
           baseBranch,
           model,
         });
@@ -116,7 +125,7 @@ export function QuickTaskModal({
         await createQuickTask({
           repoId: repo._id,
           title: title.trim(),
-          description: description.trim() || undefined,
+          description: desc || undefined,
           baseBranch,
           model,
           projectId,
@@ -177,13 +186,25 @@ export function QuickTaskModal({
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
           />
-          <Textarea
-            placeholder="Add more details (optional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={6}
-            className="min-h-[120px] max-h-[50vh] sm:min-h-[200px]"
-          />
+          <div className="min-h-[120px] max-h-[50vh] sm:min-h-[200px] rounded-md bg-muted/40 overflow-y-auto">
+            <Suspense
+              fallback={
+                <div className="p-3">
+                  <Spinner size="sm" />
+                </div>
+              }
+            >
+              <MarkdownEditor
+                ref={editorRef}
+                content={description}
+                editable
+                placeholder="Add more details (optional)"
+                minHeight="min-h-[120px]"
+                className="text-sm [&_.tiptap]:px-3 [&_.tiptap]:py-2"
+                onBlur={(md) => setDescription(md)}
+              />
+            </Suspense>
+          </div>
           <div className="flex items-center gap-2">
             <BranchSelect
               value={baseBranch}
@@ -258,7 +279,7 @@ export function QuickTaskModal({
                               )}
                             </span>
                             <button
-                              className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded hover:bg-destructive/10 hover:text-destructive transition-all"
+                              className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded hover:bg-destructive/10 hover:text-destructive transition-[opacity,background-color,color]"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setConfirmDeleteId(draft._id);

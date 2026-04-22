@@ -43,7 +43,6 @@ export function ActivityTimeline({
   activeRunElapsed,
   auditElapsed,
   fixElapsed,
-  isOwner,
   isStopping,
   onStopConfirm,
 }: {
@@ -55,7 +54,6 @@ export function ActivityTimeline({
   activeRunElapsed: number;
   auditElapsed: number;
   fixElapsed: number;
-  isOwner: boolean;
   isStopping: boolean;
   onStopConfirm: () => void;
 }) {
@@ -149,7 +147,6 @@ export function ActivityTimeline({
                 isActiveRun={isActiveRun}
                 streaming={streaming}
                 activeRunElapsed={activeRunElapsed}
-                isOwner={isOwner}
                 isStopping={isStopping}
                 onStopConfirm={onStopConfirm}
                 hasComment={runCommentMap.has(run._id)}

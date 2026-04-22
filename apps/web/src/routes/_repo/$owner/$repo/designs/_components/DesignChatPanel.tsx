@@ -180,7 +180,7 @@ export function DesignChatPanel({
             variant={isSandboxActive ? "destructive" : "secondary"}
             onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
             disabled={isSandboxToggling}
-            className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
+            className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96] ${isSandboxActive ? "" : "text-success"}`}
           >
             {isSandboxToggling ? (
               <Spinner size="sm" />
@@ -202,7 +202,7 @@ export function DesignChatPanel({
               <Button
                 size="icon"
                 variant="ghost"
-                className="size-8 motion-press hover:scale-[1.03] active:scale-[0.97]"
+                className="size-8 motion-press hover:scale-[1.03] active:scale-[0.96]"
                 onClick={onTogglePreview}
                 title={
                   previewCollapsed ? "Show preview panel" : "Hide preview panel"

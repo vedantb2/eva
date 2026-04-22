@@ -7,7 +7,7 @@ import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
-import { buildPrBody } from "./taskWorkflowActions";
+import { buildPrBody } from "./prBody";
 
 const testGenCompleteEvent = defineEvent({
   name: "testGenComplete",

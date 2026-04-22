@@ -1,5 +1,84 @@
 # Changelog
 
+## Focus "Make changes" runs on new comments only - 2026-04-21
+
+- **Why**: When a quick task accumulated multiple comments and the user clicked "Make changes" multiple times, the agent was asked to address every comment from the entire task history again, not just the new feedback — wasting tokens and confusing users who'd already seen the first comment fixed.
+- **How it works**: `getTaskData` query now filters `taskComments` to only those created after the most recent successful `agentRun` on the task started. Failed/errored runs don't act as cutoffs (so comments carry over to retries), and first-time tasks get all comments. The prompt already contained the right instruction ("Focus ONLY on addressing the change requests above"); it was just being fed stale data.
+- **Scope**: Backend only (`_taskWorkflow/queries.ts`). No schema changes, no prompt wording changes, no UI changes.
+
+## Fixed Convex bundling error with Node.js built-in modules - 2026-04-21
+
+- **Why**: `npx convex codegen --typecheck enable` was failing with "Could not resolve node:crypto" even though `encryption.ts` correctly used the `"use node"` directive. Root cause: non-"use node" files (`workflowDefinition.ts`, `automationWorkflow.ts`, `testGenWorkflow.ts`, `evaluationWorkflow.ts`) imported `buildPrBody` from `taskWorkflowActions.ts` (which has `"use node"`), creating a transitive import chain that pulled `node:crypto` into the V8 runtime bundle where it can't be resolved.
+- **Fix**: Extracted `buildPrBody` (a pure string builder with no Node APIs) into its own neutral module `prBody.ts`. Updated all consumers (5 files) to import from the new location. Bundler no longer tries to include Node.js modules in the V8 bundle.
+- **Result**: `npx convex codegen` and typecheck now pass cleanly. No behavioral changes.
+
+## Persistent per-PR preview URLs - 2026-04-21
+
+- **Why**: Preview URLs stored on runs, sessions, and projects came from GitHub Deployment Status and were scoped per-commit (`{project}-{hash}.vercel.app`), so every new push made the stored URL go stale. Users want the stable branch alias Vercel auto-creates per PR (`{project}-git-{branch}-{team}.vercel.app`), which persists across commits and always points at the latest build. Constructing the alias client-side fails when the subdomain exceeds the 63-char DNS limit (Vercel truncates + appends a non-deterministic hash), so the only reliable source is Vercel's API.
+- **Approach**: After the existing GitHub Deployment poll resolves a per-commit URL, call `GET https://api.vercel.com/v13/deployments/{hostname}`, read the response's `alias[]`, pick the entry matching `/-git-[^.]+\.vercel\.app$/`, and store that as `deploymentUrl`. Never construct the alias locally — Vercel returns the final resolvable form including any truncation hash.
+- **Changes (backend)**: New `_deployment/vercel.ts` with `fetchStableBranchAlias()` — a thin REST wrapper that returns null on any failure (missing token, HTTP error, malformed payload, no matching alias). New local helper `resolveStableDeploymentUrl()` in `taskWorkflowActions.ts` shared by `pollDeploymentStatus` and `pollSessionDeploymentStatus`; both pollers gained a `repoId` arg, which is now plumbed through `scheduleDeploymentTracking` (runLifecycle.ts) and `scheduleSessionDeploymentTracking` (sessionWorkflow.ts) from the run/session record.
+- **Anti-flip semantics**: During polling without an alias, the helper returns `undefined` for the URL so the mutation skips the `deploymentUrl` patch (the existing `...(args.deploymentUrl !== undefined && { deploymentUrl })` spread makes this a no-op). The stored URL never flips from per-commit to stable mid-deployment — it either starts empty and becomes the stable alias, or (only after 20 polling attempts with no alias) falls back to the per-commit URL as a safety net.
+- **Graceful degrade**: If `VERCEL_TOKEN` isn't configured on team/repo env vars, the helper returns the per-commit URL immediately — identical to pre-change behaviour, no wasted API calls.
+- **Projects inherit for free**: Project task runs already push to the project branch (`eva/project-<id>`), so run-level polling converges on the project's stable alias; `getLatestDeploymentByProject` returns the stable URL with no query change.
+- **Operational**: Users create a Vercel token (Account Settings → Tokens, scoped to team) and paste `VERCEL_TOKEN` + `VERCEL_TEAM_ID` into the platform's team env vars UI at `/{owner}/{repo}/settings/env-variables?tab=team` with `sandboxExclude: true` so the token is never injected into user sandboxes. No schema changes, no UI changes — `deploymentUrl` is an opaque string everywhere it's read.
+
+## Sandbox config files and startup commands - 2026-04-20
+
+- **Why**: Users need to seed databases with sensitive files (e.g., `seed.sql`) that cannot be committed to the repo, and run setup commands like `supabase start` once per sandbox. Two new features address this: config files baked into snapshots, and startup commands that run when sandboxes first start.
+
+### Config Files (baked into snapshots)
+
+- **Storage**: New `sandboxConfigFiles` table stores per-repo file metadata. File content lives in Convex file storage; URLs fetched fresh at snapshot build time.
+- **Snapshot integration**: `buildSnapshotImage()` generates `curl` commands to download files into `/tmp/sandbox-config/` before the repo clone.
+- **UI**: New "Config Files" tab in Snapshots settings with upload interface, file table, and warning banner about rebuild requirement.
+- **Filename validation**: Restricted to `[a-zA-Z0-9._-]+` for shell safety.
+
+### Startup Commands (run on sandbox start)
+
+- **Why**: Commands like `supabase start` need a running Docker daemon (unavailable during image build). Startup commands run once when a sandbox first starts from a snapshot.
+- **Schema**: Added `startupCommands` field to `repoSnapshots` table (array of shell commands).
+- **Execution**: `runStartupCommands` action runs commands in sequence with 10-minute timeout each. Creates `/tmp/.startup-commands-done` marker to skip on sandbox resume.
+- **Integration**: Added to `prepareSandboxSteps` workflow after branch setup. Non-fatal on failure (logs errors, continues).
+- **UI**: New "Startup Commands" section in Snapshots Configuration tab with textarea (one command per line) and helper text.
+
+## Comprehensive interface design refinements across web and UI components - 2026-04-19
+
+- **Why**: Interfaces feel polished through accumulated small details: consistent tactile feedback on buttons, smooth non-jarring animations, proper text spacing, extended touch targets, and subtle visual depth. These changes compound into a more intentional and refined experience across the entire platform.
+- **Scale on press**: Standardized all `active:scale-*` to `0.96` across 40+ button components (was `0.97`, `0.985`, `0.99`, or missing). A consistent `0.96` provides reliable tactile feedback without feeling exaggerated.
+- **Transition specificity**: Replaced 30+ instances of `transition-all` with specific properties (`transition-colors`, `transition-[width]`, `transition-[transform,background-color]`, etc.). Eliminates unnecessary animations on properties that aren't changing, improving perceived performance and reducing visual noise.
+- **Tabular numbers**: Added `font-variant-numeric: tabular-nums` to 15+ dynamic number displays (percentages, counts, durations, tokens). Fixed width prevents layout shift when values update, critical for progress bars and real-time stats.
+- **Text balance**: Applied `text-wrap: balance` to 20+ headings to prevent awkward line breaks and orphaned words. Text flows naturally at any viewport size.
+- **Hit area extensions**: Added 40×40px minimum hit areas to 8 small interactive elements (close buttons, toggles) using `after:absolute after:inset-[-Xpx]` pseudo-elements. Improves accessibility on mobile and reduces frustration on small targets.
+- **Image outlines**: Added subtle `1px` outlines (`outline outline-1 outline-black/10 dark:outline-white/10`) to 4 images (icons, avatars). Creates consistent depth and separates images from their backgrounds.
+- **AnimatePresence safeguards**: Added `initial={false}` to 6 `AnimatePresence` components to prevent animations during first render, keeping page load feeling instant.
+- **Concentric border radius**: Fixed nested element border radius in InputGroup and QuickTaskCard to use proper concentric calculations (outer = inner + padding). Prevents visual misalignment on nested surfaces.
+- **Scope**: 50+ files across `apps/web/src` and `packages/ui/src` touched; no behavioral changes, purely aesthetic/UX polish.
+
+## Add Cursor CLI as fourth AI provider - 2026-04-17
+
+- **Why**: Platform supported Claude Code, Codex, and opencode. Adding Cursor unlocks Cursor's hosted model routing (Claude 4 Sonnet/Opus variants, GPT-5.4, Gemini 3 Pro) under the same per-task model selector with full session resume parity. Users auth with a single `CURSOR_API_KEY` env var — simpler than opencode's dual OAuth/config paths.
+- **Changes (runtime)**: `cursor-agent` baked into the Daytona snapshot via curl installer (`curl -fsS https://cursor.com/install | bash`) running as the eva user after `USER eva`; `/home/eva/.local/bin` added to `PATH`. `validators.ts` gains `"cursor"` provider + 6 hardcoded model literals (`cursor:claude-4-sonnet`, `claude-4.6-sonnet`, `claude-4.5-opus`, `gpt-5.4`, `gpt-5.4-mini`, `gemini-3-pro`); `getAIProviderAvailability` flips `cursor: true` when `CURSOR_API_KEY` is set. `_daytona/launch.ts` dispatches cursor provider to `ensureCursorCliAvailable` and threads `CURSOR_RUNTIME_HOME_DIR` / `CURSOR_PERSIST_DIR` / `CURSOR_BIN_PATH` into the runner.
+- **Changes (callback)**: `callbackScript.ts` adds a full cursor branch. Because Cursor's CLI takes the prompt as a positional argument (not stdin like Claude/Codex/opencode), the command is built with inline shell expansion: `cursor-agent -p "$(cat /tmp/design-prompt.txt)" --force --trust --workspace ... --model ... --output-format stream-json --approve-mcps`. Stream parser maps Cursor's `system.init` / `assistant` / `tool_call` (started/completed) / `result` events to the existing UI step model; `session_id` is captured from `system.init` and passed on resume via `--resume <id>`. MCP config is translated from Eva's `/tmp/eva-mcp.json` into Cursor's workspace-relative `${WORK_DIR}/.cursor/mcp.json` (keeping only url + headers per remote entry).
+- **Changes (persistence)**: New `CURSOR_PERSIST_VOLUME_MOUNT_PATH` mount joins the Claude/Codex/opencode subpaths under the shared session volume. `PersistedProvider` widened to a 4-way union; `ensureSessionPersistenceVolumes` provisions the 4th mount; `hydratePersistedCursorState` / `syncCursorStateToPersist` manage only the `session_id` file (no OAuth rotation, since auth is a static API key).
+- **Changes (UI)**: `ProviderIcon` gains a `CursorMark` component rendering Cursor's signature 3D hexagonal brand (three faceted triangles at opacities 0.5/0.7/0.9, single `currentColor` fill). `getProviderLabel` returns `"Cursor"`. Model selectors in QuickTaskModal, ChatPanel, ProjectChatArea, StatusFieldsSection, AutomationClient, DesignChatPanel, and ConfigClient auto-render the Cursor provider submenu with the new logo. `TaskCardMenuItems` context menu gains a 4th provider branch. `SetupBanner`, `TeamEnvVarsTab`, `EnvVariablesClient`, and `TeamEnvVarsClient` document `CURSOR_API_KEY`. `_githubRepos/queries.ts` extends `getProviderAvailability` return validator to 4-way.
+- **Changes (lifecycle)**: `_daytona/execution.ts` and `lifecycle.ts` pkill cleanup extended with `cursor-agent` (and the previously-missing `opencode`) so sandbox resets terminate stray processes across all providers.
+- **Snapshot correction**: `opencode-ai` was added to `.github/workflows/rebuild-snapshot.yml` at the time of the opencode launch but never ported to `snapshotActions.ts` when the build pipeline moved into Convex. Both `opencode-ai` (npm) and `cursor-agent` (curl) now bake into snapshots via `snapshotActions.ts`; the legacy workflow file is marked as dead code.
+- **Operational**: Users paste `CURSOR_API_KEY` as a team or repo env var (generate from cursor.com/dashboard → Integrations → API Keys). Rebuilding the Daytona snapshot is required to ship the CLI; existing snapshots still work via the `ensureCursorCliAvailable` curl fallback.
+
+## Add opencode CLI as third AI provider - 2026-04-16
+
+- **Why**: Platform supported only Claude Code and Codex. Adding opencode unlocks a wider model catalog (OpenAI + Groq/OpenRouter/Gemini via API-key config, or ChatGPT Plus/Pro/Team via OAuth) under the same per-task model selector, with full session resume parity.
+- **Changes (runtime)**: `opencode-ai` baked into the Daytona snapshot with a `/tmp/opencode-cli` fallback install path. `validators.ts` gains `"opencode"` provider + `opencode:openai/gpt-5-codex` model literal; `getAIProviderAvailability` flips `opencode: true` when any `OPENCODE_*` env var is set. `_daytona/launch.ts` dispatches opencode provider to `ensureOpencodeCliAvailable` and threads `OPENCODE_RUNTIME_HOME_DIR` / `OPENCODE_PERSIST_DIR` / `OPENCODE_BIN_PATH` into the runner.
+- **Changes (callback)**: `callbackScript.ts` adds a full opencode branch: hydrates `OPENCODE_CONFIG_JSON` into `process.env.OPENCODE_CONFIG_CONTENT` for API-key providers, writes `OPENCODE_AUTH_JSON` to `/home/eva/.local/share/opencode/auth.json` for ChatGPT OAuth; constructs `opencode run --format json --model ...` with `-s <id>` resume; parses the `step_start` / `text` / `tool_use` / `step_finish` event envelope; persists session state + (refreshed) auth.json to the volume on completion so rotated OAuth tokens survive sandbox tear-down.
+- **Changes (persistence)**: New `OPENCODE_PERSIST_VOLUME_MOUNT_PATH` mount joins the existing Claude and Codex subpaths under the shared session volume, so resume works symmetrically with the other providers.
+- **Changes (UI)**: `ProviderIcon` + `getProviderLabel` gain a dedicated "Opencode" case with the real opencode brand mark (from models.dev). Model selectors in ChatPanel, ProjectChatArea, ConfigClient, StatusFieldsSection, and TaskCardMenuItems render the opencode logo + label automatically. `SetupBanner` and `TeamEnvVarsTab` document the two auth paths.
+- **Operational**: Users paste either `OPENCODE_CONFIG_JSON` (inline provider config with `{env:OPENAI_API_KEY}` substitutions) or `OPENCODE_AUTH_JSON` (contents of `~/.local/share/opencode/auth.json` after running `opencode auth login` locally) as a team env var. Rebuilding the Daytona snapshot is required to ship the CLI.
+
+## Claude session persistence for project interviews - 2026-04-16
+
+- **Why**: Project interviews were re-injecting previous Q&A pairs as text each time Claude asked a question, forcing manual context management. Sessions already had true Claude session persistence via volume mounts and `--resume` flags; projects now use the same infrastructure for full conversational context.
+- **Changes**: Extended session persistence to support projects (`"projects"` added to `PersistableSessionKind`). `prepareSandbox` and `launchOnExistingSandbox` now accept `sessionPersistenceId` + `sessionPersistenceKind` (sessions/projects). Interview prompts no longer include "Already Decided" section—Claude has full transcript via `--resume`. Added `startSpec` mutation to trigger spec generation when interview returns `{"ready": true}`. Frontend detects `ready` and calls `startSpec` with same session context. Simplified frontend: removed `previousAnswers` tracking from `ProjectChatTab`, simplified mutation signatures.
+
 ## Remove shallow clone option from git fetch functions - 2026-04-15
 
 - **Why**: Shallow clones (`--depth 1`) cause issues with rebasing, blame, and merges in user repos. Full history is always needed for reliable git operations.

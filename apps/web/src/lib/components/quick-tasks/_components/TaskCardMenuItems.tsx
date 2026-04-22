@@ -15,7 +15,10 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  ContextMenuLabel,
+  DropdownMenuLabel,
 } from "@conductor/ui";
+import { ProviderIcon } from "@conductor/ui/ai";
 import {
   AI_MODEL_OPTIONS,
   getAIModelProvider,
@@ -42,7 +45,9 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
-type SiblingApp = { _id: Id<"githubRepos">; appName: string };
+type GroupedCodebase = FunctionReturnType<
+  typeof api.githubRepos.listGroupedByCodebase
+>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -55,7 +60,7 @@ export interface TaskCardMenuItemsProps {
   model?: string;
   projectId?: Id<"projects">;
   repoId?: Id<"githubRepos">;
-  siblingApps?: SiblingApp[];
+  groupedCodebases?: GroupedCodebase[];
   users?: User[];
   currentUserId?: Id<"users">;
   projects?: Project[];
@@ -72,7 +77,7 @@ export function TaskCardMenuItems({
   model,
   projectId,
   repoId,
-  siblingApps,
+  groupedCodebases,
   users,
   currentUserId,
   projects,
@@ -103,6 +108,14 @@ export function TaskCardMenuItems({
     variant === "context" ? ContextMenuRadioItem : DropdownMenuRadioItem;
   const MenuSeparator =
     variant === "context" ? ContextMenuSeparator : DropdownMenuSeparator;
+  const MenuLabel =
+    variant === "context" ? ContextMenuLabel : DropdownMenuLabel;
+
+  // Filter out the current repo from move targets
+  const moveTargets = groupedCodebases?.filter((codebase) =>
+    codebase.apps.some((app) => app._id !== repoId),
+  );
+  const hasMoveTargets = moveTargets && moveTargets.length > 0;
 
   return (
     <>
@@ -113,7 +126,7 @@ export function TaskCardMenuItems({
         }}
       >
         <IconPlayerPlay size={16} />
-        Run Eva
+        Run Eva on this task
       </Item>
       <MenuSeparator />
 
@@ -211,7 +224,14 @@ export function TaskCardMenuItems({
             return providers.map((provider) => (
               <Sub key={provider}>
                 <SubTrigger>
-                  {provider === "codex" ? "Codex" : "Claude"}
+                  <ProviderIcon provider={provider} size={14} />
+                  {provider === "codex"
+                    ? "Codex"
+                    : provider === "opencode"
+                      ? "Opencode"
+                      : provider === "cursor"
+                        ? "Cursor"
+                        : "Claude"}
                 </SubTrigger>
                 <SubContent>
                   <RadioGroup
@@ -266,25 +286,59 @@ export function TaskCardMenuItems({
 
       <MenuSeparator />
 
-      {siblingApps && siblingApps.length > 0 && (
+      {hasMoveTargets && (
         <>
           <Sub>
             <SubTrigger>
               <IconArrowMoveRight size={16} />
-              Move to app
+              Move to codebase
             </SubTrigger>
-            <SubContent>
-              {siblingApps.map((app) => (
-                <Item
-                  key={app._id}
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    onMove(app._id);
-                  }}
-                >
-                  {app.appName}
-                </Item>
-              ))}
+            <SubContent className="max-h-80 overflow-y-auto">
+              {moveTargets.map((codebase) => {
+                // Filter out current repo from apps
+                const availableApps = codebase.apps.filter(
+                  (app) => app._id !== repoId,
+                );
+                if (availableApps.length === 0) return null;
+
+                // Single app codebase: show directly
+                if (!codebase.isMonorepo || availableApps.length === 1) {
+                  const app = availableApps[0];
+                  return (
+                    <Item
+                      key={app._id}
+                      onSelect={() => {
+                        onMove(app._id);
+                      }}
+                    >
+                      {codebase.displayName}
+                    </Item>
+                  );
+                }
+
+                // Monorepo: show as submenu with apps grouped
+                return (
+                  <Sub key={codebase.codebase}>
+                    <SubTrigger>{codebase.displayName}</SubTrigger>
+                    <SubContent>
+                      <MenuLabel className="text-xs text-muted-foreground">
+                        Apps
+                      </MenuLabel>
+                      {availableApps.map((app) => (
+                        <Item
+                          key={app._id}
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            onMove(app._id);
+                          }}
+                        >
+                          {app.appName}
+                        </Item>
+                      ))}
+                    </SubContent>
+                  </Sub>
+                );
+              })}
             </SubContent>
           </Sub>
           <MenuSeparator />
@@ -314,8 +368,7 @@ export function TaskCardMenuItems({
 
       <Item
         className="text-destructive focus:text-destructive"
-        onSelect={(e) => {
-          e.preventDefault();
+        onSelect={() => {
           onDelete();
         }}
       >

@@ -161,15 +161,15 @@ export const TestResultsProgress = ({
         <>
           <div className="flex h-2 overflow-hidden rounded-full bg-muted">
             <div
-              className="bg-success transition-all"
+              className="bg-success transition-[width]"
               style={{ width: `${passedPercent}%` }}
             />
             <div
-              className="bg-destructive transition-all"
+              className="bg-destructive transition-[width]"
               style={{ width: `${failedPercent}%` }}
             />
           </div>
-          <div className="flex justify-between text-muted-foreground text-xs">
+          <div className="flex justify-between text-muted-foreground text-xs tabular-nums">
             <span>
               {summary.passed}/{summary.total} tests passed
             </span>

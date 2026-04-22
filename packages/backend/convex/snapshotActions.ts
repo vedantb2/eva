@@ -26,6 +26,9 @@ function extractUrl(data: unknown): string | null {
   return null;
 }
 
+/** Config file with URL for snapshot build. */
+type ConfigFile = { fileName: string; url: string | null };
+
 /**
  * Builds a Daytona Image definition that mirrors the old rebuild-snapshot.yml Dockerfile.
  * The key difference is using `git clone` (with an installation token) instead of COPY
@@ -36,6 +39,7 @@ function buildSnapshotImage(
   owner: string,
   repoName: string,
   branch: string,
+  configFiles: ConfigFile[] = [],
 ): Image {
   return Image.base("node:20-bookworm")
     .runCommands(
@@ -62,7 +66,7 @@ function buildSnapshotImage(
       "ln -s /usr/bin/fdfind /usr/local/bin/fd",
       "git lfs install --system",
       // Global npm packages
-      "npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex",
+      "npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex",
       // Code-server
       "curl -fsSL https://code-server.dev/install.sh | sh",
       // Supabase CLI (pinned version — npm global install not supported, API calls hit rate limits)
@@ -73,8 +77,19 @@ function buildSnapshotImage(
     .dockerfileCommands(["USER eva"])
     .workdir("/workspace")
     .runCommands(
+      // Download sandbox config files early (before other network-heavy operations)
+      // Use /home/eva/sandbox-config for persistence (avoid /tmp which can be ephemeral)
+      "mkdir -p /home/eva/sandbox-config",
+      ...configFiles
+        .filter((f): f is { fileName: string; url: string } => f.url !== null)
+        .map(
+          (f) =>
+            `curl -fSL --retry 3 --retry-delay 5 -o '/home/eva/sandbox-config/${f.fileName}' '${f.url}' && ls -lh '/home/eva/sandbox-config/${f.fileName}'`,
+        ),
       // Git config
       'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
+      // Cursor CLI (installs `cursor-agent` to /home/eva/.local/bin — curl-bash, not npm)
+      "curl -fsS https://cursor.com/install | bash",
       // Claude plugins
       "mkdir -p /home/eva/.claude/plugins/marketplaces",
       "git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official",
@@ -85,12 +100,14 @@ function buildSnapshotImage(
     .env({
       PNPM_HOME: "/home/eva/.pnpm",
       NODE_PATH: "/usr/lib/node_modules",
-      PATH: "/home/eva/.pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      PATH: "/home/eva/.pnpm:/home/eva/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
       // Use Docker Hub instead of ECR — Daytona sandboxes can't reach public.ecr.aws reliably
       SUPABASE_INTERNAL_IMAGE_REGISTRY: "docker.io",
     })
     .runCommands(
       "mkdir -p /home/eva/.pnpm",
+      // Symlink for backwards compatibility with startup commands referencing /tmp/sandbox-config
+      "ln -sf /home/eva/sandbox-config /tmp/sandbox-config",
       // Clone the target repo and install dependencies for pre-caching
       `git clone --branch ${branch} https://x-access-token:${token}@github.com/${owner}/${repoName}.git /tmp/repo`,
     )
@@ -184,12 +201,29 @@ export const kickOffSnapshotBuild = internalAction({
     const daytona = getDaytona(daytonaApiKey);
     const branch = config.workflowRef ?? "main";
 
-    // Build the Image definition and extract the Dockerfile content
-    const image = buildSnapshotImage(token, repo.owner, repo.name, branch);
+    // Query sandbox config files for this repo
+    const configFiles: ConfigFile[] = await ctx.runQuery(
+      internal.sandboxConfigFiles.getConfigFilesForSnapshot,
+      { repoId: config.repoId },
+    );
 
+    // Build the Image definition and extract the Dockerfile content
+    const image = buildSnapshotImage(
+      token,
+      repo.owner,
+      repo.name,
+      branch,
+      configFiles,
+    );
+
+    const configFileCount = configFiles.filter((f) => f.url !== null).length;
     await ctx.runMutation(internal.repoSnapshots.appendLogs, {
       buildId: args.buildId,
-      chunk: `Starting Daytona snapshot build for ${repo.owner}/${repo.name} (branch: ${branch})...\n`,
+      chunk:
+        `Starting Daytona snapshot build for ${repo.owner}/${repo.name} (branch: ${branch})...\n` +
+        (configFileCount > 0
+          ? `Including ${configFileCount} sandbox config file(s): ${configFiles.map((f) => f.fileName).join(", ")}\n`
+          : ""),
     });
 
     // POST directly to Daytona API to create the snapshot (returns immediately).

@@ -6,7 +6,7 @@ import {
   hasRepoAccess,
   recomputeProjectPhase,
 } from "../functions";
-import { agentTaskValidator } from "./helpers";
+import { agentTaskValidator, normalizeTaskTags } from "./helpers";
 
 /** Lists all draft tasks for the current user in a given repo, sorted by most recently updated. */
 export const listDrafts = authQuery({
@@ -80,6 +80,7 @@ export const activateDraft = authMutation({
     description: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     model: v.optional(aiModelValidator),
+    tags: v.optional(v.array(v.string())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -94,6 +95,7 @@ export const activateDraft = authMutation({
       model: args.model,
       status: "todo",
       updatedAt: Date.now(),
+      tags: normalizeTaskTags(args.tags),
     });
     if (task.projectId) {
       await recomputeProjectPhase(ctx.db, task.projectId);

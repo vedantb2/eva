@@ -104,18 +104,19 @@ ${changeRequestSection}
 ## Steps:
 1. Read the files you plan to modify before editing them — understand existing code first
 2. Implement changes by editing source code files
-3. Run the build command to verify no build errors. If errors, fix and re-run (max 3 attempts — if still failing, commit what you have and report the error)
+3. Run the project's build command (e.g. \`timeout 180 pnpm run build\` or \`timeout 180 npm run build\`) to verify no type or build errors. If errors occur, read the error output carefully, fix every issue, and re-run the build. Repeat until the build passes (max 3 attempts). The build MUST pass before you commit — broken builds cause deployment failures.
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
 5. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
 
 ## Summary (REQUIRED):
-After committing and pushing, write a brief summary of the changes you made and why.
+After committing and pushing, write a short plain-text summary of what changed, for a non-technical reader. Write one or two short paragraphs of prose — no headings, no bullet points, no code blocks, no markdown formatting. Avoid jargon, file paths, and function names. Describe what the user or product can now do differently, not the implementation details.
 ${proofOfCompletionSection}
 
 ## Rules:
-- Do NOT create .md plan files or run lint/dev commands (except the build/test steps above and dev server for proof when proof capture is enabled)
+- Do NOT create .md plan files or run lint/test/dev commands (except the build command in step 3, and the dev server for proof when proof capture is enabled)
+- Do NOT commit or push if the build command fails. Fix the errors first. A failed build = failed deployment.
 - Use lockfile for package manager. GITHUB_TOKEN is set.
-- Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 60 npm run build\`, \`timeout 60 npm test\`, \`timeout 30 gh ...\`
+- Prefix shell commands with timeouts: \`timeout 180 npm install\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
@@ -134,9 +135,8 @@ export function buildConflictResolutionPrompt(
 1. Run: git fetch origin
 2. Run: git merge origin/${baseBranch}
 3. If there are merge conflicts, resolve them — keep the task branch's implementation intent intact but adapt it to work with the latest base branch changes
-4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
-5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "fix: resolve merge conflicts with ${baseBranch}"
-6. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
+4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "fix: resolve merge conflicts with ${baseBranch}"
+5. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
 
 ## Rules:
 - Do NOT re-implement or change the feature — only resolve conflicts and ensure compatibility
@@ -188,9 +188,8 @@ ${failureList}
 1. Read the CLAUDE.md file to understand the codebase
 2. Read the relevant files to understand context around each failure
 3. Fix each issue listed above with minimal, focused changes
-4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
-5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${failures.length} issue${failures.length === 1 ? "" : "s"}"
-6. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
+4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${failures.length} issue${failures.length === 1 ? "" : "s"}"
+5. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
 
 ## Rules:
 - Only fix the specific issues listed above — do NOT refactor or change unrelated code

@@ -27,6 +27,18 @@ import {
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 
+const sessionPersistenceKindValidator = v.union(
+  v.literal("sessions"),
+  v.literal("designSessions"),
+  v.literal("projects"),
+);
+
+const sessionPersistenceIdValidator = v.union(
+  v.id("sessions"),
+  v.id("designSessions"),
+  v.id("projects"),
+);
+
 /** Checks whether a sandbox is healthy, starting it if stopped. */
 export const validateSandbox = internalAction({
   args: {
@@ -61,6 +73,77 @@ export const runSandboxCommand = internalAction({
     return (
       await exec(sandbox, args.command, args.timeoutSeconds ?? 30)
     ).trim();
+  },
+});
+
+/** Runs startup commands on a sandbox if configured. Returns success status. */
+export const runStartupCommands = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({
+    ran: v.boolean(),
+    commandCount: v.number(),
+    errors: v.array(v.string()),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ ran: boolean; commandCount: number; errors: string[] }> => {
+    // Get startup commands for this repo
+    const commands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getStartupCommands,
+      { repoId: args.repoId },
+    );
+
+    if (!commands || commands.length === 0) {
+      return { ran: false, commandCount: 0, errors: [] };
+    }
+
+    // Check if startup commands have already run (marker file)
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    try {
+      await exec(sandbox, "test -f /tmp/.startup-commands-done", 5);
+      // Marker exists, commands already ran
+      console.log(
+        `[daytona] runStartupCommands: marker exists, skipping ${commands.length} commands`,
+      );
+      return { ran: false, commandCount: 0, errors: [] };
+    } catch {
+      // Marker doesn't exist, proceed
+    }
+
+    console.log(
+      `[daytona] runStartupCommands: executing ${commands.length} startup command(s)`,
+    );
+
+    const errors: string[] = [];
+    for (const command of commands) {
+      console.log(`[daytona] runStartupCommands: running: ${command}`);
+      try {
+        // 10 minute timeout per command (supabase start can take a while)
+        const output = await exec(sandbox, command, 600);
+        console.log(`[daytona] runStartupCommands: completed: ${command}`);
+        if (output.trim()) {
+          console.log(`[daytona] output: ${output.slice(0, 500)}`);
+        }
+      } catch (e) {
+        const msg = errorMessage(e, "unknown error");
+        console.error(`[daytona] runStartupCommands: failed: ${command}`, msg);
+        errors.push(`${command}: ${msg}`);
+        // Continue with other commands even if one fails
+      }
+    }
+
+    // Create marker file to prevent re-running on sandbox resume
+    try {
+      await exec(sandbox, "touch /tmp/.startup-commands-done", 5);
+    } catch {
+      // Non-fatal
+    }
+
+    return { ran: true, commandCount: commands.length, errors };
   },
 });
 
@@ -151,7 +234,8 @@ export const prepareSandbox = internalAction({
     ephemeral: v.optional(v.boolean()),
     repoId: v.id("githubRepos"),
     attachRunId: v.optional(v.id("agentRuns")),
-    sessionPersistenceId: v.optional(v.id("sessions")),
+    sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
+    sessionPersistenceKind: v.optional(sessionPersistenceKindValidator),
     startDesktop: v.optional(v.boolean()),
     streamingEntityId: v.optional(v.string()),
   },
@@ -181,14 +265,15 @@ export const prepareSandbox = internalAction({
     );
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
-    const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionPersistenceVolumes(
-          daytona,
-          args.repoId,
-          "sessions",
-          args.sessionPersistenceId,
-        )
-      : undefined;
+    const sessionVolumeMounts =
+      args.sessionPersistenceId && args.sessionPersistenceKind
+        ? await ensureSessionPersistenceVolumes(
+            daytona,
+            args.repoId,
+            args.sessionPersistenceKind,
+            args.sessionPersistenceId,
+          )
+        : undefined;
     console.log(
       `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
     );
@@ -324,7 +409,8 @@ export const createOrResumeSandbox = internalAction({
     baseBranch: v.optional(v.string()),
     ephemeral: v.optional(v.boolean()),
     repoId: v.id("githubRepos"),
-    sessionPersistenceId: v.optional(v.id("sessions")),
+    sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
+    sessionPersistenceKind: v.optional(sessionPersistenceKindValidator),
     attachRunId: v.optional(v.id("agentRuns")),
     streamingEntityId: v.optional(v.string()),
   },
@@ -354,14 +440,15 @@ export const createOrResumeSandbox = internalAction({
     );
     const { daytona, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
-    const sessionVolumeMounts = args.sessionPersistenceId
-      ? await ensureSessionPersistenceVolumes(
-          daytona,
-          args.repoId,
-          "sessions",
-          args.sessionPersistenceId,
-        )
-      : undefined;
+    const sessionVolumeMounts =
+      args.sessionPersistenceId && args.sessionPersistenceKind
+        ? await ensureSessionPersistenceVolumes(
+            daytona,
+            args.repoId,
+            args.sessionPersistenceKind,
+            args.sessionPersistenceId,
+          )
+        : undefined;
     console.log(
       `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
     );
@@ -550,7 +637,7 @@ export const launchOnExistingSandbox = internalAction({
     repoId: v.id("githubRepos"),
     streamingEntityId: v.optional(v.string()),
     runId: v.optional(v.string()),
-    sessionPersistenceId: v.optional(v.id("sessions")),
+    sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
     taskProofCaptureEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
@@ -563,7 +650,7 @@ export const launchOnExistingSandbox = internalAction({
 
     await exec(
       sandbox,
-      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
+      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'opencode' 2>/dev/null; pkill -f 'cursor-agent' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
       10,
     );
     console.log(

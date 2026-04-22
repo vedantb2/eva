@@ -29,7 +29,7 @@ export function EnvVariablesClient() {
       onToggleSandboxExclude={async (key, sandboxExclude) => {
         await toggleSandboxExclude({ repoId, key, sandboxExclude });
       }}
-      description="Repo-specific variables injected into sandboxes for this repository. Add CODEX_AUTH_JSON to enable Codex for this repo."
+      description="Repo-specific variables injected into sandboxes for this repository. Add CODEX_AUTH_JSON to enable Codex, OPENCODE_CONFIG_JSON/OPENCODE_AUTH_JSON to enable Opencode, or CURSOR_API_KEY to enable Cursor for this repo."
     />
   );
 }

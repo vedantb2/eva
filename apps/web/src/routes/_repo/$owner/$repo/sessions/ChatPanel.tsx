@@ -82,6 +82,7 @@ import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import { EntityContextUsage } from "@/lib/components/context-usage";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -409,7 +410,7 @@ export function ChatPanel({
       variant={isSandboxActive ? "destructive" : "secondary"}
       onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
       disabled={isSandboxToggling}
-      className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.97] ${isSandboxActive ? "" : "text-success"}`}
+      className={`motion-press h-8 w-8 hover:scale-[1.03] active:scale-[0.96] ${isSandboxActive ? "" : "text-success"}`}
     >
       {isSandboxToggling ? (
         <Spinner size="sm" />
@@ -423,11 +424,12 @@ export function ChatPanel({
 
   const headerRight = (
     <>
+      <EntityContextUsage repoId={repo._id} entityId={sessionId} />
       {!prUrl && branchName && (
         <Button
           size="sm"
           variant="secondary"
-          className="motion-press text-success hover:scale-[1.01] active:scale-[0.99]"
+          className="motion-press text-success hover:scale-[1.01] active:scale-[0.96]"
           onClick={() => setShowReviewModal(true)}
         >
           <IconSend size={12} />
@@ -439,7 +441,7 @@ export function ChatPanel({
           <Button
             size="sm"
             variant="secondary"
-            className="motion-press hover:scale-[1.01] active:scale-[0.99]"
+            className="motion-press hover:scale-[1.01] active:scale-[0.96]"
           >
             More
             <IconDots size={14} />
@@ -487,7 +489,7 @@ export function ChatPanel({
         <Button
           size="icon"
           variant="ghost"
-          className="size-8 motion-press hover:scale-[1.03] active:scale-[0.97]"
+          className="size-8 motion-press hover:scale-[1.03] active:scale-[0.96]"
           onClick={onToggleSandbox}
           title={sandboxCollapsed ? "Show sandbox panel" : "Hide sandbox panel"}
         >
@@ -508,7 +510,7 @@ export function ChatPanel({
       headerLeft={headerLeft}
       headerRight={headerRight}
     >
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {(showSummaryStreaming || hasSummary) && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
@@ -637,39 +639,36 @@ export function ChatPanel({
                                 )}
                             </>
                           ) : (
-                            <>
-                              <p className="text-sm whitespace-pre-wrap break-words">
-                                {message.content}
-                              </p>
-                              <div className="flex items-center justify-between gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {message.mode && (
-                                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                                    {message.mode === "plan" ? (
-                                      <>
-                                        <IconClipboardList className="w-2.5 h-2.5" />{" "}
-                                        PRD
-                                      </>
-                                    ) : (
-                                      <>
-                                        <IconCode className="w-2.5 h-2.5" />{" "}
-                                        Edit
-                                      </>
-                                    )}
-                                  </div>
-                                )}
-                                {message.timestamp && (
-                                  <span className="text-[11px] text-muted-foreground/60">
-                                    {dayjs(message.timestamp).format("h:mm A")}
-                                  </span>
-                                )}
-                              </div>
-                            </>
+                            <p className="text-sm whitespace-pre-wrap break-words">
+                              {message.content}
+                            </p>
                           )}
                         </>
                       )}
                     </MessageContent>
                     {message.role === "user" && (
-                      <div className="mt-0.5 ml-auto">
+                      <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
+                        <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {message.mode && (
+                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                              {message.mode === "plan" ? (
+                                <>
+                                  <IconClipboardList className="w-2.5 h-2.5" />{" "}
+                                  PRD
+                                </>
+                              ) : (
+                                <>
+                                  <IconCode className="w-2.5 h-2.5" /> Edit
+                                </>
+                              )}
+                            </div>
+                          )}
+                          {message.timestamp && (
+                            <span className="text-[11px] text-muted-foreground/60">
+                              {dayjs(message.timestamp).format("h:mm A")}
+                            </span>
+                          )}
+                        </div>
                         <UserMessageAvatar userId={message.userId} />
                       </div>
                     )}
@@ -692,7 +691,7 @@ export function ChatPanel({
               await deleteQueuedMessage({ id });
             }}
           />
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {mode === "plan" && planContent && sandboxCollapsed !== false && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
@@ -723,14 +722,14 @@ export function ChatPanel({
               <TabsList className="h-8 rounded-full p-0.5">
                 <TabsTrigger
                   value="edit"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-colors data-[state=active]:text-primary"
                 >
                   <IconCode className="w-3 h-3" />
                   Edit
                 </TabsTrigger>
                 <TabsTrigger
                   value="plan"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-all data-[state=active]:text-primary"
+                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-colors data-[state=active]:text-primary"
                 >
                   <IconClipboardList className="w-3 h-3" />
                   PRD
@@ -829,7 +828,7 @@ export function ChatPanel({
         }}
       >
         <DialogContent>
-          <AnimatePresence mode="wait">
+          <AnimatePresence initial={false} mode="wait">
             {reviewStep === "confirm" && (
               <motion.div
                 key="confirm"

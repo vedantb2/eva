@@ -8,7 +8,8 @@ import {
 } from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
 import { buildAuditPrompt } from "./prompts";
-import { buildPrBody, buildEvaTaskUrl } from "../taskWorkflowActions";
+import { buildPrBody } from "../prBody";
+import { buildEvaTaskUrl } from "../taskWorkflowActions";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
@@ -114,6 +115,7 @@ export const taskExecutionWorkflow = workflow.define({
             installationId: args.installationId,
             repoOwner: data.repoOwner,
             repoName: data.repoName,
+            repoId: args.repoId,
             branchName: data.branchName,
             deploymentProjectName: data.deploymentProjectName,
           },

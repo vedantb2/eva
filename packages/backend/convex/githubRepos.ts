@@ -7,6 +7,7 @@ export {
   listByTeam,
   listSiblingApps,
   getInternal,
+  listGroupedByCodebase,
 } from "./_githubRepos/queries";
 
 export {
@@ -23,4 +24,5 @@ export {
   upsert,
   syncConnectedStatus,
   cleanupStaleSubApps,
+  cleanupMonorepoRoots,
 } from "./_githubRepos/sync";

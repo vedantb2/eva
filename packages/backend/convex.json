@@ -1,0 +1,13 @@
+{
+  "typescriptCompiler": "tsgo",
+  "node": {
+    "externalPackages": [
+      "@daytonaio/sdk",
+      "octokit",
+      "@octokit/auth-app",
+      "@modelcontextprotocol/sdk",
+      "jose",
+      "shell-quote"
+    ]
+  }
+}

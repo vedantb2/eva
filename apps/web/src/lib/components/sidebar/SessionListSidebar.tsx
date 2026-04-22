@@ -223,7 +223,7 @@ export function SessionListSidebar<T extends SessionItem>({
                         exit={{ opacity: 0, y: -8 }}
                         transition={{ duration: 0.18 }}
                         className={cn(
-                          "group mx-1 rounded-md px-3 py-2 transition-all duration-200",
+                          "group mx-1 rounded-md px-3 py-2 transition-colors duration-200",
                           isSelected
                             ? "bg-sidebar-accent text-sidebar-primary"
                             : "text-sidebar-foreground hover:bg-sidebar-accent/70",
@@ -339,7 +339,7 @@ export function SessionListSidebar<T extends SessionItem>({
                             to={`${baseUrl}/${session._id}`}
                             onClick={onNavigate}
                             className={cn(
-                              "group mx-1 block rounded-md px-3 py-2 transition-all duration-200",
+                              "group mx-1 block rounded-md px-3 py-2 transition-colors duration-200",
                               isSelected
                                 ? "bg-sidebar-accent text-sidebar-primary"
                                 : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50",

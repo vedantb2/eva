@@ -31,7 +31,7 @@ export function BuildingProjectsBadge({ repoId }: BuildingProjectsBadgeProps) {
           style={{ backgroundColor: "rgb(var(--status-progress-bar))" }}
         />
       </span>
-      <span className="text-[11px] font-medium text-muted-foreground">
+      <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
         {count} live
       </span>
     </Badge>

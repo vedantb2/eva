@@ -162,7 +162,11 @@ const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   if (duration === undefined) {
     return <p>Thought for a few seconds</p>;
   }
-  return <p>Thought for {duration} seconds</p>;
+  return (
+    <p>
+      Thought for <span className="tabular-nums">{duration}</span> seconds
+    </p>
+  );
 };
 
 export const ReasoningTrigger = memo(
@@ -217,9 +221,7 @@ export const ReasoningContent = memo(
       )}
       {...props}
     >
-      <Streamdown plugins={streamdownPlugins} {...props}>
-        {children}
-      </Streamdown>
+      <Streamdown plugins={streamdownPlugins}>{children}</Streamdown>
     </CollapsibleContent>
   ),
 );

@@ -156,3 +156,41 @@ export const cleanupStaleSubApps = internalMutation({
     return { deletedCount };
   },
 });
+
+/** Deletes root repo entries for monorepos (repos that have sub-apps) if unreferenced. */
+export const cleanupMonorepoRoots = internalMutation({
+  args: {
+    monorepos: v.array(
+      v.object({
+        owner: v.string(),
+        name: v.string(),
+      }),
+    ),
+  },
+  returns: v.object({ deletedCount: v.number() }),
+  handler: async (ctx, args) => {
+    let deletedCount = 0;
+
+    for (const entry of args.monorepos) {
+      const rows = await ctx.db
+        .query("githubRepos")
+        .withIndex("by_owner_and_name", (q) =>
+          q.eq("owner", entry.owner).eq("name", entry.name),
+        )
+        .collect();
+
+      const rootRow = rows.find((r) => r.rootDirectory === undefined);
+      if (!rootRow) continue;
+      if (rootRow.connected === true) continue;
+      if (rootRow.connectedBy !== undefined) continue;
+
+      const referenced = await hasRepoReferences(ctx, rootRow._id);
+      if (referenced) continue;
+
+      await ctx.db.delete(rootRow._id);
+      deletedCount++;
+    }
+
+    return { deletedCount };
+  },
+});

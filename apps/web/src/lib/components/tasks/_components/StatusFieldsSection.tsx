@@ -19,6 +19,10 @@ import {
   TooltipTrigger,
   TooltipContent,
   Badge,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
 } from "@conductor/ui";
 import {
   IconUserPlus,
@@ -27,6 +31,7 @@ import {
   IconGitBranch,
   IconInfoCircle,
   IconBrandVercelFilled,
+  IconChevronDown,
 } from "@tabler/icons-react";
 import { UserInitials, getUserInitials } from "@conductor/shared";
 import { Facehash } from "facehash";
@@ -60,6 +65,7 @@ interface StatusFieldsSectionProps {
   setBaseBranch: (v: string) => void;
   latestDeployment: RunDoc | undefined;
   hasActiveRun: boolean;
+  allTags: string[];
 }
 
 export function StatusFieldsSection({
@@ -73,6 +79,7 @@ export function StatusFieldsSection({
   setBaseBranch,
   latestDeployment,
   hasActiveRun,
+  allTags,
 }: StatusFieldsSectionProps) {
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
@@ -312,6 +319,40 @@ export function StatusFieldsSection({
           }}
           onKeyDown={handleTagKeyDown}
         />
+        {allTags.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <IconChevronDown size={14} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="max-h-56 overflow-y-auto"
+            >
+              {allTags.map((tag) => (
+                <DropdownMenuCheckboxItem
+                  key={tag}
+                  checked={(task?.tags ?? []).includes(tag)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      void addTag(tag);
+                    } else {
+                      void removeTag(tag);
+                    }
+                  }}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {tag}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <div className="flex items-center min-h-[40px] rounded-md px-2 transition-colors hover:bg-muted/50">

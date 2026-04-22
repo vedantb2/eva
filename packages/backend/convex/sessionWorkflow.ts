@@ -157,6 +157,7 @@ export const sessionExecuteWorkflow = workflow.define({
       mode: args.mode,
       model: args.model,
       responseLength: args.responseLength,
+      userId: args.userId,
     });
 
     let validatedSandboxId: string | null = null;
@@ -247,6 +248,7 @@ export const sessionExecuteWorkflow = workflow.define({
           installationId: args.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
+          repoId: data.repoId,
           branchName: data.branchName,
           deploymentProjectName: data.deploymentProjectName,
         },
@@ -264,6 +266,7 @@ export const scheduleSessionDeploymentTracking = internalMutation({
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
     branchName: v.string(),
     deploymentProjectName: v.optional(v.string()),
   },
@@ -278,6 +281,7 @@ export const scheduleSessionDeploymentTracking = internalMutation({
         installationId: args.installationId,
         repoOwner: args.repoOwner,
         repoName: args.repoName,
+        repoId: args.repoId,
         branchName: args.branchName,
         deploymentProjectName: args.deploymentProjectName,
         attempt: 0,
@@ -321,6 +325,7 @@ export const getSessionData = internalQuery({
     mode: sessionModeArgValidator,
     model: aiModelValidator,
     responseLength: v.string(),
+    userId: v.id("users"),
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
@@ -343,7 +348,7 @@ export const getSessionData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    const user = await ctx.db.get(session.userId);
+    const user = await ctx.db.get(args.userId);
     const customInstructionsBlock = buildCustomInstructionsBlock(
       user?.role ?? undefined,
       user?.customInstructions ?? undefined,

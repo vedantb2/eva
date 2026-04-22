@@ -71,6 +71,7 @@ Convex:
 - To typecheck Convex: `cd packages/backend && npx convex codegen --typecheck enable` (no dev server needed)
 - Schema migration chicken-egg problem: When changing a field type with existing data, use v.union(oldType, newType) temporarily → deploy → run migration → change to only newType
 - Single source of truth for table fields: Define table fields as exported `const xxxFields = { ... }` in `validators.ts`. Use in both `schema.ts` (`defineTable(xxxFields)`) and return validators (`v.object({ _id: v.id("table"), _creationTime: v.number(), ...xxxFields })`). Never duplicate field definitions between schema and return validators.
+- Do not mirror Convex query data into `useState` for form inputs. Convex queries are live/reactive — bind the input's `value` directly to the query result and call the mutation directly in `onChange`. If the input needs instant feedback without waiting for a server round-trip (e.g. textareas, fast-typing fields), attach `.withOptimisticUpdate` to the mutation to patch the local query cache. No local state, no hydration `useEffect`, no debounce draft copy.
 
 Component Structure:
 
@@ -95,6 +96,11 @@ TanStack Router (eva web app):
 - Never use `window.location.href` for navigation. Always use `useNavigate` from `@tanstack/react-router` or the `<Link>` component.
 - `window.location.href` causes a full page reload, losing client-side state. TanStack Router navigation preserves SPA behavior.
 
+Vite (apps/web):
+
+- **Dedupe context-sensitive packages**: Any package using React Context must be in `resolve.dedupe` in vite.config.ts. pnpm can install multiple copies (different peer deps), causing "Context not found" runtime errors. Dedupe forces all imports to the same instance.
+- When adding a new dependency that provides React hooks/context (e.g., @tanstack/_, @clerk/_, state managers), add it to the dedupe array.
+
 Nuqs:
 
 - If you are required to implement filters, or sort by methods, make sure nuqs is installed in the codebase and use it to create searchParams.ts and use the useQueryState/useQueryStates hook from nuqs to implement the filters / sorting methods. This is preferred over local state as it stores the state in the URL so can be shared with other users.
@@ -109,6 +115,7 @@ Verification Rules after implementation:
 - Run npx tsc in the appropriate codebase and fix any type issues (if related to your changes)
 - Ensure types are inferred where possible.
 - Ensure no unnecessary client components were introduced.
+- Run `/changelog` after medium-large changes or new features to document what changed.
 
 Implementation Process:
 

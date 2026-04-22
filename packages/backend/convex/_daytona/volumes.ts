@@ -10,6 +10,10 @@ export const CLAUDE_RUNTIME_CONFIG_DIR = "/tmp/claude-config";
 export const CLAUDE_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.claude-persist";
 export const CODEX_RUNTIME_HOME_DIR = "/tmp/codex-home";
 export const CODEX_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.codex-persist";
+export const OPENCODE_RUNTIME_HOME_DIR = "/tmp/opencode-home";
+export const OPENCODE_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.opencode-persist";
+export const CURSOR_RUNTIME_HOME_DIR = "/tmp/cursor-home";
+export const CURSOR_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.cursor-persist";
 const VOLUME_READY_TIMEOUT_MS = 45_000;
 const VOLUME_READY_POLL_INTERVAL_MS = 1_000;
 
@@ -20,10 +24,13 @@ const VOLUME_INVALID_STATES = new Set([
   "pending_delete",
 ]);
 
-type PersistableSessionId = Id<"sessions"> | Id<"designSessions">;
-type PersistableSessionKind = "sessions" | "designSessions";
+type PersistableSessionId =
+  | Id<"sessions">
+  | Id<"designSessions">
+  | Id<"projects">;
+type PersistableSessionKind = "sessions" | "designSessions" | "projects";
 type PersistableRepoId = Id<"githubRepos">;
-type PersistedProvider = "claude" | "codex";
+type PersistedProvider = "claude" | "codex" | "opencode" | "cursor";
 
 /** Generates a SHA-256 hash of a session ID for use in volume naming. */
 function sessionHash(sessionId: PersistableSessionId): string {
@@ -35,8 +42,13 @@ function repoHash(repoId: PersistableRepoId): string {
   return createHash("sha256").update(String(repoId)).digest("hex");
 }
 
-/** Builds a deterministic shared session volume name for a repo. */
-function sessionVolumeName(repoId: PersistableRepoId): string {
+/** Builds the current volume name for a repo (new naming convention). */
+function repoVolumeName(repoId: PersistableRepoId): string {
+  return `repo-${repoHash(repoId).slice(0, 24)}`;
+}
+
+/** Builds the legacy volume name for a repo (old naming convention). */
+function legacySessionVolumeName(repoId: PersistableRepoId): string {
   return `sessions-${repoHash(repoId).slice(0, 24)}`;
 }
 
@@ -64,15 +76,31 @@ export function sessionClaudeUuid(sessionId: PersistableSessionId): string {
   ].join("-");
 }
 
-/** Ensures the shared session volume exists and is ready, polling until timeout. */
-async function ensureSessionProviderVolume(
+/** Tries to get an existing volume by name, returns null if not found. */
+async function tryGetVolume(
   daytona: Daytona,
-  repoId: PersistableRepoId,
-): Promise<string> {
-  const volumeName = sessionVolumeName(repoId);
-  const deadline = Date.now() + VOLUME_READY_TIMEOUT_MS;
+  volumeName: string,
+): Promise<{ id: string; state: string } | null> {
+  try {
+    const volume = await daytona.volume.get(volumeName);
+    if (VOLUME_INVALID_STATES.has(volume.state)) {
+      return null;
+    }
+    return volume;
+  } catch {
+    return null;
+  }
+}
 
-  let volume = await daytona.volume.get(volumeName, true);
+/** Waits for a volume to become ready, polling until timeout. */
+async function waitForVolumeReady(
+  daytona: Daytona,
+  volumeName: string,
+  initialVolume: { id: string; state: string },
+): Promise<string> {
+  const deadline = Date.now() + VOLUME_READY_TIMEOUT_MS;
+  let volume = initialVolume;
+
   while (volume.state !== "ready") {
     if (VOLUME_INVALID_STATES.has(volume.state)) {
       throw new Error(
@@ -89,6 +117,31 @@ async function ensureSessionProviderVolume(
   }
 
   return volume.id;
+}
+
+/** Ensures the repo volume exists and is ready. Uses new naming, falls back to legacy for existing repos. */
+async function ensureSessionProviderVolume(
+  daytona: Daytona,
+  repoId: PersistableRepoId,
+): Promise<string> {
+  const newName = repoVolumeName(repoId);
+  const legacyName = legacySessionVolumeName(repoId);
+
+  // Try new name first
+  const newVolume = await tryGetVolume(daytona, newName);
+  if (newVolume) {
+    return await waitForVolumeReady(daytona, newName, newVolume);
+  }
+
+  // Fall back to legacy name for existing repos
+  const legacyVolume = await tryGetVolume(daytona, legacyName);
+  if (legacyVolume) {
+    return await waitForVolumeReady(daytona, legacyName, legacyVolume);
+  }
+
+  // Neither exists — create with new name
+  const volume = await daytona.volume.get(newName, true);
+  return await waitForVolumeReady(daytona, newName, volume);
 }
 
 /** Creates and returns shared-session volume mounts for both Claude and Codex persistence. */
@@ -109,6 +162,16 @@ export async function ensureSessionPersistenceVolumes(
       volumeId,
       mountPath: CODEX_PERSIST_VOLUME_MOUNT_PATH,
       subpath: sessionVolumeSubpath("codex", sessionKind, sessionId),
+    },
+    {
+      volumeId,
+      mountPath: OPENCODE_PERSIST_VOLUME_MOUNT_PATH,
+      subpath: sessionVolumeSubpath("opencode", sessionKind, sessionId),
+    },
+    {
+      volumeId,
+      mountPath: CURSOR_PERSIST_VOLUME_MOUNT_PATH,
+      subpath: sessionVolumeSubpath("cursor", sessionKind, sessionId),
     },
   ];
 }

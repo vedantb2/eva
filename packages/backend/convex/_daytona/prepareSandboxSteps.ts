@@ -19,7 +19,8 @@ type PrepareSandboxArgs = {
   attachRunId?: Id<"agentRuns">;
   baseBranch?: string;
   branchName?: string;
-  sessionPersistenceId?: Id<"sessions">;
+  sessionPersistenceId?: Id<"sessions"> | Id<"projects">;
+  sessionPersistenceKind?: "sessions" | "projects";
   createRetry?: { maxAttempts: number; initialBackoffMs: number; base: number };
 };
 
@@ -65,6 +66,7 @@ export async function prepareSandboxSteps(
       repoId: args.repoId,
       attachRunId: args.attachRunId,
       sessionPersistenceId: args.sessionPersistenceId,
+      sessionPersistenceKind: args.sessionPersistenceKind,
       streamingEntityId: args.streamingEntityId,
     },
     args.createRetry ? { retry: args.createRetry } : undefined,
@@ -175,6 +177,31 @@ export async function prepareSandboxSteps(
         repoId: args.repoId,
       },
       BRANCH_STEP_RETRY,
+    );
+  }
+
+  // Step 4: Run startup commands if configured (non-fatal on failure)
+  try {
+    const result = await step.runAction(
+      internal.daytona.runStartupCommands,
+      { sandboxId, repoId: args.repoId },
+      { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
+    );
+    if (result.ran && result.commandCount > 0) {
+      console.log(
+        `[prepareSandbox] Ran ${result.commandCount} startup command(s)`,
+      );
+      if (result.errors.length > 0) {
+        console.warn(
+          `[prepareSandbox] Startup command errors: ${result.errors.join("; ")}`,
+        );
+      }
+    }
+  } catch (e) {
+    // Non-fatal: log warning and continue
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[prepareSandbox] Startup commands failed — continuing: ${msg}`,
     );
   }
 

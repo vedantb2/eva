@@ -88,7 +88,6 @@ export function ProjectCard({
       ),
     ),
   ];
-  const isOwner = currentUserId === userId;
   const previewText = description ?? rawInput;
   const PhaseIcon = phaseConfig[phase].icon;
 
@@ -204,7 +203,7 @@ export function ProjectCard({
       <ContextMenuTrigger asChild>{cardContent}</ContextMenuTrigger>
       <ContextMenuContent onClick={(e) => e.stopPropagation()}>
         <ContextMenuSub>
-          <ContextMenuSubTrigger disabled={!isOwner}>
+          <ContextMenuSubTrigger>
             <PhaseIcon size={16} className={phaseConfig[phase].text} />
             Phase
           </ContextMenuSubTrigger>
@@ -234,7 +233,7 @@ export function ProjectCard({
           </ContextMenuSubContent>
         </ContextMenuSub>
         <ContextMenuSub>
-          <ContextMenuSubTrigger disabled={!isOwner}>
+          <ContextMenuSubTrigger>
             <IconUserPlus size={16} />
             Project Lead
           </ContextMenuSubTrigger>
@@ -284,7 +283,6 @@ export function ProjectCard({
           </ContextMenuItem>
         ) : null}
         <ContextMenuItem
-          disabled={!isOwner}
           onClick={() => {
             setEditTitle(title);
             setEditDescription(description ?? "");
@@ -293,11 +291,6 @@ export function ProjectCard({
         >
           <IconPencil size={16} />
           Edit Details
-          {!isOwner && (
-            <span className="ml-2 text-xs text-muted-foreground">
-              Owner only
-            </span>
-          )}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
@@ -319,18 +312,9 @@ export function ProjectCard({
           </ContextMenuItem>
         ) : null}
         <ContextMenuSeparator />
-        <ContextMenuItem
-          className="text-destructive"
-          disabled={!isOwner}
-          onClick={onDelete}
-        >
+        <ContextMenuItem className="text-destructive" onClick={onDelete}>
           <IconTrash size={16} />
           Delete
-          {!isOwner && (
-            <span className="ml-2 text-xs text-muted-foreground">
-              Owner only
-            </span>
-          )}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

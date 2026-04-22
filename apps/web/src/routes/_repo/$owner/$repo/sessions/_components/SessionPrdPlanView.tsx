@@ -127,7 +127,7 @@ export function SessionPrdPlanView({
         {editingSnapshot === null ? (
           <Button
             size="sm"
-            className="motion-press bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.01] active:scale-[0.99]"
+            className="motion-press bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.01] active:scale-[0.96]"
             onClick={onApprovePlan}
           >
             <IconCode className="w-3.5 h-3.5" />

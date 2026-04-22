@@ -35,7 +35,7 @@ export function QuickTasksKanbanBoard({
 }: QuickTasksKanbanBoardProps) {
   const { repoId } = useRepo();
   const currentUserId = useQuery(api.auth.me);
-  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
+  const groupedCodebases = useQuery(api.githubRepos.listGroupedByCodebase);
   const users = useQuery(api.users.listAll);
   const projects = useQuery(api.projects.list, { repoId });
   const updateStatus = useMutation(api.agentTasks.updateStatus);
@@ -57,6 +57,20 @@ export function QuickTasksKanbanBoard({
     () => new Set(errorTaskIds ?? []),
     [errorTaskIds],
   );
+  const deploymentStatuses = useQuery(
+    api.agentRuns.getLatestDeploymentStatuses,
+    {
+      repoId,
+      taskIds,
+    },
+  );
+  const deploymentStatusMap = useMemo(() => {
+    const map = new Map<string, "queued" | "building" | "deployed" | "error">();
+    for (const entry of deploymentStatuses ?? []) {
+      map.set(entry.taskId, entry.deploymentStatus);
+    }
+    return map;
+  }, [deploymentStatuses]);
 
   if (tasks.length === 0) {
     return null;
@@ -135,6 +149,7 @@ export function QuickTasksKanbanBoard({
             description={task.description}
             status={task.status}
             hasError={errorTaskIdSet.has(task._id)}
+            deploymentStatus={deploymentStatusMap.get(task._id)}
             scheduledAt={task.scheduledAt}
             tags={task.tags}
             createdByUser={users?.find((u) => u._id === task.createdBy)}
@@ -142,7 +157,7 @@ export function QuickTasksKanbanBoard({
             projectName={
               task.projectId ? projectNames.get(task.projectId) : undefined
             }
-            siblingApps={siblingApps ?? undefined}
+            groupedCodebases={groupedCodebases ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
             onToggleSelect={() => onToggleSelect(task._id)}
@@ -162,6 +177,7 @@ export function QuickTasksKanbanBoard({
             description={task.description}
             status={task.status}
             hasError={errorTaskIdSet.has(task._id)}
+            deploymentStatus={deploymentStatusMap.get(task._id)}
             scheduledAt={task.scheduledAt}
             tags={task.tags}
             createdByUser={users?.find((u) => u._id === task.createdBy)}
@@ -169,7 +185,7 @@ export function QuickTasksKanbanBoard({
             projectName={
               task.projectId ? projectNames.get(task.projectId) : undefined
             }
-            siblingApps={siblingApps ?? undefined}
+            groupedCodebases={groupedCodebases ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}
             assignedTo={task.assignedTo}

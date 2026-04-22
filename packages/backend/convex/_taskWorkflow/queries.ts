@@ -54,7 +54,33 @@ export const getTaskData = internalQuery({
       .query("taskComments")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
       .collect();
-    const changeRequests = comments
+
+    // Only surface comments the last successful run hasn't already addressed,
+    // so subsequent "Make changes" runs focus on NEW feedback. Cutoff is the
+    // latest successful run's startedAt (not finishedAt), so comments added
+    // while that run was in-flight still carry over. Failed/errored runs are
+    // NOT cutoffs — their comments stay unaddressed for the next retry.
+    const successfulRuns = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task_and_status", (q) =>
+        q.eq("taskId", args.taskId).eq("status", "success"),
+      )
+      .collect();
+    const latestSuccessStartedAt = successfulRuns.reduce<number | undefined>(
+      (latest, run) => {
+        if (run.startedAt === undefined) return latest;
+        if (latest === undefined || run.startedAt > latest)
+          return run.startedAt;
+        return latest;
+      },
+      undefined,
+    );
+    const relevantComments =
+      latestSuccessStartedAt !== undefined
+        ? comments.filter((c) => c.createdAt > latestSuccessStartedAt)
+        : comments;
+
+    const changeRequests = relevantComments
       .sort((a, b) => a.createdAt - b.createdAt)
       .map((c) => c.content);
 

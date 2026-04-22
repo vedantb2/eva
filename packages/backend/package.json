@@ -7,30 +7,38 @@
   },
   "scripts": {
     "dev": "npx convex dev",
+    "dev:personal": "cross-env CONVEX_DEPLOYMENT=dev:elegant-snail-639 npx convex dev",
+    "dev:evalucom": "cross-env CONVEX_DEPLOYMENT=dev:good-mule-506 npx convex dev",
+    "dev:all": "concurrently -n personal,evalucom -c blue,green \"pnpm dev:personal\" \"pnpm dev:evalucom\"",
     "deploy": "npx convex deploy"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@clerk/backend": "^2.30.1",
     "@convex-dev/crons": "^0.2.0",
     "@convex-dev/presence": "^0.3.0",
     "@convex-dev/prosemirror-sync": "^0.2.1",
     "@convex-dev/workflow": "^0.3.4",
     "@daytonaio/sdk": "^0.143.0",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@octokit/auth-app": "^8.1.2",
     "@solvers-hub/llm-json": "^0.1.8",
     "@tiptap/pm": "^3.20.1",
     "convex": "^1.24.5",
-    "convex-helpers": "^0.1.111",
+    "convex-helpers": "0.1.114",
     "convex-timeline": "^0.1.2",
     "jose": "^6.0.11",
     "octokit": "^5.0.5",
-    "shell-quote": "^1.8.3"
+    "shell-quote": "^1.8.3",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/node": "^22.18.5",
     "@types/shell-quote": "^1.7.5",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
     "typescript": "^5.8.3"
   }
 }

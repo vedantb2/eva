@@ -115,7 +115,7 @@ export function CommentsSection({
                 <Button
                   size="icon-sm"
                   variant="ghost"
-                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  className="h-6 w-6 text-muted-foreground hover:text-destructive relative after:absolute after:inset-[-8px]"
                   onClick={() => setDeletingCommentId(comment._id)}
                 >
                   <IconTrash size={12} />

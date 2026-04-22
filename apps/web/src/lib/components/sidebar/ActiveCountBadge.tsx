@@ -35,7 +35,7 @@ export function ActiveCountBadge({ repoId, type }: ActiveCountBadgeProps) {
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/75" />
         <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
       </span>
-      <span className="text-[11px] font-medium text-muted-foreground">
+      <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
         {count}
       </span>
     </Badge>

@@ -160,7 +160,7 @@ export function ManagePersonasModal({
         <Button
           variant="secondary"
           size="sm"
-          className="motion-press text-primary hover:scale-[1.01] active:scale-[0.99]"
+          className="motion-press text-primary hover:scale-[1.01] active:scale-[0.96]"
           onClick={() => setOpen(true)}
         >
           <IconUsers size={14} />

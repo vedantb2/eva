@@ -82,7 +82,7 @@ http.route({
     }
 
     const hasAccess: boolean = await ctx.runQuery(
-      internal.mcpQueries.checkRepoAccessForUser,
+      internal.mcp.queries.checkRepoAccessForUser,
       { repoId: parsed.repoId, userId: parsed.userId },
     );
     if (!hasAccess) {
@@ -90,7 +90,7 @@ http.route({
     }
 
     const vars = await ctx.runAction(
-      internal.mcpRoutes.getDecryptedRepoEnvVars,
+      internal.mcp.routes.getDecryptedRepoEnvVars,
       { repoId: parsed.repoId },
     );
     return Response.json(vars);
@@ -285,14 +285,254 @@ http.route({
         return new Response("OK", { status: 200 });
       }
 
+      // head.ref carries the source branch name. Passed through so the
+      // handler can fall back to branch-based reconciliation when no run has
+      // the PR URL recorded (e.g. if it was lost during PR creation).
+      const head = pullRequest["head"];
+      const branchName = isRecord(head) ? getString(head, "ref") : null;
+
       await ctx.scheduler.runAfter(0, internal.githubWebhook.handlePrClosed, {
         prUrl,
         merged,
+        branchName: branchName ?? undefined,
       });
     }
 
     return new Response("OK", { status: 200 });
   }),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MCP OAuth State Endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+http.route({
+  path: "/api/mcp/oauth/clients",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!verifyDeployKey(request)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const body: unknown = await request.json();
+    if (!isRecord(body)) {
+      return new Response("Invalid request body", { status: 400 });
+    }
+
+    const clientId = getString(body, "clientId");
+    const clientSecret = getString(body, "clientSecret");
+    const rawUris = body["redirectUris"];
+    const redirectUris: string[] = [];
+    if (Array.isArray(rawUris)) {
+      for (const uri of rawUris) {
+        if (typeof uri === "string") {
+          redirectUris.push(uri);
+        }
+      }
+    }
+
+    if (!clientId) {
+      return new Response("clientId required", { status: 400 });
+    }
+
+    await ctx.runMutation(internal.mcp.oauth.registerClient, {
+      clientId,
+      clientSecret: clientSecret ?? undefined,
+      redirectUris,
+    });
+
+    return new Response("OK", { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/api/mcp/oauth/clients/:clientId",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    if (!verifyDeployKey(request)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const clientId = pathParts[pathParts.length - 1];
+
+    if (!clientId) {
+      return new Response("clientId required", { status: 400 });
+    }
+
+    const client = await ctx.runQuery(internal.mcp.oauth.getClient, {
+      clientId,
+    });
+
+    if (!client) {
+      return Response.json({ found: false }, { status: 404 });
+    }
+
+    return Response.json({ found: true, client });
+  }),
+});
+
+http.route({
+  path: "/api/mcp/oauth/auth-codes",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!verifyDeployKey(request)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const body: unknown = await request.json();
+    if (!isRecord(body)) {
+      return new Response("Invalid request body", { status: 400 });
+    }
+
+    const code = getString(body, "code");
+    const clerkUserId = getString(body, "clerkUserId");
+    const codeChallenge = getString(body, "codeChallenge");
+    const codeChallengeMethod = getString(body, "codeChallengeMethod");
+    const redirectUri = getString(body, "redirectUri");
+    const clientId = getString(body, "clientId");
+    const expiresAt = body["expiresAt"];
+
+    if (
+      !code ||
+      !clerkUserId ||
+      !codeChallenge ||
+      !codeChallengeMethod ||
+      !redirectUri ||
+      !clientId ||
+      typeof expiresAt !== "number"
+    ) {
+      return new Response("Missing required fields", { status: 400 });
+    }
+
+    await ctx.runMutation(internal.mcp.oauth.storeAuthCode, {
+      code,
+      clerkUserId,
+      codeChallenge,
+      codeChallengeMethod,
+      redirectUri,
+      clientId,
+      expiresAt,
+    });
+
+    return new Response("OK", { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/api/mcp/oauth/auth-codes/:code",
+  method: "DELETE",
+  handler: httpAction(async (ctx, request) => {
+    if (!verifyDeployKey(request)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const code = pathParts[pathParts.length - 1];
+
+    if (!code) {
+      return new Response("code required", { status: 400 });
+    }
+
+    const entry = await ctx.runMutation(internal.mcp.oauth.consumeAuthCode, {
+      code,
+    });
+
+    if (!entry) {
+      return Response.json({ found: false }, { status: 404 });
+    }
+
+    return Response.json({ found: true, entry });
+  }),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Convex-Native MCP Server (Node.js runtime)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import {
+  oauthMetadata,
+  protectedResourceMetadata,
+  register,
+  authorizeGet,
+  authorizePost,
+  token,
+  mcpHandler,
+  mintInternalToken,
+  health,
+} from "./mcp/native";
+
+// OAuth metadata endpoints
+http.route({
+  path: "/.well-known/oauth-authorization-server",
+  method: "GET",
+  handler: oauthMetadata,
+});
+
+http.route({
+  path: "/.well-known/oauth-protected-resource",
+  method: "GET",
+  handler: protectedResourceMetadata,
+});
+
+// OAuth flow endpoints
+http.route({
+  path: "/mcp/oauth/register",
+  method: "POST",
+  handler: register,
+});
+
+http.route({
+  path: "/mcp/oauth/authorize",
+  method: "GET",
+  handler: authorizeGet,
+});
+
+http.route({
+  path: "/mcp/oauth/authorize",
+  method: "POST",
+  handler: authorizePost,
+});
+
+http.route({
+  path: "/mcp/oauth/token",
+  method: "POST",
+  handler: token,
+});
+
+// MCP endpoint
+http.route({
+  path: "/mcp",
+  method: "GET",
+  handler: mcpHandler,
+});
+
+http.route({
+  path: "/mcp",
+  method: "POST",
+  handler: mcpHandler,
+});
+
+http.route({
+  path: "/mcp",
+  method: "DELETE",
+  handler: mcpHandler,
+});
+
+// Internal token minting (for scoped repo access from Eva sandboxes)
+http.route({
+  path: "/api/internal/mint-token",
+  method: "POST",
+  handler: mintInternalToken,
+});
+
+// Health check
+http.route({
+  path: "/health",
+  method: "GET",
+  handler: health,
 });
 
 export default http;

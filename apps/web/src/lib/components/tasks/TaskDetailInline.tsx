@@ -27,9 +27,13 @@ import { ResolveConfirmDialog } from "./_components/ResolveConfirmDialog";
 interface TaskDetailInlineProps {
   onClose: () => void;
   taskId: Id<"agentTasks">;
+  allTags?: string[];
 }
 
-export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
+export function TaskDetailInline({
+  taskId,
+  allTags = [],
+}: TaskDetailInlineProps) {
   const {
     isLoading,
     task,
@@ -184,7 +188,6 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
                       activeRunElapsed={activeRunElapsed}
                       auditElapsed={auditElapsed}
                       fixElapsed={fixElapsed}
-                      isOwner={isOwner}
                       isStopping={isStopping}
                       onStopConfirm={() => setShowStopConfirm(true)}
                     />
@@ -232,6 +235,7 @@ export function TaskDetailInline({ taskId }: TaskDetailInlineProps) {
                   setBaseBranch={setBaseBranch}
                   latestDeployment={latestDeployment}
                   hasActiveRun={hasActiveRun}
+                  allTags={allTags}
                 />
               </div>
             </div>

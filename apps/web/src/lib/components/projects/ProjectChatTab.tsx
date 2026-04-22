@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   ActivitySteps,
   Button,
@@ -36,11 +36,6 @@ interface ProjectChatTabProps {
   repoId: Id<"githubRepos">;
 }
 
-interface AnswerRecord {
-  question: string;
-  answer: string;
-}
-
 interface OptionItem {
   label: string;
   description: string;
@@ -66,6 +61,7 @@ export function ProjectChatTab({
   const startProjectInterview = useMutation(
     api.projectInterviewWorkflow.startInterview,
   );
+  const startProjectSpec = useMutation(api.projectInterviewWorkflow.startSpec);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const prevMessagesLengthRef = useRef(initialMessages.length);
@@ -78,25 +74,6 @@ export function ProjectChatTab({
   );
   const questionCount = assistantMessages.length;
 
-  const answers = useMemo(() => {
-    const result: AnswerRecord[] = [];
-    for (let i = 0; i < initialMessages.length - 1; i++) {
-      const msg = initialMessages[i];
-      const nextMsg = initialMessages[i + 1];
-      if (msg.role === "assistant" && nextMsg?.role === "user") {
-        try {
-          const parsed = JSON.parse(msg.content);
-          if (parsed.question) {
-            result.push({ question: parsed.question, answer: nextMsg.content });
-          }
-        } catch {
-          continue;
-        }
-      }
-    }
-    return result;
-  }, [initialMessages]);
-
   useEffect(() => {
     const lastMessage = initialMessages[initialMessages.length - 1];
     if (lastMessage?.role === "assistant" && lastMessage.content) {
@@ -105,13 +82,19 @@ export function ProjectChatTab({
         const parsed = JSON.parse(lastMessage.content);
         if (parsed.title && parsed.tasks) {
           onSpecGenerated?.(lastMessage.content);
+        } else if (parsed.ready === true) {
+          setIsLoading(true);
+          void startProjectSpec({
+            projectId,
+            featureDescription: rawInput,
+          });
         }
       } catch {
         // Not a spec
       }
     }
     prevMessagesLengthRef.current = initialMessages.length;
-  }, [initialMessages, onSpecGenerated]);
+  }, [initialMessages, onSpecGenerated, projectId, rawInput, startProjectSpec]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -121,44 +104,26 @@ export function ProjectChatTab({
     if (isLocked || isLoading) return;
     const hasAssistant = initialMessages.some((m) => m.role === "assistant");
     if (initialMessages.length > 0 && !hasAssistant) {
-      askQuestion([]);
+      void askQuestion();
     }
   }, []);
 
-  const askQuestion = useCallback(
-    async (currentAnswers: AnswerRecord[]) => {
-      setIsLoading(true);
-      await startProjectInterview({
-        projectId: projectId,
-        featureDescription: rawInput,
-        previousAnswers: currentAnswers,
-      });
-    },
-    [projectId, rawInput, startProjectInterview],
-  );
+  const askQuestion = useCallback(async () => {
+    setIsLoading(true);
+    await startProjectInterview({
+      projectId: projectId,
+      featureDescription: rawInput,
+      previousAnswers: [], // Session persistence provides context
+    });
+  }, [projectId, rawInput, startProjectInterview]);
 
   const handleStartInterview = () => {
-    askQuestion([]);
+    void askQuestion();
   };
 
   const handleAnswer = async (answer: string) => {
-    const lastAssistantMsg = [...initialMessages]
-      .reverse()
-      .find((m) => m.role === "assistant");
-    let currentQuestion = "";
-    if (lastAssistantMsg) {
-      try {
-        const parsed = JSON.parse(lastAssistantMsg.content) as ParsedQuestion;
-        currentQuestion = parsed.question || "";
-      } catch {
-        // ignore
-      }
-    }
-
-    const updatedAnswers = [...answers, { question: currentQuestion, answer }];
-
     await addMessageDb({ id: projectId, role: "user", content: answer });
-    askQuestion(updatedAnswers);
+    await askQuestion();
   };
 
   const handleClearChat = async () => {
@@ -228,7 +193,7 @@ export function ProjectChatTab({
   return (
     <div className="flex flex-col h-full">
       <Conversation className="flex-1 min-h-0">
-        <ConversationContent className="gap-3 p-3">
+        <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
           {initialMessages.map((m, i) => {
             if (m.role === "assistant") {
               if (!m.content) {
@@ -315,7 +280,7 @@ export function ProjectChatTab({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="p-3 sm:p-4 space-y-3">
+      <div className="p-3 sm:p-4 space-y-3 max-w-3xl mx-auto w-full">
         {showQuestion && (
           <MultipleChoiceQuestion
             question={currentQuestion.question}

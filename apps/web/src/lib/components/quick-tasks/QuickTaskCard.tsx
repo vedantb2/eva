@@ -19,21 +19,31 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
-import { IconClock, IconDots, IconFolder, IconTag } from "@tabler/icons-react";
+import {
+  IconClock,
+  IconDots,
+  IconFolder,
+  IconTag,
+  IconBrandVercelFilled,
+} from "@tabler/icons-react";
 import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
+import { DEPLOYMENT_STATUS_CONFIG } from "@/lib/components/tasks/_components/task-detail-constants";
 import dayjs, { compactRelativeTime } from "@conductor/shared/dates";
 import { useState } from "react";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
 import { MoveTaskDialog } from "./_components/MoveTaskDialog";
 import { TaskCardMenuItems } from "./_components/TaskCardMenuItems";
 
-type SiblingApp = { _id: Id<"githubRepos">; appName: string };
-
+type GroupedCodebase = FunctionReturnType<
+  typeof api.githubRepos.listGroupedByCodebase
+>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
+
+type DeploymentStatus = "queued" | "building" | "deployed" | "error";
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -47,7 +57,8 @@ interface QuickTaskCardProps {
   createdAt: number;
   projectName?: string;
   hasError?: boolean;
-  siblingApps?: SiblingApp[];
+  deploymentStatus?: DeploymentStatus;
+  groupedCodebases?: GroupedCodebase[];
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -73,7 +84,8 @@ export function QuickTaskCard({
   createdAt,
   projectName,
   hasError = false,
-  siblingApps,
+  deploymentStatus,
+  groupedCodebases,
   onClick,
   isSelecting,
   isSelected,
@@ -95,8 +107,20 @@ export function QuickTaskCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [moveTarget, setMoveTarget] = useState<Id<"githubRepos"> | null>(null);
 
-  const moveTargetAppName =
-    siblingApps?.find((a) => a._id === moveTarget)?.appName ?? "";
+  // Find the app name for the move target across all codebases
+  const moveTargetAppName = (() => {
+    if (!moveTarget || !groupedCodebases) return "";
+    for (const codebase of groupedCodebases) {
+      const app = codebase.apps.find((a) => a._id === moveTarget);
+      if (app) {
+        // For monorepos, show "codebase/app", for single repos just the name
+        return codebase.isMonorepo
+          ? `${codebase.displayName}/${app.appName}`
+          : codebase.displayName;
+      }
+    }
+    return "";
+  })();
 
   const menuProps = {
     id,
@@ -106,13 +130,15 @@ export function QuickTaskCard({
     model,
     projectId,
     repoId,
-    siblingApps,
+    groupedCodebases,
     users,
     currentUserId,
     projects,
     onDelete: () => setShowDeleteConfirm(true),
     onMove: (targetId: Id<"githubRepos">) => setMoveTarget(targetId),
   };
+
+  const hasDialogOpen = showDeleteConfirm || moveTarget !== null;
 
   const card = (
     <Card
@@ -129,11 +155,14 @@ export function QuickTaskCard({
           ? "cursor-pointer hover:-translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
       }`}
-      onClick={onClick}
+      onClick={() => {
+        if (hasDialogOpen) return;
+        onClick?.();
+      }}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={(event) => {
-        if (!onClick) return;
+        if (!onClick || hasDialogOpen) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onClick();
@@ -195,7 +224,26 @@ export function QuickTaskCard({
             ) : null}
           </div>
 
-          <div className="flex shrink-0 items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-1">
+            {deploymentStatus && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center">
+                    <IconBrandVercelFilled
+                      size={14}
+                      className={
+                        DEPLOYMENT_STATUS_CONFIG[deploymentStatus]?.iconColor ??
+                        "text-muted-foreground"
+                      }
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {DEPLOYMENT_STATUS_CONFIG[deploymentStatus]?.label ??
+                    "Unknown"}
+                </TooltipContent>
+              </Tooltip>
+            )}
             {scheduledAt ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -224,7 +272,7 @@ export function QuickTaskCard({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                  className="sm:hidden flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors relative after:absolute after:inset-[-8px]"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <IconDots size={14} />
@@ -244,7 +292,7 @@ export function QuickTaskCard({
   );
 
   const wrappedCard = isInProgress ? (
-    <div className="qt-in-progress-border rounded-lg p-px">{card}</div>
+    <div className="qt-in-progress-border rounded-[9px] p-px">{card}</div>
   ) : (
     card
   );

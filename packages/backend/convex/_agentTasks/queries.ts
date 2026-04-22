@@ -90,10 +90,16 @@ export const getActiveTasks = authQuery({
   },
 });
 
-/** Returns all non-draft tasks for a repo, sorted by creation date. */
+/** Validator for a task document enriched with its latest run start time. */
+export const agentTaskWithLastRunValidator = v.object({
+  ...agentTaskValidator.fields,
+  lastRunStartedAt: v.optional(v.number()),
+});
+
+/** Returns all non-draft tasks for a repo, enriched with latest run time, sorted by creation date. */
 export const getAllTasks = authQuery({
   args: { repoId: v.id("githubRepos") },
-  returns: v.array(agentTaskValidator),
+  returns: v.array(agentTaskWithLastRunValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const nonDraftStatuses = [
@@ -114,7 +120,21 @@ export const getAllTasks = authQuery({
           .collect(),
       ),
     );
-    return taskArrays.flat().sort((a, b) => a.createdAt - b.createdAt);
+    const tasks = taskArrays.flat().sort((a, b) => a.createdAt - b.createdAt);
+    const enriched = await Promise.all(
+      tasks.map(async (task) => {
+        const latestRun = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", task._id))
+          .order("desc")
+          .first();
+        return {
+          ...task,
+          lastRunStartedAt: latestRun?.startedAt,
+        };
+      }),
+    );
+    return enriched;
   },
 });
 

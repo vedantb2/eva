@@ -268,6 +268,7 @@ const schema = defineSchema({
     schedule: snapshotScheduleValidator,
     cronJobId: v.optional(v.string()),
     workflowRef: v.optional(v.string()),
+    startupCommands: v.optional(v.array(v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
@@ -287,6 +288,14 @@ const schema = defineSchema({
     .index("by_repo_snapshot", ["repoSnapshotId"])
     .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])
     .index("by_status", ["status"]),
+  sandboxConfigFiles: defineTable({
+    repoId: v.id("githubRepos"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    fileSize: v.number(),
+    uploadedBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_repo", ["repoId"]),
   teams: defineTable({
     name: v.string(),
     createdBy: v.id("users"),
@@ -342,12 +351,30 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_repo_and_created", ["repoId", "createdAt"])
-    .index("by_entity_type", ["entityType"]),
+    .index("by_entity_type", ["entityType"])
+    .index("by_repo_and_entity", ["repoId", "entityId"]),
 
   syncSettings: defineTable(syncSettingFields).index("by_owner_and_name", [
     "owner",
     "name",
   ]),
+
+  mcpAuthCodes: defineTable({
+    code: v.string(),
+    clerkUserId: v.string(),
+    codeChallenge: v.string(),
+    codeChallengeMethod: v.string(),
+    redirectUri: v.string(),
+    clientId: v.string(),
+    expiresAt: v.number(),
+  }).index("by_code", ["code"]),
+
+  mcpClientRegistrations: defineTable({
+    clientId: v.string(),
+    clientSecret: v.optional(v.string()),
+    redirectUris: v.array(v.string()),
+    registeredAt: v.number(),
+  }).index("by_clientId", ["clientId"]),
 });
 
 export default schema;

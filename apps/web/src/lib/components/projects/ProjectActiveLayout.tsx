@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -54,6 +54,17 @@ export function ProjectActiveLayout({
   const tasks = useQuery(api.agentTasks.listByProject, { projectId });
   const clearProjectSandbox = useMutation(api.projects.clearProjectSandbox);
 
+  const allTags = useMemo(() => {
+    if (!tasks) return [];
+    const tagSet = new Set<string>();
+    for (const t of tasks) {
+      if (t.tags) {
+        for (const tag of t.tags) tagSet.add(tag);
+      }
+    }
+    return [...tagSet].sort();
+  }, [tasks]);
+
   useEffect(() => {
     if (
       (project.phase === "completed" || project.phase === "cancelled") &&
@@ -91,6 +102,7 @@ export function ProjectActiveLayout({
           <TaskDetailInline
             taskId={selectedTaskId}
             onClose={() => setSelectedTaskId(null)}
+            allTags={allTags}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2 p-4">

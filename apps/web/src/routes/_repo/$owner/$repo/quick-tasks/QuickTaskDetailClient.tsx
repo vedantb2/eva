@@ -60,6 +60,17 @@ export function QuickTaskDetailClient() {
     return tasks.find((t) => t._id === typedTaskId);
   }, [typedTaskId, tasks]);
 
+  const allTags = useMemo(() => {
+    if (!tasks) return [];
+    const tagSet = new Set<string>();
+    for (const t of tasks) {
+      if (t.tags) {
+        for (const tag of t.tags) tagSet.add(tag);
+      }
+    }
+    return [...tagSet].sort();
+  }, [tasks]);
+
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
     let filtered = tasks;
@@ -236,6 +247,7 @@ export function QuickTaskDetailClient() {
             key={typedTaskId}
             onClose={handleBack}
             taskId={typedTaskId}
+            allTags={allTags}
           />
         </div>
       </div>

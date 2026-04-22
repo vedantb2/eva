@@ -3,6 +3,7 @@ import type { RefCallback } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
+import { AnimatePresence, motion } from "motion/react";
 import { Virtuoso } from "react-virtuoso";
 import { KanbanColumn } from "@/lib/components/kanban/KanbanColumn";
 import {
@@ -32,21 +33,30 @@ export function ProjectsKanbanView({
   onDelete,
 }: ProjectsKanbanViewProps) {
   return (
-    <>
+    <AnimatePresence initial={false}>
       {PROJECT_PHASES.filter((phase) => visiblePhases.has(phase)).map(
         (phase) => (
-          <VirtualProjectColumn
+          <motion.div
             key={phase}
-            phase={phase}
-            projects={projectsByPhase[phase]}
-            owner={owner}
-            name={name}
-            onOpenProject={onOpenProject}
-            onDelete={onDelete}
-          />
+            layout
+            className="flex min-h-0 min-w-[70vw] sm:min-w-0 flex-1 self-stretch"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.2 }}
+          >
+            <VirtualProjectColumn
+              phase={phase}
+              projects={projectsByPhase[phase]}
+              owner={owner}
+              name={name}
+              onOpenProject={onOpenProject}
+              onDelete={onDelete}
+            />
+          </motion.div>
         ),
       )}
-    </>
+    </AnimatePresence>
   );
 }
 

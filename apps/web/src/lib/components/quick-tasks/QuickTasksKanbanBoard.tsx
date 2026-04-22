@@ -12,6 +12,8 @@ import { FixAllDialog } from "./FixAllDialog";
 import { Button, Spinner } from "@conductor/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useQuickTaskFilters } from "@/routes/_repo/$owner/$repo/quick-tasks/_utils";
+import type { DisplayTaskStatus } from "@/lib/components/tasks/TaskStatusBadge";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 type TaskStatus = Task["status"];
@@ -40,6 +42,11 @@ export function QuickTasksKanbanBoard({
   const projects = useQuery(api.projects.list, { repoId });
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const startExecution = useMutation(api.agentTasks.startExecution);
+  const [{ statuses }] = useQuickTaskFilters();
+  const visibleStatuses = useMemo(
+    () => new Set<DisplayTaskStatus>(statuses),
+    [statuses],
+  );
   const [isFixingAll, setIsFixingAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
@@ -117,6 +124,7 @@ export function QuickTasksKanbanBoard({
     <>
       <KanbanBoard
         items={tasks}
+        visibleStatuses={visibleStatuses}
         onStatusChange={handleStatusChange}
         onItemClick={(task) => {
           if (isSelecting) {

@@ -4,7 +4,6 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useQueryStates } from "nuqs";
 import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -15,6 +14,13 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -26,11 +32,12 @@ import {
   IconLayoutKanban,
   IconPlus,
   IconFilter,
-  IconSortAscending,
-  IconSortDescending,
   IconTimeline,
   IconList,
   IconTable,
+  IconSettings,
+  IconSortDescending,
+  IconX,
 } from "@tabler/icons-react";
 import {
   PROJECT_PHASES,
@@ -42,16 +49,8 @@ import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
 import { ProjectsTableView } from "@/lib/components/projects/ProjectsTableView";
 import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
-import { SORT_FIELDS, type SortField } from "./_components/ProjectsToolbar";
-import {
-  searchParser,
-  phasesParser,
-  sortFieldParser,
-  sortDirParser,
-  projectViewParser,
-} from "@/lib/search-params";
-
-type ProjectView = "kanban" | "timeline" | "list" | "table";
+import { ActiveFiltersBar } from "./_components/ActiveFiltersBar";
+import { useProjectFilters, type ProjectView, type SortField } from "./_utils";
 
 const VIEW_OPTIONS: {
   key: ProjectView;
@@ -64,9 +63,10 @@ const VIEW_OPTIONS: {
   { key: "table", icon: IconTable, label: "Table view" },
 ];
 
-function isSortField(value: string): value is SortField {
-  return SORT_FIELDS.some((f) => f.key === value);
-}
+const SORT_FIELD_LABELS: Record<SortField, string> = {
+  created: "Date Created",
+  title: "Title",
+};
 
 export function ProjectsClient() {
   const { repo, basePath, owner, name } = useRepo();
@@ -74,17 +74,10 @@ export function ProjectsClient() {
   const deleteProject = useMutation(api.projects.deleteCascade);
   const navigate = useNavigate();
   const [isCreating, setIsCreating] = useState(false);
-  const [{ q, phases, sort, dir, view }, setParams] = useQueryStates({
-    q: searchParser,
-    phases: phasesParser,
-    sort: sortFieldParser,
-    dir: sortDirParser,
-    view: projectViewParser,
-  });
+  const [{ q, view, phases, sortField, sortDir }, setParams] =
+    useProjectFilters();
   const searchQuery = q;
   const visiblePhases = useMemo(() => new Set<ProjectPhase>(phases), [phases]);
-  const sortField = sort;
-  const sortDirection = dir;
   const [projectToDelete, setProjectToDelete] = useState<{
     id: Id<"projects">;
     title: string;
@@ -115,9 +108,9 @@ export function ProjectsClient() {
             comparison = a.title.localeCompare(b.title);
             break;
         }
-        return sortDirection === "asc" ? comparison : -comparison;
+        return sortDir === "asc" ? comparison : -comparison;
       });
-  }, [projects, sortField, sortDirection, searchQuery, visiblePhases]);
+  }, [projects, sortField, sortDir, searchQuery, visiblePhases]);
 
   const projectsByPhase = useMemo(() => {
     const initial: Record<ProjectPhase, typeof filteredSorted> = {
@@ -159,11 +152,58 @@ export function ProjectsClient() {
     navigate({ to: `${basePath}/projects/${id}` });
   };
 
+  const hasActiveFilters =
+    visiblePhases.size !== PROJECT_PHASES.length ||
+    sortField !== "created" ||
+    sortDir !== "desc";
+
+  const clearAllFilters = () => {
+    setParams({
+      phases: [...PROJECT_PHASES],
+      sortField: "created",
+      sortDir: "desc",
+    });
+  };
+
+  const activeFilterLabels = useMemo(() => {
+    const labels: Array<{ key: string; label: string }> = [];
+    if (visiblePhases.size !== PROJECT_PHASES.length) {
+      labels.push({
+        key: "phases",
+        label: `${visiblePhases.size} Phase${visiblePhases.size !== 1 ? "s" : ""}`,
+      });
+    }
+    if (sortField !== "created") {
+      labels.push({
+        key: "sortField",
+        label: `Sort: ${SORT_FIELD_LABELS[sortField]}`,
+      });
+    }
+    if (sortDir !== "desc") {
+      labels.push({ key: "sortDir", label: "Ascending" });
+    }
+    return labels;
+  }, [visiblePhases, sortField, sortDir]);
+
+  const clearFilter = (key: string) => {
+    switch (key) {
+      case "phases":
+        setParams({ phases: [...PROJECT_PHASES] });
+        break;
+      case "sortField":
+        setParams({ sortField: "created" });
+        break;
+      case "sortDir":
+        setParams({ sortDir: "desc" });
+        break;
+    }
+  };
+
   const toolbarContent = (
     <div className="flex items-center gap-1.5 sm:gap-2">
       <ToggleSearch
         value={searchQuery}
-        onChange={(v) => setParams({ q: v })}
+        onChange={(v) => setParams({ q: v ?? "" })}
         placeholder="Search projects..."
         tooltipLabel="Search projects"
         visible={hasProjects}
@@ -191,85 +231,90 @@ export function ProjectsClient() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="secondary"
               size="sm"
-              className="hidden sm:inline-flex"
+              variant="secondary"
+              className="motion-press hover:scale-[1.01] active:scale-[0.96]"
             >
-              <IconFilter size={16} />
-              {visiblePhases.size === PROJECT_PHASES.length
-                ? "All Phases"
-                : `${visiblePhases.size} Phases`}
+              <IconSettings size={16} />
+              <span className="hidden sm:inline">Options</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            {PROJECT_PHASES.map((p) => {
-              const cfg = phaseConfig[p];
-              return (
-                <DropdownMenuCheckboxItem
-                  key={p}
-                  checked={visiblePhases.has(p)}
-                  onCheckedChange={() => handlePhaseToggle(p)}
-                  onSelect={(e) => e.preventDefault()}
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <IconSortDescending size={16} className="mr-2" />
+                Sort: {SORT_FIELD_LABELS[sortField]}{" "}
+                {sortDir === "asc" ? "↑" : "↓"}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={sortField}
+                  onValueChange={(v) => {
+                    if (v === "created" || v === "title") {
+                      setParams({ sortField: v });
+                    }
+                  }}
                 >
-                  <cfg.icon size={16} className={cfg.text + " mr-2"} />
-                  <span className={cfg.text}>{cfg.label}</span>
-                </DropdownMenuCheckboxItem>
-              );
-            })}
+                  {(Object.keys(SORT_FIELD_LABELS) as SortField[]).map((f) => (
+                    <DropdownMenuRadioItem key={f} value={f}>
+                      {SORT_FIELD_LABELS[f]}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={sortDir}
+                  onValueChange={(v) => {
+                    if (v === "asc" || v === "desc") {
+                      setParams({ sortDir: v });
+                    }
+                  }}
+                >
+                  <DropdownMenuRadioItem value="desc">
+                    Descending ↓
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="asc">
+                    Ascending ↑
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <IconFilter size={16} className="mr-2" />
+                {visiblePhases.size === PROJECT_PHASES.length
+                  ? "All Phases"
+                  : `${visiblePhases.size} Phases`}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {PROJECT_PHASES.map((p) => {
+                  const cfg = phaseConfig[p];
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={p}
+                      checked={visiblePhases.has(p)}
+                      onCheckedChange={() => handlePhaseToggle(p)}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      <cfg.icon size={16} className={cfg.text + " mr-2"} />
+                      <span className={cfg.text}>{cfg.label}</span>
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            {hasActiveFilters && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={clearAllFilters}>
+                  <IconX size={16} className="mr-2" />
+                  Clear all filters
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
-      )}
-      {hasProjects && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="secondary"
-              size="icon"
-              className="h-8 w-8 sm:hidden"
-            >
-              <IconFilter size={16} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            {PROJECT_PHASES.map((p) => {
-              const cfg = phaseConfig[p];
-              return (
-                <DropdownMenuCheckboxItem
-                  key={p}
-                  checked={visiblePhases.has(p)}
-                  onCheckedChange={() => handlePhaseToggle(p)}
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  <cfg.icon size={16} className={cfg.text + " mr-2"} />
-                  <span className={cfg.text}>{cfg.label}</span>
-                </DropdownMenuCheckboxItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-      {hasProjects && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="secondary"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setParams({ dir: dir === "asc" ? "desc" : "asc" })}
-            >
-              {sortDirection === "asc" ? (
-                <IconSortAscending size={16} />
-              ) : (
-                <IconSortDescending size={16} />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {sortDirection === "asc"
-              ? "Ascending - click to reverse"
-              : "Descending - click to reverse"}
-          </TooltipContent>
-        </Tooltip>
       )}
       <Button
         size="sm"
@@ -291,6 +336,13 @@ export function ProjectsClient() {
         headerRight={toolbarContent}
       >
         <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
+          {activeFilterLabels.length > 0 && (
+            <ActiveFiltersBar
+              filters={activeFilterLabels}
+              onClearFilter={clearFilter}
+              onClearAll={clearAllFilters}
+            />
+          )}
           {projects === undefined ? (
             <div className="flex flex-1 items-center justify-center">
               <Spinner />

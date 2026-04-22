@@ -282,7 +282,7 @@ export const refreshPullRequestBody = internalAction({
 });
 
 const MAX_POLL_ATTEMPTS = 20;
-const POLL_INTERVAL_MS = 60_000;
+const POLL_INTERVAL_MS = 30_000;
 
 type DeploymentStatus = typeof deploymentStatusValidator.type;
 

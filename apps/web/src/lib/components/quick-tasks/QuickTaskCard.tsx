@@ -158,7 +158,8 @@ export function QuickTaskCard({
           ? "cursor-pointer active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
       }`}
-      onClick={() => {
+      onClick={(e) => {
+        if (e.detail === 0) return;
         if (hasDialogOpen) return;
         onClick?.();
       }}

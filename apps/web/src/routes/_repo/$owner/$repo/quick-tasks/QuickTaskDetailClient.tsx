@@ -2,47 +2,24 @@ import { useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useQueryStates } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useNavigate, useLocation } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
-import {
-  quickTaskViewParser,
-  projectFilterParser,
-  userFilterParser,
-  assigneeFilterParser,
-  tagsFilterParser,
-  quickTaskSortFieldParser,
-  quickTaskSortDirParser,
-  quickTaskTimeRangeParser,
-  statusesParser,
-} from "@/lib/search-params";
 import { Route } from "./$taskId";
 import { EntityContextUsage } from "@/lib/components/context-usage";
+import { useQuickTaskFilters } from "./_utils";
 
 export function QuickTaskDetailClient() {
   const { taskId } = Route.useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const { basePath, repo } = useRepo();
   const [{ project, user, assignee, tags, timeRange, statuses }] =
-    useQueryStates({
-      view: quickTaskViewParser,
-      project: projectFilterParser,
-      user: userFilterParser,
-      assignee: assigneeFilterParser,
-      tags: tagsFilterParser,
-      sortField: quickTaskSortFieldParser,
-      sortDir: quickTaskSortDirParser,
-      timeRange: quickTaskTimeRangeParser,
-      statuses: statusesParser,
-    });
+    useQuickTaskFilters();
   const typedTaskId = taskId as Id<"agentTasks">;
-  const queryParams = location.searchStr;
 
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
 
@@ -136,17 +113,15 @@ export function QuickTaskDetailClient() {
   }, [typedTaskId, orderedTasks]);
 
   const handleBack = () => {
-    navigate({ to: `${basePath}/quick-tasks${queryParams}` });
+    navigate({ to: `${basePath}/quick-tasks` });
   };
 
   const handleNavigatePrev = () => {
-    if (prevTaskId)
-      navigate({ to: `${basePath}/quick-tasks/${prevTaskId}${queryParams}` });
+    if (prevTaskId) navigate({ to: `${basePath}/quick-tasks/${prevTaskId}` });
   };
 
   const handleNavigateNext = () => {
-    if (nextTaskId)
-      navigate({ to: `${basePath}/quick-tasks/${nextTaskId}${queryParams}` });
+    if (nextTaskId) navigate({ to: `${basePath}/quick-tasks/${nextTaskId}` });
   };
 
   if (tasks === undefined) {

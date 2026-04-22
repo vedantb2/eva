@@ -1,5 +1,12 @@
 # Changelog
 
+## Attribute sandbox commits to GitHub App bot user - 2026-04-22
+
+- **Why**: Commits from sandboxes showed the repo owner's avatar on GitHub because the hardcoded git author email was `48868398+vedantb2@users.noreply.github.com` — GitHub attributes commits by author email, not pusher, so every commit looked like the owner wrote it (even though push auth was already the App installation token).
+- **Fix**: Replaced hardcoded `"Eva"` identity with env-driven `${GITHUB_APP_SLUG}[bot]` + `${GITHUB_BOT_USER_ID}+${GITHUB_APP_SLUG}[bot]@users.noreply.github.com`. Two new Convex env vars — `GITHUB_APP_SLUG` and `GITHUB_BOT_USER_ID` — store the App slug and its bot user's numeric ID (different namespace from App ID; resolved via `GET https://api.github.com/users/<slug>[bot]`).
+- **Scope**: `_daytona/git.ts` (runtime — set on every sandbox create) and `snapshotActions.ts` (snapshot build-time default). Legacy `.github/workflows/rebuild-snapshot.yml` left untouched (marked not used). No schema changes.
+- **Effect**: New sandboxes attribute commits to the GitHub App bot on GitHub — correct avatar, "committed by {app}[bot]". Already-running sandboxes keep the old identity until recreated. Switching to a different App requires only updating the two env vars, no code change.
+
 ## Fixed Convex bundling error: URL builders pulling Node.js modules into V8 runtime - 2026-04-22
 
 - **Why**: `npx convex dev` was failing with "Could not resolve node:crypto" in `encryption.ts`. Root cause: `workflowDefinition.ts` (no `"use node"`) imported `buildEvaTaskUrl` from `taskWorkflowActions.ts`, which imported `envVarResolver.ts` → `encryption.ts` → `node:crypto`. Bundler included the entire chain in the V8 runtime bundle.

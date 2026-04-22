@@ -330,9 +330,16 @@ export async function createSandbox(
       `createSandbox: created id=${sandbox.id}, cpu=${sandbox.cpu}, memory=${sandbox.memory}, disk=${sandbox.disk}`,
     );
 
+    const appSlug = process.env.GITHUB_APP_SLUG;
+    const botUserId = process.env.GITHUB_BOT_USER_ID;
+    if (!appSlug || !botUserId) {
+      throw new Error(
+        "GITHUB_APP_SLUG and GITHUB_BOT_USER_ID must be set in Convex env",
+      );
+    }
     await exec(
       sandbox,
-      'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
+      `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,
       10,
     );
 

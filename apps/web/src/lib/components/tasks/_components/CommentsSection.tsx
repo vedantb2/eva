@@ -90,11 +90,68 @@ export function CommentsSection({
     }
   };
 
+  const sortedComments = comments ? [...comments].reverse() : undefined;
+
   return (
     <div className="space-y-4">
-      {comments && comments.length > 0 && (
+      <div className="space-y-3">
+        <div className="relative">
+          <Textarea
+            rows={3}
+            placeholder={
+              requestingChanges
+                ? "Describe the changes you'd like Eva to make..."
+                : "Add a comment..."
+            }
+            value={commentText}
+            onChange={(e) => {
+              setCommentText(e.target.value);
+              if (executionError) setExecutionError(null);
+            }}
+            className="w-full pr-12 pb-3"
+          />
+          <Button
+            size="icon"
+            className="rounded-full absolute right-2 bottom-2 h-8 w-8"
+            disabled={!commentText.trim()}
+            onClick={
+              requestingChanges ? handleSubmitRequestChanges : handleAddComment
+            }
+          >
+            <IconArrowUp size={16} />
+          </Button>
+        </div>
+        {(status === "business_review" ||
+          status === "code_review" ||
+          status === "done" ||
+          status === "cancelled") && (
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id={`task-make-changes-${taskId}`}
+              checked={requestingChanges}
+              disabled={Boolean(hasActiveRun)}
+              onCheckedChange={(checked) => {
+                setRequestingChanges(checked === true);
+                if (executionError) setExecutionError(null);
+              }}
+            />
+            <Label
+              htmlFor={`task-make-changes-${taskId}`}
+              className={hasActiveRun ? "text-muted-foreground" : ""}
+            >
+              Make changes
+            </Label>
+          </div>
+        )}
+        {requestingChanges && !executionError && (
+          <p className="text-xs text-muted-foreground">
+            Submitting will create a comment and re-run Eva with your changes
+          </p>
+        )}
+      </div>
+      {sortedComments && sortedComments.length > 0 && (
         <div className="space-y-3">
-          {comments.map((comment) => (
+          {sortedComments.map((comment) => (
             <div
               key={comment._id}
               className="rounded-lg bg-muted/40 p-3 space-y-2"
@@ -159,59 +216,6 @@ export function CommentsSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {(status === "business_review" ||
-        status === "code_review" ||
-        status === "done" ||
-        status === "cancelled") && (
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id={`task-make-changes-${taskId}`}
-            checked={requestingChanges}
-            disabled={Boolean(hasActiveRun)}
-            onCheckedChange={(checked) => {
-              setRequestingChanges(checked === true);
-              if (executionError) setExecutionError(null);
-            }}
-          />
-          <Label
-            htmlFor={`task-make-changes-${taskId}`}
-            className={hasActiveRun ? "text-muted-foreground" : ""}
-          >
-            Make changes
-          </Label>
-        </div>
-      )}
-      <div className="flex gap-2 items-end">
-        <Textarea
-          rows={3}
-          placeholder={
-            requestingChanges
-              ? "Describe the changes you'd like Eva to make..."
-              : "Add a comment..."
-          }
-          value={commentText}
-          onChange={(e) => {
-            setCommentText(e.target.value);
-            if (executionError) setExecutionError(null);
-          }}
-          className="flex-1"
-        />
-        <Button
-          size="icon"
-          className="rounded-full shrink-0"
-          disabled={!commentText.trim()}
-          onClick={
-            requestingChanges ? handleSubmitRequestChanges : handleAddComment
-          }
-        >
-          <IconArrowUp size={18} />
-        </Button>
-      </div>
-      {requestingChanges && !executionError && (
-        <p className="text-xs text-muted-foreground">
-          Submitting will create a comment and re-run Eva with your changes
-        </p>
-      )}
     </div>
   );
 }

@@ -160,7 +160,11 @@ export function QuickTasksClient() {
     // Sorting
     const sorted = [...filtered].sort((a, b) => {
       let cmp = 0;
-      if (sortField === "updated") {
+      if (sortField === "lastRun") {
+        const aTime = a.lastRunStartedAt ?? 0;
+        const bTime = b.lastRunStartedAt ?? 0;
+        cmp = aTime - bTime;
+      } else if (sortField === "updated") {
         cmp = a.updatedAt - b.updatedAt;
       } else if (sortField === "created") {
         cmp = a.createdAt - b.createdAt;
@@ -326,7 +330,7 @@ export function QuickTasksClient() {
       for (const t of tags) params.append("tags", t);
     }
     if (timeRange !== "all") params.set("timeRange", timeRange);
-    if (sortField !== "updated") params.set("sortField", sortField);
+    if (sortField !== "lastRun") params.set("sortField", sortField);
     if (sortDir !== "desc") params.set("sortDir", sortDir);
     const str = params.toString();
     return str ? `?${str}` : "";

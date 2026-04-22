@@ -494,6 +494,9 @@ export function QuickTasksClient() {
       <QuickTaskModal
         isOpen={isCreating}
         onClose={() => setIsCreating(false)}
+        users={users ?? undefined}
+        projects={projects ?? undefined}
+        allTags={allTags}
       />
       <ImportLinearModal
         isOpen={isImporting}

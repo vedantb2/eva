@@ -57,6 +57,20 @@ export function QuickTasksKanbanBoard({
     () => new Set(errorTaskIds ?? []),
     [errorTaskIds],
   );
+  const deploymentStatuses = useQuery(
+    api.agentRuns.getLatestDeploymentStatuses,
+    {
+      repoId,
+      taskIds,
+    },
+  );
+  const deploymentStatusMap = useMemo(() => {
+    const map = new Map<string, "queued" | "building" | "deployed" | "error">();
+    for (const entry of deploymentStatuses ?? []) {
+      map.set(entry.taskId, entry.deploymentStatus);
+    }
+    return map;
+  }, [deploymentStatuses]);
 
   if (tasks.length === 0) {
     return null;
@@ -135,6 +149,7 @@ export function QuickTasksKanbanBoard({
             description={task.description}
             status={task.status}
             hasError={errorTaskIdSet.has(task._id)}
+            deploymentStatus={deploymentStatusMap.get(task._id)}
             scheduledAt={task.scheduledAt}
             tags={task.tags}
             createdByUser={users?.find((u) => u._id === task.createdBy)}
@@ -162,6 +177,7 @@ export function QuickTasksKanbanBoard({
             description={task.description}
             status={task.status}
             hasError={errorTaskIdSet.has(task._id)}
+            deploymentStatus={deploymentStatusMap.get(task._id)}
             scheduledAt={task.scheduledAt}
             tags={task.tags}
             createdByUser={users?.find((u) => u._id === task.createdBy)}

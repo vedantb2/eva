@@ -19,11 +19,18 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
-import { IconClock, IconDots, IconFolder, IconTag } from "@tabler/icons-react";
+import {
+  IconClock,
+  IconDots,
+  IconFolder,
+  IconTag,
+  IconBrandVercelFilled,
+} from "@tabler/icons-react";
 import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
+import { DEPLOYMENT_STATUS_CONFIG } from "@/lib/components/tasks/_components/task-detail-constants";
 import dayjs, { compactRelativeTime } from "@conductor/shared/dates";
 import { useState } from "react";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
@@ -35,6 +42,8 @@ type GroupedCodebase = FunctionReturnType<
 >[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
+
+type DeploymentStatus = "queued" | "building" | "deployed" | "error";
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -48,6 +57,7 @@ interface QuickTaskCardProps {
   createdAt: number;
   projectName?: string;
   hasError?: boolean;
+  deploymentStatus?: DeploymentStatus;
   groupedCodebases?: GroupedCodebase[];
   onClick?: () => void;
   isSelecting?: boolean;
@@ -74,6 +84,7 @@ export function QuickTaskCard({
   createdAt,
   projectName,
   hasError = false,
+  deploymentStatus,
   groupedCodebases,
   onClick,
   isSelecting,
@@ -213,7 +224,26 @@ export function QuickTaskCard({
             ) : null}
           </div>
 
-          <div className="flex shrink-0 items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-1">
+            {deploymentStatus && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center">
+                    <IconBrandVercelFilled
+                      size={14}
+                      className={
+                        DEPLOYMENT_STATUS_CONFIG[deploymentStatus]?.iconColor ??
+                        "text-muted-foreground"
+                      }
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {DEPLOYMENT_STATUS_CONFIG[deploymentStatus]?.label ??
+                    "Unknown"}
+                </TooltipContent>
+              </Tooltip>
+            )}
             {scheduledAt ? (
               <Tooltip>
                 <TooltipTrigger asChild>

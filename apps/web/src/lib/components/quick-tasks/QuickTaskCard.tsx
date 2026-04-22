@@ -32,7 +32,7 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { DEPLOYMENT_STATUS_CONFIG } from "@/lib/components/tasks/_components/task-detail-constants";
 import dayjs, { compactRelativeTime } from "@conductor/shared/dates";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
 import { MoveTaskDialog } from "./_components/MoveTaskDialog";
 import { TaskCardMenuItems } from "./_components/TaskCardMenuItems";
@@ -106,7 +106,6 @@ export function QuickTaskCard({
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [moveTarget, setMoveTarget] = useState<Id<"githubRepos"> | null>(null);
-  const didRightClick = useRef(false);
 
   // Find the app name for the move target across all codebases
   const moveTargetAppName = (() => {
@@ -159,16 +158,8 @@ export function QuickTaskCard({
           ? "cursor-pointer active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
       }`}
-      onPointerDown={(e) => {
-        if (e.button === 2) {
-          didRightClick.current = true;
-        }
-      }}
-      onClick={() => {
-        if (didRightClick.current) {
-          didRightClick.current = false;
-          return;
-        }
+      onClick={(e) => {
+        if (e.detail === 0) return;
         if (hasDialogOpen) return;
         onClick?.();
       }}

@@ -13,7 +13,6 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
 import { AnimatePresence, motion } from "motion/react";
-import { useQueryStates } from "nuqs";
 import { Virtuoso } from "react-virtuoso";
 import {
   KanbanProvider,
@@ -21,11 +20,11 @@ import {
   type KanbanItem,
   type KanbanColumnDef,
 } from "@conductor/ui";
-import { searchParser, statusesParser } from "@/lib/search-params";
 import { KanbanColumn, KANBAN_STATUSES } from "./KanbanColumn";
 import {
   statusConfig,
   type TaskStatus,
+  type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 
 interface BaseTask {
@@ -37,6 +36,7 @@ interface BaseTask {
 
 interface KanbanBoardProps<T extends BaseTask> {
   items: T[];
+  visibleStatuses: Set<DisplayTaskStatus>;
   onStatusChange: (id: string, status: TaskStatus) => Promise<void>;
   renderCard: (item: T) => ReactNode;
   renderOverlay: (item: T) => ReactNode;
@@ -52,6 +52,7 @@ const COLUMNS: KanbanColumnDef[] = KANBAN_STATUSES.map((status) => ({
 
 export function KanbanBoard<T extends BaseTask>({
   items,
+  visibleStatuses,
   onStatusChange,
   renderCard,
   renderOverlay,
@@ -63,11 +64,6 @@ export function KanbanBoard<T extends BaseTask>({
   const [activeOverlayWidth, setActiveOverlayWidth] = useState<number | null>(
     null,
   );
-  const [{ q, statuses }] = useQueryStates({
-    q: searchParser,
-    statuses: statusesParser,
-  });
-  const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -86,24 +82,14 @@ export function KanbanBoard<T extends BaseTask>({
     return map;
   }, [items]);
 
-  const filteredItems = useMemo(() => {
-    const query = q.toLowerCase().trim();
-    if (!query) return items;
-    return items.filter(
-      (item) =>
-        item.title.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query),
-    );
-  }, [items, q]);
-
   const kanbanData: KanbanItem[] = useMemo(
     () =>
-      filteredItems.map((item) => ({
+      items.map((item) => ({
         id: item._id,
         name: item.title,
         column: item.status,
       })),
-    [filteredItems],
+    [items],
   );
 
   const itemsByStatus = useMemo(() => {
@@ -111,11 +97,11 @@ export function KanbanBoard<T extends BaseTask>({
     for (const status of KANBAN_STATUSES) {
       map.set(status, []);
     }
-    for (const item of filteredItems) {
+    for (const item of items) {
       map.get(item.status)?.push(item);
     }
     return map;
-  }, [filteredItems]);
+  }, [items]);
 
   const countByStatus = useMemo(() => {
     const counts: Record<string, number> = {};

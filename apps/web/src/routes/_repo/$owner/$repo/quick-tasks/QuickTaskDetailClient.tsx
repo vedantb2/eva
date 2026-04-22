@@ -4,7 +4,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useLocation } from "@tanstack/react-router";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
@@ -27,31 +27,22 @@ import { EntityContextUsage } from "@/lib/components/context-usage";
 export function QuickTaskDetailClient() {
   const { taskId } = Route.useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { basePath, repo } = useRepo();
-  const [
-    {
-      view,
-      project,
-      user,
-      assignee,
-      tags,
-      sortField,
-      sortDir,
-      timeRange,
-      statuses,
-    },
-  ] = useQueryStates({
-    view: quickTaskViewParser,
-    project: projectFilterParser,
-    user: userFilterParser,
-    assignee: assigneeFilterParser,
-    tags: tagsFilterParser,
-    sortField: quickTaskSortFieldParser,
-    sortDir: quickTaskSortDirParser,
-    timeRange: quickTaskTimeRangeParser,
-    statuses: statusesParser,
-  });
+  const [{ project, user, assignee, tags, timeRange, statuses }] =
+    useQueryStates({
+      view: quickTaskViewParser,
+      project: projectFilterParser,
+      user: userFilterParser,
+      assignee: assigneeFilterParser,
+      tags: tagsFilterParser,
+      sortField: quickTaskSortFieldParser,
+      sortDir: quickTaskSortDirParser,
+      timeRange: quickTaskTimeRangeParser,
+      statuses: statusesParser,
+    });
   const typedTaskId = taskId as Id<"agentTasks">;
+  const queryParams = location.searchStr;
 
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
 
@@ -143,35 +134,6 @@ export function QuickTaskDetailClient() {
         idx < orderedTasks.length - 1 ? orderedTasks[idx + 1]._id : null,
     };
   }, [typedTaskId, orderedTasks]);
-
-  const queryParams = useMemo(() => {
-    const params = new URLSearchParams();
-    if (view !== "kanban") params.set("view", view);
-    if (project !== "none") params.set("project", project);
-    if (user !== "all") params.set("user", user);
-    if (assignee !== "all") params.set("assignee", assignee);
-    if (statuses.length !== TASK_STATUSES.length) {
-      for (const s of statuses) params.append("statuses", s);
-    }
-    if (tags.length > 0) {
-      for (const t of tags) params.append("tags", t);
-    }
-    if (timeRange !== "all") params.set("timeRange", timeRange);
-    if (sortField !== "created") params.set("sortField", sortField);
-    if (sortDir !== "desc") params.set("sortDir", sortDir);
-    const str = params.toString();
-    return str ? `?${str}` : "";
-  }, [
-    view,
-    project,
-    user,
-    assignee,
-    statuses,
-    tags,
-    timeRange,
-    sortField,
-    sortDir,
-  ]);
 
   const handleBack = () => {
     navigate({ to: `${basePath}/quick-tasks${queryParams}` });

@@ -5,7 +5,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useLocation } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
@@ -41,6 +41,7 @@ import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 
 export function QuickTasksClient() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { basePath, repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
@@ -317,37 +318,8 @@ export function QuickTasksClient() {
     });
   };
 
-  const filterQueryString = useMemo(() => {
-    const params = new URLSearchParams();
-    if (view !== "kanban") params.set("view", view);
-    if (project !== "none") params.set("project", project);
-    if (user !== "all") params.set("user", user);
-    if (assignee !== "all") params.set("assignee", assignee);
-    if (statuses.length !== TASK_STATUSES.length) {
-      for (const s of statuses) params.append("statuses", s);
-    }
-    if (tags.length > 0) {
-      for (const t of tags) params.append("tags", t);
-    }
-    if (timeRange !== "all") params.set("timeRange", timeRange);
-    if (sortField !== "lastRun") params.set("sortField", sortField);
-    if (sortDir !== "desc") params.set("sortDir", sortDir);
-    const str = params.toString();
-    return str ? `?${str}` : "";
-  }, [
-    view,
-    project,
-    user,
-    assignee,
-    statuses,
-    tags,
-    timeRange,
-    sortField,
-    sortDir,
-  ]);
-
   const handleOpenTask = (id: string) => {
-    navigate({ to: `${basePath}/quick-tasks/${id}${filterQueryString}` });
+    navigate({ to: `${basePath}/quick-tasks/${id}${location.searchStr}` });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);

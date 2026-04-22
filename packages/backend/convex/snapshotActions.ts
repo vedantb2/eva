@@ -77,6 +77,15 @@ function buildSnapshotImage(
     .dockerfileCommands(["USER eva"])
     .workdir("/workspace")
     .runCommands(
+      // Download sandbox config files early (before other network-heavy operations)
+      // Use /home/eva/sandbox-config for persistence (avoid /tmp which can be ephemeral)
+      "mkdir -p /home/eva/sandbox-config",
+      ...configFiles
+        .filter((f): f is { fileName: string; url: string } => f.url !== null)
+        .map(
+          (f) =>
+            `curl -fSL --retry 3 --retry-delay 5 -o '/home/eva/sandbox-config/${f.fileName}' '${f.url}' && ls -lh '/home/eva/sandbox-config/${f.fileName}'`,
+        ),
       // Git config
       'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
       // Cursor CLI (installs `cursor-agent` to /home/eva/.local/bin — curl-bash, not npm)
@@ -97,13 +106,8 @@ function buildSnapshotImage(
     })
     .runCommands(
       "mkdir -p /home/eva/.pnpm",
-      // Create sandbox config directory and download config files
-      "mkdir -p /tmp/sandbox-config",
-      ...configFiles
-        .filter((f): f is { fileName: string; url: string } => f.url !== null)
-        .map(
-          (f) => `curl -fsSL -o '/tmp/sandbox-config/${f.fileName}' '${f.url}'`,
-        ),
+      // Symlink for backwards compatibility with startup commands referencing /tmp/sandbox-config
+      "ln -sf /home/eva/sandbox-config /tmp/sandbox-config",
       // Clone the target repo and install dependencies for pre-caching
       `git clone --branch ${branch} https://x-access-token:${token}@github.com/${owner}/${repoName}.git /tmp/repo`,
     )

@@ -8,7 +8,8 @@ import {
 } from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
 import { buildAuditPrompt } from "./prompts";
-import { buildPrBody } from "../taskWorkflowActions";
+import { buildPrBody } from "../prBody";
+import { buildEvaTaskUrl } from "./urls";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
@@ -114,39 +115,104 @@ export const taskExecutionWorkflow = workflow.define({
             installationId: args.installationId,
             repoOwner: data.repoOwner,
             repoName: data.repoName,
+            repoId: args.repoId,
             branchName: data.branchName,
             deploymentProjectName: data.deploymentProjectName,
           },
         );
       }
 
-      if (args.isFirstTaskOnBranch && finalSuccess) {
-        completionPrUrl = await step.runAction(
-          internal.taskWorkflowActions.createPullRequest,
-          {
-            installationId: args.installationId,
-            repoOwner: data.repoOwner,
-            repoName: data.repoName,
-            branchName: data.branchName,
-            baseBranch: args.baseBranch,
-            title: data.taskTitle,
-            body: buildPrBody([
-              {
-                heading: "Task",
-                content: data.taskDescription ?? "No description",
-              },
-            ]),
-            labels: [
-              "eva",
-              args.projectId ? "project" : "quick-task",
-              ...(data.rootDirectory
-                ? [data.rootDirectory.split("/").pop()].filter(
-                    (l): l is string => l !== undefined && l !== "",
-                  )
-                : []),
-            ],
-          },
+      if (finalSuccess) {
+        const enrichment = await step.runQuery(
+          internal.taskWorkflow.getPrEnrichmentData,
+          { taskId: args.taskId },
         );
+
+        const prSections: Array<{ heading: string; content: string }> = [
+          {
+            heading: "Task",
+            content: data.taskDescription ?? "No description",
+          },
+        ];
+
+        if (enrichment.changeRequests.length > 0) {
+          prSections.push({
+            heading: "Change Requests",
+            content: enrichment.changeRequests
+              .map((cr: string, i: number) => `${i + 1}. ${cr}`)
+              .join("\n"),
+          });
+        }
+
+        type ProofItem = {
+          fileName: string | null;
+          message: string | null;
+          url: string | null;
+          contentType: string | null;
+        };
+
+        if (enrichment.proofs.length > 0) {
+          const proofLines = enrichment.proofs.map((p: ProofItem) => {
+            if (p.message) return `- ${p.message}`;
+            if (p.url) {
+              const isImage = p.contentType?.startsWith("image/") ?? false;
+              const isVideo = p.contentType?.startsWith("video/") ?? false;
+              const name = p.fileName ?? "Proof";
+              if (isImage) return `![${name}](${p.url})`;
+              if (isVideo) return `- [${name}](${p.url}) (video)`;
+              return `- [${name}](${p.url})`;
+            }
+            return `- ${p.fileName ?? "Proof attached"}`;
+          });
+          prSections.push({
+            heading: "Proof",
+            content: proofLines.join("\n"),
+          });
+        }
+
+        const evaUrl = buildEvaTaskUrl(
+          data.repoOwner,
+          data.repoName,
+          args.taskId,
+          args.projectId,
+          data.rootDirectory || undefined,
+        );
+        const enrichedBody = buildPrBody(prSections, evaUrl);
+
+        if (args.isFirstTaskOnBranch) {
+          completionPrUrl = await step.runAction(
+            internal.taskWorkflowActions.createPullRequest,
+            {
+              installationId: args.installationId,
+              repoOwner: data.repoOwner,
+              repoName: data.repoName,
+              branchName: data.branchName,
+              baseBranch: args.baseBranch,
+              title: data.taskTitle,
+              body: enrichedBody,
+              labels: [
+                "eva",
+                args.projectId ? "project" : "quick-task",
+                ...(data.rootDirectory
+                  ? [data.rootDirectory.split("/").pop()].filter(
+                      (l): l is string => l !== undefined && l !== "",
+                    )
+                  : []),
+              ],
+            },
+          );
+        } else {
+          await step.runAction(
+            internal.taskWorkflowActions.refreshPullRequestBody,
+            {
+              installationId: args.installationId,
+              repoOwner: data.repoOwner,
+              repoName: data.repoName,
+              branchName: data.branchName,
+              body: enrichedBody,
+            },
+          );
+        }
       }
 
       await step.runMutation(internal.taskWorkflow.finalizeRunStreamingPhase, {

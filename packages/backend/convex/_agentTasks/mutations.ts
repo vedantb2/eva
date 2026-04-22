@@ -166,6 +166,8 @@ export const createQuickTask = authMutation({
     baseBranch: v.optional(v.string()),
     model: v.optional(aiModelValidator),
     projectId: v.optional(v.id("projects")),
+    tags: v.optional(v.array(v.string())),
+    assignedTo: v.optional(v.id("users")),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -188,7 +190,7 @@ export const createQuickTask = authMutation({
       }
       taskNumber = maxTaskNumber + 1;
     }
-    return await ctx.db.insert("agentTasks", {
+    const taskId = await ctx.db.insert("agentTasks", {
       title: args.title,
       description: args.description,
       repoId: args.repoId,
@@ -200,7 +202,24 @@ export const createQuickTask = authMutation({
       model: args.model ?? repo.defaultModel,
       projectId: args.projectId,
       taskNumber,
+      tags: normalizeTaskTags(args.tags),
+      assignedTo: args.assignedTo,
     });
+    if (args.assignedTo && args.assignedTo !== ctx.userId) {
+      const task = await ctx.db.get(taskId);
+      if (task) {
+        await createNotification(ctx, {
+          userId: args.assignedTo,
+          type: "task_assigned",
+          title: `Assigned: "${args.title}"`,
+          repoId: args.repoId,
+          projectId: args.projectId,
+          taskId,
+          message: buildTaskNotificationMessage(task, "assigned"),
+        });
+      }
+    }
+    return taskId;
   },
 });
 

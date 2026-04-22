@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useQueryStates } from "nuqs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -10,23 +9,16 @@ import { Spinner } from "@conductor/ui";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
-import {
-  quickTaskViewParser,
-  projectFilterParser,
-  userFilterParser,
-} from "@/lib/search-params";
 import { Route } from "./$taskId";
 import { EntityContextUsage } from "@/lib/components/context-usage";
+import { useQuickTaskFilters } from "./_utils";
 
 export function QuickTaskDetailClient() {
   const { taskId } = Route.useParams();
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
-  const [{ view, project, user }] = useQueryStates({
-    view: quickTaskViewParser,
-    project: projectFilterParser,
-    user: userFilterParser,
-  });
+  const [{ project, user, assignee, tags, timeRange, statuses }] =
+    useQuickTaskFilters();
   const typedTaskId = taskId as Id<"agentTasks">;
 
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
@@ -35,6 +27,17 @@ export function QuickTaskDetailClient() {
     if (!tasks) return undefined;
     return tasks.find((t) => t._id === typedTaskId);
   }, [typedTaskId, tasks]);
+
+  const allTags = useMemo(() => {
+    if (!tasks) return [];
+    const tagSet = new Set<string>();
+    for (const t of tasks) {
+      if (t.tags) {
+        for (const tag of t.tags) tagSet.add(tag);
+      }
+    }
+    return [...tagSet].sort();
+  }, [tasks]);
 
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
@@ -48,8 +51,34 @@ export function QuickTaskDetailClient() {
     if (user !== "all") {
       filtered = filtered.filter((t) => t.createdBy === user);
     }
+    if (assignee !== "all") {
+      filtered =
+        assignee === "unassigned"
+          ? filtered.filter((t) => !t.assignedTo)
+          : filtered.filter((t) => t.assignedTo === assignee);
+    }
+    const statusSet = new Set<string>(statuses);
+    filtered = filtered.filter(
+      (t) => t.status !== "draft" && statusSet.has(t.status),
+    );
+    if (tags.length > 0) {
+      const tagSet = new Set(tags);
+      filtered = filtered.filter(
+        (t) => t.tags && t.tags.some((tag) => tagSet.has(tag)),
+      );
+    }
+    if (timeRange !== "all") {
+      const now = Date.now();
+      const msMap: Record<string, number> = {
+        "7d": 7 * 24 * 60 * 60 * 1000,
+        "30d": 30 * 24 * 60 * 60 * 1000,
+        "90d": 90 * 24 * 60 * 60 * 1000,
+      };
+      const cutoff = now - (msMap[timeRange] ?? 0);
+      filtered = filtered.filter((t) => t.createdAt >= cutoff);
+    }
     return filtered;
-  }, [tasks, project, user]);
+  }, [tasks, project, user, assignee, statuses, tags, timeRange]);
 
   const orderedTasks = useMemo(() => {
     if (filteredTasks.length === 0) return [];
@@ -83,27 +112,16 @@ export function QuickTaskDetailClient() {
     };
   }, [typedTaskId, orderedTasks]);
 
-  const queryParams = useMemo(() => {
-    const params = new URLSearchParams();
-    if (view !== "kanban") params.set("view", view);
-    if (project !== "none") params.set("project", project);
-    if (user !== "all") params.set("user", user);
-    const str = params.toString();
-    return str ? `?${str}` : "";
-  }, [view, project, user]);
-
   const handleBack = () => {
-    navigate({ to: `${basePath}/quick-tasks${queryParams}` });
+    navigate({ to: `${basePath}/quick-tasks` });
   };
 
   const handleNavigatePrev = () => {
-    if (prevTaskId)
-      navigate({ to: `${basePath}/quick-tasks/${prevTaskId}${queryParams}` });
+    if (prevTaskId) navigate({ to: `${basePath}/quick-tasks/${prevTaskId}` });
   };
 
   const handleNavigateNext = () => {
-    if (nextTaskId)
-      navigate({ to: `${basePath}/quick-tasks/${nextTaskId}${queryParams}` });
+    if (nextTaskId) navigate({ to: `${basePath}/quick-tasks/${nextTaskId}` });
   };
 
   if (tasks === undefined) {
@@ -166,6 +184,7 @@ export function QuickTaskDetailClient() {
             key={typedTaskId}
             onClose={handleBack}
             taskId={typedTaskId}
+            allTags={allTags}
           />
         </div>
       </div>

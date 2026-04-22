@@ -7,7 +7,7 @@ import { authMutation } from "./functions";
 import { evalResultValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
-import { buildPrBody } from "./taskWorkflowActions";
+import { buildPrBody } from "./prBody";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
 const evalCompleteEvent = defineEvent({
@@ -436,7 +436,7 @@ Automatically generated fix for failing requirements in **${doc.title}**.
 ${failedResults.map((r) => `- ${r.requirement}: ${r.detail}`).join("\n")}
 
 ---
-*Implemented by Eva AI Agent*`;
+*Implemented by Eva*`;
 
     return {
       repoOwner: repo.owner,

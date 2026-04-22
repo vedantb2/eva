@@ -15,8 +15,8 @@ export const searchParser = parseAsString
 const taskStatuses = [
   "todo",
   "in_progress",
-  "code_review",
   "business_review",
+  "code_review",
   "done",
   "cancelled",
 ] as const;
@@ -106,45 +106,6 @@ const projectViews = ["kanban", "timeline", "list", "table"] as const;
 export const projectViewParser = parseAsStringLiteral(projectViews)
   .withDefault("kanban")
   .withOptions(tabOptions);
-
-const quickTaskViews = ["kanban", "list", "table"] as const;
-export const quickTaskViewParser = parseAsStringLiteral(quickTaskViews)
-  .withDefault("kanban")
-  .withOptions(tabOptions);
-
-export const projectFilterParser = parseAsString
-  .withDefault("none")
-  .withOptions(searchOptions);
-
-export const userFilterParser = parseAsString
-  .withDefault("all")
-  .withOptions(searchOptions);
-
-export const assigneeFilterParser = parseAsString
-  .withDefault("all")
-  .withOptions(searchOptions);
-
-export const tagsFilterParser = parseAsArrayOf(parseAsString)
-  .withDefault([])
-  .withOptions(searchOptions);
-
-const quickTaskSortFields = ["created", "updated", "title"] as const;
-export const quickTaskSortFieldParser = parseAsStringLiteral(
-  quickTaskSortFields,
-)
-  .withDefault("created")
-  .withOptions(searchOptions);
-
-export const quickTaskSortDirParser = parseAsStringLiteral(sortDirections)
-  .withDefault("desc")
-  .withOptions(searchOptions);
-
-const quickTaskTimeRanges = ["7d", "30d", "90d", "all"] as const;
-export const quickTaskTimeRangeParser = parseAsStringLiteral(
-  quickTaskTimeRanges,
-)
-  .withDefault("all")
-  .withOptions(searchOptions);
 
 export const previewPortParser = parseAsInteger
   .withDefault(3001)

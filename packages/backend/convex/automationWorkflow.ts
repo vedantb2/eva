@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
 import { aiModelValidator } from "./validators";
 import { taskCompleteEvent } from "./_taskWorkflow/events";
-import { buildPrBody } from "./taskWorkflowActions";
+import { buildPrBody } from "./prBody";
 import { buildRootDirectoryInstruction } from "./prompts/shared";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 

@@ -239,7 +239,7 @@ export const handleStaleRun = internalMutation({
       });
     } else {
       const taskStatus =
-        run && run.status === "success" ? "code_review" : "todo";
+        run && run.status === "success" ? "business_review" : "todo";
       await ctx.db.patch(args.taskId, {
         status: taskStatus,
         activeWorkflowId: undefined,

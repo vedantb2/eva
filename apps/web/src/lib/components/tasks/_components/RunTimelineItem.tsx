@@ -44,7 +44,6 @@ export function RunTimelineItem({
   isActiveRun,
   streaming,
   activeRunElapsed,
-  isOwner,
   isStopping,
   onStopConfirm,
   hasComment,
@@ -54,7 +53,6 @@ export function RunTimelineItem({
   isActiveRun: boolean;
   streaming: Streaming | undefined;
   activeRunElapsed: number;
-  isOwner: boolean;
   isStopping: boolean;
   onStopConfirm: () => void;
   hasComment: boolean;
@@ -165,7 +163,7 @@ export function RunTimelineItem({
                       e.stopPropagation();
                       onStopConfirm();
                     }}
-                    disabled={isStopping || !isOwner}
+                    disabled={isStopping}
                   >
                     {isStopping ? (
                       <IconLoader2 size={14} className="animate-spin" />
@@ -176,11 +174,6 @@ export function RunTimelineItem({
                   </Button>
                 </div>
               </TooltipTrigger>
-              {!isOwner && (
-                <TooltipContent>
-                  Only the task owner can stop execution
-                </TooltipContent>
-              )}
             </Tooltip>
           )}
         </div>

@@ -157,6 +157,49 @@ export const getTaskIdsWithLatestRunError = authQuery({
   },
 });
 
+/** Returns the latest deployment status for each task that has one. */
+export const getLatestDeploymentStatuses = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    taskIds: v.array(v.id("agentTasks")),
+  },
+  returns: v.array(
+    v.object({
+      taskId: v.id("agentTasks"),
+      deploymentStatus: deploymentStatusValidator,
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+
+    const results = await Promise.all(
+      args.taskIds.map(async (taskId) => {
+        const latestRunWithDeployment = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", taskId))
+          .order("desc")
+          .filter((q) => q.neq(q.field("deploymentStatus"), undefined))
+          .first();
+        if (latestRunWithDeployment?.deploymentStatus) {
+          return {
+            taskId,
+            deploymentStatus: latestRunWithDeployment.deploymentStatus,
+          };
+        }
+        return null;
+      }),
+    );
+    return results.filter(
+      (
+        r,
+      ): r is {
+        taskId: Id<"agentTasks">;
+        deploymentStatus: "queued" | "building" | "deployed" | "error";
+      } => r !== null,
+    );
+  },
+});
+
 /** Updates the status of an in-progress agent run and recomputes project phase if needed. */
 export const updateStatus = authMutation({
   args: {
@@ -266,7 +309,7 @@ export const complete = authMutation({
     }
 
     await ctx.db.patch(task._id, {
-      status: args.success ? "code_review" : "todo",
+      status: args.success ? "business_review" : "todo",
       updatedAt: now,
     });
     if (task.projectId) {
@@ -297,6 +340,55 @@ export const complete = authMutation({
       });
     }
     return null;
+  },
+});
+
+/** Returns the latest run with a deployment status across all tasks in a project. */
+export const getLatestDeploymentByProject = authQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.union(
+    v.object({
+      deploymentStatus: deploymentStatusValidator,
+      deploymentUrl: v.optional(v.string()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
+      return null;
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    let latest: {
+      deploymentStatus: "queued" | "building" | "deployed" | "error";
+      deploymentUrl: string | undefined;
+      startedAt: number;
+    } | null = null;
+    for (const task of tasks) {
+      const runs = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", task._id))
+        .collect();
+      for (const run of runs) {
+        if (
+          run.deploymentStatus &&
+          (latest === null || (run.startedAt ?? 0) > latest.startedAt)
+        ) {
+          latest = {
+            deploymentStatus: run.deploymentStatus,
+            deploymentUrl: run.deploymentUrl,
+            startedAt: run.startedAt ?? 0,
+          };
+        }
+      }
+    }
+    if (!latest) return null;
+    return {
+      deploymentStatus: latest.deploymentStatus,
+      deploymentUrl: latest.deploymentUrl,
+    };
   },
 });
 

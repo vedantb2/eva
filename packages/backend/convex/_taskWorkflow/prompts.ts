@@ -104,7 +104,7 @@ ${changeRequestSection}
 ## Steps:
 1. Read the files you plan to modify before editing them — understand existing code first
 2. Implement changes by editing source code files
-3. Do typechecking to verify no type errors. If errors, fix and re-run (max 2 attempts — if still failing, commit what you have and report the error)
+3. Run the project's build command (e.g. \`timeout 180 pnpm run build\` or \`timeout 180 npm run build\`) to verify no type or build errors. If errors occur, read the error output carefully, fix every issue, and re-run the build. Repeat until the build passes (max 3 attempts). The build MUST pass before you commit — broken builds cause deployment failures.
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
 5. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
 
@@ -113,9 +113,10 @@ After committing and pushing, write a short plain-text summary of what changed, 
 ${proofOfCompletionSection}
 
 ## Rules:
-- Do NOT create .md plan files or run lint/build/test/dev commands (except the dev server for proof when proof capture is enabled)
+- Do NOT create .md plan files or run lint/test/dev commands (except the build command in step 3, and the dev server for proof when proof capture is enabled)
+- Do NOT commit or push if the build command fails. Fix the errors first. A failed build = failed deployment.
 - Use lockfile for package manager. GITHUB_TOKEN is set.
-- Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 30 gh ...\`
+- Prefix shell commands with timeouts: \`timeout 180 npm install\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }

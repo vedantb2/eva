@@ -54,7 +54,33 @@ export const getTaskData = internalQuery({
       .query("taskComments")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
       .collect();
-    const changeRequests = comments
+
+    // Only surface comments the last successful run hasn't already addressed,
+    // so subsequent "Make changes" runs focus on NEW feedback. Cutoff is the
+    // latest successful run's startedAt (not finishedAt), so comments added
+    // while that run was in-flight still carry over. Failed/errored runs are
+    // NOT cutoffs — their comments stay unaddressed for the next retry.
+    const successfulRuns = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task_and_status", (q) =>
+        q.eq("taskId", args.taskId).eq("status", "success"),
+      )
+      .collect();
+    const latestSuccessStartedAt = successfulRuns.reduce<number | undefined>(
+      (latest, run) => {
+        if (run.startedAt === undefined) return latest;
+        if (latest === undefined || run.startedAt > latest)
+          return run.startedAt;
+        return latest;
+      },
+      undefined,
+    );
+    const relevantComments =
+      latestSuccessStartedAt !== undefined
+        ? comments.filter((c) => c.createdAt > latestSuccessStartedAt)
+        : comments;
+
+    const changeRequests = relevantComments
       .sort((a, b) => a.createdAt - b.createdAt)
       .map((c) => c.content);
 
@@ -115,5 +141,59 @@ export const getTaskData = internalQuery({
       screenshotsVideosEnabled,
       auditCategories: enabledCategories,
     };
+  },
+});
+
+/** Fetches task comments and proof attachments for enriching PR descriptions. */
+export const getPrEnrichmentData = internalQuery({
+  args: {
+    taskId: v.id("agentTasks"),
+  },
+  returns: v.object({
+    changeRequests: v.array(v.string()),
+    proofs: v.array(
+      v.object({
+        fileName: v.union(v.string(), v.null()),
+        message: v.union(v.string(), v.null()),
+        url: v.union(v.string(), v.null()),
+        contentType: v.union(v.string(), v.null()),
+      }),
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const comments = await ctx.db
+      .query("taskComments")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const changeRequests = comments
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((c) => c.content);
+
+    const taskProofs = await ctx.db
+      .query("taskProof")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+
+    const proofs = await Promise.all(
+      taskProofs.map(async (p) => {
+        if (!p.storageId) {
+          return {
+            fileName: p.fileName ?? null,
+            message: p.message ?? null,
+            url: null,
+            contentType: null,
+          };
+        }
+        const meta = await ctx.db.system.get("_storage", p.storageId);
+        return {
+          fileName: p.fileName ?? null,
+          message: p.message ?? null,
+          url: (await ctx.storage.getUrl(p.storageId)) ?? null,
+          contentType: meta?.contentType ?? null,
+        };
+      }),
+    );
+
+    return { changeRequests, proofs };
   },
 });

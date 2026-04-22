@@ -42,20 +42,12 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
-import { useQueryStates } from "nuqs";
-import {
-  statusesParser,
-  assigneeFilterParser,
-  tagsFilterParser,
-  quickTaskSortFieldParser,
-  quickTaskSortDirParser,
-  quickTaskTimeRangeParser,
-} from "@/lib/search-params";
+import { useQuickTaskFilters } from "../_utils";
 
 type QuickTaskView = "kanban" | "list" | "table";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
-type SortField = "created" | "updated" | "title";
+type SortField = "lastRun" | "updated" | "created" | "title";
 type SortDir = "asc" | "desc";
 type TimeRange = "7d" | "30d" | "90d" | "all";
 
@@ -79,8 +71,9 @@ interface QuickTasksToolbarProps {
 }
 
 const SORT_FIELD_LABELS: Record<SortField, string> = {
-  created: "Created",
+  lastRun: "Last Run",
   updated: "Updated",
+  created: "Created",
   title: "Title",
 };
 
@@ -126,14 +119,7 @@ export function QuickTasksToolbar({
   const [
     { statuses, assignee, tags, sortField, sortDir, timeRange },
     setParams,
-  ] = useQueryStates({
-    statuses: statusesParser,
-    assignee: assigneeFilterParser,
-    tags: tagsFilterParser,
-    sortField: quickTaskSortFieldParser,
-    sortDir: quickTaskSortDirParser,
-    timeRange: quickTaskTimeRangeParser,
-  });
+  ] = useQuickTaskFilters();
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
   const selectedTags = useMemo(() => new Set(tags), [tags]);
 

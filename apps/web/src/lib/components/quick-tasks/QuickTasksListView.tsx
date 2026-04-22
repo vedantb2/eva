@@ -7,8 +7,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useQueryStates } from "nuqs";
-import { searchParser, statusesParser } from "@/lib/search-params";
+import { useQuickTaskFilters } from "@/routes/_repo/$owner/$repo/quick-tasks/_utils";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   Button,
@@ -90,10 +89,7 @@ export function QuickTasksListView({
     () => new Set(TASK_STATUSES),
   );
 
-  const [{ q, statuses }] = useQueryStates({
-    q: searchParser,
-    statuses: statusesParser,
-  });
+  const [{ q, statuses }] = useQuickTaskFilters();
   const searchQuery = q;
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
 

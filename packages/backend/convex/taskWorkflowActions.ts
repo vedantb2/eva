@@ -1,11 +1,18 @@
 "use node";
 
 import { v } from "convex/values";
+import type { GenericActionCtx } from "convex/server";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { DataModel, Id } from "./_generated/dataModel";
 import { getInstallationOctokit } from "./githubAuth";
 import { deploymentStatusValidator } from "./validators";
 import { extractJsonBlock } from "./_taskWorkflow/helpers";
+import { resolveAllEnvVars } from "./envVarResolver";
+import { fetchStableBranchAlias } from "./_deployment/vercel";
+
+// Re-export URL builders for backwards compatibility
+export { buildEvaTaskUrl, buildEvaSessionUrl } from "./_taskWorkflow/urls";
 
 type AuditRow = {
   requirement: string;
@@ -110,21 +117,6 @@ function mergeBodyWithAuditSection(
   return stripped ? `${stripped}\n\n${auditSection}` : auditSection;
 }
 
-/** Assembles a pull request body from an array of heading/content sections. */
-export function buildPrBody(
-  sections: Array<{ heading: string; content: string }>,
-): string {
-  const parts: string[] = [];
-  for (const section of sections) {
-    parts.push(`## ${section.heading}`);
-    parts.push(section.content);
-    parts.push("");
-  }
-  parts.push("---");
-  parts.push("*Created by Eva AI Agent*");
-  return parts.join("\n");
-}
-
 /** Creates a GitHub pull request via the installation Octokit and optionally adds labels. */
 export const createPullRequest = internalAction({
   args: {
@@ -223,8 +215,53 @@ export const appendAuditToPullRequest = internalAction({
   },
 });
 
+/** Updates an existing PR body while preserving any audit section. */
+export const refreshPullRequestBody = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    body: v.string(),
+  },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      const pulls = await octokit.rest.pulls.list({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        state: "open",
+        head: `${args.repoOwner}:${args.branchName}`,
+        per_page: 1,
+      });
+      const pr = pulls.data[0];
+      if (!pr) return null;
+
+      // Preserve existing audit section if present
+      const existingBody = pr.body ?? "";
+      const auditMatch = existingBody.match(AUDIT_SECTION_REGEX);
+      const newBody = auditMatch
+        ? `${args.body}\n\n${auditMatch[0]}`
+        : args.body;
+
+      await octokit.rest.pulls.update({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: pr.number,
+        body: newBody,
+      });
+    } catch (error) {
+      console.error(
+        `Failed to refresh PR body: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return null;
+  },
+});
+
 const MAX_POLL_ATTEMPTS = 20;
-const POLL_INTERVAL_MS = 60_000;
+const POLL_INTERVAL_MS = 30_000;
 
 type DeploymentStatus = typeof deploymentStatusValidator.type;
 
@@ -253,6 +290,55 @@ function isTerminalDeploymentStatus(status: DeploymentStatus): boolean {
   return status === "deployed" || status === "error";
 }
 
+/**
+ * Resolves the deployment URL to store, preferring Vercel's stable branch
+ * alias over the per-commit URL GitHub reports. Never flips a stored URL:
+ * while the alias isn't attached yet we return `undefined` (the mutation
+ * leaves the field untouched, since it spreads `deploymentUrl` only when
+ * not undefined) and signal the caller to keep polling. On the final
+ * attempt we fall back to the per-commit URL as a safety net so the UI
+ * isn't permanently empty. If the token isn't configured we degrade to the
+ * per-commit URL immediately — same behaviour as before this change.
+ */
+async function resolveStableDeploymentUrl(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+  perCommitUrl: string | undefined,
+  attempt: number,
+): Promise<{ url: string | undefined; shouldKeepPolling: boolean }> {
+  if (!perCommitUrl) return { url: undefined, shouldKeepPolling: false };
+
+  const envVars = await resolveAllEnvVars(ctx, repoId);
+  const token = envVars.VERCEL_TOKEN;
+  if (!token) {
+    // No token configured → fall back to today's behaviour immediately.
+    return { url: perCommitUrl, shouldKeepPolling: false };
+  }
+  const teamId = envVars.VERCEL_TEAM_ID;
+
+  const alias = await fetchStableBranchAlias({
+    perCommitHostname: perCommitUrl,
+    token,
+    teamId,
+  });
+  if (alias) {
+    // Vercel's API returns aliases as bare hostnames (e.g. `my-app-git-feat-team.vercel.app`).
+    // Prepend `https://` so the stored URL is absolute — without a scheme, browsers treat
+    // it as a relative path and prepend the current page's origin when rendered in `<a href>`.
+    return { url: `https://${alias}`, shouldKeepPolling: false };
+  }
+
+  // Alias not yet attached. Keep polling but DO NOT touch the stored URL —
+  // returning `undefined` makes the mutation skip the `deploymentUrl` patch,
+  // so users never see a per-commit URL briefly before it flips to the
+  // stable alias. On the final attempt we accept the per-commit URL as a
+  // safety net so the preview button isn't empty forever.
+  if (attempt < MAX_POLL_ATTEMPTS - 1) {
+    return { url: undefined, shouldKeepPolling: true };
+  }
+  return { url: perCommitUrl, shouldKeepPolling: false };
+}
+
 /** Polls GitHub deployment status for a task run branch, scheduling retries until terminal or max attempts. */
 export const pollDeploymentStatus = internalAction({
   args: {
@@ -260,6 +346,7 @@ export const pollDeploymentStatus = internalAction({
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
     branchName: v.string(),
     deploymentProjectName: v.optional(v.string()),
     attempt: v.number(),
@@ -349,11 +436,19 @@ export const pollDeploymentStatus = internalAction({
 
       const latestStatus = statuses[0];
       const mappedStatus = mapGitHubDeploymentState(latestStatus.state);
-      const deploymentUrl =
+      const perCommitUrl =
         latestStatus.environment_url || latestStatus.target_url || undefined;
 
+      const { url: deploymentUrl, shouldKeepPolling } =
+        await resolveStableDeploymentUrl(
+          ctx,
+          args.repoId,
+          perCommitUrl,
+          args.attempt,
+        );
+
       console.log(
-        `[deployment-poll] ${args.repoOwner}/${args.repoName} branch=${args.branchName}: deployment=${targetDeployment.id} env=${targetDeployment.environment} state=${latestStatus.state} mapped=${mappedStatus} url=${deploymentUrl ?? "none"} project=${args.deploymentProjectName ?? "none"}`,
+        `[deployment-poll] ${args.repoOwner}/${args.repoName} branch=${args.branchName}: deployment=${targetDeployment.id} env=${targetDeployment.environment} state=${latestStatus.state} mapped=${mappedStatus} url=${deploymentUrl ?? "none"} project=${args.deploymentProjectName ?? "none"} keepPolling=${shouldKeepPolling}`,
       );
 
       await ctx.runMutation(internal.agentRuns.updateDeploymentStatus, {
@@ -362,10 +457,11 @@ export const pollDeploymentStatus = internalAction({
         deploymentUrl,
       });
 
-      if (
-        !isTerminalDeploymentStatus(mappedStatus) &&
-        args.attempt < MAX_POLL_ATTEMPTS
-      ) {
+      // Keep polling if: (a) build isn't finished yet, or (b) build is done
+      // but we're still waiting for Vercel to attach the stable branch alias.
+      const shouldReschedule =
+        !isTerminalDeploymentStatus(mappedStatus) || shouldKeepPolling;
+      if (shouldReschedule && args.attempt < MAX_POLL_ATTEMPTS) {
         await ctx.scheduler.runAfter(
           POLL_INTERVAL_MS,
           internal.taskWorkflowActions.pollDeploymentStatus,
@@ -395,6 +491,7 @@ export const pollSessionDeploymentStatus = internalAction({
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
     branchName: v.string(),
     deploymentProjectName: v.optional(v.string()),
     attempt: v.number(),
@@ -484,11 +581,19 @@ export const pollSessionDeploymentStatus = internalAction({
 
       const latestStatus = statuses[0];
       const mappedStatus = mapGitHubDeploymentState(latestStatus.state);
-      const deploymentUrl =
+      const perCommitUrl =
         latestStatus.environment_url || latestStatus.target_url || undefined;
 
+      const { url: deploymentUrl, shouldKeepPolling } =
+        await resolveStableDeploymentUrl(
+          ctx,
+          args.repoId,
+          perCommitUrl,
+          args.attempt,
+        );
+
       console.log(
-        `[session-deployment-poll] ${args.repoOwner}/${args.repoName} branch=${args.branchName}: deployment=${targetDeployment.id} env=${targetDeployment.environment} state=${latestStatus.state} mapped=${mappedStatus} url=${deploymentUrl ?? "none"} project=${args.deploymentProjectName ?? "none"}`,
+        `[session-deployment-poll] ${args.repoOwner}/${args.repoName} branch=${args.branchName}: deployment=${targetDeployment.id} env=${targetDeployment.environment} state=${latestStatus.state} mapped=${mappedStatus} url=${deploymentUrl ?? "none"} project=${args.deploymentProjectName ?? "none"} keepPolling=${shouldKeepPolling}`,
       );
 
       await ctx.runMutation(internal.sessions.updateDeploymentStatus, {
@@ -497,10 +602,11 @@ export const pollSessionDeploymentStatus = internalAction({
         deploymentUrl,
       });
 
-      if (
-        !isTerminalDeploymentStatus(mappedStatus) &&
-        args.attempt < MAX_POLL_ATTEMPTS
-      ) {
+      // Keep polling if: (a) build isn't finished yet, or (b) build is done
+      // but we're still waiting for Vercel to attach the stable branch alias.
+      const shouldReschedule =
+        !isTerminalDeploymentStatus(mappedStatus) || shouldKeepPolling;
+      if (shouldReschedule && args.attempt < MAX_POLL_ATTEMPTS) {
         await ctx.scheduler.runAfter(
           POLL_INTERVAL_MS,
           internal.taskWorkflowActions.pollSessionDeploymentStatus,

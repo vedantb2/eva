@@ -96,6 +96,7 @@ export const scheduleDeploymentTracking = internalMutation({
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
+    repoId: v.id("githubRepos"),
     branchName: v.string(),
     deploymentProjectName: v.optional(v.string()),
   },
@@ -110,6 +111,7 @@ export const scheduleDeploymentTracking = internalMutation({
         installationId: args.installationId,
         repoOwner: args.repoOwner,
         repoName: args.repoName,
+        repoId: args.repoId,
         branchName: args.branchName,
         deploymentProjectName: args.deploymentProjectName,
         attempt: 0,
@@ -203,7 +205,7 @@ export const completeRun = internalMutation({
     const task = await ctx.db.get(args.taskId);
     if (task) {
       await ctx.db.patch(args.taskId, {
-        status: args.success ? "code_review" : "todo",
+        status: args.success ? "business_review" : "todo",
         updatedAt: now,
       });
     }

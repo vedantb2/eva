@@ -4,8 +4,6 @@ import { useState, useCallback, useRef, lazy, Suspense } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogFooter,
   Button,
   Input,
@@ -14,6 +12,13 @@ import {
   PopoverTrigger,
   PopoverContent,
   ModelSelect,
+  Badge,
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
 } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -24,12 +29,25 @@ import {
   type AIModel,
 } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { BranchSelect } from "@/lib/components/BranchSelect";
-import { IconFileText, IconTrash } from "@tabler/icons-react";
+import {
+  IconFileText,
+  IconTrash,
+  IconUserPlus,
+  IconFolder,
+  IconGitBranch,
+  IconTag,
+  IconCheck,
+  IconX,
+} from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { getUserInitials, UserInitials } from "@conductor/shared";
+import { Facehash } from "facehash";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
+import { getUserDisplayName } from "@/lib/components/tasks/_components/task-detail-constants";
 
 const MarkdownEditor = lazy(() =>
   import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
@@ -37,16 +55,25 @@ const MarkdownEditor = lazy(() =>
   })),
 );
 
+type User = FunctionReturnType<typeof api.users.listAll>[number];
+type Project = FunctionReturnType<typeof api.projects.list>[number];
+
 interface QuickTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectId?: Id<"projects">;
+  users?: User[];
+  projects?: Project[];
+  allTags?: string[];
 }
 
 export function QuickTaskModal({
   isOpen,
   onClose,
   projectId,
+  users,
+  projects,
+  allTags,
 }: QuickTaskModalProps) {
   const { repo } = useRepo();
   const defaultBranch = repo.defaultBaseBranch ?? "main";
@@ -59,6 +86,14 @@ export function QuickTaskModal({
   );
   const [confirmDeleteId, setConfirmDeleteId] =
     useState<Id<"agentTasks"> | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<
+    Id<"projects"> | undefined
+  >(projectId);
+  const [assignedTo, setAssignedTo] = useState<Id<"users"> | undefined>(
+    undefined,
+  );
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState("");
 
   const editorRef = useRef<MarkdownEditorHandle>(null);
 
@@ -79,7 +114,11 @@ export function QuickTaskModal({
     setBaseBranch(defaultBranch);
     setModel(defaultModel);
     setActiveDraftId(null);
-  }, [defaultBranch, defaultModel]);
+    setSelectedProjectId(projectId);
+    setAssignedTo(undefined);
+    setSelectedTags([]);
+    setTagSearch("");
+  }, [defaultBranch, defaultModel, projectId]);
 
   const handleClose = useCallback(async () => {
     const desc = getDescription().trim();
@@ -90,7 +129,7 @@ export function QuickTaskModal({
         title: title.trim() || undefined,
         description: desc || undefined,
         baseBranch,
-        projectId,
+        projectId: selectedProjectId,
       });
     }
     resetForm();
@@ -102,7 +141,7 @@ export function QuickTaskModal({
     title,
     description,
     baseBranch,
-    projectId,
+    selectedProjectId,
     resetForm,
     onClose,
   ]);
@@ -120,6 +159,8 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch,
           model,
+          tags: selectedTags.length > 0 ? selectedTags : undefined,
+          assignedTo,
         });
       } else {
         await createQuickTask({
@@ -128,7 +169,9 @@ export function QuickTaskModal({
           description: desc || undefined,
           baseBranch,
           model,
-          projectId,
+          projectId: selectedProjectId,
+          tags: selectedTags.length > 0 ? selectedTags : undefined,
+          assignedTo,
         });
       }
       resetForm();
@@ -143,6 +186,8 @@ export function QuickTaskModal({
     setDescription(draft.description ?? "");
     setBaseBranch(draft.baseBranch ?? defaultBranch);
     setActiveDraftId(draft._id);
+    setSelectedProjectId(draft.projectId ?? projectId);
+    setSelectedTags(draft.tags ?? []);
   };
 
   const handleDeleteDraft = async (draftId: Id<"agentTasks">) => {
@@ -153,7 +198,27 @@ export function QuickTaskModal({
     }
   };
 
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
+  };
+
+  const addCustomTag = (raw: string) => {
+    const value = raw.trim();
+    if (!value || selectedTags.includes(value)) return;
+    setSelectedTags((prev) => [...prev, value]);
+    setTagSearch("");
+  };
+
   const canSubmit = !isLoading && !!title.trim() && !!baseBranch;
+
+  const assignedUser = assignedTo
+    ? users?.find((u) => u._id === assignedTo)
+    : undefined;
+  const selectedProject = selectedProjectId
+    ? projects?.find((p) => p._id === selectedProjectId)
+    : undefined;
 
   useHotkey(
     "Mod+Enter",
@@ -173,53 +238,268 @@ export function QuickTaskModal({
         if (!v) handleClose();
       }}
     >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {activeDraftId ? "Continue Draft" : "New Quick Task"}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
+      <DialogContent className="max-w-2xl gap-0 p-0" hideCloseButton>
+        <div className="px-5 pt-5 pb-1">
           <Input
-            placeholder="What needs to be done?"
+            placeholder="Task title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
+            className="border-0 shadow-none bg-transparent px-0 text-base font-medium focus-visible:ring-0 placeholder:text-muted-foreground/60"
           />
-          <div className="min-h-[120px] max-h-[50vh] sm:min-h-[200px] rounded-md bg-muted/40 overflow-y-auto">
-            <Suspense
-              fallback={
-                <div className="p-3">
-                  <Spinner size="sm" />
-                </div>
-              }
-            >
-              <MarkdownEditor
-                ref={editorRef}
-                content={description}
-                editable
-                placeholder="Add more details (optional)"
-                minHeight="min-h-[120px]"
-                className="text-sm [&_.tiptap]:px-3 [&_.tiptap]:py-2"
-                onBlur={(md) => setDescription(md)}
-              />
-            </Suspense>
-          </div>
-          <div className="flex items-center gap-2">
-            <BranchSelect
-              value={baseBranch}
-              onValueChange={setBaseBranch}
-              placeholder="Select a base branch"
-              className="h-10 flex-1"
+        </div>
+
+        <div className="px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
+          <Suspense
+            fallback={
+              <div className="p-3">
+                <Spinner size="sm" />
+              </div>
+            }
+          >
+            <MarkdownEditor
+              ref={editorRef}
+              content={description}
+              editable
+              placeholder="Add description..."
+              minHeight="min-h-[160px]"
+              className="text-sm [&_.tiptap]:px-0 [&_.tiptap]:py-2"
+              onBlur={(md) => setDescription(md)}
             />
+          </Suspense>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+              >
+                {assignedUser ? (
+                  <>
+                    <UserInitials user={assignedUser} size="sm" hideLastSeen />
+                    <span className="text-foreground">
+                      {getUserDisplayName(assignedUser)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <IconUserPlus size={14} />
+                    <span>Assignee</span>
+                  </>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-52 p-0">
+              <Command>
+                <CommandInput placeholder="Search users..." />
+                <CommandList>
+                  <CommandEmpty>No users found</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="unassigned"
+                      onSelect={() => setAssignedTo(undefined)}
+                    >
+                      <IconUserPlus
+                        size={14}
+                        className="text-muted-foreground"
+                      />
+                      Unassigned
+                      {!assignedTo && (
+                        <IconCheck size={14} className="ml-auto" />
+                      )}
+                    </CommandItem>
+                    {(users ?? []).map((user) => (
+                      <CommandItem
+                        key={user._id}
+                        value={getUserDisplayName(user)}
+                        onSelect={() => setAssignedTo(user._id)}
+                      >
+                        <Facehash
+                          size={16}
+                          name={getUserInitials(user)}
+                          enableBlink
+                        />
+                        {getUserDisplayName(user)}
+                        {assignedTo === user._id && (
+                          <IconCheck size={14} className="ml-auto" />
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+              >
+                <IconFolder size={14} />
+                <span className={selectedProject ? "text-foreground" : ""}>
+                  {selectedProject ? selectedProject.title : "Project"}
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-52 p-0">
+              <Command>
+                <CommandInput placeholder="Search projects..." />
+                <CommandList>
+                  <CommandEmpty>No projects found</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="no-project"
+                      onSelect={() => setSelectedProjectId(undefined)}
+                    >
+                      No project
+                      {!selectedProjectId && (
+                        <IconCheck size={14} className="ml-auto" />
+                      )}
+                    </CommandItem>
+                    {(projects ?? []).map((p) => (
+                      <CommandItem
+                        key={p._id}
+                        value={p.title}
+                        onSelect={() => setSelectedProjectId(p._id)}
+                      >
+                        <IconFolder
+                          size={14}
+                          className="text-muted-foreground"
+                        />
+                        {p.title}
+                        {selectedProjectId === p._id && (
+                          <IconCheck size={14} className="ml-auto" />
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+              >
+                <IconGitBranch size={14} />
+                <span className="text-foreground">{baseBranch}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-56 p-2">
+              <BranchSelect
+                value={baseBranch}
+                onValueChange={setBaseBranch}
+                placeholder="Select a base branch"
+                className="h-8 w-full"
+              />
+            </PopoverContent>
+          </Popover>
+
+          <div className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs">
             <ModelSelect
               value={model}
               options={modelOptions}
               onValueChange={setModel}
             />
           </div>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+              >
+                <IconTag size={14} />
+                {selectedTags.length > 0 ? (
+                  <span className="text-foreground">
+                    {selectedTags.length} tag
+                    {selectedTags.length !== 1 ? "s" : ""}
+                  </span>
+                ) : (
+                  <span>Tags</span>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-56 p-0">
+              <Command>
+                <CommandInput
+                  placeholder="Search or create tag..."
+                  value={tagSearch}
+                  onValueChange={setTagSearch}
+                  onKeyDown={(e) => {
+                    if (
+                      (e.key === "Enter" || e.key === ",") &&
+                      tagSearch.trim()
+                    ) {
+                      e.preventDefault();
+                      addCustomTag(tagSearch);
+                    }
+                  }}
+                />
+                <CommandList>
+                  <CommandEmpty>
+                    {tagSearch.trim() ? (
+                      <button
+                        type="button"
+                        className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent rounded-sm"
+                        onClick={() => addCustomTag(tagSearch)}
+                      >
+                        Create &quot;{tagSearch.trim()}&quot;
+                      </button>
+                    ) : (
+                      "No tags"
+                    )}
+                  </CommandEmpty>
+                  <CommandGroup>
+                    {(allTags ?? []).map((tag) => (
+                      <CommandItem
+                        key={tag}
+                        value={tag}
+                        onSelect={() => toggleTag(tag)}
+                      >
+                        <IconTag size={14} className="text-muted-foreground" />
+                        {tag}
+                        {selectedTags.includes(tag) && (
+                          <IconCheck size={14} className="ml-auto" />
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          {selectedTags.length > 0 && (
+            <div className="flex flex-wrap gap-1 ml-1">
+              {selectedTags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="secondary"
+                  className="text-[10px] h-5 gap-0.5 pr-0.5"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
+                    onClick={() => toggleTag(tag)}
+                  >
+                    <IconX size={10} />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
-        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+
+        <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-between bg-muted/15">
           <div>
             {drafts && drafts.length > 0 && (
               <Popover>

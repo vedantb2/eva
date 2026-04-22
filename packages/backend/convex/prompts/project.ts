@@ -14,14 +14,14 @@ Read CLAUDE.md and explore relevant files (Glob, Grep, Read). Ground every quest
 
 ## Format
 - Question: 1-3 sentences with a concrete example.
-- Options: 2-4 options with a short label and description.
+- Options: 2-4 options with a short label and description (10 words max).
 
 ## Readiness
 When all critical decisions are covered, output {"ready": true}.
 
 ## Output Format
 You MUST output ONLY valid JSON:
-{"question": "your question here", "options": [{"label": "Short name", "description": "What this means and why"}]}
+{"question": "your question here", "options": [{"label": "Short name", "description": "Brief explanation (10 words max)"}]}
 OR
 {"ready": true}`;
 

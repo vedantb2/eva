@@ -19,11 +19,18 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
-import { IconClock, IconDots, IconFolder, IconTag } from "@tabler/icons-react";
+import {
+  IconClock,
+  IconDots,
+  IconFolder,
+  IconTag,
+  IconBrandVercelFilled,
+} from "@tabler/icons-react";
 import {
   statusConfig,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
+import { DEPLOYMENT_STATUS_CONFIG } from "@/lib/components/tasks/_components/task-detail-constants";
 import dayjs, { compactRelativeTime } from "@conductor/shared/dates";
 import { useState } from "react";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
@@ -35,6 +42,8 @@ type GroupedCodebase = FunctionReturnType<
 >[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
+
+type DeploymentStatus = "queued" | "building" | "deployed" | "error";
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
@@ -48,6 +57,7 @@ interface QuickTaskCardProps {
   createdAt: number;
   projectName?: string;
   hasError?: boolean;
+  deploymentStatus?: DeploymentStatus;
   groupedCodebases?: GroupedCodebase[];
   onClick?: () => void;
   isSelecting?: boolean;
@@ -74,6 +84,7 @@ export function QuickTaskCard({
   createdAt,
   projectName,
   hasError = false,
+  deploymentStatus,
   groupedCodebases,
   onClick,
   isSelecting,
@@ -129,11 +140,14 @@ export function QuickTaskCard({
 
   const hasDialogOpen = showDeleteConfirm || moveTarget !== null;
 
+  const hasMetadata =
+    projectName !== undefined || (tags !== undefined && tags.length > 0);
+
   const card = (
     <Card
-      className={`group relative overflow-hidden border-0 transition-[transform,background-color] duration-200 ${
+      className={`group relative overflow-hidden border-0 transition-[transform,background-color] duration-150 ${
         showError
-          ? "bg-card/88"
+          ? "bg-destructive/5"
           : isInProgress
             ? "bg-card/95"
             : isActive
@@ -141,10 +155,11 @@ export function QuickTaskCard({
               : "bg-card/88 hover:bg-card"
       } ${isSelected ? "ring-2 ring-primary/40" : ""} ${isActive ? "ring-1 ring-primary/30" : ""} ${
         onClick
-          ? "cursor-pointer hover:-translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          ? "cursor-pointer active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
       }`}
-      onClick={() => {
+      onClick={(e) => {
+        if (e.detail === 0) return;
         if (hasDialogOpen) return;
         onClick?.();
       }}
@@ -159,12 +174,9 @@ export function QuickTaskCard({
       }}
     >
       <div
-        className={`pointer-events-none absolute -right-6 -top-6 h-16 w-16 rounded-full opacity-0 blur-xl transition-opacity duration-200 group-hover:opacity-30 group-focus-within:opacity-30 ${accentClass}`}
+        className={`absolute inset-y-1.5 left-0 w-[3px] rounded-r-full ${accentClass}`}
       />
-      <div
-        className={`absolute inset-y-1.5 left-0 w-1 rounded-r-full ${accentClass}`}
-      />
-      <CardContent className="relative z-[1] space-y-1 px-2.5 py-1.5 pl-3 sm:px-3 sm:py-2 sm:pl-3.5">
+      <CardContent className="relative z-[1] space-y-1.5 px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5">
         <div className="flex min-w-0 items-start gap-1.5">
           {isSelecting && (
             <Checkbox
@@ -174,46 +186,35 @@ export function QuickTaskCard({
               className="mt-0.5 flex-shrink-0"
             />
           )}
-          <div className="min-w-0 flex-1">
-            <h4 className="line-clamp-1 text-sm font-semibold leading-5 text-foreground">
-              {taskNumber !== undefined && (
-                <span className="text-muted-foreground font-mono mr-1.5">
-                  #{taskNumber}
-                </span>
-              )}
-              {title}
-            </h4>
+          <h4 className="min-w-0 flex-1 line-clamp-1 text-sm font-medium leading-5 text-foreground">
+            {taskNumber !== undefined && (
+              <span className="text-muted-foreground/70 font-mono text-xs mr-1.5">
+                #{taskNumber}
+              </span>
+            )}
+            {title}
+          </h4>
 
-            {projectName ? (
-              <Badge
-                variant="default"
-                className="ml-auto shrink-0 px-1.5 py-0 text-[10px] font-medium leading-4"
-              >
-                <div className="flex flex-row gap-0.5 items-center">
-                  <IconFolder size={10} />
-                  {projectName}
-                </div>
-              </Badge>
-            ) : null}
-            {tags && tags.length > 0 ? (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {tags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="px-1.5 py-0 text-[10px] font-medium leading-4"
-                  >
-                    <div className="flex flex-row gap-0.5 items-center">
-                      <IconTag size={10} />
-                      {tag}
-                    </div>
-                  </Badge>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex shrink-0 items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-1">
+            {deploymentStatus && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center">
+                    <IconBrandVercelFilled
+                      size={14}
+                      className={
+                        DEPLOYMENT_STATUS_CONFIG[deploymentStatus]?.iconColor ??
+                        "text-muted-foreground"
+                      }
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {DEPLOYMENT_STATUS_CONFIG[deploymentStatus]?.label ??
+                    "Unknown"}
+                </TooltipContent>
+              </Tooltip>
+            )}
             {scheduledAt ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -231,12 +232,40 @@ export function QuickTaskCard({
           </div>
         </div>
 
-        <div className="flex items-center justify-between mt-1">
+        {hasMetadata && (
+          <div className="flex flex-wrap items-center gap-1">
+            {projectName ? (
+              <Badge
+                variant="default"
+                className="shrink-0 px-1.5 py-0 text-[10px] font-medium leading-4"
+              >
+                <div className="flex flex-row gap-0.5 items-center">
+                  <IconFolder size={10} />
+                  {projectName}
+                </div>
+              </Badge>
+            ) : null}
+            {tags?.map((tag) => (
+              <Badge
+                key={tag}
+                variant="secondary"
+                className="px-1.5 py-0 text-[10px] font-medium leading-4"
+              >
+                <div className="flex flex-row gap-0.5 items-center">
+                  <IconTag size={10} />
+                  {tag}
+                </div>
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {createdByUser && <UserInitials user={createdByUser} size="sm" />}
           </div>
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] tabular-nums text-muted-foreground/70">
               {compactRelativeTime(createdAt)}
             </span>
             <DropdownMenu>

@@ -26,6 +26,7 @@ import type * as _daytona_prepareSandboxSteps from "../_daytona/prepareSandboxSt
 import type * as _daytona_services from "../_daytona/services.js";
 import type * as _daytona_sessions from "../_daytona/sessions.js";
 import type * as _daytona_volumes from "../_daytona/volumes.js";
+import type * as _deployment_vercel from "../_deployment/vercel.js";
 import type * as _githubRepos_helpers from "../_githubRepos/helpers.js";
 import type * as _githubRepos_mutations from "../_githubRepos/mutations.js";
 import type * as _githubRepos_queries from "../_githubRepos/queries.js";
@@ -51,6 +52,7 @@ import type * as _taskWorkflow_queries from "../_taskWorkflow/queries.js";
 import type * as _taskWorkflow_recovery from "../_taskWorkflow/recovery.js";
 import type * as _taskWorkflow_runLifecycle from "../_taskWorkflow/runLifecycle.js";
 import type * as _taskWorkflow_scheduling from "../_taskWorkflow/scheduling.js";
+import type * as _taskWorkflow_urls from "../_taskWorkflow/urls.js";
 import type * as _taskWorkflow_watchdog from "../_taskWorkflow/watchdog.js";
 import type * as _taskWorkflow_workflowDefinition from "../_taskWorkflow/workflowDefinition.js";
 import type * as agentRuns from "../agentRuns.js";
@@ -96,6 +98,7 @@ import type * as mcp_tools from "../mcp/tools.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
+import type * as prBody from "../prBody.js";
 import type * as presence from "../presence.js";
 import type * as projectInterviewWorkflow from "../projectInterviewWorkflow.js";
 import type * as projects from "../projects.js";
@@ -162,6 +165,7 @@ declare const fullApi: ApiFromModules<{
   "_daytona/services": typeof _daytona_services;
   "_daytona/sessions": typeof _daytona_sessions;
   "_daytona/volumes": typeof _daytona_volumes;
+  "_deployment/vercel": typeof _deployment_vercel;
   "_githubRepos/helpers": typeof _githubRepos_helpers;
   "_githubRepos/mutations": typeof _githubRepos_mutations;
   "_githubRepos/queries": typeof _githubRepos_queries;
@@ -187,6 +191,7 @@ declare const fullApi: ApiFromModules<{
   "_taskWorkflow/recovery": typeof _taskWorkflow_recovery;
   "_taskWorkflow/runLifecycle": typeof _taskWorkflow_runLifecycle;
   "_taskWorkflow/scheduling": typeof _taskWorkflow_scheduling;
+  "_taskWorkflow/urls": typeof _taskWorkflow_urls;
   "_taskWorkflow/watchdog": typeof _taskWorkflow_watchdog;
   "_taskWorkflow/workflowDefinition": typeof _taskWorkflow_workflowDefinition;
   agentRuns: typeof agentRuns;
@@ -232,6 +237,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   migrations: typeof migrations;
   notifications: typeof notifications;
+  prBody: typeof prBody;
   presence: typeof presence;
   projectInterviewWorkflow: typeof projectInterviewWorkflow;
   projects: typeof projects;

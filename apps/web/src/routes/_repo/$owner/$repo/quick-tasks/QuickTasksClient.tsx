@@ -3,9 +3,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useQueryStates } from "nuqs";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useNavigate, useLocation } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
@@ -17,18 +16,6 @@ import {
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { QuickTasksTableView } from "@/lib/components/quick-tasks/QuickTasksTableView";
-import {
-  searchParser,
-  quickTaskViewParser,
-  projectFilterParser,
-  userFilterParser,
-  assigneeFilterParser,
-  tagsFilterParser,
-  quickTaskSortFieldParser,
-  quickTaskSortDirParser,
-  quickTaskTimeRangeParser,
-  statusesParser,
-} from "@/lib/search-params";
 import { IconChecklist } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
@@ -38,10 +25,10 @@ import {
   type BulkAction,
 } from "./_components/QuickTasksBulkBar";
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
+import { useQuickTaskFilters } from "./_utils";
 
 export function QuickTasksClient() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { basePath, repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
@@ -67,18 +54,7 @@ export function QuickTasksClient() {
       statuses,
     },
     setParams,
-  ] = useQueryStates({
-    q: searchParser,
-    view: quickTaskViewParser,
-    project: projectFilterParser,
-    user: userFilterParser,
-    assignee: assigneeFilterParser,
-    tags: tagsFilterParser,
-    sortField: quickTaskSortFieldParser,
-    sortDir: quickTaskSortDirParser,
-    timeRange: quickTaskTimeRangeParser,
-    statuses: statusesParser,
-  });
+  ] = useQuickTaskFilters();
   const searchQuery = q;
 
   const projects = useQuery(api.projects.list, { repoId: repo._id });
@@ -319,7 +295,7 @@ export function QuickTasksClient() {
   };
 
   const handleOpenTask = (id: string) => {
-    navigate({ to: `${basePath}/quick-tasks/${id}${location.searchStr}` });
+    navigate({ to: `${basePath}/quick-tasks/${id}` });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);
@@ -350,7 +326,7 @@ export function QuickTasksClient() {
               setParams({ view: v })
             }
             searchQuery={searchQuery}
-            onSearchChange={(v) => setParams({ q: v })}
+            onSearchChange={(v) => setParams({ q: v ?? "" })}
             hasQuickTasks={hasAnyTasks}
             isSelecting={isSelecting}
             onStartSelecting={() => setIsSelecting(true)}

@@ -13,8 +13,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { TableVirtuoso } from "react-virtuoso";
-import { useQueryStates } from "nuqs";
-import { searchParser, statusesParser } from "@/lib/search-params";
+import { useQuickTaskFilters } from "@/routes/_repo/$owner/$repo/quick-tasks/_utils";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { UserInitials } from "@conductor/shared";
 import { Badge, DataTableColumnHeader, type ColumnDef } from "@conductor/ui";
@@ -150,10 +149,7 @@ export function QuickTasksTableView({
     setScrollParent(node);
   }, []);
 
-  const [{ q, statuses }] = useQueryStates({
-    q: searchParser,
-    statuses: statusesParser,
-  });
+  const [{ q, statuses }] = useQuickTaskFilters();
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
 
   const tasks = useMemo(() => {

@@ -25,8 +25,8 @@ export type DisplayTaskStatus = Exclude<TaskStatus, "draft">;
 export const TASK_STATUSES: DisplayTaskStatus[] = [
   "todo",
   "in_progress",
-  "code_review",
   "business_review",
+  "code_review",
   "done",
   "cancelled",
 ];

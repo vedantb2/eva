@@ -266,7 +266,7 @@ export const complete = authMutation({
     }
 
     await ctx.db.patch(task._id, {
-      status: args.success ? "code_review" : "todo",
+      status: args.success ? "business_review" : "todo",
       updatedAt: now,
     });
     if (task.projectId) {

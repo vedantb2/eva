@@ -205,7 +205,7 @@ export const completeRun = internalMutation({
     const task = await ctx.db.get(args.taskId);
     if (task) {
       await ctx.db.patch(args.taskId, {
-        status: args.success ? "code_review" : "todo",
+        status: args.success ? "business_review" : "todo",
         updatedAt: now,
       });
     }

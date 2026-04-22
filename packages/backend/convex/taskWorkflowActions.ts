@@ -11,6 +11,30 @@ import { extractJsonBlock } from "./_taskWorkflow/helpers";
 import { resolveAllEnvVars } from "./envVarResolver";
 import { fetchStableBranchAlias } from "./_deployment/vercel";
 
+const EVA_BASE_URL = "https://eva-web-git-staging-evalucom.vercel.app";
+
+/** Builds a link to view a task in the Eva web app. */
+export function buildEvaTaskUrl(
+  repoOwner: string,
+  repoName: string,
+  taskId: string,
+  projectId?: string,
+): string {
+  if (projectId) {
+    return `${EVA_BASE_URL}/${repoOwner}/${repoName}/projects/${projectId}`;
+  }
+  return `${EVA_BASE_URL}/${repoOwner}/${repoName}/quick-tasks/${taskId}`;
+}
+
+/** Builds a link to view a session in the Eva web app. */
+export function buildEvaSessionUrl(
+  repoOwner: string,
+  repoName: string,
+  sessionId: string,
+): string {
+  return `${EVA_BASE_URL}/${repoOwner}/${repoName}/sessions/${sessionId}`;
+}
+
 type AuditRow = {
   requirement: string;
   passed: boolean;
@@ -206,6 +230,51 @@ export const appendAuditToPullRequest = internalAction({
     } catch (error) {
       console.error(
         `Failed to append audit to PR: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return null;
+  },
+});
+
+/** Updates an existing PR body while preserving any audit section. */
+export const refreshPullRequestBody = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    body: v.string(),
+  },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      const pulls = await octokit.rest.pulls.list({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        state: "open",
+        head: `${args.repoOwner}:${args.branchName}`,
+        per_page: 1,
+      });
+      const pr = pulls.data[0];
+      if (!pr) return null;
+
+      // Preserve existing audit section if present
+      const existingBody = pr.body ?? "";
+      const auditMatch = existingBody.match(AUDIT_SECTION_REGEX);
+      const newBody = auditMatch
+        ? `${args.body}\n\n${auditMatch[0]}`
+        : args.body;
+
+      await octokit.rest.pulls.update({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: pr.number,
+        body: newBody,
+      });
+    } catch (error) {
+      console.error(
+        `Failed to refresh PR body: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     return null;

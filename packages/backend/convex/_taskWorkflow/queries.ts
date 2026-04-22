@@ -143,3 +143,57 @@ export const getTaskData = internalQuery({
     };
   },
 });
+
+/** Fetches task comments and proof attachments for enriching PR descriptions. */
+export const getPrEnrichmentData = internalQuery({
+  args: {
+    taskId: v.id("agentTasks"),
+  },
+  returns: v.object({
+    changeRequests: v.array(v.string()),
+    proofs: v.array(
+      v.object({
+        fileName: v.union(v.string(), v.null()),
+        message: v.union(v.string(), v.null()),
+        url: v.union(v.string(), v.null()),
+        contentType: v.union(v.string(), v.null()),
+      }),
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const comments = await ctx.db
+      .query("taskComments")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const changeRequests = comments
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((c) => c.content);
+
+    const taskProofs = await ctx.db
+      .query("taskProof")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+
+    const proofs = await Promise.all(
+      taskProofs.map(async (p) => {
+        if (!p.storageId) {
+          return {
+            fileName: p.fileName ?? null,
+            message: p.message ?? null,
+            url: null,
+            contentType: null,
+          };
+        }
+        const meta = await ctx.db.system.get("_storage", p.storageId);
+        return {
+          fileName: p.fileName ?? null,
+          message: p.message ?? null,
+          url: (await ctx.storage.getUrl(p.storageId)) ?? null,
+          contentType: meta?.contentType ?? null,
+        };
+      }),
+    );
+
+    return { changeRequests, proofs };
+  },
+});

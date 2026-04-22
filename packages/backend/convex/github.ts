@@ -13,6 +13,7 @@ import {
   getInstallationToken,
 } from "./githubAuth";
 import { buildPrBody } from "./prBody";
+import { buildEvaSessionUrl } from "./taskWorkflowActions";
 
 /** Creates an Octokit client authenticated as the GitHub App itself (not an installation). */
 function getAppOctokit(): Octokit {
@@ -134,6 +135,8 @@ export const createSessionPr = action({
         ? session.summary.map((item) => `- ${item}`).join("\n")
         : "No summary available";
 
+    const evaUrl = buildEvaSessionUrl(repo.owner, repo.name, args.sessionId);
+
     const prUrl = await ctx.runAction(
       internal.taskWorkflowActions.createPullRequest,
       {
@@ -142,7 +145,10 @@ export const createSessionPr = action({
         repoName: repo.name,
         branchName: session.branchName,
         title: session.title,
-        body: buildPrBody([{ heading: "Summary", content: summaryContent }]),
+        body: buildPrBody(
+          [{ heading: "Summary", content: summaryContent }],
+          evaUrl,
+        ),
         labels: ["eva", "session", ...(appLabel ? [appLabel] : [])],
       },
     );

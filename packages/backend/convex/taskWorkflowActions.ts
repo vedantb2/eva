@@ -274,7 +274,10 @@ async function resolveStableDeploymentUrl(
     teamId,
   });
   if (alias) {
-    return { url: alias, shouldKeepPolling: false };
+    // Vercel's API returns aliases as bare hostnames (e.g. `my-app-git-feat-team.vercel.app`).
+    // Prepend `https://` so the stored URL is absolute — without a scheme, browsers treat
+    // it as a relative path and prepend the current page's origin when rendered in `<a href>`.
+    return { url: `https://${alias}`, shouldKeepPolling: false };
   }
 
   // Alias not yet attached. Keep polling but DO NOT touch the stored URL —

@@ -55,7 +55,6 @@ export function QuickTasksClient() {
     },
     setParams,
   ] = useQuickTaskFilters();
-  const searchQuery = q;
 
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const users = useQuery(api.users.listAll);
@@ -86,6 +85,16 @@ export function QuickTasksClient() {
   const quickTasks = useMemo(() => {
     if (!tasks) return [];
     let filtered = tasks;
+
+    // Search filter
+    if (q.trim()) {
+      const query = q.trim().toLowerCase();
+      filtered = filtered.filter(
+        (t) =>
+          t.title.toLowerCase().includes(query) ||
+          (t.description && t.description.toLowerCase().includes(query)),
+      );
+    }
 
     // Project filter
     if (project !== "all") {
@@ -156,6 +165,7 @@ export function QuickTasksClient() {
     return sorted;
   }, [
     tasks,
+    q,
     project,
     user,
     assignee,
@@ -327,7 +337,7 @@ export function QuickTasksClient() {
             onViewChange={(v: "kanban" | "list" | "table") =>
               setParams({ view: v })
             }
-            searchQuery={searchQuery}
+            searchQuery={q}
             onSearchChange={(v) => setParams({ q: v ?? "" })}
             hasQuickTasks={hasAnyTasks}
             isSelecting={isSelecting}

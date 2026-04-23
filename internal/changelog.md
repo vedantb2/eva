@@ -1,5 +1,14 @@
 # Changelog
 
+## Callback script hardening: durable logging, zombie detection, structured completion - 2026-04-23
+
+- **Event parsing refactor**: Split `parseStreamEvent` into `parseToCanonical` (provider→canonical events) and `applyCanonicalEvents` (state mutations) for clarity and testability.
+- **Durable raw logs**: New `RAW_LOG_FILE` (/tmp/run-design.raw.jsonl) captures every stdout/stderr chunk in append mode, survives OOM, enables post-run debugging even when in-memory buffer is capped.
+- **Zombie detection**: New `isChildZombie()` detects when CLI process enters zombie state (held open by grandchild stdio). Fires early in no-output timer loop to avoid 60s timeout when process is already dead.
+- **Completion tracking**: New `DONE_FILE` (/tmp/run-design.done) written idempotently on all terminal paths (success/error/preflight-failed/fatal-error) with durationMs, status, step counts, raw log bytes. Structured for post-mortem queries.
+- **Stderr mirroring**: Stderr appended to raw log with `[stderr]` prefix to preserve ordering across dual pipes.
+- **Scope**: `packages/backend/convex/_daytona/callbackScript.ts` only (the template string). No schema changes, no breaking changes, degrades gracefully if /tmp write access unavailable.
+
 ## Extend watchdog threshold during active agent tool steps + prune MCP success-path logs - 2026-04-23
 
 - **Why (threshold)**: Even with the pre-kill liveness probe re-probing every cycle, a quick task kept getting killed during long silent shell commands (`pnpm build 2>&1 | tail -50`). While the agent is inside a bash tool step, stream-json emits nothing new for minutes — the only thing bumping `streamingActivity.lastUpdatedAt` is the 10s heartbeat, and if heartbeat transport blips for ~5 min the run is killed even though the build is healthy. The probe verified the PID was alive but could only buy one 30s grace cycle at a time.

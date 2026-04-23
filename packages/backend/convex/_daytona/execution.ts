@@ -705,7 +705,7 @@ export const launchOnExistingSandbox = internalAction({
         extraEnvVars:
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
         claudeSessionId,
-        enableMcp: false,
+        enableMcp: true,
       },
     );
     console.log(

@@ -2,7 +2,7 @@
 
 export const CALLBACK_SCRIPT = `
 import { spawn, spawnSync } from "child_process";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
+import { createWriteStream, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
 
 const CONVEX_URL = process.env.CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -56,6 +56,15 @@ const OUTPUT_BUFFER_MAX_BYTES = Number(
   process.env.CALLBACK_OUTPUT_BUFFER_MAX_BYTES || "2000000",
 );
 const READY_FILE = "/tmp/run-design.ready";
+// Durable JSONL copy of every stdout chunk from the CLI, appended as it arrives. The
+// in-memory rawOutput buffer is capped at OUTPUT_BUFFER_MAX_BYTES to protect against
+// OOM; this file retains the full log for post-run debugging and replay. Append mode
+// so multi-turn resumes keep the full history in one place.
+const RAW_LOG_FILE = "/tmp/run-design.raw.jsonl";
+// Terminal marker written exactly once when the script is tearing down (normal, fatal,
+// or forced exit). External observers can inspect this for a definitive completion
+// signal independent of the heartbeat stream.
+const DONE_FILE = "/tmp/run-design.done";
 const CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
 const CLAUDE_RUNTIME_CONFIG_DIR = process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
 const CLAUDE_PERSIST_DIR = process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
@@ -616,212 +625,267 @@ function updateThinkingStep(label, detail) {
   lastStepType = "thinking";
 }
 
+/**
+ * Canonical event emitted by parseToCanonical — describes UI/state intent
+ * without knowledge of provider-specific JSON shapes. applyCanonicalEvents
+ * turns these into mutations of accumulatedSteps, inFlightToolUses,
+ * pendingQuestionData, activeCodexThreadId, waitingForFirstAssistantEvent.
+ *
+ * Kinds (JSDoc only — the script body is a JS template literal, no TS types):
+ *   { kind: "update_thinking", label, detail? }
+ *       Calls updateThinkingStep, which either updates the last thinking step
+ *       in place (if labels match) or appends a new one.
+ *   { kind: "push_step", step, trackingId? }
+ *       markLastComplete + push step + update lastStepType. If step.type is
+ *       not "thinking", also increments inFlightToolUses; if trackingId is
+ *       provided (Codex), records it so the matching completion can decrement.
+ *   { kind: "complete_tool", trackingId? }
+ *       markLastComplete + decrement inFlightToolUses. With trackingId (Codex),
+ *       only decrement if the id was in codexToolItemIds. Without, unconditional.
+ *   { kind: "mark_last_complete" }
+ *       markLastComplete only (no counter touch). Used when an item completes
+ *       but was never tracked as a tool (e.g. Codex item without a string id).
+ *   { kind: "append_text", text }
+ *       appendStreamedContent + updateThinkingStep("Streaming response...",
+ *       "Receiving reply..."). Always paired in the original code.
+ *   { kind: "set_pending_question", data }
+ *       pendingQuestionData = data.
+ *   { kind: "set_codex_thread", threadId }
+ *       activeCodexThreadId = threadId.
+ *   { kind: "mark_first_assistant" }
+ *       waitingForFirstAssistantEvent = false.
+ */
+
+/**
+ * Provider-specific: converts a parsed JSON event into a list of canonical
+ * events. Reads module state (lastStepType, waitingForFirstAssistantEvent)
+ * but does not write to it — all writes happen in applyCanonicalEvents.
+ */
+function parseToCanonical(event, provider) {
+  const events = [];
+
+  if (provider === "cursor") {
+    // Cursor emits: {type:"system",subtype:"init"}, {type:"assistant",message:{content:[...]}},
+    // {type:"tool_call",subtype:"started"|"completed",tool_call:{...}}, {type:"result",...}
+    if (event.type === "system" && event.subtype === "init") {
+      events.push({ kind: "update_thinking", label: "Starting Cursor CLI...", detail: "Cursor session initializing..." });
+      return events;
+    }
+    if (event.type === "assistant") {
+      const contentBlocks = Array.isArray(event.message?.content) ? event.message.content : [];
+      let added = false;
+      for (const block of contentBlocks) {
+        if (block && block.type === "text" && typeof block.text === "string" && block.text) {
+          events.push({ kind: "append_text", text: block.text });
+          added = true;
+        }
+      }
+      if (!added && lastStepType !== "thinking") {
+        events.push({ kind: "push_step", step: { type: "thinking", label: "Generating response...", status: "active" } });
+      }
+      return events;
+    }
+    if (event.type === "tool_call" && event.subtype === "started" && event.tool_call) {
+      events.push({ kind: "push_step", step: cursorToolToStep(event.tool_call) });
+      return events;
+    }
+    if (event.type === "tool_call" && event.subtype === "completed") {
+      events.push({ kind: "complete_tool" });
+      return events;
+    }
+    if (event.type === "result") {
+      events.push({ kind: "push_step", step: { type: "thinking", label: "Finalizing response...", status: "active" } });
+      return events;
+    }
+    return events;
+  }
+
+  if (provider === "opencode") {
+    if (event.type === "step_start") {
+      events.push({ kind: "push_step", step: { type: "thinking", label: "Thinking...", detail: "Opencode is reasoning...", status: "active" } });
+      return events;
+    }
+    if (event.type === "text" && event.part && typeof event.part.text === "string" && event.part.text) {
+      events.push({ kind: "append_text", text: event.part.text });
+      return events;
+    }
+    if (event.type === "tool_use" && event.part && typeof event.part === "object") {
+      const state = event.part.state || {};
+      const status = typeof state.status === "string" ? state.status : "";
+      if (status === "running") {
+        events.push({ kind: "push_step", step: opencodeToolToStep(event.part) });
+        return events;
+      }
+      if (status === "completed" || status === "error") {
+        events.push({ kind: "complete_tool" });
+        return events;
+      }
+      return events;
+    }
+    if (event.type === "step_finish") {
+      const reason = event.part && typeof event.part.reason === "string" ? event.part.reason : "";
+      if (reason === "stop") {
+        events.push({ kind: "push_step", step: { type: "thinking", label: "Finalizing response...", status: "active" } });
+      }
+      // Non-"stop" step_finish: no state change. Original code returned true here,
+      // which counted towards parsedStreamEventCount without changing the payload.
+      // Returning an empty list is strictly correct — the heartbeat gate downstream
+      // would have skipped the send anyway because payload didn't change.
+      return events;
+    }
+    return events;
+  }
+
+  if (provider === "codex") {
+    const threadId = getCodexThreadId(event);
+    if (event.type === "thread.started" && threadId) {
+      events.push({ kind: "set_codex_thread", threadId });
+      events.push({ kind: "update_thinking", label: "Starting Codex CLI...", detail: "Restoring saved context..." });
+      return events;
+    }
+    if (event.type === "turn.started") {
+      events.push({ kind: "update_thinking", label: "Starting Codex CLI...", detail: "Codex is reasoning..." });
+      return events;
+    }
+    if (
+      event.type === "item.started" &&
+      event.item &&
+      typeof event.item.type === "string" &&
+      event.item.type !== "agent_message"
+    ) {
+      const step = codexItemToStep(event.item);
+      // Only tool-kind items pause the no-output watchdog. Thinking items are Codex
+      // reasoning — their silence still needs to be caught by the stdout-idle check.
+      const trackingId =
+        step.type !== "thinking" && typeof event.item.id === "string"
+          ? event.item.id
+          : undefined;
+      events.push(trackingId ? { kind: "push_step", step, trackingId } : { kind: "push_step", step });
+      return events;
+    }
+    if (
+      event.type === "item.completed" &&
+      event.item &&
+      event.item.type === "agent_message"
+    ) {
+      const messageText = getCodexAgentMessageText(event.item);
+      if (messageText) {
+        events.push({ kind: "append_text", text: messageText });
+      }
+      return events;
+    }
+    if (
+      (event.type === "item.completed" || event.type === "item.failed") &&
+      event.item &&
+      typeof event.item.type === "string" &&
+      event.item.type !== "agent_message"
+    ) {
+      // Only decrement if we recorded the start of this item as a tool. Using the id
+      // set rather than a counter avoids underflow if an item.started was missed.
+      if (typeof event.item.id === "string") {
+        events.push({ kind: "complete_tool", trackingId: event.item.id });
+      } else {
+        events.push({ kind: "mark_last_complete" });
+      }
+      return events;
+    }
+    if (event.type === "turn.completed") {
+      events.push({ kind: "push_step", step: { type: "thinking", label: "Finalizing response...", status: "active" } });
+      return events;
+    }
+    return events;
+  }
+
+  // Claude (default).
+  if (event.type === "tool_result") {
+    events.push({ kind: "complete_tool" });
+    return events;
+  }
+  if (event.type !== "assistant") return events;
+
+  if (waitingForFirstAssistantEvent) {
+    events.push({ kind: "mark_first_assistant" });
+  }
+  let added = false;
+  for (const block of event.message?.content ?? []) {
+    if (block.type === "tool_use") {
+      const step = toolCallToStep(block.name, block.input ?? {});
+      events.push({ kind: "push_step", step });
+      if (block.name === "AskUserQuestion" && block.input) {
+        events.push({ kind: "set_pending_question", data: JSON.stringify(block.input) });
+      }
+      added = true;
+    } else if (block.type === "thinking" && block.thinking) {
+      events.push({ kind: "push_step", step: { type: "thinking", label: "Thinking...", detail: String(block.thinking), status: "active" } });
+      added = true;
+    } else if (block.type === "text" && block.text) {
+      events.push({ kind: "append_text", text: block.text });
+      added = true;
+    }
+  }
+  if (!added && lastStepType !== "thinking") {
+    events.push({ kind: "push_step", step: { type: "thinking", label: "Generating response...", status: "active" } });
+  }
+  return events;
+}
+
+/**
+ * Applies canonical events to module state. Returns true if at least one event
+ * was applied (callers use this as the "state changed" signal for heartbeat
+ * flushing).
+ */
+function applyCanonicalEvents(events) {
+  if (events.length === 0) return false;
+  for (const ev of events) {
+    switch (ev.kind) {
+      case "update_thinking":
+        updateThinkingStep(ev.label, ev.detail);
+        break;
+      case "push_step":
+        markLastComplete();
+        accumulatedSteps.push(ev.step);
+        lastStepType = ev.step.type === "thinking" ? "thinking" : "tool";
+        if (ev.step.type !== "thinking") {
+          if (ev.trackingId) codexToolItemIds.add(ev.trackingId);
+          inFlightToolUses++;
+        }
+        break;
+      case "complete_tool":
+        markLastComplete();
+        if (ev.trackingId !== undefined) {
+          if (codexToolItemIds.delete(ev.trackingId) && inFlightToolUses > 0) {
+            inFlightToolUses--;
+          }
+        } else if (inFlightToolUses > 0) {
+          inFlightToolUses--;
+        }
+        break;
+      case "mark_last_complete":
+        markLastComplete();
+        break;
+      case "append_text":
+        appendStreamedContent(ev.text);
+        updateThinkingStep("Streaming response...", "Receiving reply...");
+        break;
+      case "set_pending_question":
+        pendingQuestionData = ev.data;
+        break;
+      case "set_codex_thread":
+        activeCodexThreadId = ev.threadId;
+        break;
+      case "mark_first_assistant":
+        waitingForFirstAssistantEvent = false;
+        break;
+    }
+  }
+  return true;
+}
+
 /** Parses a single JSON stream event line and updates accumulated steps. */
 function parseStreamEvent(line) {
   try {
     const event = JSON.parse(line);
-
-    if (PROVIDER === "cursor") {
-      // Cursor emits: {type:"system",subtype:"init"}, {type:"assistant",message:{content:[...]}},
-      // {type:"tool_call",subtype:"started"|"completed",tool_call:{...}}, {type:"result",...}
-      if (event.type === "system" && event.subtype === "init") {
-        updateThinkingStep("Starting Cursor CLI...", "Cursor session initializing...");
-        return true;
-      }
-      if (event.type === "assistant") {
-        const contentBlocks = Array.isArray(event.message?.content)
-          ? event.message.content
-          : [];
-        let added = false;
-        for (const block of contentBlocks) {
-          if (block && block.type === "text" && typeof block.text === "string" && block.text) {
-            appendStreamedContent(block.text);
-            updateThinkingStep("Streaming response...", "Receiving reply...");
-            added = true;
-          }
-        }
-        if (!added && lastStepType !== "thinking") {
-          markLastComplete();
-          accumulatedSteps.push({ type: "thinking", label: "Generating response...", status: "active" });
-          lastStepType = "thinking";
-          added = true;
-        }
-        return added;
-      }
-      if (event.type === "tool_call" && event.subtype === "started" && event.tool_call) {
-        markLastComplete();
-        accumulatedSteps.push(cursorToolToStep(event.tool_call));
-        lastStepType = "tool";
-        inFlightToolUses++;
-        return true;
-      }
-      if (event.type === "tool_call" && event.subtype === "completed") {
-        markLastComplete();
-        if (inFlightToolUses > 0) inFlightToolUses--;
-        return true;
-      }
-      if (event.type === "result") {
-        markLastComplete();
-        accumulatedSteps.push({ type: "thinking", label: "Finalizing response...", status: "active" });
-        lastStepType = "thinking";
-        return true;
-      }
-      return false;
-    }
-
-    if (PROVIDER === "opencode") {
-      if (event.type === "step_start") {
-        markLastComplete();
-        accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: "Opencode is reasoning...", status: "active" });
-        lastStepType = "thinking";
-        return true;
-      }
-      if (event.type === "text" && event.part && typeof event.part.text === "string" && event.part.text) {
-        appendStreamedContent(event.part.text);
-        updateThinkingStep("Streaming response...", "Receiving reply...");
-        return true;
-      }
-      if (event.type === "tool_use" && event.part && typeof event.part === "object") {
-        const state = event.part.state || {};
-        const status = typeof state.status === "string" ? state.status : "";
-        if (status === "running") {
-          markLastComplete();
-          accumulatedSteps.push(opencodeToolToStep(event.part));
-          lastStepType = "tool";
-          inFlightToolUses++;
-          return true;
-        }
-        if (status === "completed" || status === "error") {
-          markLastComplete();
-          if (inFlightToolUses > 0) inFlightToolUses--;
-          return true;
-        }
-        return false;
-      }
-      if (event.type === "step_finish") {
-        const reason =
-          event.part && typeof event.part.reason === "string" ? event.part.reason : "";
-        if (reason === "stop") {
-          markLastComplete();
-          accumulatedSteps.push({ type: "thinking", label: "Finalizing response...", status: "active" });
-          lastStepType = "thinking";
-        }
-        return true;
-      }
-      return false;
-    }
-
-    if (PROVIDER === "codex") {
-      const threadId = getCodexThreadId(event);
-      if (event.type === "thread.started" && threadId) {
-        activeCodexThreadId = threadId;
-        updateThinkingStep("Starting Codex CLI...", "Restoring saved context...");
-        return true;
-      }
-      if (event.type === "turn.started") {
-        updateThinkingStep("Starting Codex CLI...", "Codex is reasoning...");
-        return true;
-      }
-      if (
-        event.type === "item.started" &&
-        event.item &&
-        typeof event.item.type === "string" &&
-        event.item.type !== "agent_message"
-      ) {
-        const step = codexItemToStep(event.item);
-        markLastComplete();
-        accumulatedSteps.push(step);
-        lastStepType = step.type === "thinking" ? "thinking" : "tool";
-        // Only tool-kind items pause the no-output watchdog. Thinking items are Codex
-        // reasoning — their silence still needs to be caught by the stdout-idle check.
-        if (step.type !== "thinking" && typeof event.item.id === "string") {
-          codexToolItemIds.add(event.item.id);
-          inFlightToolUses++;
-        }
-        return true;
-      }
-      if (
-        event.type === "item.completed" &&
-        event.item &&
-        event.item.type === "agent_message"
-      ) {
-        const messageText = getCodexAgentMessageText(event.item);
-        if (!messageText) {
-          return false;
-        }
-        appendStreamedContent(messageText);
-        updateThinkingStep("Streaming response...", "Receiving reply...");
-        return true;
-      }
-      if (
-        (event.type === "item.completed" || event.type === "item.failed") &&
-        event.item &&
-        typeof event.item.type === "string" &&
-        event.item.type !== "agent_message"
-      ) {
-        markLastComplete();
-        // Only decrement if we recorded the start of this item as a tool. Using the id
-        // set rather than a counter avoids underflow if an item.started was missed.
-        if (
-          typeof event.item.id === "string" &&
-          codexToolItemIds.delete(event.item.id) &&
-          inFlightToolUses > 0
-        ) {
-          inFlightToolUses--;
-        }
-        return true;
-      }
-      if (event.type === "turn.completed") {
-        markLastComplete();
-        accumulatedSteps.push({
-          type: "thinking",
-          label: "Finalizing response...",
-          status: "active",
-        });
-        return true;
-      }
-      return false;
-    }
-
-    if (event.type === "tool_result") {
-      markLastComplete();
-      if (inFlightToolUses > 0) inFlightToolUses--;
-      return true;
-    }
-
-    if (event.type !== "assistant") return false;
-    if (waitingForFirstAssistantEvent) {
-      waitingForFirstAssistantEvent = false;
-    }
-    let added = false;
-    for (const block of event.message?.content ?? []) {
-      if (block.type === "tool_use") {
-        markLastComplete();
-        accumulatedSteps.push(toolCallToStep(block.name, block.input ?? {}));
-        lastStepType = "tool";
-        added = true;
-        inFlightToolUses++;
-        if (block.name === "AskUserQuestion" && block.input) {
-          pendingQuestionData = JSON.stringify(block.input);
-        }
-      } else if (block.type === "thinking" && block.thinking) {
-        markLastComplete();
-        accumulatedSteps.push({ type: "thinking", label: "Thinking...", detail: String(block.thinking), status: "active" });
-        lastStepType = "thinking";
-        added = true;
-      } else if (block.type === "text" && block.text) {
-        appendStreamedContent(block.text);
-        updateThinkingStep("Streaming response...", "Receiving reply...");
-        added = true;
-      }
-    }
-    if (!added && lastStepType !== "thinking") {
-      markLastComplete();
-      accumulatedSteps.push({ type: "thinking", label: "Generating response...", status: "active" });
-      lastStepType = "thinking";
-      added = true;
-    }
-    return added;
+    return applyCanonicalEvents(parseToCanonical(event, PROVIDER));
   } catch { return false; }
 }
 
@@ -838,6 +902,29 @@ try {
   }
 } catch {}
 let rawOutput = "";
+// Durable append-only mirror of every stdout chunk. Created lazily (on first write)
+// so an environment without /tmp write access degrades to the in-memory path with a
+// single warning instead of crashing the callback.
+let rawLogStream = null;
+let rawLogStreamFailed = false;
+let rawLogBytesWritten = 0;
+function appendToRawLogFile(text) {
+  if (rawLogStreamFailed || !text) return;
+  try {
+    if (!rawLogStream) {
+      rawLogStream = createWriteStream(RAW_LOG_FILE, { flags: "a" });
+      rawLogStream.on("error", (err) => {
+        rawLogStreamFailed = true;
+        console.error("Raw log stream error: " + String(err && err.message ? err.message : err));
+      });
+    }
+    rawLogStream.write(text);
+    rawLogBytesWritten += Buffer.byteLength(text);
+  } catch (err) {
+    rawLogStreamFailed = true;
+    console.error("Failed to append to raw log: " + String(err && err.message ? err.message : err));
+  }
+}
 let lastProcessed = 0;
 let lastStreamingSentAt = Date.now();
 let lastSentPayload = "";
@@ -872,6 +959,41 @@ let inFlightToolUses = 0;
 // with an item.id. Track the set of tool-kind item ids so we only decrement when the
 // matching completion arrives (thinking items are never added to this set).
 const codexToolItemIds = new Set();
+
+// Idempotent done-file writer. First caller wins; later calls (including the
+// process.on("exit") backstop below) are no-ops. Uses writeFileSync so the file
+// reaches disk even when the script dies during shutdown — exit handlers can't
+// await. Explicit call sites at each terminal exit point provide rich status;
+// the exit handler is a last-resort backstop with status="unexpected-exit".
+let doneFileWritten = false;
+function writeDoneFile(status, extras) {
+  if (doneFileWritten) return;
+  doneFileWritten = true;
+  try {
+    const payload = {
+      endedAt: Date.now(),
+      startedAt: SCRIPT_STARTED_AT,
+      durationMs: Date.now() - SCRIPT_STARTED_AT,
+      status,
+      provider: PROVIDER,
+      entityId: ENTITY_ID || null,
+      runId: RUN_ID || null,
+      resultEventSeen,
+      accumulatedStepCount: accumulatedSteps.length,
+      parsedStreamEventCount,
+      rawLogBytesWritten,
+      ...(extras || {}),
+    };
+    writeFileSync(DONE_FILE, JSON.stringify(payload));
+  } catch (err) {
+    console.error("Failed to write done file: " + String(err && err.message ? err.message : err));
+  }
+}
+
+process.on("exit", (code) => {
+  writeDoneFile("unexpected-exit", { exitCode: typeof code === "number" ? code : null });
+  try { if (rawLogStream) rawLogStream.end(); } catch {}
+});
 
 /** Trims a string to at most OUTPUT_BUFFER_MAX_BYTES bytes, dropping from the head. */
 function trimBufferHead(buf) {
@@ -1547,6 +1669,7 @@ await initialHeartbeat()
   });
 
 if (!callbackReady) {
+  writeDoneFile("preflight-failed");
   process.exit(1);
 }
 
@@ -2392,6 +2515,7 @@ function buildErrorMessage(
   timedOutForFirstEvent,
   timedOutForFirstAssistant,
   timedOutAfterFirstText,
+  timedOutForZombie,
 ) {
   const cliName =
     PROVIDER === "codex"
@@ -2403,6 +2527,9 @@ function buildErrorMessage(
           : "Claude CLI";
   if (fatalHeartbeatError) {
     return fatalHeartbeatError;
+  }
+  if (timedOutForZombie) {
+    return cliName + " terminated because the CLI process entered zombie state (likely a grandchild held stdio open after the CLI exited)";
   }
   if (timedOutForMaxRuntime) {
     return cliName + " terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
@@ -2589,6 +2716,31 @@ function terminateAttemptProcess(child) {
   }, 2000);
 }
 
+/**
+ * True if the process identified by pid is a zombie (state "Z"): it has
+ * exited but not been reaped. Node's child.on("close") normally fires on
+ * exit, but if a grandchild still holds the stdio pipes open, close can
+ * lag the real exit indefinitely. Detecting a zombie lets us break out
+ * instead of waiting for the 60s no-stdout watchdog.
+ *
+ * Uses ps synchronously because the interval fires every 5s — a ~5ms
+ * subprocess is negligible and returning a bool is simpler than the
+ * async equivalent.
+ */
+function isChildZombie(pid) {
+  if (!pid) return false;
+  try {
+    const result = spawnSync("ps", ["-p", String(pid), "-o", "state="], {
+      timeout: 2000,
+      encoding: "utf8",
+    });
+    if (result.error || result.status !== 0) return false;
+    return (result.stdout || "").trim() === "Z";
+  } catch {
+    return false;
+  }
+}
+
 /** Inspects Codex stdout for agent_message events to track first text block timing. */
 function inspectCodexStdout(text) {
   for (const line of text.split("\\n")) {
@@ -2641,8 +2793,24 @@ async function runCliAttempt(options) {
     let timedOutForFirstEvent = false;
     let timedOutForFirstAssistant = false;
     let timedOutAfterFirstText = false;
+    let timedOutForZombie = false;
     const noOutputTimer = setInterval(() => {
       if (fatalHeartbeatErrorMessage) {
+        terminateAttemptProcess(child);
+        return;
+      }
+      // Zombie detection: checked early so it triggers even while inFlightToolUses > 0
+      // pauses the activity-silence checks below. A grandchild holding stdio open can
+      // keep child.on("close") from firing; catching the Z state here prevents us from
+      // waiting the full NO_OUTPUT_TIMEOUT_MS for a process that's already dead.
+      if (isChildZombie(child.pid)) {
+        timedOutForZombie = true;
+        log(
+          options.processLabel +
+            " detected zombie state for pid=" +
+            String(child.pid) +
+            "; terminating",
+        );
         terminateAttemptProcess(child);
         return;
       }
@@ -2705,6 +2873,7 @@ async function runCliAttempt(options) {
 
     child.stdout.on("data", (chunk) => {
       const text = chunk.toString();
+      appendToRawLogFile(text);
       attemptOutput = trimBufferHead(attemptOutput + text);
       appendToRawOutput(text);
       lastStdoutAt = Date.now();
@@ -2714,7 +2883,11 @@ async function runCliAttempt(options) {
       }
     });
     child.stderr.on("data", (chunk) => {
-      stderrOutput = trimBufferHead(stderrOutput + chunk.toString());
+      const text = chunk.toString();
+      // Mirror stderr into the raw log with a marker so ordering with stdout is
+      // preserved even though the CLI writes them on separate pipes.
+      appendToRawLogFile("[stderr] " + text + (text.endsWith("\\n") ? "" : "\\n"));
+      stderrOutput = trimBufferHead(stderrOutput + text);
     });
     child.on("close", (code) => {
       clearInterval(noOutputTimer);
@@ -2735,6 +2908,8 @@ async function runCliAttempt(options) {
           timedOutForFirstAssistant +
           ", timedOutAfterFirstText=" +
           timedOutAfterFirstText +
+          ", timedOutForZombie=" +
+          timedOutForZombie +
           ", outputBytes=" +
           attemptOutput.length +
           ", stderrBytes=" +
@@ -2749,6 +2924,7 @@ async function runCliAttempt(options) {
         timedOutForFirstEvent,
         timedOutForFirstAssistant,
         timedOutAfterFirstText,
+        timedOutForZombie,
       });
     });
     child.on("error", (err) => {
@@ -2923,6 +3099,7 @@ try {
   let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
   let finalTimedOutForFirstAssistant = Boolean(firstAttempt.timedOutForFirstAssistant);
   let finalTimedOutAfterFirstText = Boolean(firstAttempt.timedOutAfterFirstText);
+  let finalTimedOutForZombie = Boolean(firstAttempt.timedOutForZombie);
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   log(
     "firstAttempt result: code=" +
@@ -2954,6 +3131,7 @@ try {
         finalTimedOutForFirstEvent,
         finalTimedOutForFirstAssistant,
         finalTimedOutAfterFirstText,
+        finalTimedOutForZombie,
       ),
     );
   }
@@ -3021,15 +3199,26 @@ try {
     }
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
+    writeDoneFile(completionSuccess ? "success" : "error", {
+      exitCode: finalCode,
+      error: errorValue,
+    });
   } catch (e) {
     console.error("Failed to send completion:", e);
     syncProviderStateToPersist("completion-error");
     await stopStreamingLoops();
+    writeDoneFile("completion-error", {
+      exitCode: finalCode,
+      error: e instanceof Error ? e.message : String(e),
+    });
     process.exit(1);
   }
 } catch (err) {
   syncProviderStateToPersist("fatal-error");
   await stopStreamingLoops();
+  writeDoneFile("fatal-error", {
+    error: err instanceof Error ? err.message : String(err),
+  });
   const errorArgs = {
     [ENTITY_ID_FIELD]: ENTITY_ID,
     ...(RUN_ID ? { runId: RUN_ID } : {}),

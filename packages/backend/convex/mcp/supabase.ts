@@ -174,8 +174,6 @@ export async function registerSupabaseTools(
     return;
   }
 
-  console.log("Supabase: token found, discovering tools...");
-
   let tools: Tool[];
   try {
     tools = await discoverTools(token);
@@ -188,10 +186,6 @@ export async function registerSupabaseTools(
     console.log("Supabase: no tools discovered");
     return;
   }
-
-  console.log(
-    `Supabase: discovered ${tools.length} tools, registering with prefix "${SUPABASE_PREFIX}"`,
-  );
 
   for (const tool of tools) {
     const prefixedName = `${SUPABASE_PREFIX}${tool.name}`;
@@ -270,6 +264,4 @@ export async function registerSupabaseTools(
       },
     );
   }
-
-  console.log(`Supabase: registered ${tools.length} tools`);
 }

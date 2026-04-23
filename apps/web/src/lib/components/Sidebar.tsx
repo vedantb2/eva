@@ -721,7 +721,7 @@ export function Sidebar() {
                                       );
                                     }
 
-                                    return (
+                                    const linkElement = (
                                       <Link
                                         key={item.name}
                                         to={item.href}
@@ -733,9 +733,6 @@ export function Sidebar() {
                                             closeMobileSidebar();
                                           }
                                         }}
-                                        title={
-                                          collapsed ? item.name : undefined
-                                        }
                                         className={navItemClass(isActive)}
                                       >
                                         <item.icon
@@ -772,6 +769,21 @@ export function Sidebar() {
                                           )}
                                       </Link>
                                     );
+
+                                    if (collapsed) {
+                                      return (
+                                        <Tooltip key={item.name}>
+                                          <TooltipTrigger asChild>
+                                            {linkElement}
+                                          </TooltipTrigger>
+                                          <TooltipContent side="right">
+                                            {item.name}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      );
+                                    }
+
+                                    return linkElement;
                                   })}
                                 </div>
                               </div>

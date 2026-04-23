@@ -7,7 +7,7 @@ import {
   IconPalette,
   IconUsers,
 } from "@tabler/icons-react";
-import { cn } from "@conductor/ui";
+import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@conductor/ui";
 import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
 
 const ROOT_NAV_ITEMS = [
@@ -36,12 +36,11 @@ export function RootSidebarContent({
             ? pathname === "/home" || pathname.startsWith("/setup")
             : pathname.startsWith(item.href);
 
-        return (
+        const linkElement = (
           <Link
             key={item.name}
             to={item.href}
             onClick={onNavigate}
-            title={collapsed ? item.name : undefined}
             className={navItemClass(isActive)}
           >
             <item.icon
@@ -55,6 +54,17 @@ export function RootSidebarContent({
             {!collapsed && item.name === "Inbox" && <UnreadInboxBadge />}
           </Link>
         );
+
+        if (collapsed) {
+          return (
+            <Tooltip key={item.name}>
+              <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
+              <TooltipContent side="right">{item.name}</TooltipContent>
+            </Tooltip>
+          );
+        }
+
+        return linkElement;
       })}
     </div>
   );

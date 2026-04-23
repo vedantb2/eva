@@ -1,5 +1,11 @@
 # Changelog
 
+## Re-probe stale runs before every watchdog kill attempt - 2026-04-23
+
+- **Why**: A run could pass the liveness probe (`alive=true`) and still be killed 30 seconds later because the next stale check forced `skipLivenessProbe=true`, bypassing re-validation and doing a blind kill.
+- **Changes**: `_taskWorkflow/livenessProbe.ts` now reschedules `checkStaleRuns` without `skipLivenessProbe` when the sandbox callback is alive, so each stale cycle re-runs the liveness probe before any kill. The probe-confirmed-dead path still sets `skipLivenessProbe=true` for immediate cleanup.
+- **Reason**: Prevent false watchdog kills when heartbeats are stale but the sandbox process is actively running.
+
 ## Pre-kill liveness probe for the watchdog + structured kill logs - 2026-04-23
 
 - **Why**: The watchdog kills a run as soon as `streamingActivity.lastUpdatedAt` is older than the stale threshold. A transient heartbeat transport failure (Convex auth flap, brief network blip, event loop starved by heavy stdio during a long `pnpm build`) was enough to kill a demonstrably-healthy run — the sandbox was still executing, the CLI was still running, only the heartbeat couldn't reach Convex for ~5 minutes. Also, when the watchdog did kill, the kill reason logs were thin and hard to correlate with the run's actual state.

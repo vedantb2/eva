@@ -180,30 +180,21 @@ export const verifyAccessToken = internalAction({
     v.null(),
   ),
   handler: async (_ctx, { token }) => {
-    console.log("[MCP][verifyAccessToken] start, token len:", token.length);
     // Try OAuth token first
     try {
       const secret = new TextEncoder().encode(getJwtSecret());
       const { payload } = await jwtVerify(token, secret);
 
       if (
-        typeof payload !== "object" ||
-        payload === null ||
-        !("sub" in payload) ||
-        typeof payload.sub !== "string"
+        typeof payload === "object" &&
+        payload !== null &&
+        "sub" in payload &&
+        typeof payload.sub === "string"
       ) {
-        console.log("[MCP][verifyAccessToken] oauth payload missing sub");
-        // Not a valid OAuth token, try internal token
-      } else {
-        console.log(
-          "[MCP][verifyAccessToken] oauth JWT verified, checking Clerk user:",
-          payload.sub,
-        );
         // Optionally verify user still exists in Clerk
         try {
           const clerk = createClerkClient({ secretKey: getClerkSecretKey() });
           await clerk.users.getUser(payload.sub);
-          console.log("[MCP][verifyAccessToken] Clerk user OK");
           return { clerkUserId: payload.sub };
         } catch (err) {
           console.error(
@@ -213,12 +204,9 @@ export const verifyAccessToken = internalAction({
           return null;
         }
       }
-    } catch (err) {
-      console.log(
-        "[MCP][verifyAccessToken] not an oauth token:",
-        err instanceof Error ? err.message : err,
-      );
-      // Not an OAuth token, try internal token
+      // OAuth payload missing sub — fall through to internal token
+    } catch {
+      // Not an OAuth token — fall through to internal token
     }
 
     // Try internal token (scoped repo access)
@@ -251,12 +239,6 @@ export const verifyAccessToken = internalAction({
         return null;
       }
 
-      console.log(
-        "[MCP][verifyAccessToken] internal token OK. sub:",
-        payload.sub,
-        "repoId:",
-        payload.repoId,
-      );
       return {
         clerkUserId: payload.sub,
         scopedRepoId: payload.repoId,
@@ -963,19 +945,7 @@ export const handleMcpRequest = internalAction({
   }),
   handler: async (ctx, { clerkUserId, scopedRepoId, body }) => {
     try {
-      console.log(
-        "[MCP][handleMcpRequest] start. clerkUserId:",
-        clerkUserId,
-        "scopedRepoId:",
-        scopedRepoId,
-        "body preview:",
-        body.slice(0, 200),
-      );
       const parsedBody = JSON.parse(body);
-      console.log(
-        "[MCP][handleMcpRequest] JSON-RPC method:",
-        parsedBody?.method,
-      );
 
       // Create MCP server with tools registered
       const server = new McpServer({
@@ -986,10 +956,8 @@ export const handleMcpRequest = internalAction({
       // Register tools with credentials (including optional scoped repo)
       const credentials = { clerkUserId, scopedRepoId };
       registerTools(server, credentials, ctx);
-      console.log("[MCP][handleMcpRequest] base tools registered");
       try {
         await registerSupabaseTools(server, credentials, ctx);
-        console.log("[MCP][handleMcpRequest] supabase tools registered");
       } catch (err) {
         console.error(
           "[MCP][handleMcpRequest] supabase tools registration failed (continuing):",
@@ -1021,13 +989,6 @@ export const handleMcpRequest = internalAction({
 
       const response = await transport.handleRequest(req, { parsedBody });
       const responseBody = await response.text();
-
-      console.log(
-        "[MCP][handleMcpRequest] done. status:",
-        response.status,
-        "body preview:",
-        responseBody.slice(0, 300),
-      );
 
       return {
         status: response.status,

@@ -11,16 +11,14 @@ import { STALE_RECHECK_MS } from "./recovery";
  * When `checkStaleRuns` detects staleness on a run that has a sandbox attached,
  * it schedules this probe instead of killing immediately. The probe asks
  * Daytona whether the sandbox is still in the `started` state AND whether the
- * callback runner PID is still alive. If both are true we grant a single
- * grace cycle (re-schedule `checkStaleRuns` after `STALE_RECHECK_MS` with
- * `skipLivenessProbe: true`) so a transient heartbeat transport failure does
- * not kill a run that is demonstrably doing work. If the probe confirms the
- * sandbox is dead we schedule `checkStaleRuns` with `skipLivenessProbe: true`
- * immediately so the kill happens without re-probing.
+ * callback runner PID is still alive. If both are true we re-schedule
+ * `checkStaleRuns` after `STALE_RECHECK_MS` without skipping probes so the next
+ * stale check re-validates liveness again instead of doing a blind kill.
+ * If the probe confirms the sandbox is dead we schedule `checkStaleRuns` with
+ * `skipLivenessProbe: true` immediately so the kill happens without re-probing.
  *
- * The probe is intentionally a one-shot per stale event: granting more than
- * one grace cycle risks keeping zombie runs alive indefinitely. The hard
- * 2-hour `handleStaleRun` timeout is the backstop.
+ * This keeps false kills from heartbeat transport flaps from terminating live
+ * work. The hard 2-hour `handleStaleRun` timeout remains the ultimate backstop.
  */
 export const probeStaleRunLiveness = internalAction({
   args: {
@@ -45,17 +43,13 @@ export const probeStaleRunLiveness = internalAction({
     );
 
     if (liveness.alive) {
-      // Grant one grace cycle. Next `checkStaleRuns` runs with skipLivenessProbe=true
-      // so it will kill immediately if the run is still stale. If the heartbeat
-      // recovered during the grace window the streamingActivity row will be
-      // fresh and the check will pass normally.
+      // Re-check later and probe again if still stale.
       await ctx.scheduler.runAfter(
         STALE_RECHECK_MS,
         internal.taskWorkflow.checkStaleRuns,
         {
           runId: args.runId,
           taskId: args.taskId,
-          skipLivenessProbe: true,
         },
       );
       return null;

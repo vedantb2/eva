@@ -10,6 +10,7 @@ import {
   STALE_RECHECK_MS,
   STALE_FINISHING_THRESHOLD_MS,
   STALE_NO_SANDBOX_THRESHOLD_MS,
+  STALE_TOOL_ACTIVE_THRESHOLD_MS,
 } from "./recovery";
 import {
   clearStreamingActivity,
@@ -90,6 +91,24 @@ function isFinalizingActivity(currentActivity: string | undefined): boolean {
   }
   return currentActivity.includes('"Finalizing response..."');
 }
+
+/**
+ * Returns true when an agent tool step (Bash, tool-use, etc.) is currently
+ * active and we are past sandbox startup/finalization. Used to extend the
+ * stale threshold — long-running shell commands (e.g. `pnpm build 2>&1 | tail`)
+ * silence stream-json output entirely, so the only thing keeping the heartbeat
+ * alive is the 10s transport ping. Extending the threshold here lets the
+ * pre-kill liveness probe absorb transient heartbeat transport hiccups without
+ * killing a demonstrably-live build.
+ */
+function hasActiveAgentToolStep(currentActivity: string | undefined): boolean {
+  const activeLabels = getActiveStreamingLabels(currentActivity);
+  return activeLabels.some(
+    (label) =>
+      !SANDBOX_STARTUP_LABELS.has(label) && label !== "Finalizing response...",
+  );
+}
+
 /**
  * Periodically checks if a run has gone stale and cleans it up or reschedules another check.
  *
@@ -174,6 +193,10 @@ export const checkStaleRuns = internalMutation({
     const finishingInProgress =
       run.finalizingAt !== undefined ||
       isFinalizingActivity(streaming?.currentActivity);
+    const toolActive =
+      !startupStillInProgress &&
+      !finishingInProgress &&
+      hasActiveAgentToolStep(streaming?.currentActivity);
     const lastActivity = Math.max(
       streaming?.lastUpdatedAt ?? 0,
       run.startedAt ?? 0,
@@ -181,9 +204,11 @@ export const checkStaleRuns = internalMutation({
     );
     const staleThresholdMs = startupStillInProgress
       ? STALE_NO_SANDBOX_THRESHOLD_MS
-      : finishingInProgress
-        ? STALE_FINISHING_THRESHOLD_MS
-        : STALE_THRESHOLD_MS;
+      : toolActive
+        ? STALE_TOOL_ACTIVE_THRESHOLD_MS
+        : finishingInProgress
+          ? STALE_FINISHING_THRESHOLD_MS
+          : STALE_THRESHOLD_MS;
     const staleSeconds = Math.round(staleThresholdMs / 1000);
     const streamingAgeMs = Date.now() - lastActivity;
     const isStale = streamingAgeMs > staleThresholdMs;
@@ -229,7 +254,7 @@ export const checkStaleRuns = internalMutation({
         : "watchdog_killed";
 
     console.log(
-      `[watchdog][kill] runId=${args.runId} reason=${exitReason} streamingAgeMs=${streamingAgeMs} thresholdMs=${staleThresholdMs} skipProbe=${args.skipLivenessProbe ?? false} startup=${startupStillInProgress} finishing=${finishingInProgress} activity=${JSON.stringify(streaming?.currentActivity ?? "").slice(0, 200)}`,
+      `[watchdog][kill] runId=${args.runId} reason=${exitReason} streamingAgeMs=${streamingAgeMs} thresholdMs=${staleThresholdMs} skipProbe=${args.skipLivenessProbe ?? false} startup=${startupStillInProgress} toolActive=${toolActive} finishing=${finishingInProgress} activity=${JSON.stringify(streaming?.currentActivity ?? "").slice(0, 200)}`,
     );
 
     await cleanUpStaleRun(ctx, {

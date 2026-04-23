@@ -608,7 +608,9 @@ export const getRepoConvexCredentials = internalAction({
 
     const urlEntry: EnvVar | undefined = vars.find(
       (entry) =>
-        entry.key === "NEXT_PUBLIC_CONVEX_URL" || entry.key === "CONVEX_URL",
+        entry.key === "NEXT_PUBLIC_CONVEX_URL" ||
+        entry.key === "VITE_CONVEX_URL" ||
+        entry.key === "CONVEX_URL",
     );
     const keyEntry: EnvVar | undefined = vars.find(
       (entry) =>

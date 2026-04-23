@@ -8,7 +8,7 @@ interface ProviderIconProps extends Omit<ComponentProps<"svg">, "children"> {
 
 /**
  * Renders the brand icon for an AI provider.
- * Supports "claude" (Claude sparkle mark), "codex" (OpenAI mark), "opencode" (opencode mark), and "cursor" (Cursor hexagonal mark).
+ * Supports "claude" (Claude sparkle mark), "codex" (OpenAI mark), "opencode" (OpenCode mark), and "cursor" (Cursor mark).
  */
 export function ProviderIcon({
   provider,
@@ -83,13 +83,27 @@ function OpencodeMark({
       xmlns="http://www.w3.org/2000/svg"
       width={size}
       height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
+      viewBox="0 0 512 512"
+      fill="none"
       className={cn("shrink-0", className)}
       aria-hidden="true"
       {...props}
     >
-      <path d="M8.40005 17.4H19.2001V21H4.80005V13.8H8.40005V17.4ZM15.6001 10.2V13.8H8.40005V10.2H15.6001ZM19.2001 10.2H15.6001V6.6H4.80005V3H19.2001V10.2Z" />
+      <rect
+        width="512"
+        height="512"
+        className="fill-[#FDFCFC] dark:fill-[#131010]"
+      />
+      <path
+        d="M320 224V352H192V224H320Z"
+        className="fill-[#E6E5E6] dark:fill-[#5A5858]"
+      />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z"
+        className="fill-[#17181C] dark:fill-white"
+      />
     </svg>
   );
 }
@@ -104,16 +118,15 @@ function CursorMark({
       xmlns="http://www.w3.org/2000/svg"
       width={size}
       height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
+      viewBox="0 0 466.73 532.09"
       className={cn("shrink-0", className)}
       aria-hidden="true"
       {...props}
     >
-      {/* Cursor's hexagonal brand mark rendered as three faceted triangles at different opacities for the signature 3D look. */}
-      <path d="M11.925 24 22.35 18V6L11.925 12Z" opacity="0.9" />
-      <path d="M22.35 18V6L11.925 0V12Z" opacity="0.7" />
-      <path d="M11.925 0 1.5 6v12l10.425 6V12Z" opacity="0.5" />
+      <path
+        className="fill-[#26251e] dark:fill-[#edecec]"
+        d="M457.43,125.94L244.42,2.96c-6.84-3.95-15.28-3.95-22.12,0L9.3,125.94c-5.75,3.32-9.3,9.46-9.3,16.11v247.99c0,6.65,3.55,12.79,9.3,16.11l213.01,122.98c6.84,3.95,15.28,3.95,22.12,0l213.01-122.98c5.75-3.32,9.3-9.46,9.3-16.11v-247.99c0-6.65-3.55-12.79-9.3-16.11h-.01ZM444.05,151.99l-205.63,356.16c-1.39,2.4-5.06,1.42-5.06-1.36v-233.21c0-4.66-2.49-8.97-6.53-11.31L24.87,145.67c-2.4-1.39-1.42-5.06,1.36-5.06h411.26c5.84,0,9.49,6.33,6.57,11.39h-.01Z"
+      />
     </svg>
   );
 }

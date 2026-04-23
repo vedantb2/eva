@@ -1,5 +1,29 @@
 # Changelog
 
+## Polish sandbox pane tab strips - 2026-04-23
+
+- **Why**: Preview and terminal pane tabs worked, but the flat row made multiple panes feel bolted on rather than part of the right-panel navigation.
+- **Changes**: Added provider-specific icons, stable tab sizing, horizontal overflow handling, integrated close buttons, and consistent press/hover states for preview and terminal pane tabs.
+- **Reason**: Makes multi-pane previews and terminals scan faster while preserving the existing tonal surface hierarchy.
+
+## Add multiple web preview panes per session - 2026-04-23
+
+- **Why**: Users need to inspect different routes on the same running preview server without losing each iframe's current URL.
+- **Changes**: The sandbox plus menu can now create new preview panes, each with its own mounted iframe/navigation state; preview pane IDs persist per session in localStorage.
+- **Reason**: Reuses the same preview server while separating browser state at the panel level, matching terminal pane behavior without adding server/process complexity.
+
+## Store session terminal panes outside the URL - 2026-04-23
+
+- **Why**: Terminal pane IDs are local UI state, but keeping `termIds` and `termActive` in query params made session URLs noisy and hard to share.
+- **Changes**: Session terminal pane IDs and active pane now persist in per-session localStorage via `usehooks-ts`; `termIds`/`termActive` are no longer read from or written to the address bar.
+- **Reason**: Keeps meaningful navigation state like `tab=terminal` shareable while moving ephemeral terminal instance state out of the URL.
+
+## Move session prompt mode into settings row - 2026-04-23
+
+- **Why**: The Edit/PRD mode tabs floated above the prompt textarea, taking vertical space and separating mode choice from the other send settings.
+- **Changes**: Replaced the prompt mode tabs on the session detail chat input with a single-select dropdown in the same footer row as model and response length.
+- **Reason**: Keeps all per-message controls together and avoids a special positioned control over the input surface.
+
 ## Callback script hardening: durable logging, zombie detection, structured completion - 2026-04-23
 
 - **Event parsing refactor**: Split `parseStreamEvent` into `parseToCanonical` (provider→canonical events) and `applyCanonicalEvents` (state mutations) for clarity and testability.

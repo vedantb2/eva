@@ -10,9 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -21,11 +18,13 @@ import {
   MessageContent,
   MessageResponse,
   PromptInput,
+  PromptInputProvider,
   PromptInputTextarea,
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
   PromptInputSpeech,
+  usePromptInputController,
   ModelSelect,
   ResponseLengthSelect,
   type PromptInputMessage,
@@ -36,6 +35,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@conductor/ui";
 import {
   IconPlayerPlay,
@@ -97,6 +98,15 @@ const REVIEW_AUDITS = [
   "Generating report",
 ];
 
+const SESSION_MODE_OPTIONS: Array<{
+  value: SessionMode;
+  label: string;
+  icon: typeof IconCode;
+}> = [
+  { value: "edit", label: "Edit", icon: IconCode },
+  { value: "plan", label: "PRD", icon: IconClipboardList },
+];
+
 interface ParsedQuestion {
   question: string;
   header: string;
@@ -141,6 +151,29 @@ function parsePendingQuestion(
   } catch {
     return null;
   }
+}
+
+interface SessionPromptSubmitProps {
+  disabled: boolean;
+  isExecuting: boolean;
+  status: "submitted" | undefined;
+}
+
+function SessionPromptSubmit({
+  disabled,
+  isExecuting,
+  status,
+}: SessionPromptSubmitProps) {
+  const { textInput } = usePromptInputController();
+  const isEmpty = textInput.value.trim().length === 0;
+
+  return (
+    <PromptInputSubmit
+      status={status}
+      disabled={disabled || isEmpty}
+      title={isExecuting ? "Queue message" : "Send message"}
+    />
+  );
 }
 
 interface ChatPanelProps {
@@ -403,6 +436,11 @@ export function ChatPanel({
     },
     [handleSend],
   );
+
+  const selectedModeOption =
+    SESSION_MODE_OPTIONS.find((option) => option.value === mode) ??
+    SESSION_MODE_OPTIONS[0];
+  const SelectedModeIcon = selectedModeOption.icon;
 
   const headerLeft = (
     <Button
@@ -709,80 +747,90 @@ export function ChatPanel({
               </motion.div>
             )}
           </AnimatePresence>
-          <div className="relative pt-4">
-            <Tabs
-              value={mode}
-              onValueChange={(v) => {
-                if (v === "edit" || v === "plan") {
-                  setMode(v);
-                }
-              }}
-              className="absolute left-1.5 top-4 z-20 -translate-y-1/2 sm:left-3"
-            >
-              <TabsList className="h-8 rounded-full p-0.5">
-                <TabsTrigger
-                  value="edit"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-colors data-[state=active]:text-primary"
-                >
-                  <IconCode className="w-3 h-3" />
-                  Edit
-                </TabsTrigger>
-                <TabsTrigger
-                  value="plan"
-                  className="rounded-full text-xs px-2.5 py-1 gap-1 transition-colors data-[state=active]:text-primary"
-                >
-                  <IconClipboardList className="w-3 h-3" />
-                  PRD
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <PromptInput onSubmit={handlePromptSubmit}>
-              <PromptInputTextarea
-                className="pt-8"
-                placeholder={
-                  !isSandboxActive
-                    ? "Start the sandbox to begin chatting..."
-                    : mode === "plan"
-                      ? "Describe the feature or product requirements to Eva..."
-                      : "Describe what you need — ask questions or request changes..."
-                }
-                disabled={isInputDisabled}
-              />
-              <PromptInputFooter>
-                <PromptInputTools>
-                  <ModelSelect
-                    value={model}
-                    options={modelOptions}
-                    onValueChange={setModel}
-                    disabled={isInputDisabled}
-                  />
-                  <ResponseLengthSelect
-                    value={responseLength}
-                    onValueChange={setResponseLength}
-                    disabled={isInputDisabled}
-                  />
-                </PromptInputTools>
-                <div className="flex items-center gap-1">
-                  <PromptInputSpeech disabled={isInputDisabled} />
-                  {isExecuting ? (
-                    <Button
-                      size="icon-sm"
-                      type="button"
-                      variant="destructive"
-                      onClick={handleCancel}
-                      title="Stop Eva"
-                    >
-                      <IconPlayerStop className="size-4" />
-                    </Button>
-                  ) : null}
-                  <PromptInputSubmit
-                    status={submitStatus}
-                    disabled={isInputDisabled}
-                    title={isExecuting ? "Queue message" : "Send message"}
-                  />
-                </div>
-              </PromptInputFooter>
-            </PromptInput>
+          <div>
+            <PromptInputProvider>
+              <PromptInput onSubmit={handlePromptSubmit}>
+                <PromptInputTextarea
+                  placeholder={
+                    !isSandboxActive
+                      ? "Start the sandbox to begin chatting..."
+                      : mode === "plan"
+                        ? "Describe the product requirements to Eva..."
+                        : "Ask questions or request changes to Eva..."
+                  }
+                  disabled={isInputDisabled}
+                />
+                <PromptInputFooter>
+                  <PromptInputTools>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                          disabled={isInputDisabled}
+                        >
+                          <SelectedModeIcon className="size-3.5" />
+                          {selectedModeOption.label}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuRadioGroup
+                          value={mode}
+                          onValueChange={(value) => {
+                            if (value === "edit" || value === "plan") {
+                              setMode(value);
+                            }
+                          }}
+                        >
+                          {SESSION_MODE_OPTIONS.map((option) => {
+                            const ModeIcon = option.icon;
+                            return (
+                              <DropdownMenuRadioItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                <ModeIcon size={14} />
+                                {option.label}
+                              </DropdownMenuRadioItem>
+                            );
+                          })}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <ResponseLengthSelect
+                      value={responseLength}
+                      onValueChange={setResponseLength}
+                      disabled={isInputDisabled}
+                    />
+                  </PromptInputTools>
+                  <div className="flex min-w-0 items-center gap-1">
+                    <ModelSelect
+                      value={model}
+                      options={modelOptions}
+                      onValueChange={setModel}
+                      disabled={isInputDisabled}
+                      className="max-w-48 truncate sm:max-w-none"
+                    />
+                    <PromptInputSpeech disabled={isInputDisabled} />
+                    {isExecuting ? (
+                      <Button
+                        size="icon-sm"
+                        type="button"
+                        variant="destructive"
+                        onClick={handleCancel}
+                        title="Stop Eva"
+                      >
+                        <IconPlayerStop className="size-4" />
+                      </Button>
+                    ) : null}
+                    <SessionPromptSubmit
+                      status={submitStatus}
+                      disabled={isInputDisabled}
+                      isExecuting={isExecuting}
+                    />
+                  </div>
+                </PromptInputFooter>
+              </PromptInput>
+            </PromptInputProvider>
           </div>
         </div>
       )}

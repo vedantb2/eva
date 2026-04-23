@@ -3,13 +3,9 @@ import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
+import { useLocalStorage } from "usehooks-ts";
 import { cn } from "@conductor/ui";
-import {
-  sandboxTabParser,
-  previewPortParser,
-  sandboxTermIdsParser,
-  sandboxTermActiveParser,
-} from "@/lib/search-params";
+import { sandboxTabParser, previewPortParser } from "@/lib/search-params";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { TerminalPanel } from "./TerminalPanel";
 import { WebPreviewPanel } from "./WebPreviewPanel";
@@ -17,15 +13,27 @@ import { EditorPanel } from "./EditorPanel";
 import { DesktopPanel } from "./DesktopPanel";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { TerminalPaneTabs } from "./_components/TerminalPaneTabs";
+import { PreviewPaneTabs } from "./_components/PreviewPaneTabs";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
 const MAX_TERMINAL_PANES = 8;
+const MAX_PREVIEW_PANES = 8;
 
 interface PreviewInfo {
   url: string;
   port: number;
+}
+
+interface TerminalStorageState {
+  ids: string[];
+  activeId: string;
+}
+
+interface PreviewStorageState {
+  ids: string[];
+  activeId: string;
 }
 
 function getCachedPreview(sessionId: string, port: number): PreviewInfo | null {
@@ -80,10 +88,48 @@ export function SandboxPanel({
   });
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
-  const [termIds, setTermIds] = useQueryState("termIds", sandboxTermIdsParser);
-  const [termActive, setTermActive] = useQueryState(
-    "termActive",
-    sandboxTermActiveParser,
+  const [previewState, setPreviewState] = useLocalStorage<PreviewStorageState>(
+    `conductor:session:${sessionId}:previews`,
+    {
+      ids: [],
+      activeId: "",
+    },
+  );
+  const previewIds = previewState.ids;
+  const previewActive = previewState.activeId;
+  const setPreviewIds = useCallback(
+    (ids: string[]) => {
+      setPreviewState((current) => ({ ...current, ids }));
+    },
+    [setPreviewState],
+  );
+  const setPreviewActive = useCallback(
+    (activeId: string) => {
+      setPreviewState((current) => ({ ...current, activeId }));
+    },
+    [setPreviewState],
+  );
+  const [terminalState, setTerminalState] =
+    useLocalStorage<TerminalStorageState>(
+      `conductor:session:${sessionId}:terminals`,
+      {
+        ids: [],
+        activeId: "",
+      },
+    );
+  const termIds = terminalState.ids;
+  const termActive = terminalState.activeId;
+  const setTermIds = useCallback(
+    (ids: string[]) => {
+      setTerminalState((current) => ({ ...current, ids }));
+    },
+    [setTerminalState],
+  );
+  const setTermActive = useCallback(
+    (activeId: string) => {
+      setTerminalState((current) => ({ ...current, activeId }));
+    },
+    [setTerminalState],
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -165,15 +211,28 @@ export function SandboxPanel({
   useEffect(() => {
     if (activeTab !== "terminal" || termIds.length > 0) return;
     const id = crypto.randomUUID();
-    void setTermIds([id]);
-    void setTermActive(id);
+    setTermIds([id]);
+    setTermActive(id);
   }, [activeTab, termIds.length, setTermIds, setTermActive]);
+
+  useEffect(() => {
+    if (activeTab !== "preview" || previewIds.length > 0) return;
+    const id = crypto.randomUUID();
+    setPreviewIds([id]);
+    setPreviewActive(id);
+  }, [activeTab, previewIds.length, setPreviewIds, setPreviewActive]);
 
   useEffect(() => {
     if (termIds.length === 0) return;
     if (termActive && termIds.includes(termActive)) return;
-    void setTermActive(termIds[0]);
+    setTermActive(termIds[0]);
   }, [termIds, termActive, setTermActive]);
+
+  useEffect(() => {
+    if (previewIds.length === 0) return;
+    if (previewActive && previewIds.includes(previewActive)) return;
+    setPreviewActive(previewIds[0]);
+  }, [previewIds, previewActive, setPreviewActive]);
 
   const showPrdTab = Boolean(planContent) && mode === "plan";
 
@@ -192,13 +251,28 @@ export function SandboxPanel({
         ? termActive
         : termIds[0]
       : "";
+  const resolvedPreviewActive =
+    previewIds.length > 0
+      ? previewActive && previewIds.includes(previewActive)
+        ? previewActive
+        : previewIds[0]
+      : "";
+
+  const handleNewPreview = useCallback(() => {
+    if (!isActive || previewIds.length >= MAX_PREVIEW_PANES) return;
+    const id = crypto.randomUUID();
+    const next = previewIds.length === 0 ? [id] : [...previewIds, id];
+    setPreviewIds(next);
+    setPreviewActive(id);
+    void setActiveTab("preview");
+  }, [isActive, previewIds, setPreviewIds, setPreviewActive, setActiveTab]);
 
   const handleNewTerminal = useCallback(() => {
     if (!isActive || termIds.length >= MAX_TERMINAL_PANES) return;
     const id = crypto.randomUUID();
     const next = termIds.length === 0 ? [id] : [...termIds, id];
-    void setTermIds(next);
-    void setTermActive(id);
+    setTermIds(next);
+    setTermActive(id);
     void setActiveTab("terminal");
   }, [isActive, termIds, setTermIds, setTermActive, setActiveTab]);
 
@@ -216,10 +290,10 @@ export function SandboxPanel({
       } catch {
         // still remove from UI
       }
-      void setTermIds(next);
+      setTermIds(next);
       if (termActive === ptyId) {
         const pick = next[removedIdx - 1] ?? next[0] ?? "";
-        void setTermActive(pick);
+        setTermActive(pick);
       }
     },
     [
@@ -232,6 +306,21 @@ export function SandboxPanel({
     ],
   );
 
+  const handleClosePreview = useCallback(
+    (previewId: string) => {
+      if (previewIds[0] === previewId) return;
+      const removedIdx = previewIds.indexOf(previewId);
+      if (removedIdx < 0) return;
+      const next = previewIds.filter((id) => id !== previewId);
+      setPreviewIds(next);
+      if (previewActive === previewId) {
+        const pick = next[removedIdx - 1] ?? next[0] ?? "";
+        setPreviewActive(pick);
+      }
+    },
+    [previewIds, previewActive, setPreviewIds, setPreviewActive],
+  );
+
   const handleTabChange = useCallback(
     (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
       setActiveTab(tab);
@@ -240,13 +329,17 @@ export function SandboxPanel({
   );
 
   const newTerminalDisabled = !isActive || termIds.length >= MAX_TERMINAL_PANES;
+  const newPreviewDisabled =
+    !isActive || previewIds.length >= MAX_PREVIEW_PANES;
 
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
         activeTab={tabBarValue}
         onTabChange={handleTabChange}
+        onNewPreview={handleNewPreview}
         onNewTerminal={handleNewTerminal}
+        newPreviewDisabled={newPreviewDisabled}
         newTerminalDisabled={newTerminalDisabled}
         showPrdTab={showPrdTab}
       />
@@ -268,18 +361,48 @@ export function SandboxPanel({
             />
           ) : null}
         </div>
-        <div className={activeTab === "preview" ? "h-full" : "hidden"}>
-          <WebPreviewPanel
-            isActive={isActive}
-            sandboxId={sandboxId}
-            previewInfo={previewInfo}
-            isLoading={isLoading}
-            error={error}
-            iframeKey={iframeKey}
-            onRefresh={fetchPreview}
-            port={effectivePort}
-            onPortChange={setPort}
-          />
+        <div
+          className={
+            activeTab === "preview" ? "h-full flex flex-col" : "hidden"
+          }
+        >
+          {activeTab === "preview" ? (
+            <PreviewPaneTabs
+              previewIds={previewIds}
+              activeId={resolvedPreviewActive}
+              onSelect={setPreviewActive}
+              onClose={handleClosePreview}
+            />
+          ) : null}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {activeTab === "preview" && previewIds.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                Preparing preview...
+              </div>
+            ) : null}
+            {previewIds.map((id) => (
+              <div
+                key={id}
+                className={cn(
+                  resolvedPreviewActive === id
+                    ? "flex min-h-0 flex-1 flex-col"
+                    : "hidden",
+                )}
+              >
+                <WebPreviewPanel
+                  isActive={isActive}
+                  sandboxId={sandboxId}
+                  previewInfo={previewInfo}
+                  isLoading={isLoading}
+                  error={error}
+                  iframeKey={iframeKey}
+                  onRefresh={fetchPreview}
+                  port={effectivePort}
+                  onPortChange={setPort}
+                />
+              </div>
+            ))}
+          </div>
         </div>
         <div className={activeTab === "editor" ? "h-full" : "hidden"}>
           <EditorPanel
@@ -298,7 +421,7 @@ export function SandboxPanel({
             <TerminalPaneTabs
               termIds={termIds}
               activeId={resolvedTermActive}
-              onSelect={(id) => void setTermActive(id)}
+              onSelect={setTermActive}
               onClose={handleCloseTerminal}
             />
           ) : null}

@@ -40,7 +40,9 @@ const tabs: Array<{
 interface SandboxTabBarProps {
   activeTab: SandboxTab;
   onTabChange: (tab: SandboxTab) => void;
+  onNewPreview: () => void;
   onNewTerminal: () => void;
+  newPreviewDisabled?: boolean;
   newTerminalDisabled?: boolean;
   showPrdTab?: boolean;
 }
@@ -52,10 +54,14 @@ function isSandboxTab(value: string): value is SandboxTab {
 export function SandboxTabBar({
   activeTab,
   onTabChange,
+  onNewPreview,
   onNewTerminal,
+  newPreviewDisabled = false,
   newTerminalDisabled = false,
   showPrdTab = false,
 }: SandboxTabBarProps) {
+  const newTabDisabled = newPreviewDisabled && newTerminalDisabled;
+
   return (
     <div className="relative flex items-end gap-1 px-2 pt-1.5 bg-secondary/50">
       <Tabs
@@ -94,8 +100,8 @@ export function SandboxTabBar({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                disabled={newTerminalDisabled}
-                className="ml-1 flex h-[30px] w-8 shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                disabled={newTabDisabled}
+                className="ml-1 flex h-[30px] w-8 shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40"
                 aria-label="Open tab menu"
               >
                 <IconPlus className="h-4 w-4" />
@@ -103,9 +109,17 @@ export function SandboxTabBar({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-[10rem]">
               <DropdownMenuItem
+                onClick={onNewPreview}
+                disabled={newPreviewDisabled}
+              >
+                <IconWorld size={14} />
+                New Preview
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={onNewTerminal}
                 disabled={newTerminalDisabled}
               >
+                <IconTerminal2 size={14} />
                 New Terminal
               </DropdownMenuItem>
             </DropdownMenuContent>

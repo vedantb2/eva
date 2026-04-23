@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { IconTextResize, IconDots } from "@tabler/icons-react";
+import { IconListDetails, IconDots } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
 import { ProviderIcon } from "./provider-icon";
 
@@ -195,7 +195,7 @@ export function PromptInputSettings<TModel extends string>({
         {onResponseLengthChange && responseLength !== undefined && (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
-              <IconTextResize size={14} />
+              <IconListDetails size={14} />
               Response length
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
@@ -343,7 +343,7 @@ export function ResponseLengthSelect({
           className,
         )}
       >
-        <IconTextResize size={14} className="shrink-0" />
+        <IconListDetails size={14} className="shrink-0" />
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

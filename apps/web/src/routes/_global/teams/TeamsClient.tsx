@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Card,
@@ -17,12 +18,33 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@conductor/ui";
-import { IconPlus, IconUsers } from "@tabler/icons-react";
+import { IconPlus, IconUsers, IconTrash } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
+import { TeamDeleteDialog } from "./_components/TeamDeleteDialog";
 
 export function TeamsClient() {
   const teams = useQuery(api.teams.list) ?? [];
   const createTeam = useMutation(api.teams.create);
+  const deleteTeam = useMutation(api.teams.remove);
+
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: Id<"teams">;
+    name: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteTeam({ id: deleteTarget.id });
+      setDeleteTarget(null);
+    } catch {
+      setDeleteTarget(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const [createDialog, setCreateDialog] = useState({
     open: false,
@@ -132,32 +154,63 @@ export function TeamsClient() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {teams.map((team) => (
-          <Link
-            key={team._id}
-            to="/teams/$teamId"
-            params={{ teamId: team._id }}
-          >
-            <Card className="h-full transition-colors hover:bg-accent/50">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                      <IconUsers size={16} className="text-primary" />
+        {teams.map((team) => {
+          const canDelete =
+            team.userRole === "owner" && team.isPersonal !== true;
+
+          return (
+            <Link
+              key={team._id}
+              to="/teams/$teamId"
+              params={{ teamId: team._id }}
+            >
+              <Card className="h-full transition-colors hover:bg-accent/50">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                        <IconUsers size={16} className="text-primary" />
+                      </div>
+                      <CardTitle className="text-base">
+                        {team.displayName ?? team.name}
+                      </CardTitle>
                     </div>
-                    <CardTitle className="text-base">
-                      {team.displayName ?? team.name}
-                    </CardTitle>
+                    <div className="flex items-center gap-1.5">
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDeleteTarget({
+                              id: team._id,
+                              name: team.displayName ?? team.name,
+                            });
+                          }}
+                        >
+                          <IconTrash size={14} />
+                        </Button>
+                      )}
+                      <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
+                        {team.userRole}
+                      </span>
+                    </div>
                   </div>
-                  <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
-                    {team.userRole}
-                  </span>
-                </div>
-              </CardHeader>
-            </Card>
-          </Link>
-        ))}
+                </CardHeader>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
+
+      <TeamDeleteDialog
+        team={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        isDeleting={isDeleting}
+      />
 
       {teams.length === 0 && (
         <Card className="mt-8">

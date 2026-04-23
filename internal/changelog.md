@@ -1,5 +1,14 @@
 # Changelog
 
+## Pre-kill liveness probe for the watchdog + structured kill logs - 2026-04-23
+
+- **Why**: The watchdog kills a run as soon as `streamingActivity.lastUpdatedAt` is older than the stale threshold. A transient heartbeat transport failure (Convex auth flap, brief network blip, event loop starved by heavy stdio during a long `pnpm build`) was enough to kill a demonstrably-healthy run — the sandbox was still executing, the CLI was still running, only the heartbeat couldn't reach Convex for ~5 minutes. Also, when the watchdog did kill, the kill reason logs were thin and hard to correlate with the run's actual state.
+- **Liveness gate**: New internal action `daytona.verifySandboxLiveness` asks Daytona whether the sandbox is in the `started` state and, if so, checks that the callback runner PID (`/tmp/run-design.pid`) is still alive via `kill -0`. New internal action `taskWorkflow.probeStaleRunLiveness` wraps the probe: if both sandbox + PID are alive it grants exactly ONE grace cycle (reschedules `checkStaleRuns` after `STALE_RECHECK_MS` with `skipLivenessProbe: true`); if the probe confirms dead, `checkStaleRuns` is re-entered immediately with the probe suppressed so the kill path runs without another round-trip.
+- **One grace cycle only**: `checkStaleRuns` gained a `skipLivenessProbe` optional arg set by the probe after it has already granted a cycle — prevents alive-but-zombie runs from looping forever. The hard 2-hour `handleStaleRun` is the backstop. Startup-phase staleness (callback PID not guaranteed to exist yet) skips the probe and kills directly, same as before.
+- **Conservative on probe failure**: If the Daytona API is unreachable (`getSandbox` / `refreshData` throws), the probe returns `alive: true` with `reason: "probe_unreachable_*"` so the watchdog does not kill on its own inability to verify. 2-hour timeout still applies.
+- **Structured kill logs**: Every `cleanUpStaleRun` call in `checkStaleRuns` now emits a `[watchdog][kill] runId=… reason=… streamingAgeMs=… thresholdMs=… skipProbe=… startup=… finishing=… activity=…` log line; the probe emits `[watchdog][probe] runId=… alive=… reason=… sandboxState=… pidAlive=… probeDurationMs=…`. Makes it trivial to post-mortem a kill from logs alone.
+- **Scope**: `_daytona/lifecycle.ts` (+ `daytona.ts` export) for `verifySandboxLiveness`; new `_taskWorkflow/livenessProbe.ts` (+ `taskWorkflow.ts` export) for `probeStaleRunLiveness`; `_taskWorkflow/watchdog.ts` for the gate + logs. No schema changes, no UI changes, no prompt changes.
+
 ## Attribute sandbox commits to GitHub App bot user - 2026-04-22
 
 - **Why**: Commits from sandboxes showed the repo owner's avatar on GitHub because the hardcoded git author email was `48868398+vedantb2@users.noreply.github.com` — GitHub attributes commits by author email, not pusher, so every commit looked like the owner wrote it (even though push auth was already the App installation token).

@@ -54,12 +54,7 @@ export function TaskFooter({
     status === "todo" || (status === "in_progress" && !hasActiveRun);
   const hasSecondaryContent =
     Boolean(latestDeployment?.deploymentStatus) ||
-    Boolean(
-      latestPrUrl &&
-      (status === "code_review" ||
-        status === "business_review" ||
-        status === "done"),
-    ) ||
+    Boolean(latestPrUrl) ||
     (!hasActiveRun &&
       (status === "code_review" || status === "business_review")) ||
     (status !== "todo" && status !== "in_progress");
@@ -124,17 +119,14 @@ export function TaskFooter({
               </TooltipContent>
             </Tooltip>
           )}
-          {latestPrUrl &&
-            (status === "code_review" ||
-              status === "business_review" ||
-              status === "done") && (
-              <Button asChild variant="outline">
-                <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
-                  <IconGitPullRequest size={18} />
-                  <span className="hidden sm:inline">View PR</span>
-                </a>
-              </Button>
-            )}
+          {latestPrUrl && (
+            <Button asChild variant="outline">
+              <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
+                <IconGitPullRequest size={18} />
+                <span className="hidden sm:inline">View PR</span>
+              </a>
+            </Button>
+          )}
           {!hasActiveRun &&
             (status === "code_review" || status === "business_review") && (
               <Button

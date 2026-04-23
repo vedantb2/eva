@@ -138,8 +138,10 @@ export function QuickTasksClient() {
     const sorted = [...filtered].sort((a, b) => {
       let cmp = 0;
       if (sortField === "lastRun") {
-        const aTime = a.lastRunStartedAt ?? 0;
-        const bTime = b.lastRunStartedAt ?? 0;
+        // Fall back to createdAt so tasks that have never run are sorted by
+        // creation time rather than collapsing to 0 and sinking to the bottom.
+        const aTime = a.lastRunStartedAt ?? a.createdAt;
+        const bTime = b.lastRunStartedAt ?? b.createdAt;
         cmp = aTime - bTime;
       } else if (sortField === "updated") {
         cmp = a.updatedAt - b.updatedAt;

@@ -1,5 +1,14 @@
 # Changelog
 
+## Extend watchdog threshold during active agent tool steps + prune MCP success-path logs - 2026-04-23
+
+- **Why (threshold)**: Even with the pre-kill liveness probe re-probing every cycle, a quick task kept getting killed during long silent shell commands (`pnpm build 2>&1 | tail -50`). While the agent is inside a bash tool step, stream-json emits nothing new for minutes — the only thing bumping `streamingActivity.lastUpdatedAt` is the 10s heartbeat, and if heartbeat transport blips for ~5 min the run is killed even though the build is healthy. The probe verified the PID was alive but could only buy one 30s grace cycle at a time.
+- **Fix (threshold)**: New constant `STALE_TOOL_ACTIVE_THRESHOLD_MS = 900_000` in `_taskWorkflow/recovery.ts`. New helper `hasActiveAgentToolStep()` in `_taskWorkflow/watchdog.ts` returns true when streamingActivity has at least one active step whose label is NOT a sandbox-startup label and NOT `"Finalizing response..."` (i.e. real agent tool work: Bash, tool use, etc.). `checkStaleRuns` priority is now: `startup → tool-active → finishing → default` (15min / 15min / 10min / 5min). Combined with the per-cycle liveness probe this gives up to 15 minutes of silent tolerance before even the first probe fires — exactly the scenario that broke (long build with stdout redirected away from the terminal).
+- **Structured log**: `[watchdog][kill]` log line gains `toolActive=…` alongside `startup`/`finishing` so post-mortems show which branch of the threshold picker fired.
+- **Why (logs)**: MCP endpoints were emitting chatty `console.log` breadcrumbs on every request (OAuth discovery, registration, token exchange, request body preview, tool-registration counts). None of this was relevant to the watchdog kill that triggered the investigation and the volume was cluttering the dashboard.
+- **Fix (logs)**: Deleted success-path `console.log` calls from `mcp/native.ts` (`oauthMetadata`, `protectedResourceMetadata`, `register`, `authorizePost`, `token`, `mcpHandler`) and `mcp/nodeActions.ts` (`verifyAccessToken`, `handleMcpRequest`). Kept `console.error` for genuine failures (missing env config, verification failures, tool registration errors).
+- **Scope**: `_taskWorkflow/recovery.ts` (new constant), `_taskWorkflow/watchdog.ts` (helper + threshold wiring + log field), `mcp/native.ts` + `mcp/nodeActions.ts` (log pruning). No schema changes, no UI changes, no prompt changes. The 2-hour `handleStaleRun` hard timeout remains the ultimate backstop.
+
 ## Re-probe stale runs before every watchdog kill attempt - 2026-04-23
 
 - **Why**: A run could pass the liveness probe (`alive=true`) and still be killed 30 seconds later because the next stale check forced `skipLivenessProbe=true`, bypassing re-validation and doing a blind kill.

@@ -1,5 +1,11 @@
 # Changelog
 
+## Rebuild Daytona snapshots from live warmed sandboxes - 2026-04-24
+
+- **Why**: Declarative snapshot builds cannot preserve runtime side effects from startup commands, so sandboxes still paid setup cost after restore.
+- **Changes**: Snapshot rebuilds now create an Experimental builder sandbox from `daytona-large`, install the platform toolchain, clone the configured branch, run startup commands as build-blocking steps, create a live snapshot, and delete the builder sandbox. The old warmup step now marks success without creating another sandbox.
+- **Reason**: Live snapshots capture the repo, filesystem, and warmed runtime state in one artifact while keeping normal task/session sandboxes on the existing Daytona client path.
+
 ## Place sandbox config files in workspace root - 2026-04-24
 
 - **Why**: Quick tasks and sandboxes need uploaded config files at the codebase root, not only in the sandbox-level `/home/eva/sandbox-config` directory.

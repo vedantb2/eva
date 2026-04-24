@@ -846,8 +846,8 @@ importers:
         specifier: ^0.3.4
         version: 0.3.10(@convex-dev/workpool@0.4.6(convex-helpers@0.1.114(@standard-schema/spec@1.1.0)(convex@1.36.1(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.14)(react@19.2.1)(typescript@5.9.3)(zod@3.25.76))(convex@1.36.1(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)))(convex-helpers@0.1.114(@standard-schema/spec@1.1.0)(convex@1.36.1(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.14)(react@19.2.1)(typescript@5.9.3)(zod@3.25.76))(convex@1.36.1(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))
       '@daytonaio/sdk':
-        specifier: ^0.143.0
-        version: 0.143.0(ws@8.20.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))
+        specifier: ^0.169.0
+        version: 0.169.0(ws@8.20.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))
       '@modelcontextprotocol/sdk':
         specifier: ^1.26.0
         version: 1.29.0(zod@3.25.76)
@@ -2133,20 +2133,20 @@ packages:
   '@date-fns/tz@1.4.1':
     resolution: {integrity: sha512-P5LUNhtbj6YfI3iJjw5EL9eUAG6OitD0W3fWQcpQjDRc/QIsL0tRNuO1PcDvPccWL1fSTXXdE1ds+l95DV/OFA==}
 
-  '@daytonaio/api-client@0.143.0':
-    resolution: {integrity: sha512-LcrvExGcwyngt1JnVoxuBMD19fL9F+vwGnp18Hav5HJEbICM0pbrJc2FJ242sQJquNIF5mq+5jgznWg6wshZJA==}
+  '@daytona/api-client@0.169.0':
+    resolution: {integrity: sha512-ZbDtm9Y+zHeNTz+7p259VwQKYfa/H8tQiM2Fd9A+j64VPN3EAZQPhMm+UQeYTjAySXpIYcxRP1cbbfgHh3VoBg==}
+
+  '@daytona/toolbox-api-client@0.169.0':
+    resolution: {integrity: sha512-8ktk2lggLTR1SAU7u609aWPJZlBWDP320H4c2ohfBRHgKXdIv8eckVJVLfnZtxvdNn6edewxf0K4SixqWB8Mtg==}
 
   '@daytonaio/api-client@0.19.1':
     resolution: {integrity: sha512-2+jeoXeftgyzBWD27D2kg6/nVkB4fisASSI+Mzor3gZLQdxXpTsVatvOWZIlj1bYnRNcw31VS1k/ZuCbbR7tYQ==}
 
-  '@daytonaio/sdk@0.143.0':
-    resolution: {integrity: sha512-itQ409W+WuuqLd8edIRVUWeRUyujSlOKInnN6GeC3OqyOWT27wyD/KzkesXDJtQ6HthGtqa4uRtHqnayd5wRCQ==}
+  '@daytonaio/sdk@0.169.0':
+    resolution: {integrity: sha512-Cbw1zomoc7Zr+a4UpSA/pBpg1P2++upwjqcHaxIwbxQw6roNwIHpViXh88FNCQU6g70Mn4lolViiOl2H8gr7wg==}
 
   '@daytonaio/sdk@0.18.1':
     resolution: {integrity: sha512-MOA/ABV8b6FIzvLNzzGSUY7pzPUmjBlJqQwl4U5NAmr0jLu/2Atw99JpHyfgckf24IGJkOeQd9OhqFYq1YV45Q==}
-
-  '@daytonaio/toolbox-api-client@0.143.0':
-    resolution: {integrity: sha512-E6+yHPnFygNqRIctoDheISHCpzQkHydAU7fiBfsA5pnElfB/yLTOXQlnZfP8gfvOmUkRNU8QCXKzaualRTlI7w==}
 
   '@develar/schema-utils@2.6.5':
     resolution: {integrity: sha512-0cp4PsWQ/9avqTVMCtZ+GirikIA36ikvjtHweU4/j8yLtgObI0+JUPhYFScgwlteveGB1rt3Cm8UhN04XayDig==}
@@ -13622,7 +13622,13 @@ snapshots:
 
   '@date-fns/tz@1.4.1': {}
 
-  '@daytonaio/api-client@0.143.0':
+  '@daytona/api-client@0.169.0':
+    dependencies:
+      axios: 1.15.0(debug@4.4.3)
+    transitivePeerDependencies:
+      - debug
+
+  '@daytona/toolbox-api-client@0.169.0':
     dependencies:
       axios: 1.15.0(debug@4.4.3)
     transitivePeerDependencies:
@@ -13634,12 +13640,12 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  '@daytonaio/sdk@0.143.0(ws@8.20.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))':
+  '@daytonaio/sdk@0.169.0(ws@8.20.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))':
     dependencies:
       '@aws-sdk/client-s3': 3.1030.0
       '@aws-sdk/lib-storage': 3.1030.0(@aws-sdk/client-s3@3.1030.0)
-      '@daytonaio/api-client': 0.143.0
-      '@daytonaio/toolbox-api-client': 0.143.0
+      '@daytona/api-client': 0.169.0
+      '@daytona/toolbox-api-client': 0.169.0
       '@iarna/toml': 2.2.5
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/exporter-trace-otlp-http': 0.207.0(@opentelemetry/api@1.9.1)
@@ -13672,12 +13678,6 @@ snapshots:
       axios: 1.15.0(debug@4.4.3)
       form-data: 4.0.5
       uuid: 11.1.0
-    transitivePeerDependencies:
-      - debug
-
-  '@daytonaio/toolbox-api-client@0.143.0':
-    dependencies:
-      axios: 1.15.0(debug@4.4.3)
     transitivePeerDependencies:
       - debug
 

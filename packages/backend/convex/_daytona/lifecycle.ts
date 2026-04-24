@@ -225,3 +225,24 @@ export const deleteSandbox = internalAction({
     return null;
   },
 });
+
+/** Archives a Daytona sandbox (stops it first, then moves to cold storage). */
+export const archiveSandbox = internalAction({
+  args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      // Sandbox must be stopped before archiving
+      await sandbox.stop();
+      await sandbox.archive();
+      console.log(`[daytona] Archived sandbox ${args.sandboxId}`);
+    } catch (error) {
+      // Sandbox may already be archived, stopped, or deleted
+      console.warn(
+        `[daytona] Failed to archive sandbox ${args.sandboxId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return null;
+  },
+});

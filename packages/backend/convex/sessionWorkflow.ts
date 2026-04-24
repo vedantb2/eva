@@ -253,6 +253,11 @@ export const sessionExecuteWorkflow = workflow.define({
           deploymentProjectName: data.deploymentProjectName,
         },
       );
+
+      // Create draft PR after successful execution (skips if PR already exists)
+      await step.runAction(internal.github.createDraftSessionPr, {
+        sessionId: args.sessionId,
+      });
     }
   },
 });

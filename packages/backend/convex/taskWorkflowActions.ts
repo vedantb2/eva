@@ -128,6 +128,7 @@ export const createPullRequest = internalAction({
     title: v.string(),
     body: v.string(),
     labels: v.array(v.string()),
+    draft: v.optional(v.boolean()),
   },
   returns: v.union(v.string(), v.null()),
   handler: async (_ctx, args) => {
@@ -140,6 +141,7 @@ export const createPullRequest = internalAction({
         body: args.body,
         head: args.branchName,
         base: args.baseBranch ?? "staging",
+        draft: args.draft ?? false,
       });
 
       // The PR exists on GitHub from here on. Label failures must NOT
@@ -166,6 +168,37 @@ export const createPullRequest = internalAction({
         `Failed to create PR: ${error instanceof Error ? error.message : String(error)}`,
       );
       return null;
+    }
+  },
+});
+
+/** Marks a draft PR as ready for review. */
+export const markPrReadyForReview = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prNumber: v.number(),
+  },
+  returns: v.boolean(),
+  handler: async (_ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      await octokit.rest.pulls.update({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: args.prNumber,
+        draft: false,
+      });
+      console.log(
+        `[github] Marked PR #${args.prNumber} as ready for review (${args.repoOwner}/${args.repoName})`,
+      );
+      return true;
+    } catch (error) {
+      console.error(
+        `[github] Failed to mark PR ready: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
     }
   },
 });

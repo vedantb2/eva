@@ -330,7 +330,12 @@ async function prepareSessionSandboxInternal(
   const actionDetails = `sessionId=${args.sessionId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
   const completedSteps: ProgressStep[] = [];
 
-  await emitSessionProgress(ctx, args.sessionId, completedSteps, "Loading repository config...");
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Loading repository config...",
+  );
   const repo = await runLoggedSessionStep(
     "loadSessionRepo",
     actionDetails,
@@ -340,9 +345,18 @@ async function prepareSessionSandboxInternal(
       }),
   );
   const rootDir = repo?.rootDirectory ?? "";
-  completedSteps.push({ type: "tool", label: "Loading repository config...", status: "complete" });
+  completedSteps.push({
+    type: "tool",
+    label: "Loading repository config...",
+    status: "complete",
+  });
 
-  await emitSessionProgress(ctx, args.sessionId, completedSteps, "Resolving sandbox context...");
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Resolving sandbox context...",
+  );
   const { daytona, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
     "resolveSessionSandboxContext",
     actionDetails,
@@ -351,9 +365,18 @@ async function prepareSessionSandboxInternal(
   logSession(
     `prepareSessionSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
   );
-  completedSteps.push({ type: "tool", label: "Resolving sandbox context...", status: "complete" });
+  completedSteps.push({
+    type: "tool",
+    label: "Resolving sandbox context...",
+    status: "complete",
+  });
 
-  await emitSessionProgress(ctx, args.sessionId, completedSteps, "Checking existing sandbox...");
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Checking existing sandbox...",
+  );
   let reusedResult: PreparedSessionSandbox | null = null;
   const reused = await runLoggedSessionStep(
     "tryReuseSessionSandbox",
@@ -383,11 +406,14 @@ async function prepareSessionSandboxInternal(
               { repoId: args.repoId },
             );
             const filesToDownload = configFiles.filter(
-              (f): f is { fileName: string; url: string } => f.url !== null,
+              (f: {
+                fileName: string;
+                url: string | null;
+              }): f is { fileName: string; url: string } => f.url !== null,
             );
             if (filesToDownload.length > 0) {
               logSession(
-                `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f) => f.fileName).join(", ")}`,
+                `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f: { fileName: string }) => f.fileName).join(", ")}`,
               );
               for (const file of filesToDownload) {
                 // Download to repo root (/tmp/repo), not rootDir (which may be a subdirectory like apps/web)
@@ -443,9 +469,18 @@ async function prepareSessionSandboxInternal(
     await completeSessionProgress(ctx, args.sessionId);
     return reusedResult;
   }
-  completedSteps.push({ type: "tool", label: "Checking existing sandbox...", status: "complete" });
+  completedSteps.push({
+    type: "tool",
+    label: "Checking existing sandbox...",
+    status: "complete",
+  });
 
-  await emitSessionProgress(ctx, args.sessionId, completedSteps, "Setting up persistence volumes...");
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Setting up persistence volumes...",
+  );
   const sessionVolumeMounts = await runLoggedSessionStep(
     "ensureSessionPersistenceVolumes",
     actionDetails,
@@ -457,9 +492,18 @@ async function prepareSessionSandboxInternal(
         args.sessionId,
       ),
   );
-  completedSteps.push({ type: "tool", label: "Setting up persistence volumes...", status: "complete" });
+  completedSteps.push({
+    type: "tool",
+    label: "Setting up persistence volumes...",
+    status: "complete",
+  });
 
-  await emitSessionProgress(ctx, args.sessionId, completedSteps, "Creating sandbox...");
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Creating sandbox...",
+  );
   const prepared = await runLoggedSessionStep(
     "createSessionSandboxAndPrepareRepo",
     `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
@@ -480,9 +524,18 @@ async function prepareSessionSandboxInternal(
   );
   const sandbox = prepared.sandbox;
   const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
-  completedSteps.push({ type: "tool", label: "Creating sandbox...", status: "complete" });
+  completedSteps.push({
+    type: "tool",
+    label: "Creating sandbox...",
+    status: "complete",
+  });
 
-  await emitSessionProgress(ctx, args.sessionId, completedSteps, "Syncing repository refs...");
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Syncing repository refs...",
+  );
   await runLoggedSessionStep(
     "newSessionSandbox.syncSessionRefsForRestore",
     sandboxDetails,
@@ -496,19 +549,37 @@ async function prepareSessionSandboxInternal(
         args.baseBranch,
       ),
   );
-  completedSteps.push({ type: "tool", label: "Syncing repository refs...", status: "complete" });
+  completedSteps.push({
+    type: "tool",
+    label: "Syncing repository refs...",
+    status: "complete",
+  });
 
-  await emitSessionProgress(ctx, args.sessionId, completedSteps, "Checking out branch...");
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Checking out branch...",
+  );
   await runLoggedSessionStep(
     "newSessionSandbox.checkoutSessionBranch",
     sandboxDetails,
     () =>
       checkoutSessionBranchWithRetry(sandbox, args.branchName, args.baseBranch),
   );
-  completedSteps.push({ type: "tool", label: "Checking out branch...", status: "complete" });
+  completedSteps.push({
+    type: "tool",
+    label: "Checking out branch...",
+    status: "complete",
+  });
 
   // Download sandbox config files to repo root
-  await emitSessionProgress(ctx, args.sessionId, completedSteps, "Downloading config files...");
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Downloading config files...",
+  );
   await runLoggedSessionStep(
     "newSessionSandbox.downloadConfigFiles",
     sandboxDetails,
@@ -518,11 +589,14 @@ async function prepareSessionSandboxInternal(
         { repoId: args.repoId },
       );
       const filesToDownload = configFiles.filter(
-        (f): f is { fileName: string; url: string } => f.url !== null,
+        (f: {
+          fileName: string;
+          url: string | null;
+        }): f is { fileName: string; url: string } => f.url !== null,
       );
       if (filesToDownload.length > 0) {
         logSession(
-          `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f) => f.fileName).join(", ")}`,
+          `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f: { fileName: string }) => f.fileName).join(", ")}`,
         );
         for (const file of filesToDownload) {
           // Download to repo root (/tmp/repo), not rootDir (which may be a subdirectory like apps/web)
@@ -536,35 +610,62 @@ async function prepareSessionSandboxInternal(
       }
     },
   );
-  completedSteps.push({ type: "tool", label: "Downloading config files...", status: "complete" });
+  completedSteps.push({
+    type: "tool",
+    label: "Downloading config files...",
+    status: "complete",
+  });
 
-  await emitSessionProgress(ctx, args.sessionId, completedSteps, "Starting dev server...");
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Starting dev server...",
+  );
   const { port: devPort, devCommand } = await runLoggedSessionStep(
     "newSessionSandbox.startSessionServices",
     sandboxDetails,
     () => startSessionServices(sandbox, rootDir),
   );
-  completedSteps.push({ type: "tool", label: "Starting dev server...", status: "complete" });
+  completedSteps.push({
+    type: "tool",
+    label: "Starting dev server...",
+    status: "complete",
+  });
 
   if (args.startDesktop) {
-    await emitSessionProgress(ctx, args.sessionId, completedSteps, "Starting desktop environment...");
+    await emitSessionProgress(
+      ctx,
+      args.sessionId,
+      completedSteps,
+      "Starting desktop environment...",
+    );
     await runLoggedSessionStep(
       "newSessionSandbox.startDesktop",
       sandboxDetails,
       () => startDesktopWithChrome(sandbox),
     );
-    completedSteps.push({ type: "tool", label: "Starting desktop environment...", status: "complete" });
+    completedSteps.push({
+      type: "tool",
+      label: "Starting desktop environment...",
+      status: "complete",
+    });
   }
 
-  await emitSessionProgress(ctx, args.sessionId, completedSteps, "Running startup commands...");
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Running startup commands...",
+  );
   await runLoggedSessionStep(
     "newSessionSandbox.runStartupCommands",
     sandboxDetails,
     async () => {
-      const result = await ctx.runAction(
-        internal.daytona.runStartupCommands,
-        { sandboxId: sandbox.id, repoId: args.repoId },
-      );
+      const result = await ctx.runAction(internal.daytona.runStartupCommands, {
+        sandboxId: sandbox.id,
+        repoId: args.repoId,
+      });
       if (result.ran && result.commandCount > 0) {
         logSession(
           `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
@@ -572,7 +673,11 @@ async function prepareSessionSandboxInternal(
       }
     },
   );
-  completedSteps.push({ type: "tool", label: "Running startup commands...", status: "complete" });
+  completedSteps.push({
+    type: "tool",
+    label: "Running startup commands...",
+    status: "complete",
+  });
 
   await completeSessionProgress(ctx, args.sessionId);
   return {

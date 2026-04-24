@@ -1,5 +1,16 @@
 # Changelog
 
+## Auto-create draft PRs on session execution + archive sandboxes on session archive - 2026-04-24
+
+- **Draft PR workflow**: Session now creates a draft PR immediately after first successful execution; "Send for Review" button marks it ready instead of creating a new PR.
+- **Sandbox archival**: Archiving a session now stops and archives its Daytona sandbox to cold storage, preserving state while optimizing cost.
+
+## Improve code-server reliability and error reporting - 2026-04-25
+
+- **Why**: code-server failures were opaque—users saw generic errors with no logs or actionable info.
+- **Changes**: `toggleCodeServer` now returns success/failure status with startup logs; EditorPanel displays detailed errors when code-server fails; PTY resize silently handles "not found" during startup race.
+- **Reason**: Surfacing logs helps diagnose why code-server won't start (port conflicts, missing deps) without SSH-ing into the sandbox.
+
 ## Stream sandbox startup progress to UI - 2026-04-25
 
 - **Why**: Users saw a static "Starting sandbox..." message with no indication of what the platform was doing during the multi-second startup sequence.

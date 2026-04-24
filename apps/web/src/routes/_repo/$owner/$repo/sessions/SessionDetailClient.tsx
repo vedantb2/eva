@@ -23,6 +23,9 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
   const summaryStreaming = useQuery(api.streaming.get, {
     entityId: `summary:${typedSessionId}`,
   });
+  const startupStreaming = useQuery(api.streaming.get, {
+    entityId: `session-startup-${typedSessionId}`,
+  });
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
   const isSandboxStarting = session?.status === "starting";
@@ -80,6 +83,7 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           streamingContent={streaming?.currentContent}
           streamingPendingQuestion={streaming?.pendingQuestion}
           summaryStreamingActivity={summaryStreaming?.currentActivity}
+          startupStreamingActivity={startupStreaming?.currentActivity}
           isSandboxActive={isSandboxActive}
           isSandboxToggling={isSandboxStarting || isStopPending}
           onSandboxToggle={handleSandboxToggle}

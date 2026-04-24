@@ -1,5 +1,11 @@
 # Changelog
 
+## Filter Supabase MCP tools to read-only allowlist - 2026-04-24
+
+- **Why**: Supabase's remote MCP already receives `read_only=true`, but Eva should not depend solely on upstream visibility guarantees for mutating platform tools.
+- **Changes**: Added a local Supabase tool allowlist across all MCP proxy paths so branch, project, migration, edge-function, and cost-confirmation tools are hidden from clients.
+- **Reason**: Failing closed keeps newly introduced Supabase tools invisible until they are reviewed and explicitly approved.
+
 ## Polish sandbox pane tab strips - 2026-04-23
 
 - **Why**: Preview and terminal pane tabs worked, but the flat row made multiple panes feel bolted on rather than part of the right-panel navigation.

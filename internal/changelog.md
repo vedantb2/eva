@@ -1,5 +1,11 @@
 # Changelog
 
+## Create PR on retry if first run failed to create one - 2026-04-24
+
+- **Why**: If the first task run succeeded but PR creation failed, subsequent change-request runs would not attempt to create a PR because the "first task" check only looked for successful runs.
+- **Changes**: `isFirstTaskOnBranch` now checks if any run for the task has a `prUrl` set, not just whether a successful run exists.
+- **Reason**: PR creation should happen if no PR exists yet, regardless of how many successful runs preceded it.
+
 ## Publish quick-task branches from backend - 2026-04-24
 
 - **Why**: Long-running quick tasks could commit successfully inside an ephemeral sandbox, then fail `git push` with an expired GitHub App token; sandbox cleanup deleted the only local copy of the commit.

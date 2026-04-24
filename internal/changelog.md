@@ -1,5 +1,11 @@
 # Changelog
 
+## Stream sandbox startup progress to UI - 2026-04-25
+
+- **Why**: Users saw a static "Starting sandbox..." message with no indication of what the platform was doing during the multi-second startup sequence.
+- **Changes**: Backend now emits step-by-step progress events (repo loading, context resolution, volume setup, sandbox creation, ref syncing, branch checkout, dev server startup) via streaming; ChatPanel displays each step with animations.
+- **Reason**: Real-time feedback reduces perceived wait time and helps diagnose where startup stalls.
+
 ## Place sandbox config files in workspace root - 2026-04-24
 
 - **Why**: Quick tasks and sandboxes need uploaded config files at the codebase root, not only in the sandbox-level `/home/eva/sandbox-config` directory.

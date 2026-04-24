@@ -699,6 +699,24 @@ export async function normalizeSnapshotWorktree(
   );
 }
 
+/** Copies baked sandbox config files into the codebase root after git cleanup. */
+async function copySandboxConfigFilesToWorkspace(
+  sandbox: Sandbox,
+): Promise<void> {
+  const workspaceDir = workspaceDirShell();
+  await runLoggedGitStep(
+    "copySandboxConfigFilesToWorkspace",
+    WORKSPACE_DIR,
+    async () => {
+      await execGitCommand(
+        sandbox,
+        `if [ -d /home/eva/sandbox-config ] && find /home/eva/sandbox-config -mindepth 1 -maxdepth 1 | read first; then cp -a /home/eva/sandbox-config/. ${workspaceDir}/; fi`,
+        30,
+      );
+    },
+  );
+}
+
 /** Installs project dependencies using the detected package manager. */
 async function installDependencies(
   sandbox: Sandbox,
@@ -901,6 +919,7 @@ export async function createSandboxAndPrepareRepo(
             if (onProgress) await onProgress("Syncing repository...");
             await syncRepo(sandbox, installationId, owner, name, syncStrategy);
           }
+          await copySandboxConfigFilesToWorkspace(sandbox);
           return { sandbox, usedSnapshot: true };
         }
         if (lifecycle.ephemeral && syncStrategy.mode === "none") {

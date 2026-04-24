@@ -1,5 +1,11 @@
 # Changelog
 
+## Place sandbox config files in workspace root - 2026-04-24
+
+- **Why**: Quick tasks and sandboxes need uploaded config files at the codebase root, not only in the sandbox-level `/home/eva/sandbox-config` directory.
+- **Changes**: Snapshot-backed sandbox preparation now copies baked config files into `/tmp/repo` after git cleanup and repo sync complete, and the settings copy now reflects the root placement.
+- **Reason**: Copying after `git clean` preserves the uploaded files while keeping the snapshot worktree reset behavior intact.
+
 ## Create PR on retry if first run failed to create one - 2026-04-24
 
 - **Why**: If the first task run succeeded but PR creation failed, subsequent change-request runs would not attempt to create a PR because the "first task" check only looked for successful runs.

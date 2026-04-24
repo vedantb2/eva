@@ -1,5 +1,11 @@
 # Changelog
 
+## Publish quick-task branches from backend - 2026-04-24
+
+- **Why**: Long-running quick tasks could commit successfully inside an ephemeral sandbox, then fail `git push` with an expired GitHub App token; sandbox cleanup deleted the only local copy of the commit.
+- **Changes**: Quick-task agents now commit only. The workflow publishes the branch afterward through a Daytona action that mints a fresh installation token for each push attempt, and failed publish attempts preserve the sandbox for recovery instead of deleting it.
+- **Reason**: Branch publication is deterministic platform infrastructure, not model work; keeping it in the backend removes token TTL races and protects local commits when GitHub auth fails.
+
 ## Filter Supabase MCP tools to read-only allowlist - 2026-04-24
 
 - **Why**: Supabase's remote MCP already receives `read_only=true`, but Eva should not depend solely on upstream visibility guarantees for mutating platform tools.

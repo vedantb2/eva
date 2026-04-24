@@ -21,6 +21,7 @@ import {
   checkoutFetchedBaseBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
+  pushBranchToOrigin,
   EPHEMERAL_LIFECYCLE,
   SESSION_LIFECYCLE,
 } from "./git";
@@ -618,6 +619,31 @@ export const setupSandboxBranch = internalAction({
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
     await setupBranch(sandbox, args.branchName, args.baseBranch);
+    return null;
+  },
+});
+
+/** Publishes the sandbox's current local branch using a fresh GitHub App token. */
+export const pushSandboxBranch = internalAction({
+  args: {
+    sandboxId: v.string(),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await pushBranchToOrigin(
+      sandbox,
+      args.installationId,
+      args.repoOwner,
+      args.repoName,
+      args.branchName,
+      { timeoutSeconds: 90, retryAttempts: 3 },
+    );
     return null;
   },
 });

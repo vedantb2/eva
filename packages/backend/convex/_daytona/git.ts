@@ -219,6 +219,10 @@ function isRetryableGitNetworkError(message: string): boolean {
     lower.includes("status code 502") ||
     lower.includes("status code 503") ||
     lower.includes("status code 504") ||
+    lower.includes("status code 401") ||
+    lower.includes("http 401") ||
+    lower.includes("authentication failed") ||
+    lower.includes("could not read username") ||
     lower.includes("fetch failed") ||
     lower.includes("econnreset") ||
     lower.includes("econnrefused") ||
@@ -839,14 +843,14 @@ export async function pushBranchToOrigin(
 ): Promise<void> {
   const details = `${owner}/${name}, branch=${branchName}`;
   await runLoggedGitStep("pushBranchToOrigin", details, async () => {
-    const githubToken = await getInstallationToken(installationId);
-    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
     const workspaceDir = workspaceDirShell();
     const quotedBranch = quote([branchName]);
     await retryGitNetworkOperation(
       "pushBranchToOrigin",
       details,
       async () => {
+        const githubToken = await getInstallationToken(installationId);
+        const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
         await execGitCommand(
           sandbox,
           `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedBranch}`,

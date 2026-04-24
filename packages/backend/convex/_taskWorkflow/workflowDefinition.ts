@@ -41,6 +41,7 @@ export const taskExecutionWorkflow = workflow.define({
     let runCompletionRecorded = false;
     let runFinalized = false;
     let sandboxDeleted = false;
+    let preserveSandboxOnFailure = false;
 
     try {
       await step.runMutation(internal.taskWorkflow.updateRunToRunning, {
@@ -105,7 +106,22 @@ export const taskExecutionWorkflow = workflow.define({
       finalSuccess = result.success;
       finalError = result.error;
 
-      // Agent pushes the branch directly via git push in the sandbox
+      if (finalSuccess && sandboxId) {
+        try {
+          await step.runAction(internal.daytona.pushSandboxBranch, {
+            sandboxId,
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            repoId: args.repoId,
+            branchName: data.branchName,
+          });
+        } catch (error) {
+          preserveSandboxOnFailure = true;
+          finalSuccess = false;
+          finalError = `Task committed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
+        }
+      }
 
       if (finalSuccess) {
         await step.runMutation(
@@ -316,7 +332,7 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
-      if (!args.projectId && sandboxId) {
+      if (!args.projectId && sandboxId && !preserveSandboxOnFailure) {
         await step.runAction(internal.daytona.deleteSandbox, {
           sandboxId,
           repoId: args.repoId,
@@ -383,7 +399,12 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
-      if (!args.projectId && sandboxId && !sandboxDeleted) {
+      if (
+        !args.projectId &&
+        sandboxId &&
+        !sandboxDeleted &&
+        !preserveSandboxOnFailure
+      ) {
         try {
           await step.runAction(internal.daytona.deleteSandbox, {
             sandboxId,

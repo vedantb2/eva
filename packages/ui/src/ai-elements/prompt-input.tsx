@@ -51,13 +51,8 @@ import {
 import { Spinner } from "../ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "../utils/cn";
-import {
-  CornerDownLeftIcon,
-  ImageIcon,
-  PlusIcon,
-  SquareIcon,
-  XIcon,
-} from "lucide-react";
+import { ImageIcon, PlusIcon, SquareIcon, XIcon } from "lucide-react";
+import { IconArrowUp } from "@tabler/icons-react";
 import { nanoid } from "nanoid";
 import {
   Children,
@@ -1102,7 +1097,7 @@ export const PromptInputSubmit = ({
 }: PromptInputSubmitProps) => {
   const isGenerating = status === "submitted" || status === "streaming";
 
-  let Icon = <CornerDownLeftIcon className="size-4" />;
+  let Icon = <IconArrowUp className="size-4" />;
 
   if (status === "submitted") {
     Icon = <Spinner />;
@@ -1127,7 +1122,7 @@ export const PromptInputSubmit = ({
   return (
     <InputGroupButton
       aria-label={isGenerating ? "Stop" : "Submit"}
-      className={cn(className)}
+      className={cn("rounded-full", className)}
       onClick={handleClick}
       size={size}
       type={isGenerating && onStop ? "button" : "submit"}

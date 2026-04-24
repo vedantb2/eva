@@ -19,6 +19,8 @@ export {
 
 export { checkStaleRuns, handleStaleRun } from "./_taskWorkflow/watchdog";
 
+export { probeStaleRunLiveness } from "./_taskWorkflow/livenessProbe";
+
 export {
   maybeScheduleQuickTaskRetry,
   executeScheduledTask,

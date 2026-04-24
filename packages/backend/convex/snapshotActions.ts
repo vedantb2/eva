@@ -41,6 +41,15 @@ function buildSnapshotImage(
   branch: string,
   configFiles: ConfigFile[] = [],
 ): Image {
+  const appSlug = process.env.GITHUB_APP_SLUG;
+  const botUserId = process.env.GITHUB_BOT_USER_ID;
+  if (!appSlug || !botUserId) {
+    throw new Error(
+      "GITHUB_APP_SLUG and GITHUB_BOT_USER_ID must be set in Convex env",
+    );
+  }
+  const gitConfigCmd = `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`;
+
   return Image.base("node:20-bookworm")
     .runCommands(
       "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh sudo",
@@ -87,7 +96,7 @@ function buildSnapshotImage(
             `curl -fSL --retry 3 --retry-delay 5 -o '/home/eva/sandbox-config/${f.fileName}' '${f.url}' && ls -lh '/home/eva/sandbox-config/${f.fileName}'`,
         ),
       // Git config
-      'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
+      gitConfigCmd,
       // Cursor CLI (installs `cursor-agent` to /home/eva/.local/bin — curl-bash, not npm)
       "curl -fsS https://cursor.com/install | bash",
       // Claude plugins

@@ -75,14 +75,6 @@ export const sandboxTabParser = parseAsStringLiteral(sandboxTabs)
   .withDefault("preview")
   .withOptions(tabOptions);
 
-export const sandboxTermIdsParser = parseAsArrayOf(parseAsString)
-  .withDefault([])
-  .withOptions(tabOptions);
-
-export const sandboxTermActiveParser = parseAsString
-  .withDefault("")
-  .withOptions(tabOptions);
-
 export const designTabParser = parseAsString
   .withDefault("0")
   .withOptions(tabOptions);

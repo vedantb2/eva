@@ -1,5 +1,93 @@
 # Changelog
 
+## Place sandbox config files in workspace root - 2026-04-24
+
+- **Why**: Quick tasks and sandboxes need uploaded config files at the codebase root, not only in the sandbox-level `/home/eva/sandbox-config` directory.
+- **Changes**: Snapshot-backed sandbox preparation now copies baked config files into `/tmp/repo` after git cleanup and repo sync complete, and the settings copy now reflects the root placement.
+- **Reason**: Copying after `git clean` preserves the uploaded files while keeping the snapshot worktree reset behavior intact.
+
+## Create PR on retry if first run failed to create one - 2026-04-24
+
+- **Why**: If the first task run succeeded but PR creation failed, subsequent change-request runs would not attempt to create a PR because the "first task" check only looked for successful runs.
+- **Changes**: `isFirstTaskOnBranch` now checks if any run for the task has a `prUrl` set, not just whether a successful run exists.
+- **Reason**: PR creation should happen if no PR exists yet, regardless of how many successful runs preceded it.
+
+## Publish quick-task branches from backend - 2026-04-24
+
+- **Why**: Long-running quick tasks could commit successfully inside an ephemeral sandbox, then fail `git push` with an expired GitHub App token; sandbox cleanup deleted the only local copy of the commit.
+- **Changes**: Quick-task agents now commit only. The workflow publishes the branch afterward through a Daytona action that mints a fresh installation token for each push attempt, and failed publish attempts preserve the sandbox for recovery instead of deleting it.
+- **Reason**: Branch publication is deterministic platform infrastructure, not model work; keeping it in the backend removes token TTL races and protects local commits when GitHub auth fails.
+
+## Filter Supabase MCP tools to read-only allowlist - 2026-04-24
+
+- **Why**: Supabase's remote MCP already receives `read_only=true`, but Eva should not depend solely on upstream visibility guarantees for mutating platform tools.
+- **Changes**: Added a local Supabase tool allowlist across all MCP proxy paths so branch, project, migration, edge-function, and cost-confirmation tools are hidden from clients.
+- **Reason**: Failing closed keeps newly introduced Supabase tools invisible until they are reviewed and explicitly approved.
+
+## Polish sandbox pane tab strips - 2026-04-23
+
+- **Why**: Preview and terminal pane tabs worked, but the flat row made multiple panes feel bolted on rather than part of the right-panel navigation.
+- **Changes**: Added provider-specific icons, stable tab sizing, horizontal overflow handling, integrated close buttons, and consistent press/hover states for preview and terminal pane tabs.
+- **Reason**: Makes multi-pane previews and terminals scan faster while preserving the existing tonal surface hierarchy.
+
+## Add multiple web preview panes per session - 2026-04-23
+
+- **Why**: Users need to inspect different routes on the same running preview server without losing each iframe's current URL.
+- **Changes**: The sandbox plus menu can now create new preview panes, each with its own mounted iframe/navigation state; preview pane IDs persist per session in localStorage.
+- **Reason**: Reuses the same preview server while separating browser state at the panel level, matching terminal pane behavior without adding server/process complexity.
+
+## Store session terminal panes outside the URL - 2026-04-23
+
+- **Why**: Terminal pane IDs are local UI state, but keeping `termIds` and `termActive` in query params made session URLs noisy and hard to share.
+- **Changes**: Session terminal pane IDs and active pane now persist in per-session localStorage via `usehooks-ts`; `termIds`/`termActive` are no longer read from or written to the address bar.
+- **Reason**: Keeps meaningful navigation state like `tab=terminal` shareable while moving ephemeral terminal instance state out of the URL.
+
+## Move session prompt mode into settings row - 2026-04-23
+
+- **Why**: The Edit/PRD mode tabs floated above the prompt textarea, taking vertical space and separating mode choice from the other send settings.
+- **Changes**: Replaced the prompt mode tabs on the session detail chat input with a single-select dropdown in the same footer row as model and response length.
+- **Reason**: Keeps all per-message controls together and avoids a special positioned control over the input surface.
+
+## Callback script hardening: durable logging, zombie detection, structured completion - 2026-04-23
+
+- **Event parsing refactor**: Split `parseStreamEvent` into `parseToCanonical` (provider→canonical events) and `applyCanonicalEvents` (state mutations) for clarity and testability.
+- **Durable raw logs**: New `RAW_LOG_FILE` (/tmp/run-design.raw.jsonl) captures every stdout/stderr chunk in append mode, survives OOM, enables post-run debugging even when in-memory buffer is capped.
+- **Zombie detection**: New `isChildZombie()` detects when CLI process enters zombie state (held open by grandchild stdio). Fires early in no-output timer loop to avoid 60s timeout when process is already dead.
+- **Completion tracking**: New `DONE_FILE` (/tmp/run-design.done) written idempotently on all terminal paths (success/error/preflight-failed/fatal-error) with durationMs, status, step counts, raw log bytes. Structured for post-mortem queries.
+- **Stderr mirroring**: Stderr appended to raw log with `[stderr]` prefix to preserve ordering across dual pipes.
+- **Scope**: `packages/backend/convex/_daytona/callbackScript.ts` only (the template string). No schema changes, no breaking changes, degrades gracefully if /tmp write access unavailable.
+
+## Extend watchdog threshold during active agent tool steps + prune MCP success-path logs - 2026-04-23
+
+- **Why (threshold)**: Even with the pre-kill liveness probe re-probing every cycle, a quick task kept getting killed during long silent shell commands (`pnpm build 2>&1 | tail -50`). While the agent is inside a bash tool step, stream-json emits nothing new for minutes — the only thing bumping `streamingActivity.lastUpdatedAt` is the 10s heartbeat, and if heartbeat transport blips for ~5 min the run is killed even though the build is healthy. The probe verified the PID was alive but could only buy one 30s grace cycle at a time.
+- **Fix (threshold)**: New constant `STALE_TOOL_ACTIVE_THRESHOLD_MS = 900_000` in `_taskWorkflow/recovery.ts`. New helper `hasActiveAgentToolStep()` in `_taskWorkflow/watchdog.ts` returns true when streamingActivity has at least one active step whose label is NOT a sandbox-startup label and NOT `"Finalizing response..."` (i.e. real agent tool work: Bash, tool use, etc.). `checkStaleRuns` priority is now: `startup → tool-active → finishing → default` (15min / 15min / 10min / 5min). Combined with the per-cycle liveness probe this gives up to 15 minutes of silent tolerance before even the first probe fires — exactly the scenario that broke (long build with stdout redirected away from the terminal).
+- **Structured log**: `[watchdog][kill]` log line gains `toolActive=…` alongside `startup`/`finishing` so post-mortems show which branch of the threshold picker fired.
+- **Why (logs)**: MCP endpoints were emitting chatty `console.log` breadcrumbs on every request (OAuth discovery, registration, token exchange, request body preview, tool-registration counts). None of this was relevant to the watchdog kill that triggered the investigation and the volume was cluttering the dashboard.
+- **Fix (logs)**: Deleted success-path `console.log` calls from `mcp/native.ts` (`oauthMetadata`, `protectedResourceMetadata`, `register`, `authorizePost`, `token`, `mcpHandler`) and `mcp/nodeActions.ts` (`verifyAccessToken`, `handleMcpRequest`). Kept `console.error` for genuine failures (missing env config, verification failures, tool registration errors).
+- **Scope**: `_taskWorkflow/recovery.ts` (new constant), `_taskWorkflow/watchdog.ts` (helper + threshold wiring + log field), `mcp/native.ts` + `mcp/nodeActions.ts` (log pruning). No schema changes, no UI changes, no prompt changes. The 2-hour `handleStaleRun` hard timeout remains the ultimate backstop.
+
+## Re-probe stale runs before every watchdog kill attempt - 2026-04-23
+
+- **Why**: A run could pass the liveness probe (`alive=true`) and still be killed 30 seconds later because the next stale check forced `skipLivenessProbe=true`, bypassing re-validation and doing a blind kill.
+- **Changes**: `_taskWorkflow/livenessProbe.ts` now reschedules `checkStaleRuns` without `skipLivenessProbe` when the sandbox callback is alive, so each stale cycle re-runs the liveness probe before any kill. The probe-confirmed-dead path still sets `skipLivenessProbe=true` for immediate cleanup.
+- **Reason**: Prevent false watchdog kills when heartbeats are stale but the sandbox process is actively running.
+
+## Pre-kill liveness probe for the watchdog + structured kill logs - 2026-04-23
+
+- **Why**: The watchdog kills a run as soon as `streamingActivity.lastUpdatedAt` is older than the stale threshold. A transient heartbeat transport failure (Convex auth flap, brief network blip, event loop starved by heavy stdio during a long `pnpm build`) was enough to kill a demonstrably-healthy run — the sandbox was still executing, the CLI was still running, only the heartbeat couldn't reach Convex for ~5 minutes. Also, when the watchdog did kill, the kill reason logs were thin and hard to correlate with the run's actual state.
+- **Liveness gate**: New internal action `daytona.verifySandboxLiveness` asks Daytona whether the sandbox is in the `started` state and, if so, checks that the callback runner PID (`/tmp/run-design.pid`) is still alive via `kill -0`. New internal action `taskWorkflow.probeStaleRunLiveness` wraps the probe: if both sandbox + PID are alive it grants exactly ONE grace cycle (reschedules `checkStaleRuns` after `STALE_RECHECK_MS` with `skipLivenessProbe: true`); if the probe confirms dead, `checkStaleRuns` is re-entered immediately with the probe suppressed so the kill path runs without another round-trip.
+- **One grace cycle only**: `checkStaleRuns` gained a `skipLivenessProbe` optional arg set by the probe after it has already granted a cycle — prevents alive-but-zombie runs from looping forever. The hard 2-hour `handleStaleRun` is the backstop. Startup-phase staleness (callback PID not guaranteed to exist yet) skips the probe and kills directly, same as before.
+- **Conservative on probe failure**: If the Daytona API is unreachable (`getSandbox` / `refreshData` throws), the probe returns `alive: true` with `reason: "probe_unreachable_*"` so the watchdog does not kill on its own inability to verify. 2-hour timeout still applies.
+- **Structured kill logs**: Every `cleanUpStaleRun` call in `checkStaleRuns` now emits a `[watchdog][kill] runId=… reason=… streamingAgeMs=… thresholdMs=… skipProbe=… startup=… finishing=… activity=…` log line; the probe emits `[watchdog][probe] runId=… alive=… reason=… sandboxState=… pidAlive=… probeDurationMs=…`. Makes it trivial to post-mortem a kill from logs alone.
+- **Scope**: `_daytona/lifecycle.ts` (+ `daytona.ts` export) for `verifySandboxLiveness`; new `_taskWorkflow/livenessProbe.ts` (+ `taskWorkflow.ts` export) for `probeStaleRunLiveness`; `_taskWorkflow/watchdog.ts` for the gate + logs. No schema changes, no UI changes, no prompt changes.
+
+## Attribute sandbox commits to GitHub App bot user - 2026-04-22
+
+- **Why**: Commits from sandboxes showed the repo owner's avatar on GitHub because the hardcoded git author email was `48868398+vedantb2@users.noreply.github.com` — GitHub attributes commits by author email, not pusher, so every commit looked like the owner wrote it (even though push auth was already the App installation token).
+- **Fix**: Replaced hardcoded `"Eva"` identity with env-driven `${GITHUB_APP_SLUG}[bot]` + `${GITHUB_BOT_USER_ID}+${GITHUB_APP_SLUG}[bot]@users.noreply.github.com`. Two new Convex env vars — `GITHUB_APP_SLUG` and `GITHUB_BOT_USER_ID` — store the App slug and its bot user's numeric ID (different namespace from App ID; resolved via `GET https://api.github.com/users/<slug>[bot]`).
+- **Scope**: `_daytona/git.ts` (runtime — set on every sandbox create) and `snapshotActions.ts` (snapshot build-time default). Legacy `.github/workflows/rebuild-snapshot.yml` left untouched (marked not used). No schema changes.
+- **Effect**: New sandboxes attribute commits to the GitHub App bot on GitHub — correct avatar, "committed by {app}[bot]". Already-running sandboxes keep the old identity until recreated. Switching to a different App requires only updating the two env vars, no code change.
+
 ## Fixed Convex bundling error: URL builders pulling Node.js modules into V8 runtime - 2026-04-22
 
 - **Why**: `npx convex dev` was failing with "Could not resolve node:crypto" in `encryption.ts`. Root cause: `workflowDefinition.ts` (no `"use node"`) imported `buildEvaTaskUrl` from `taskWorkflowActions.ts`, which imported `envVarResolver.ts` → `encryption.ts` → `node:crypto`. Bundler included the entire chain in the V8 runtime bundle.

@@ -17,6 +17,14 @@ export const STALE_CHECK_DELAY_MS = 90_000;
 export const STALE_RECHECK_MS = 30_000;
 export const STALE_FINISHING_THRESHOLD_MS = 600_000;
 export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
+// Extended threshold for when the agent is demonstrably running a long tool
+// (e.g. `pnpm build`, `pnpm install`) with output redirected away from the
+// terminal. During that window stream-json emits nothing new, so the only
+// thing bumping `streamingActivity.lastUpdatedAt` is the 10s heartbeat — if
+// transport has a transient issue we don't want to kill a run that's mid-build.
+// Paired with the pre-kill liveness probe, we only apply this when we've
+// confirmed the callback PID is still alive.
+export const STALE_TOOL_ACTIVE_THRESHOLD_MS = 900_000;
 
 /** Checks whether an error message indicates a Daytona infrastructure/network issue. */
 export function isDaytonaNetworkIssue(errorMsg: string): boolean {

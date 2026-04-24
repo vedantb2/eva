@@ -219,6 +219,10 @@ function isRetryableGitNetworkError(message: string): boolean {
     lower.includes("status code 502") ||
     lower.includes("status code 503") ||
     lower.includes("status code 504") ||
+    lower.includes("status code 401") ||
+    lower.includes("http 401") ||
+    lower.includes("authentication failed") ||
+    lower.includes("could not read username") ||
     lower.includes("fetch failed") ||
     lower.includes("econnreset") ||
     lower.includes("econnrefused") ||
@@ -330,9 +334,16 @@ export async function createSandbox(
       `createSandbox: created id=${sandbox.id}, cpu=${sandbox.cpu}, memory=${sandbox.memory}, disk=${sandbox.disk}`,
     );
 
+    const appSlug = process.env.GITHUB_APP_SLUG;
+    const botUserId = process.env.GITHUB_BOT_USER_ID;
+    if (!appSlug || !botUserId) {
+      throw new Error(
+        "GITHUB_APP_SLUG and GITHUB_BOT_USER_ID must be set in Convex env",
+      );
+    }
     await exec(
       sandbox,
-      'git config --global user.name "Eva" && git config --global user.email "48868398+vedantb2@users.noreply.github.com"',
+      `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,
       10,
     );
 
@@ -688,6 +699,24 @@ export async function normalizeSnapshotWorktree(
   );
 }
 
+/** Copies baked sandbox config files into the codebase root after git cleanup. */
+async function copySandboxConfigFilesToWorkspace(
+  sandbox: Sandbox,
+): Promise<void> {
+  const workspaceDir = workspaceDirShell();
+  await runLoggedGitStep(
+    "copySandboxConfigFilesToWorkspace",
+    WORKSPACE_DIR,
+    async () => {
+      await execGitCommand(
+        sandbox,
+        `if [ -d /home/eva/sandbox-config ] && find /home/eva/sandbox-config -mindepth 1 -maxdepth 1 | read first; then cp -a /home/eva/sandbox-config/. ${workspaceDir}/; fi`,
+        30,
+      );
+    },
+  );
+}
+
 /** Installs project dependencies using the detected package manager. */
 async function installDependencies(
   sandbox: Sandbox,
@@ -832,14 +861,14 @@ export async function pushBranchToOrigin(
 ): Promise<void> {
   const details = `${owner}/${name}, branch=${branchName}`;
   await runLoggedGitStep("pushBranchToOrigin", details, async () => {
-    const githubToken = await getInstallationToken(installationId);
-    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
     const workspaceDir = workspaceDirShell();
     const quotedBranch = quote([branchName]);
     await retryGitNetworkOperation(
       "pushBranchToOrigin",
       details,
       async () => {
+        const githubToken = await getInstallationToken(installationId);
+        const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
         await execGitCommand(
           sandbox,
           `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedBranch}`,
@@ -890,6 +919,7 @@ export async function createSandboxAndPrepareRepo(
             if (onProgress) await onProgress("Syncing repository...");
             await syncRepo(sandbox, installationId, owner, name, syncStrategy);
           }
+          await copySandboxConfigFilesToWorkspace(sandbox);
           return { sandbox, usedSnapshot: true };
         }
         if (lifecycle.ephemeral && syncStrategy.mode === "none") {

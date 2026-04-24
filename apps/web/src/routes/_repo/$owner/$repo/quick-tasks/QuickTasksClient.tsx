@@ -55,7 +55,6 @@ export function QuickTasksClient() {
     },
     setParams,
   ] = useQuickTaskFilters();
-  const searchQuery = q;
 
   const projects = useQuery(api.projects.list, { repoId: repo._id });
   const users = useQuery(api.users.listAll);
@@ -86,6 +85,16 @@ export function QuickTasksClient() {
   const quickTasks = useMemo(() => {
     if (!tasks) return [];
     let filtered = tasks;
+
+    // Search filter
+    if (q.trim()) {
+      const query = q.trim().toLowerCase();
+      filtered = filtered.filter(
+        (t) =>
+          t.title.toLowerCase().includes(query) ||
+          (t.description && t.description.toLowerCase().includes(query)),
+      );
+    }
 
     // Project filter
     if (project !== "all") {
@@ -138,8 +147,10 @@ export function QuickTasksClient() {
     const sorted = [...filtered].sort((a, b) => {
       let cmp = 0;
       if (sortField === "lastRun") {
-        const aTime = a.lastRunStartedAt ?? 0;
-        const bTime = b.lastRunStartedAt ?? 0;
+        // Fall back to createdAt so tasks that have never run are sorted by
+        // creation time rather than collapsing to 0 and sinking to the bottom.
+        const aTime = a.lastRunStartedAt ?? a.createdAt;
+        const bTime = b.lastRunStartedAt ?? b.createdAt;
         cmp = aTime - bTime;
       } else if (sortField === "updated") {
         cmp = a.updatedAt - b.updatedAt;
@@ -154,6 +165,7 @@ export function QuickTasksClient() {
     return sorted;
   }, [
     tasks,
+    q,
     project,
     user,
     assignee,
@@ -325,7 +337,7 @@ export function QuickTasksClient() {
             onViewChange={(v: "kanban" | "list" | "table") =>
               setParams({ view: v })
             }
-            searchQuery={searchQuery}
+            searchQuery={q}
             onSearchChange={(v) => setParams({ q: v ?? "" })}
             hasQuickTasks={hasAnyTasks}
             isSelecting={isSelecting}

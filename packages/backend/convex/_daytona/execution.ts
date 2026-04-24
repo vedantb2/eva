@@ -21,6 +21,7 @@ import {
   checkoutFetchedBaseBranch,
   createSandboxAndPrepareRepo,
   getOrCreateSandbox,
+  pushBranchToOrigin,
   EPHEMERAL_LIFECYCLE,
   SESSION_LIFECYCLE,
 } from "./git";
@@ -622,6 +623,31 @@ export const setupSandboxBranch = internalAction({
   },
 });
 
+/** Publishes the sandbox's current local branch using a fresh GitHub App token. */
+export const pushSandboxBranch = internalAction({
+  args: {
+    sandboxId: v.string(),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await pushBranchToOrigin(
+      sandbox,
+      args.installationId,
+      args.repoOwner,
+      args.repoName,
+      args.branchName,
+      { timeoutSeconds: 90, retryAttempts: 3 },
+    );
+    return null;
+  },
+});
+
 /** Launches an AI agent script on an existing sandbox with streaming and token setup. */
 export const launchOnExistingSandbox = internalAction({
   args: {
@@ -705,7 +731,7 @@ export const launchOnExistingSandbox = internalAction({
         extraEnvVars:
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,
         claudeSessionId,
-        enableMcp: false,
+        enableMcp: true,
       },
     );
     console.log(

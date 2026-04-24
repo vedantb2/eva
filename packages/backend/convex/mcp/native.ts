@@ -7,7 +7,6 @@ import { z } from "zod";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const oauthMetadata = httpAction(async (_ctx, request) => {
-  console.log("[MCP][oauthMetadata] request:", request.url);
   const baseUrl = new URL(request.url).origin;
   return Response.json({
     issuer: baseUrl,
@@ -22,7 +21,6 @@ export const oauthMetadata = httpAction(async (_ctx, request) => {
 });
 
 export const protectedResourceMetadata = httpAction(async (_ctx, request) => {
-  console.log("[MCP][protectedResourceMetadata] request:", request.url);
   const baseUrl = new URL(request.url).origin;
   return Response.json({
     resource: `${baseUrl}/mcp`,
@@ -37,12 +35,7 @@ export const protectedResourceMetadata = httpAction(async (_ctx, request) => {
 
 export const register = httpAction(async (ctx, request) => {
   try {
-    console.log("[MCP][register] request received");
     const body = (await request.json()) as Record<string, unknown>;
-    console.log(
-      "[MCP][register] body redirect_uris:",
-      JSON.stringify(body.redirect_uris),
-    );
     const clientId = crypto.randomUUID();
 
     const rawUris = body.redirect_uris;
@@ -66,13 +59,6 @@ export const register = httpAction(async (ctx, request) => {
       clientId,
       redirectUris,
     });
-
-    console.log(
-      "[MCP][register] registered client:",
-      clientId,
-      "redirectUris:",
-      redirectUris,
-    );
 
     return Response.json(
       {
@@ -242,7 +228,6 @@ export const authorizeGet = httpAction(async (ctx, request) => {
 
 export const authorizePost = httpAction(async (ctx, request) => {
   try {
-    console.log("[MCP][authorizePost] received POST");
     const formData = await request.formData();
     const body: Record<string, string> = {};
     formData.forEach((value, key) => {
@@ -251,26 +236,10 @@ export const authorizePost = httpAction(async (ctx, request) => {
       }
     });
 
-    console.log("[MCP][authorizePost] form fields:", {
-      client_id: body.client_id,
-      redirect_uri: body.redirect_uri,
-      has_state: Boolean(body.state),
-      has_code_challenge: Boolean(body.code_challenge),
-      code_challenge_method: body.code_challenge_method,
-      has_clerk_token: Boolean(body.clerk_token),
-    });
-
     // Validate client exists and redirect_uri matches
     const client = await ctx.runQuery(internal.mcp.oauth.getClient, {
       clientId: body.client_id ?? "",
     });
-
-    console.log(
-      "[MCP][authorizePost] client lookup:",
-      client
-        ? { found: true, registeredRedirectUris: client.redirectUris }
-        : { found: false },
-    );
 
     if (!client) {
       throw new Error("Unknown client_id");
@@ -280,12 +249,6 @@ export const authorizePost = httpAction(async (ctx, request) => {
       client.redirectUris.length > 0 &&
       !client.redirectUris.includes(body.redirect_uri ?? "")
     ) {
-      console.log(
-        "[MCP][authorizePost] redirect_uri mismatch. given:",
-        body.redirect_uri,
-        "registered:",
-        client.redirectUris,
-      );
       throw new Error("redirect_uri does not match registered URIs");
     }
 
@@ -293,11 +256,6 @@ export const authorizePost = httpAction(async (ctx, request) => {
     const clerkUserId = await ctx.runAction(
       internal.mcp.nodeActions.verifyClerkTokenAction,
       { token: body.clerk_token ?? "" },
-    );
-
-    console.log(
-      "[MCP][authorizePost] clerk verify result:",
-      clerkUserId ? `userId=${clerkUserId}` : "null",
     );
 
     if (!clerkUserId) {
@@ -322,8 +280,6 @@ export const authorizePost = httpAction(async (ctx, request) => {
       clientId: body.client_id ?? "",
       expiresAt: Date.now() + CODE_TTL_MS,
     });
-
-    console.log("[MCP][authorizePost] stored auth code, redirecting");
 
     const redirectUrl = new URL(body.redirect_uri ?? "");
     redirectUrl.searchParams.set("code", code);
@@ -359,7 +315,6 @@ const refreshBodySchema = z.object({
 });
 
 export const token = httpAction(async (ctx, request) => {
-  console.log("[MCP][token] received POST");
   const contentType = request.headers.get("Content-Type") ?? "";
   let body: Record<string, string>;
 
@@ -383,17 +338,9 @@ export const token = httpAction(async (ctx, request) => {
     }
   }
 
-  console.log(
-    "[MCP][token] grant_type:",
-    body.grant_type,
-    "client_id:",
-    body.client_id,
-  );
-
   // Handle refresh token
   const refreshParse = refreshBodySchema.safeParse(body);
   if (refreshParse.success) {
-    console.log("[MCP][token] handling refresh_token grant");
     const result = await ctx.runAction(internal.mcp.nodeActions.refreshToken, {
       refreshToken: refreshParse.data.refresh_token,
     });
@@ -404,7 +351,6 @@ export const token = httpAction(async (ctx, request) => {
         { status: 400 },
       );
     }
-    console.log("[MCP][token] refresh success");
     return Response.json(result.tokens);
   }
 
@@ -426,7 +372,6 @@ export const token = httpAction(async (ctx, request) => {
     );
   }
   const params = parseResult.data;
-  console.log("[MCP][token] parsed auth_code params OK, consuming code");
 
   const entry = await ctx.runMutation(internal.mcp.oauth.consumeAuthCode, {
     code: params.code,
@@ -442,11 +387,6 @@ export const token = httpAction(async (ctx, request) => {
       { status: 400 },
     );
   }
-
-  console.log(
-    "[MCP][token] consumed auth code for clerkUserId:",
-    entry.clerkUserId,
-  );
 
   if (entry.redirectUri !== params.redirect_uri) {
     console.error(
@@ -484,14 +424,11 @@ export const token = httpAction(async (ctx, request) => {
     );
   }
 
-  console.log("[MCP][token] PKCE OK, issuing tokens");
-
   // Issue tokens (runs in Node.js)
   const tokens = await ctx.runAction(internal.mcp.nodeActions.issueTokens, {
     clerkUserId: entry.clerkUserId,
   });
 
-  console.log("[MCP][token] tokens issued OK");
   return Response.json(tokens);
 });
 
@@ -511,12 +448,9 @@ export const mcpHandler = httpAction(async (ctx, request) => {
   const baseUrl = new URL(request.url).origin;
   const resourceMetadataUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
 
-  console.log("[MCP][mcpHandler] request:", request.method, request.url);
-
   // Auth check
   const token = extractBearerToken(request.headers.get("Authorization"));
   if (!token) {
-    console.error("[MCP][mcpHandler] missing Authorization header");
     return new Response(
       JSON.stringify({ error: "Missing Authorization header" }),
       {
@@ -529,7 +463,6 @@ export const mcpHandler = httpAction(async (ctx, request) => {
     );
   }
 
-  console.log("[MCP][mcpHandler] verifying access token");
   const credentials = await ctx.runAction(
     internal.mcp.nodeActions.verifyAccessToken,
     {
@@ -548,16 +481,8 @@ export const mcpHandler = httpAction(async (ctx, request) => {
     });
   }
 
-  console.log(
-    "[MCP][mcpHandler] token OK. clerkUserId:",
-    credentials.clerkUserId,
-    "scopedRepoId:",
-    credentials.scopedRepoId,
-  );
-
   // Handle unsupported methods
   if (request.method === "GET" || request.method === "DELETE") {
-    console.log("[MCP][mcpHandler] method not supported:", request.method);
     return Response.json(
       { error: "Method not supported in stateless mode" },
       { status: 405 },
@@ -573,11 +498,6 @@ export const mcpHandler = httpAction(async (ctx, request) => {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  console.log(
-    "[MCP][mcpHandler] delegating to handleMcpRequest. body preview:",
-    JSON.stringify(body).slice(0, 200),
-  );
-
   // Delegate to Node.js action for MCP protocol handling
   // The MCP SDK requires Node.js runtime
   const result = await ctx.runAction(
@@ -587,13 +507,6 @@ export const mcpHandler = httpAction(async (ctx, request) => {
       scopedRepoId: credentials.scopedRepoId,
       body: JSON.stringify(body),
     },
-  );
-
-  console.log(
-    "[MCP][mcpHandler] handleMcpRequest returned status:",
-    result.status,
-    "body preview:",
-    result.body.slice(0, 200),
   );
 
   return new Response(result.body, {

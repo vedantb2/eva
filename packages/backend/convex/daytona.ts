@@ -5,6 +5,7 @@ export {
   killSandboxProcess,
   stopSandbox,
   deleteSandbox,
+  verifySandboxLiveness,
 } from "./_daytona/lifecycle";
 
 export {
@@ -16,6 +17,7 @@ export {
   fetchBaseBranch,
   checkoutBaseBranch,
   setupSandboxBranch,
+  pushSandboxBranch,
   launchOnExistingSandbox,
   validateSandbox,
 } from "./_daytona/execution";

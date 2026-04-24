@@ -93,10 +93,9 @@ export function QuickTasksListView({
   const searchQuery = q;
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
 
-  const tasks = useMemo(
-    () => [...externalTasks].sort((a, b) => b.createdAt - a.createdAt),
-    [externalTasks],
-  );
+  // Respect the sort order applied by QuickTasksClient (e.g. by latest run).
+  // Re-sorting here would override the user's chosen sort.
+  const tasks = externalTasks;
 
   const filteredTasks = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();

@@ -54,8 +54,9 @@ export function TaskFooter({
     status === "todo" || (status === "in_progress" && !hasActiveRun);
   const hasSecondaryContent =
     Boolean(latestDeployment?.deploymentStatus) ||
-    Boolean(latestPrUrl && (status === "code_review" || status === "done")) ||
-    (!hasActiveRun && status === "code_review") ||
+    Boolean(latestPrUrl) ||
+    (!hasActiveRun &&
+      (status === "code_review" || status === "business_review")) ||
     (status !== "todo" && status !== "in_progress");
 
   return (
@@ -118,7 +119,7 @@ export function TaskFooter({
               </TooltipContent>
             </Tooltip>
           )}
-          {latestPrUrl && (status === "code_review" || status === "done") && (
+          {latestPrUrl && (
             <Button asChild variant="outline">
               <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
                 <IconGitPullRequest size={18} />
@@ -126,20 +127,21 @@ export function TaskFooter({
               </a>
             </Button>
           )}
-          {!hasActiveRun && status === "code_review" && (
-            <Button
-              variant="secondary"
-              onClick={onResolveConfirm}
-              disabled={isStarting}
-            >
-              {isStarting ? (
-                <IconLoader2 size={18} className="animate-spin" />
-              ) : (
-                <IconHammer size={18} />
-              )}
-              <span className="hidden sm:inline">Resolve Conflicts</span>
-            </Button>
-          )}
+          {!hasActiveRun &&
+            (status === "code_review" || status === "business_review") && (
+              <Button
+                variant="secondary"
+                onClick={onResolveConfirm}
+                disabled={isStarting}
+              >
+                {isStarting ? (
+                  <IconLoader2 size={18} className="animate-spin" />
+                ) : (
+                  <IconHammer size={18} />
+                )}
+                <span className="hidden sm:inline">Resolve Conflicts</span>
+              </Button>
+            )}
           {status !== "todo" && status !== "in_progress" && (
             <Button variant="secondary" onClick={onRequestChanges}>
               <IconMessagePlus size={18} />

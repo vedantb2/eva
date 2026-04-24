@@ -14,6 +14,21 @@ const CONNECT_TIMEOUT_MS = 15_000;
 const CALL_TIMEOUT_MS = 30_000;
 
 const SUPABASE_REMOTE_URL = "https://mcp.supabase.com/mcp?read_only=true";
+const READ_ONLY_SUPABASE_TOOLS = new Set([
+  "execute_sql",
+  "generate_typescript_types",
+  "get_advisors",
+  "get_anon_key",
+  "get_logs",
+  "get_project",
+  "get_project_url",
+  "list_edge_functions",
+  "list_extensions",
+  "list_migrations",
+  "list_projects",
+  "list_tables",
+  "search_docs",
+]);
 
 // In-memory cache (reset on action cold starts)
 const toolDefinitionCache = new Map<
@@ -174,8 +189,6 @@ export async function registerSupabaseTools(
     return;
   }
 
-  console.log("Supabase: token found, discovering tools...");
-
   let tools: Tool[];
   try {
     tools = await discoverTools(token);
@@ -189,11 +202,16 @@ export async function registerSupabaseTools(
     return;
   }
 
-  console.log(
-    `Supabase: discovered ${tools.length} tools, registering with prefix "${SUPABASE_PREFIX}"`,
+  const visibleTools = tools.filter((tool) =>
+    READ_ONLY_SUPABASE_TOOLS.has(tool.name),
   );
 
-  for (const tool of tools) {
+  if (visibleTools.length === 0) {
+    console.log("Supabase: no allowed read-only tools discovered");
+    return;
+  }
+
+  for (const tool of visibleTools) {
     const prefixedName = `${SUPABASE_PREFIX}${tool.name}`;
     const zodShape = toolSchemaToZodShape(tool.inputSchema);
 
@@ -270,6 +288,4 @@ export async function registerSupabaseTools(
       },
     );
   }
-
-  console.log(`Supabase: registered ${tools.length} tools`);
 }

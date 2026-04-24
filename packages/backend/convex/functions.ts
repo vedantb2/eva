@@ -153,7 +153,7 @@ export async function hasActiveRun(
   return running !== null;
 }
 
-/** Determines if this is the first task on a branch (no prior successful runs or no PR yet). */
+/** Determines if a PR should be created (no existing PR on project or any task run). */
 export async function isFirstTaskOnBranch(
   db: GenericDatabaseReader<DataModel>,
   taskId: Id<"agentTasks">,
@@ -164,13 +164,12 @@ export async function isFirstTaskOnBranch(
     if (project?.prUrl) return false;
     return true;
   }
-  const successRun = await db
+  // Check if any run for this task already created a PR
+  const runs = await db
     .query("agentRuns")
-    .withIndex("by_task_and_status", (q) =>
-      q.eq("taskId", taskId).eq("status", "success"),
-    )
-    .first();
-  return successRun === null;
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+  return !runs.some((run) => run.prUrl);
 }
 
 /** Deletes a task and all its related data (runs, dependencies, scheduled functions). */

@@ -10,6 +10,7 @@ import {
   STALE_RECHECK_MS,
   STALE_FINISHING_THRESHOLD_MS,
   STALE_NO_SANDBOX_THRESHOLD_MS,
+  STALE_TOOL_ACTIVE_THRESHOLD_MS,
 } from "./recovery";
 import {
   clearStreamingActivity,
@@ -90,11 +91,43 @@ function isFinalizingActivity(currentActivity: string | undefined): boolean {
   }
   return currentActivity.includes('"Finalizing response..."');
 }
-/** Periodically checks if a run has gone stale and cleans it up or reschedules another check. */
+
+/**
+ * Returns true when an agent tool step (Bash, tool-use, etc.) is currently
+ * active and we are past sandbox startup/finalization. Used to extend the
+ * stale threshold — long-running shell commands (e.g. `pnpm build 2>&1 | tail`)
+ * silence stream-json output entirely, so the only thing keeping the heartbeat
+ * alive is the 10s transport ping. Extending the threshold here lets the
+ * pre-kill liveness probe absorb transient heartbeat transport hiccups without
+ * killing a demonstrably-live build.
+ */
+function hasActiveAgentToolStep(currentActivity: string | undefined): boolean {
+  const activeLabels = getActiveStreamingLabels(currentActivity);
+  return activeLabels.some(
+    (label) =>
+      !SANDBOX_STARTUP_LABELS.has(label) && label !== "Finalizing response...",
+  );
+}
+
+/**
+ * Periodically checks if a run has gone stale and cleans it up or reschedules another check.
+ *
+ * Liveness gate: when a run is stale but has a sandbox attached, we first schedule
+ * a one-time liveness probe (`verifySandboxLiveness`) before killing. The probe
+ * checks the sandbox state + callback PID. If both are alive the run gets one
+ * grace cycle (another `STALE_RECHECK_MS` window with `skipLivenessProbe: true`)
+ * so transient heartbeat transport failures do not kill a demonstrably-live run.
+ * If still stale at the end of that grace cycle the kill proceeds. The hard
+ * 2-hour `handleStaleRun` timeout is the ultimate backstop.
+ */
 export const checkStaleRuns = internalMutation({
   args: {
     runId: v.id("agentRuns"),
     taskId: v.id("agentTasks"),
+    // Set by the liveness probe when it already granted a grace cycle for the
+    // current stale event. Suppresses a second probe so we can't loop forever
+    // on a sandbox that is alive-but-zombie.
+    skipLivenessProbe: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -105,6 +138,9 @@ export const checkStaleRuns = internalMutation({
     if (!task) return null;
 
     if (!task.activeWorkflowId) {
+      console.log(
+        `[watchdog][kill] runId=${args.runId} reason=workflow_tracking_lost skipProbe=${args.skipLivenessProbe ?? false}`,
+      );
       await cleanUpStaleRun(ctx, {
         taskId: args.taskId,
         runId: args.runId,
@@ -130,6 +166,9 @@ export const checkStaleRuns = internalMutation({
         return null;
       }
 
+      console.log(
+        `[watchdog][kill] runId=${args.runId} reason=watchdog_no_sandbox ageSinceStart=${Date.now() - startedAt}ms`,
+      );
       await cleanUpStaleRun(ctx, {
         taskId: args.taskId,
         runId: args.runId,
@@ -154,6 +193,10 @@ export const checkStaleRuns = internalMutation({
     const finishingInProgress =
       run.finalizingAt !== undefined ||
       isFinalizingActivity(streaming?.currentActivity);
+    const toolActive =
+      !startupStillInProgress &&
+      !finishingInProgress &&
+      hasActiveAgentToolStep(streaming?.currentActivity);
     const lastActivity = Math.max(
       streaming?.lastUpdatedAt ?? 0,
       run.startedAt ?? 0,
@@ -161,11 +204,14 @@ export const checkStaleRuns = internalMutation({
     );
     const staleThresholdMs = startupStillInProgress
       ? STALE_NO_SANDBOX_THRESHOLD_MS
-      : finishingInProgress
-        ? STALE_FINISHING_THRESHOLD_MS
-        : STALE_THRESHOLD_MS;
+      : toolActive
+        ? STALE_TOOL_ACTIVE_THRESHOLD_MS
+        : finishingInProgress
+          ? STALE_FINISHING_THRESHOLD_MS
+          : STALE_THRESHOLD_MS;
     const staleSeconds = Math.round(staleThresholdMs / 1000);
-    const isStale = Date.now() - lastActivity > staleThresholdMs;
+    const streamingAgeMs = Date.now() - lastActivity;
+    const isStale = streamingAgeMs > staleThresholdMs;
 
     if (!isStale) {
       await ctx.scheduler.runAfter(
@@ -176,22 +222,49 @@ export const checkStaleRuns = internalMutation({
       return null;
     }
 
+    // Stale. If we have a sandbox + haven't probed yet + we're not in the
+    // startup phase (where the callback isn't guaranteed to exist yet), run a
+    // liveness probe before killing. The probe action decides whether to grant
+    // a grace cycle or proceed to the kill.
+    if (!args.skipLivenessProbe && !startupStillInProgress && run.repoId) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.taskWorkflow.probeStaleRunLiveness,
+        {
+          runId: args.runId,
+          taskId: args.taskId,
+          sandboxId: run.sandboxId,
+          repoId: run.repoId,
+          streamingAgeMs,
+          finishingInProgress,
+        },
+      );
+      return null;
+    }
+
+    const errorMessage = startupStillInProgress
+      ? "Run killed by watchdog: sandbox startup stalled"
+      : finishingInProgress
+        ? `Run killed by watchdog: finalization stalled (no heartbeat for ${staleSeconds}s)`
+        : `Run killed by watchdog: no heartbeat for ${staleSeconds}s`;
+    const exitReason = startupStillInProgress
+      ? "watchdog_startup_stalled"
+      : finishingInProgress
+        ? "watchdog_finalizing_stalled"
+        : "watchdog_killed";
+
+    console.log(
+      `[watchdog][kill] runId=${args.runId} reason=${exitReason} streamingAgeMs=${streamingAgeMs} thresholdMs=${staleThresholdMs} skipProbe=${args.skipLivenessProbe ?? false} startup=${startupStillInProgress} toolActive=${toolActive} finishing=${finishingInProgress} activity=${JSON.stringify(streaming?.currentActivity ?? "").slice(0, 200)}`,
+    );
+
     await cleanUpStaleRun(ctx, {
       taskId: args.taskId,
       runId: args.runId,
       sandboxId: run.sandboxId,
       repoId: run.repoId,
       isProjectTask: !!task.projectId,
-      errorMessage: startupStillInProgress
-        ? "Run killed by watchdog: sandbox startup stalled"
-        : finishingInProgress
-          ? `Run killed by watchdog: finalization stalled (no heartbeat for ${staleSeconds}s)`
-          : `Run killed by watchdog: no heartbeat for ${staleSeconds}s`,
-      exitReason: startupStillInProgress
-        ? "watchdog_startup_stalled"
-        : finishingInProgress
-          ? "watchdog_finalizing_stalled"
-          : "watchdog_killed",
+      errorMessage,
+      exitReason,
       activeWorkflowId: task.activeWorkflowId,
       taskStatus: task.status,
     });

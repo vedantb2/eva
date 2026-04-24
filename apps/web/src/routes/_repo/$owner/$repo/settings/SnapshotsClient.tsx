@@ -593,14 +593,16 @@ function ConfigFilesSection({
         <div>
           <h3 className="text-sm font-medium">Sandbox Config Files</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Files uploaded here will be baked into snapshots at{" "}
+            Files uploaded here will be copied into the codebase root when a
+            sandbox starts. They are also available at{" "}
             <code className="font-mono text-[11px]">
               /home/eva/sandbox-config/
             </code>{" "}
-            (also symlinked at{" "}
+            and{" "}
             <code className="font-mono text-[11px]">/tmp/sandbox-config/</code>
-            ). Use for sensitive files like database seeds that cannot be
-            committed to the repo.
+            {". "}
+            Use for sensitive files like database seeds that cannot be committed
+            to the repo.
           </p>
         </div>
 

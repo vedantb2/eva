@@ -82,7 +82,7 @@ export function registerTools(
     );
     if (!repoCreds) {
       throw new Error(
-        `Repo ${repoId} has no Convex credentials. Ensure NEXT_PUBLIC_CONVEX_URL and CONVEX_DEPLOY_KEY are set in its env vars in Eva.`,
+        `Repo ${repoId} has no Convex credentials. Ensure CONVEX_URL (or NEXT_PUBLIC_CONVEX_URL/VITE_CONVEX_URL) and CONVEX_DEPLOY_KEY are set in its env vars in Eva.`,
       );
     }
     return repoCreds;

@@ -130,10 +130,17 @@ Follow the prompts to create or link a Convex project. Note your deployment URL 
 6. After creation, note:
    - **App ID** → `GITHUB_APP_ID`
    - **Client ID** → `GITHUB_CLIENT_ID`
+   - **App slug** (from the public URL `github.com/apps/<slug>`) → `GITHUB_APP_SLUG`
 7. Generate:
    - **Client secret** → `GITHUB_CLIENT_SECRET`
    - **Private key** (.pem file) → `GITHUB_PRIVATE_KEY`
 8. **Install the app** on your account/org
+9. Look up the App's bot user ID — this is used as the git commit author email so commits are attributed to the bot on GitHub (App IDs and bot user IDs live in different namespaces):
+
+   ```bash
+   curl -s https://api.github.com/users/<slug>\[bot\] | jq .id
+   # → Use for GITHUB_BOT_USER_ID
+   ```
 
 ### Step 5: Generate Keys
 
@@ -168,16 +175,18 @@ VITE_ENV=development
 
 **Required:**
 
-| Variable                  | Value                                 |
-| ------------------------- | ------------------------------------- |
-| `CLERK_JWT_ISSUER_DOMAIN` | `https://your-app.clerk.accounts.dev` |
-| `ENCRYPTION_KEY`          | 64-char hex string from Step 5        |
-| `EVA_DEPLOY_KEY`          | 64-char hex string from Step 5        |
-| `GITHUB_APP_ID`           | App ID from GitHub App                |
-| `GITHUB_CLIENT_ID`        | Client ID from GitHub App             |
-| `GITHUB_CLIENT_SECRET`    | Client secret from GitHub App         |
-| `GITHUB_PRIVATE_KEY`      | Full contents of `.pem` file          |
-| `GITHUB_WEBHOOK_SECRET`   | Random string from Step 4             |
+| Variable                  | Value                                    |
+| ------------------------- | ---------------------------------------- |
+| `CLERK_JWT_ISSUER_DOMAIN` | `https://your-app.clerk.accounts.dev`    |
+| `ENCRYPTION_KEY`          | 64-char hex string from Step 5           |
+| `EVA_DEPLOY_KEY`          | 64-char hex string from Step 5           |
+| `GITHUB_APP_ID`           | App ID from GitHub App                   |
+| `GITHUB_APP_SLUG`         | App slug from `github.com/apps/<slug>`   |
+| `GITHUB_BOT_USER_ID`      | Numeric bot user ID (from Step 4 lookup) |
+| `GITHUB_CLIENT_ID`        | Client ID from GitHub App                |
+| `GITHUB_CLIENT_SECRET`    | Client secret from GitHub App            |
+| `GITHUB_PRIVATE_KEY`      | Full contents of `.pem` file             |
+| `GITHUB_WEBHOOK_SECRET`   | Random string from Step 4                |
 
 **Optional:**
 

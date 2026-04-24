@@ -23,10 +23,11 @@ export async function exec(
   sandbox: Sandbox,
   cmd: string,
   timeout = 30,
+  cwd = WORKSPACE_DIR,
 ): Promise<string> {
   const clientTimeoutMs = timeout * 1000 + EXEC_CLIENT_TIMEOUT_BUFFER_MS;
   const resp = await withTimeout(
-    sandbox.process.executeCommand(cmd, "/", undefined, timeout),
+    sandbox.process.executeCommand(cmd, cwd, undefined, timeout),
     clientTimeoutMs,
     `exec (${timeout}s)`,
   );

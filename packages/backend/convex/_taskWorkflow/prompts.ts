@@ -104,18 +104,19 @@ ${changeRequestSection}
 ## Steps:
 1. Read the files you plan to modify before editing them — understand existing code first
 2. Implement changes by editing source code files
-3. Run the project's build command (e.g. \`timeout 180 pnpm run build\` or \`timeout 180 npm run build\`) to verify no type or build errors. If errors occur, read the error output carefully, fix every issue, and re-run the build. Repeat until the build passes (max 3 attempts). The build MUST pass before you commit — broken builds cause deployment failures.
+3. Run \`timeout 120 npx tsc --noEmit\` to verify no type errors. If errors occur, read the error output carefully, fix every issue, and re-run. Repeat until it passes (max 3 attempts). Type checking MUST pass before you commit — type errors cause deployment failures. Do NOT run a full build command (\`pnpm build\`, \`npm run build\`) — it uses too much memory.
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
-5. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
+5. Do NOT push. The platform publishes branch "${branchName}" after you finish successfully.
 
 ## Summary (REQUIRED):
-After committing and pushing, write a short plain-text summary of what changed, for a non-technical reader. Write one or two short paragraphs of prose — no headings, no bullet points, no code blocks, no markdown formatting. Avoid jargon, file paths, and function names. Describe what the user or product can now do differently, not the implementation details.
+After committing, write a short plain-text summary of what changed, for a non-technical reader. Write one or two short paragraphs of prose — no headings, no bullet points, no code blocks, no markdown formatting. Avoid jargon, file paths, and function names. Describe what the user or product can now do differently, not the implementation details.
 ${proofOfCompletionSection}
 
 ## Rules:
-- Do NOT create .md plan files or run lint/test/dev commands (except the build command in step 3, and the dev server for proof when proof capture is enabled)
+- Do NOT create .md plan files or run lint/test/dev commands (except typecheck in step 3, and the dev server for proof when proof capture is enabled)
 - Do NOT commit or push if the build command fails. Fix the errors first. A failed build = failed deployment.
-- Use lockfile for package manager. GITHUB_TOKEN is set.
+- Do NOT run git push or gh pr commands. Eva handles publishing and PR creation after your successful completion.
+- Use lockfile for package manager.
 - Prefix shell commands with timeouts: \`timeout 180 npm install\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
@@ -136,12 +137,13 @@ export function buildConflictResolutionPrompt(
 2. Run: git merge origin/${baseBranch}
 3. If there are merge conflicts, resolve them — keep the task branch's implementation intent intact but adapt it to work with the latest base branch changes
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "fix: resolve merge conflicts with ${baseBranch}"
-5. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
+5. Do NOT push. The platform publishes branch "${branchName}" after you finish successfully.
 
 ## Rules:
 - Do NOT re-implement or change the feature — only resolve conflicts and ensure compatibility
 - Keep the task's implementation intent intact
-- Use lockfile for package manager. GITHUB_TOKEN is set.
+- Do NOT run git push or gh pr commands. Eva handles publishing and PR creation after your successful completion.
+- Use lockfile for package manager.
 - Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }
@@ -189,12 +191,13 @@ ${failureList}
 2. Read the relevant files to understand context around each failure
 3. Fix each issue listed above with minimal, focused changes
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${failures.length} issue${failures.length === 1 ? "" : "s"}"
-5. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${repoOwner}/${repoName}.git" && git push -u origin ${branchName}
+5. Do NOT push. The platform publishes branch "${branchName}" after you finish successfully.
 
 ## Rules:
 - Only fix the specific issues listed above — do NOT refactor or change unrelated code
 - Keep changes minimal and focused
-- Use lockfile for package manager. GITHUB_TOKEN is set.
+- Do NOT run git push or gh pr commands. Eva handles publishing and PR creation after your successful completion.
+- Use lockfile for package manager.
 - Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
 }

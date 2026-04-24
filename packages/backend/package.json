@@ -26,7 +26,7 @@
     "@octokit/auth-app": "^8.1.2",
     "@solvers-hub/llm-json": "^0.1.8",
     "@tiptap/pm": "^3.20.1",
-    "convex": "^1.24.5",
+    "convex": "^1.36.1",
     "convex-helpers": "0.1.114",
     "convex-timeline": "^0.1.2",
     "jose": "^6.0.11",
@@ -37,6 +37,7 @@
   "devDependencies": {
     "@types/node": "^22.18.5",
     "@types/shell-quote": "^1.7.5",
+    "@typescript/native-preview": "7.0.0-dev.20260424.1",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "typescript": "^5.8.3"

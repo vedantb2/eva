@@ -29,12 +29,12 @@ export function PageWrapper({
   comfortable = false,
 }: PageWrapperProps) {
   const { setPageTitle } = usePageTitle();
+  const isStringTitle = typeof title === "string";
 
   useEffect(() => {
-    const titleStr = typeof title === "string" ? title : "";
-    setPageTitle(titleStr);
+    setPageTitle(isStringTitle ? title : "");
     return () => setPageTitle("");
-  }, [title, setPageTitle]);
+  }, [title, isStringTitle, setPageTitle]);
 
   return (
     <div className="flex-1 h-full min-h-0 overflow-hidden animate-in fade-in duration-300">
@@ -59,7 +59,9 @@ export function PageWrapper({
                 </Button>
               )}
               {title && (
-                <h1 className="hidden min-w-0 whitespace-nowrap text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 lg:block text-balance">
+                <h1
+                  className={`min-w-0 whitespace-nowrap text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 text-balance ${isStringTitle ? "hidden lg:block" : ""}`}
+                >
                   {title}
                 </h1>
               )}

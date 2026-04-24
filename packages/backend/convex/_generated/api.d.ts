@@ -46,6 +46,7 @@ import type * as _taskWorkflow_audit from "../_taskWorkflow/audit.js";
 import type * as _taskWorkflow_auditParser from "../_taskWorkflow/auditParser.js";
 import type * as _taskWorkflow_events from "../_taskWorkflow/events.js";
 import type * as _taskWorkflow_helpers from "../_taskWorkflow/helpers.js";
+import type * as _taskWorkflow_livenessProbe from "../_taskWorkflow/livenessProbe.js";
 import type * as _taskWorkflow_prompts from "../_taskWorkflow/prompts.js";
 import type * as _taskWorkflow_publicMutations from "../_taskWorkflow/publicMutations.js";
 import type * as _taskWorkflow_queries from "../_taskWorkflow/queries.js";
@@ -185,6 +186,7 @@ declare const fullApi: ApiFromModules<{
   "_taskWorkflow/auditParser": typeof _taskWorkflow_auditParser;
   "_taskWorkflow/events": typeof _taskWorkflow_events;
   "_taskWorkflow/helpers": typeof _taskWorkflow_helpers;
+  "_taskWorkflow/livenessProbe": typeof _taskWorkflow_livenessProbe;
   "_taskWorkflow/prompts": typeof _taskWorkflow_prompts;
   "_taskWorkflow/publicMutations": typeof _taskWorkflow_publicMutations;
   "_taskWorkflow/queries": typeof _taskWorkflow_queries;

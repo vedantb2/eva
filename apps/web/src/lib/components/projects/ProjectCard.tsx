@@ -15,6 +15,7 @@ import {
   IconCopy,
 } from "@tabler/icons-react";
 import {
+  AvatarStack,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
@@ -137,18 +138,16 @@ export function ProjectCard({
           className="mt-2 h-1.5 bg-secondary/75"
         />
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <div className="flex min-w-0 items-center">
-            <div className="flex shrink-0 -space-x-1.5 items-center pr-1">
-              {shownAvatarIds.map((id) => (
-                <UserInitials key={id} userId={id} hideLastSeen />
-              ))}
-              {hiddenCount > 0 && (
-                <div className="-ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-semibold text-muted-foreground">
-                  +{hiddenCount}
-                </div>
-              )}
-            </div>
-          </div>
+          <AvatarStack size={16} className="pr-1">
+            {shownAvatarIds.map((id) => (
+              <UserInitials key={id} userId={id} hideLastSeen />
+            ))}
+            {hiddenCount > 0 ? (
+              <div className="flex h-full w-full items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground">
+                +{hiddenCount}
+              </div>
+            ) : null}
+          </AvatarStack>
         </div>
       </div>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

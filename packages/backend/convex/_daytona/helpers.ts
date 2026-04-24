@@ -86,11 +86,6 @@ export function getDaytona(apiKey: string): Daytona {
   return new Daytona({ apiKey });
 }
 
-/** Creates a Daytona SDK client scoped to the Experimental region. */
-export function getExperimentalDaytona(apiKey: string): Daytona {
-  return new Daytona({ apiKey, target: "experimental" });
-}
-
 /** Returns a promise that resolves after the specified milliseconds. */
 export async function sleep(ms: number): Promise<void> {
   await new Promise<void>((resolve) => {
@@ -161,17 +156,6 @@ export async function getSandbox(
 ): Promise<Sandbox> {
   const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, repoId);
   const daytona = getDaytona(daytonaApiKey);
-  return daytona.get(sandboxId);
-}
-
-/** Retrieves a Daytona sandbox instance by ID from the Experimental region. */
-export async function getExperimentalSandbox(
-  ctx: GenericActionCtx<DataModel>,
-  repoId: Id<"githubRepos">,
-  sandboxId: string,
-): Promise<Sandbox> {
-  const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, repoId);
-  const daytona = getExperimentalDaytona(daytonaApiKey);
   return daytona.get(sandboxId);
 }
 

@@ -3,9 +3,19 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { exec, getSandbox } from "./helpers";
+import {
+  exec,
+  resolveSandboxContext,
+  getSandbox,
+  sleep,
+  WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
+} from "./helpers";
+import { createSandbox, WARMING_LIFECYCLE } from "./git";
 
-/** Live snapshot builds already create the warm sandbox, so warmup is a compatibility no-op. */
+const MAX_WARMUP_RETRIES = 2;
+const WARMUP_RETRY_DELAY_MS = 5_000;
+
+/** Warms the Daytona snapshot cache for a repo by creating and immediately deleting a sandbox, with retries. */
 export const warmSnapshotCache = internalAction({
   args: {
     repoId: v.id("githubRepos"),
@@ -13,18 +23,54 @@ export const warmSnapshotCache = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const { daytona, sandboxEnvVars, snapshotName } =
+      await resolveSandboxContext(ctx, args.repoId);
+    if (!snapshotName) return null;
     const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
       repoId: args.repoId,
     });
-    if (repo) {
-      console.log(
-        `[daytona] Live snapshot build already warmed ${repo.owner}/${repo.name}`,
-      );
+    if (!repo) return null;
+
+    let lastError = "";
+    for (let attempt = 0; attempt <= MAX_WARMUP_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          console.log(
+            `[daytona] Warmup retry ${attempt}/${MAX_WARMUP_RETRIES} for ${repo.owner}/${repo.name}`,
+          );
+          await sleep(WARMUP_RETRY_DELAY_MS);
+        }
+        const sandbox = await createSandbox(
+          daytona,
+          repo.installationId,
+          sandboxEnvVars,
+          WARMING_LIFECYCLE,
+          snapshotName,
+          undefined,
+          WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
+        );
+        await sandbox.delete();
+        console.log(
+          `[daytona] Warmed snapshot cache for ${repo.owner}/${repo.name}`,
+        );
+        await ctx.runMutation(internal.repoSnapshots.updateWarmupStatus, {
+          buildId: args.buildId,
+          status: "success",
+        });
+        return null;
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+        console.error(
+          `[daytona] warmSnapshotCache attempt ${attempt + 1} failed:`,
+          lastError,
+        );
+      }
     }
 
     await ctx.runMutation(internal.repoSnapshots.updateWarmupStatus, {
       buildId: args.buildId,
-      status: "success",
+      status: "error",
+      error: lastError,
     });
     return null;
   },

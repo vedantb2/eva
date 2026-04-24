@@ -58,10 +58,6 @@ const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 90;
 // Daytona built-in snapshot with 4 vCPU, 8 GiB RAM, 10 GiB disk.
 // Used as fallback when a repo has no custom snapshot.
 const DEFAULT_SNAPSHOT = "daytona-large";
-const SNAPSHOT_PNPM_HOME = "/home/eva/.pnpm";
-const SNAPSHOT_NODE_PATH = "/usr/lib/node_modules";
-const SNAPSHOT_PATH =
-  "/home/eva/.pnpm:/home/eva/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
 /** Formats a duration in milliseconds as a human-readable string. */
 function formatDurationMs(durationMs: number): string {
@@ -309,10 +305,6 @@ export async function createSandbox(
     const commonParams = {
       ...(volumes ? { volumes } : {}),
       envVars: {
-        PNPM_HOME: SNAPSHOT_PNPM_HOME,
-        NODE_PATH: SNAPSHOT_NODE_PATH,
-        PATH: SNAPSHOT_PATH,
-        SUPABASE_INTERNAL_IMAGE_REGISTRY: "docker.io",
         ...sandboxEnvVars,
         GITHUB_TOKEN: githubToken,
         INSTALLATION_ID: String(installationId),

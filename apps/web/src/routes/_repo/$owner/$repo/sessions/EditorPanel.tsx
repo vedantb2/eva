@@ -102,7 +102,15 @@ export function EditorPanel({
         editorCache.set(sessionId, existing.url);
         return;
       }
-      await toggleCodeServer({ sandboxId, repoId, action: "start" });
+      const result = await toggleCodeServer({ sandboxId, repoId, action: "start" });
+      if (!result.success) {
+        const errorMsg = result.logs
+          ? `${result.message}\n\nLogs:\n${result.logs}`
+          : result.message;
+        setError(errorMsg);
+        setEditorState("error");
+        return;
+      }
       await pollForReady();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start editor");
@@ -222,8 +230,10 @@ export function EditorPanel({
           </div>
         )}
         {editorState === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
-            <p className="text-sm text-destructive">{error}</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 p-4">
+            <pre className="text-sm text-destructive whitespace-pre-wrap max-w-full max-h-48 overflow-auto bg-destructive/5 p-3 rounded-md">
+              {error}
+            </pre>
             <Button size="sm" variant="secondary" onClick={startEditor}>
               <IconRefresh className="w-4 h-4 mr-1" />
               Retry

@@ -189,6 +189,7 @@ interface ChatPanelProps {
   streamingContent?: string;
   streamingPendingQuestion?: string;
   summaryStreamingActivity?: string;
+  startupStreamingActivity?: string;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
@@ -212,6 +213,7 @@ export function ChatPanel({
   streamingContent,
   streamingPendingQuestion,
   summaryStreamingActivity,
+  startupStreamingActivity,
   isSandboxActive,
   isSandboxToggling,
   onSandboxToggle,
@@ -590,13 +592,24 @@ export function ChatPanel({
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
           {messages.length === 0 ? (
-            <ConversationEmptyState
-              title={
-                isSandboxActive
-                  ? "No messages yet. Start the conversation!"
-                  : "Sandbox is inactive. Start the sandbox to begin chatting."
-              }
-            />
+            isSandboxToggling && !isSandboxActive && startupStreamingActivity ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <StreamingActivityDisplay
+                  activity={startupStreamingActivity}
+                  thinkingLabel="Starting sandbox..."
+                />
+              </div>
+            ) : (
+              <ConversationEmptyState
+                title={
+                  isSandboxActive
+                    ? "No messages yet. Start the conversation!"
+                    : isSandboxToggling
+                      ? "Starting sandbox..."
+                      : "Sandbox is inactive. Start the sandbox to begin chatting."
+                }
+              />
+            )
           ) : (
             messages.map((message) =>
               message.isSystemAlert ? (
@@ -720,6 +733,22 @@ export function ChatPanel({
       </Conversation>
       {!isArchived && !activePendingQuestion && (
         <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
+          <AnimatePresence initial={false}>
+            {isSandboxToggling && !isSandboxActive && startupStreamingActivity && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="mb-3 rounded-lg bg-secondary p-4"
+              >
+                <StreamingActivityDisplay
+                  activity={startupStreamingActivity}
+                  thinkingLabel="Starting sandbox..."
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
           <QueuedMessagesPanel
             items={queuedMessageItems}
             onEdit={async (id, content) => {

@@ -5,6 +5,7 @@ export {
   killSandboxProcess,
   stopSandbox,
   deleteSandbox,
+  archiveSandbox,
   verifySandboxLiveness,
 } from "./_daytona/lifecycle";
 

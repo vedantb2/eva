@@ -1,9 +1,32 @@
 # Changelog
 
+## Move startup commands to per-app configuration - 2026-04-27
+
+- **Why**: Monorepos with multiple apps need independent startup command configuration; a single shared snapshot config doesn't support per-app services (e.g., app A runs `supabase start`, app B runs `postgres`).
+- **Changes**: Moved `startupCommands` field from `repoSnapshots` table to `githubRepos` table; updated `getStartupCommands` query to read from repos instead of snapshots; added `updateStartupCommands` mutation for per-app updates.
+- **Reason**: Apps are already represented as repos with `parentRepoId` set; storing startup commands on the repo itself aligns configuration with app identity.
+
+## Auto-create draft PRs on session execution + archive sandboxes on session archive - 2026-04-24
+
+- **Draft PR workflow**: Session now creates a draft PR immediately after first successful execution; "Send for Review" button marks it ready instead of creating a new PR.
+- **Sandbox archival**: Archiving a session now stops and archives its Daytona sandbox to cold storage, preserving state while optimizing cost.
+
+## Improve code-server reliability and error reporting - 2026-04-25
+
+- **Why**: code-server failures were opaque—users saw generic errors with no logs or actionable info.
+- **Changes**: `toggleCodeServer` now returns success/failure status with startup logs; EditorPanel displays detailed errors when code-server fails; PTY resize silently handles "not found" during startup race.
+- **Reason**: Surfacing logs helps diagnose why code-server won't start (port conflicts, missing deps) without SSH-ing into the sandbox.
+
+## Stream sandbox startup progress to UI - 2026-04-25
+
+- **Why**: Users saw a static "Starting sandbox..." message with no indication of what the platform was doing during the multi-second startup sequence.
+- **Changes**: Backend now emits step-by-step progress events (repo loading, context resolution, volume setup, sandbox creation, ref syncing, branch checkout, dev server startup) via streaming; ChatPanel displays each step with animations.
+- **Reason**: Real-time feedback reduces perceived wait time and helps diagnose where startup stalls.
+
 ## Place sandbox config files in workspace root - 2026-04-24
 
-- **Why**: Quick tasks and sandboxes need uploaded config files at the codebase root, not only in the sandbox-level `/home/eva/sandbox-config` directory.
-- **Changes**: Snapshot-backed sandbox preparation now copies baked config files into `/tmp/repo` after git cleanup and repo sync complete, and the settings copy now reflects the root placement.
+- **Why**: Quick tasks and sessions need uploaded config files at the codebase root, not only in the sandbox-level `/home/eva/sandbox-config` directory.
+- **Changes**: Snapshot-backed sandbox preparation and session startup now download/copy baked config files into `/tmp/repo` after git cleanup and repo sync complete.
 - **Reason**: Copying after `git clean` preserves the uploaded files while keeping the snapshot worktree reset behavior intact.
 
 ## Create PR on retry if first run failed to create one - 2026-04-24

@@ -1,7 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { Octokit } from "octokit";
@@ -101,7 +101,14 @@ export const listRepos = action({
   },
 });
 
-/** Creates a GitHub pull request for a session's branch and stores the PR URL. */
+/** Extracts the PR number from a GitHub PR URL. */
+function extractPrNumber(prUrl: string): number | null {
+  const match = prUrl.match(/\/pull\/(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/** Creates a GitHub pull request for a session's branch and stores the PR URL.
+ * If a draft PR already exists, marks it as ready for review. */
 export const createSessionPr = action({
   args: { sessionId: v.id("sessions") },
   returns: v.object({ url: v.string() }),
@@ -117,22 +124,34 @@ export const createSessionPr = action({
     if (!session.branchName) {
       throw new Error("No branch associated with this session");
     }
-    if (session.prUrl) {
-      return { url: session.prUrl };
-    }
 
     const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
       id: session.repoId,
     });
     if (!repo) throw new Error("Repository not found");
 
+    // If PR already exists (draft), mark it ready for review
+    if (session.prUrl) {
+      const prNumber = extractPrNumber(session.prUrl);
+      if (prNumber) {
+        await ctx.runAction(internal.taskWorkflowActions.markPrReadyForReview, {
+          installationId: repo.installationId,
+          repoOwner: repo.owner,
+          repoName: repo.name,
+          prNumber,
+        });
+      }
+      return { url: session.prUrl };
+    }
+
+    // No PR exists yet - create a non-draft PR (fallback for older sessions)
     const appLabel = repo.rootDirectory
       ? repo.rootDirectory.split("/").pop()
       : undefined;
 
     const summaryContent =
       session.summary && session.summary.length > 0
-        ? session.summary.map((item) => `- ${item}`).join("\n")
+        ? session.summary.map((item: string) => `- ${item}`).join("\n")
         : "No summary available";
 
     const evaUrl = buildEvaSessionUrl(
@@ -168,6 +187,71 @@ export const createSessionPr = action({
     });
 
     return { url: prUrl };
+  },
+});
+
+/** Creates a draft PR for a session. Called after first successful execution. */
+export const createDraftSessionPr = internalAction({
+  args: { sessionId: v.id("sessions") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args): Promise<string | null> => {
+    const session = await ctx.runQuery(internal.sessions.getInternal, {
+      id: args.sessionId,
+    });
+    if (!session) return null;
+    if (!session.branchName) return null;
+    if (session.prUrl) return session.prUrl; // Draft PR already exists
+
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: session.repoId,
+    });
+    if (!repo) return null;
+
+    const appLabel: string | undefined = repo.rootDirectory
+      ? repo.rootDirectory.split("/").pop()
+      : undefined;
+
+    const summaryContent: string =
+      session.summary && session.summary.length > 0
+        ? session.summary.map((item: string) => `- ${item}`).join("\n")
+        : "_Summary will be generated before review_";
+
+    const evaUrl = buildEvaSessionUrl(
+      repo.owner,
+      repo.name,
+      args.sessionId,
+      repo.rootDirectory,
+    );
+
+    const result: string | null = await ctx.runAction(
+      internal.taskWorkflowActions.createPullRequest,
+      {
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        branchName: session.branchName,
+        baseBranch: repo.defaultBaseBranch,
+        title: session.title,
+        body: buildPrBody(
+          [{ heading: "Summary", content: summaryContent }],
+          evaUrl,
+        ),
+        labels: ["eva", "session", "draft", ...(appLabel ? [appLabel] : [])],
+        draft: true,
+      },
+    );
+
+    if (result) {
+      await ctx.runMutation(internal.sessions.setPrUrl, {
+        id: args.sessionId,
+        prUrl: result,
+      });
+      console.log(
+        `[github] Created draft PR for session ${args.sessionId}: ${result}`,
+      );
+    }
+
+    return result;
   },
 });
 
@@ -316,7 +400,9 @@ export const syncRepos = action({
 
     const syncSettings = await ctx.runQuery(internal.syncSettings.listAll, {});
     const disabledRepos = new Set(
-      syncSettings.filter((s) => !s.enabled).map((s) => `${s.owner}/${s.name}`),
+      syncSettings
+        .filter((s: { enabled: boolean }) => !s.enabled)
+        .map((s: { owner: string; name: string }) => `${s.owner}/${s.name}`),
     );
 
     const appOctokit = getAppOctokit();

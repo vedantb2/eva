@@ -732,6 +732,7 @@ export const githubRepoFields = {
   domains: v.optional(v.array(v.string())),
   mcpRootPrompt: v.optional(v.string()),
   screenshotsVideosEnabled: v.optional(v.boolean()),
+  startupCommands: v.optional(v.array(v.string())),
 };
 
 export const conversationMessageValidator = v.object({

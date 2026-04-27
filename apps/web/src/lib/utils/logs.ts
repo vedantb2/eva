@@ -27,6 +27,25 @@ function isRecord(val: unknown): val is Record<string, unknown> {
   return typeof val === "object" && val !== null && !Array.isArray(val);
 }
 
+/** Finds the model with the highest cost from modelUsage object. */
+function getPrimaryModel(modelUsage: Record<string, unknown>): string {
+  let primaryModel = "-";
+  let highestCost = -1;
+  for (const [model, usage] of Object.entries(modelUsage)) {
+    if (isRecord(usage) && typeof usage.costUSD === "number") {
+      if (usage.costUSD > highestCost) {
+        highestCost = usage.costUSD;
+        primaryModel = model;
+      }
+    }
+  }
+  // Fallback to first key if no cost data
+  if (primaryModel === "-" && Object.keys(modelUsage).length > 0) {
+    primaryModel = Object.keys(modelUsage)[0];
+  }
+  return primaryModel;
+}
+
 export function parseResultEvent(raw: string | undefined): ParsedResultEvent {
   if (!raw) return EMPTY_PARSED;
   try {
@@ -34,13 +53,12 @@ export function parseResultEvent(raw: string | undefined): ParsedResultEvent {
     if (!isRecord(parsed)) return EMPTY_PARSED;
     const usage = isRecord(parsed.usage) ? parsed.usage : {};
     const modelUsage = isRecord(parsed.modelUsage) ? parsed.modelUsage : {};
-    const modelKeys = Object.keys(modelUsage);
     // Keep the four token categories semantically distinct. Pure input (non-cached)
     // must not be conflated with cache reads/creations; their pricing differs by ~10-25x.
     return {
       costUsd:
         typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : 0,
-      model: modelKeys.length > 0 ? modelKeys[0] : "-",
+      model: getPrimaryModel(modelUsage),
       provider: typeof parsed.provider === "string" ? parsed.provider : "",
       inputTokens:
         typeof usage.input_tokens === "number" ? usage.input_tokens : 0,

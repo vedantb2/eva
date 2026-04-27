@@ -220,7 +220,18 @@ export const resizePty = action({
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, session.repoId);
     const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(session.sandboxId);
-    await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
+    try {
+      await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
+    } catch (error) {
+      // PTY session may not exist yet (startup) or may have disconnected
+      // Log warning but don't throw - resize is best-effort
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("not found")) {
+        console.warn(`[pty] resizePty: PTY session ${ptyId} not found, ignoring`);
+      } else {
+        throw error;
+      }
+    }
 
     return null;
   },

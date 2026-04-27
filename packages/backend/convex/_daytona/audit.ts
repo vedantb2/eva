@@ -223,6 +223,9 @@ ${failureList}
 - Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${rootDirInstruction}`;
 
+      if (!sandboxId) {
+        throw new Error("Failed to create or resume sandbox for audit fix");
+      }
       const sandbox = await getSandbox(ctx, args.repoId, sandboxId);
 
       await signAndLaunchScript(

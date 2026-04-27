@@ -86,15 +86,6 @@ function buildSnapshotImage(
     .dockerfileCommands(["USER eva"])
     .workdir("/workspace")
     .runCommands(
-      // Download sandbox config files early (before other network-heavy operations)
-      // Use /home/eva/sandbox-config for persistence (avoid /tmp which can be ephemeral)
-      "mkdir -p /home/eva/sandbox-config",
-      ...configFiles
-        .filter((f): f is { fileName: string; url: string } => f.url !== null)
-        .map(
-          (f) =>
-            `curl -fSL --retry 3 --retry-delay 5 -o '/home/eva/sandbox-config/${f.fileName}' '${f.url}' && ls -lh '/home/eva/sandbox-config/${f.fileName}'`,
-        ),
       // Git config
       gitConfigCmd,
       // Cursor CLI (installs `cursor-agent` to /home/eva/.local/bin — curl-bash, not npm)
@@ -115,13 +106,21 @@ function buildSnapshotImage(
     })
     .runCommands(
       "mkdir -p /home/eva/.pnpm",
-      // Symlink for backwards compatibility with startup commands referencing /tmp/sandbox-config
-      "ln -sf /home/eva/sandbox-config /tmp/sandbox-config",
-      // Clone the target repo and install dependencies for pre-caching
+      // Clone the target repo
       `git clone --branch ${branch} https://x-access-token:${token}@github.com/${owner}/${repoName}.git /tmp/repo`,
     )
     .workdir("/tmp/repo")
-    .runCommands("pnpm install --frozen-lockfile");
+    .runCommands(
+      // Download config files directly to repo root
+      ...configFiles
+        .filter((f): f is { fileName: string; url: string } => f.url !== null)
+        .map(
+          (f) =>
+            `curl -fSL --retry 3 --retry-delay 5 -o '${f.fileName}' '${f.url}'`,
+        ),
+      // Install dependencies
+      "pnpm install --frozen-lockfile",
+    );
 }
 
 /**

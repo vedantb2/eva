@@ -268,7 +268,6 @@ const schema = defineSchema({
     schedule: snapshotScheduleValidator,
     cronJobId: v.optional(v.string()),
     workflowRef: v.optional(v.string()),
-    startupCommands: v.optional(v.array(v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),

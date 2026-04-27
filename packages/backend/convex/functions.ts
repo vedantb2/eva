@@ -18,6 +18,7 @@ import {
   internalAction,
 } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { getCurrentUserId } from "./auth";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 
@@ -172,7 +173,7 @@ export async function isFirstTaskOnBranch(
   return !runs.some((run) => run.prUrl);
 }
 
-/** Deletes a task and all its related data (runs, dependencies, scheduled functions). */
+/** Deletes a task and all its related data (runs, dependencies, scheduled functions, sandbox). */
 export async function deleteTaskRelatedData(
   ctx: MutationCtx,
   taskId: Id<"agentTasks">,
@@ -184,6 +185,14 @@ export async function deleteTaskRelatedData(
     } catch {
       // may have already fired
     }
+  }
+  // Quick tasks persist a Daytona sandbox; clean it up so we don't leak compute.
+  // Project tasks share their sandbox via `project.sandboxId` — leave that alone.
+  if (task && !task.projectId && task.sandboxId && task.repoId) {
+    await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+      sandboxId: task.sandboxId,
+      repoId: task.repoId,
+    });
   }
   const runs = await ctx.db
     .query("agentRuns")

@@ -98,7 +98,7 @@ export function TaskDetailInline({
     handleStartSandbox,
     handleStopSandbox,
     handleToggleSandboxView,
-    previewSandboxId,
+    sandboxId,
   } = useTaskDetail(taskId);
 
   if (isLoading) {
@@ -151,10 +151,10 @@ export function TaskDetailInline({
         </div>
         {/* Sandbox panel */}
         <div className="flex-1 min-h-0">
-          {isSandboxActive && previewSandboxId && task?.repoId ? (
+          {isSandboxActive && sandboxId && task?.repoId ? (
             <TaskSandboxPanel
               taskId={taskId}
-              sandboxId={previewSandboxId}
+              sandboxId={sandboxId}
               isActive={isSandboxActive}
               repoId={task.repoId}
             />

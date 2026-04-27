@@ -5,6 +5,9 @@ export { taskExecutionWorkflow } from "./_taskWorkflow/workflowDefinition";
 export {
   updateRunToRunning,
   saveSandboxId,
+  saveTaskSandboxId,
+  markTaskSandboxStopped,
+  clearTaskSandbox,
   scheduleDeploymentTracking,
   updateProjectSandbox,
   finalizeRunStreamingPhase,

@@ -130,8 +130,9 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     task?.status !== undefined &&
     PREVIEW_SANDBOX_ALLOWED_STATUSES.includes(task.status);
 
-  const isSandboxActive = task?.previewSandboxStatus === "active";
-  const isSandboxStartingFromStatus = task?.previewSandboxStatus === "starting";
+  const isSandboxActive = task?.reviewTaskSandboxStatus === "active";
+  const isSandboxStartingFromStatus =
+    task?.reviewTaskSandboxStatus === "starting";
 
   const handleStartSandbox = useCallback(async () => {
     setIsSandboxStarting(true);
@@ -243,8 +244,8 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     handleStartSandbox,
     handleStopSandbox,
     handleToggleSandboxView,
-    previewSandboxId: task?.previewSandboxId,
-    previewSandboxStatus: task?.previewSandboxStatus,
+    sandboxId: task?.sandboxId,
+    reviewTaskSandboxStatus: task?.reviewTaskSandboxStatus,
 
     layoutGridClass,
     modalWidthClass,

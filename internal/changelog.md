@@ -1,5 +1,13 @@
 # Changelog
 
+## Persistent Quick-Task Sandboxes - 2026-04-27
+
+- Quick-task sandboxes now persist across runs, using stop (pause) semantics instead of delete on completion, enabling seamless sandbox reuse during code review, business review, and change-request flows.
+- Reviewers can start a sandbox, stop it, and resume later with all in-sandbox state (Convex data, Supabase rows, fixtures) intact; Daytona auto-archives after 7 days idle.
+- Renamed `agentTasks` fields from `previewSandboxId`/`previewSandboxStatus` to `sandboxId`/`reviewTaskSandboxStatus` (canonical, shared across all task execution modes).
+- Workflow now reuses `task.sandboxId` on subsequent runs for non-project tasks, and reuses `project.sandboxId` for project tasks, avoiding redundant checkouts and bootstrap for change-requests and conflict resolution.
+- Stale-run recovery still deletes suspect sandboxes (workflow died mid-execution) and clears task.sandboxId to force fresh provisioning on next run.
+
 ## Chunked sandbox config file uploads - 2026-04-27
 
 - **Why**: Convex storage upload URLs enforce a 2-minute server-side POST timeout, so single-blob uploads of files larger than ~500MB reliably stall once the TCP receive buffer fills, blocking large database backups and assets from being baked into snapshots.

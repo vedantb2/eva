@@ -39,7 +39,7 @@ export const startTaskSandbox = authMutation({
     const baseBranch = task.baseBranch ?? repo.defaultBaseBranch ?? "main";
 
     await ctx.db.patch(args.taskId, {
-      previewSandboxStatus: "starting",
+      reviewTaskSandboxStatus: "starting",
       updatedAt: Date.now(),
     });
 
@@ -48,7 +48,7 @@ export const startTaskSandbox = authMutation({
       internal.taskSandboxWorkflow.taskPreviewSandboxStartupWorkflow,
       {
         taskId: args.taskId,
-        existingSandboxId: task.previewSandboxId,
+        existingSandboxId: task.sandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -62,7 +62,8 @@ export const startTaskSandbox = authMutation({
   },
 });
 
-/** Stops the preview sandbox for a task (lets Daytona auto-stop after 15min idle). */
+/** Stops the preview sandbox in Daytona. Keeps `sandboxId` so the reviewer
+ * can resume the same paused filesystem (DB state intact) on next start. */
 export const stopTaskSandbox = authMutation({
   args: { taskId: v.id("agentTasks") },
   returns: v.null(),
@@ -75,9 +76,16 @@ export const stopTaskSandbox = authMutation({
     const hasAccess = await hasRepoAccess(ctx.db, task.repoId, ctx.userId);
     if (!hasAccess) throw new Error("No access to repository");
 
-    // Keep previewSandboxId so we can resume the sandbox later if it's still running
+    if (task.sandboxId) {
+      await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
+        sandboxId: task.sandboxId,
+        repoId: task.repoId,
+      });
+    }
+
+    // Keep sandboxId so we can resume the stopped sandbox later.
     await ctx.db.patch(args.taskId, {
-      previewSandboxStatus: "closed",
+      reviewTaskSandboxStatus: "closed",
       updatedAt: Date.now(),
     });
 
@@ -100,8 +108,8 @@ export const taskSandboxReady = internalMutation({
     if (!task) return null;
 
     await ctx.db.patch(args.taskId, {
-      previewSandboxId: args.sandboxId,
-      previewSandboxStatus: "active",
+      sandboxId: args.sandboxId,
+      reviewTaskSandboxStatus: "active",
       updatedAt: Date.now(),
     });
 
@@ -121,7 +129,7 @@ export const taskSandboxError = internalMutation({
     if (!task) return null;
 
     await ctx.db.patch(args.taskId, {
-      previewSandboxStatus: "closed",
+      reviewTaskSandboxStatus: "closed",
       updatedAt: Date.now(),
     });
 

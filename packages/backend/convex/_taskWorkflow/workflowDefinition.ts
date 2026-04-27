@@ -40,7 +40,7 @@ export const taskExecutionWorkflow = workflow.define({
     let finalError: string | null = null;
     let runCompletionRecorded = false;
     let runFinalized = false;
-    let sandboxDeleted = false;
+    let sandboxStopped = false;
     let preserveSandboxOnFailure = false;
 
     try {
@@ -57,12 +57,18 @@ export const taskExecutionWorkflow = workflow.define({
         branchName: args.branchName,
         mode: args.mode,
       });
+      // Reuse the persisted sandbox for project tasks (project.sandboxId) or
+      // for quick tasks on follow-up runs (task.sandboxId — set after the first
+      // run completes). When `existingSandboxId` is provided, `ephemeral` must
+      // be false so the workflow doesn't auto-clean a sandbox we want to keep.
+      const reusableSandboxId =
+        data.projectSandboxId ?? data.taskSandboxId ?? undefined;
       sandboxId = await prepareSandboxSteps(step, {
-        existingSandboxId: data.projectSandboxId,
+        existingSandboxId: reusableSandboxId,
         installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
-        ephemeral: !args.projectId,
+        ephemeral: !args.projectId && !data.taskSandboxId,
         repoId: args.repoId,
         attachRunId: args.runId,
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),
@@ -94,6 +100,14 @@ export const taskExecutionWorkflow = workflow.define({
       if (args.projectId) {
         await step.runMutation(internal.taskWorkflow.updateProjectSandbox, {
           projectId: args.projectId,
+          sandboxId,
+        });
+      } else {
+        // Quick tasks: persist sandbox on the task itself so reviewer Start
+        // Sandbox and follow-up runs (resolve_conflicts, change-requests)
+        // resume the same paused filesystem instead of bootstrapping anew.
+        await step.runMutation(internal.taskWorkflow.saveTaskSandboxId, {
+          taskId: args.taskId,
           sandboxId,
         });
       }
@@ -332,12 +346,19 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
+      // Stop (don't delete) the quick-task sandbox so the reviewer can resume
+      // the same paused filesystem — DB state, generated artifacts, etc. —
+      // when they click Start Sandbox or post a change-request. Daytona
+      // auto-archives stopped sandboxes after 7 days idle (platform default).
       if (!args.projectId && sandboxId && !preserveSandboxOnFailure) {
-        await step.runAction(internal.daytona.deleteSandbox, {
+        await step.runAction(internal.daytona.stopSandbox, {
           sandboxId,
           repoId: args.repoId,
         });
-        sandboxDeleted = true;
+        await step.runMutation(internal.taskWorkflow.markTaskSandboxStopped, {
+          taskId: args.taskId,
+        });
+        sandboxStopped = true;
       }
     } catch (error) {
       const workflowError =
@@ -402,13 +423,16 @@ export const taskExecutionWorkflow = workflow.define({
       if (
         !args.projectId &&
         sandboxId &&
-        !sandboxDeleted &&
+        !sandboxStopped &&
         !preserveSandboxOnFailure
       ) {
         try {
-          await step.runAction(internal.daytona.deleteSandbox, {
+          await step.runAction(internal.daytona.stopSandbox, {
             sandboxId,
             repoId: args.repoId,
+          });
+          await step.runMutation(internal.taskWorkflow.markTaskSandboxStopped, {
+            taskId: args.taskId,
           });
         } catch {}
       }

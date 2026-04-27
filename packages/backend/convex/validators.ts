@@ -646,7 +646,7 @@ export const logEntryValidator = v.object({
   message: v.string(),
 });
 
-export const previewSandboxStatusValidator = v.union(
+export const taskSandboxStatusValidator = v.union(
   v.literal("starting"),
   v.literal("active"),
   v.literal("closed"),
@@ -670,8 +670,12 @@ export const agentTaskFields = {
   scheduledRetryAt: v.optional(v.number()),
   scheduledAt: v.optional(v.number()),
   scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
-  previewSandboxId: v.optional(v.string()),
-  previewSandboxStatus: v.optional(previewSandboxStatusValidator),
+  // Canonical sandbox shared across run/preview/resolve_conflicts. Persists
+  // across the task lifecycle so reviewers can resume in-sandbox state (DB,
+  // generated fixtures) instead of re-bootstrapping from the branch.
+  sandboxId: v.optional(v.string()),
+  // UI state for the reviewer-facing Start/Stop sandbox button.
+  reviewTaskSandboxStatus: v.optional(taskSandboxStatusValidator),
 };
 
 export const agentRunFields = {

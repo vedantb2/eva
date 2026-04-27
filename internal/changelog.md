@@ -1,5 +1,10 @@
 # Changelog
 
+## Persist resolved devPort/devCommand on task & session docs - 2026-04-28
+
+- Wired `task.devPort` / `task.devCommand` (already populated by `taskSandboxReady`) through `TaskDetailInline` → `TaskSandboxPanel` so the preview iframe + terminal auto-run hit the actual running dev server instead of falling back to the URL default of 3001.
+- **Architectural note**: `githubRepos.devPort/devCommand` = per-app _config / intent_. `agentTasks.devPort/devCommand` and `designSessions.devPort/devCommand` = _snapshot of the resolved value at sandbox spawn time_. We persist the resolved value (override → detect → default) because (a) the dev server is a long-lived process pinned to whatever port it bound at spawn — editing repo config later doesn't migrate it, (b) `detectDevPort` requires reading the live sandbox FS so we can't re-resolve client-side, and (c) the frontend shouldn't replicate detection logic just to render a preview URL. Per-app config is the input; per-task/per-session is the output.
+
 ## Custom snapshot build commands - 2026-04-28
 
 - Added `buildCommands` field to `repoSnapshots` schema: users can now define custom commands (e.g. `pnpm convex codegen`, `pnpm build`) that run during snapshot build, after `pnpm install`, and are baked permanently into the Docker image as separate cached layers.

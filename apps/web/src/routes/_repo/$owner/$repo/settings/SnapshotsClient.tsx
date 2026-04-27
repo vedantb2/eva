@@ -44,7 +44,7 @@ function parseStartupCommands(text: string): string[] | undefined {
 }
 
 export function SnapshotsClient() {
-  const { repoId } = useRepo();
+  const { repoId, repo } = useRepo();
   const snapshot = useQuery(api.repoSnapshots.getRepoSnapshot, { repoId });
   const builds = useQuery(
     api.repoSnapshots.listBuilds,
@@ -53,6 +53,9 @@ export function SnapshotsClient() {
   const saveRepoSnapshot = useMutation(api.repoSnapshots.saveRepoSnapshot);
   const deleteRepoSnapshot = useMutation(api.repoSnapshots.deleteRepoSnapshot);
   const startBuild = useMutation(api.repoSnapshots.startBuild);
+  const updateStartupCommands = useMutation(
+    api.githubRepos.updateStartupCommands,
+  );
 
   // UI-only state (not data)
   const [building, setBuilding] = useState(false);
@@ -61,7 +64,7 @@ export function SnapshotsClient() {
   // Derive values directly from Convex
   const schedule = snapshot?.schedule ?? "manual";
   const workflowRef = snapshot?.workflowRef ?? "main";
-  const startupCommands = snapshot?.startupCommands?.join("\n") ?? "";
+  const startupCommands = repo.startupCommands?.join("\n") ?? "";
 
   // Save on change for schedule
   const handleScheduleChange = (newSchedule: string) => {
@@ -69,7 +72,6 @@ export function SnapshotsClient() {
       repoId,
       schedule: newSchedule,
       workflowRef: workflowRef.trim() || undefined,
-      startupCommands: parseStartupCommands(startupCommands),
     });
   };
 
@@ -79,20 +81,17 @@ export function SnapshotsClient() {
       repoId,
       schedule,
       workflowRef: newBranch.trim() || undefined,
-      startupCommands: parseStartupCommands(startupCommands),
     });
   };
 
-  // Save on blur for startup commands
+  // Save on blur for startup commands (now per-app)
   const handleStartupCommandsBlur = (
     e: React.FocusEvent<HTMLTextAreaElement>,
   ) => {
     const newCommands = e.target.value;
     if (newCommands === startupCommands) return; // No change
-    saveRepoSnapshot({
+    updateStartupCommands({
       repoId,
-      schedule,
-      workflowRef: workflowRef.trim() || undefined,
       startupCommands: parseStartupCommands(newCommands),
     });
   };
@@ -180,7 +179,7 @@ export function SnapshotsClient() {
                 Commands to run when sandbox starts
               </label>
               <textarea
-                key={snapshot?._id ?? "new"}
+                key={repoId}
                 defaultValue={startupCommands}
                 onBlur={handleStartupCommandsBlur}
                 className="w-full h-24 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
@@ -190,7 +189,7 @@ export function SnapshotsClient() {
                 One command per line. Runs once when sandbox first starts (after
                 snapshot loads). Use for services like{" "}
                 <code>supabase start</code> or database seeding. Commands have a
-                10-minute timeout each.
+                10-minute timeout each. Configured per app.
               </p>
             </div>
           </div>

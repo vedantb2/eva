@@ -1,5 +1,11 @@
 # Changelog
 
+## Move startup commands to per-app configuration - 2026-04-27
+
+- **Why**: Monorepos with multiple apps need independent startup command configuration; a single shared snapshot config doesn't support per-app services (e.g., app A runs `supabase start`, app B runs `postgres`).
+- **Changes**: Moved `startupCommands` field from `repoSnapshots` table to `githubRepos` table; updated `getStartupCommands` query to read from repos instead of snapshots; added `updateStartupCommands` mutation for per-app updates.
+- **Reason**: Apps are already represented as repos with `parentRepoId` set; storing startup commands on the repo itself aligns configuration with app identity.
+
 ## Auto-create draft PRs on session execution + archive sandboxes on session archive - 2026-04-24
 
 - **Draft PR workflow**: Session now creates a draft PR immediately after first successful execution; "Send for Review" button marks it ready instead of creating a new PR.

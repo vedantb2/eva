@@ -12,6 +12,7 @@ export function AppClient() {
   const updateConfig = useMutation(api.githubRepos.updateConfig);
 
   const startupCommands = repo.startupCommands?.join("\n") ?? "";
+  const backgroundCommands = repo.backgroundCommands?.join("\n") ?? "";
 
   const handleDevPortBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const raw = e.target.value.trim();
@@ -41,6 +42,14 @@ export function AppClient() {
     const next = e.target.value;
     if (next === startupCommands) return;
     updateConfig({ repoId, startupCommands: parseCommandLines(next) });
+  };
+
+  const handleBackgroundCommandsBlur = (
+    e: React.FocusEvent<HTMLTextAreaElement>,
+  ) => {
+    const next = e.target.value;
+    if (next === backgroundCommands) return;
+    updateConfig({ repoId, backgroundCommands: parseCommandLines(next) });
   };
 
   return (
@@ -107,6 +116,29 @@ export function AppClient() {
               One command per line. Runs once when sandbox first starts (after
               snapshot loads). Use for services like <code>supabase start</code>{" "}
               or database seeding. Commands have a 10-minute timeout each.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+          <h3 className="text-sm font-medium">Background Commands</h3>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Long-running daemons to launch alongside the dev server
+            </label>
+            <textarea
+              key={`background-${repoId}`}
+              defaultValue={backgroundCommands}
+              onBlur={handleBackgroundCommandsBlur}
+              className="w-full h-32 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              placeholder="npx convex dev"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              One command per line. Each is launched detached (
+              <code>nohup ... &amp;</code>) and respawned every time the sandbox
+              starts or resumes. Use for daemons like{" "}
+              <code>npx convex dev</code>. Output is written to{" "}
+              <code>/tmp/bg-&lt;index&gt;.log</code>.
             </p>
           </div>
         </div>

@@ -751,6 +751,7 @@ export const githubRepoFields = {
   mcpRootPrompt: v.optional(v.string()),
   screenshotsVideosEnabled: v.optional(v.boolean()),
   startupCommands: v.optional(v.array(v.string())),
+  backgroundCommands: v.optional(v.array(v.string())),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
 };

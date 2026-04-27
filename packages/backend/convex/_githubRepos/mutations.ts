@@ -168,6 +168,7 @@ export const updateConfig = authMutation({
     devPort: v.optional(v.union(v.number(), v.null())),
     devCommand: v.optional(v.string()),
     startupCommands: v.optional(v.array(v.string())),
+    backgroundCommands: v.optional(v.array(v.string())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -240,6 +241,15 @@ export const updateConfig = authMutation({
       await ctx.db.patch(args.repoId, {
         startupCommands:
           args.startupCommands.length > 0 ? args.startupCommands : undefined,
+      });
+    }
+
+    if (args.backgroundCommands !== undefined) {
+      await ctx.db.patch(args.repoId, {
+        backgroundCommands:
+          args.backgroundCommands.length > 0
+            ? args.backgroundCommands
+            : undefined,
       });
     }
 

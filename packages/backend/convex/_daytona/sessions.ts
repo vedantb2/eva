@@ -453,6 +453,21 @@ async function prepareSessionSandboxInternal(
             }
           },
         );
+        await runLoggedSessionStep(
+          "reuseSessionSandbox.runBackgroundCommands",
+          sandboxDetails,
+          async () => {
+            const result = await ctx.runAction(
+              internal.daytona.runBackgroundCommands,
+              { sandboxId: sandbox.id, repoId: args.repoId },
+            );
+            if (result.ran && result.commandCount > 0) {
+              logSession(
+                `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+              );
+            }
+          },
+        );
         reusedResult = {
           sandbox,
           isNew: false,
@@ -665,6 +680,22 @@ async function prepareSessionSandboxInternal(
     status: "complete",
   });
 
+  await runLoggedSessionStep(
+    "newSessionSandbox.runBackgroundCommands",
+    sandboxDetails,
+    async () => {
+      const result = await ctx.runAction(
+        internal.daytona.runBackgroundCommands,
+        { sandboxId: sandbox.id, repoId: args.repoId },
+      );
+      if (result.ran && result.commandCount > 0) {
+        logSession(
+          `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+        );
+      }
+    },
+  );
+
   await completeSessionProgress(ctx, args.sessionId);
   return {
     sandbox,
@@ -789,17 +820,18 @@ export const startDesignSandbox = internalAction({
       if (!args.repoId) {
         throw new Error("repoId is required for startDesignSandbox");
       }
+      const repoId = args.repoId;
 
       const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
-        id: args.repoId,
+        id: repoId,
       });
       const rootDir = repo?.rootDirectory ?? "";
       const { daytona, sandboxEnvVars, snapshotName } =
-        await resolveSandboxContext(ctx, args.repoId);
+        await resolveSandboxContext(ctx, repoId);
 
       const designVolumeMounts = await ensureSessionPersistenceVolumes(
         daytona,
-        args.repoId,
+        repoId,
         "designSessions",
         args.designSessionId,
       );
@@ -824,6 +856,10 @@ export const startDesignSandbox = internalAction({
             devOverrides(repo),
           );
           await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
+          await ctx.runAction(internal.daytona.runBackgroundCommands, {
+            sandboxId: sandbox.id,
+            repoId,
+          });
           await ctx.runMutation(internal.designSessions.sandboxReady, {
             designSessionId: args.designSessionId,
             sandboxId: sandbox.id,
@@ -867,6 +903,10 @@ export const startDesignSandbox = internalAction({
         devOverrides(repo),
       );
       await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
+      await ctx.runAction(internal.daytona.runBackgroundCommands, {
+        sandboxId: sandbox.id,
+        repoId,
+      });
 
       await ctx.runMutation(internal.designSessions.sandboxReady, {
         designSessionId: args.designSessionId,
@@ -975,6 +1015,21 @@ async function prepareTaskPreviewSandboxInternal(
             }
           },
         );
+        await runLoggedSessionStep(
+          "reuseTaskSandbox.runBackgroundCommands",
+          sandboxDetails,
+          async () => {
+            const result = await ctx.runAction(
+              internal.daytona.runBackgroundCommands,
+              { sandboxId: sandbox.id, repoId: args.repoId },
+            );
+            if (result.ran && result.commandCount > 0) {
+              logSession(
+                `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+              );
+            }
+          },
+        );
         reusedResult = {
           sandbox,
           isNew: false,
@@ -1079,6 +1134,22 @@ async function prepareTaskPreviewSandboxInternal(
       if (result.ran && result.commandCount > 0) {
         logSession(
           `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+        );
+      }
+    },
+  );
+
+  await runLoggedSessionStep(
+    "newTaskSandbox.runBackgroundCommands",
+    sandboxDetails,
+    async () => {
+      const result = await ctx.runAction(
+        internal.daytona.runBackgroundCommands,
+        { sandboxId: sandbox.id, repoId: args.repoId },
+      );
+      if (result.ran && result.commandCount > 0) {
+        logSession(
+          `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
         );
       }
     },

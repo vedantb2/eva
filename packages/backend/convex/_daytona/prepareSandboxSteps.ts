@@ -205,5 +205,29 @@ export async function prepareSandboxSteps(
     );
   }
 
+  // Step 5: Launch background commands (long-running daemons). Non-fatal.
+  try {
+    const result = await step.runAction(
+      internal.daytona.runBackgroundCommands,
+      { sandboxId, repoId: args.repoId },
+      { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
+    );
+    if (result.ran && result.commandCount > 0) {
+      console.log(
+        `[prepareSandbox] Launched ${result.commandCount} background command(s)`,
+      );
+      if (result.errors.length > 0) {
+        console.warn(
+          `[prepareSandbox] Background command errors: ${result.errors.join("; ")}`,
+        );
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[prepareSandbox] Background commands failed — continuing: ${msg}`,
+    );
+  }
+
   return sandboxId;
 }

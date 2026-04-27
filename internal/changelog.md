@@ -1,5 +1,13 @@
 # Changelog
 
+## Per-repo background commands for long-running daemons - 2026-04-28
+
+- Added `backgroundCommands` field to `githubRepos` schema: users can configure long-running daemons (e.g. `npx convex dev`) that launch detached (`nohup ... &`) alongside the dev server on every sandbox start and resume.
+- New `runBackgroundCommands` internalAction detaches each command with a short exec timeout (10s) — we only wait for the shell to fork, not the daemon to finish. No marker file, so daemons respawn automatically when a stopped sandbox is resumed (processes die when sandbox stops).
+- UI: new "Background Commands" textarea in App settings tab, mirrors startup-commands UX; placeholder shows `npx convex dev`; helper text explains log paths (`/tmp/bg-<index>.log`) and respawn behavior.
+- Called at all 6 sandbox startup paths (session reuse/new, task reuse/new, design session reuse/new) and in `prepareSandboxSteps` after startup commands, ensuring daemons run consistently across all preview types.
+- **Why**: Startup commands block (10-min timeout per command); daemons like `npx convex dev` hang forever, making them unsuitable for sequential execution. Background commands solve this by forking immediately and auto-respawning on resume, enabling Convex codegen to pick up changes during session previews without manual redeploy.
+
 ## Persist resolved devPort/devCommand on task & session docs - 2026-04-28
 
 - Wired `task.devPort` / `task.devCommand` (already populated by `taskSandboxReady`) through `TaskDetailInline` → `TaskSandboxPanel` so the preview iframe + terminal auto-run hit the actual running dev server instead of falling back to the URL default of 3001.

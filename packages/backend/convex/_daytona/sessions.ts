@@ -896,3 +896,297 @@ export const startDesignSandbox = internalAction({
     return null;
   },
 });
+
+type TaskPreviewSandboxPreparationArgs = {
+  taskId: Id<"agentTasks">;
+  existingSandboxId: string | undefined;
+  installationId: number;
+  repoOwner: string;
+  repoName: string;
+  branchName: string;
+  baseBranch: string;
+  repoId: Id<"githubRepos">;
+};
+
+/** Core logic for preparing a task preview sandbox: reuses existing or creates new, syncs refs, and starts services. */
+async function prepareTaskPreviewSandboxInternal(
+  ctx: GenericActionCtx<DataModel>,
+  args: TaskPreviewSandboxPreparationArgs,
+): Promise<PreparedSessionSandbox> {
+  const actionDetails = `taskId=${args.taskId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
+
+  const repo = await runLoggedSessionStep("loadTaskRepo", actionDetails, () =>
+    ctx.runQuery(internal.githubRepos.getInternal, {
+      id: args.repoId,
+    }),
+  );
+  const rootDir = repo?.rootDirectory ?? "";
+
+  const { daytona, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
+    "resolveTaskSandboxContext",
+    actionDetails,
+    () => resolveSandboxContext(ctx, args.repoId),
+  );
+  logSession(
+    `prepareTaskPreviewSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
+  );
+
+  let reusedResult: PreparedSessionSandbox | null = null;
+  const reused = await runLoggedSessionStep(
+    "tryReuseTaskSandbox",
+    actionDetails,
+    () =>
+      tryReuseSandbox(daytona, args.existingSandboxId, async (sandbox) => {
+        const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
+        await runLoggedSessionStep(
+          "reuseTaskSandbox.prepare",
+          sandboxDetails,
+          async () => {
+            await ensureSandboxRunning(sandbox);
+            await checkoutSessionBranchWithRetry(
+              sandbox,
+              args.branchName,
+              args.baseBranch,
+            );
+          },
+        );
+        // Download sandbox config files to repo root
+        await runLoggedSessionStep(
+          "reuseTaskSandbox.downloadConfigFiles",
+          sandboxDetails,
+          async () => {
+            const configFiles = await ctx.runQuery(
+              internal.sandboxConfigFiles.getConfigFilesForSnapshot,
+              { repoId: args.repoId },
+            );
+            const filesToDownload = configFiles.filter(
+              (f: {
+                fileName: string;
+                url: string | null;
+              }): f is { fileName: string; url: string } => f.url !== null,
+            );
+            if (filesToDownload.length > 0) {
+              logSession(
+                `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f: { fileName: string }) => f.fileName).join(", ")}`,
+              );
+              for (const file of filesToDownload) {
+                await exec(
+                  sandbox,
+                  `curl -fSL --retry 3 --retry-delay 5 -o '${file.fileName}' '${file.url}'`,
+                  60,
+                  "/tmp/repo",
+                );
+              }
+            }
+          },
+        );
+        const { port: devPort, devCommand } = await runLoggedSessionStep(
+          "reuseTaskSandbox.startSessionServices",
+          sandboxDetails,
+          () => startSessionServices(sandbox, rootDir),
+        );
+        await runLoggedSessionStep(
+          "reuseTaskSandbox.runStartupCommands",
+          sandboxDetails,
+          async () => {
+            const result = await ctx.runAction(
+              internal.daytona.runStartupCommands,
+              { sandboxId: sandbox.id, repoId: args.repoId },
+            );
+            if (result.ran && result.commandCount > 0) {
+              logSession(
+                `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+              );
+            }
+          },
+        );
+        reusedResult = {
+          sandbox,
+          isNew: false,
+          usedSnapshot: false,
+          sandboxDetails,
+          branchName: args.branchName,
+          devPort,
+          devCommand,
+        };
+      }),
+  );
+  if (reused && reusedResult) {
+    return reusedResult;
+  }
+
+  const taskVolumeMounts = await runLoggedSessionStep(
+    "ensureTaskPersistenceVolumes",
+    actionDetails,
+    () =>
+      ensureSessionPersistenceVolumes(
+        daytona,
+        args.repoId,
+        "agentTasks",
+        args.taskId,
+      ),
+  );
+
+  const prepared = await runLoggedSessionStep(
+    "createTaskSandboxAndPrepareRepo",
+    `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
+    () =>
+      createSandboxAndPrepareRepo(
+        daytona,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        sandboxEnvVars,
+        SESSION_LIFECYCLE,
+        snapshotName,
+        taskVolumeMounts,
+        undefined,
+        undefined,
+        { mode: "none" },
+      ),
+  );
+  const sandbox = prepared.sandbox;
+  const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
+
+  await runLoggedSessionStep(
+    "newTaskSandbox.syncRefsForRestore",
+    sandboxDetails,
+    () =>
+      syncSessionRefsForRestore(
+        sandbox,
+        args.installationId,
+        args.repoOwner,
+        args.repoName,
+        args.branchName,
+        args.baseBranch,
+      ),
+  );
+
+  await runLoggedSessionStep(
+    "newTaskSandbox.checkoutBranch",
+    sandboxDetails,
+    () =>
+      checkoutSessionBranchWithRetry(sandbox, args.branchName, args.baseBranch),
+  );
+
+  // Download sandbox config files to repo root
+  await runLoggedSessionStep(
+    "newTaskSandbox.downloadConfigFiles",
+    sandboxDetails,
+    async () => {
+      const configFiles = await ctx.runQuery(
+        internal.sandboxConfigFiles.getConfigFilesForSnapshot,
+        { repoId: args.repoId },
+      );
+      const filesToDownload = configFiles.filter(
+        (f: {
+          fileName: string;
+          url: string | null;
+        }): f is { fileName: string; url: string } => f.url !== null,
+      );
+      if (filesToDownload.length > 0) {
+        logSession(
+          `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f: { fileName: string }) => f.fileName).join(", ")}`,
+        );
+        for (const file of filesToDownload) {
+          await exec(
+            sandbox,
+            `curl -fSL --retry 3 --retry-delay 5 -o '${file.fileName}' '${file.url}'`,
+            60,
+            "/tmp/repo",
+          );
+        }
+      }
+    },
+  );
+
+  const { port: devPort, devCommand } = await runLoggedSessionStep(
+    "newTaskSandbox.startSessionServices",
+    sandboxDetails,
+    () => startSessionServices(sandbox, rootDir),
+  );
+
+  await runLoggedSessionStep(
+    "newTaskSandbox.runStartupCommands",
+    sandboxDetails,
+    async () => {
+      const result = await ctx.runAction(internal.daytona.runStartupCommands, {
+        sandboxId: sandbox.id,
+        repoId: args.repoId,
+      });
+      if (result.ran && result.commandCount > 0) {
+        logSession(
+          `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+        );
+      }
+    },
+  );
+
+  return {
+    sandbox,
+    isNew: true,
+    usedSnapshot: prepared.usedSnapshot,
+    sandboxDetails,
+    branchName: args.branchName,
+    devPort,
+    devCommand,
+  };
+}
+
+/** Starts a task preview sandbox end-to-end and notifies the task of readiness or error. */
+export const startTaskPreviewSandbox = internalAction({
+  args: {
+    taskId: v.id("agentTasks"),
+    existingSandboxId: v.optional(v.string()),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const actionStartedAt = Date.now();
+    const actionDetails = `taskId=${args.taskId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
+    logSession(`startTaskPreviewSandbox invoked (${actionDetails})`);
+    try {
+      const prepared = await prepareTaskPreviewSandboxInternal(ctx, {
+        taskId: args.taskId,
+        existingSandboxId: args.existingSandboxId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        branchName: args.branchName,
+        baseBranch: args.baseBranch,
+        repoId: args.repoId,
+      });
+      await runLoggedSessionStep(
+        prepared.isNew
+          ? "newTaskSandbox.sandboxReady"
+          : "reuseTaskSandbox.sandboxReady",
+        prepared.sandboxDetails,
+        () =>
+          ctx.runMutation(internal.agentTasks.taskSandboxReady, {
+            taskId: args.taskId,
+            sandboxId: prepared.sandbox.id,
+            isNew: prepared.isNew,
+            devPort: prepared.devPort,
+            devCommand: prepared.devCommand,
+          }),
+      );
+      logSession(
+        `startTaskPreviewSandbox completed in ${formatDurationMs(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
+      );
+    } catch (e) {
+      console.error(
+        `[daytona][sessions] startTaskPreviewSandbox failed after ${formatDurationMs(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
+      );
+      await ctx.runMutation(internal.agentTasks.taskSandboxError, {
+        taskId: args.taskId,
+        error: errorMessage(e, "Unknown error"),
+      });
+    }
+    return null;
+  },
+});

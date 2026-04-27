@@ -646,6 +646,12 @@ export const logEntryValidator = v.object({
   message: v.string(),
 });
 
+export const previewSandboxStatusValidator = v.union(
+  v.literal("starting"),
+  v.literal("active"),
+  v.literal("closed"),
+);
+
 export const agentTaskFields = {
   title: v.string(),
   description: v.optional(v.string()),
@@ -664,6 +670,8 @@ export const agentTaskFields = {
   scheduledRetryAt: v.optional(v.number()),
   scheduledAt: v.optional(v.number()),
   scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
+  previewSandboxId: v.optional(v.string()),
+  previewSandboxStatus: v.optional(previewSandboxStatusValidator),
 };
 
 export const agentRunFields = {

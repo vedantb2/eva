@@ -1,5 +1,11 @@
 # Changelog
 
+## Quick Task Sandbox Preview - 2026-04-27
+
+- **Why**: Users need to test database migrations and app changes locally before merging; running migrations programmatically during task execution can't cover all edge cases, so local testing with actual startup commands (supabase start, seed) is essential.
+- **Changes**: Added `previewSandboxId` and `previewSandboxStatus` fields to agentTasks to track sandbox state; created `startTaskSandbox` and `stopTaskSandbox` mutations with durable workflow; integrated Daytona to reuse existing sandboxes or create new ones; added TaskSandboxPanel component for dev server preview with port configuration and sessionStorage caching; added "Start Sandbox" button to task detail (code_review/business_review only) with toggle between Details and Sandbox views.
+- **Reason**: Enables local iteration on migrations and schema changes without GitHub workflow friction; support for per-app startup commands aligns with existing infrastructure.
+
 ## Move startup commands to per-app configuration - 2026-04-27
 
 - **Why**: Monorepos with multiple apps need independent startup command configuration; a single shared snapshot config doesn't support per-app services (e.g., app A runs `supabase start`, app B runs `postgres`).

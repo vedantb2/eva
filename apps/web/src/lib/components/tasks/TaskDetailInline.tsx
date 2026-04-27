@@ -1,7 +1,14 @@
 "use client";
 
 import type { Id } from "@conductor/backend";
-import { Badge, Tabs, TabsList, TabsTrigger, TabsContent } from "@conductor/ui";
+import {
+  Badge,
+  Button,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@conductor/ui";
 import {
   IconTerminal2,
   IconPhoto,
@@ -9,6 +16,9 @@ import {
   IconMessagePlus,
   IconLoader2,
   IconClock,
+  IconPlayerPlay,
+  IconPlayerStop,
+  IconArrowLeft,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useTaskDetail } from "./useTaskDetail";
@@ -23,6 +33,7 @@ import { StatusFieldsSection } from "./_components/StatusFieldsSection";
 import { TaskFooter } from "./_components/TaskFooter";
 import { StopConfirmDialog } from "./_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "./_components/ResolveConfirmDialog";
+import { TaskSandboxPanel } from "./TaskSandboxPanel";
 
 interface TaskDetailInlineProps {
   onClose: () => void;
@@ -78,12 +89,84 @@ export function TaskDetailInline({
     handleStartExecution,
     handleStopExecution,
     handleResolveConflicts,
+    // Sandbox preview
+    canStartSandbox,
+    showSandbox,
+    isSandboxActive,
+    isSandboxStarting,
+    isSandboxStopping,
+    handleStartSandbox,
+    handleStopSandbox,
+    handleToggleSandboxView,
+    previewSandboxId,
   } = useTaskDetail(taskId);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <IconLoader2 size={20} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Show sandbox panel when active and user wants to see it
+  if (showSandbox && (isSandboxActive || isSandboxStarting)) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Sandbox header with back button and stop controls */}
+        <div className="flex items-center justify-between px-4 py-3 shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleToggleSandboxView}
+            className="gap-1.5"
+          >
+            <IconArrowLeft size={16} />
+            Back to Details
+          </Button>
+          <div className="flex items-center gap-2">
+            {isSandboxStarting && !isSandboxActive ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <IconLoader2 size={16} className="animate-spin" />
+                Starting sandbox...
+              </div>
+            ) : null}
+            {isSandboxActive ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleStopSandbox}
+                disabled={isSandboxStopping}
+                className="gap-1.5"
+              >
+                {isSandboxStopping ? (
+                  <IconLoader2 size={14} className="animate-spin" />
+                ) : (
+                  <IconPlayerStop size={14} />
+                )}
+                Stop Sandbox
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        {/* Sandbox panel */}
+        <div className="flex-1 min-h-0">
+          {isSandboxActive && previewSandboxId && task?.repoId ? (
+            <TaskSandboxPanel
+              taskId={taskId}
+              sandboxId={previewSandboxId}
+              isActive={isSandboxActive}
+              repoId={task.repoId}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <IconLoader2 size={20} className="animate-spin" />
+                Preparing sandbox...
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -103,6 +186,51 @@ export function TaskDetailInline({
                     taskId={taskId}
                   />
                   <div className="flex items-center gap-2 mt-2">
+                    {/* Sandbox controls */}
+                    {canStartSandbox ? (
+                      isSandboxActive ? (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleToggleSandboxView}
+                            className="gap-1.5"
+                          >
+                            <IconTerminal2 size={14} />
+                            View Sandbox
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleStopSandbox}
+                            disabled={isSandboxStopping}
+                            className="gap-1.5 text-muted-foreground"
+                          >
+                            {isSandboxStopping ? (
+                              <IconLoader2 size={14} className="animate-spin" />
+                            ) : (
+                              <IconPlayerStop size={14} />
+                            )}
+                            Stop
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleStartSandbox}
+                          disabled={isSandboxStarting}
+                          className="gap-1.5"
+                        >
+                          {isSandboxStarting ? (
+                            <IconLoader2 size={14} className="animate-spin" />
+                          ) : (
+                            <IconPlayerPlay size={14} />
+                          )}
+                          Start Sandbox
+                        </Button>
+                      )
+                    ) : null}
                     {task?.scheduledAt ? (
                       <Badge
                         variant="outline"

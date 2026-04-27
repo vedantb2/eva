@@ -5,8 +5,10 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
+
+const PREVIEW_SANDBOX_ALLOWED_STATUSES = ["code_review", "business_review"];
 
 export function useTaskDetail(taskId: Id<"agentTasks">) {
   const taskResult = useQuery(api.agentTasks.get, { id: taskId });
@@ -68,8 +70,13 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
 
   const startExecution = useMutation(api.agentTasks.startExecution);
   const cancelExecution = useMutation(api.taskWorkflow.cancelExecution);
+  const startTaskSandboxMutation = useMutation(api.agentTasks.startTaskSandbox);
+  const stopTaskSandboxMutation = useMutation(api.agentTasks.stopTaskSandbox);
 
   const [baseBranch, setBaseBranch] = useState("main");
+  const [showSandbox, setShowSandbox] = useState(false);
+  const [isSandboxStarting, setIsSandboxStarting] = useState(false);
+  const [isSandboxStopping, setIsSandboxStopping] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
@@ -118,6 +125,41 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
       setIsStopping(false);
     }
   };
+
+  const canStartSandbox =
+    task?.status !== undefined &&
+    PREVIEW_SANDBOX_ALLOWED_STATUSES.includes(task.status);
+
+  const isSandboxActive = task?.previewSandboxStatus === "active";
+  const isSandboxStartingFromStatus = task?.previewSandboxStatus === "starting";
+
+  const handleStartSandbox = useCallback(async () => {
+    setIsSandboxStarting(true);
+    try {
+      await startTaskSandboxMutation({ taskId });
+      setShowSandbox(true);
+    } catch (err) {
+      console.error("Failed to start sandbox:", err);
+    } finally {
+      setIsSandboxStarting(false);
+    }
+  }, [startTaskSandboxMutation, taskId]);
+
+  const handleStopSandbox = useCallback(async () => {
+    setIsSandboxStopping(true);
+    try {
+      await stopTaskSandboxMutation({ taskId });
+      setShowSandbox(false);
+    } catch (err) {
+      console.error("Failed to stop sandbox:", err);
+    } finally {
+      setIsSandboxStopping(false);
+    }
+  }, [stopTaskSandboxMutation, taskId]);
+
+  const handleToggleSandboxView = useCallback(() => {
+    setShowSandbox((prev) => !prev);
+  }, []);
 
   const status = task?.status;
   const showProofSection = status !== undefined && status !== "todo";
@@ -190,6 +232,19 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     handleStartExecution,
     handleStopExecution,
     handleResolveConflicts,
+
+    // Sandbox preview
+    canStartSandbox,
+    showSandbox,
+    setShowSandbox,
+    isSandboxActive,
+    isSandboxStarting: isSandboxStarting || isSandboxStartingFromStatus,
+    isSandboxStopping,
+    handleStartSandbox,
+    handleStopSandbox,
+    handleToggleSandboxView,
+    previewSandboxId: task?.previewSandboxId,
+    previewSandboxStatus: task?.previewSandboxStatus,
 
     layoutGridClass,
     modalWidthClass,

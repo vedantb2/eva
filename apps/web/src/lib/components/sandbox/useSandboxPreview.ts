@@ -5,6 +5,7 @@ import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
+import { useSessionStorage } from "usehooks-ts";
 import { previewPortParser } from "@/lib/search-params";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 
@@ -36,33 +37,11 @@ interface UseSandboxPreviewArgs {
   cacheScope: string;
 }
 
-function readCache(cacheScope: string, port: number): PreviewInfo | null {
-  try {
-    const raw = sessionStorage.getItem(`conductor:${cacheScope}:${port}`);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { url: string; port: number };
-    return { url: parsed.url, port: parsed.port };
-  } catch {
-    return null;
-  }
-}
-
-function writeCache(cacheScope: string, info: PreviewInfo) {
-  sessionStorage.setItem(
-    `conductor:${cacheScope}:${info.port}`,
-    JSON.stringify({ url: info.url, port: info.port }),
-  );
-}
-
-function clearCache(cacheScope: string, port: number) {
-  sessionStorage.removeItem(`conductor:${cacheScope}:${port}`);
-}
-
 /**
  * Drives the WebPreview pane: resolves a sandbox+port to a live URL, polls
  * until the dev server is reachable, and caches the resolved URL in
- * sessionStorage so navigating back doesn't re-fetch. Used by both the
- * session and quick-task sandbox panels.
+ * sessionStorage (via `useSessionStorage`) so navigating back doesn't
+ * re-fetch. Used by both the session and quick-task sandbox panels.
  */
 export function useSandboxPreview({
   sandboxId,
@@ -71,12 +50,19 @@ export function useSandboxPreview({
   devPort,
   cacheScope,
 }: UseSandboxPreviewArgs): SandboxPreviewApi {
-  const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const [port, setPort] = useQueryState("port", previewPortParser);
   const effectivePort = devPort ?? port;
+
+  // sessionStorage acts as both cache and live state — when port changes
+  // useSessionStorage re-reads the new key automatically.
+  const [previewInfo, setPreviewInfo] = useSessionStorage<PreviewInfo | null>(
+    `conductor:${cacheScope}:${effectivePort}`,
+    null,
+  );
+
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -102,7 +88,6 @@ export function useSandboxPreview({
       if (data.ready) {
         await dismissDaytonaWarning(data.url);
         setPreviewInfo(data);
-        writeCache(cacheScope, data);
         setIframeKey((k) => k + 1);
         setIsLoading(false);
       } else {
@@ -121,30 +106,25 @@ export function useSandboxPreview({
     stopPolling,
     repoId,
     effectivePort,
-    cacheScope,
+    setPreviewInfo,
   ]);
 
   useEffect(() => {
     if (isActive && sandboxId) {
-      const cached = readCache(cacheScope, effectivePort);
-      if (cached) {
-        setPreviewInfo(cached);
-        return;
-      }
+      // useSessionStorage already hydrated `previewInfo` from cache; only
+      // fetch if there isn't one yet for this port.
+      if (previewInfo) return;
       fetchPreview();
     }
     if (!isActive) {
-      clearCache(cacheScope, effectivePort);
+      setPreviewInfo(null);
     }
     return stopPolling;
-  }, [
-    isActive,
-    sandboxId,
-    fetchPreview,
-    stopPolling,
-    cacheScope,
-    effectivePort,
-  ]);
+    // We intentionally omit `previewInfo` from deps — re-running on every
+    // cache write would cause a fetch loop. The cached value is only checked
+    // on (isActive, sandboxId, port) transitions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, sandboxId, effectivePort, fetchPreview, stopPolling]);
 
   return {
     previewInfo,

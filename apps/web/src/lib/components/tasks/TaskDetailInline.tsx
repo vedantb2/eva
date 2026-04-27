@@ -157,6 +157,8 @@ export function TaskDetailInline({
               sandboxId={sandboxId}
               isActive={isSandboxActive}
               repoId={task.repoId}
+              devPort={task.devPort}
+              devCommand={task.devCommand}
             />
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">

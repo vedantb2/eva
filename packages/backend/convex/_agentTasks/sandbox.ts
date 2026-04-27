@@ -111,6 +111,8 @@ export const taskSandboxReady = internalMutation({
       sandboxId: args.sandboxId,
       reviewTaskSandboxStatus: "active",
       updatedAt: Date.now(),
+      devPort: args.devPort,
+      devCommand: args.devCommand,
     });
 
     return null;

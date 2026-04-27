@@ -16,7 +16,16 @@ interface TaskSandboxPanelProps {
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
+  /**
+   * Resolved dev port for the current sandbox (taken from `agentTasks.devPort`,
+   * which `taskSandboxReady` populates from `startSessionServices` — already
+   * accounts for any per-app override on the repo).
+   */
   devPort?: number;
+  /**
+   * Full dev command for the current sandbox. Wired into the first terminal
+   * pane so it auto-starts the dev server with the resolved PORT.
+   */
   devCommand?: string;
 }
 

@@ -676,6 +676,12 @@ export const agentTaskFields = {
   sandboxId: v.optional(v.string()),
   // UI state for the reviewer-facing Start/Stop sandbox button.
   reviewTaskSandboxStatus: v.optional(taskSandboxStatusValidator),
+  // Resolved dev server port + full command for the current sandbox. Stored
+  // so the task panel can route the preview iframe to the right port and
+  // auto-run the dev server in the first terminal pane. Populated by
+  // taskSandboxReady from startSessionServices() output.
+  devPort: v.optional(v.number()),
+  devCommand: v.optional(v.string()),
 };
 
 export const agentRunFields = {

@@ -5,7 +5,7 @@ import { authMutation, authQuery, hasRepoAccess } from "./functions";
 /** Regex for safe filenames: alphanumeric, dash, underscore, dot only. */
 const SAFE_FILENAME_REGEX = /^[a-zA-Z0-9._-]+$/;
 
-/** Generates an upload URL for a sandbox config file. */
+/** Generates an upload URL for a sandbox config file (or one chunk of one). */
 export const generateUploadUrl = authMutation({
   args: { repoId: v.id("githubRepos") },
   returns: v.string(),
@@ -17,11 +17,15 @@ export const generateUploadUrl = authMutation({
   },
 });
 
-/** Saves a sandbox config file record, replacing any existing file with the same name. */
+/**
+ * Saves a sandbox config file record from an array of chunk storage IDs.
+ * Replaces any existing file with the same name (deleting all of its chunks).
+ * For files small enough to fit in a single upload, pass a 1-element array.
+ */
 export const save = authMutation({
   args: {
     repoId: v.id("githubRepos"),
-    storageId: v.id("_storage"),
+    chunks: v.array(v.id("_storage")),
     fileName: v.string(),
     fileSize: v.number(),
   },
@@ -29,6 +33,10 @@ export const save = authMutation({
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Not authorized");
+    }
+
+    if (args.chunks.length === 0) {
+      throw new Error("At least one chunk is required");
     }
 
     // Validate filename for shell safety
@@ -46,11 +54,19 @@ export const save = authMutation({
       .first();
 
     if (existing) {
-      // Delete the old storage file
-      await ctx.storage.delete(existing.storageId);
-      // Update the record
+      // Delete all old storage blobs (legacy single-blob and/or chunks)
+      if (existing.storageId) {
+        await ctx.storage.delete(existing.storageId);
+      }
+      if (existing.chunks) {
+        for (const chunkId of existing.chunks) {
+          await ctx.storage.delete(chunkId);
+        }
+      }
+      // Update the record (clear legacy storageId, set chunks)
       await ctx.db.patch(existing._id, {
-        storageId: args.storageId,
+        storageId: undefined,
+        chunks: args.chunks,
         fileSize: args.fileSize,
         uploadedBy: ctx.userId,
         createdAt: Date.now(),
@@ -61,7 +77,7 @@ export const save = authMutation({
     // Insert new record
     return await ctx.db.insert("sandboxConfigFiles", {
       repoId: args.repoId,
-      storageId: args.storageId,
+      chunks: args.chunks,
       fileName: args.fileName,
       fileSize: args.fileSize,
       uploadedBy: ctx.userId,
@@ -78,7 +94,8 @@ export const list = authQuery({
       _id: v.id("sandboxConfigFiles"),
       _creationTime: v.number(),
       repoId: v.id("githubRepos"),
-      storageId: v.id("_storage"),
+      storageId: v.optional(v.id("_storage")),
+      chunks: v.optional(v.array(v.id("_storage"))),
       fileName: v.string(),
       fileSize: v.number(),
       uploadedBy: v.id("users"),
@@ -97,7 +114,7 @@ export const list = authQuery({
   },
 });
 
-/** Removes a sandbox config file and its storage. */
+/** Removes a sandbox config file and all of its storage blobs. */
 export const remove = authMutation({
   args: { id: v.id("sandboxConfigFiles") },
   returns: v.null(),
@@ -109,19 +126,30 @@ export const remove = authMutation({
       throw new Error("Not authorized");
     }
 
-    await ctx.storage.delete(file.storageId);
+    if (file.storageId) {
+      await ctx.storage.delete(file.storageId);
+    }
+    if (file.chunks) {
+      for (const chunkId of file.chunks) {
+        await ctx.storage.delete(chunkId);
+      }
+    }
     await ctx.db.delete(args.id);
     return null;
   },
 });
 
-/** Internal query to get config file URLs for snapshot build. */
+/**
+ * Internal query returning each config file as an ordered list of chunk URLs.
+ * Legacy single-blob records are returned as a 1-element chunkUrls array.
+ * The snapshot/sandbox builder downloads each chunk in order and concatenates.
+ */
 export const getConfigFilesForSnapshot = internalQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(
     v.object({
       fileName: v.string(),
-      url: v.union(v.string(), v.null()),
+      chunkUrls: v.array(v.union(v.string(), v.null())),
     }),
   ),
   handler: async (ctx, args) => {
@@ -130,10 +158,18 @@ export const getConfigFilesForSnapshot = internalQuery({
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
 
-    const results: Array<{ fileName: string; url: string | null }> = [];
+    const results: Array<{
+      fileName: string;
+      chunkUrls: Array<string | null>;
+    }> = [];
     for (const file of files) {
-      const url = await ctx.storage.getUrl(file.storageId);
-      results.push({ fileName: file.fileName, url });
+      // Prefer chunks (new format); fall back to legacy single storageId
+      const chunkIds = file.chunks ?? (file.storageId ? [file.storageId] : []);
+      const chunkUrls: Array<string | null> = [];
+      for (const chunkId of chunkIds) {
+        chunkUrls.push(await ctx.storage.getUrl(chunkId));
+      }
+      results.push({ fileName: file.fileName, chunkUrls });
     }
     return results;
   },

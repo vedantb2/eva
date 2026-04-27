@@ -492,7 +492,28 @@ function WarmupStatusBadge({
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/**
+ * Chunk size for splitting large file uploads. Convex enforces a 2-minute
+ * server-side timeout on upload POSTs, so a 600MB single upload reliably stalls
+ * once the server stops draining the TCP receive buffer. 100MB chunks finish
+ * well within the timeout on broadband connections (~8s at 100Mbps, ~80s at
+ * 10Mbps) and the snapshot/sandbox builder concatenates them back with `cat`.
+ */
+const UPLOAD_CHUNK_SIZE_BYTES = 100 * 1024 * 1024;
+
+/** Extracts the storage ID from Convex's upload URL response body. */
+function parseStorageIdResponse(text: string): Id<"_storage"> | null {
+  try {
+    const response = JSON.parse(text);
+    return typeof response.storageId === "string" ? response.storageId : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Config files section for uploading files to be baked into snapshots. */
@@ -512,6 +533,10 @@ function ConfigFilesSection({
   const startBuild = useMutation(api.repoSnapshots.startBuild);
 
   const [uploading, setUploading] = useState(false);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
+  const [chunkIndex, setChunkIndex] = useState(0);
+  const [chunkCount, setChunkCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -519,32 +544,57 @@ function ConfigFilesSection({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const totalChunks = Math.max(
+      1,
+      Math.ceil(file.size / UPLOAD_CHUNK_SIZE_BYTES),
+    );
+
     setUploading(true);
+    setUploadedBytes(0);
+    setTotalBytes(file.size);
+    setChunkIndex(0);
+    setChunkCount(totalChunks);
     setError(null);
 
     try {
-      // Get upload URL
-      const uploadUrl = await generateUploadUrl({ repoId });
+      // Upload each chunk: fresh upload URL per chunk, POST the slice, collect
+      // storage IDs. Sequential keeps memory bounded and progress monotonic;
+      // parallelism would only help for many small chunks, which isn't our case.
+      const chunkIds: Id<"_storage">[] = [];
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * UPLOAD_CHUNK_SIZE_BYTES;
+        const end = Math.min(start + UPLOAD_CHUNK_SIZE_BYTES, file.size);
+        const chunk = file.slice(start, end);
+        setChunkIndex(i + 1);
 
-      // Upload file to Convex storage
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
-
-      if (!result.ok) {
-        throw new Error("Failed to upload file");
+        const uploadUrl = await generateUploadUrl({ repoId });
+        const result = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+          },
+          body: chunk,
+        });
+        const responseText = await result.text();
+        if (!result.ok) {
+          throw new Error(
+            `Upload failed at chunk ${i + 1}/${totalChunks} (status ${result.status}): ${responseText}`,
+          );
+        }
+        const storageId = parseStorageIdResponse(responseText);
+        if (!storageId) {
+          throw new Error(
+            `Invalid response from storage at chunk ${i + 1}/${totalChunks}`,
+          );
+        }
+        chunkIds.push(storageId);
+        setUploadedBytes(end);
       }
 
-      const { storageId } = (await result.json()) as {
-        storageId: Id<"_storage">;
-      };
-
-      // Save file record
+      // Save file record with all chunk IDs in order
       await saveFile({
         repoId,
-        storageId,
+        chunks: chunkIds,
         fileName: file.name,
         fileSize: file.size,
       });
@@ -553,6 +603,10 @@ function ConfigFilesSection({
       setError(message);
     } finally {
       setUploading(false);
+      setUploadedBytes(0);
+      setTotalBytes(0);
+      setChunkIndex(0);
+      setChunkCount(0);
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -628,11 +682,18 @@ function ConfigFilesSection({
             onClick={() => fileInputRef.current?.click()}
           >
             {uploading ? (
-              <Spinner size="sm" className="mr-1.5" />
+              <>
+                <Spinner size="sm" className="mr-1.5" />
+                {totalBytes === 0
+                  ? "Preparing..."
+                  : `Chunk ${chunkIndex}/${chunkCount} • ${formatFileSize(uploadedBytes)} / ${formatFileSize(totalBytes)}`}
+              </>
             ) : (
-              <IconUpload size={14} className="mr-1.5" />
+              <>
+                <IconUpload size={14} className="mr-1.5" />
+                Upload File
+              </>
             )}
-            Upload File
           </Button>
           {snapshotId && files && files.length > 0 && (
             <Button size="sm" onClick={handleRebuild}>

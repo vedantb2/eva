@@ -11,6 +11,7 @@ import {
   errorMessage,
   sleep,
   workspaceDirShell,
+  downloadSandboxConfigFiles,
 } from "./helpers";
 import {
   setupBranch,
@@ -405,26 +406,13 @@ async function prepareSessionSandboxInternal(
               internal.sandboxConfigFiles.getConfigFilesForSnapshot,
               { repoId: args.repoId },
             );
-            const filesToDownload = configFiles.filter(
-              (f: {
-                fileName: string;
-                url: string | null;
-              }): f is { fileName: string; url: string } => f.url !== null,
+            // Download to repo root (/tmp/repo), not rootDir (which may be a subdirectory like apps/web)
+            await downloadSandboxConfigFiles(
+              sandbox,
+              configFiles,
+              "/tmp/repo",
+              logSession,
             );
-            if (filesToDownload.length > 0) {
-              logSession(
-                `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f: { fileName: string }) => f.fileName).join(", ")}`,
-              );
-              for (const file of filesToDownload) {
-                // Download to repo root (/tmp/repo), not rootDir (which may be a subdirectory like apps/web)
-                await exec(
-                  sandbox,
-                  `curl -fSL --retry 3 --retry-delay 5 -o '${file.fileName}' '${file.url}'`,
-                  60,
-                  "/tmp/repo",
-                );
-              }
-            }
           },
         );
         const { port: devPort, devCommand } = await runLoggedSessionStep(
@@ -588,26 +576,13 @@ async function prepareSessionSandboxInternal(
         internal.sandboxConfigFiles.getConfigFilesForSnapshot,
         { repoId: args.repoId },
       );
-      const filesToDownload = configFiles.filter(
-        (f: {
-          fileName: string;
-          url: string | null;
-        }): f is { fileName: string; url: string } => f.url !== null,
+      // Download to repo root (/tmp/repo), not rootDir (which may be a subdirectory like apps/web)
+      await downloadSandboxConfigFiles(
+        sandbox,
+        configFiles,
+        "/tmp/repo",
+        logSession,
       );
-      if (filesToDownload.length > 0) {
-        logSession(
-          `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f: { fileName: string }) => f.fileName).join(", ")}`,
-        );
-        for (const file of filesToDownload) {
-          // Download to repo root (/tmp/repo), not rootDir (which may be a subdirectory like apps/web)
-          await exec(
-            sandbox,
-            `curl -fSL --retry 3 --retry-delay 5 -o '${file.fileName}' '${file.url}'`,
-            60,
-            "/tmp/repo",
-          );
-        }
-      }
     },
   );
   completedSteps.push({
@@ -959,25 +934,12 @@ async function prepareTaskPreviewSandboxInternal(
               internal.sandboxConfigFiles.getConfigFilesForSnapshot,
               { repoId: args.repoId },
             );
-            const filesToDownload = configFiles.filter(
-              (f: {
-                fileName: string;
-                url: string | null;
-              }): f is { fileName: string; url: string } => f.url !== null,
+            await downloadSandboxConfigFiles(
+              sandbox,
+              configFiles,
+              "/tmp/repo",
+              logSession,
             );
-            if (filesToDownload.length > 0) {
-              logSession(
-                `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f: { fileName: string }) => f.fileName).join(", ")}`,
-              );
-              for (const file of filesToDownload) {
-                await exec(
-                  sandbox,
-                  `curl -fSL --retry 3 --retry-delay 5 -o '${file.fileName}' '${file.url}'`,
-                  60,
-                  "/tmp/repo",
-                );
-              }
-            }
           },
         );
         const { port: devPort, devCommand } = await runLoggedSessionStep(
@@ -1078,25 +1040,12 @@ async function prepareTaskPreviewSandboxInternal(
         internal.sandboxConfigFiles.getConfigFilesForSnapshot,
         { repoId: args.repoId },
       );
-      const filesToDownload = configFiles.filter(
-        (f: {
-          fileName: string;
-          url: string | null;
-        }): f is { fileName: string; url: string } => f.url !== null,
+      await downloadSandboxConfigFiles(
+        sandbox,
+        configFiles,
+        "/tmp/repo",
+        logSession,
       );
-      if (filesToDownload.length > 0) {
-        logSession(
-          `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f: { fileName: string }) => f.fileName).join(", ")}`,
-        );
-        for (const file of filesToDownload) {
-          await exec(
-            sandbox,
-            `curl -fSL --retry 3 --retry-delay 5 -o '${file.fileName}' '${file.url}'`,
-            60,
-            "/tmp/repo",
-          );
-        }
-      }
     },
   );
 

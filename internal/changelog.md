@@ -1,5 +1,17 @@
 # Changelog
 
+## Chunked sandbox config file uploads - 2026-04-27
+
+- **Why**: Convex storage upload URLs enforce a 2-minute server-side POST timeout, so single-blob uploads of files larger than ~500MB reliably stall once the TCP receive buffer fills, blocking large database backups and assets from being baked into snapshots.
+- **Changes**: `sandboxConfigFiles` now stores an ordered `chunks` array of storage IDs alongside the legacy `storageId` for backwards compatibility; client splits files into 100MB chunks and uploads each with its own fresh upload URL; snapshot Dockerfile builder and runtime sandbox prep download all chunks and concatenate them with `cat` into the original file (single-chunk files use a direct `curl -o`); shared download logic extracted into `_daytona/helpers.ts` and reused across all four download sites; bumped snapshot memory from 8GB to 12GB.
+- **Reason**: Per-chunk POSTs comfortably fit inside Convex's 2-minute window even on slow connections, the legacy `storageId` field stays readable so existing uploads keep working, and joining each file's curl/cat/rm into a single Dockerfile RUN keeps the snapshot image from ballooning with intermediate `/tmp` chunk layers.
+
+## Clarify large config file upload limits - 2026-04-27
+
+- **Why**: Convex storage upload URLs require the file POST to finish within 2 minutes, so very large config files can stall or fail after long waits.
+- **Changes**: Snapshot config uploads now use Convex's documented fetch-based upload path, use a timeout aligned with Convex's upload window, and remove noisy upload debug logging.
+- **Reason**: Avoids the cross-origin XHR upload path that can stall on large files while preserving the existing storage ID mutation contract.
+
 ## Quick Task Sandbox Preview - 2026-04-27
 
 - **Why**: Users need to test database migrations and app changes locally before merging; running migrations programmatically during task execution can't cover all edge cases, so local testing with actual startup commands (supabase start, seed) is essential.

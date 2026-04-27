@@ -5,7 +5,12 @@ import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { resolveAllEnvVars } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
-import { getDaytona } from "./_daytona/helpers";
+import {
+  getDaytona,
+  buildConfigFileDownloadCommands,
+  filterDownloadableConfigFiles,
+  type SandboxConfigFile,
+} from "./_daytona/helpers";
 import { Image } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
 
@@ -26,9 +31,6 @@ function extractUrl(data: unknown): string | null {
   return null;
 }
 
-/** Config file with URL for snapshot build. */
-type ConfigFile = { fileName: string; url: string | null };
-
 /**
  * Builds a Daytona Image definition that mirrors the old rebuild-snapshot.yml Dockerfile.
  * The key difference is using `git clone` (with an installation token) instead of COPY
@@ -39,7 +41,7 @@ function buildSnapshotImage(
   owner: string,
   repoName: string,
   branch: string,
-  configFiles: ConfigFile[] = [],
+  configFiles: SandboxConfigFile[] = [],
 ): Image {
   const appSlug = process.env.GITHUB_APP_SLUG;
   const botUserId = process.env.GITHUB_BOT_USER_ID;
@@ -111,13 +113,13 @@ function buildSnapshotImage(
     )
     .workdir("/tmp/repo")
     .runCommands(
-      // Download config files directly to repo root
-      ...configFiles
-        .filter((f): f is { fileName: string; url: string } => f.url !== null)
-        .map(
-          (f) =>
-            `curl -fSL --retry 3 --retry-delay 5 -o '${f.fileName}' '${f.url}'`,
-        ),
+      // Download config files directly to repo root. Each file's commands are
+      // joined with && into a single RUN so multi-chunk downloads (curl chunks
+      // to /tmp, cat into final file, rm chunks) all live in one Docker layer —
+      // otherwise intermediate layers would balloon image size with /tmp blobs.
+      ...filterDownloadableConfigFiles(configFiles).map((f) =>
+        buildConfigFileDownloadCommands(f).join(" && "),
+      ),
       // Install dependencies
       "pnpm install --frozen-lockfile",
     );
@@ -210,7 +212,7 @@ export const kickOffSnapshotBuild = internalAction({
     const branch = config.workflowRef ?? "main";
 
     // Query sandbox config files for this repo
-    const configFiles: ConfigFile[] = await ctx.runQuery(
+    const configFiles: SandboxConfigFile[] = await ctx.runQuery(
       internal.sandboxConfigFiles.getConfigFilesForSnapshot,
       { repoId: config.repoId },
     );
@@ -224,7 +226,7 @@ export const kickOffSnapshotBuild = internalAction({
       configFiles,
     );
 
-    const configFileCount = configFiles.filter((f) => f.url !== null).length;
+    const configFileCount = filterDownloadableConfigFiles(configFiles).length;
     await ctx.runMutation(internal.repoSnapshots.appendLogs, {
       buildId: args.buildId,
       chunk:
@@ -250,7 +252,7 @@ export const kickOffSnapshotBuild = internalAction({
           contextHashes: [],
         },
         cpu: 4,
-        memory: 8,
+        memory: 12,
         disk: 10,
       }),
     });

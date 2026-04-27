@@ -278,6 +278,9 @@ export function QuickTasksListView({
                                       description={task.description}
                                       status={task.status}
                                       hasError={errorTaskIdSet.has(task._id)}
+                                      sandboxStatus={
+                                        task.reviewTaskSandboxStatus
+                                      }
                                       scheduledAt={task.scheduledAt}
                                       tags={task.tags}
                                       createdByUser={users?.find(

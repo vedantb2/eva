@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox status indicator on quick task cards - 2026-04-27
+
+- Quick task cards now show a colored dot (green/amber/grey) reflecting the sandbox status (active/starting/closed), mirroring the session sidebar pattern so reviewers can spot live sandboxes at a glance from any list, kanban, or project view.
+
 ## Multi-tab sandbox panel for quick tasks - 2026-04-27
 
 - Task sandbox now exposes Preview + Terminal tabs (mirroring session sandbox), enabling reviewers to debug dev server startup and in-sandbox runtime issues via live terminal access.

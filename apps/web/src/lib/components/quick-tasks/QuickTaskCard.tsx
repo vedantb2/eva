@@ -5,6 +5,7 @@ import {
   Card,
   CardContent,
   Checkbox,
+  cn,
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
@@ -45,6 +46,26 @@ type Project = FunctionReturnType<typeof api.projects.list>[number];
 
 type DeploymentStatus = "queued" | "building" | "deployed" | "error";
 
+type SandboxStatus = "active" | "starting" | "closed";
+
+const SANDBOX_STATUS_STYLES: Record<
+  SandboxStatus,
+  { dot: string; label: string }
+> = {
+  active: {
+    dot: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]",
+    label: "Sandbox active",
+  },
+  starting: {
+    dot: "bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.5)]",
+    label: "Sandbox starting",
+  },
+  closed: {
+    dot: "bg-muted-foreground/40",
+    label: "Sandbox stopped",
+  },
+};
+
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;
   title: string;
@@ -58,6 +79,7 @@ interface QuickTaskCardProps {
   projectName?: string;
   hasError?: boolean;
   deploymentStatus?: DeploymentStatus;
+  sandboxStatus?: SandboxStatus;
   groupedCodebases?: GroupedCodebase[];
   onClick?: () => void;
   isSelecting?: boolean;
@@ -85,6 +107,7 @@ export function QuickTaskCard({
   projectName,
   hasError = false,
   deploymentStatus,
+  sandboxStatus,
   groupedCodebases,
   onClick,
   isSelecting,
@@ -196,6 +219,21 @@ export function QuickTaskCard({
           </h4>
 
           <div className="flex shrink-0 items-center gap-1">
+            {sandboxStatus ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className={cn(
+                      "size-2 shrink-0 rounded-full",
+                      SANDBOX_STATUS_STYLES[sandboxStatus].dot,
+                    )}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  {SANDBOX_STATUS_STYLES[sandboxStatus].label}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             {deploymentStatus && (
               <Tooltip>
                 <TooltipTrigger asChild>

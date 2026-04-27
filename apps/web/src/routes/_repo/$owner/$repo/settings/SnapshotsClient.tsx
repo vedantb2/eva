@@ -34,17 +34,8 @@ import {
 } from "@tabler/icons-react";
 import { formatDurationMs } from "@/lib/utils/formatDuration";
 
-/** Parses startup commands from textarea value. */
-function parseStartupCommands(text: string): string[] | undefined {
-  const commands = text
-    .split("\n")
-    .map((cmd) => cmd.trim())
-    .filter((cmd) => cmd.length > 0);
-  return commands.length > 0 ? commands : undefined;
-}
-
 export function SnapshotsClient() {
-  const { repoId, repo } = useRepo();
+  const { repoId } = useRepo();
   const snapshot = useQuery(api.repoSnapshots.getRepoSnapshot, { repoId });
   const builds = useQuery(
     api.repoSnapshots.listBuilds,
@@ -53,9 +44,6 @@ export function SnapshotsClient() {
   const saveRepoSnapshot = useMutation(api.repoSnapshots.saveRepoSnapshot);
   const deleteRepoSnapshot = useMutation(api.repoSnapshots.deleteRepoSnapshot);
   const startBuild = useMutation(api.repoSnapshots.startBuild);
-  const updateStartupCommands = useMutation(
-    api.githubRepos.updateStartupCommands,
-  );
 
   // UI-only state (not data)
   const [building, setBuilding] = useState(false);
@@ -64,7 +52,6 @@ export function SnapshotsClient() {
   // Derive values directly from Convex
   const schedule = snapshot?.schedule ?? "manual";
   const workflowRef = snapshot?.workflowRef ?? "main";
-  const startupCommands = repo.startupCommands?.join("\n") ?? "";
 
   // Save on change for schedule
   const handleScheduleChange = (newSchedule: string) => {
@@ -81,18 +68,6 @@ export function SnapshotsClient() {
       repoId,
       schedule,
       workflowRef: newBranch.trim() || undefined,
-    });
-  };
-
-  // Save on blur for startup commands (now per-app)
-  const handleStartupCommandsBlur = (
-    e: React.FocusEvent<HTMLTextAreaElement>,
-  ) => {
-    const newCommands = e.target.value;
-    if (newCommands === startupCommands) return; // No change
-    updateStartupCommands({
-      repoId,
-      startupCommands: parseStartupCommands(newCommands),
     });
   };
 
@@ -168,28 +143,6 @@ export function SnapshotsClient() {
               <p className="mt-1 text-[11px] text-muted-foreground">
                 Branch to clone into the snapshot for dependency pre-caching.
                 Defaults to <code>main</code> if empty.
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
-            <h3 className="text-sm font-medium">Startup Commands</h3>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Commands to run when sandbox starts
-              </label>
-              <textarea
-                key={repoId}
-                defaultValue={startupCommands}
-                onBlur={handleStartupCommandsBlur}
-                className="w-full h-24 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /home/eva/sandbox-config/seed.sql"
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                One command per line. Runs once when sandbox first starts (after
-                snapshot loads). Use for services like{" "}
-                <code>supabase start</code> or database seeding. Commands have a
-                10-minute timeout each. Configured per app.
               </p>
             </div>
           </div>

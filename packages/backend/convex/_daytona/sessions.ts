@@ -25,7 +25,18 @@ import { ensureSessionPersistenceVolumes } from "./volumes";
 import { detectPackageManager, startSessionServices } from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
+import type { Doc } from "../_generated/dataModel";
 import { startDesktopWithChrome } from "./desktop";
+
+/** Per-app dev server overrides loaded from the githubRepos doc. */
+function devOverrides(
+  repo: Doc<"githubRepos"> | null,
+): { devPort?: number; devCommand?: string } | undefined {
+  if (!repo) return undefined;
+  if (repo.devPort === undefined && repo.devCommand === undefined)
+    return undefined;
+  return { devPort: repo.devPort, devCommand: repo.devCommand };
+}
 
 /** Formats a duration in milliseconds as a human-readable string. */
 function formatDurationMs(durationMs: number): string {
@@ -418,7 +429,7 @@ async function prepareSessionSandboxInternal(
         const { port: devPort, devCommand } = await runLoggedSessionStep(
           "reuseSessionSandbox.startSessionServices",
           sandboxDetails,
-          () => startSessionServices(sandbox, rootDir),
+          () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
         );
         if (args.startDesktop) {
           await runLoggedSessionStep(
@@ -600,7 +611,7 @@ async function prepareSessionSandboxInternal(
   const { port: devPort, devCommand } = await runLoggedSessionStep(
     "newSessionSandbox.startSessionServices",
     sandboxDetails,
-    () => startSessionServices(sandbox, rootDir),
+    () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
   );
   completedSteps.push({
     type: "tool",
@@ -810,6 +821,7 @@ export const startDesignSandbox = internalAction({
           const { port: devPort, devCommand } = await startSessionServices(
             sandbox,
             rootDir,
+            devOverrides(repo),
           );
           await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
           await ctx.runMutation(internal.designSessions.sandboxReady, {
@@ -852,6 +864,7 @@ export const startDesignSandbox = internalAction({
       const { port: devPort, devCommand } = await startSessionServices(
         sandbox,
         rootDir,
+        devOverrides(repo),
       );
       await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
 
@@ -945,7 +958,7 @@ async function prepareTaskPreviewSandboxInternal(
         const { port: devPort, devCommand } = await runLoggedSessionStep(
           "reuseTaskSandbox.startSessionServices",
           sandboxDetails,
-          () => startSessionServices(sandbox, rootDir),
+          () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
         );
         await runLoggedSessionStep(
           "reuseTaskSandbox.runStartupCommands",
@@ -1052,7 +1065,7 @@ async function prepareTaskPreviewSandboxInternal(
   const { port: devPort, devCommand } = await runLoggedSessionStep(
     "newTaskSandbox.startSessionServices",
     sandboxDetails,
-    () => startSessionServices(sandbox, rootDir),
+    () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
   );
 
   await runLoggedSessionStep(

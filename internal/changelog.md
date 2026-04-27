@@ -1,5 +1,11 @@
 # Changelog
 
+## Per-app dev server configuration (port, command, startup) - 2026-04-27
+
+- **Why**: Auto-detected dev server ports (5173 for vite, 3000 for next) don't work for all projects; startup commands lived on snapshots despite being per-app runtime config, creating confusion between snapshot and app lifecycle.
+- **Changes**: Added `devPort` and `devCommand` fields to `githubRepos`; extended `updateConfig` mutation to handle all three (devPort, devCommand, startupCommands); moved startup commands UI from Snapshots tab to new dedicated "App" settings tab; `startSessionServices` now accepts overrides and uses user-defined values if set, else auto-detects; all 6 sandbox startup sites (session reuse/new, task reuse/new, design session reuse/new) thread overrides through.
+- **Reason**: Enables config-first approach where users can override default ports and commands per app without touching source; consolidates app configuration in one place; null/empty clears overrides so detection falls back, preserving existing behavior.
+
 ## Sandbox status indicator on quick task cards - 2026-04-27
 
 - Quick task cards now show a colored dot (green/amber/grey) reflecting the sandbox status (active/starting/closed), mirroring the session sidebar pattern so reviewers can spot live sandboxes at a glance from any list, kanban, or project view.

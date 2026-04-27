@@ -1,5 +1,10 @@
 # Changelog
 
+## Unify sandbox status styles & Editor/Desktop panels - 2026-04-28
+
+- Extracted the sandbox status dot styles (active/starting/closed) into `sandboxStatusStyles.ts` so the session sidebar item and the quick-task card render from a single source of truth.
+- Collapsed `EditorPanel` and `DesktopPanel` (~260 LOC each, ~90% duplicated) into thin wrappers over a new generic `SandboxIframeService` component that owns the start/stop/poll state machine, sessionStorage cache, fullscreen toggle, and header buttons — the panels now just supply port, action callbacks, icon, and copy.
+
 ## Extract shared sandbox panel logic - 2026-04-28
 
 - Pulled the duplicated multi-pane / preview-fetch / PTY-disconnect orchestration out of `SandboxPanel.tsx` and `TaskSandboxPanel.tsx` into shared `useSandboxPreview`, `useSandboxPanes`, and `<SandboxPaneSlots>` under `apps/web/src/lib/components/sandbox/` — both panels are now ~100-line thin orchestrators with a single source of truth for any future pane behavior changes.

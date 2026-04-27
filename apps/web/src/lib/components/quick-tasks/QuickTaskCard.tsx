@@ -21,6 +21,10 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
 import {
+  SANDBOX_STATUS_STYLES,
+  type SandboxStatus,
+} from "@/lib/components/sandbox/sandboxStatusStyles";
+import {
   IconClock,
   IconDots,
   IconFolder,
@@ -45,26 +49,6 @@ type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
 type DeploymentStatus = "queued" | "building" | "deployed" | "error";
-
-type SandboxStatus = "active" | "starting" | "closed";
-
-const SANDBOX_STATUS_STYLES: Record<
-  SandboxStatus,
-  { dot: string; label: string }
-> = {
-  active: {
-    dot: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]",
-    label: "Sandbox active",
-  },
-  starting: {
-    dot: "bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.5)]",
-    label: "Sandbox starting",
-  },
-  closed: {
-    dot: "bg-muted-foreground/40",
-    label: "Sandbox stopped",
-  },
-};
 
 interface QuickTaskCardProps {
   id: Id<"agentTasks">;

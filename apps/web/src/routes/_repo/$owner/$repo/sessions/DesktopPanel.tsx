@@ -1,23 +1,25 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useCallback } from "react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { Spinner, Button } from "@conductor/ui";
+import { IconDeviceDesktop } from "@tabler/icons-react";
 import {
-  IconDeviceDesktop,
-  IconRefresh,
-  IconMaximize,
-  IconExternalLink,
-  IconPlayerStop,
-} from "@tabler/icons-react";
-import { ensureHttps } from "@/lib/utils/ensureHttps";
-import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
-import { createSessionCache } from "@/lib/utils/sessionCache";
+  SandboxIframeService,
+  type StartResult,
+} from "@/lib/components/sandbox/SandboxIframeService";
 
-type DesktopState = "idle" | "starting" | "running" | "error";
+interface DesktopPanelProps {
+  cacheKey: string;
+  sandboxId: string | undefined;
+  isActive: boolean;
+  repoId: Id<"githubRepos">;
+}
 
-const desktopCache = createSessionCache("desktop");
-
+/**
+ * NoVNC remote-desktop panel. Thin wrapper around `SandboxIframeService` —
+ * port 6080, transforms the preview URL into a vnc_lite.html viewer URL, and
+ * fires `launchChromeInDesktop` once the viewer is ready.
+ */
 function appendNoVncParams(baseUrl: string): string {
   const url = new URL(baseUrl);
   url.pathname = url.pathname.replace(/\/?$/, "/vnc_lite.html");
@@ -28,240 +30,53 @@ function appendNoVncParams(baseUrl: string): string {
   return url.toString();
 }
 
-interface DesktopPanelProps {
-  cacheKey: string;
-  sandboxId: string | undefined;
-  isActive: boolean;
-  repoId: Id<"githubRepos">;
-}
-
 export function DesktopPanel({
   cacheKey,
   sandboxId,
   isActive,
   repoId,
 }: DesktopPanelProps) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [desktopState, setDesktopState] = useState<DesktopState>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const pollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const attempts = useRef(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const toggleDesktopServer = useAction(api.daytona.toggleDesktopServer);
   const launchChromeInDesktop = useAction(api.daytona.launchChromeInDesktop);
 
-  const stopPolling = useCallback(() => {
-    clearTimeout(pollTimer.current);
-    pollTimer.current = undefined;
-  }, []);
+  const startAction = useCallback(async (): Promise<StartResult> => {
+    if (!sandboxId) return { success: false, message: "No sandbox" };
+    await toggleDesktopServer({ sandboxId, repoId, action: "start" });
+    return { success: true };
+  }, [sandboxId, repoId, toggleDesktopServer]);
 
-  const pollForReady = useCallback(async () => {
-    if (!sandboxId || !isActive) return;
-    attempts.current = 0;
-
-    const check = async () => {
-      try {
-        const data = await getPreviewUrl({
-          sandboxId,
-          port: 6080,
-          checkReady: true,
-          repoId,
-        });
-        if (data.ready) {
-          await dismissDaytonaWarning(data.url);
-          const noVncUrl = appendNoVncParams(data.url);
-          setUrl(noVncUrl);
-          setDesktopState("running");
-          desktopCache.set(cacheKey, noVncUrl);
-          launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
-          return;
-        }
-        attempts.current += 1;
-        if (attempts.current >= 40) {
-          setError("Desktop environment failed to start. Check sandbox logs.");
-          setDesktopState("error");
-          return;
-        }
-        pollTimer.current = setTimeout(check, 3000);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load desktop");
-        setDesktopState("error");
-      }
-    };
-
-    check();
-  }, [
-    sandboxId,
-    isActive,
-    getPreviewUrl,
-    repoId,
-    cacheKey,
-    launchChromeInDesktop,
-  ]);
-
-  const startDesktop = useCallback(async () => {
+  const stopAction = useCallback(async () => {
     if (!sandboxId) return;
-    setDesktopState("starting");
-    setError(null);
-    setUrl(null);
-    stopPolling();
-    try {
-      const existing = await getPreviewUrl({
-        sandboxId,
-        port: 6080,
-        checkReady: true,
-        repoId,
-      });
-      if (existing.ready) {
-        await dismissDaytonaWarning(existing.url);
-        const noVncUrl = appendNoVncParams(existing.url);
-        setUrl(noVncUrl);
-        setDesktopState("running");
-        desktopCache.set(cacheKey, noVncUrl);
-        launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
-        return;
-      }
-      await toggleDesktopServer({ sandboxId, repoId, action: "start" });
-      await pollForReady();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start desktop");
-      setDesktopState("error");
-    }
-  }, [
-    sandboxId,
-    repoId,
-    toggleDesktopServer,
-    pollForReady,
-    stopPolling,
-    getPreviewUrl,
-    cacheKey,
-    launchChromeInDesktop,
-  ]);
+    await toggleDesktopServer({ sandboxId, repoId, action: "stop" });
+  }, [sandboxId, repoId, toggleDesktopServer]);
 
-  const stopDesktop = useCallback(async () => {
+  const handleReady = useCallback(() => {
     if (!sandboxId) return;
-    stopPolling();
-    setDesktopState("idle");
-    setUrl(null);
-    setError(null);
-    desktopCache.clear(cacheKey);
-    try {
-      await toggleDesktopServer({ sandboxId, repoId, action: "stop" });
-    } catch {
-      // best-effort stop
-    }
-  }, [sandboxId, stopPolling, cacheKey, toggleDesktopServer, repoId]);
-
-  useEffect(() => {
-    if (isActive && sandboxId && desktopState === "idle") {
-      const cached = desktopCache.get(cacheKey);
-      if (cached) {
-        setUrl(cached);
-        setDesktopState("running");
-      }
-    }
-    if (!isActive) {
-      desktopCache.clear(cacheKey);
-    }
-    return stopPolling;
-  }, [isActive, sandboxId, desktopState, stopPolling, cacheKey]);
-
-  const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    } else {
-      containerRef.current.requestFullscreen();
-      setIsFullscreen(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () =>
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
-
-  if (!isActive || !sandboxId) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
-        <IconDeviceDesktop className="w-12 h-12 opacity-50" />
-        <p className="text-sm">Start the sandbox to use the desktop</p>
-      </div>
-    );
-  }
-
-  if (desktopState === "idle") {
-    return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
-        <IconDeviceDesktop className="w-12 h-12 opacity-50" />
-        <p className="text-sm">Desktop is not running</p>
-        <Button size="sm" variant="secondary" onClick={startDesktop}>
-          Start Desktop
-        </Button>
-      </div>
-    );
-  }
+    launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
+  }, [sandboxId, repoId, launchChromeInDesktop]);
 
   return (
-    <div className="h-full flex flex-col" ref={containerRef}>
-      {url && desktopState === "running" && (
-        <div className="flex items-center justify-end gap-1 pb-1 mb-1 px-2 py-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            onClick={toggleFullscreen}
-          >
-            <IconMaximize className="w-4 h-4" />
-          </Button>
-          <Button size="icon" variant="ghost" className="size-8" asChild>
-            <a href={url} target="_blank" rel="noopener noreferrer">
-              <IconExternalLink className="w-4 h-4" />
-            </a>
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-8 text-destructive hover:bg-destructive/10"
-            onClick={stopDesktop}
-          >
-            <IconPlayerStop className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-      <div className="flex-1 min-h-0 relative">
-        {desktopState === "starting" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-secondary z-10 gap-3">
-            <Spinner size="lg" />
-            <p className="text-sm text-muted-foreground">
-              Starting desktop environment...
-            </p>
-          </div>
-        )}
-        {desktopState === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
-            <p className="text-sm text-destructive">{error}</p>
-            <Button size="sm" variant="secondary" onClick={startDesktop}>
-              <IconRefresh className="w-4 h-4 mr-1" />
-              Retry
-            </Button>
-          </div>
-        )}
-        {url && desktopState === "running" && (
-          <iframe
-            src={ensureHttps(url)}
-            className="absolute inset-0 w-full h-full border-0"
-            allow="clipboard-read; clipboard-write"
-          />
-        )}
-      </div>
-    </div>
+    <SandboxIframeService
+      cacheNamespace="desktop"
+      cacheKey={cacheKey}
+      sandboxId={sandboxId}
+      isActive={isActive}
+      repoId={repoId}
+      port={6080}
+      startAction={startAction}
+      stopAction={stopAction}
+      transformUrl={appendNoVncParams}
+      onReady={handleReady}
+      maxAttempts={40}
+      icon={IconDeviceDesktop}
+      inactiveLabel="Start the sandbox to use the desktop"
+      idleLabel="Desktop is not running"
+      startLabel="Start Desktop"
+      startingLabel="Starting desktop environment..."
+      pollFailedError="Desktop environment failed to start. Check sandbox logs."
+      startFailedError="Failed to start desktop"
+      loadFailedError="Failed to load desktop"
+      iframeAllow="clipboard-read; clipboard-write"
+    />
   );
 }

@@ -133,7 +133,7 @@ export function TaskDetailInline({
             ) : null}
             {isSandboxActive ? (
               <Button
-                variant="outline"
+                variant="destructive"
                 size="sm"
                 onClick={handleStopSandbox}
                 disabled={isSandboxStopping}
@@ -188,45 +188,54 @@ export function TaskDetailInline({
                   <div className="flex items-center gap-2 mt-2">
                     {/* Sandbox controls */}
                     {canStartSandbox ? (
-                      isSandboxActive ? (
+                      isSandboxActive || isSandboxStarting ? (
                         <div className="flex items-center gap-2">
+                          {/* While the sandbox is starting we still want the
+                              user to be able to click through to the sandbox
+                              view (e.g. after a page refresh) — the inner
+                              panel already shows a "Starting sandbox..."
+                              spinner, so don't disable the button here. */}
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={handleToggleSandboxView}
                             className="gap-1.5"
                           >
-                            <IconTerminal2 size={14} />
-                            View Sandbox
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleStopSandbox}
-                            disabled={isSandboxStopping}
-                            className="gap-1.5 text-muted-foreground"
-                          >
-                            {isSandboxStopping ? (
+                            {isSandboxStarting && !isSandboxActive ? (
                               <IconLoader2 size={14} className="animate-spin" />
                             ) : (
-                              <IconPlayerStop size={14} />
+                              <IconTerminal2 size={14} />
                             )}
-                            Stop
+                            View Sandbox
                           </Button>
+                          {isSandboxActive ? (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={handleStopSandbox}
+                              disabled={isSandboxStopping}
+                              className="gap-1.5"
+                            >
+                              {isSandboxStopping ? (
+                                <IconLoader2
+                                  size={14}
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <IconPlayerStop size={14} />
+                              )}
+                              Stop
+                            </Button>
+                          ) : null}
                         </div>
                       ) : (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleStartSandbox}
-                          disabled={isSandboxStarting}
                           className="gap-1.5"
                         >
-                          {isSandboxStarting ? (
-                            <IconLoader2 size={14} className="animate-spin" />
-                          ) : (
-                            <IconPlayerPlay size={14} />
-                          )}
+                          <IconPlayerPlay size={14} />
                           Start Sandbox
                         </Button>
                       )

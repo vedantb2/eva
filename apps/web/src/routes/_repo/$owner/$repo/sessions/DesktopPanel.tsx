@@ -29,14 +29,14 @@ function appendNoVncParams(baseUrl: string): string {
 }
 
 interface DesktopPanelProps {
-  sessionId: string;
+  cacheKey: string;
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
 }
 
 export function DesktopPanel({
-  sessionId,
+  cacheKey,
   sandboxId,
   isActive,
   repoId,
@@ -74,7 +74,7 @@ export function DesktopPanel({
           const noVncUrl = appendNoVncParams(data.url);
           setUrl(noVncUrl);
           setDesktopState("running");
-          desktopCache.set(sessionId, noVncUrl);
+          desktopCache.set(cacheKey, noVncUrl);
           launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
           return;
         }
@@ -97,7 +97,7 @@ export function DesktopPanel({
     isActive,
     getPreviewUrl,
     repoId,
-    sessionId,
+    cacheKey,
     launchChromeInDesktop,
   ]);
 
@@ -119,7 +119,7 @@ export function DesktopPanel({
         const noVncUrl = appendNoVncParams(existing.url);
         setUrl(noVncUrl);
         setDesktopState("running");
-        desktopCache.set(sessionId, noVncUrl);
+        desktopCache.set(cacheKey, noVncUrl);
         launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
         return;
       }
@@ -136,7 +136,7 @@ export function DesktopPanel({
     pollForReady,
     stopPolling,
     getPreviewUrl,
-    sessionId,
+    cacheKey,
     launchChromeInDesktop,
   ]);
 
@@ -146,27 +146,27 @@ export function DesktopPanel({
     setDesktopState("idle");
     setUrl(null);
     setError(null);
-    desktopCache.clear(sessionId);
+    desktopCache.clear(cacheKey);
     try {
       await toggleDesktopServer({ sandboxId, repoId, action: "stop" });
     } catch {
       // best-effort stop
     }
-  }, [sandboxId, stopPolling, sessionId, toggleDesktopServer, repoId]);
+  }, [sandboxId, stopPolling, cacheKey, toggleDesktopServer, repoId]);
 
   useEffect(() => {
     if (isActive && sandboxId && desktopState === "idle") {
-      const cached = desktopCache.get(sessionId);
+      const cached = desktopCache.get(cacheKey);
       if (cached) {
         setUrl(cached);
         setDesktopState("running");
       }
     }
     if (!isActive) {
-      desktopCache.clear(sessionId);
+      desktopCache.clear(cacheKey);
     }
     return stopPolling;
-  }, [isActive, sandboxId, desktopState, stopPolling, sessionId]);
+  }, [isActive, sandboxId, desktopState, stopPolling, cacheKey]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;

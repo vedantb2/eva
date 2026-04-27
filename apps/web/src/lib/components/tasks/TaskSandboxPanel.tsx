@@ -11,6 +11,8 @@ import { sandboxTabParser, previewPortParser } from "@/lib/search-params";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 import { TerminalPanel } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { WebPreviewPanel } from "@/routes/_repo/$owner/$repo/sessions/WebPreviewPanel";
+import { EditorPanel } from "@/routes/_repo/$owner/$repo/sessions/EditorPanel";
+import { DesktopPanel } from "@/routes/_repo/$owner/$repo/sessions/DesktopPanel";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { TerminalPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/TerminalPaneTabs";
 import { PreviewPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/PreviewPaneTabs";
@@ -18,7 +20,7 @@ import { PreviewPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_component
 const MAX_TERMINAL_PANES = 8;
 const MAX_PREVIEW_PANES = 8;
 
-const TASK_ENABLED_TABS = ["preview", "terminal"] as const;
+const TASK_ENABLED_TABS = ["preview", "terminal", "editor", "desktop"] as const;
 
 interface PreviewInfo {
   url: string;
@@ -70,7 +72,8 @@ interface TaskSandboxPanelProps {
 
 /**
  * Right-side sandbox panel for a quick task — mirrors the session sandbox
- * panel but only exposes the Preview and Terminal tabs (no PRD/editor/desktop).
+ * panel. Exposes Preview, Terminal, Editor, and Desktop tabs (PRD is omitted
+ * since it's a session-only concept).
  *
  * Multi-pane preview/terminal state is persisted in localStorage so navigating
  * away and back restores the same set of panes. The single shared `previewInfo`
@@ -227,13 +230,13 @@ export function TaskSandboxPanel({
     setPreviewActive(previewIds[0]);
   }, [previewIds, previewActive, setPreviewActive]);
 
-  // Tasks don't expose editor/desktop/prd; bounce those values back to preview.
+  // PRD is session-only; bounce back to preview if a stale URL points there.
   useEffect(() => {
-    if (activeTab === "preview" || activeTab === "terminal") return;
+    if (activeTab !== "prd") return;
     void setActiveTab("preview");
   }, [activeTab, setActiveTab]);
 
-  const tabBarValue = activeTab === "terminal" ? "terminal" : "preview";
+  const tabBarValue = activeTab === "prd" ? "preview" : activeTab;
 
   const resolvedTermActive =
     termIds.length > 0
@@ -313,7 +316,7 @@ export function TaskSandboxPanel({
 
   const handleTabChange = useCallback(
     (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
-      if (tab !== "preview" && tab !== "terminal") return;
+      if (tab === "prd") return;
       void setActiveTab(tab);
     },
     [setActiveTab],
@@ -420,6 +423,22 @@ export function TaskSandboxPanel({
               </div>
             ))}
           </div>
+        </div>
+        <div className={tabBarValue === "editor" ? "h-full" : "hidden"}>
+          <EditorPanel
+            cacheKey={taskIdStr}
+            sandboxId={sandboxId}
+            isActive={isActive}
+            repoId={repoId}
+          />
+        </div>
+        <div className={tabBarValue === "desktop" ? "h-full" : "hidden"}>
+          <DesktopPanel
+            cacheKey={taskIdStr}
+            sandboxId={sandboxId}
+            isActive={isActive}
+            repoId={repoId}
+          />
         </div>
       </div>
     </div>

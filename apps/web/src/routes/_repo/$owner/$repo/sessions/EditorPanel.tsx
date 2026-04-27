@@ -19,14 +19,14 @@ type EditorState = "idle" | "starting" | "running" | "error";
 const editorCache = createSessionCache("editor");
 
 interface EditorPanelProps {
-  sessionId: string;
+  cacheKey: string;
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
 }
 
 export function EditorPanel({
-  sessionId,
+  cacheKey,
   sandboxId,
   isActive,
   repoId,
@@ -62,7 +62,7 @@ export function EditorPanel({
           await dismissDaytonaWarning(data.url);
           setUrl(data.url);
           setEditorState("running");
-          editorCache.set(sessionId, data.url);
+          editorCache.set(cacheKey, data.url);
           return;
         }
         attempts.current += 1;
@@ -80,7 +80,7 @@ export function EditorPanel({
     };
 
     check();
-  }, [sandboxId, isActive, getPreviewUrl, repoId, sessionId]);
+  }, [sandboxId, isActive, getPreviewUrl, repoId, cacheKey]);
 
   const startEditor = useCallback(async () => {
     if (!sandboxId) return;
@@ -99,10 +99,14 @@ export function EditorPanel({
         await dismissDaytonaWarning(existing.url);
         setUrl(existing.url);
         setEditorState("running");
-        editorCache.set(sessionId, existing.url);
+        editorCache.set(cacheKey, existing.url);
         return;
       }
-      const result = await toggleCodeServer({ sandboxId, repoId, action: "start" });
+      const result = await toggleCodeServer({
+        sandboxId,
+        repoId,
+        action: "start",
+      });
       if (!result.success) {
         const errorMsg = result.logs
           ? `${result.message}\n\nLogs:\n${result.logs}`
@@ -123,7 +127,7 @@ export function EditorPanel({
     pollForReady,
     stopPolling,
     getPreviewUrl,
-    sessionId,
+    cacheKey,
   ]);
 
   const stopEditor = useCallback(async () => {
@@ -132,27 +136,27 @@ export function EditorPanel({
     setEditorState("idle");
     setUrl(null);
     setError(null);
-    editorCache.clear(sessionId);
+    editorCache.clear(cacheKey);
     try {
       await toggleCodeServer({ sandboxId, repoId, action: "stop" });
     } catch {
       // best-effort stop
     }
-  }, [sandboxId, stopPolling, sessionId, toggleCodeServer, repoId]);
+  }, [sandboxId, stopPolling, cacheKey, toggleCodeServer, repoId]);
 
   useEffect(() => {
     if (isActive && sandboxId && editorState === "idle") {
-      const cached = editorCache.get(sessionId);
+      const cached = editorCache.get(cacheKey);
       if (cached) {
         setUrl(cached);
         setEditorState("running");
       }
     }
     if (!isActive) {
-      editorCache.clear(sessionId);
+      editorCache.clear(cacheKey);
     }
     return stopPolling;
-  }, [isActive, sandboxId, editorState, stopPolling, sessionId]);
+  }, [isActive, sandboxId, editorState, stopPolling, cacheKey]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;

@@ -1,5 +1,10 @@
 # Changelog
 
+## Editor + Desktop tabs on quick-task sandbox - 2026-04-27
+
+- Quick-task sandbox panel now exposes Editor (in-browser VS Code via code-server) and Desktop (NoVNC + auto-launched Chrome) tabs alongside Preview and Terminal — reviewers get the full session toolkit when debugging a task sandbox.
+- Renamed the `sessionId` prop on `EditorPanel`/`DesktopPanel` to `cacheKey` since it was only ever used as a sessionStorage namespace; this lets tasks reuse those panels without lying about identity.
+
 ## Per-app dev server configuration (port, command, startup) - 2026-04-27
 
 - **Why**: Auto-detected dev server ports (5173 for vite, 3000 for next) don't work for all projects; startup commands lived on snapshots despite being per-app runtime config, creating confusion between snapshot and app lifecycle.

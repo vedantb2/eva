@@ -406,7 +406,7 @@ export function SandboxPanel({
         </div>
         <div className={activeTab === "editor" ? "h-full" : "hidden"}>
           <EditorPanel
-            sessionId={sessionId}
+            cacheKey={sessionId}
             sandboxId={sandboxId}
             isActive={isActive}
             repoId={repoId}
@@ -457,7 +457,7 @@ export function SandboxPanel({
         </div>
         <div className={activeTab === "desktop" ? "h-full" : "hidden"}>
           <DesktopPanel
-            sessionId={sessionId}
+            cacheKey={sessionId}
             sandboxId={sandboxId}
             isActive={isActive}
             repoId={repoId}

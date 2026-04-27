@@ -11,6 +11,7 @@
 import type * as _agentTasks_drafts from "../_agentTasks/drafts.js";
 import type * as _agentTasks_execution from "../_agentTasks/execution.js";
 import type * as _agentTasks_helpers from "../_agentTasks/helpers.js";
+import type * as _agentTasks_internal from "../_agentTasks/internal.js";
 import type * as _agentTasks_mutations from "../_agentTasks/mutations.js";
 import type * as _agentTasks_queries from "../_agentTasks/queries.js";
 import type * as _agentTasks_sandbox from "../_agentTasks/sandbox.js";
@@ -153,6 +154,7 @@ declare const fullApi: ApiFromModules<{
   "_agentTasks/drafts": typeof _agentTasks_drafts;
   "_agentTasks/execution": typeof _agentTasks_execution;
   "_agentTasks/helpers": typeof _agentTasks_helpers;
+  "_agentTasks/internal": typeof _agentTasks_internal;
   "_agentTasks/mutations": typeof _agentTasks_mutations;
   "_agentTasks/queries": typeof _agentTasks_queries;
   "_agentTasks/sandbox": typeof _agentTasks_sandbox;

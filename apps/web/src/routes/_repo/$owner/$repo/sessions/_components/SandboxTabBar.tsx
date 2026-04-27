@@ -26,7 +26,7 @@ const SANDBOX_TABS: Set<string> = new Set([
   "prd",
 ]);
 
-const tabs: Array<{
+const allTabs: Array<{
   value: SandboxTab;
   label: string;
   icon: typeof IconWorld;
@@ -45,6 +45,8 @@ interface SandboxTabBarProps {
   newPreviewDisabled?: boolean;
   newTerminalDisabled?: boolean;
   showPrdTab?: boolean;
+  /** Subset of base tabs to render. Defaults to all four. */
+  enabledTabs?: ReadonlyArray<SandboxTab>;
 }
 
 function isSandboxTab(value: string): value is SandboxTab {
@@ -59,8 +61,12 @@ export function SandboxTabBar({
   newPreviewDisabled = false,
   newTerminalDisabled = false,
   showPrdTab = false,
+  enabledTabs,
 }: SandboxTabBarProps) {
   const newTabDisabled = newPreviewDisabled && newTerminalDisabled;
+  const tabs = enabledTabs
+    ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
+    : allTabs;
 
   return (
     <div className="relative flex items-end gap-1 px-2 pt-1.5 bg-secondary/50">

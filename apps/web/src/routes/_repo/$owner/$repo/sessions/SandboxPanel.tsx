@@ -284,7 +284,7 @@ export function SandboxPanel({
       const next = termIds.filter((t) => t !== ptyId);
       try {
         await disconnectPtyAction({
-          sessionId,
+          owner: { kind: "session", sessionId },
           ptyInstanceId: ptyId,
         });
       } catch {
@@ -441,7 +441,7 @@ export function SandboxPanel({
                 )}
               >
                 <TerminalPanel
-                  sessionId={sessionId}
+                  owner={{ kind: "session", sessionId }}
                   sandboxId={sandboxId}
                   isActive={isActive}
                   ptyInstanceId={id}

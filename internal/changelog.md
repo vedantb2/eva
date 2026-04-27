@@ -1,5 +1,12 @@
 # Changelog
 
+## Multi-tab sandbox panel for quick tasks - 2026-04-27
+
+- Task sandbox now exposes Preview + Terminal tabs (mirroring session sandbox), enabling reviewers to debug dev server startup and in-sandbox runtime issues via live terminal access.
+- Generalized PTY system to support both sessions and tasks via discriminated `owner: { kind, id }` prop; TerminalPanel now works for both and reuses the same multi-pane infrastructure.
+- Preview and terminal pane state persists in localStorage (separate keys per task) so navigating away and back restores the same set of panes.
+- Multi-pane previews and terminals with "New Preview/Terminal" button (up to 8 of each) — useful for running multiple dev servers or tailing different logs in parallel.
+
 ## Persistent Quick-Task Sandboxes - 2026-04-27
 
 - Quick-task sandboxes now persist across runs, using stop (pause) semantics instead of delete on completion, enabling seamless sandbox reuse during code review, business review, and change-request flows.

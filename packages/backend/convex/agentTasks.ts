@@ -33,3 +33,5 @@ export {
   taskSandboxReady,
   taskSandboxError,
 } from "./_agentTasks/sandbox";
+
+export { getInternal } from "./_agentTasks/internal";

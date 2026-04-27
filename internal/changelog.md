@@ -1,5 +1,10 @@
 # Changelog
 
+## Extract shared sandbox panel logic - 2026-04-28
+
+- Pulled the duplicated multi-pane / preview-fetch / PTY-disconnect orchestration out of `SandboxPanel.tsx` and `TaskSandboxPanel.tsx` into shared `useSandboxPreview`, `useSandboxPanes`, and `<SandboxPaneSlots>` under `apps/web/src/lib/components/sandbox/` — both panels are now ~100-line thin orchestrators with a single source of truth for any future pane behavior changes.
+- localStorage / sessionStorage key layouts preserved, so existing client caches keep working through the refactor.
+
 ## Editor + Desktop tabs on quick-task sandbox - 2026-04-27
 
 - Quick-task sandbox panel now exposes Editor (in-browser VS Code via code-server) and Desktop (NoVNC + auto-launched Chrome) tabs alongside Preview and Terminal — reviewers get the full session toolkit when debugging a task sandbox.

@@ -5,14 +5,7 @@ import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Input } from "@conductor/ui";
-
-/** Parses startup commands from textarea value, returning empty array to clear. */
-function parseStartupCommands(text: string): string[] {
-  return text
-    .split("\n")
-    .map((cmd) => cmd.trim())
-    .filter((cmd) => cmd.length > 0);
-}
+import { parseCommandLines } from "./_utils";
 
 export function AppClient() {
   const { repo, repoId } = useRepo();
@@ -47,7 +40,7 @@ export function AppClient() {
   ) => {
     const next = e.target.value;
     if (next === startupCommands) return;
-    updateConfig({ repoId, startupCommands: parseStartupCommands(next) });
+    updateConfig({ repoId, startupCommands: parseCommandLines(next) });
   };
 
   return (

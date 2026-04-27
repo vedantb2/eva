@@ -42,6 +42,7 @@ function buildSnapshotImage(
   repoName: string,
   branch: string,
   configFiles: SandboxConfigFile[] = [],
+  buildCommands: string[] = [],
 ): Image {
   const appSlug = process.env.GITHUB_APP_SLUG;
   const botUserId = process.env.GITHUB_BOT_USER_ID;
@@ -52,7 +53,7 @@ function buildSnapshotImage(
   }
   const gitConfigCmd = `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`;
 
-  return Image.base("node:20-bookworm")
+  const baseImage = Image.base("node:20-bookworm")
     .runCommands(
       "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh sudo",
       // GUI/VNC/X11 packages for desktop mode
@@ -123,6 +124,14 @@ function buildSnapshotImage(
       // Install dependencies
       "pnpm install --frozen-lockfile",
     );
+
+  // Append user-defined build commands as additional RUN layers (one per
+  // command for granular Docker caching). Run after pnpm install so the repo
+  // and node_modules are available; executed as user `eva` in /tmp/repo.
+  if (buildCommands.length > 0) {
+    return baseImage.runCommands(...buildCommands);
+  }
+  return baseImage;
 }
 
 /**
@@ -217,6 +226,8 @@ export const kickOffSnapshotBuild = internalAction({
       { repoId: config.repoId },
     );
 
+    const buildCommands = config.buildCommands ?? [];
+
     // Build the Image definition and extract the Dockerfile content
     const image = buildSnapshotImage(
       token,
@@ -224,6 +235,7 @@ export const kickOffSnapshotBuild = internalAction({
       repo.name,
       branch,
       configFiles,
+      buildCommands,
     );
 
     const configFileCount = filterDownloadableConfigFiles(configFiles).length;
@@ -233,6 +245,9 @@ export const kickOffSnapshotBuild = internalAction({
         `Starting Daytona snapshot build for ${repo.owner}/${repo.name} (branch: ${branch})...\n` +
         (configFileCount > 0
           ? `Including ${configFileCount} sandbox config file(s): ${configFiles.map((f) => f.fileName).join(", ")}\n`
+          : "") +
+        (buildCommands.length > 0
+          ? `Running ${buildCommands.length} custom build command(s) after pnpm install.\n`
           : ""),
     });
 

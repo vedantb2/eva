@@ -1,5 +1,12 @@
 # Changelog
 
+## Custom snapshot build commands - 2026-04-28
+
+- Added `buildCommands` field to `repoSnapshots` schema: users can now define custom commands (e.g. `pnpm convex codegen`, `pnpm build`) that run during snapshot build, after `pnpm install`, and are baked permanently into the Docker image as separate cached layers.
+- UI: new "Build Commands" card in Snapshots > Configuration tab, newline-delimited textarea that saves on blur; shows shared "Rebuild Required" warning banner alongside config files section.
+- Shared the rebuild-warning banner and command parser across AppClient (startup commands) and SnapshotsClient to reduce duplication.
+- **Why**: Solves the build-time vs runtime distinction — startup commands re-run on every sandbox boot, but build commands execute once during snapshot creation, ideal for codegen, precompiled artifacts, and pre-warmed caches that should not re-run per boot.
+
 ## Unify sandbox status styles & Editor/Desktop panels - 2026-04-28
 
 - Extracted the sandbox status dot styles (active/starting/closed) into `sandboxStatusStyles.ts` so the session sidebar item and the quick-task card render from a single source of truth.

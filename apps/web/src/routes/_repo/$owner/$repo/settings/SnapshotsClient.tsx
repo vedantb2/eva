@@ -30,9 +30,10 @@ import {
   IconX,
   IconClock,
   IconUpload,
-  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { formatDurationMs } from "@/lib/utils/formatDuration";
+import { parseCommandLines } from "./_utils";
+import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
 
 export function SnapshotsClient() {
   const { repoId } = useRepo();
@@ -52,6 +53,7 @@ export function SnapshotsClient() {
   // Derive values directly from Convex
   const schedule = snapshot?.schedule ?? "manual";
   const workflowRef = snapshot?.workflowRef ?? "main";
+  const buildCommandsText = snapshot?.buildCommands?.join("\n") ?? "";
 
   // Save on change for schedule
   const handleScheduleChange = (newSchedule: string) => {
@@ -59,6 +61,7 @@ export function SnapshotsClient() {
       repoId,
       schedule: newSchedule,
       workflowRef: workflowRef.trim() || undefined,
+      buildCommands: snapshot?.buildCommands,
     });
   };
 
@@ -68,6 +71,22 @@ export function SnapshotsClient() {
       repoId,
       schedule,
       workflowRef: newBranch.trim() || undefined,
+      buildCommands: snapshot?.buildCommands,
+    });
+  };
+
+  // Save on blur for build commands
+  const handleBuildCommandsBlur = (
+    e: React.FocusEvent<HTMLTextAreaElement>,
+  ) => {
+    const next = e.target.value;
+    if (next === buildCommandsText) return;
+    const parsed = parseCommandLines(next);
+    saveRepoSnapshot({
+      repoId,
+      schedule,
+      workflowRef: workflowRef.trim() || undefined,
+      buildCommands: parsed.length > 0 ? parsed : undefined,
     });
   };
 
@@ -143,6 +162,30 @@ export function SnapshotsClient() {
               <p className="mt-1 text-[11px] text-muted-foreground">
                 Branch to clone into the snapshot for dependency pre-caching.
                 Defaults to <code>main</code> if empty.
+              </p>
+            </div>
+          </div>
+
+          {snapshot && <RebuildRequiredWarning />}
+
+          <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+            <h3 className="text-sm font-medium">Build Commands</h3>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Commands to run during snapshot build
+              </label>
+              <textarea
+                key={`build-${snapshot?._id ?? "none"}`}
+                defaultValue={buildCommandsText}
+                onBlur={handleBuildCommandsBlur}
+                className="w-full h-48 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="pnpm convex codegen&#10;pnpm build"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                One command per line. Runs as user <code>eva</code> in{" "}
+                <code>/tmp/repo</code> after <code>pnpm install</code>, baked
+                permanently into the snapshot. Use for codegen, build steps, or
+                anything that should not re-run on every sandbox boot.
               </p>
             </div>
           </div>
@@ -578,22 +621,7 @@ function ConfigFilesSection({
 
   return (
     <div className="space-y-4">
-      {/* Warning banner */}
-      <div className="flex items-start gap-3 rounded-lg bg-amber-500/10 p-3">
-        <IconAlertTriangle
-          size={18}
-          className="mt-0.5 shrink-0 text-amber-500"
-        />
-        <div className="text-xs">
-          <p className="font-medium text-amber-500">
-            Rebuild required after changes
-          </p>
-          <p className="mt-0.5 text-muted-foreground">
-            Files are baked into snapshots during build. After adding or
-            removing files, rebuild the snapshot for changes to take effect.
-          </p>
-        </div>
-      </div>
+      <RebuildRequiredWarning />
 
       <div className="rounded-lg bg-muted/40 p-4 space-y-4">
         <div>

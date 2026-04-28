@@ -59,8 +59,11 @@ export const taskExecutionWorkflow = workflow.define({
       });
       // Reuse the persisted sandbox for project tasks (project.sandboxId) or
       // for quick tasks on follow-up runs (task.sandboxId — set after the first
-      // run completes). When `existingSandboxId` is provided, `ephemeral` must
-      // be false so the workflow doesn't auto-clean a sandbox we want to keep.
+      // run completes). Quick-task sandboxes are persistent (stop/pause, not
+      // delete-on-completion — see "Persistent Quick-Task Sandboxes" in the
+      // changelog), so `ephemeral` is always false: a first run that ended up
+      // ephemeral would be deleted by Daytona on auto-stop, leaving
+      // `task.sandboxId` as a tombstone and breaking the reviewer preview.
       const reusableSandboxId =
         data.projectSandboxId ?? data.taskSandboxId ?? undefined;
       sandboxId = await prepareSandboxSteps(step, {
@@ -68,7 +71,7 @@ export const taskExecutionWorkflow = workflow.define({
         installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
-        ephemeral: !args.projectId && !data.taskSandboxId,
+        ephemeral: false,
         repoId: args.repoId,
         attachRunId: args.runId,
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),

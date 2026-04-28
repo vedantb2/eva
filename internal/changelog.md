@@ -1,5 +1,11 @@
 # Changelog
 
+## Make quick-task first-run sandboxes non-ephemeral - 2026-04-28
+
+- `taskExecutionWorkflow` now passes `ephemeral: false` for every quick task — previously the first run set `ephemeral: !args.projectId && !data.taskSandboxId`, which resolved to `true` because no `taskSandboxId` existed yet, causing Daytona to delete the sandbox on the post-run auto-stop.
+- This was the root cause of `Sandbox with ID ... not found` errors hitting the preview URL: `task.sandboxId` was persisted at the end of the run but pointed at a sandbox Daytona had already torn down.
+- **Why**: contradicted the intent of "Persistent Quick-Task Sandboxes" (2026-04-27), which moved quick-task sandboxes to stop/pause-on-completion so reviewers could resume the same paused filesystem during code/business review and change-request flows.
+
 ## Bake dockerd startup into snapshot entrypoint - 2026-04-28
 
 - Added a sandbox entrypoint script (`/usr/local/bin/eva-entrypoint.sh`) that cleans stale dockerd pidfiles/sockets and starts `dockerd` before `sleep infinity`, and registered it via `Image.entrypoint(...)` in the snapshot build.

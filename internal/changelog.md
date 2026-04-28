@@ -1,5 +1,12 @@
 # Changelog
 
+## Bake dockerd startup into snapshot entrypoint - 2026-04-28
+
+- Added a sandbox entrypoint script (`/usr/local/bin/eva-entrypoint.sh`) that cleans stale dockerd pidfiles/sockets and starts `dockerd` before `sleep infinity`, and registered it via `Image.entrypoint(...)` in the snapshot build.
+- Daytona re-launches the snapshot entrypoint on every resume from auto-stop, so dockerd now survives stop/resume cycles regardless of how the sandbox is resumed (Eva backend, direct SSH, preview URL hit). Previously dockerd only restarted on Eva-triggered resume because `ensureDockerDaemon` only fires inside `ensureSandboxRunning`.
+- `ensureDockerDaemon` remains as a defensive fallback for sandboxes built from older snapshots and any cold-start race.
+- **Why**: a direct SSH (or any non-Eva entry path) auto-resumes the sandbox without invoking Eva's backend, leaving dockerd dead and breaking `pnpm start-db` / Supabase / any docker-dependent flow until the user manually restarted it.
+
 ## Close stop/start race window for sandbox toggles - 2026-04-28
 
 - Added a transient `"stopping"` status to sessions, design sessions, and review-task sandboxes; `stopSandbox` now patches that state synchronously and schedules a `finalizeStop*` internalAction that awaits the real Daytona stop (~10s) before flipping to `"closed"`.

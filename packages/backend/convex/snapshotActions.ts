@@ -19,6 +19,29 @@ const DAYTONA_API_URL = "https://app.daytona.io/api";
 // "eva ALL=(ALL) NOPASSWD: ALL\n" — base64-encoded to avoid parentheses breaking Dockerfile RUN
 const EVA_SUDOERS_B64 = "ZXZhIEFMTD0oQUxMKSBOT1BBU1NXRDogQUxMCg==";
 
+/**
+ * Sandbox entrypoint script — base64-encoded to avoid Dockerfile RUN escaping.
+ * Decoded contents:
+ *
+ *   #!/bin/bash
+ *   sudo bash -c '
+ *     rm -f /var/run/docker.pid /var/run/docker.sock /run/docker/containerd/containerd.pid \
+ *           /run/docker/containerd/containerd.sock /run/docker/containerd/containerd.sock.ttrpc \
+ *           /run/docker/containerd/containerd-debug.sock 2>/dev/null || true
+ *     setsid dockerd </dev/null >/var/log/dockerd.log 2>&1 &
+ *   '
+ *   exec sleep infinity
+ *
+ * Daytona runs the snapshot's entrypoint in a dedicated session that's
+ * re-launched on every resume from auto-stop. This script starts dockerd
+ * (cleaning up stale pidfiles/sockets first) so Docker survives the
+ * stop/resume cycle without needing Eva's backend to call ensureDockerDaemon.
+ * ensureDockerDaemon remains as a defensive fallback for older snapshots and
+ * cold-start races.
+ */
+const EVA_ENTRYPOINT_B64 =
+  "IyEvYmluL2Jhc2gKIyBFdmEgc2FuZGJveCBlbnRyeXBvaW50IOKAlCBzdGFydHMgZG9ja2VyZCwgdGhlbiBzbGVlcHMuIERheXRvbmEgcmUtcnVucyB0aGlzCiMgb24gZXZlcnkgcmVzdW1lIGZyb20gYXV0by1zdG9wLCBzbyBkb2NrZXJkIHN1cnZpdmVzIHRoZSByZXN1bWUgY3ljbGUgd2l0aG91dAojIG5lZWRpbmcgRXZhJ3MgYmFja2VuZCB0byBjYWxsIGVuc3VyZURvY2tlckRhZW1vbi4gZW5zdXJlRG9ja2VyRGFlbW9uIHN0YXlzIGFzCiMgYSBkZWZlbnNpdmUgZmFsbGJhY2sgZm9yIG9sZGVyIHNuYXBzaG90cyBhbmQgY29sZC1zdGFydCByYWNlcy4Kc3VkbyBiYXNoIC1jICcKICBybSAtZiAvdmFyL3J1bi9kb2NrZXIucGlkIC92YXIvcnVuL2RvY2tlci5zb2NrIC9ydW4vZG9ja2VyL2NvbnRhaW5lcmQvY29udGFpbmVyZC5waWQgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLnNvY2sgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLnNvY2sudHRycGMgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLWRlYnVnLnNvY2sgMj4vZGV2L251bGwgfHwgdHJ1ZQogIHNldHNpZCBkb2NrZXJkIDwvZGV2L251bGwgPi92YXIvbG9nL2RvY2tlcmQubG9nIDI+JjEgJgonCmV4ZWMgc2xlZXAgaW5maW5pdHkK";
+
 /** Type guard for record-shaped objects. */
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
@@ -71,6 +94,8 @@ function buildSnapshotImage(
       'mkdir -p /etc/docker && echo \'{"dns":["1.1.1.1","8.8.8.8"],"mtu":1400,"ipv6":false,"ip6tables":false,"max-concurrent-downloads":3}\' > /etc/docker/daemon.json',
       // Passwordless sudo for eva (base64-encoded to avoid parentheses breaking Dockerfile RUN)
       `printf %s ${EVA_SUDOERS_B64}|base64 -d>/etc/sudoers.d/eva&&chmod 440 /etc/sudoers.d/eva`,
+      // Install sandbox entrypoint script (starts dockerd on every Daytona resume)
+      `printf %s ${EVA_ENTRYPOINT_B64}|base64 -d>/usr/local/bin/eva-entrypoint.sh&&chmod 755 /usr/local/bin/eva-entrypoint.sh`,
       // Cleanup
       "rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*",
       // Node/pnpm setup
@@ -128,10 +153,15 @@ function buildSnapshotImage(
   // Append user-defined build commands as additional RUN layers (one per
   // command for granular Docker caching). Run after pnpm install so the repo
   // and node_modules are available; executed as user `eva` in /tmp/repo.
-  if (buildCommands.length > 0) {
-    return baseImage.runCommands(...buildCommands);
-  }
-  return baseImage;
+  const withBuildCommands =
+    buildCommands.length > 0
+      ? baseImage.runCommands(...buildCommands)
+      : baseImage;
+
+  // Set the sandbox entrypoint last so it lands at the end of the Dockerfile
+  // and isn't clobbered by later layers. Daytona re-runs this on every resume,
+  // so dockerd survives auto-stop/resume without Eva intervention.
+  return withBuildCommands.entrypoint(["/usr/local/bin/eva-entrypoint.sh"]);
 }
 
 /**

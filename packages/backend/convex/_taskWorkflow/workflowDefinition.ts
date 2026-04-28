@@ -210,6 +210,10 @@ export const taskExecutionWorkflow = workflow.define({
         const enrichedBody = buildPrBody(prSections, evaUrl);
 
         if (args.isFirstTaskOnBranch) {
+          // Quick tasks land in business_review on completion; the PR should
+          // mirror that by opening as draft. The user promotes it to ready
+          // when they move the task to code_review.
+          const isQuickTask = !args.projectId;
           completionPrUrl = await step.runAction(
             internal.taskWorkflowActions.createPullRequest,
             {
@@ -222,13 +226,15 @@ export const taskExecutionWorkflow = workflow.define({
               body: enrichedBody,
               labels: [
                 "eva",
-                args.projectId ? "project" : "quick-task",
+                isQuickTask ? "quick-task" : "project",
+                ...(isQuickTask ? ["draft"] : []),
                 ...(data.rootDirectory
                   ? [data.rootDirectory.split("/").pop()].filter(
                       (l): l is string => l !== undefined && l !== "",
                     )
                   : []),
               ],
+              draft: isQuickTask,
             },
           );
         } else {

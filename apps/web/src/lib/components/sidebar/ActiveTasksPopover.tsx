@@ -9,7 +9,7 @@ import {
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
-import { IconListCheck } from "@tabler/icons-react";
+import { IconCube, IconListCheck } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 
@@ -20,10 +20,15 @@ interface ActiveTasksBadgeProps {
 
 export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
   const allTasks = useQuery(api.agentTasks.getActiveTasks, { repoId });
-  const tasks =
-    allTasks?.filter((t) => t.status === "in_progress" && !t.projectId) ?? [];
+  const quickTasks = allTasks?.filter((t) => !t.projectId) ?? [];
+  const tasks = quickTasks.filter((t) => t.status === "in_progress");
+  const sandboxCount = quickTasks.filter(
+    (t) =>
+      t.reviewTaskSandboxStatus === "active" ||
+      t.reviewTaskSandboxStatus === "starting",
+  ).length;
 
-  if (tasks.length === 0) {
+  if (tasks.length === 0 && sandboxCount === 0) {
     return null;
   }
 
@@ -32,21 +37,37 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
       <HoverCardTrigger asChild>
         <Badge
           variant="secondary"
-          className="ml-auto cursor-default gap-1.5 border-none bg-sidebar-accent/50 px-1.5 py-0.5"
+          className="ml-auto cursor-default items-center gap-1.5 border-none bg-sidebar-accent/50 px-1.5 py-0.5"
         >
-          <span className="relative flex h-2 w-2">
-            <span
-              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
-              style={{ backgroundColor: "rgb(var(--status-progress-bar))" }}
-            />
-            <span
-              className="relative inline-flex h-2 w-2 rounded-full"
-              style={{ backgroundColor: "rgb(var(--status-progress-bar))" }}
-            />
-          </span>
-          <span className="text-[11px] font-medium text-muted-foreground">
-            {tasks.length} live
-          </span>
+          {tasks.length > 0 && (
+            <span className="flex items-center gap-1">
+              <span className="relative flex h-2 w-2">
+                <span
+                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                  style={{
+                    backgroundColor: "rgb(var(--status-progress-bar))",
+                  }}
+                />
+                <span
+                  className="relative inline-flex h-2 w-2 rounded-full"
+                  style={{
+                    backgroundColor: "rgb(var(--status-progress-bar))",
+                  }}
+                />
+              </span>
+              <span className="text-[11px] font-medium text-muted-foreground">
+                {tasks.length}
+              </span>
+            </span>
+          )}
+          {sandboxCount > 0 && (
+            <span className="flex items-center gap-0.5">
+              <IconCube size={11} className="text-muted-foreground" />
+              <span className="text-[11px] font-medium text-muted-foreground">
+                {sandboxCount}
+              </span>
+            </span>
+          )}
         </Badge>
       </HoverCardTrigger>
       <HoverCardContent
@@ -59,8 +80,16 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
             <h3 className="text-sm font-semibold text-foreground">
               Active Tasks
             </h3>
-            <span className="ml-auto rounded-full bg-muted/40 px-1.5 py-0.5 text-xs text-muted-foreground">
-              {tasks.length}
+            <span className="ml-auto flex items-center gap-1.5">
+              <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-xs text-muted-foreground">
+                {tasks.length} running
+              </span>
+              {sandboxCount > 0 && (
+                <span className="flex items-center gap-1 rounded-full bg-muted/40 px-1.5 py-0.5 text-xs text-muted-foreground">
+                  <IconCube size={11} />
+                  {sandboxCount}
+                </span>
+              )}
             </span>
           </div>
           <div className="space-y-1">

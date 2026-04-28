@@ -1,5 +1,12 @@
 # Changelog
 
+## Granular task sandbox startup progress steps - 2026-04-28
+
+- Backend: added `emitTaskProgress` / `completeTaskProgress` helpers (mirroring sessions) that emit per-step progress to streaming entity `task-sandbox-startup-${taskId}` throughout `prepareTaskPreviewSandboxInternal` (reuse path: Resuming → Downloading config → Starting dev server → Launching background; new path: Loading repo config → Resolving context → Checking existing → Setting up volumes → Creating sandbox → Syncing refs → Checking out branch → Downloading config → Starting dev server → Running startup → Launching background).
+- Removed misleading "Running startup commands..." step from task reuse path — marker file check makes `runStartupCommands` a no-op on resume, so showing the step was confusing.
+- Frontend: added `sandboxStartupActivity` query in `useTaskDetail` and wired it through `TaskDetailInline` to replace the generic "Preparing sandbox..." spinner with `<StreamingActivityDisplay>` showing actual steps as they arrive; fallback label is "Starting sandbox..." while steps stream in.
+- **Why**: Mirrors the existing session sandbox startup UX (which users rely on for visibility into long multi-minute boots); quick-task reviewers now see real progress instead of static spinners, improving confidence during sandbox startup and making failures easier to diagnose.
+
 ## Per-repo background commands for long-running daemons - 2026-04-28
 
 - Added `backgroundCommands` field to `githubRepos` schema: users can configure long-running daemons (e.g. `npx convex dev`) that launch detached (`nohup ... &`) alongside the dev server on every sandbox start and resume.

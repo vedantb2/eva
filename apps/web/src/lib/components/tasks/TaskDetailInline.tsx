@@ -34,6 +34,7 @@ import { TaskFooter } from "./_components/TaskFooter";
 import { StopConfirmDialog } from "./_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "./_components/ResolveConfirmDialog";
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
+import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 
 interface TaskDetailInlineProps {
   onClose: () => void;
@@ -99,6 +100,7 @@ export function TaskDetailInline({
     handleStopSandbox,
     handleToggleSandboxView,
     sandboxId,
+    sandboxStartupActivity,
   } = useTaskDetail(taskId);
 
   if (isLoading) {
@@ -161,10 +163,12 @@ export function TaskDetailInline({
               devCommand={task.devCommand}
             />
           ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <IconLoader2 size={20} className="animate-spin" />
-                Preparing sandbox...
+            <div className="flex items-center justify-center h-full">
+              <div className="w-full max-w-md px-4">
+                <StreamingActivityDisplay
+                  activity={sandboxStartupActivity}
+                  thinkingLabel="Starting sandbox..."
+                />
               </div>
             </div>
           )}

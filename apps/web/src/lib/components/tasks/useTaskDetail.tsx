@@ -133,6 +133,12 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const isSandboxActive = task?.reviewTaskSandboxStatus === "active";
   const isSandboxStartingFromStatus =
     task?.reviewTaskSandboxStatus === "starting";
+  const sandboxStartupStreaming = useQuery(
+    api.streaming.get,
+    isSandboxStartingFromStatus
+      ? { entityId: `task-sandbox-startup-${taskId}` }
+      : "skip",
+  );
 
   const handleStartSandbox = useCallback(async () => {
     setIsSandboxStarting(true);
@@ -240,6 +246,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     setShowSandbox,
     isSandboxActive,
     isSandboxStarting: isSandboxStarting || isSandboxStartingFromStatus,
+    sandboxStartupActivity: sandboxStartupStreaming?.currentActivity,
     isSandboxStopping,
     handleStartSandbox,
     handleStopSandbox,

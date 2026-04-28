@@ -334,6 +334,34 @@ async function completeSessionProgress(
   });
 }
 
+/** Emits task sandbox startup progress steps to streaming for UI updates. */
+async function emitTaskProgress(
+  ctx: GenericActionCtx<DataModel>,
+  taskId: Id<"agentTasks">,
+  completedSteps: ProgressStep[],
+  activeLabel: string,
+): Promise<void> {
+  const steps = [
+    ...completedSteps,
+    { type: "tool", label: activeLabel, status: "active" },
+  ];
+  await ctx.runMutation(internal.streaming.internalSet, {
+    entityId: `task-sandbox-startup-${taskId}`,
+    currentActivity: JSON.stringify(steps),
+  });
+}
+
+/** Clears task sandbox startup streaming when done. */
+async function completeTaskProgress(
+  ctx: GenericActionCtx<DataModel>,
+  taskId: Id<"agentTasks">,
+): Promise<void> {
+  await ctx.runMutation(internal.streaming.internalSet, {
+    entityId: `task-sandbox-startup-${taskId}`,
+    currentActivity: JSON.stringify([]),
+  });
+}
+
 /** Core logic for preparing a session sandbox: reuses existing or creates new, syncs refs, and starts services. */
 async function prepareSessionSandboxInternal(
   ctx: GenericActionCtx<DataModel>,
@@ -942,14 +970,32 @@ async function prepareTaskPreviewSandboxInternal(
   args: TaskPreviewSandboxPreparationArgs,
 ): Promise<PreparedSessionSandbox> {
   const actionDetails = `taskId=${args.taskId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
+  const completedSteps: ProgressStep[] = [];
 
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Loading repository config...",
+  );
   const repo = await runLoggedSessionStep("loadTaskRepo", actionDetails, () =>
     ctx.runQuery(internal.githubRepos.getInternal, {
       id: args.repoId,
     }),
   );
   const rootDir = repo?.rootDirectory ?? "";
+  completedSteps.push({
+    type: "tool",
+    label: "Loading repository config...",
+    status: "complete",
+  });
 
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Resolving sandbox context...",
+  );
   const { daytona, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
     "resolveTaskSandboxContext",
     actionDetails,
@@ -958,7 +1004,18 @@ async function prepareTaskPreviewSandboxInternal(
   logSession(
     `prepareTaskPreviewSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
   );
+  completedSteps.push({
+    type: "tool",
+    label: "Resolving sandbox context...",
+    status: "complete",
+  });
 
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Checking existing sandbox...",
+  );
   let reusedResult: PreparedSessionSandbox | null = null;
   const reused = await runLoggedSessionStep(
     "tryReuseTaskSandbox",
@@ -966,6 +1023,12 @@ async function prepareTaskPreviewSandboxInternal(
     () =>
       tryReuseSandbox(daytona, args.existingSandboxId, async (sandbox) => {
         const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
+        await emitTaskProgress(
+          ctx,
+          args.taskId,
+          completedSteps,
+          "Resuming existing sandbox...",
+        );
         await runLoggedSessionStep(
           "reuseTaskSandbox.prepare",
           sandboxDetails,
@@ -978,7 +1041,18 @@ async function prepareTaskPreviewSandboxInternal(
             );
           },
         );
+        completedSteps.push({
+          type: "tool",
+          label: "Resuming existing sandbox...",
+          status: "complete",
+        });
         // Download sandbox config files to repo root
+        await emitTaskProgress(
+          ctx,
+          args.taskId,
+          completedSteps,
+          "Downloading config files...",
+        );
         await runLoggedSessionStep(
           "reuseTaskSandbox.downloadConfigFiles",
           sandboxDetails,
@@ -995,11 +1069,31 @@ async function prepareTaskPreviewSandboxInternal(
             );
           },
         );
+        completedSteps.push({
+          type: "tool",
+          label: "Downloading config files...",
+          status: "complete",
+        });
+        await emitTaskProgress(
+          ctx,
+          args.taskId,
+          completedSteps,
+          "Starting dev server...",
+        );
         const { port: devPort, devCommand } = await runLoggedSessionStep(
           "reuseTaskSandbox.startSessionServices",
           sandboxDetails,
           () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
         );
+        completedSteps.push({
+          type: "tool",
+          label: "Starting dev server...",
+          status: "complete",
+        });
+        // Note: runStartupCommands is intentionally not surfaced as a UI step
+        // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
+        // makes it a no-op once the sandbox has been initialised, so showing
+        // "Running startup commands..." would be misleading on resume.
         await runLoggedSessionStep(
           "reuseTaskSandbox.runStartupCommands",
           sandboxDetails,
@@ -1014,6 +1108,12 @@ async function prepareTaskPreviewSandboxInternal(
               );
             }
           },
+        );
+        await emitTaskProgress(
+          ctx,
+          args.taskId,
+          completedSteps,
+          "Launching background commands...",
         );
         await runLoggedSessionStep(
           "reuseTaskSandbox.runBackgroundCommands",
@@ -1030,6 +1130,11 @@ async function prepareTaskPreviewSandboxInternal(
             }
           },
         );
+        completedSteps.push({
+          type: "tool",
+          label: "Launching background commands...",
+          status: "complete",
+        });
         reusedResult = {
           sandbox,
           isNew: false,
@@ -1044,7 +1149,18 @@ async function prepareTaskPreviewSandboxInternal(
   if (reused && reusedResult) {
     return reusedResult;
   }
+  completedSteps.push({
+    type: "tool",
+    label: "Checking existing sandbox...",
+    status: "complete",
+  });
 
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Setting up persistence volumes...",
+  );
   const taskVolumeMounts = await runLoggedSessionStep(
     "ensureTaskPersistenceVolumes",
     actionDetails,
@@ -1056,7 +1172,18 @@ async function prepareTaskPreviewSandboxInternal(
         args.taskId,
       ),
   );
+  completedSteps.push({
+    type: "tool",
+    label: "Setting up persistence volumes...",
+    status: "complete",
+  });
 
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Creating sandbox...",
+  );
   const prepared = await runLoggedSessionStep(
     "createTaskSandboxAndPrepareRepo",
     `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
@@ -1077,7 +1204,18 @@ async function prepareTaskPreviewSandboxInternal(
   );
   const sandbox = prepared.sandbox;
   const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
+  completedSteps.push({
+    type: "tool",
+    label: "Creating sandbox...",
+    status: "complete",
+  });
 
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Syncing repository refs...",
+  );
   await runLoggedSessionStep(
     "newTaskSandbox.syncRefsForRestore",
     sandboxDetails,
@@ -1091,15 +1229,37 @@ async function prepareTaskPreviewSandboxInternal(
         args.baseBranch,
       ),
   );
+  completedSteps.push({
+    type: "tool",
+    label: "Syncing repository refs...",
+    status: "complete",
+  });
 
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Checking out branch...",
+  );
   await runLoggedSessionStep(
     "newTaskSandbox.checkoutBranch",
     sandboxDetails,
     () =>
       checkoutSessionBranchWithRetry(sandbox, args.branchName, args.baseBranch),
   );
+  completedSteps.push({
+    type: "tool",
+    label: "Checking out branch...",
+    status: "complete",
+  });
 
   // Download sandbox config files to repo root
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Downloading config files...",
+  );
   await runLoggedSessionStep(
     "newTaskSandbox.downloadConfigFiles",
     sandboxDetails,
@@ -1116,13 +1276,35 @@ async function prepareTaskPreviewSandboxInternal(
       );
     },
   );
+  completedSteps.push({
+    type: "tool",
+    label: "Downloading config files...",
+    status: "complete",
+  });
 
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Starting dev server...",
+  );
   const { port: devPort, devCommand } = await runLoggedSessionStep(
     "newTaskSandbox.startSessionServices",
     sandboxDetails,
     () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
   );
+  completedSteps.push({
+    type: "tool",
+    label: "Starting dev server...",
+    status: "complete",
+  });
 
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Running startup commands...",
+  );
   await runLoggedSessionStep(
     "newTaskSandbox.runStartupCommands",
     sandboxDetails,
@@ -1138,7 +1320,18 @@ async function prepareTaskPreviewSandboxInternal(
       }
     },
   );
+  completedSteps.push({
+    type: "tool",
+    label: "Running startup commands...",
+    status: "complete",
+  });
 
+  await emitTaskProgress(
+    ctx,
+    args.taskId,
+    completedSteps,
+    "Launching background commands...",
+  );
   await runLoggedSessionStep(
     "newTaskSandbox.runBackgroundCommands",
     sandboxDetails,
@@ -1208,6 +1401,7 @@ export const startTaskPreviewSandbox = internalAction({
             devCommand: prepared.devCommand,
           }),
       );
+      await completeTaskProgress(ctx, args.taskId);
       logSession(
         `startTaskPreviewSandbox completed in ${formatDurationMs(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
@@ -1215,6 +1409,7 @@ export const startTaskPreviewSandbox = internalAction({
       console.error(
         `[daytona][sessions] startTaskPreviewSandbox failed after ${formatDurationMs(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );
+      await completeTaskProgress(ctx, args.taskId);
       await ctx.runMutation(internal.agentTasks.taskSandboxError, {
         taskId: args.taskId,
         error: errorMessage(e, "Unknown error"),

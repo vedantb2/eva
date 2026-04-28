@@ -72,13 +72,31 @@ export async function detectDevPort(
   return 3000;
 }
 
-/** Detects package manager and dev port, returning the dev command for the session. */
+/**
+ * Detects package manager and dev port, returning the dev command for the session.
+ *
+ * `overrides` lets a user-defined config (stored on `githubRepos`) take precedence
+ * over auto-detection:
+ * - `overrides.devPort` short-circuits port detection.
+ * - `overrides.devCommand` is run verbatim — the user owns `cd` and `PORT=`.
+ *   We still resolve a port for downstream consumers (preview URL routing) using
+ *   the override port, else detection.
+ */
 export async function startSessionServices(
   sandbox: Sandbox,
   rootDir: string,
+  overrides?: { devPort?: number; devCommand?: string },
 ): Promise<{ port: number; devCommand: string }> {
+  const port =
+    overrides?.devPort !== undefined
+      ? overrides.devPort
+      : await detectDevPort(sandbox, rootDir);
+
+  if (overrides?.devCommand && overrides.devCommand.trim().length > 0) {
+    return { port, devCommand: overrides.devCommand };
+  }
+
   const pm = await detectPackageManager(sandbox, rootDir);
-  const port = await detectDevPort(sandbox, rootDir);
   const dir = rootDir
     ? `${workspaceDirShell()}/${rootDir}`
     : workspaceDirShell();

@@ -27,8 +27,13 @@ const VOLUME_INVALID_STATES = new Set([
 type PersistableSessionId =
   | Id<"sessions">
   | Id<"designSessions">
-  | Id<"projects">;
-type PersistableSessionKind = "sessions" | "designSessions" | "projects";
+  | Id<"projects">
+  | Id<"agentTasks">;
+type PersistableSessionKind =
+  | "sessions"
+  | "designSessions"
+  | "projects"
+  | "agentTasks";
 type PersistableRepoId = Id<"githubRepos">;
 type PersistedProvider = "claude" | "codex" | "opencode" | "cursor";
 

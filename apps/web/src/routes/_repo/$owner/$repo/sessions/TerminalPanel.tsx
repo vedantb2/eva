@@ -15,8 +15,17 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 
+/**
+ * Discriminated owner — a terminal pane belongs to either a session or a
+ * quick task. The PTY backend resolves the sandbox and repo from whichever
+ * is provided.
+ */
+export type PtyOwner =
+  | { kind: "session"; sessionId: Id<"sessions"> }
+  | { kind: "task"; taskId: Id<"agentTasks"> };
+
 interface TerminalPanelProps {
-  sessionId: Id<"sessions">;
+  owner: PtyOwner;
   sandboxId: string | undefined;
   isActive: boolean;
   ptyInstanceId: string;
@@ -60,7 +69,7 @@ function isControlMessage(
 }
 
 export function TerminalPanel({
-  sessionId,
+  owner,
   sandboxId,
   isActive,
   ptyInstanceId,
@@ -87,7 +96,7 @@ export function TerminalPanel({
   const connectWebSocket = useCallback(
     async (terminal: Terminal, mounted: { current: boolean }) => {
       const { wsUrl, isNewPty } = await connectPty({
-        sessionId,
+        owner,
         cols: terminal.cols,
         rows: terminal.rows,
         ptyInstanceId,
@@ -182,7 +191,7 @@ export function TerminalPanel({
         }
       });
     },
-    [connectPty, sessionId, devCommand, ptyInstanceId, runDevCommandOnConnect],
+    [connectPty, owner, devCommand, ptyInstanceId, runDevCommandOnConnect],
   );
 
   useEffect(() => {
@@ -281,14 +290,7 @@ export function TerminalPanel({
         terminalInstanceRef.current = null;
       }
     };
-  }, [
-    isActive,
-    sandboxId,
-    sessionId,
-    retryCount,
-    connectWebSocket,
-    ptyInstanceId,
-  ]);
+  }, [isActive, sandboxId, owner, retryCount, connectWebSocket, ptyInstanceId]);
 
   useLayoutEffect(() => {
     if (!isForeground) {
@@ -299,10 +301,8 @@ export function TerminalPanel({
     }
     fitAddonRef.current.fit();
     const { cols, rows } = terminalInstanceRef.current;
-    resizePtyRef
-      .current({ sessionId, cols, rows, ptyInstanceId })
-      .catch(() => {});
-  }, [isForeground, sessionId, ptyInstanceId]);
+    resizePtyRef.current({ owner, cols, rows, ptyInstanceId }).catch(() => {});
+  }, [isForeground, owner, ptyInstanceId]);
 
   useEffect(() => {
     if (!terminalRef.current) {
@@ -325,13 +325,13 @@ export function TerminalPanel({
         fitAddonRef.current.fit();
         const { cols, rows } = terminalInstanceRef.current;
         resizePtyRef
-          .current({ sessionId, cols, rows, ptyInstanceId })
+          .current({ owner, cols, rows, ptyInstanceId })
           .catch(() => {});
       }
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [sessionId, ptyInstanceId, isForeground]);
+  }, [owner, ptyInstanceId, isForeground]);
 
   if (!isActive || !sandboxId) {
     return (

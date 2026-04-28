@@ -43,6 +43,7 @@ import { Route as RepoOwnerRepoSettingsLogsRouteImport } from './routes/_repo/$o
 import { Route as RepoOwnerRepoSettingsEnvVariablesRouteImport } from './routes/_repo/$owner/$repo/settings/env-variables'
 import { Route as RepoOwnerRepoSettingsConfigRouteImport } from './routes/_repo/$owner/$repo/settings/config'
 import { Route as RepoOwnerRepoSettingsAuditsRouteImport } from './routes/_repo/$owner/$repo/settings/audits'
+import { Route as RepoOwnerRepoSettingsAppRouteImport } from './routes/_repo/$owner/$repo/settings/app'
 import { Route as RepoOwnerRepoSessionsIdRouteImport } from './routes/_repo/$owner/$repo/sessions/$id'
 import { Route as RepoOwnerRepoQuickTasksTaskIdRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$taskId'
 import { Route as RepoOwnerRepoProjectsProjectIdRouteImport } from './routes/_repo/$owner/$repo/projects/$projectId'
@@ -236,6 +237,12 @@ const RepoOwnerRepoSettingsAuditsRoute =
     path: '/settings/audits',
     getParentRoute: () => RepoOwnerRepoRoute,
   } as any)
+const RepoOwnerRepoSettingsAppRoute =
+  RepoOwnerRepoSettingsAppRouteImport.update({
+    id: '/settings/app',
+    path: '/settings/app',
+    getParentRoute: () => RepoOwnerRepoRoute,
+  } as any)
 const RepoOwnerRepoSessionsIdRoute = RepoOwnerRepoSessionsIdRouteImport.update({
   id: '/sessions/$id',
   path: '/sessions/$id',
@@ -291,6 +298,7 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/projects/$projectId': typeof RepoOwnerRepoProjectsProjectIdRoute
   '/$owner/$repo/quick-tasks/$taskId': typeof RepoOwnerRepoQuickTasksTaskIdRoute
   '/$owner/$repo/sessions/$id': typeof RepoOwnerRepoSessionsIdRoute
+  '/$owner/$repo/settings/app': typeof RepoOwnerRepoSettingsAppRoute
   '/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
   '/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
   '/$owner/$repo/settings/env-variables': typeof RepoOwnerRepoSettingsEnvVariablesRoute
@@ -330,6 +338,7 @@ export interface FileRoutesByTo {
   '/$owner/$repo/projects/$projectId': typeof RepoOwnerRepoProjectsProjectIdRoute
   '/$owner/$repo/quick-tasks/$taskId': typeof RepoOwnerRepoQuickTasksTaskIdRoute
   '/$owner/$repo/sessions/$id': typeof RepoOwnerRepoSessionsIdRoute
+  '/$owner/$repo/settings/app': typeof RepoOwnerRepoSettingsAppRoute
   '/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
   '/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
   '/$owner/$repo/settings/env-variables': typeof RepoOwnerRepoSettingsEnvVariablesRoute
@@ -373,6 +382,7 @@ export interface FileRoutesById {
   '/_repo/$owner/$repo/projects/$projectId': typeof RepoOwnerRepoProjectsProjectIdRoute
   '/_repo/$owner/$repo/quick-tasks/$taskId': typeof RepoOwnerRepoQuickTasksTaskIdRoute
   '/_repo/$owner/$repo/sessions/$id': typeof RepoOwnerRepoSessionsIdRoute
+  '/_repo/$owner/$repo/settings/app': typeof RepoOwnerRepoSettingsAppRoute
   '/_repo/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
   '/_repo/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
   '/_repo/$owner/$repo/settings/env-variables': typeof RepoOwnerRepoSettingsEnvVariablesRoute
@@ -415,6 +425,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/projects/$projectId'
     | '/$owner/$repo/quick-tasks/$taskId'
     | '/$owner/$repo/sessions/$id'
+    | '/$owner/$repo/settings/app'
     | '/$owner/$repo/settings/audits'
     | '/$owner/$repo/settings/config'
     | '/$owner/$repo/settings/env-variables'
@@ -454,6 +465,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/projects/$projectId'
     | '/$owner/$repo/quick-tasks/$taskId'
     | '/$owner/$repo/sessions/$id'
+    | '/$owner/$repo/settings/app'
     | '/$owner/$repo/settings/audits'
     | '/$owner/$repo/settings/config'
     | '/$owner/$repo/settings/env-variables'
@@ -496,6 +508,7 @@ export interface FileRouteTypes {
     | '/_repo/$owner/$repo/projects/$projectId'
     | '/_repo/$owner/$repo/quick-tasks/$taskId'
     | '/_repo/$owner/$repo/sessions/$id'
+    | '/_repo/$owner/$repo/settings/app'
     | '/_repo/$owner/$repo/settings/audits'
     | '/_repo/$owner/$repo/settings/config'
     | '/_repo/$owner/$repo/settings/env-variables'
@@ -763,6 +776,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RepoOwnerRepoSettingsAuditsRouteImport
       parentRoute: typeof RepoOwnerRepoRoute
     }
+    '/_repo/$owner/$repo/settings/app': {
+      id: '/_repo/$owner/$repo/settings/app'
+      path: '/settings/app'
+      fullPath: '/$owner/$repo/settings/app'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsAppRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
     '/_repo/$owner/$repo/sessions/$id': {
       id: '/_repo/$owner/$repo/sessions/$id'
       path: '/sessions/$id'
@@ -843,6 +863,7 @@ interface RepoOwnerRepoRouteChildren {
   RepoOwnerRepoProjectsProjectIdRoute: typeof RepoOwnerRepoProjectsProjectIdRoute
   RepoOwnerRepoQuickTasksTaskIdRoute: typeof RepoOwnerRepoQuickTasksTaskIdRoute
   RepoOwnerRepoSessionsIdRoute: typeof RepoOwnerRepoSessionsIdRoute
+  RepoOwnerRepoSettingsAppRoute: typeof RepoOwnerRepoSettingsAppRoute
   RepoOwnerRepoSettingsAuditsRoute: typeof RepoOwnerRepoSettingsAuditsRoute
   RepoOwnerRepoSettingsConfigRoute: typeof RepoOwnerRepoSettingsConfigRoute
   RepoOwnerRepoSettingsEnvVariablesRoute: typeof RepoOwnerRepoSettingsEnvVariablesRoute
@@ -873,6 +894,7 @@ const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
   RepoOwnerRepoProjectsProjectIdRoute: RepoOwnerRepoProjectsProjectIdRoute,
   RepoOwnerRepoQuickTasksTaskIdRoute: RepoOwnerRepoQuickTasksTaskIdRoute,
   RepoOwnerRepoSessionsIdRoute: RepoOwnerRepoSessionsIdRoute,
+  RepoOwnerRepoSettingsAppRoute: RepoOwnerRepoSettingsAppRoute,
   RepoOwnerRepoSettingsAuditsRoute: RepoOwnerRepoSettingsAuditsRoute,
   RepoOwnerRepoSettingsConfigRoute: RepoOwnerRepoSettingsConfigRoute,
   RepoOwnerRepoSettingsEnvVariablesRoute:

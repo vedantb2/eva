@@ -148,6 +148,71 @@ export const runStartupCommands = internalAction({
   },
 });
 
+/**
+ * Launches background commands (long-running daemons like `npx convex dev`) on
+ * a sandbox. Each command is detached via `nohup ... > /tmp/bg-<idx>.log 2>&1 &`
+ * so the shell forks immediately without waiting for the daemon to exit.
+ *
+ * Unlike `runStartupCommands`, there is **no marker file** — daemons die when
+ * the sandbox stops, so we always re-run on resume to respawn them. Mirrors
+ * the dev-server launch idiom used elsewhere in this file.
+ */
+export const runBackgroundCommands = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({
+    ran: v.boolean(),
+    commandCount: v.number(),
+    errors: v.array(v.string()),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ ran: boolean; commandCount: number; errors: string[] }> => {
+    const commands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getBackgroundCommands,
+      { repoId: args.repoId },
+    );
+
+    if (!commands || commands.length === 0) {
+      return { ran: false, commandCount: 0, errors: [] };
+    }
+
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+
+    console.log(
+      `[daytona] runBackgroundCommands: launching ${commands.length} background command(s)`,
+    );
+
+    const errors: string[] = [];
+    for (let i = 0; i < commands.length; i++) {
+      const command = commands[i];
+      const logPath = `/tmp/bg-${i}.log`;
+      // Escape single quotes for the bash -lc payload.
+      const escaped = command.replace(/'/g, "'\\''");
+      const launchCmd = `nohup bash -lc '${escaped}' > ${logPath} 2>&1 &`;
+      console.log(
+        `[daytona] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
+      );
+      try {
+        // Short timeout — we only wait for the shell to fork the daemon.
+        await exec(sandbox, launchCmd, 10);
+      } catch (e) {
+        const msg = errorMessage(e, "unknown error");
+        console.error(
+          `[daytona] runBackgroundCommands: failed to launch: ${command}`,
+          msg,
+        );
+        errors.push(`${command}: ${msg}`);
+      }
+    }
+
+    return { ran: true, commandCount: commands.length, errors };
+  },
+});
+
 /** Returns a signed preview URL for a sandbox port, optionally checking readiness. */
 export const getPreviewUrl = action({
   args: {

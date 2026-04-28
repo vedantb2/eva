@@ -176,11 +176,33 @@ function SessionPromptSubmit({
   );
 }
 
+/** Maps a session's PR state to an icon color class.
+ *   draft  → grey   (matches GitHub's draft pill)
+ *   open   → green  (active, ready for review)
+ *   merged → purple (reuses status-code-review token)
+ *   closed → red    (closed without merge) */
+function prStateIconClass(
+  state: "draft" | "open" | "merged" | "closed" | undefined,
+): string {
+  switch (state) {
+    case "open":
+      return "text-success";
+    case "merged":
+      return "text-status-code-review";
+    case "closed":
+      return "text-destructive";
+    case "draft":
+    default:
+      return "text-muted-foreground";
+  }
+}
+
 interface ChatPanelProps {
   sessionId: Id<"sessions">;
   title: string;
   branchName?: string;
   prUrl?: string;
+  prState?: "draft" | "open" | "merged" | "closed";
   summary?: string[];
   messages: SessionMessage[];
   queuedMessages: QueuedSessionMessage[];
@@ -205,6 +227,7 @@ export function ChatPanel({
   title,
   branchName,
   prUrl,
+  prState,
   summary,
   messages,
   queuedMessages,
@@ -465,7 +488,9 @@ export function ChatPanel({
   const headerRight = (
     <>
       <EntityContextUsage repoId={repo._id} entityId={sessionId} />
-      {!prUrl && branchName && (
+      {/* Show while PR is missing or still in draft. Treat unset prState as
+          draft for legacy sessions created before prState tracking existed. */}
+      {branchName && (!prState || prState === "draft") && (
         <Button
           size="sm"
           variant="secondary"
@@ -519,7 +544,10 @@ export function ChatPanel({
                 window.open(prUrl, "_blank", "noopener,noreferrer");
               }}
             >
-              <IconGitPullRequest size={14} />
+              <IconGitPullRequest
+                size={14}
+                className={prStateIconClass(prState)}
+              />
               View PR
             </DropdownMenuItem>
           )}
@@ -592,7 +620,9 @@ export function ChatPanel({
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
           {messages.length === 0 ? (
-            isSandboxToggling && !isSandboxActive && startupStreamingActivity ? (
+            isSandboxToggling &&
+            !isSandboxActive &&
+            startupStreamingActivity ? (
               <div className="flex flex-col items-center justify-center py-8">
                 <StreamingActivityDisplay
                   activity={startupStreamingActivity}
@@ -734,20 +764,22 @@ export function ChatPanel({
       {!isArchived && !activePendingQuestion && (
         <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
           <AnimatePresence initial={false}>
-            {isSandboxToggling && !isSandboxActive && startupStreamingActivity && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
-                className="mb-3 rounded-lg bg-secondary p-4"
-              >
-                <StreamingActivityDisplay
-                  activity={startupStreamingActivity}
-                  thinkingLabel="Starting sandbox..."
-                />
-              </motion.div>
-            )}
+            {isSandboxToggling &&
+              !isSandboxActive &&
+              startupStreamingActivity && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="mb-3 rounded-lg bg-secondary p-4"
+                >
+                  <StreamingActivityDisplay
+                    activity={startupStreamingActivity}
+                    thinkingLabel="Starting sandbox..."
+                  />
+                </motion.div>
+              )}
           </AnimatePresence>
           <QueuedMessagesPanel
             items={queuedMessageItems}

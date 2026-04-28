@@ -5,7 +5,12 @@ import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { resolveAllEnvVars } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
-import { getDaytona } from "./_daytona/helpers";
+import {
+  getDaytona,
+  buildConfigFileDownloadCommands,
+  filterDownloadableConfigFiles,
+  type SandboxConfigFile,
+} from "./_daytona/helpers";
 import { Image } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
 
@@ -13,6 +18,29 @@ const DAYTONA_API_URL = "https://app.daytona.io/api";
 
 // "eva ALL=(ALL) NOPASSWD: ALL\n" — base64-encoded to avoid parentheses breaking Dockerfile RUN
 const EVA_SUDOERS_B64 = "ZXZhIEFMTD0oQUxMKSBOT1BBU1NXRDogQUxMCg==";
+
+/**
+ * Sandbox entrypoint script — base64-encoded to avoid Dockerfile RUN escaping.
+ * Decoded contents:
+ *
+ *   #!/bin/bash
+ *   sudo bash -c '
+ *     rm -f /var/run/docker.pid /var/run/docker.sock /run/docker/containerd/containerd.pid \
+ *           /run/docker/containerd/containerd.sock /run/docker/containerd/containerd.sock.ttrpc \
+ *           /run/docker/containerd/containerd-debug.sock 2>/dev/null || true
+ *     setsid dockerd </dev/null >/var/log/dockerd.log 2>&1 &
+ *   '
+ *   exec sleep infinity
+ *
+ * Daytona runs the snapshot's entrypoint in a dedicated session that's
+ * re-launched on every resume from auto-stop. This script starts dockerd
+ * (cleaning up stale pidfiles/sockets first) so Docker survives the
+ * stop/resume cycle without needing Eva's backend to call ensureDockerDaemon.
+ * ensureDockerDaemon remains as a defensive fallback for older snapshots and
+ * cold-start races.
+ */
+const EVA_ENTRYPOINT_B64 =
+  "IyEvYmluL2Jhc2gKIyBFdmEgc2FuZGJveCBlbnRyeXBvaW50IOKAlCBzdGFydHMgZG9ja2VyZCwgdGhlbiBzbGVlcHMuIERheXRvbmEgcmUtcnVucyB0aGlzCiMgb24gZXZlcnkgcmVzdW1lIGZyb20gYXV0by1zdG9wLCBzbyBkb2NrZXJkIHN1cnZpdmVzIHRoZSByZXN1bWUgY3ljbGUgd2l0aG91dAojIG5lZWRpbmcgRXZhJ3MgYmFja2VuZCB0byBjYWxsIGVuc3VyZURvY2tlckRhZW1vbi4gZW5zdXJlRG9ja2VyRGFlbW9uIHN0YXlzIGFzCiMgYSBkZWZlbnNpdmUgZmFsbGJhY2sgZm9yIG9sZGVyIHNuYXBzaG90cyBhbmQgY29sZC1zdGFydCByYWNlcy4Kc3VkbyBiYXNoIC1jICcKICBybSAtZiAvdmFyL3J1bi9kb2NrZXIucGlkIC92YXIvcnVuL2RvY2tlci5zb2NrIC9ydW4vZG9ja2VyL2NvbnRhaW5lcmQvY29udGFpbmVyZC5waWQgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLnNvY2sgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLnNvY2sudHRycGMgL3J1bi9kb2NrZXIvY29udGFpbmVyZC9jb250YWluZXJkLWRlYnVnLnNvY2sgMj4vZGV2L251bGwgfHwgdHJ1ZQogIHNldHNpZCBkb2NrZXJkIDwvZGV2L251bGwgPi92YXIvbG9nL2RvY2tlcmQubG9nIDI+JjEgJgonCmV4ZWMgc2xlZXAgaW5maW5pdHkK";
 
 /** Type guard for record-shaped objects. */
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -26,9 +54,6 @@ function extractUrl(data: unknown): string | null {
   return null;
 }
 
-/** Config file with URL for snapshot build. */
-type ConfigFile = { fileName: string; url: string | null };
-
 /**
  * Builds a Daytona Image definition that mirrors the old rebuild-snapshot.yml Dockerfile.
  * The key difference is using `git clone` (with an installation token) instead of COPY
@@ -39,7 +64,8 @@ function buildSnapshotImage(
   owner: string,
   repoName: string,
   branch: string,
-  configFiles: ConfigFile[] = [],
+  configFiles: SandboxConfigFile[] = [],
+  buildCommands: string[] = [],
 ): Image {
   const appSlug = process.env.GITHUB_APP_SLUG;
   const botUserId = process.env.GITHUB_BOT_USER_ID;
@@ -50,7 +76,7 @@ function buildSnapshotImage(
   }
   const gitConfigCmd = `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`;
 
-  return Image.base("node:20-bookworm")
+  const baseImage = Image.base("node:20-bookworm")
     .runCommands(
       "apt-get update && apt-get install -y git curl jq ripgrep fd-find git-lfs gh sudo",
       // GUI/VNC/X11 packages for desktop mode
@@ -68,6 +94,8 @@ function buildSnapshotImage(
       'mkdir -p /etc/docker && echo \'{"dns":["1.1.1.1","8.8.8.8"],"mtu":1400,"ipv6":false,"ip6tables":false,"max-concurrent-downloads":3}\' > /etc/docker/daemon.json',
       // Passwordless sudo for eva (base64-encoded to avoid parentheses breaking Dockerfile RUN)
       `printf %s ${EVA_SUDOERS_B64}|base64 -d>/etc/sudoers.d/eva&&chmod 440 /etc/sudoers.d/eva`,
+      // Install sandbox entrypoint script (starts dockerd on every Daytona resume)
+      `printf %s ${EVA_ENTRYPOINT_B64}|base64 -d>/usr/local/bin/eva-entrypoint.sh&&chmod 755 /usr/local/bin/eva-entrypoint.sh`,
       // Cleanup
       "rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*",
       // Node/pnpm setup
@@ -111,16 +139,29 @@ function buildSnapshotImage(
     )
     .workdir("/tmp/repo")
     .runCommands(
-      // Download config files directly to repo root
-      ...configFiles
-        .filter((f): f is { fileName: string; url: string } => f.url !== null)
-        .map(
-          (f) =>
-            `curl -fSL --retry 3 --retry-delay 5 -o '${f.fileName}' '${f.url}'`,
-        ),
+      // Download config files directly to repo root. Each file's commands are
+      // joined with && into a single RUN so multi-chunk downloads (curl chunks
+      // to /tmp, cat into final file, rm chunks) all live in one Docker layer —
+      // otherwise intermediate layers would balloon image size with /tmp blobs.
+      ...filterDownloadableConfigFiles(configFiles).map((f) =>
+        buildConfigFileDownloadCommands(f).join(" && "),
+      ),
       // Install dependencies
       "pnpm install --frozen-lockfile",
     );
+
+  // Append user-defined build commands as additional RUN layers (one per
+  // command for granular Docker caching). Run after pnpm install so the repo
+  // and node_modules are available; executed as user `eva` in /tmp/repo.
+  const withBuildCommands =
+    buildCommands.length > 0
+      ? baseImage.runCommands(...buildCommands)
+      : baseImage;
+
+  // Set the sandbox entrypoint last so it lands at the end of the Dockerfile
+  // and isn't clobbered by later layers. Daytona re-runs this on every resume,
+  // so dockerd survives auto-stop/resume without Eva intervention.
+  return withBuildCommands.entrypoint(["/usr/local/bin/eva-entrypoint.sh"]);
 }
 
 /**
@@ -210,10 +251,12 @@ export const kickOffSnapshotBuild = internalAction({
     const branch = config.workflowRef ?? "main";
 
     // Query sandbox config files for this repo
-    const configFiles: ConfigFile[] = await ctx.runQuery(
+    const configFiles: SandboxConfigFile[] = await ctx.runQuery(
       internal.sandboxConfigFiles.getConfigFilesForSnapshot,
       { repoId: config.repoId },
     );
+
+    const buildCommands = config.buildCommands ?? [];
 
     // Build the Image definition and extract the Dockerfile content
     const image = buildSnapshotImage(
@@ -222,15 +265,19 @@ export const kickOffSnapshotBuild = internalAction({
       repo.name,
       branch,
       configFiles,
+      buildCommands,
     );
 
-    const configFileCount = configFiles.filter((f) => f.url !== null).length;
+    const configFileCount = filterDownloadableConfigFiles(configFiles).length;
     await ctx.runMutation(internal.repoSnapshots.appendLogs, {
       buildId: args.buildId,
       chunk:
         `Starting Daytona snapshot build for ${repo.owner}/${repo.name} (branch: ${branch})...\n` +
         (configFileCount > 0
           ? `Including ${configFileCount} sandbox config file(s): ${configFiles.map((f) => f.fileName).join(", ")}\n`
+          : "") +
+        (buildCommands.length > 0
+          ? `Running ${buildCommands.length} custom build command(s) after pnpm install.\n`
           : ""),
     });
 
@@ -250,7 +297,7 @@ export const kickOffSnapshotBuild = internalAction({
           contextHashes: [],
         },
         cpu: 4,
-        memory: 8,
+        memory: 12,
         disk: 10,
       }),
     });

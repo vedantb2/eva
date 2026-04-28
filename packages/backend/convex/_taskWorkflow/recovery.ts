@@ -123,6 +123,10 @@ export async function cleanUpStaleRun(
       repoId: params.repoId,
     });
     if (!params.isProjectTask) {
+      // Stale runs mean the workflow died mid-execution — sandbox state is
+      // suspect, so delete (don't stop) and force a fresh sandbox on next run.
+      // Clear `task.sandboxId` too so reviewer Start Sandbox doesn't point at
+      // a deleted Daytona sandbox.
       await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
         sandboxId: params.sandboxId,
         repoId: params.repoId,
@@ -138,11 +142,21 @@ export async function cleanUpStaleRun(
     exitReason: params.exitReason,
   });
 
-  const taskPatch = {
-    activeWorkflowId: undefined as undefined,
+  const taskPatch: {
+    activeWorkflowId: undefined;
+    updatedAt: number;
+    status?: "todo";
+    sandboxId?: undefined;
+    reviewTaskSandboxStatus?: undefined;
+  } = {
+    activeWorkflowId: undefined,
     updatedAt: Date.now(),
     ...(params.taskStatus === "in_progress" ? { status: "todo" as const } : {}),
   };
+  if (!params.isProjectTask && params.sandboxId) {
+    taskPatch.sandboxId = undefined;
+    taskPatch.reviewTaskSandboxStatus = undefined;
+  }
   await ctx.db.patch(params.taskId, taskPatch);
 
   if (!params.isProjectTask) {

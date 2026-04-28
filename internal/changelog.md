@@ -1,5 +1,139 @@
 # Changelog
 
+## Scope sandbox preview/editor/desktop URL caches by sandboxId - 2026-04-28
+
+- The Web Preview, Editor (code-server), and Desktop (NoVNC) panels cached their resolved Daytona signed URLs in sessionStorage keyed only by session/task ID and port. Since Daytona signed URLs embed the sandbox ID in the subdomain, destroying and recreating a sandbox for the same task/session reused a stale URL pointing at the dead sandbox — the iframe would render `400 "Sandbox with ID … not found"` while the terminal (which connects fresh by current `sandboxId`) worked fine.
+- Added `sandboxId` to all three cache keys so a recreated sandbox produces a fresh entry and the panel auto-refetches a live signed URL.
+- Refactored `SandboxIframeService` to use `useSessionStorage` from `usehooks-ts` instead of the bespoke `createSessionCache` helper, matching the pattern already used in `useSandboxPreview`. Deleted `apps/web/src/lib/utils/sessionCache.ts` (no remaining consumers).
+
+## Sync quick-task PR draft state with task review status - 2026-04-28
+
+- Quick-task workflows now open their PRs as **draft** (matching the initial `business_review` task state) and add a `draft` label, instead of opening a non-draft PR straight into the review queue.
+- Moving a quick task into `code_review` automatically marks the PR ready for review on GitHub; moving it back out (to `todo`, `in_progress`, or `business_review`) converts the PR back to draft. `done` deliberately leaves the PR ready since the user is merging.
+- Switched both `markPrReadyForReview` and the new `convertPrToDraft` actions to GitHub's GraphQL API — REST `pulls.update` silently ignores the `draft` field, so the previous flow couldn't actually flip state.
+- **Why**: the PR's draft state is the signal reviewers see in GitHub's notifications and review queues. Keeping it in lockstep with the Eva task status means reviewers only get pinged when the work is genuinely ready, and bouncing a task back to business review automatically un-queues the PR — no manual draft toggling needed.
+
+## Make quick-task first-run sandboxes non-ephemeral - 2026-04-28
+
+- `taskExecutionWorkflow` now passes `ephemeral: false` for every quick task — previously the first run set `ephemeral: !args.projectId && !data.taskSandboxId`, which resolved to `true` because no `taskSandboxId` existed yet, causing Daytona to delete the sandbox on the post-run auto-stop.
+- This was the root cause of `Sandbox with ID ... not found` errors hitting the preview URL: `task.sandboxId` was persisted at the end of the run but pointed at a sandbox Daytona had already torn down.
+- **Why**: contradicted the intent of "Persistent Quick-Task Sandboxes" (2026-04-27), which moved quick-task sandboxes to stop/pause-on-completion so reviewers could resume the same paused filesystem during code/business review and change-request flows.
+
+## Bake dockerd startup into snapshot entrypoint - 2026-04-28
+
+- Added a sandbox entrypoint script (`/usr/local/bin/eva-entrypoint.sh`) that cleans stale dockerd pidfiles/sockets and starts `dockerd` before `sleep infinity`, and registered it via `Image.entrypoint(...)` in the snapshot build.
+- Daytona re-launches the snapshot entrypoint on every resume from auto-stop, so dockerd now survives stop/resume cycles regardless of how the sandbox is resumed (Eva backend, direct SSH, preview URL hit). Previously dockerd only restarted on Eva-triggered resume because `ensureDockerDaemon` only fires inside `ensureSandboxRunning`.
+- `ensureDockerDaemon` remains as a defensive fallback for sandboxes built from older snapshots and any cold-start race.
+- **Why**: a direct SSH (or any non-Eva entry path) auto-resumes the sandbox without invoking Eva's backend, leaving dockerd dead and breaking `pnpm start-db` / Supabase / any docker-dependent flow until the user manually restarted it.
+
+## Close stop/start race window for sandbox toggles - 2026-04-28
+
+- Added a transient `"stopping"` status to sessions, design sessions, and review-task sandboxes; `stopSandbox` now patches that state synchronously and schedules a `finalizeStop*` internalAction that awaits the real Daytona stop (~10s) before flipping to `"closed"`.
+- UI (Session, Design, and Task detail views) now treats `"stopping"` like `"starting"` — keeps the spinner up and the Start button disabled across the full Daytona stop window, preventing a quick re-click from racing `getOrCreateSandbox` and silently spawning an orphan sandbox.
+- Hardened `getOrCreateSandbox`'s resume path with a `tryResumeSandbox` helper that retries transient Daytona errors (2s/4s/8s backoff) and only short-circuits to creating a fresh sandbox when the existing ID is genuinely missing — so a flaky `daytona.get` no longer leaks a duplicate sandbox.
+- **Why**: previously the UI flipped to "stopped" instantly while Daytona was mid-stop, so a user clicking Start during that ~10s window would create a new sandbox while the old one was still being torn down — leaking sandboxes and breaking the resume guarantee.
+
+## Track session PR state with webhook sync + colored PR indicator - 2026-04-28
+
+- Added `prState` field (`draft | open | merged | closed`) to sessions plus a `by_pr_url` index, so the UI can distinguish a freshly auto-created draft PR from one that's been promoted, merged, or closed.
+- `createDraftSessionPr` now writes `prState: "draft"`; `createSessionPr` writes `"open"` and additionally archives the sandbox + closes the session (same path as the manual archive button) once the PR is marked ready for review, so "Send for Review" cleans up automatically.
+- Extended the GitHub `pull_request` webhook to forward `opened`, `reopened`, `ready_for_review`, `converted_to_draft`, and `closed` actions to a new `handleSessionPrEvent` mutation that patches `prState` by `prUrl`, keeping Convex in sync with GitHub when users toggle draft state or merge/close from outside Eva.
+- Reworked the "Send for Review" button visibility: shows whenever the PR is missing or in draft (instead of disappearing the moment the auto-draft is created), so users can actually click through to promote it.
+- Colored the "View PR" icon by state — grey (draft), green (open), purple/`status-code-review` (merged), red (closed) — giving an at-a-glance signal of where the PR sits without leaving the session.
+- **Why**: the previous gating hid the button as soon as `prUrl` was set, which meant the auto-draft PR could never actually be promoted from the UI; users also had no visible signal of PR state, and merging on GitHub left Eva's view stale.
+
+## Auto-recover Docker daemon on sandbox resume - 2026-04-28
+
+- Extracted `ensureDockerDaemon` helper and called it from `ensureSandboxRunning`, so dockerd is now restarted whenever a sandbox is resumed (session reuse) — not only on initial create. Quick tasks already pass through `createSandbox`, which uses the same helper.
+- Cleanup before restart now removes the stale `/var/run/docker.pid` and `/run/docker/containerd/*` pidfiles + sockets that survive Daytona auto-stop, which were blocking dockerd/containerd from starting after resume.
+- Switched dockerd launch to `setsid ... </dev/null` so the daemon detaches cleanly from the exec session and survives after the helper returns.
+- **Why**: dockerd runs as a backgrounded process inside the sandbox, not a system service, so it dies on auto-stop. Resuming a session would silently leave Docker down, breaking `pnpm start-db` and any other Docker-in-Docker workflow (Supabase local, etc.) until manual recovery.
+
+## Granular task sandbox startup progress steps - 2026-04-28
+
+- Backend: added `emitTaskProgress` / `completeTaskProgress` helpers (mirroring sessions) that emit per-step progress to streaming entity `task-sandbox-startup-${taskId}` throughout `prepareTaskPreviewSandboxInternal` (reuse path: Resuming → Downloading config → Starting dev server → Launching background; new path: Loading repo config → Resolving context → Checking existing → Setting up volumes → Creating sandbox → Syncing refs → Checking out branch → Downloading config → Starting dev server → Running startup → Launching background).
+- Removed misleading "Running startup commands..." step from task reuse path — marker file check makes `runStartupCommands` a no-op on resume, so showing the step was confusing.
+- Frontend: added `sandboxStartupActivity` query in `useTaskDetail` and wired it through `TaskDetailInline` to replace the generic "Preparing sandbox..." spinner with `<StreamingActivityDisplay>` showing actual steps as they arrive; fallback label is "Starting sandbox..." while steps stream in.
+- **Why**: Mirrors the existing session sandbox startup UX (which users rely on for visibility into long multi-minute boots); quick-task reviewers now see real progress instead of static spinners, improving confidence during sandbox startup and making failures easier to diagnose.
+
+## Per-repo background commands for long-running daemons - 2026-04-28
+
+- Added `backgroundCommands` field to `githubRepos` schema: users can configure long-running daemons (e.g. `npx convex dev`) that launch detached (`nohup ... &`) alongside the dev server on every sandbox start and resume.
+- New `runBackgroundCommands` internalAction detaches each command with a short exec timeout (10s) — we only wait for the shell to fork, not the daemon to finish. No marker file, so daemons respawn automatically when a stopped sandbox is resumed (processes die when sandbox stops).
+- UI: new "Background Commands" textarea in App settings tab, mirrors startup-commands UX; placeholder shows `npx convex dev`; helper text explains log paths (`/tmp/bg-<index>.log`) and respawn behavior.
+- Called at all 6 sandbox startup paths (session reuse/new, task reuse/new, design session reuse/new) and in `prepareSandboxSteps` after startup commands, ensuring daemons run consistently across all preview types.
+- **Why**: Startup commands block (10-min timeout per command); daemons like `npx convex dev` hang forever, making them unsuitable for sequential execution. Background commands solve this by forking immediately and auto-respawning on resume, enabling Convex codegen to pick up changes during session previews without manual redeploy.
+
+## Persist resolved devPort/devCommand on task & session docs - 2026-04-28
+
+- Wired `task.devPort` / `task.devCommand` (already populated by `taskSandboxReady`) through `TaskDetailInline` → `TaskSandboxPanel` so the preview iframe + terminal auto-run hit the actual running dev server instead of falling back to the URL default of 3001.
+- **Architectural note**: `githubRepos.devPort/devCommand` = per-app _config / intent_. `agentTasks.devPort/devCommand` and `designSessions.devPort/devCommand` = _snapshot of the resolved value at sandbox spawn time_. We persist the resolved value (override → detect → default) because (a) the dev server is a long-lived process pinned to whatever port it bound at spawn — editing repo config later doesn't migrate it, (b) `detectDevPort` requires reading the live sandbox FS so we can't re-resolve client-side, and (c) the frontend shouldn't replicate detection logic just to render a preview URL. Per-app config is the input; per-task/per-session is the output.
+
+## Custom snapshot build commands - 2026-04-28
+
+- Added `buildCommands` field to `repoSnapshots` schema: users can now define custom commands (e.g. `pnpm convex codegen`, `pnpm build`) that run during snapshot build, after `pnpm install`, and are baked permanently into the Docker image as separate cached layers.
+- UI: new "Build Commands" card in Snapshots > Configuration tab, newline-delimited textarea that saves on blur; shows shared "Rebuild Required" warning banner alongside config files section.
+- Shared the rebuild-warning banner and command parser across AppClient (startup commands) and SnapshotsClient to reduce duplication.
+- **Why**: Solves the build-time vs runtime distinction — startup commands re-run on every sandbox boot, but build commands execute once during snapshot creation, ideal for codegen, precompiled artifacts, and pre-warmed caches that should not re-run per boot.
+
+## Unify sandbox status styles & Editor/Desktop panels - 2026-04-28
+
+- Extracted the sandbox status dot styles (active/starting/closed) into `sandboxStatusStyles.ts` so the session sidebar item and the quick-task card render from a single source of truth.
+- Collapsed `EditorPanel` and `DesktopPanel` (~260 LOC each, ~90% duplicated) into thin wrappers over a new generic `SandboxIframeService` component that owns the start/stop/poll state machine, sessionStorage cache, fullscreen toggle, and header buttons — the panels now just supply port, action callbacks, icon, and copy.
+
+## Extract shared sandbox panel logic - 2026-04-28
+
+- Pulled the duplicated multi-pane / preview-fetch / PTY-disconnect orchestration out of `SandboxPanel.tsx` and `TaskSandboxPanel.tsx` into shared `useSandboxPreview`, `useSandboxPanes`, and `<SandboxPaneSlots>` under `apps/web/src/lib/components/sandbox/` — both panels are now ~100-line thin orchestrators with a single source of truth for any future pane behavior changes.
+- localStorage / sessionStorage key layouts preserved, so existing client caches keep working through the refactor.
+
+## Editor + Desktop tabs on quick-task sandbox - 2026-04-27
+
+- Quick-task sandbox panel now exposes Editor (in-browser VS Code via code-server) and Desktop (NoVNC + auto-launched Chrome) tabs alongside Preview and Terminal — reviewers get the full session toolkit when debugging a task sandbox.
+- Renamed the `sessionId` prop on `EditorPanel`/`DesktopPanel` to `cacheKey` since it was only ever used as a sessionStorage namespace; this lets tasks reuse those panels without lying about identity.
+
+## Per-app dev server configuration (port, command, startup) - 2026-04-27
+
+- **Why**: Auto-detected dev server ports (5173 for vite, 3000 for next) don't work for all projects; startup commands lived on snapshots despite being per-app runtime config, creating confusion between snapshot and app lifecycle.
+- **Changes**: Added `devPort` and `devCommand` fields to `githubRepos`; extended `updateConfig` mutation to handle all three (devPort, devCommand, startupCommands); moved startup commands UI from Snapshots tab to new dedicated "App" settings tab; `startSessionServices` now accepts overrides and uses user-defined values if set, else auto-detects; all 6 sandbox startup sites (session reuse/new, task reuse/new, design session reuse/new) thread overrides through.
+- **Reason**: Enables config-first approach where users can override default ports and commands per app without touching source; consolidates app configuration in one place; null/empty clears overrides so detection falls back, preserving existing behavior.
+
+## Sandbox status indicator on quick task cards - 2026-04-27
+
+- Quick task cards now show a colored dot (green/amber/grey) reflecting the sandbox status (active/starting/closed), mirroring the session sidebar pattern so reviewers can spot live sandboxes at a glance from any list, kanban, or project view.
+
+## Multi-tab sandbox panel for quick tasks - 2026-04-27
+
+- Task sandbox now exposes Preview + Terminal tabs (mirroring session sandbox), enabling reviewers to debug dev server startup and in-sandbox runtime issues via live terminal access.
+- Generalized PTY system to support both sessions and tasks via discriminated `owner: { kind, id }` prop; TerminalPanel now works for both and reuses the same multi-pane infrastructure.
+- Preview and terminal pane state persists in localStorage (separate keys per task) so navigating away and back restores the same set of panes.
+- Multi-pane previews and terminals with "New Preview/Terminal" button (up to 8 of each) — useful for running multiple dev servers or tailing different logs in parallel.
+
+## Persistent Quick-Task Sandboxes - 2026-04-27
+
+- Quick-task sandboxes now persist across runs, using stop (pause) semantics instead of delete on completion, enabling seamless sandbox reuse during code review, business review, and change-request flows.
+- Reviewers can start a sandbox, stop it, and resume later with all in-sandbox state (Convex data, Supabase rows, fixtures) intact; Daytona auto-archives after 7 days idle.
+- Renamed `agentTasks` fields from `previewSandboxId`/`previewSandboxStatus` to `sandboxId`/`reviewTaskSandboxStatus` (canonical, shared across all task execution modes).
+- Workflow now reuses `task.sandboxId` on subsequent runs for non-project tasks, and reuses `project.sandboxId` for project tasks, avoiding redundant checkouts and bootstrap for change-requests and conflict resolution.
+- Stale-run recovery still deletes suspect sandboxes (workflow died mid-execution) and clears task.sandboxId to force fresh provisioning on next run.
+
+## Chunked sandbox config file uploads - 2026-04-27
+
+- **Why**: Convex storage upload URLs enforce a 2-minute server-side POST timeout, so single-blob uploads of files larger than ~500MB reliably stall once the TCP receive buffer fills, blocking large database backups and assets from being baked into snapshots.
+- **Changes**: `sandboxConfigFiles` now stores an ordered `chunks` array of storage IDs alongside the legacy `storageId` for backwards compatibility; client splits files into 100MB chunks and uploads each with its own fresh upload URL; snapshot Dockerfile builder and runtime sandbox prep download all chunks and concatenate them with `cat` into the original file (single-chunk files use a direct `curl -o`); shared download logic extracted into `_daytona/helpers.ts` and reused across all four download sites; bumped snapshot memory from 8GB to 12GB.
+- **Reason**: Per-chunk POSTs comfortably fit inside Convex's 2-minute window even on slow connections, the legacy `storageId` field stays readable so existing uploads keep working, and joining each file's curl/cat/rm into a single Dockerfile RUN keeps the snapshot image from ballooning with intermediate `/tmp` chunk layers.
+
+## Clarify large config file upload limits - 2026-04-27
+
+- **Why**: Convex storage upload URLs require the file POST to finish within 2 minutes, so very large config files can stall or fail after long waits.
+- **Changes**: Snapshot config uploads now use Convex's documented fetch-based upload path, use a timeout aligned with Convex's upload window, and remove noisy upload debug logging.
+- **Reason**: Avoids the cross-origin XHR upload path that can stall on large files while preserving the existing storage ID mutation contract.
+
+## Quick Task Sandbox Preview - 2026-04-27
+
+- **Why**: Users need to test database migrations and app changes locally before merging; running migrations programmatically during task execution can't cover all edge cases, so local testing with actual startup commands (supabase start, seed) is essential.
+- **Changes**: Added `previewSandboxId` and `previewSandboxStatus` fields to agentTasks to track sandbox state; created `startTaskSandbox` and `stopTaskSandbox` mutations with durable workflow; integrated Daytona to reuse existing sandboxes or create new ones; added TaskSandboxPanel component for dev server preview with port configuration and sessionStorage caching; added "Start Sandbox" button to task detail (code_review/business_review only) with toggle between Details and Sandbox views.
+- **Reason**: Enables local iteration on migrations and schema changes without GitHub workflow friction; support for per-app startup commands aligns with existing infrastructure.
+
 ## Move startup commands to per-app configuration - 2026-04-27
 
 - **Why**: Monorepos with multiple apps need independent startup command configuration; a single shared snapshot config doesn't support per-app services (e.g., app A runs `supabase start`, app B runs `postgres`).

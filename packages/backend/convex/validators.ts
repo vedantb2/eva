@@ -43,6 +43,7 @@ export const sessionModeValidator = v.union(
 export const sessionStatusValidator = v.union(
   v.literal("active"),
   v.literal("starting"),
+  v.literal("stopping"),
   v.literal("closed"),
 );
 
@@ -646,6 +647,13 @@ export const logEntryValidator = v.object({
   message: v.string(),
 });
 
+export const taskSandboxStatusValidator = v.union(
+  v.literal("starting"),
+  v.literal("active"),
+  v.literal("stopping"),
+  v.literal("closed"),
+);
+
 export const agentTaskFields = {
   title: v.string(),
   description: v.optional(v.string()),
@@ -664,6 +672,18 @@ export const agentTaskFields = {
   scheduledRetryAt: v.optional(v.number()),
   scheduledAt: v.optional(v.number()),
   scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
+  // Canonical sandbox shared across run/preview/resolve_conflicts. Persists
+  // across the task lifecycle so reviewers can resume in-sandbox state (DB,
+  // generated fixtures) instead of re-bootstrapping from the branch.
+  sandboxId: v.optional(v.string()),
+  // UI state for the reviewer-facing Start/Stop sandbox button.
+  reviewTaskSandboxStatus: v.optional(taskSandboxStatusValidator),
+  // Resolved dev server port + full command for the current sandbox. Stored
+  // so the task panel can route the preview iframe to the right port and
+  // auto-run the dev server in the first terminal pane. Populated by
+  // taskSandboxReady from startSessionServices() output.
+  devPort: v.optional(v.number()),
+  devCommand: v.optional(v.string()),
 };
 
 export const agentRunFields = {
@@ -692,6 +712,14 @@ export const sessionFields = {
   title: v.string(),
   branchName: v.optional(v.string()),
   prUrl: v.optional(v.string()),
+  prState: v.optional(
+    v.union(
+      v.literal("draft"),
+      v.literal("open"),
+      v.literal("merged"),
+      v.literal("closed"),
+    ),
+  ),
   sandboxId: v.optional(v.string()),
   ptySessionId: v.optional(v.string()),
   updatedAt: v.optional(v.number()),
@@ -733,6 +761,9 @@ export const githubRepoFields = {
   mcpRootPrompt: v.optional(v.string()),
   screenshotsVideosEnabled: v.optional(v.boolean()),
   startupCommands: v.optional(v.array(v.string())),
+  backgroundCommands: v.optional(v.array(v.string())),
+  devPort: v.optional(v.number()),
+  devCommand: v.optional(v.string()),
 };
 
 export const conversationMessageValidator = v.object({

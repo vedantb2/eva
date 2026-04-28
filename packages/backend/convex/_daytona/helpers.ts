@@ -9,6 +9,95 @@ import { launchScript } from "./launch";
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
 
+/** Config file shape returned by getConfigFilesForSnapshot. */
+export type SandboxConfigFile = {
+  fileName: string;
+  chunkUrls: Array<string | null>;
+};
+
+/** Per-chunk timeout (seconds) when downloading config files inside a sandbox. */
+const CHUNK_DOWNLOAD_TIMEOUT_SECONDS = 60;
+
+/**
+ * Filters config files to those with all chunk URLs available.
+ * Skips any file with a missing chunk URL — concatenating partial chunks would corrupt the file.
+ */
+export function filterDownloadableConfigFiles(
+  files: SandboxConfigFile[],
+): Array<{ fileName: string; chunkUrls: string[] }> {
+  const result: Array<{ fileName: string; chunkUrls: string[] }> = [];
+  for (const f of files) {
+    if (f.chunkUrls.length === 0) continue;
+    if (f.chunkUrls.some((u) => u === null)) continue;
+    const validUrls = f.chunkUrls.filter((u): u is string => u !== null);
+    result.push({ fileName: f.fileName, chunkUrls: validUrls });
+  }
+  return result;
+}
+
+/**
+ * Builds shell commands to download a config file. Single-chunk files use a
+ * straight `curl -o`. Multi-chunk files download each chunk to /tmp, concatenate
+ * with `cat` into the destination, then remove the chunk temp files.
+ */
+export function buildConfigFileDownloadCommands(file: {
+  fileName: string;
+  chunkUrls: string[];
+}): string[] {
+  if (file.chunkUrls.length === 1) {
+    return [
+      `curl -fSL --retry 3 --retry-delay 5 -o '${file.fileName}' '${file.chunkUrls[0]}'`,
+    ];
+  }
+  const downloadCmds = file.chunkUrls.map(
+    (url, i) =>
+      `curl -fSL --retry 3 --retry-delay 5 -o '/tmp/${file.fileName}.chunk-${i}' '${url}'`,
+  );
+  const chunkPaths = file.chunkUrls
+    .map((_, i) => `'/tmp/${file.fileName}.chunk-${i}'`)
+    .join(" ");
+  return [
+    ...downloadCmds,
+    `cat ${chunkPaths} > '${file.fileName}'`,
+    `rm ${chunkPaths}`,
+  ];
+}
+
+/**
+ * Computes the exec timeout (seconds) for downloading a single config file,
+ * scaling with chunk count plus overhead for concat/cleanup.
+ */
+export function configFileDownloadTimeout(chunkCount: number): number {
+  return CHUNK_DOWNLOAD_TIMEOUT_SECONDS * chunkCount + 30;
+}
+
+/**
+ * Downloads all config files (single-chunk or multi-chunk) into the given cwd
+ * inside the sandbox. Concatenates chunks back into the original file.
+ */
+export async function downloadSandboxConfigFiles(
+  sandbox: Sandbox,
+  configFiles: SandboxConfigFile[],
+  cwd: string,
+  log?: (msg: string) => void,
+): Promise<void> {
+  const filesToDownload = filterDownloadableConfigFiles(configFiles);
+  if (filesToDownload.length === 0) return;
+  log?.(
+    `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f) => f.fileName).join(", ")}`,
+  );
+  for (const file of filesToDownload) {
+    const cmds = buildConfigFileDownloadCommands(file);
+    // Join with && so a chunk failure short-circuits the rest
+    await exec(
+      sandbox,
+      cmds.join(" && "),
+      configFileDownloadTimeout(file.chunkUrls.length),
+      cwd,
+    );
+  }
+}
+
 /** Returns a shell expression that resolves to the active workspace directory. */
 export function workspaceDirShell(): string {
   return `$(if [ -d ${WORKSPACE_DIR} ]; then printf %s ${WORKSPACE_DIR}; elif [ -d ${LEGACY_WORKSPACE_DIR} ]; then printf %s ${LEGACY_WORKSPACE_DIR}; else printf %s ${WORKSPACE_DIR}; fi)`;
@@ -42,6 +131,56 @@ export async function exec(
   return resp.result;
 }
 
+/**
+ * Ensures the Docker daemon is running inside the sandbox.
+ *
+ * dockerd is launched as a backgrounded process (not a system service), so it
+ * does not survive sandbox auto-stop/resume. This helper is idempotent:
+ *   - If `docker info` already succeeds, it's a no-op.
+ *   - Otherwise, it cleans up stale sockets/containerd remnants and starts dockerd.
+ *
+ * Failures are non-fatal — older snapshots without Docker installed log and continue.
+ */
+export async function ensureDockerDaemon(sandbox: Sandbox): Promise<void> {
+  try {
+    await exec(sandbox, "docker info >/dev/null 2>&1", 5);
+    console.log(
+      `[daytona] ensureDockerDaemon: Docker daemon already running on ${sandbox.id}`,
+    );
+    return;
+  } catch {
+    // Not running (or docker not installed) — try to start it below.
+  }
+  try {
+    // Cleanup before restart: kill any half-alive dockerd/containerd, then
+    // remove their pidfiles AND sockets. After Daytona auto-stop/resume, both
+    // pidfiles survive but their PIDs map to unrelated processes in the new
+    // boot — dockerd/containerd refuse to start while a pidfile claims a
+    // running peer, so we must delete them.
+    await exec(
+      sandbox,
+      [
+        "sudo pkill -9 containerd 2>/dev/null",
+        "sudo pkill -9 dockerd 2>/dev/null",
+        "sleep 1",
+        "sudo rm -f /var/run/docker.pid /var/run/docker.sock /run/docker/containerd/containerd.pid /run/docker/containerd/containerd.sock /run/docker/containerd/containerd.sock.ttrpc /run/docker/containerd/containerd-debug.sock 2>/dev/null",
+        // setsid + </dev/null detaches dockerd from the exec session so it
+        // survives after the command returns.
+        "sudo setsid dockerd </dev/null >/dev/null 2>&1 &",
+        "sleep 4 && docker info >/dev/null 2>&1",
+      ].join("; "),
+      20,
+    );
+    console.log(
+      `[daytona] ensureDockerDaemon: Docker daemon started on ${sandbox.id}`,
+    );
+  } catch {
+    console.log(
+      `[daytona] ensureDockerDaemon: Docker not available on ${sandbox.id} (old snapshot or not installed)`,
+    );
+  }
+}
+
 /** Ensures a sandbox is running, starting it if the initial health check fails. */
 export async function ensureSandboxRunning(
   sandbox: Sandbox,
@@ -56,7 +195,6 @@ export async function ensureSandboxRunning(
     console.log(
       `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} already running (${Date.now() - startedAt}ms)`,
     );
-    return;
   } catch (e) {
     const checkDuration = Date.now() - startedAt;
     console.log(
@@ -72,6 +210,9 @@ export async function ensureSandboxRunning(
       `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} now running (total ${Date.now() - startedAt}ms)`,
     );
   }
+  // dockerd doesn't run as a system service, so it's lost on auto-stop/resume.
+  // Re-check (and restart if needed) on every ensureSandboxRunning call.
+  await ensureDockerDaemon(sandbox);
 }
 
 /** Returns the value of a required environment variable, throwing if missing. */

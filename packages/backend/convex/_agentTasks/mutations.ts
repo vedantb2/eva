@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { internal } from "../_generated/api";
 import { taskStatusValidator, aiModelValidator } from "../validators";
 import { createNotification } from "../notifications";
 import {
@@ -11,6 +12,12 @@ import {
 } from "../functions";
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
 import { buildProjectBranchName } from "../_projects/helpers";
+
+/** Extracts the PR number from a GitHub PR URL. */
+function extractPrNumber(prUrl: string): number | null {
+  const match = prUrl.match(/\/pull\/(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}
 
 /** Updates editable fields on an agent task and notifies on assignment changes. */
 export const update = authMutation({
@@ -101,6 +108,7 @@ export const updateStatus = authMutation({
         // may have already fired
       }
     }
+    const previousStatus = task.status;
     await ctx.db.patch(args.id, {
       status: args.status,
       updatedAt: Date.now(),
@@ -109,6 +117,47 @@ export const updateStatus = authMutation({
         scheduledFunctionId: undefined,
       }),
     });
+
+    // Sync the GitHub PR's draft state for quick tasks.
+    //   entering code_review → mark PR ready for review
+    //   leaving code_review  → convert PR back to draft
+    // Project tasks share one PR across many tasks, so individual task status
+    // changes don't map cleanly to PR state — skip them.
+    const enteringCodeReview =
+      args.status === "code_review" && previousStatus !== "code_review";
+    const leavingCodeReview =
+      previousStatus === "code_review" &&
+      args.status !== "code_review" &&
+      args.status !== "done";
+    if (
+      !task.projectId &&
+      task.repoId &&
+      (enteringCodeReview || leavingCodeReview)
+    ) {
+      const run = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_task", (q) => q.eq("taskId", args.id))
+        .order("desc")
+        .first();
+      const prUrl = run?.prUrl;
+      const prNumber = prUrl ? extractPrNumber(prUrl) : null;
+      const repo = prNumber ? await ctx.db.get(task.repoId) : null;
+      if (prNumber && repo) {
+        await ctx.scheduler.runAfter(
+          0,
+          enteringCodeReview
+            ? internal.taskWorkflowActions.markPrReadyForReview
+            : internal.taskWorkflowActions.convertPrToDraft,
+          {
+            installationId: repo.installationId,
+            repoOwner: repo.owner,
+            repoName: repo.name,
+            prNumber,
+          },
+        );
+      }
+    }
+
     if (args.status === "done") {
       if (task.createdBy && task.createdBy !== ctx.userId) {
         await createNotification(ctx, {

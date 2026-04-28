@@ -11,8 +11,10 @@
 import type * as _agentTasks_drafts from "../_agentTasks/drafts.js";
 import type * as _agentTasks_execution from "../_agentTasks/execution.js";
 import type * as _agentTasks_helpers from "../_agentTasks/helpers.js";
+import type * as _agentTasks_internal from "../_agentTasks/internal.js";
 import type * as _agentTasks_mutations from "../_agentTasks/mutations.js";
 import type * as _agentTasks_queries from "../_agentTasks/queries.js";
+import type * as _agentTasks_sandbox from "../_agentTasks/sandbox.js";
 import type * as _daytona_audit from "../_daytona/audit.js";
 import type * as _daytona_callbackScript from "../_daytona/callbackScript.js";
 import type * as _daytona_desktop from "../_daytona/desktop.js";
@@ -129,6 +131,7 @@ import type * as syncSettings from "../syncSettings.js";
 import type * as taskComments from "../taskComments.js";
 import type * as taskDependencies from "../taskDependencies.js";
 import type * as taskProof from "../taskProof.js";
+import type * as taskSandboxWorkflow from "../taskSandboxWorkflow.js";
 import type * as taskWorkflow from "../taskWorkflow.js";
 import type * as taskWorkflowActions from "../taskWorkflowActions.js";
 import type * as teamEnvVars from "../teamEnvVars.js";
@@ -151,8 +154,10 @@ declare const fullApi: ApiFromModules<{
   "_agentTasks/drafts": typeof _agentTasks_drafts;
   "_agentTasks/execution": typeof _agentTasks_execution;
   "_agentTasks/helpers": typeof _agentTasks_helpers;
+  "_agentTasks/internal": typeof _agentTasks_internal;
   "_agentTasks/mutations": typeof _agentTasks_mutations;
   "_agentTasks/queries": typeof _agentTasks_queries;
+  "_agentTasks/sandbox": typeof _agentTasks_sandbox;
   "_daytona/audit": typeof _daytona_audit;
   "_daytona/callbackScript": typeof _daytona_callbackScript;
   "_daytona/desktop": typeof _daytona_desktop;
@@ -269,6 +274,7 @@ declare const fullApi: ApiFromModules<{
   taskComments: typeof taskComments;
   taskDependencies: typeof taskDependencies;
   taskProof: typeof taskProof;
+  taskSandboxWorkflow: typeof taskSandboxWorkflow;
   taskWorkflow: typeof taskWorkflow;
   taskWorkflowActions: typeof taskWorkflowActions;
   teamEnvVars: typeof teamEnvVars;

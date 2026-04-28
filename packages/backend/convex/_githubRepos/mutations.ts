@@ -165,6 +165,10 @@ export const updateConfig = authMutation({
     deploymentProjectName: v.optional(v.string()),
     domains: v.optional(v.array(v.string())),
     screenshotsVideosEnabled: v.optional(v.boolean()),
+    devPort: v.optional(v.union(v.number(), v.null())),
+    devCommand: v.optional(v.string()),
+    startupCommands: v.optional(v.array(v.string())),
+    backgroundCommands: v.optional(v.array(v.string())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -216,6 +220,36 @@ export const updateConfig = authMutation({
     if (args.screenshotsVideosEnabled !== undefined) {
       await ctx.db.patch(args.repoId, {
         screenshotsVideosEnabled: args.screenshotsVideosEnabled,
+      });
+    }
+
+    // Per-app dev config: empty/null clears the override so detection falls back.
+    if (args.devPort !== undefined) {
+      await ctx.db.patch(args.repoId, {
+        devPort: args.devPort === null ? undefined : args.devPort,
+      });
+    }
+
+    if (args.devCommand !== undefined) {
+      await ctx.db.patch(args.repoId, {
+        devCommand:
+          args.devCommand.trim().length > 0 ? args.devCommand : undefined,
+      });
+    }
+
+    if (args.startupCommands !== undefined) {
+      await ctx.db.patch(args.repoId, {
+        startupCommands:
+          args.startupCommands.length > 0 ? args.startupCommands : undefined,
+      });
+    }
+
+    if (args.backgroundCommands !== undefined) {
+      await ctx.db.patch(args.repoId, {
+        backgroundCommands:
+          args.backgroundCommands.length > 0
+            ? args.backgroundCommands
+            : undefined,
       });
     }
 
@@ -301,39 +335,6 @@ export const deleteInternal = internalMutation({
     if (repo) {
       await ctx.db.delete(args.id);
     }
-    return null;
-  },
-});
-
-/** Updates startup commands for a repo/app. */
-export const updateStartupCommands = authMutation({
-  args: {
-    repoId: v.id("githubRepos"),
-    startupCommands: v.optional(v.array(v.string())),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const repo = await ctx.db.get(args.repoId);
-    if (!repo) throw new Error("Repository not found");
-
-    if (repo.connectedBy !== ctx.userId) {
-      const teamId = repo.teamId;
-      if (teamId) {
-        const membership = await ctx.db
-          .query("teamMembers")
-          .withIndex("by_team_and_user", (q) =>
-            q.eq("teamId", teamId).eq("userId", ctx.userId),
-          )
-          .first();
-        if (!membership) throw new Error("Not authorized");
-      } else {
-        throw new Error("Not authorized");
-      }
-    }
-
-    await ctx.db.patch(args.repoId, {
-      startupCommands: args.startupCommands,
-    });
     return null;
   },
 });

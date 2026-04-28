@@ -130,7 +130,7 @@ export const createSessionPr = action({
     });
     if (!repo) throw new Error("Repository not found");
 
-    // If PR already exists (draft), mark it ready for review
+    // If PR already exists (draft), mark it ready for review and archive sandbox
     if (session.prUrl) {
       const prNumber = extractPrNumber(session.prUrl);
       if (prNumber) {
@@ -141,6 +141,9 @@ export const createSessionPr = action({
           prNumber,
         });
       }
+      await ctx.runMutation(internal.sessions.markReadyAndArchive, {
+        id: args.sessionId,
+      });
       return { url: session.prUrl };
     }
 
@@ -184,6 +187,12 @@ export const createSessionPr = action({
     await ctx.runMutation(internal.sessions.setPrUrl, {
       id: args.sessionId,
       prUrl,
+      prState: "open",
+    });
+
+    // Non-draft PR fallback path: also archive the sandbox.
+    await ctx.runMutation(internal.sessions.markReadyAndArchive, {
+      id: args.sessionId,
     });
 
     return { url: prUrl };
@@ -245,6 +254,7 @@ export const createDraftSessionPr = internalAction({
       await ctx.runMutation(internal.sessions.setPrUrl, {
         id: args.sessionId,
         prUrl: result,
+        prState: "draft",
       });
       console.log(
         `[github] Created draft PR for session ${args.sessionId}: ${result}`,

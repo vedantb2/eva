@@ -23,6 +23,7 @@ export const getTaskData = internalQuery({
     taskTitle: v.string(),
     taskDescription: v.optional(v.string()),
     projectSandboxId: v.optional(v.string()),
+    taskSandboxId: v.optional(v.string()),
     deploymentProjectName: v.optional(v.string()),
     rootDirectory: v.string(),
     screenshotsVideosEnabled: v.boolean(),
@@ -49,6 +50,10 @@ export const getTaskData = internalQuery({
         };
       }
     }
+
+    // Non-project (quick) tasks persist their sandbox on the task itself so
+    // change-request / resolve_conflicts runs reuse the same paused filesystem.
+    const taskSandboxId = args.projectId ? undefined : task.sandboxId;
 
     const comments = await ctx.db
       .query("taskComments")
@@ -136,6 +141,7 @@ export const getTaskData = internalQuery({
       taskTitle: task.title,
       taskDescription: task.description,
       projectSandboxId,
+      taskSandboxId,
       deploymentProjectName: repo.deploymentProjectName,
       rootDirectory,
       screenshotsVideosEnabled,

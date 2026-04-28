@@ -12,6 +12,7 @@ export {
 export {
   runSandboxCommand,
   runStartupCommands,
+  runBackgroundCommands,
   getPreviewUrl,
   prepareSandbox,
   createOrResumeSandbox,
@@ -40,4 +41,5 @@ export {
   startSessionSandbox,
   prepareSessionSandbox,
   startDesignSandbox,
+  startTaskPreviewSandbox,
 } from "./_daytona/sessions";

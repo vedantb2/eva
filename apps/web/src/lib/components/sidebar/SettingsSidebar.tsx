@@ -11,6 +11,7 @@ import {
   IconShieldCheck,
   IconPlug,
   IconUserCog,
+  IconTerminal2,
 } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
 
@@ -29,6 +30,7 @@ export function SettingsSidebar({
 
   const navigation = [
     { name: "Config", href: `${baseUrl}/config`, icon: IconSettings2 },
+    { name: "App", href: `${baseUrl}/app`, icon: IconTerminal2 },
     { name: "Audits", href: `${baseUrl}/audits`, icon: IconShieldCheck },
     { name: "Env Variables", href: `${baseUrl}/env-variables`, icon: IconKey },
     { name: "Snapshots", href: `${baseUrl}/snapshots`, icon: IconCamera },

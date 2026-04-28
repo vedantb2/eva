@@ -30,21 +30,13 @@ import {
   IconX,
   IconClock,
   IconUpload,
-  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { formatDurationMs } from "@/lib/utils/formatDuration";
-
-/** Parses startup commands from textarea value. */
-function parseStartupCommands(text: string): string[] | undefined {
-  const commands = text
-    .split("\n")
-    .map((cmd) => cmd.trim())
-    .filter((cmd) => cmd.length > 0);
-  return commands.length > 0 ? commands : undefined;
-}
+import { parseCommandLines } from "./_utils";
+import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
 
 export function SnapshotsClient() {
-  const { repoId, repo } = useRepo();
+  const { repoId } = useRepo();
   const snapshot = useQuery(api.repoSnapshots.getRepoSnapshot, { repoId });
   const builds = useQuery(
     api.repoSnapshots.listBuilds,
@@ -53,9 +45,6 @@ export function SnapshotsClient() {
   const saveRepoSnapshot = useMutation(api.repoSnapshots.saveRepoSnapshot);
   const deleteRepoSnapshot = useMutation(api.repoSnapshots.deleteRepoSnapshot);
   const startBuild = useMutation(api.repoSnapshots.startBuild);
-  const updateStartupCommands = useMutation(
-    api.githubRepos.updateStartupCommands,
-  );
 
   // UI-only state (not data)
   const [building, setBuilding] = useState(false);
@@ -64,7 +53,7 @@ export function SnapshotsClient() {
   // Derive values directly from Convex
   const schedule = snapshot?.schedule ?? "manual";
   const workflowRef = snapshot?.workflowRef ?? "main";
-  const startupCommands = repo.startupCommands?.join("\n") ?? "";
+  const buildCommandsText = snapshot?.buildCommands?.join("\n") ?? "";
 
   // Save on change for schedule
   const handleScheduleChange = (newSchedule: string) => {
@@ -72,6 +61,7 @@ export function SnapshotsClient() {
       repoId,
       schedule: newSchedule,
       workflowRef: workflowRef.trim() || undefined,
+      buildCommands: snapshot?.buildCommands,
     });
   };
 
@@ -81,18 +71,22 @@ export function SnapshotsClient() {
       repoId,
       schedule,
       workflowRef: newBranch.trim() || undefined,
+      buildCommands: snapshot?.buildCommands,
     });
   };
 
-  // Save on blur for startup commands (now per-app)
-  const handleStartupCommandsBlur = (
+  // Save on blur for build commands
+  const handleBuildCommandsBlur = (
     e: React.FocusEvent<HTMLTextAreaElement>,
   ) => {
-    const newCommands = e.target.value;
-    if (newCommands === startupCommands) return; // No change
-    updateStartupCommands({
+    const next = e.target.value;
+    if (next === buildCommandsText) return;
+    const parsed = parseCommandLines(next);
+    saveRepoSnapshot({
       repoId,
-      startupCommands: parseStartupCommands(newCommands),
+      schedule,
+      workflowRef: workflowRef.trim() || undefined,
+      buildCommands: parsed.length > 0 ? parsed : undefined,
     });
   };
 
@@ -172,24 +166,26 @@ export function SnapshotsClient() {
             </div>
           </div>
 
+          {snapshot && <RebuildRequiredWarning />}
+
           <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
-            <h3 className="text-sm font-medium">Startup Commands</h3>
+            <h3 className="text-sm font-medium">Build Commands</h3>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Commands to run when sandbox starts
+                Commands to run during snapshot build
               </label>
               <textarea
-                key={repoId}
-                defaultValue={startupCommands}
-                onBlur={handleStartupCommandsBlur}
-                className="w-full h-24 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /home/eva/sandbox-config/seed.sql"
+                key={`build-${snapshot?._id ?? "none"}`}
+                defaultValue={buildCommandsText}
+                onBlur={handleBuildCommandsBlur}
+                className="w-full h-48 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="pnpm convex codegen&#10;pnpm build"
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
-                One command per line. Runs once when sandbox first starts (after
-                snapshot loads). Use for services like{" "}
-                <code>supabase start</code> or database seeding. Commands have a
-                10-minute timeout each. Configured per app.
+                One command per line. Runs as user <code>eva</code> in{" "}
+                <code>/tmp/repo</code> after <code>pnpm install</code>, baked
+                permanently into the snapshot. Use for codegen, build steps, or
+                anything that should not re-run on every sandbox boot.
               </p>
             </div>
           </div>
@@ -492,7 +488,28 @@ function WarmupStatusBadge({
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/**
+ * Chunk size for splitting large file uploads. Convex enforces a 2-minute
+ * server-side timeout on upload POSTs, so a 600MB single upload reliably stalls
+ * once the server stops draining the TCP receive buffer. 100MB chunks finish
+ * well within the timeout on broadband connections (~8s at 100Mbps, ~80s at
+ * 10Mbps) and the snapshot/sandbox builder concatenates them back with `cat`.
+ */
+const UPLOAD_CHUNK_SIZE_BYTES = 100 * 1024 * 1024;
+
+/** Extracts the storage ID from Convex's upload URL response body. */
+function parseStorageIdResponse(text: string): Id<"_storage"> | null {
+  try {
+    const response = JSON.parse(text);
+    return typeof response.storageId === "string" ? response.storageId : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Config files section for uploading files to be baked into snapshots. */
@@ -512,6 +529,10 @@ function ConfigFilesSection({
   const startBuild = useMutation(api.repoSnapshots.startBuild);
 
   const [uploading, setUploading] = useState(false);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
+  const [chunkIndex, setChunkIndex] = useState(0);
+  const [chunkCount, setChunkCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -519,32 +540,57 @@ function ConfigFilesSection({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const totalChunks = Math.max(
+      1,
+      Math.ceil(file.size / UPLOAD_CHUNK_SIZE_BYTES),
+    );
+
     setUploading(true);
+    setUploadedBytes(0);
+    setTotalBytes(file.size);
+    setChunkIndex(0);
+    setChunkCount(totalChunks);
     setError(null);
 
     try {
-      // Get upload URL
-      const uploadUrl = await generateUploadUrl({ repoId });
+      // Upload each chunk: fresh upload URL per chunk, POST the slice, collect
+      // storage IDs. Sequential keeps memory bounded and progress monotonic;
+      // parallelism would only help for many small chunks, which isn't our case.
+      const chunkIds: Id<"_storage">[] = [];
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * UPLOAD_CHUNK_SIZE_BYTES;
+        const end = Math.min(start + UPLOAD_CHUNK_SIZE_BYTES, file.size);
+        const chunk = file.slice(start, end);
+        setChunkIndex(i + 1);
 
-      // Upload file to Convex storage
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
-
-      if (!result.ok) {
-        throw new Error("Failed to upload file");
+        const uploadUrl = await generateUploadUrl({ repoId });
+        const result = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+          },
+          body: chunk,
+        });
+        const responseText = await result.text();
+        if (!result.ok) {
+          throw new Error(
+            `Upload failed at chunk ${i + 1}/${totalChunks} (status ${result.status}): ${responseText}`,
+          );
+        }
+        const storageId = parseStorageIdResponse(responseText);
+        if (!storageId) {
+          throw new Error(
+            `Invalid response from storage at chunk ${i + 1}/${totalChunks}`,
+          );
+        }
+        chunkIds.push(storageId);
+        setUploadedBytes(end);
       }
 
-      const { storageId } = (await result.json()) as {
-        storageId: Id<"_storage">;
-      };
-
-      // Save file record
+      // Save file record with all chunk IDs in order
       await saveFile({
         repoId,
-        storageId,
+        chunks: chunkIds,
         fileName: file.name,
         fileSize: file.size,
       });
@@ -553,6 +599,10 @@ function ConfigFilesSection({
       setError(message);
     } finally {
       setUploading(false);
+      setUploadedBytes(0);
+      setTotalBytes(0);
+      setChunkIndex(0);
+      setChunkCount(0);
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -571,22 +621,7 @@ function ConfigFilesSection({
 
   return (
     <div className="space-y-4">
-      {/* Warning banner */}
-      <div className="flex items-start gap-3 rounded-lg bg-amber-500/10 p-3">
-        <IconAlertTriangle
-          size={18}
-          className="mt-0.5 shrink-0 text-amber-500"
-        />
-        <div className="text-xs">
-          <p className="font-medium text-amber-500">
-            Rebuild required after changes
-          </p>
-          <p className="mt-0.5 text-muted-foreground">
-            Files are baked into snapshots during build. After adding or
-            removing files, rebuild the snapshot for changes to take effect.
-          </p>
-        </div>
-      </div>
+      <RebuildRequiredWarning />
 
       <div className="rounded-lg bg-muted/40 p-4 space-y-4">
         <div>
@@ -628,11 +663,18 @@ function ConfigFilesSection({
             onClick={() => fileInputRef.current?.click()}
           >
             {uploading ? (
-              <Spinner size="sm" className="mr-1.5" />
+              <>
+                <Spinner size="sm" className="mr-1.5" />
+                {totalBytes === 0
+                  ? "Preparing..."
+                  : `Chunk ${chunkIndex}/${chunkCount} • ${formatFileSize(uploadedBytes)} / ${formatFileSize(totalBytes)}`}
+              </>
             ) : (
-              <IconUpload size={14} className="mr-1.5" />
+              <>
+                <IconUpload size={14} className="mr-1.5" />
+                Upload File
+              </>
             )}
-            Upload File
           </Button>
           {snapshotId && files && files.length > 0 && (
             <Button size="sm" onClick={handleRebuild}>

@@ -15,7 +15,9 @@ import {
   SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS,
   DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
   DAYTONA_CREATE_TIMEOUT_MS,
+  ensureDockerDaemon,
   ensureSandboxRunning,
+  sleep,
   withTimeout,
   workspaceDirShell,
 } from "./helpers";
@@ -347,19 +349,10 @@ export async function createSandbox(
       10,
     );
 
-    // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev)
-    try {
-      await exec(
-        sandbox,
-        "sudo pkill -9 containerd 2>/dev/null; sudo pkill -9 dockerd 2>/dev/null; sleep 1; sudo rm -f /var/run/docker.sock /var/run/docker/containerd/containerd.sock 2>/dev/null; sudo dockerd >/dev/null 2>&1 & sleep 4 && docker info >/dev/null 2>&1",
-        20,
-      );
-      logGit("createSandbox: Docker daemon started");
-    } catch {
-      logGit(
-        "createSandbox: Docker not available (old snapshot or not installed)",
-      );
-    }
+    // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev).
+    // Idempotent — also re-invoked from ensureSandboxRunning on resume since
+    // dockerd doesn't survive auto-stop.
+    await ensureDockerDaemon(sandbox);
 
     return sandbox;
   });
@@ -975,18 +968,16 @@ export async function getOrCreateSandbox(
   const details = `${owner}/${name}, existingSandboxId=${existingSandboxId ?? "none"}, snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}`;
   return await runLoggedGitStep("getOrCreateSandbox", details, async () => {
     if (existingSandboxId) {
-      try {
-        if (onProgress) await onProgress("Resuming sandbox...");
-        const sandbox = await daytona.get(existingSandboxId);
-        await ensureSandboxRunning(sandbox);
-        if (syncStrategy.mode !== "none") {
-          if (onProgress) await onProgress("Syncing repository...");
-          await syncRepo(sandbox, installationId, owner, name, syncStrategy);
-        }
-        return { sandbox, isNew: false };
-      } catch {
-        // Sandbox was deleted/expired or sync failed, fall through to create a new one
-      }
+      const resumed = await tryResumeSandbox(
+        daytona,
+        existingSandboxId,
+        installationId,
+        owner,
+        name,
+        syncStrategy,
+        onProgress,
+      );
+      if (resumed) return { sandbox: resumed, isNew: false };
     }
     const { sandbox } = await createSandboxAndPrepareRepo(
       daytona,
@@ -1003,4 +994,75 @@ export async function getOrCreateSandbox(
     );
     return { sandbox, isNew: true };
   });
+}
+
+/**
+ * Heuristic: does this Daytona error mean the sandbox is genuinely gone
+ * (deleted, archived, expired) — i.e. safe to fall through to creating a new one?
+ *
+ * We deliberately stay narrow. The previous implementation swallowed every
+ * error and silently created a new sandbox, which orphaned the old one in
+ * common races (e.g. user clicking Start while a stop is mid-flight — the
+ * sandbox is in a transitional state, `start()` rejects, and we'd happily
+ * burn a fresh sandbox + lose the old one's dev server / terminal state).
+ */
+function isSandboxMissingError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("not found") ||
+    msg.includes("does not exist") ||
+    msg.includes("no such") ||
+    msg.includes("404") ||
+    msg.includes("deleted") ||
+    msg.includes("archived")
+  );
+}
+
+/**
+ * Attempts to resume an existing sandbox. Returns the sandbox on success,
+ * `null` if the sandbox is genuinely gone (caller should create a new one),
+ * or throws on persistent transient errors.
+ *
+ * Retries with backoff to ride through transitional Daytona states (e.g.
+ * sandbox is mid-stop when Start is clicked). Only "missing" errors short-
+ * circuit to a new sandbox; everything else surfaces, so we never silently
+ * abandon a recoverable sandbox.
+ */
+async function tryResumeSandbox(
+  daytona: Daytona,
+  existingSandboxId: string,
+  installationId: number,
+  owner: string,
+  name: string,
+  syncStrategy: RepoSyncStrategy,
+  onProgress?: (label: string) => Promise<void>,
+): Promise<Sandbox | null> {
+  const maxAttempts = 4;
+  const backoffMs = [2000, 4000, 8000];
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      if (onProgress) await onProgress("Resuming sandbox...");
+      const sandbox = await daytona.get(existingSandboxId);
+      await ensureSandboxRunning(sandbox);
+      if (syncStrategy.mode !== "none") {
+        if (onProgress) await onProgress("Syncing repository...");
+        await syncRepo(sandbox, installationId, owner, name, syncStrategy);
+      }
+      return sandbox;
+    } catch (err) {
+      if (isSandboxMissingError(err)) {
+        logGit(
+          `getOrCreateSandbox: resume failed because sandbox is gone — will create new one (${err instanceof Error ? err.message : String(err)})`,
+        );
+        return null;
+      }
+      if (attempt === maxAttempts) throw err;
+      const delay = backoffMs[attempt - 1] ?? 8000;
+      logGit(
+        `getOrCreateSandbox: resume attempt ${attempt}/${maxAttempts} failed, retrying in ${delay}ms — ${err instanceof Error ? err.message : String(err)}`,
+      );
+      await sleep(delay);
+    }
+  }
+  return null;
 }

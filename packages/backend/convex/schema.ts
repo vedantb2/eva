@@ -131,7 +131,8 @@ const schema = defineSchema({
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
     .index("by_repo_and_status", ["repoId", "status"])
-    .index("by_repo_and_archived", ["repoId", "archived"]),
+    .index("by_repo_and_archived", ["repoId", "archived"])
+    .index("by_pr_url", ["prUrl"]),
   streamingActivity: defineTable({
     entityId: v.string(),
     currentActivity: v.string(),
@@ -268,6 +269,7 @@ const schema = defineSchema({
     schedule: snapshotScheduleValidator,
     cronJobId: v.optional(v.string()),
     workflowRef: v.optional(v.string()),
+    buildCommands: v.optional(v.array(v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
@@ -289,7 +291,12 @@ const schema = defineSchema({
     .index("by_status", ["status"]),
   sandboxConfigFiles: defineTable({
     repoId: v.id("githubRepos"),
-    storageId: v.id("_storage"),
+    // Legacy single-blob storage (kept for backwards compat with existing records).
+    // New uploads always use `chunks` instead.
+    storageId: v.optional(v.id("_storage")),
+    // Ordered list of storage blob IDs that, when concatenated in order, form the file.
+    // Single-blob files use a 1-element array; multi-chunk files split a large file by ~100MB.
+    chunks: v.optional(v.array(v.id("_storage"))),
     fileName: v.string(),
     fileSize: v.number(),
     uploadedBy: v.id("users"),

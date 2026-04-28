@@ -3,7 +3,9 @@
 import type { Sandbox } from "@daytonaio/sdk";
 import { v } from "convex/values";
 import { action } from "./_generated/server";
+import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { resolveDaytonaApiKey } from "./envVarResolver";
 import {
   getDaytona,
@@ -14,6 +16,74 @@ import {
 const DAYTONA_API_URL = "https://app.daytona.io/api";
 
 const PTY_WORKSPACE_CANDIDATES = [WORKSPACE_DIR, LEGACY_WORKSPACE_DIR];
+
+/**
+ * Discriminated owner — a PTY belongs to either a session or a quick task.
+ * Both expose a sandbox and a repo; sessions additionally track a default
+ * `ptySessionId` for the legacy single-terminal flow.
+ */
+const ownerArg = v.union(
+  v.object({
+    kind: v.literal("session"),
+    sessionId: v.id("sessions"),
+  }),
+  v.object({
+    kind: v.literal("task"),
+    taskId: v.id("agentTasks"),
+  }),
+);
+
+interface ResolvedOwner {
+  sandboxId: string;
+  repoId: Id<"githubRepos">;
+  /** Legacy default-terminal pointer; only sessions track this. */
+  defaultPtyId: string | undefined;
+  /** Bound mutator for the default-terminal pointer; tasks have no equivalent. */
+  setDefaultPtyId: ((nextPtyId: string) => Promise<void>) | undefined;
+  /** Stable suffix used to derive the legacy default PTY name when missing. */
+  ownerIdSuffix: string;
+}
+
+async function resolveOwner(
+  ctx: ActionCtx,
+  owner:
+    | { kind: "session"; sessionId: Id<"sessions"> }
+    | { kind: "task"; taskId: Id<"agentTasks"> },
+): Promise<ResolvedOwner> {
+  if (owner.kind === "session") {
+    const session = await ctx.runQuery(internal.sessions.getInternal, {
+      id: owner.sessionId,
+    });
+    if (!session) throw new Error("Session not found");
+    if (!session.sandboxId) throw new Error("Sandbox not active");
+    return {
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+      defaultPtyId: session.ptySessionId || undefined,
+      setDefaultPtyId: async (nextPtyId: string) => {
+        await ctx.runMutation(internal.sessions.updatePtySessionInternal, {
+          id: owner.sessionId,
+          ptySessionId: nextPtyId,
+        });
+      },
+      ownerIdSuffix: String(owner.sessionId).slice(-8),
+    };
+  }
+
+  const task = await ctx.runQuery(internal.agentTasks.getInternal, {
+    id: owner.taskId,
+  });
+  if (!task) throw new Error("Task not found");
+  if (!task.sandboxId) throw new Error("Sandbox not active");
+  if (!task.repoId) throw new Error("Task has no repo");
+  return {
+    sandboxId: task.sandboxId,
+    repoId: task.repoId,
+    defaultPtyId: undefined,
+    setDefaultPtyId: undefined,
+    ownerIdSuffix: String(owner.taskId).slice(-8),
+  };
+}
 
 /** Creates a PTY session in the sandbox, trying workspace directory candidates in order. */
 async function createPtyInWorkspace(
@@ -86,10 +156,10 @@ async function getToolboxBaseUrl(
   return data.url;
 }
 
-/** Connects to or creates a PTY for a session, returning the WebSocket URL. */
+/** Connects to or creates a PTY for a session or task, returning the WebSocket URL. */
 export const connectPty = action({
   args: {
-    sessionId: v.id("sessions"),
+    owner: ownerArg,
     cols: v.number(),
     rows: v.number(),
     ptyInstanceId: v.optional(v.string()),
@@ -106,15 +176,10 @@ export const connectPty = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const session = await ctx.runQuery(internal.sessions.getInternal, {
-      id: args.sessionId,
-    });
-    if (!session) throw new Error("Session not found");
-    if (!session.sandboxId) throw new Error("Sandbox not active");
-
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, session.repoId);
+    const resolved = await resolveOwner(ctx, args.owner);
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, resolved.repoId);
     const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(session.sandboxId);
+    const sandbox = await daytona.get(resolved.sandboxId);
 
     const explicitId =
       args.ptyInstanceId !== undefined && args.ptyInstanceId.length > 0
@@ -134,10 +199,13 @@ export const connectPty = action({
       ptyId = explicitId;
       isNewPty = result.isNewPty;
     } else {
-      ptyId = session.ptySessionId || `pty-${String(args.sessionId).slice(-8)}`;
+      // Legacy default-terminal flow — only sessions take this branch in
+      // practice; tasks always pass an explicit ptyInstanceId from the
+      // multi-pane UI.
+      ptyId = resolved.defaultPtyId || `pty-${resolved.ownerIdSuffix}`;
       isNewPty = false;
 
-      if (session.ptySessionId) {
+      if (resolved.defaultPtyId) {
         try {
           await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
         } catch {
@@ -167,10 +235,9 @@ export const connectPty = action({
             throw e;
           }
         }
-        await ctx.runMutation(internal.sessions.updatePtySessionInternal, {
-          id: args.sessionId,
-          ptySessionId: ptyId,
-        });
+        if (resolved.setDefaultPtyId) {
+          await resolved.setDefaultPtyId(ptyId);
+        }
         isNewPty = true;
       }
     }
@@ -193,7 +260,7 @@ export const connectPty = action({
 /** Resizes an existing PTY session to the given column and row dimensions. */
 export const resizePty = action({
   args: {
-    sessionId: v.id("sessions"),
+    owner: ownerArg,
     cols: v.number(),
     rows: v.number(),
     ptyInstanceId: v.optional(v.string()),
@@ -203,11 +270,7 @@ export const resizePty = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const session = await ctx.runQuery(internal.sessions.getInternal, {
-      id: args.sessionId,
-    });
-    if (!session) throw new Error("Session not found");
-    if (!session.sandboxId) throw new Error("Sandbox not active");
+    const resolved = await resolveOwner(ctx, args.owner);
 
     const explicitId =
       args.ptyInstanceId !== undefined && args.ptyInstanceId.length > 0
@@ -215,11 +278,11 @@ export const resizePty = action({
         : null;
     const ptyId = explicitId
       ? explicitId
-      : session.ptySessionId || `pty-${String(args.sessionId).slice(-8)}`;
+      : resolved.defaultPtyId || `pty-${resolved.ownerIdSuffix}`;
 
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, session.repoId);
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, resolved.repoId);
     const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(session.sandboxId);
+    const sandbox = await daytona.get(resolved.sandboxId);
     try {
       await sandbox.process.resizePtySession(ptyId, args.cols, args.rows);
     } catch (error) {
@@ -227,7 +290,9 @@ export const resizePty = action({
       // Log warning but don't throw - resize is best-effort
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes("not found")) {
-        console.warn(`[pty] resizePty: PTY session ${ptyId} not found, ignoring`);
+        console.warn(
+          `[pty] resizePty: PTY session ${ptyId} not found, ignoring`,
+        );
       } else {
         throw error;
       }
@@ -240,7 +305,7 @@ export const resizePty = action({
 /** Kills the PTY session for a sandbox and clears the stored PTY session ID. */
 export const disconnectPty = action({
   args: {
-    sessionId: v.id("sessions"),
+    owner: ownerArg,
     ptyInstanceId: v.optional(v.string()),
   },
   returns: v.null(),
@@ -248,11 +313,7 @@ export const disconnectPty = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const session = await ctx.runQuery(internal.sessions.getInternal, {
-      id: args.sessionId,
-    });
-    if (!session) throw new Error("Session not found");
-    if (!session.sandboxId) throw new Error("Sandbox not active");
+    const resolved = await resolveOwner(ctx, args.owner);
 
     const explicitId =
       args.ptyInstanceId !== undefined && args.ptyInstanceId.length > 0
@@ -261,22 +322,19 @@ export const disconnectPty = action({
 
     const ptyId = explicitId
       ? explicitId
-      : session.ptySessionId || `pty-${String(args.sessionId).slice(-8)}`;
+      : resolved.defaultPtyId || `pty-${resolved.ownerIdSuffix}`;
 
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, session.repoId);
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, resolved.repoId);
     const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(session.sandboxId);
+    const sandbox = await daytona.get(resolved.sandboxId);
     try {
       await sandbox.process.killPtySession(ptyId);
     } catch {
       // PTY may already be dead
     }
 
-    if (!explicitId) {
-      await ctx.runMutation(internal.sessions.updatePtySessionInternal, {
-        id: args.sessionId,
-        ptySessionId: "",
-      });
+    if (!explicitId && resolved.setDefaultPtyId) {
+      await resolved.setDefaultPtyId("");
     }
 
     return null;

@@ -71,6 +71,7 @@ const sandboxTabs = [
   "desktop",
   "prd",
 ] as const;
+export type SandboxTab = (typeof sandboxTabs)[number];
 export const sandboxTabParser = parseAsStringLiteral(sandboxTabs)
   .withDefault("preview")
   .withOptions(tabOptions);

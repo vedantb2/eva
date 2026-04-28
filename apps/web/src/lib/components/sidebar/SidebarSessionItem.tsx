@@ -4,6 +4,27 @@ import { DynamicLink } from "@/lib/components/DynamicLink";
 import type { Id } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
 import { cn } from "@conductor/ui";
+import { IconGitPullRequest } from "@tabler/icons-react";
+import {
+  SANDBOX_STATUS_STYLES,
+  type SandboxStatus,
+} from "@/lib/components/sandbox/sandboxStatusStyles";
+
+function prStateIconColor(
+  state: "draft" | "open" | "merged" | "closed" | undefined,
+): string {
+  switch (state) {
+    case "open":
+      return "text-success";
+    case "merged":
+      return "text-status-code-review";
+    case "closed":
+      return "text-destructive";
+    case "draft":
+    default:
+      return "text-muted-foreground";
+  }
+}
 
 function compactTimeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -19,32 +40,17 @@ function compactTimeAgo(timestamp: number): string {
   return `${String(Math.floor(months / 12))}y`;
 }
 
-type SessionStatus = "active" | "starting" | "closed";
-
-const STATUS_STYLES: Record<SessionStatus, { dot: string; label: string }> = {
-  active: {
-    dot: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]",
-    label: "Active",
-  },
-  starting: {
-    dot: "bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.5)]",
-    label: "Starting",
-  },
-  closed: {
-    dot: "bg-muted-foreground/40",
-    label: "Closed",
-  },
-};
-
 interface SidebarSessionItemProps {
   href: string;
   title: string;
   userId: Id<"users">;
   createdAt: number;
   updatedAt?: number;
-  status: SessionStatus;
+  status: SandboxStatus;
   isSelected: boolean;
   onNavigate?: () => void;
+  prUrl?: string;
+  prState?: "draft" | "open" | "merged" | "closed";
 }
 
 export function SidebarSessionItem({
@@ -56,9 +62,11 @@ export function SidebarSessionItem({
   status,
   isSelected,
   onNavigate,
+  prUrl,
+  prState,
 }: SidebarSessionItemProps) {
   const timestamp = updatedAt ?? createdAt;
-  const statusStyle = STATUS_STYLES[status];
+  const statusStyle = SANDBOX_STATUS_STYLES[status];
 
   return (
     <DynamicLink
@@ -75,10 +83,19 @@ export function SidebarSessionItem({
         >
           {title}
         </h3>
-        <span
-          className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
-          title={statusStyle.label}
-        />
+        <div className="flex items-center gap-1.5 shrink-0">
+          {prUrl && (
+            <IconGitPullRequest
+              size={14}
+              className={cn("shrink-0", prStateIconColor(prState))}
+              title={`PR: ${prState || "unknown"}`}
+            />
+          )}
+          <span
+            className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
+            title={statusStyle.label}
+          />
+        </div>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <div className="flex -space-x-1">

@@ -5,6 +5,7 @@ import {
   Card,
   CardContent,
   Checkbox,
+  cn,
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
@@ -19,6 +20,10 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
+import {
+  SANDBOX_STATUS_STYLES,
+  type SandboxStatus,
+} from "@/lib/components/sandbox/sandboxStatusStyles";
 import {
   IconClock,
   IconDots,
@@ -58,6 +63,7 @@ interface QuickTaskCardProps {
   projectName?: string;
   hasError?: boolean;
   deploymentStatus?: DeploymentStatus;
+  sandboxStatus?: SandboxStatus;
   groupedCodebases?: GroupedCodebase[];
   onClick?: () => void;
   isSelecting?: boolean;
@@ -85,6 +91,7 @@ export function QuickTaskCard({
   projectName,
   hasError = false,
   deploymentStatus,
+  sandboxStatus,
   groupedCodebases,
   onClick,
   isSelecting,
@@ -196,6 +203,21 @@ export function QuickTaskCard({
           </h4>
 
           <div className="flex shrink-0 items-center gap-1">
+            {sandboxStatus ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className={cn(
+                      "size-2 shrink-0 rounded-full",
+                      SANDBOX_STATUS_STYLES[sandboxStatus].dot,
+                    )}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  {SANDBOX_STATUS_STYLES[sandboxStatus].label}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             {deploymentStatus && (
               <Tooltip>
                 <TooltipTrigger asChild>

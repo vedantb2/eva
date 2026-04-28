@@ -172,7 +172,49 @@ export const createPullRequest = internalAction({
   },
 });
 
-/** Marks a draft PR as ready for review. */
+/** Converts an open PR back to draft. Uses GraphQL because GitHub's REST
+ * pulls.update endpoint does not support flipping draft state. */
+export const convertPrToDraft = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prNumber: v.number(),
+  },
+  returns: v.boolean(),
+  handler: async (_ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      // Look up the PR's GraphQL node_id (GraphQL mutations need it).
+      const { data: pr } = await octokit.rest.pulls.get({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: args.prNumber,
+      });
+      if (pr.draft) return true; // already draft
+      await octokit.graphql(
+        `mutation($id: ID!) {
+          convertPullRequestToDraft(input: { pullRequestId: $id }) {
+            pullRequest { isDraft }
+          }
+        }`,
+        { id: pr.node_id },
+      );
+      console.log(
+        `[github] Converted PR #${args.prNumber} back to draft (${args.repoOwner}/${args.repoName})`,
+      );
+      return true;
+    } catch (error) {
+      console.error(
+        `[github] Failed to convert PR to draft: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  },
+});
+
+/** Marks a draft PR as ready for review. Uses GraphQL because GitHub's REST
+ * pulls.update endpoint silently ignores the draft field. */
 export const markPrReadyForReview = internalAction({
   args: {
     installationId: v.number(),
@@ -184,12 +226,20 @@ export const markPrReadyForReview = internalAction({
   handler: async (_ctx, args) => {
     try {
       const octokit = await getInstallationOctokit(args.installationId);
-      await octokit.rest.pulls.update({
+      const { data: pr } = await octokit.rest.pulls.get({
         owner: args.repoOwner,
         repo: args.repoName,
         pull_number: args.prNumber,
-        draft: false,
       });
+      if (!pr.draft) return true; // already ready
+      await octokit.graphql(
+        `mutation($id: ID!) {
+          markPullRequestReadyForReview(input: { pullRequestId: $id }) {
+            pullRequest { isDraft }
+          }
+        }`,
+        { id: pr.node_id },
+      );
       console.log(
         `[github] Marked PR #${args.prNumber} as ready for review (${args.repoOwner}/${args.repoName})`,
       );

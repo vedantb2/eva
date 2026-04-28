@@ -1,41 +1,51 @@
+"use client";
+
 import { useEffect, useCallback } from "react";
 import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
 import { sandboxTabParser } from "@/lib/search-params";
-import { SandboxTabBar } from "./_components/SandboxTabBar";
-import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { useSandboxPanes } from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
-import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
-import { useRepo } from "@/lib/contexts/RepoContext";
 
-interface SandboxPanelProps {
-  sessionId: Id<"sessions">;
+const TASK_ENABLED_TABS = ["preview", "terminal", "editor", "desktop"] as const;
+
+interface TaskSandboxPanelProps {
+  taskId: Id<"agentTasks">;
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
+  /**
+   * Resolved dev port for the current sandbox (taken from `agentTasks.devPort`,
+   * which `taskSandboxReady` populates from `startSessionServices` — already
+   * accounts for any per-app override on the repo).
+   */
   devPort?: number;
+  /**
+   * Full dev command for the current sandbox. Wired into the first terminal
+   * pane so it auto-starts the dev server with the resolved PORT.
+   */
   devCommand?: string;
-  planContent?: string;
-  isArchived?: boolean;
 }
 
-export function SandboxPanel({
-  sessionId,
+/**
+ * Right-side sandbox panel for a quick task — mirrors the session sandbox
+ * panel. Exposes Preview, Terminal, Editor, and Desktop tabs (PRD is omitted
+ * since it's a session-only concept).
+ *
+ * All shared multi-pane / preview / PTY logic lives in the `sandbox/` module
+ * so this file is just a thin orchestrator.
+ */
+export function TaskSandboxPanel({
+  taskId,
   sandboxId,
   isActive,
   repoId,
   devPort,
   devCommand,
-  planContent,
-  isArchived,
-}: SandboxPanelProps) {
-  const { repo } = useRepo();
-  const sessionIdStr = String(sessionId);
-  const { mode, setMode } = useSessionSettings(sessionIdStr, {
-    defaultModel: repo.defaultModel,
-  });
+}: TaskSandboxPanelProps) {
+  const taskIdStr = String(taskId);
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
 
   const preview = useSandboxPreview({
@@ -43,30 +53,28 @@ export function SandboxPanel({
     isActive,
     repoId,
     devPort,
-    cacheScope: `preview:${sessionIdStr}`,
+    cacheScope: `task-preview:${taskIdStr}`,
   });
 
   const panes = useSandboxPanes({
-    owner: { kind: "session", sessionId },
-    storageScope: `session:${sessionIdStr}`,
+    owner: { kind: "task", taskId },
+    storageScope: `task:${taskIdStr}`,
     isActive,
     activeTab,
     setActiveTab,
   });
 
-  const showPrdTab = Boolean(planContent) && mode === "plan";
-  const tabBarValue =
-    activeTab === "prd" && !showPrdTab ? "preview" : activeTab;
-
-  // Bounce PRD tab back to preview when plan mode is exited or there's no plan.
+  // PRD is session-only; bounce back to preview if a stale URL points there.
   useEffect(() => {
     if (activeTab !== "prd") return;
-    if (showPrdTab) return;
     void setActiveTab("preview");
-  }, [activeTab, showPrdTab, setActiveTab]);
+  }, [activeTab, setActiveTab]);
+
+  const tabBarValue = activeTab === "prd" ? "preview" : activeTab;
 
   const handleTabChange = useCallback(
     (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
+      if (tab === "prd") return;
       void setActiveTab(tab);
     },
     [setActiveTab],
@@ -81,35 +89,18 @@ export function SandboxPanel({
         onNewTerminal={panes.handleNewTerminal}
         newPreviewDisabled={panes.newPreviewDisabled}
         newTerminalDisabled={panes.newTerminalDisabled}
-        showPrdTab={showPrdTab}
+        enabledTabs={TASK_ENABLED_TABS}
       />
       <div className="flex-1 overflow-hidden bg-card">
-        <div
-          className={
-            activeTab === "prd"
-              ? "flex h-full min-h-0 flex-col overflow-hidden"
-              : "hidden"
-          }
-        >
-          {activeTab === "prd" && planContent ? (
-            <SessionPrdPlanView
-              sessionId={sessionId}
-              planContent={planContent}
-              onApprovePlan={() => setMode("edit")}
-              variant="panel"
-              isArchived={isArchived}
-            />
-          ) : null}
-        </div>
         <SandboxPaneSlots
           activeTab={tabBarValue}
           panes={panes}
           preview={preview}
-          owner={{ kind: "session", sessionId }}
+          owner={{ kind: "task", taskId }}
           sandboxId={sandboxId}
           isActive={isActive}
           repoId={repoId}
-          cacheKey={sessionIdStr}
+          cacheKey={taskIdStr}
           devCommand={devCommand}
         />
       </div>

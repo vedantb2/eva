@@ -26,3 +26,12 @@ export {
 } from "./_agentTasks/execution";
 
 export { listDrafts, saveDraft, activateDraft } from "./_agentTasks/drafts";
+
+export {
+  startTaskSandbox,
+  stopTaskSandbox,
+  taskSandboxReady,
+  taskSandboxError,
+} from "./_agentTasks/sandbox";
+
+export { getInternal } from "./_agentTasks/internal";

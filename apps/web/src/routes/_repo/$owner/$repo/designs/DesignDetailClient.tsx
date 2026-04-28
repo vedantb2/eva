@@ -32,6 +32,11 @@ export function DesignDetailClient({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const isSandboxStarting = session?.status === "starting";
+  // `stopping` is a transient backend state set synchronously by `stopSandbox`,
+  // cleared once Daytona's stop call completes (~10s). Showing the spinner
+  // (and disabling Start) for its full duration prevents the stop/start race
+  // that previously orphaned sandboxes.
+  const isSandboxStopping = session?.status === "stopping";
   const isSandboxActive = session?.status === "active";
 
   const fetchPreviewUrl = useCallback(async () => {
@@ -112,7 +117,9 @@ export function DesignDetailClient({
           title={session.title}
           isArchived={isArchived}
           isSandboxActive={isSandboxActive}
-          isSandboxToggling={isSandboxStarting || isStopPending}
+          isSandboxToggling={
+            isSandboxStarting || isSandboxStopping || isStopPending
+          }
           isExecuting={lastAssistantHasNoContent}
           onSandboxToggle={handleSandboxToggle}
           repoId={session.repoId}

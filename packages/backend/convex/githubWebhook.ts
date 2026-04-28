@@ -54,6 +54,57 @@ async function findRunByBranchName(
   return null;
 }
 
+/** Maps an incoming GitHub PR webhook event to the session's prState.
+ * Returns null when the event doesn't represent a state we track. */
+function deriveSessionPrState(
+  action: string,
+  draft: boolean | undefined,
+  merged: boolean | undefined,
+): "draft" | "open" | "merged" | "closed" | null {
+  if (action === "closed") {
+    return merged ? "merged" : "closed";
+  }
+  if (action === "converted_to_draft") return "draft";
+  if (action === "ready_for_review") return "open";
+  if (action === "opened" || action === "reopened") {
+    return draft ? "draft" : "open";
+  }
+  return null;
+}
+
+/** Syncs a session's prState from a GitHub pull_request webhook event. */
+export const handleSessionPrEvent = internalMutation({
+  args: {
+    prUrl: v.string(),
+    action: v.string(),
+    draft: v.optional(v.boolean()),
+    merged: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const nextState = deriveSessionPrState(
+      args.action,
+      args.draft,
+      args.merged,
+    );
+    if (!nextState) return null;
+
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_pr_url", (q) => q.eq("prUrl", args.prUrl))
+      .first();
+    if (!session) return null;
+
+    if (session.prState === nextState) return null;
+
+    await ctx.db.patch(session._id, {
+      prState: nextState,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 /** Handles a PR closed webhook event, updating related tasks and projects based on merge status. */
 export const handlePrClosed = internalMutation({
   args: {

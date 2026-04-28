@@ -88,6 +88,7 @@ function SortableTaskWrapper({
           description={task.description}
           status={task.status}
           hasError={hasError}
+          sandboxStatus={task.reviewTaskSandboxStatus}
           taskNumber={task.taskNumber ?? 0}
           tags={task.tags}
           createdAt={task._creationTime}
@@ -321,6 +322,7 @@ export function ProjectTaskListPanel({
                             description={task.description}
                             status={task.status}
                             hasError={errorTaskIdSet.has(task._id)}
+                            sandboxStatus={task.reviewTaskSandboxStatus}
                             taskNumber={task.taskNumber ?? 0}
                             tags={task.tags}
                             createdAt={task._creationTime}

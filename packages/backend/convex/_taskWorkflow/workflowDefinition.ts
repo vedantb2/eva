@@ -40,7 +40,7 @@ export const taskExecutionWorkflow = workflow.define({
     let finalError: string | null = null;
     let runCompletionRecorded = false;
     let runFinalized = false;
-    let sandboxDeleted = false;
+    let sandboxStopped = false;
     let preserveSandboxOnFailure = false;
 
     try {
@@ -57,12 +57,21 @@ export const taskExecutionWorkflow = workflow.define({
         branchName: args.branchName,
         mode: args.mode,
       });
+      // Reuse the persisted sandbox for project tasks (project.sandboxId) or
+      // for quick tasks on follow-up runs (task.sandboxId — set after the first
+      // run completes). Quick-task sandboxes are persistent (stop/pause, not
+      // delete-on-completion — see "Persistent Quick-Task Sandboxes" in the
+      // changelog), so `ephemeral` is always false: a first run that ended up
+      // ephemeral would be deleted by Daytona on auto-stop, leaving
+      // `task.sandboxId` as a tombstone and breaking the reviewer preview.
+      const reusableSandboxId =
+        data.projectSandboxId ?? data.taskSandboxId ?? undefined;
       sandboxId = await prepareSandboxSteps(step, {
-        existingSandboxId: data.projectSandboxId,
+        existingSandboxId: reusableSandboxId,
         installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
-        ephemeral: !args.projectId,
+        ephemeral: false,
         repoId: args.repoId,
         attachRunId: args.runId,
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),
@@ -94,6 +103,14 @@ export const taskExecutionWorkflow = workflow.define({
       if (args.projectId) {
         await step.runMutation(internal.taskWorkflow.updateProjectSandbox, {
           projectId: args.projectId,
+          sandboxId,
+        });
+      } else {
+        // Quick tasks: persist sandbox on the task itself so reviewer Start
+        // Sandbox and follow-up runs (resolve_conflicts, change-requests)
+        // resume the same paused filesystem instead of bootstrapping anew.
+        await step.runMutation(internal.taskWorkflow.saveTaskSandboxId, {
+          taskId: args.taskId,
           sandboxId,
         });
       }
@@ -196,6 +213,10 @@ export const taskExecutionWorkflow = workflow.define({
         const enrichedBody = buildPrBody(prSections, evaUrl);
 
         if (args.isFirstTaskOnBranch) {
+          // Quick tasks land in business_review on completion; the PR should
+          // mirror that by opening as draft. The user promotes it to ready
+          // when they move the task to code_review.
+          const isQuickTask = !args.projectId;
           completionPrUrl = await step.runAction(
             internal.taskWorkflowActions.createPullRequest,
             {
@@ -208,13 +229,15 @@ export const taskExecutionWorkflow = workflow.define({
               body: enrichedBody,
               labels: [
                 "eva",
-                args.projectId ? "project" : "quick-task",
+                isQuickTask ? "quick-task" : "project",
+                ...(isQuickTask ? ["draft"] : []),
                 ...(data.rootDirectory
                   ? [data.rootDirectory.split("/").pop()].filter(
                       (l): l is string => l !== undefined && l !== "",
                     )
                   : []),
               ],
+              draft: isQuickTask,
             },
           );
         } else {
@@ -332,12 +355,19 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
+      // Stop (don't delete) the quick-task sandbox so the reviewer can resume
+      // the same paused filesystem — DB state, generated artifacts, etc. —
+      // when they click Start Sandbox or post a change-request. Daytona
+      // auto-archives stopped sandboxes after 7 days idle (platform default).
       if (!args.projectId && sandboxId && !preserveSandboxOnFailure) {
-        await step.runAction(internal.daytona.deleteSandbox, {
+        await step.runAction(internal.daytona.stopSandbox, {
           sandboxId,
           repoId: args.repoId,
         });
-        sandboxDeleted = true;
+        await step.runMutation(internal.taskWorkflow.markTaskSandboxStopped, {
+          taskId: args.taskId,
+        });
+        sandboxStopped = true;
       }
     } catch (error) {
       const workflowError =
@@ -402,13 +432,16 @@ export const taskExecutionWorkflow = workflow.define({
       if (
         !args.projectId &&
         sandboxId &&
-        !sandboxDeleted &&
+        !sandboxStopped &&
         !preserveSandboxOnFailure
       ) {
         try {
-          await step.runAction(internal.daytona.deleteSandbox, {
+          await step.runAction(internal.daytona.stopSandbox, {
             sandboxId,
             repoId: args.repoId,
+          });
+          await step.runMutation(internal.taskWorkflow.markTaskSandboxStopped, {
+            taskId: args.taskId,
           });
         } catch {}
       }

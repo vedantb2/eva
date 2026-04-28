@@ -1,5 +1,11 @@
 # Changelog
 
+## Scope sandbox preview/editor/desktop URL caches by sandboxId - 2026-04-28
+
+- The Web Preview, Editor (code-server), and Desktop (NoVNC) panels cached their resolved Daytona signed URLs in sessionStorage keyed only by session/task ID and port. Since Daytona signed URLs embed the sandbox ID in the subdomain, destroying and recreating a sandbox for the same task/session reused a stale URL pointing at the dead sandbox — the iframe would render `400 "Sandbox with ID … not found"` while the terminal (which connects fresh by current `sandboxId`) worked fine.
+- Added `sandboxId` to all three cache keys so a recreated sandbox produces a fresh entry and the panel auto-refetches a live signed URL.
+- Refactored `SandboxIframeService` to use `useSessionStorage` from `usehooks-ts` instead of the bespoke `createSessionCache` helper, matching the pattern already used in `useSandboxPreview`. Deleted `apps/web/src/lib/utils/sessionCache.ts` (no remaining consumers).
+
 ## Sync quick-task PR draft state with task review status - 2026-04-28
 
 - Quick-task workflows now open their PRs as **draft** (matching the initial `business_review` task state) and add a `draft` label, instead of opening a non-draft PR straight into the review queue.

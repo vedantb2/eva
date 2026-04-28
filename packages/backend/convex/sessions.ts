@@ -26,5 +26,7 @@ export { updatePtySession, updatePtySessionInternal } from "./_sessions/pty";
 export {
   getInternal,
   setPrUrl,
+  setPrState,
+  markReadyAndArchive,
   updateDeploymentStatus,
 } from "./_sessions/internal";

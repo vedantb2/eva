@@ -710,6 +710,14 @@ export const sessionFields = {
   title: v.string(),
   branchName: v.optional(v.string()),
   prUrl: v.optional(v.string()),
+  prState: v.optional(
+    v.union(
+      v.literal("draft"),
+      v.literal("open"),
+      v.literal("merged"),
+      v.literal("closed"),
+    ),
+  ),
   sandboxId: v.optional(v.string()),
   ptySessionId: v.optional(v.string()),
   updatedAt: v.optional(v.number()),

@@ -1,5 +1,14 @@
 # Changelog
 
+## Track session PR state with webhook sync + colored PR indicator - 2026-04-28
+
+- Added `prState` field (`draft | open | merged | closed`) to sessions plus a `by_pr_url` index, so the UI can distinguish a freshly auto-created draft PR from one that's been promoted, merged, or closed.
+- `createDraftSessionPr` now writes `prState: "draft"`; `createSessionPr` writes `"open"` and additionally archives the sandbox + closes the session (same path as the manual archive button) once the PR is marked ready for review, so "Send for Review" cleans up automatically.
+- Extended the GitHub `pull_request` webhook to forward `opened`, `reopened`, `ready_for_review`, `converted_to_draft`, and `closed` actions to a new `handleSessionPrEvent` mutation that patches `prState` by `prUrl`, keeping Convex in sync with GitHub when users toggle draft state or merge/close from outside Eva.
+- Reworked the "Send for Review" button visibility: shows whenever the PR is missing or in draft (instead of disappearing the moment the auto-draft is created), so users can actually click through to promote it.
+- Colored the "View PR" icon by state — grey (draft), green (open), purple/`status-code-review` (merged), red (closed) — giving an at-a-glance signal of where the PR sits without leaving the session.
+- **Why**: the previous gating hid the button as soon as `prUrl` was set, which meant the auto-draft PR could never actually be promoted from the UI; users also had no visible signal of PR state, and merging on GitHub left Eva's view stale.
+
 ## Auto-recover Docker daemon on sandbox resume - 2026-04-28
 
 - Extracted `ensureDockerDaemon` helper and called it from `ensureSandboxRunning`, so dockerd is now restarted whenever a sandbox is resumed (session reuse) — not only on initial create. Quick tasks already pass through `createSandbox`, which uses the same helper.

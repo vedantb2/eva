@@ -131,7 +131,8 @@ const schema = defineSchema({
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
     .index("by_repo_and_status", ["repoId", "status"])
-    .index("by_repo_and_archived", ["repoId", "archived"]),
+    .index("by_repo_and_archived", ["repoId", "archived"])
+    .index("by_pr_url", ["prUrl"]),
   streamingActivity: defineTable({
     entityId: v.string(),
     currentActivity: v.string(),

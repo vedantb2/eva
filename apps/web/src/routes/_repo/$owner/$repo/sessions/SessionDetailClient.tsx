@@ -75,6 +75,7 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           title={session.title}
           branchName={session.branchName}
           prUrl={session.prUrl}
+          prState={session.prState}
           summary={session.summary}
           messages={messages ?? []}
           queuedMessages={queuedMessages ?? []}

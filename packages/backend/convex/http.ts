@@ -270,32 +270,54 @@ http.route({
       }
 
       const action = getString(payload, "action");
-      if (action !== "closed") {
-        return new Response("OK", { status: 200 });
-      }
-
       const pullRequest = payload["pull_request"];
-      if (!isRecord(pullRequest)) {
+      if (!action || !isRecord(pullRequest)) {
         return new Response("OK", { status: 200 });
       }
 
       const prUrl = getString(pullRequest, "html_url");
-      const merged = getBoolean(pullRequest, "merged");
-      if (!prUrl || merged === null) {
+      if (!prUrl) {
         return new Response("OK", { status: 200 });
       }
 
+      const merged = getBoolean(pullRequest, "merged");
+      const draft = getBoolean(pullRequest, "draft");
+
       // head.ref carries the source branch name. Passed through so the
-      // handler can fall back to branch-based reconciliation when no run has
-      // the PR URL recorded (e.g. if it was lost during PR creation).
+      // closed-handler can fall back to branch-based reconciliation when no
+      // run has the PR URL recorded (e.g. if it was lost during PR creation).
       const head = pullRequest["head"];
       const branchName = isRecord(head) ? getString(head, "ref") : null;
 
-      await ctx.scheduler.runAfter(0, internal.githubWebhook.handlePrClosed, {
-        prUrl,
-        merged,
-        branchName: branchName ?? undefined,
-      });
+      // Always sync session PR state for any state-changing action.
+      const STATE_ACTIONS = new Set([
+        "opened",
+        "reopened",
+        "ready_for_review",
+        "converted_to_draft",
+        "closed",
+      ]);
+      if (STATE_ACTIONS.has(action)) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.githubWebhook.handleSessionPrEvent,
+          {
+            prUrl,
+            action,
+            draft: draft ?? undefined,
+            merged: merged ?? undefined,
+          },
+        );
+      }
+
+      // agentTasks/projects path stays as-is (close-only).
+      if (action === "closed" && merged !== null) {
+        await ctx.scheduler.runAfter(0, internal.githubWebhook.handlePrClosed, {
+          prUrl,
+          merged,
+          branchName: branchName ?? undefined,
+        });
+      }
     }
 
     return new Response("OK", { status: 200 });

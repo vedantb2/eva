@@ -1,5 +1,12 @@
 # Changelog
 
+## Sync quick-task PR draft state with task review status - 2026-04-28
+
+- Quick-task workflows now open their PRs as **draft** (matching the initial `business_review` task state) and add a `draft` label, instead of opening a non-draft PR straight into the review queue.
+- Moving a quick task into `code_review` automatically marks the PR ready for review on GitHub; moving it back out (to `todo`, `in_progress`, or `business_review`) converts the PR back to draft. `done` deliberately leaves the PR ready since the user is merging.
+- Switched both `markPrReadyForReview` and the new `convertPrToDraft` actions to GitHub's GraphQL API — REST `pulls.update` silently ignores the `draft` field, so the previous flow couldn't actually flip state.
+- **Why**: the PR's draft state is the signal reviewers see in GitHub's notifications and review queues. Keeping it in lockstep with the Eva task status means reviewers only get pinged when the work is genuinely ready, and bouncing a task back to business review automatically un-queues the PR — no manual draft toggling needed.
+
 ## Make quick-task first-run sandboxes non-ephemeral - 2026-04-28
 
 - `taskExecutionWorkflow` now passes `ephemeral: false` for every quick task — previously the first run set `ephemeral: !args.projectId && !data.taskSandboxId`, which resolved to `true` because no `taskSandboxId` existed yet, causing Daytona to delete the sandbox on the post-run auto-stop.

@@ -8,6 +8,7 @@ import {
   type ComponentType,
 } from "react";
 import { useAction } from "convex/react";
+import { useSessionStorage } from "usehooks-ts";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { Spinner, Button } from "@conductor/ui";
@@ -19,7 +20,6 @@ import {
 } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
-import { createSessionCache } from "@/lib/utils/sessionCache";
 
 type ServiceState = "idle" | "starting" | "running" | "error";
 
@@ -99,8 +99,15 @@ export function SandboxIframeService({
   loadFailedError,
   iframeAllow,
 }: SandboxIframeServiceProps) {
-  const cacheRef = useRef(createSessionCache(cacheNamespace));
-  const cache = cacheRef.current;
+  // Scope the cache key by sandboxId — Daytona signed URLs embed the sandbox
+  // ID in the subdomain, so a URL cached against a destroyed sandbox would
+  // 400 with "Sandbox not found" once the sandbox is recreated for the same
+  // session/task. useSessionStorage re-reads automatically when the key
+  // changes (e.g. on sandbox swap).
+  const [cachedUrl, setCachedUrl] = useSessionStorage<string | null>(
+    `conductor:${cacheNamespace}:${cacheKey}:${sandboxId ?? "no-sandbox"}`,
+    null,
+  );
 
   const [url, setUrl] = useState<string | null>(null);
   const [state, setState] = useState<ServiceState>("idle");
@@ -122,10 +129,10 @@ export function SandboxIframeService({
       const finalUrl = transformUrl ? transformUrl(rawUrl) : rawUrl;
       setUrl(finalUrl);
       setState("running");
-      cache.set(cacheKey, finalUrl);
+      setCachedUrl(finalUrl);
       onReady?.(finalUrl);
     },
-    [cache, cacheKey, transformUrl, onReady],
+    [setCachedUrl, transformUrl, onReady],
   );
 
   const pollForReady = useCallback(async () => {
@@ -221,28 +228,25 @@ export function SandboxIframeService({
     setState("idle");
     setUrl(null);
     setError(null);
-    cache.clear(cacheKey);
+    setCachedUrl(null);
     try {
       await stopAction();
     } catch {
       // best-effort stop
     }
-  }, [sandboxId, stopPolling, cache, cacheKey, stopAction]);
+  }, [sandboxId, stopPolling, setCachedUrl, stopAction]);
 
   // Hydrate from sessionStorage cache when the sandbox is up; clear on stop.
   useEffect(() => {
-    if (isActive && sandboxId && state === "idle") {
-      const cached = cache.get(cacheKey);
-      if (cached) {
-        setUrl(cached);
-        setState("running");
-      }
+    if (isActive && sandboxId && state === "idle" && cachedUrl) {
+      setUrl(cachedUrl);
+      setState("running");
     }
     if (!isActive) {
-      cache.clear(cacheKey);
+      setCachedUrl(null);
     }
     return stopPolling;
-  }, [isActive, sandboxId, state, stopPolling, cache, cacheKey]);
+  }, [isActive, sandboxId, state, stopPolling, cachedUrl, setCachedUrl]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;

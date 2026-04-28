@@ -56,10 +56,13 @@ export function useSandboxPreview({
   const [port, setPort] = useQueryState("port", previewPortParser);
   const effectivePort = devPort ?? port;
 
-  // sessionStorage acts as both cache and live state — when port changes
-  // useSessionStorage re-reads the new key automatically.
+  // sessionStorage acts as both cache and live state — when port or sandboxId
+  // changes useSessionStorage re-reads the new key automatically. sandboxId is
+  // part of the key because Daytona signed preview URLs embed the sandbox ID
+  // in the subdomain; reusing a cached URL after the sandbox is destroyed and
+  // recreated would 400 with "Sandbox not found".
   const [previewInfo, setPreviewInfo] = useSessionStorage<PreviewInfo | null>(
-    `conductor:${cacheScope}:${effectivePort}`,
+    `conductor:${cacheScope}:${sandboxId ?? "no-sandbox"}:${effectivePort}`,
     null,
   );
 

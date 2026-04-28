@@ -45,6 +45,8 @@ interface SessionItem {
   status: SessionStatus;
   updatedAt?: number;
   sandboxId?: string;
+  prUrl?: string;
+  prState?: "draft" | "open" | "merged" | "closed";
 }
 
 interface SessionListSidebarProps<T extends SessionItem> {
@@ -238,6 +240,8 @@ export function SessionListSidebar<T extends SessionItem>({
                           status={session.status}
                           isSelected={isSelected}
                           onNavigate={onNavigate}
+                          prUrl={session.prUrl}
+                          prState={session.prState}
                         />
                       </motion.div>
                     </ContextMenuTrigger>

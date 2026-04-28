@@ -29,6 +29,11 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
   const isSandboxStarting = session?.status === "starting";
+  // `stopping` is a transient backend state set synchronously by `stopSandbox`,
+  // cleared once Daytona's stop call completes (~10s). Showing the spinner
+  // (and disabling Start) for its full duration prevents the stop/start race
+  // that previously orphaned sandboxes.
+  const isSandboxStopping = session?.status === "stopping";
   const [isStopPending, setIsStopPending] = useState(false);
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {
@@ -86,7 +91,9 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           summaryStreamingActivity={summaryStreaming?.currentActivity}
           startupStreamingActivity={startupStreaming?.currentActivity}
           isSandboxActive={isSandboxActive}
-          isSandboxToggling={isSandboxStarting || isStopPending}
+          isSandboxToggling={
+            isSandboxStarting || isSandboxStopping || isStopPending
+          }
           onSandboxToggle={handleSandboxToggle}
           isArchived={session.archived === true}
           deploymentStatus={session.deploymentStatus}

@@ -35,7 +35,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 
-type SessionStatus = "active" | "starting" | "closed";
+type SessionStatus = "active" | "starting" | "stopping" | "closed";
 
 interface SessionItem {
   _id: string;

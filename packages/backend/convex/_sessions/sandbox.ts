@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalMutation } from "../_generated/server";
+import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation } from "../functions";
 import { workflow } from "../workflowManager";
 
@@ -81,7 +81,16 @@ export const startSandbox = authMutation({
   },
 });
 
-/** Stops the sandbox in Daytona and closes the session. */
+/**
+ * Stops the sandbox in Daytona and closes the session.
+ *
+ * Marks the session as `"stopping"` synchronously so the UI can show a spinner
+ * and disable the Start button until the real Daytona stop (~10s) completes.
+ * The wrapping `finalizeStopSandbox` action does the actual stop and then
+ * flips the status to `"closed"`. Without the transient `"stopping"` state,
+ * a quick Start click during the stop window would race with `getOrCreateSandbox`
+ * and silently spawn an orphan sandbox.
+ */
 export const stopSandbox = authMutation({
   args: { sessionId: v.id("sessions") },
   returns: v.null(),
@@ -89,12 +98,24 @@ export const stopSandbox = authMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
 
-    // Actually stop the sandbox in Daytona
     if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
-        sandboxId: session.sandboxId,
-        repoId: session.repoId,
+      await ctx.scheduler.runAfter(
+        0,
+        internal._sessions.sandbox.finalizeStopSandbox,
+        {
+          sessionId: args.sessionId,
+          sandboxId: session.sandboxId,
+          repoId: session.repoId,
+        },
+      );
+    } else {
+      // No sandbox to stop — close immediately.
+      await ctx.db.patch(args.sessionId, {
+        ptySessionId: undefined,
+        status: "closed",
+        updatedAt: Date.now(),
       });
+      return null;
     }
 
     await ctx.db.insert("messages", {
@@ -106,8 +127,52 @@ export const stopSandbox = authMutation({
       isSystemAlert: true,
     });
     await ctx.db.patch(args.sessionId, {
-      // Keep sandboxId so we can resume the stopped sandbox later
+      // Keep sandboxId so we can resume the stopped sandbox later.
       ptySessionId: undefined,
+      status: "stopping",
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
+ * Awaits the Daytona stop and finalizes the session status to `"closed"`.
+ * Always flips status, even if Daytona errors — a stuck `"stopping"` state
+ * would leave the user unable to Start.
+ */
+export const finalizeStopSandbox = internalAction({
+  args: {
+    sessionId: v.id("sessions"),
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      await ctx.runAction(internal.daytona.stopSandbox, {
+        sandboxId: args.sandboxId,
+        repoId: args.repoId,
+      });
+    } finally {
+      await ctx.runMutation(internal._sessions.sandbox.markSandboxClosed, {
+        sessionId: args.sessionId,
+      });
+    }
+    return null;
+  },
+});
+
+/** Internal: flips session status from `"stopping"` to `"closed"` after Daytona stop completes. */
+export const markSandboxClosed = internalMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    // Only flip if still stopping — don't overwrite a fresh start.
+    if (session.status !== "stopping") return null;
+    await ctx.db.patch(args.sessionId, {
       status: "closed",
       updatedAt: Date.now(),
     });

@@ -133,6 +133,12 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const isSandboxActive = task?.reviewTaskSandboxStatus === "active";
   const isSandboxStartingFromStatus =
     task?.reviewTaskSandboxStatus === "starting";
+  // `stopping` is a transient backend state set synchronously by `stopTaskSandbox`,
+  // cleared once Daytona's stop call completes (~10s). The UI keeps the spinner
+  // up and the Start button disabled across this window to prevent the stop/start
+  // race that previously orphaned sandboxes.
+  const isSandboxStoppingFromStatus =
+    task?.reviewTaskSandboxStatus === "stopping";
   const sandboxStartupStreaming = useQuery(
     api.streaming.get,
     isSandboxStartingFromStatus
@@ -247,7 +253,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     isSandboxActive,
     isSandboxStarting: isSandboxStarting || isSandboxStartingFromStatus,
     sandboxStartupActivity: sandboxStartupStreaming?.currentActivity,
-    isSandboxStopping,
+    isSandboxStopping: isSandboxStopping || isSandboxStoppingFromStatus,
     handleStartSandbox,
     handleStopSandbox,
     handleToggleSandboxView,

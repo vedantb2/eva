@@ -43,6 +43,7 @@ export const sessionModeValidator = v.union(
 export const sessionStatusValidator = v.union(
   v.literal("active"),
   v.literal("starting"),
+  v.literal("stopping"),
   v.literal("closed"),
 );
 
@@ -649,6 +650,7 @@ export const logEntryValidator = v.object({
 export const taskSandboxStatusValidator = v.union(
   v.literal("starting"),
   v.literal("active"),
+  v.literal("stopping"),
   v.literal("closed"),
 );
 

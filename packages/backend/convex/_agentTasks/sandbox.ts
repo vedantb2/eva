@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalMutation } from "../_generated/server";
+import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
 
@@ -62,8 +62,16 @@ export const startTaskSandbox = authMutation({
   },
 });
 
-/** Stops the preview sandbox in Daytona. Keeps `sandboxId` so the reviewer
- * can resume the same paused filesystem (DB state intact) on next start. */
+/**
+ * Stops the preview sandbox in Daytona. Keeps `sandboxId` so the reviewer
+ * can resume the same paused filesystem (DB state intact) on next start.
+ *
+ * Marks the task as `"stopping"` synchronously so the UI can show a spinner
+ * and disable the Start button until the real Daytona stop (~10s) completes.
+ * Without the transient `"stopping"` state, a quick Start click during the
+ * stop window would race with `getOrCreateSandbox` and silently spawn an
+ * orphan sandbox.
+ */
 export const stopTaskSandbox = authMutation({
   args: { taskId: v.id("agentTasks") },
   returns: v.null(),
@@ -76,19 +84,76 @@ export const stopTaskSandbox = authMutation({
     const hasAccess = await hasRepoAccess(ctx.db, task.repoId, ctx.userId);
     if (!hasAccess) throw new Error("No access to repository");
 
-    if (task.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
-        sandboxId: task.sandboxId,
-        repoId: task.repoId,
+    if (!task.sandboxId) {
+      // Nothing to stop — close immediately.
+      await ctx.db.patch(args.taskId, {
+        reviewTaskSandboxStatus: "closed",
+        updatedAt: Date.now(),
       });
+      return null;
     }
 
+    await ctx.scheduler.runAfter(
+      0,
+      internal._agentTasks.sandbox.finalizeStopTaskSandbox,
+      {
+        taskId: args.taskId,
+        sandboxId: task.sandboxId,
+        repoId: task.repoId,
+      },
+    );
+
     // Keep sandboxId so we can resume the stopped sandbox later.
+    await ctx.db.patch(args.taskId, {
+      reviewTaskSandboxStatus: "stopping",
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Awaits the Daytona stop and finalizes the task sandbox status to `"closed"`.
+ * Always flips status, even if Daytona errors — a stuck `"stopping"` state
+ * would leave the user unable to Start.
+ */
+export const finalizeStopTaskSandbox = internalAction({
+  args: {
+    taskId: v.id("agentTasks"),
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      await ctx.runAction(internal.daytona.stopSandbox, {
+        sandboxId: args.sandboxId,
+        repoId: args.repoId,
+      });
+    } finally {
+      await ctx.runMutation(
+        internal._agentTasks.sandbox.markTaskSandboxClosed,
+        { taskId: args.taskId },
+      );
+    }
+    return null;
+  },
+});
+
+/** Internal: flips task sandbox status from `"stopping"` to `"closed"` after Daytona stop completes. */
+export const markTaskSandboxClosed = internalMutation({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) return null;
+    // Only flip if still stopping — don't overwrite a fresh start.
+    if (task.reviewTaskSandboxStatus !== "stopping") return null;
     await ctx.db.patch(args.taskId, {
       reviewTaskSandboxStatus: "closed",
       updatedAt: Date.now(),
     });
-
     return null;
   },
 });

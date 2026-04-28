@@ -1,5 +1,12 @@
 # Changelog
 
+## Close stop/start race window for sandbox toggles - 2026-04-28
+
+- Added a transient `"stopping"` status to sessions, design sessions, and review-task sandboxes; `stopSandbox` now patches that state synchronously and schedules a `finalizeStop*` internalAction that awaits the real Daytona stop (~10s) before flipping to `"closed"`.
+- UI (Session, Design, and Task detail views) now treats `"stopping"` like `"starting"` — keeps the spinner up and the Start button disabled across the full Daytona stop window, preventing a quick re-click from racing `getOrCreateSandbox` and silently spawning an orphan sandbox.
+- Hardened `getOrCreateSandbox`'s resume path with a `tryResumeSandbox` helper that retries transient Daytona errors (2s/4s/8s backoff) and only short-circuits to creating a fresh sandbox when the existing ID is genuinely missing — so a flaky `daytona.get` no longer leaks a duplicate sandbox.
+- **Why**: previously the UI flipped to "stopped" instantly while Daytona was mid-stop, so a user clicking Start during that ~10s window would create a new sandbox while the old one was still being torn down — leaking sandboxes and breaking the resume guarantee.
+
 ## Track session PR state with webhook sync + colored PR indicator - 2026-04-28
 
 - Added `prState` field (`draft | open | merged | closed`) to sessions plus a `by_pr_url` index, so the UI can distinguish a freshly auto-created draft PR from one that's been promoted, merged, or closed.

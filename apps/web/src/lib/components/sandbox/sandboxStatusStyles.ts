@@ -4,7 +4,7 @@
  * for the dot and a human label for the tooltip / `title` attribute.
  */
 
-export type SandboxStatus = "active" | "starting" | "closed";
+export type SandboxStatus = "active" | "starting" | "stopping" | "closed";
 
 export const SANDBOX_STATUS_STYLES: Record<
   SandboxStatus,
@@ -17,6 +17,10 @@ export const SANDBOX_STATUS_STYLES: Record<
   starting: {
     dot: "bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.5)]",
     label: "Sandbox starting",
+  },
+  stopping: {
+    dot: "bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.5)]",
+    label: "Sandbox stopping",
   },
   closed: {
     dot: "bg-muted-foreground/40",

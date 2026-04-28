@@ -15,6 +15,7 @@ import {
   SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS,
   DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
   DAYTONA_CREATE_TIMEOUT_MS,
+  ensureDockerDaemon,
   ensureSandboxRunning,
   withTimeout,
   workspaceDirShell,
@@ -347,19 +348,10 @@ export async function createSandbox(
       10,
     );
 
-    // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev)
-    try {
-      await exec(
-        sandbox,
-        "sudo pkill -9 containerd 2>/dev/null; sudo pkill -9 dockerd 2>/dev/null; sleep 1; sudo rm -f /var/run/docker.sock /var/run/docker/containerd/containerd.sock 2>/dev/null; sudo dockerd >/dev/null 2>&1 & sleep 4 && docker info >/dev/null 2>&1",
-        20,
-      );
-      logGit("createSandbox: Docker daemon started");
-    } catch {
-      logGit(
-        "createSandbox: Docker not available (old snapshot or not installed)",
-      );
-    }
+    // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev).
+    // Idempotent — also re-invoked from ensureSandboxRunning on resume since
+    // dockerd doesn't survive auto-stop.
+    await ensureDockerDaemon(sandbox);
 
     return sandbox;
   });

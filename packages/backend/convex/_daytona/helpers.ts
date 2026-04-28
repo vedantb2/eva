@@ -131,6 +131,56 @@ export async function exec(
   return resp.result;
 }
 
+/**
+ * Ensures the Docker daemon is running inside the sandbox.
+ *
+ * dockerd is launched as a backgrounded process (not a system service), so it
+ * does not survive sandbox auto-stop/resume. This helper is idempotent:
+ *   - If `docker info` already succeeds, it's a no-op.
+ *   - Otherwise, it cleans up stale sockets/containerd remnants and starts dockerd.
+ *
+ * Failures are non-fatal — older snapshots without Docker installed log and continue.
+ */
+export async function ensureDockerDaemon(sandbox: Sandbox): Promise<void> {
+  try {
+    await exec(sandbox, "docker info >/dev/null 2>&1", 5);
+    console.log(
+      `[daytona] ensureDockerDaemon: Docker daemon already running on ${sandbox.id}`,
+    );
+    return;
+  } catch {
+    // Not running (or docker not installed) — try to start it below.
+  }
+  try {
+    // Cleanup before restart: kill any half-alive dockerd/containerd, then
+    // remove their pidfiles AND sockets. After Daytona auto-stop/resume, both
+    // pidfiles survive but their PIDs map to unrelated processes in the new
+    // boot — dockerd/containerd refuse to start while a pidfile claims a
+    // running peer, so we must delete them.
+    await exec(
+      sandbox,
+      [
+        "sudo pkill -9 containerd 2>/dev/null",
+        "sudo pkill -9 dockerd 2>/dev/null",
+        "sleep 1",
+        "sudo rm -f /var/run/docker.pid /var/run/docker.sock /run/docker/containerd/containerd.pid /run/docker/containerd/containerd.sock /run/docker/containerd/containerd.sock.ttrpc /run/docker/containerd/containerd-debug.sock 2>/dev/null",
+        // setsid + </dev/null detaches dockerd from the exec session so it
+        // survives after the command returns.
+        "sudo setsid dockerd </dev/null >/dev/null 2>&1 &",
+        "sleep 4 && docker info >/dev/null 2>&1",
+      ].join("; "),
+      20,
+    );
+    console.log(
+      `[daytona] ensureDockerDaemon: Docker daemon started on ${sandbox.id}`,
+    );
+  } catch {
+    console.log(
+      `[daytona] ensureDockerDaemon: Docker not available on ${sandbox.id} (old snapshot or not installed)`,
+    );
+  }
+}
+
 /** Ensures a sandbox is running, starting it if the initial health check fails. */
 export async function ensureSandboxRunning(
   sandbox: Sandbox,
@@ -145,7 +195,6 @@ export async function ensureSandboxRunning(
     console.log(
       `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} already running (${Date.now() - startedAt}ms)`,
     );
-    return;
   } catch (e) {
     const checkDuration = Date.now() - startedAt;
     console.log(
@@ -161,6 +210,9 @@ export async function ensureSandboxRunning(
       `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} now running (total ${Date.now() - startedAt}ms)`,
     );
   }
+  // dockerd doesn't run as a system service, so it's lost on auto-stop/resume.
+  // Re-check (and restart if needed) on every ensureSandboxRunning call.
+  await ensureDockerDaemon(sandbox);
 }
 
 /** Returns the value of a required environment variable, throwing if missing. */

@@ -1,5 +1,12 @@
 # Changelog
 
+## Auto-recover Docker daemon on sandbox resume - 2026-04-28
+
+- Extracted `ensureDockerDaemon` helper and called it from `ensureSandboxRunning`, so dockerd is now restarted whenever a sandbox is resumed (session reuse) — not only on initial create. Quick tasks already pass through `createSandbox`, which uses the same helper.
+- Cleanup before restart now removes the stale `/var/run/docker.pid` and `/run/docker/containerd/*` pidfiles + sockets that survive Daytona auto-stop, which were blocking dockerd/containerd from starting after resume.
+- Switched dockerd launch to `setsid ... </dev/null` so the daemon detaches cleanly from the exec session and survives after the helper returns.
+- **Why**: dockerd runs as a backgrounded process inside the sandbox, not a system service, so it dies on auto-stop. Resuming a session would silently leave Docker down, breaking `pnpm start-db` and any other Docker-in-Docker workflow (Supabase local, etc.) until manual recovery.
+
 ## Granular task sandbox startup progress steps - 2026-04-28
 
 - Backend: added `emitTaskProgress` / `completeTaskProgress` helpers (mirroring sessions) that emit per-step progress to streaming entity `task-sandbox-startup-${taskId}` throughout `prepareTaskPreviewSandboxInternal` (reuse path: Resuming → Downloading config → Starting dev server → Launching background; new path: Loading repo config → Resolving context → Checking existing → Setting up volumes → Creating sandbox → Syncing refs → Checking out branch → Downloading config → Starting dev server → Running startup → Launching background).

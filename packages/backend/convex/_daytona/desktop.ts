@@ -33,25 +33,6 @@ const CHROME_LAUNCH_CMD =
   "--memory-pressure-off " +
   "> /tmp/chrome.log 2>&1 &";
 
-/** Sets the sandbox display resolution to 1920x1080 via xrandr. */
-export async function setDisplayResolution(sandbox: Sandbox): Promise<void> {
-  try {
-    await exec(sandbox, "DISPLAY=:0 xrandr --fb 1920x1080", 10);
-  } catch {
-    try {
-      await exec(
-        sandbox,
-        'DISPLAY=:0 xrandr --newmode "1920x1080" 0 1920 1920 1920 1920 1080 1080 1080 1080 && ' +
-          'DISPLAY=:0 xrandr --addmode screen "1920x1080" && ' +
-          'DISPLAY=:0 xrandr --output screen --mode "1920x1080"',
-        10,
-      );
-    } catch {
-      // Non-fatal: desktop still works at default 1024x768
-    }
-  }
-}
-
 /** Launches Chrome in the sandbox with remote debugging enabled. */
 export async function launchChrome(sandbox: Sandbox): Promise<void> {
   try {
@@ -69,8 +50,14 @@ export async function launchChrome(sandbox: Sandbox): Promise<void> {
 /** Starts the sandbox desktop environment and launches Chrome. */
 export async function startDesktopWithChrome(sandbox: Sandbox): Promise<void> {
   try {
+    // Resolution comes from the VNC_RESOLUTION env var set at sandbox creation
+    // (see createSandbox in git.ts) — Xvfb starts at 1920x1080 natively, so no
+    // post-start xrandr resize is needed.
     await sandbox.computerUse.start();
     try {
+      // Wait for the X display to be ready before launching Chrome — avoids a
+      // race where Chrome starts against an X server that isn't accepting
+      // connections yet.
       await exec(
         sandbox,
         "for i in 1 2 3 4 5 6 7 8 9 10; do DISPLAY=:0 xdpyinfo > /dev/null 2>&1 && break; sleep 1; done",
@@ -79,7 +66,6 @@ export async function startDesktopWithChrome(sandbox: Sandbox): Promise<void> {
     } catch {
       // Non-fatal: continue and hope display is ready
     }
-    await setDisplayResolution(sandbox);
     await launchChrome(sandbox);
   } catch {
     // Non-fatal: entire desktop startup failure shouldn't block the workflow

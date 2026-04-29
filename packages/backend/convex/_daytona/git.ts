@@ -307,6 +307,11 @@ export async function createSandbox(
     const commonParams = {
       ...(volumes ? { volumes } : {}),
       envVars: {
+        // VNC_RESOLUTION is read by the snapshot's ComputerUse plugin at startup
+        // (Xvfb + x11vnc). Setting it here makes the desktop start at 1920x1080
+        // natively — overriding the snapshot Dockerfile's 1280x720 default — so
+        // we don't have to rely on a post-start xrandr resize.
+        VNC_RESOLUTION: "1920x1080",
         ...sandboxEnvVars,
         GITHUB_TOKEN: githubToken,
         INSTALLATION_ID: String(installationId),

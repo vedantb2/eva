@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { exec, getSandbox, workspaceDirShell } from "./helpers";
-import { setDisplayResolution, launchChrome } from "./desktop";
+import { launchChrome } from "./desktop";
 
 /** Starts or stops a code-server instance inside a sandbox on port 8080. */
 export const toggleCodeServer = action({
@@ -21,16 +21,27 @@ export const toggleCodeServer = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    console.log(`[code-server] ${args.action} requested for sandbox ${args.sandboxId}`);
+    console.log(
+      `[code-server] ${args.action} requested for sandbox ${args.sandboxId}`,
+    );
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
     if (args.action === "start") {
       // Check if already running
       try {
-        const checkResult = await exec(sandbox, "pgrep -f 'code-server.*8080'", 5);
+        const checkResult = await exec(
+          sandbox,
+          "pgrep -f 'code-server.*8080'",
+          5,
+        );
         if (checkResult.trim()) {
-          console.log(`[code-server] Already running (pid: ${checkResult.trim()})`);
-          return { success: true, message: `Already running (pid: ${checkResult.trim()})` };
+          console.log(
+            `[code-server] Already running (pid: ${checkResult.trim()})`,
+          );
+          return {
+            success: true,
+            message: `Already running (pid: ${checkResult.trim()})`,
+          };
         }
       } catch {
         // Not running, proceed to start
@@ -48,13 +59,27 @@ export const toggleCodeServer = action({
         // Wait a moment and check if it started
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        const pidCheck = await exec(sandbox, "pgrep -f 'code-server.*8080' || echo 'not running'", 5);
-        const logs = await exec(sandbox, "tail -20 /tmp/code-server.log 2>/dev/null || echo 'No logs yet'", 5);
+        const pidCheck = await exec(
+          sandbox,
+          "pgrep -f 'code-server.*8080' || echo 'not running'",
+          5,
+        );
+        const logs = await exec(
+          sandbox,
+          "tail -20 /tmp/code-server.log 2>/dev/null || echo 'No logs yet'",
+          5,
+        );
 
         if (pidCheck.trim() && pidCheck.trim() !== "not running") {
-          console.log(`[code-server] Started successfully (pid: ${pidCheck.trim()})`);
+          console.log(
+            `[code-server] Started successfully (pid: ${pidCheck.trim()})`,
+          );
           console.log(`[code-server] Logs:\n${logs}`);
-          return { success: true, message: `Started (pid: ${pidCheck.trim()})`, logs };
+          return {
+            success: true,
+            message: `Started (pid: ${pidCheck.trim()})`,
+            logs,
+          };
         } else {
           console.error(`[code-server] Failed to start. Logs:\n${logs}`);
           return { success: false, message: "Failed to start", logs };
@@ -65,7 +90,11 @@ export const toggleCodeServer = action({
         // Try to get logs anyway
         let logs = "";
         try {
-          logs = await exec(sandbox, "tail -20 /tmp/code-server.log 2>/dev/null || echo 'No logs'", 5);
+          logs = await exec(
+            sandbox,
+            "tail -20 /tmp/code-server.log 2>/dev/null || echo 'No logs'",
+            5,
+          );
         } catch {
           logs = "Could not retrieve logs";
         }
@@ -102,8 +131,9 @@ export const toggleDesktopServer = action({
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
     if (args.action === "start") {
+      // Resolution comes from the VNC_RESOLUTION env var set at sandbox creation
+      // (see createSandbox in git.ts) — Xvfb starts at 1920x1080 natively.
       await sandbox.computerUse.start();
-      await setDisplayResolution(sandbox);
     } else {
       await sandbox.computerUse.stop();
     }

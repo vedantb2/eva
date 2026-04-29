@@ -1,5 +1,11 @@
 # Changelog
 
+## Set VNC desktop resolution via env var at sandbox creation - 2026-04-29
+
+- Desktop sandboxes now set `VNC_RESOLUTION=1920x1080` as an env var at creation time, passed to Daytona's ComputerUse plugin — Xvfb starts at the correct resolution natively, overriding the snapshot's 1280x720 default.
+- Removed the post-startup `xrandr` resize workaround (`setDisplayResolution` function) from `desktop.ts` since it's now redundant. The display comes up at 1920x1080 directly, simplifying the startup flow and reducing shell exec calls.
+- **Why**: Using Daytona's standard `VNC_RESOLUTION` env var is cleaner and more aligned with the ComputerUse plugin's design than post-startup resolution tweaking.
+
 ## Scope sandbox preview/editor/desktop URL caches by sandboxId - 2026-04-28
 
 - The Web Preview, Editor (code-server), and Desktop (NoVNC) panels cached their resolved Daytona signed URLs in sessionStorage keyed only by session/task ID and port. Since Daytona signed URLs embed the sandbox ID in the subdomain, destroying and recreating a sandbox for the same task/session reused a stale URL pointing at the dead sandbox — the iframe would render `400 "Sandbox with ID … not found"` while the terminal (which connects fresh by current `sandboxId`) worked fine.

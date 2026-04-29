@@ -1,5 +1,11 @@
 # Changelog
 
+## Environment-aware Convex MCP credentials (staging/prod) - 2026-04-29
+
+- The Convex MCP tools (`list_tables`, `query_table`, `get_document`, `run_query`, `count_table`) now accept an `environment: "staging" | "prod"` argument so a single repo can expose both deployments to MCP clients while the sandbox still only sees staging.
+- Staging credentials continue to use the canonical `NEXT_PUBLIC_CONVEX_URL` / `VITE_CONVEX_URL` / `CONVEX_URL` + `CONVEX_DEPLOY_KEY` / `CONVEX_ADMIN_KEY` keys; prod adds `PROD_CONVEX_URL` + `PROD_CONVEX_DEPLOY_KEY` / `PROD_CONVEX_ADMIN_KEY`, intended to be stored with `sandboxExclude: true` so they never reach the sandbox.
+- `getRepoConvexCredentials` now takes the environment, looks up the matching key set, and caches per-environment to avoid cross-deployment collisions. Default remains `staging`, so existing MCP usage is unaffected.
+
 ## Set VNC desktop resolution via env var at sandbox creation - 2026-04-29
 
 - Desktop sandboxes now set `VNC_RESOLUTION=1920x1080` as an env var at creation time, passed to Daytona's ComputerUse plugin — Xvfb starts at the correct resolution natively, overriding the snapshot's 1280x720 default.

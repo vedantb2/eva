@@ -585,17 +585,40 @@ interface EnvVar {
   value: string;
 }
 
+/**
+ * Lookup keys for Convex credentials, per environment.
+ *
+ * Staging keys are the canonical/legacy keys (also consumed by the sandbox and
+ * the deployed app). Prod keys are MCP-only and should be stored with
+ * `sandboxExclude: true` so they never reach the sandbox.
+ */
+const CONVEX_CRED_KEYS = {
+  staging: {
+    url: ["NEXT_PUBLIC_CONVEX_URL", "VITE_CONVEX_URL", "CONVEX_URL"],
+    deployKey: ["CONVEX_DEPLOY_KEY", "CONVEX_ADMIN_KEY"],
+  },
+  prod: {
+    url: ["PROD_CONVEX_URL"],
+    deployKey: ["PROD_CONVEX_DEPLOY_KEY", "PROD_CONVEX_ADMIN_KEY"],
+  },
+} as const;
+
 export const getRepoConvexCredentials = internalAction({
-  args: { repoId: v.string(), userId: v.string() },
+  args: {
+    repoId: v.string(),
+    userId: v.string(),
+    environment: v.optional(v.union(v.literal("staging"), v.literal("prod"))),
+  },
   returns: v.union(
     v.object({ convexUrl: v.string(), deployKey: v.string() }),
     v.null(),
   ),
   handler: async (
     ctx,
-    { repoId, userId },
+    { repoId, userId, environment },
   ): Promise<{ convexUrl: string; deployKey: string } | null> => {
-    const cacheKey = `${userId}:${repoId}`;
+    const env = environment ?? "staging";
+    const cacheKey = `${userId}:${repoId}:${env}`;
     const cached = repoCredentialsCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return { convexUrl: cached.convexUrl, deployKey: cached.deployKey };
@@ -606,16 +629,13 @@ export const getRepoConvexCredentials = internalAction({
       { repoId },
     );
 
-    const urlEntry: EnvVar | undefined = vars.find(
-      (entry) =>
-        entry.key === "NEXT_PUBLIC_CONVEX_URL" ||
-        entry.key === "VITE_CONVEX_URL" ||
-        entry.key === "CONVEX_URL",
-    );
-    const keyEntry: EnvVar | undefined = vars.find(
-      (entry) =>
-        entry.key === "CONVEX_DEPLOY_KEY" || entry.key === "CONVEX_ADMIN_KEY",
-    );
+    const lookup = CONVEX_CRED_KEYS[env];
+    const urlEntry: EnvVar | undefined = lookup.url
+      .map((k) => vars.find((entry) => entry.key === k))
+      .find((entry): entry is EnvVar => entry !== undefined);
+    const keyEntry: EnvVar | undefined = lookup.deployKey
+      .map((k) => vars.find((entry) => entry.key === k))
+      .find((entry): entry is EnvVar => entry !== undefined);
 
     if (!urlEntry || !keyEntry) return null;
 

@@ -300,7 +300,7 @@ export const runSelectedFixes = authMutation({
       auditId: args.auditId,
       selectedFailures: args.selectedFailures,
       sandboxId: run.sandboxId,
-      taskId: String(taskId),
+      taskId,
       runId,
       userId: ctx.userId,
       repoId,
@@ -311,6 +311,34 @@ export const runSelectedFixes = authMutation({
       rootDirectory: repo.rootDirectory ?? "",
     });
 
+    return null;
+  },
+});
+
+/** Persists a recovered sandbox ID after the audit-fix flow had to spin up a
+ * replacement (the original task/project sandbox was unhealthy or gone).
+ * Routes to the project for project tasks; otherwise to the task itself, so
+ * subsequent runs and reviewer Start Sandbox reuse the same paused filesystem. */
+export const saveAuditFixSandboxId = internalMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    sandboxId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) return null;
+    if (task.projectId) {
+      await ctx.db.patch(task.projectId, {
+        sandboxId: args.sandboxId,
+        lastSandboxActivity: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(args.taskId, {
+        sandboxId: args.sandboxId,
+        updatedAt: Date.now(),
+      });
+    }
     return null;
   },
 });

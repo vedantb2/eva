@@ -152,7 +152,7 @@ export const launchSelectedAuditFixes = internalAction({
       }),
     ),
     sandboxId: v.optional(v.string()),
-    taskId: v.string(),
+    taskId: v.id("agentTasks"),
     runId: v.id("agentRuns"),
     userId: v.id("users"),
     repoId: v.id("githubRepos"),
@@ -178,6 +178,9 @@ export const launchSelectedAuditFixes = internalAction({
       }
 
       if (!sandboxId) {
+        // Original task/project sandbox was unhealthy or gone. Spin up a
+        // persistent replacement (not ephemeral) and write it back so future
+        // runs / reviewer Start Sandbox reuse the same paused filesystem.
         const result = await ctx.runAction(
           internal.daytona.createOrResumeSandbox,
           {
@@ -185,11 +188,15 @@ export const launchSelectedAuditFixes = internalAction({
             repoOwner: args.repoOwner,
             repoName: args.repoName,
             branchName: args.branchName,
-            ephemeral: true,
+            ephemeral: false,
             repoId: args.repoId,
           },
         );
         sandboxId = result.sandboxId;
+        await ctx.runMutation(internal.audits.saveAuditFixSandboxId, {
+          taskId: args.taskId,
+          sandboxId,
+        });
       }
 
       const failureList = args.selectedFailures
@@ -235,7 +242,7 @@ ${failureList}
         prompt,
         "taskWorkflow:handleAuditFixCompletion",
         "taskId",
-        args.taskId,
+        String(args.taskId),
         args.repoId,
         {
           model: "sonnet",

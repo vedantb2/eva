@@ -25,6 +25,7 @@ import { detectPackageManager } from "./devServer";
 
 export type SandboxLifecycle = {
   autoStopInterval: number;
+  autoArchiveInterval?: number;
   autoDeleteInterval?: number;
   ephemeral?: boolean;
 };
@@ -36,7 +37,10 @@ export type RepoSyncStrategy =
 
 const SESSION_LIFECYCLE: SandboxLifecycle = {
   autoStopInterval: 15,
-  // No autoDeleteInterval — let Daytona auto-archive after 7 days (default)
+  // Auto-archive after 3 days, then auto-delete after 7 days
+  // (overrides Daytona defaults: 7-day archive, no delete).
+  autoArchiveInterval: 3 * 24 * 60,
+  autoDeleteInterval: 7 * 24 * 60,
 };
 
 const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
@@ -317,6 +321,9 @@ export async function createSandbox(
         INSTALLATION_ID: String(installationId),
       },
       autoStopInterval: lifecycle.autoStopInterval,
+      ...(lifecycle.autoArchiveInterval !== undefined
+        ? { autoArchiveInterval: lifecycle.autoArchiveInterval }
+        : {}),
       ...(lifecycle.autoDeleteInterval !== undefined
         ? { autoDeleteInterval: lifecycle.autoDeleteInterval }
         : {}),

@@ -25,6 +25,7 @@ import { detectPackageManager } from "./devServer";
 
 export type SandboxLifecycle = {
   autoStopInterval: number;
+  autoArchiveInterval?: number;
   autoDeleteInterval?: number;
   ephemeral?: boolean;
 };
@@ -36,7 +37,10 @@ export type RepoSyncStrategy =
 
 const SESSION_LIFECYCLE: SandboxLifecycle = {
   autoStopInterval: 15,
-  // No autoDeleteInterval — let Daytona auto-archive after 7 days (default)
+  // Auto-archive after 3 days, then auto-delete after 7 days
+  // (overrides Daytona defaults: 7-day archive, no delete).
+  autoArchiveInterval: 3 * 24 * 60,
+  autoDeleteInterval: 7 * 24 * 60,
 };
 
 const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
@@ -307,11 +311,19 @@ export async function createSandbox(
     const commonParams = {
       ...(volumes ? { volumes } : {}),
       envVars: {
+        // VNC_RESOLUTION is read by the snapshot's ComputerUse plugin at startup
+        // (Xvfb + x11vnc). Setting it here makes the desktop start at 1920x1080
+        // natively — overriding the snapshot Dockerfile's 1280x720 default — so
+        // we don't have to rely on a post-start xrandr resize.
+        VNC_RESOLUTION: "1920x1080",
         ...sandboxEnvVars,
         GITHUB_TOKEN: githubToken,
         INSTALLATION_ID: String(installationId),
       },
       autoStopInterval: lifecycle.autoStopInterval,
+      ...(lifecycle.autoArchiveInterval !== undefined
+        ? { autoArchiveInterval: lifecycle.autoArchiveInterval }
+        : {}),
       ...(lifecycle.autoDeleteInterval !== undefined
         ? { autoDeleteInterval: lifecycle.autoDeleteInterval }
         : {}),

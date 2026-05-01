@@ -8,8 +8,7 @@ import {
 } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
-import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
-import { IconCube, IconListCheck } from "@tabler/icons-react";
+import { IconListCheck, IconLoader2 } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 
@@ -21,14 +20,14 @@ interface ActiveTasksBadgeProps {
 export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
   const allTasks = useQuery(api.agentTasks.getActiveTasks, { repoId });
   const quickTasks = allTasks?.filter((t) => !t.projectId) ?? [];
-  const tasks = quickTasks.filter((t) => t.status === "in_progress");
-  const sandboxCount = quickTasks.filter(
+  const runningTasks = quickTasks.filter((t) => t.status === "in_progress");
+  const sandboxTasks = quickTasks.filter(
     (t) =>
       t.reviewTaskSandboxStatus === "active" ||
       t.reviewTaskSandboxStatus === "starting",
-  ).length;
+  );
 
-  if (tasks.length === 0 && sandboxCount === 0) {
+  if (runningTasks.length === 0 && sandboxTasks.length === 0) {
     return null;
   }
 
@@ -37,34 +36,24 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
       <HoverCardTrigger asChild>
         <Badge
           variant="secondary"
-          className="ml-auto cursor-default items-center gap-1.5 border-none bg-sidebar-accent/50 px-1.5 py-0.5"
+          className="ml-auto cursor-default items-center gap-2 border-none bg-sidebar-accent/50 px-1.5 py-0.5"
         >
-          {tasks.length > 0 && (
-            <span className="flex items-center gap-1">
-              <span className="relative flex h-2 w-2">
-                <span
-                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
-                  style={{
-                    backgroundColor: "rgb(var(--status-progress-bar))",
-                  }}
-                />
-                <span
-                  className="relative inline-flex h-2 w-2 rounded-full"
-                  style={{
-                    backgroundColor: "rgb(var(--status-progress-bar))",
-                  }}
-                />
-              </span>
-              <span className="text-[11px] font-medium text-muted-foreground">
-                {tasks.length}
+          {runningTasks.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <IconLoader2
+                size={11}
+                className="animate-spin text-muted-foreground"
+              />
+              <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                {runningTasks.length}
               </span>
             </span>
           )}
-          {sandboxCount > 0 && (
-            <span className="flex items-center gap-0.5">
-              <IconCube size={11} className="text-muted-foreground" />
-              <span className="text-[11px] font-medium text-muted-foreground">
-                {sandboxCount}
+          {sandboxTasks.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <PulseDot />
+              <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                {sandboxTasks.length}
               </span>
             </span>
           )}
@@ -72,51 +61,134 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
       </HoverCardTrigger>
       <HoverCardContent
         align="start"
-        className="w-[min(20rem,calc(100vw-2rem))]"
+        className="w-[min(22rem,calc(100vw-2rem))] p-3"
       >
-        <div className="space-y-1">
-          <div className="mb-3 flex items-center gap-2">
-            <IconListCheck size={16} className="text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">
-              Active Tasks
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <IconListCheck size={15} className="text-primary" />
+            <h3 className="text-[13px] font-semibold tracking-tight text-foreground">
+              Active tasks
             </h3>
-            <span className="ml-auto flex items-center gap-1.5">
-              <span className="rounded-full bg-muted/40 px-1.5 py-0.5 text-xs text-muted-foreground">
-                {tasks.length} running
-              </span>
-              {sandboxCount > 0 && (
-                <span className="flex items-center gap-1 rounded-full bg-muted/40 px-1.5 py-0.5 text-xs text-muted-foreground">
-                  <IconCube size={11} />
-                  {sandboxCount}
+            <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
+              {runningTasks.length > 0 && (
+                <span>{runningTasks.length} running</span>
+              )}
+              {runningTasks.length > 0 && sandboxTasks.length > 0 && (
+                <span aria-hidden className="text-muted-foreground/40">
+                  ·
                 </span>
+              )}
+              {sandboxTasks.length > 0 && (
+                <span>{sandboxTasks.length} active</span>
               )}
             </span>
           </div>
-          <div className="space-y-1">
-            {tasks.map((task) => (
-              <DynamicLink
-                key={task._id}
-                to={`${basePath}/quick-tasks/${task._id}`}
-                className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+
+          <div className="space-y-3">
+            {runningTasks.length > 0 && (
+              <Section
+                label="Running"
+                count={runningTasks.length}
+                glyph={
+                  <IconLoader2
+                    size={11}
+                    className="animate-spin text-muted-foreground"
+                  />
+                }
               >
-                <div className="flex items-center justify-between rounded-lg p-2.5 transition-colors hover:bg-muted/60">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-foreground">
-                      {task.title}
-                    </p>
-                    {task.taskNumber && (
-                      <p className="text-xs text-muted-foreground">
-                        Task #{task.taskNumber}
-                      </p>
-                    )}
-                  </div>
-                  <TaskStatusBadge status={task.status} />
-                </div>
-              </DynamicLink>
-            ))}
+                {runningTasks.map((task) => (
+                  <TaskRow
+                    key={task._id}
+                    title={task.title}
+                    taskNumber={task.taskNumber}
+                    to={`${basePath}/quick-tasks/${task._id}`}
+                  />
+                ))}
+              </Section>
+            )}
+
+            {sandboxTasks.length > 0 && (
+              <Section
+                label="Sandbox"
+                count={sandboxTasks.length}
+                glyph={<PulseDot />}
+              >
+                {sandboxTasks.map((task) => (
+                  <TaskRow
+                    key={task._id}
+                    title={task.title}
+                    taskNumber={task.taskNumber}
+                    to={`${basePath}/quick-tasks/${task._id}`}
+                  />
+                ))}
+              </Section>
+            )}
           </div>
         </div>
       </HoverCardContent>
     </HoverCard>
+  );
+}
+
+interface SectionProps {
+  label: string;
+  count: number;
+  glyph: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function Section({ label, count, glyph, children }: SectionProps) {
+  return (
+    <div className="rounded-lg bg-muted/40 p-1">
+      <div className="flex items-center gap-2 px-2 pb-1 pt-1.5">
+        <span className="flex h-3 w-3 items-center justify-center">
+          {glyph}
+        </span>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          {label}
+        </span>
+        <span className="ml-auto text-[10px] text-muted-foreground/70 tabular-nums">
+          {count}
+        </span>
+      </div>
+      <div className="space-y-px">{children}</div>
+    </div>
+  );
+}
+
+interface TaskRowProps {
+  title: string;
+  taskNumber?: number;
+  to: string;
+}
+
+function TaskRow({ title, taskNumber, to }: TaskRowProps) {
+  return (
+    <DynamicLink
+      to={to}
+      className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+    >
+      <div className="group flex items-center gap-2 rounded-md px-2 py-1.5 transition-[background-color,transform] hover:bg-background hover:translate-x-0.5">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] leading-tight text-foreground">
+            {title}
+          </p>
+        </div>
+        {taskNumber && (
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/80 tabular-nums">
+            #{taskNumber}
+          </span>
+        )}
+      </div>
+    </DynamicLink>
+  );
+}
+
+function PulseDot() {
+  return (
+    <span className="relative flex h-2 w-2">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/75" />
+      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+    </span>
   );
 }

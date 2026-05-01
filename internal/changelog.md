@@ -1,5 +1,35 @@
 # Changelog
 
+## Quick-task sidebar visual refinement - 2026-04-30
+
+- Swapped quick-task icons in the sidebar badge: active sandboxes now display a green pulsing dot (matches sessions), running tasks show a spinner.
+- Restructured the hover card into two sections (`Running` and `Sandbox active`) so users can distinguish task execution state from sandbox state at a glance.
+- Refined the hover card design with tonal surface trays (`bg-muted/40`), eyebrow-style section labels (`uppercase text-[10px] tracking-[0.12em]`), and subtle row hover lift (`translate-x-0.5`) — all within the project's tonal-surface rules (no shadows, no borders on inline elements).
+
+## Sandbox ID audit recovery - 2026-04-30
+
+- Audit now saves `sandboxId` if it discovers a task/session record missing the sandbox ID field, recovering orphaned sandbox references during the audit process.
+
+## Remove legacy MCP and MCP-v2 apps - 2026-04-30
+
+- Deleted `apps/mcp` and `apps/mcp-v2` — legacy MCP server implementations no longer in use.
+
+## Adjust sandbox auto-archive interval - 2026-04-30
+
+- Modified the auto-archive interval in `_daytona/git.ts` to better balance storage cleanup vs. sandbox availability.
+
+## Environment-aware Convex MCP credentials (staging/prod) - 2026-04-29
+
+- The Convex MCP tools (`list_tables`, `query_table`, `get_document`, `run_query`, `count_table`) now accept an `environment: "staging" | "prod"` argument so a single repo can expose both deployments to MCP clients while the sandbox still only sees staging.
+- Staging credentials continue to use the canonical `NEXT_PUBLIC_CONVEX_URL` / `VITE_CONVEX_URL` / `CONVEX_URL` + `CONVEX_DEPLOY_KEY` / `CONVEX_ADMIN_KEY` keys; prod adds `PROD_CONVEX_URL` + `PROD_CONVEX_DEPLOY_KEY` / `PROD_CONVEX_ADMIN_KEY`, intended to be stored with `sandboxExclude: true` so they never reach the sandbox.
+- `getRepoConvexCredentials` now takes the environment, looks up the matching key set, and caches per-environment to avoid cross-deployment collisions. Default remains `staging`, so existing MCP usage is unaffected.
+
+## Set VNC desktop resolution via env var at sandbox creation - 2026-04-29
+
+- Desktop sandboxes now set `VNC_RESOLUTION=1920x1080` as an env var at creation time, passed to Daytona's ComputerUse plugin — Xvfb starts at the correct resolution natively, overriding the snapshot's 1280x720 default.
+- Removed the post-startup `xrandr` resize workaround (`setDisplayResolution` function) from `desktop.ts` since it's now redundant. The display comes up at 1920x1080 directly, simplifying the startup flow and reducing shell exec calls.
+- **Why**: Using Daytona's standard `VNC_RESOLUTION` env var is cleaner and more aligned with the ComputerUse plugin's design than post-startup resolution tweaking.
+
 ## Scope sandbox preview/editor/desktop URL caches by sandboxId - 2026-04-28
 
 - The Web Preview, Editor (code-server), and Desktop (NoVNC) panels cached their resolved Daytona signed URLs in sessionStorage keyed only by session/task ID and port. Since Daytona signed URLs embed the sandbox ID in the subdomain, destroying and recreating a sandbox for the same task/session reused a stale URL pointing at the dead sandbox — the iframe would render `400 "Sandbox with ID … not found"` while the terminal (which connects fresh by current `sandboxId`) worked fine.

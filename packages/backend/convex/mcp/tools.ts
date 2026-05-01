@@ -61,6 +61,7 @@ export function registerTools(
     repoId: string,
     deployKey: string,
     userId: string,
+    environment: "staging" | "prod",
   ): Promise<RepoCredentials> {
     if (scopedRepoId && scopedRepoId !== repoId) {
       throw new Error(
@@ -78,15 +79,26 @@ export function registerTools(
 
     const repoCreds = await ctx.runAction(
       internal.mcp.nodeActions.getRepoConvexCredentials,
-      { repoId, userId },
+      { repoId, userId, environment },
     );
     if (!repoCreds) {
+      const expected =
+        environment === "prod"
+          ? "PROD_CONVEX_URL and PROD_CONVEX_DEPLOY_KEY"
+          : "CONVEX_URL (or NEXT_PUBLIC_CONVEX_URL/VITE_CONVEX_URL) and CONVEX_DEPLOY_KEY";
       throw new Error(
-        `Repo ${repoId} has no Convex credentials. Ensure CONVEX_URL (or NEXT_PUBLIC_CONVEX_URL/VITE_CONVEX_URL) and CONVEX_DEPLOY_KEY are set in its env vars in Eva.`,
+        `Repo ${repoId} has no Convex credentials for environment "${environment}". Ensure ${expected} are set in its env vars in Eva.`,
       );
     }
     return repoCreds;
   }
+
+  const environmentArg = z
+    .enum(["staging", "prod"])
+    .default("staging")
+    .describe(
+      'Which Convex deployment to query. "staging" (default) reads from NEXT_PUBLIC_CONVEX_URL/CONVEX_DEPLOY_KEY. "prod" reads from PROD_CONVEX_URL/PROD_CONVEX_DEPLOY_KEY.',
+    );
 
   // ─────────────────────────────────────────────────────────────────────────────
   // list_repos
@@ -144,10 +156,16 @@ export function registerTools(
         .describe(
           "Repo ID from list_repos. Required to specify which repo's database to query.",
         ),
+      environment: environmentArg,
     },
-    async ({ repoId }) => {
+    async ({ repoId, environment }) => {
       const { deployKey, userId } = await getContext();
-      const target = await resolveTargetWithAccess(repoId, deployKey, userId);
+      const target = await resolveTargetWithAccess(
+        repoId,
+        deployKey,
+        userId,
+        environment,
+      );
 
       const tables = await ctx.runAction(internal.mcp.nodeActions.listTables, {
         convexUrl: target.convexUrl,
@@ -185,10 +203,16 @@ export function registerTools(
         .describe(
           "Repo ID from list_repos. Required to specify which repo's database to query.",
         ),
+      environment: environmentArg,
     },
-    async ({ table, order, limit, cursor, repoId }) => {
+    async ({ table, order, limit, cursor, repoId, environment }) => {
       const { deployKey, userId } = await getContext();
-      const target = await resolveTargetWithAccess(repoId, deployKey, userId);
+      const target = await resolveTargetWithAccess(
+        repoId,
+        deployKey,
+        userId,
+        environment,
+      );
 
       const result = await ctx.runAction(internal.mcp.nodeActions.queryTable, {
         convexUrl: target.convexUrl,
@@ -224,15 +248,21 @@ export function registerTools(
         .describe(
           "Repo ID from list_repos. Required to specify which repo's database to query.",
         ),
+      environment: environmentArg,
     },
-    async ({ id, repoId }) => {
+    async ({ id, repoId, environment }) => {
       if (!/^[a-zA-Z0-9_]+$/.test(id)) {
         return errorResult(
           "Invalid document ID format. IDs should be alphanumeric.",
         );
       }
       const { deployKey, userId } = await getContext();
-      const target = await resolveTargetWithAccess(repoId, deployKey, userId);
+      const target = await resolveTargetWithAccess(
+        repoId,
+        deployKey,
+        userId,
+        environment,
+      );
 
       const result = await ctx.runAction(
         internal.mcp.nodeActions.runTestQuery,
@@ -278,10 +308,16 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         .describe(
           "Repo ID from list_repos. Required to specify which repo's database to query.",
         ),
+      environment: environmentArg,
     },
-    async ({ code, repoId }) => {
+    async ({ code, repoId, environment }) => {
       const { deployKey, userId } = await getContext();
-      const target = await resolveTargetWithAccess(repoId, deployKey, userId);
+      const target = await resolveTargetWithAccess(
+        repoId,
+        deployKey,
+        userId,
+        environment,
+      );
 
       const result = await ctx.runAction(
         internal.mcp.nodeActions.runTestQuery,
@@ -317,15 +353,21 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         .describe(
           "Repo ID from list_repos. Required to specify which repo's database to query.",
         ),
+      environment: environmentArg,
     },
-    async ({ table, repoId }) => {
+    async ({ table, repoId, environment }) => {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(table)) {
         return errorResult(
           "Invalid table name. Use alphanumeric characters and underscores.",
         );
       }
       const { deployKey, userId } = await getContext();
-      const target = await resolveTargetWithAccess(repoId, deployKey, userId);
+      const target = await resolveTargetWithAccess(
+        repoId,
+        deployKey,
+        userId,
+        environment,
+      );
 
       const result = await ctx.runAction(
         internal.mcp.nodeActions.runTestQuery,

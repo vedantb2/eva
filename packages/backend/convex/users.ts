@@ -49,6 +49,7 @@ export const listOnlineTeammates = authQuery({
       lastName: v.optional(v.string()),
       fullName: v.optional(v.string()),
       lastSeenAt: v.optional(v.number()),
+      lastSeenPath: v.optional(v.string()),
     }),
   ),
   handler: async (ctx) => {
@@ -82,6 +83,7 @@ export const listOnlineTeammates = authQuery({
           lastName: user.lastName,
           fullName: user.fullName,
           lastSeenAt: user.lastSeenAt,
+          lastSeenPath: user.lastSeenPath,
         });
       }
     }

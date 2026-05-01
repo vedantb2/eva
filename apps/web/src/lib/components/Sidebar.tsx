@@ -33,7 +33,6 @@ import {
 import { clientEnv } from "@/env/client";
 import { api } from "@conductor/backend";
 import {
-  AvatarStack,
   Button,
   Spinner,
   Tooltip,
@@ -847,17 +846,51 @@ export function Sidebar() {
   );
 }
 
+function getDisplayName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+}): string {
+  return (
+    `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+    user.fullName ||
+    ""
+  );
+}
+
 function OnlineTeammates({ collapsed }: { collapsed: boolean }) {
   const onlineUsers = useQuery(api.users.listOnlineTeammates, {});
+  const navigate = useNavigate();
 
   if (!onlineUsers || onlineUsers.length === 0) return null;
 
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-1 pb-3">
-        {onlineUsers.slice(0, 3).map((u) => (
-          <UserInitials key={u._id} user={u} size="sm" hideLastSeen />
-        ))}
+        {onlineUsers.slice(0, 3).map((u) => {
+          const name = getDisplayName(u);
+          return (
+            <Tooltip key={u._id}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110"
+                  onClick={() => {
+                    if (u.lastSeenPath) {
+                      navigate({ to: u.lastSeenPath });
+                    }
+                  }}
+                  disabled={!u.lastSeenPath}
+                >
+                  <UserInitials user={u} size="sm" hideLastSeen />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {u.lastSeenPath ? `Teleport to ${name}` : `${name} · Online`}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
         {onlineUsers.length > 3 && (
           <span className="text-[10px] text-muted-foreground">
             +{onlineUsers.length - 3}
@@ -868,15 +901,40 @@ function OnlineTeammates({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <div className="flex items-center gap-2 pb-3">
-      <AvatarStack size={20}>
-        {onlineUsers.map((u) => (
-          <UserInitials key={u._id} user={u} size="sm" hideLastSeen />
-        ))}
-      </AvatarStack>
-      <span className="text-xs text-muted-foreground">
+    <div className="flex flex-col gap-1 pb-3">
+      <span className="text-xs text-muted-foreground mb-1">
         {onlineUsers.length} online
       </span>
+      {onlineUsers.map((u) => {
+        const name = getDisplayName(u);
+        return (
+          <Tooltip key={u._id}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-1.5 py-1 transition-[transform,background-color]",
+                  u.lastSeenPath
+                    ? "cursor-pointer hover:bg-accent"
+                    : "cursor-default",
+                )}
+                onClick={() => {
+                  if (u.lastSeenPath) {
+                    navigate({ to: u.lastSeenPath });
+                  }
+                }}
+                disabled={!u.lastSeenPath}
+              >
+                <UserInitials user={u} size="sm" hideLastSeen />
+                <span className="truncate text-xs">{name}</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {u.lastSeenPath ? `Teleport to ${name}` : `${name} · Online`}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }

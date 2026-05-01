@@ -14,8 +14,8 @@ import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { useAuth } from "@clerk/clerk-react";
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider";
 import { ThemeModeProvider } from "@/lib/components/ThemeModeProvider";
-import { useEffect, useState } from "react";
-import { Navigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { Navigate, useLocation } from "@tanstack/react-router";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { TooltipProvider } from "@conductor/ui";
 import { AppSkeleton } from "./AppSkeleton";
@@ -101,6 +101,18 @@ function PresenceHeartbeat() {
 
 function PresenceInner({ userId }: { userId: Id<"users"> }) {
   usePresence(api.presence, "platform", userId);
+  const location = useLocation();
+  const updatePath = useMutation(api.presence.updatePath);
+  const lastPathRef = useRef("");
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (path !== lastPathRef.current) {
+      lastPathRef.current = path;
+      updatePath({ path }).catch(() => {});
+    }
+  }, [location.pathname, updatePath]);
+
   return null;
 }
 

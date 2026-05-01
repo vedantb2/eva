@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -25,16 +25,21 @@ import {
   IconGitPullRequest,
   IconHammer,
   IconPlayerStop,
+  IconPlayerPlay,
+  IconTerminal2,
   IconLoader2,
   IconChevronRight,
   IconChevronDown,
   IconCalendarClock,
   IconBrandVercel,
+  IconArrowLeft,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useNavigate } from "@tanstack/react-router";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
+import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
+import { ProjectSandboxPanel } from "./_components/ProjectSandboxPanel";
 import { Route } from "./$projectId";
 
 export function ProjectDetailClient() {
@@ -48,6 +53,16 @@ export function ProjectDetailClient() {
   const [showStopBuildConfirm, setShowStopBuildConfirm] = useState(false);
   const startBuild = useMutation(api.buildWorkflow.startBuild);
   const cancelBuild = useMutation(api.buildWorkflow.cancelBuild);
+  const startProjectSandboxMutation = useMutation(
+    api.projects.startProjectSandbox,
+  );
+  const stopProjectSandboxMutation = useMutation(
+    api.projects.stopProjectSandbox,
+  );
+
+  const [showSandbox, setShowSandbox] = useState(false);
+  const [isSandboxStartingLocal, setIsSandboxStartingLocal] = useState(false);
+  const [isSandboxStoppingLocal, setIsSandboxStoppingLocal] = useState(false);
 
   const project = useQuery(api.projects.get, { id: typedProjectId });
   const streaming = useQuery(api.streaming.get, { entityId: projectId });
@@ -57,6 +72,54 @@ export function ProjectDetailClient() {
   );
   const currentUserId = useQuery(api.auth.me);
   const isOwner = project ? currentUserId === project.userId : false;
+
+  const isSandboxActive = project?.reviewProjectSandboxStatus === "active";
+  const isSandboxStartingFromStatus =
+    project?.reviewProjectSandboxStatus === "starting";
+  const isSandboxStoppingFromStatus =
+    project?.reviewProjectSandboxStatus === "stopping";
+  const isSandboxStarting =
+    isSandboxStartingLocal || isSandboxStartingFromStatus;
+  const isSandboxStopping =
+    isSandboxStoppingLocal || isSandboxStoppingFromStatus;
+
+  const sandboxStartupStreaming = useQuery(
+    api.streaming.get,
+    isSandboxStartingFromStatus
+      ? { entityId: `project-sandbox-startup-${typedProjectId}` }
+      : "skip",
+  );
+
+  const canStartSandbox =
+    project?.phase === "active" || project?.phase === "completed";
+
+  const handleStartSandbox = useCallback(async () => {
+    setIsSandboxStartingLocal(true);
+    try {
+      await startProjectSandboxMutation({ projectId: typedProjectId });
+      setShowSandbox(true);
+    } catch (err) {
+      console.error("Failed to start sandbox:", err);
+    } finally {
+      setIsSandboxStartingLocal(false);
+    }
+  }, [startProjectSandboxMutation, typedProjectId]);
+
+  const handleStopSandbox = useCallback(async () => {
+    setIsSandboxStoppingLocal(true);
+    try {
+      await stopProjectSandboxMutation({ projectId: typedProjectId });
+      setShowSandbox(false);
+    } catch (err) {
+      console.error("Failed to stop sandbox:", err);
+    } finally {
+      setIsSandboxStoppingLocal(false);
+    }
+  }, [stopProjectSandboxMutation, typedProjectId]);
+
+  const handleToggleSandboxView = useCallback(() => {
+    setShowSandbox((prev) => !prev);
+  }, []);
 
   const handleStopBuild = async () => {
     if (!project) return;
@@ -91,6 +154,87 @@ export function ProjectDetailClient() {
   const isDraftOrFinalized =
     project.phase === "draft" || project.phase === "finalized";
 
+  if (showSandbox && (isSandboxActive || isSandboxStarting)) {
+    return (
+      <PageWrapper
+        title={
+          <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
+            <button
+              onClick={() => navigate({ to: `${basePath}/projects` })}
+              className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
+            >
+              Projects
+            </button>
+            <IconChevronRight
+              size={14}
+              className="text-muted-foreground/50 flex-shrink-0"
+            />
+            <span className="truncate font-semibold">{project.title}</span>
+          </div>
+        }
+        fillHeight
+        childPadding={false}
+        headerRight={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleToggleSandboxView}
+              className="gap-1.5"
+            >
+              <IconArrowLeft size={16} />
+              Back
+            </Button>
+            {isSandboxStarting && !isSandboxActive ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <IconLoader2 size={16} className="animate-spin" />
+                Starting sandbox...
+              </div>
+            ) : null}
+            {isSandboxActive ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleStopSandbox}
+                disabled={isSandboxStopping}
+                className="gap-1.5"
+              >
+                {isSandboxStopping ? (
+                  <IconLoader2 size={14} className="animate-spin" />
+                ) : (
+                  <IconPlayerStop size={14} />
+                )}
+                Stop Sandbox
+              </Button>
+            ) : null}
+          </div>
+        }
+      >
+        <div className="flex-1 min-h-0">
+          {isSandboxActive && project.sandboxId ? (
+            <ProjectSandboxPanel
+              projectId={typedProjectId}
+              sandboxId={project.sandboxId}
+              isActive={isSandboxActive}
+              repoId={project.repoId}
+              devPort={project.devPort}
+              devCommand={project.devCommand}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="w-full max-w-md px-4">
+                <StreamingActivityDisplay
+                  activity={sandboxStartupStreaming?.currentActivity}
+                  thinkingLabel="Starting sandbox..."
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </PageWrapper>
+    );
+  }
+
   return (
     <PageWrapper
       title={
@@ -113,6 +257,51 @@ export function ProjectDetailClient() {
       headerRight={
         !isDraftOrFinalized ? (
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {canStartSandbox ? (
+              isSandboxActive || isSandboxStarting ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToggleSandboxView}
+                    className="gap-1.5"
+                  >
+                    {isSandboxStarting && !isSandboxActive ? (
+                      <IconLoader2 size={14} className="animate-spin" />
+                    ) : (
+                      <IconTerminal2 size={14} />
+                    )}
+                    <span className="hidden sm:inline">View Sandbox</span>
+                  </Button>
+                  {isSandboxActive ? (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleStopSandbox}
+                      disabled={isSandboxStopping}
+                      className="gap-1.5"
+                    >
+                      {isSandboxStopping ? (
+                        <IconLoader2 size={14} className="animate-spin" />
+                      ) : (
+                        <IconPlayerStop size={14} />
+                      )}
+                      <span className="hidden sm:inline">Stop</span>
+                    </Button>
+                  ) : null}
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleStartSandbox}
+                  className="gap-1.5"
+                >
+                  <IconPlayerPlay size={14} />
+                  <span className="hidden sm:inline">Start Sandbox</span>
+                </Button>
+              )
+            ) : null}
             {latestDeployment?.deploymentStatus === "deployed" &&
               latestDeployment.deploymentUrl && (
                 <Button

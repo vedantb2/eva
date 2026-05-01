@@ -22,7 +22,8 @@ import "@xterm/xterm/css/xterm.css";
  */
 export type PtyOwner =
   | { kind: "session"; sessionId: Id<"sessions"> }
-  | { kind: "task"; taskId: Id<"agentTasks"> };
+  | { kind: "task"; taskId: Id<"agentTasks"> }
+  | { kind: "project"; projectId: Id<"projects"> };
 
 interface TerminalPanelProps {
   owner: PtyOwner;

@@ -31,6 +31,10 @@ const ownerArg = v.union(
     kind: v.literal("task"),
     taskId: v.id("agentTasks"),
   }),
+  v.object({
+    kind: v.literal("project"),
+    projectId: v.id("projects"),
+  }),
 );
 
 interface ResolvedOwner {
@@ -48,7 +52,8 @@ async function resolveOwner(
   ctx: ActionCtx,
   owner:
     | { kind: "session"; sessionId: Id<"sessions"> }
-    | { kind: "task"; taskId: Id<"agentTasks"> },
+    | { kind: "task"; taskId: Id<"agentTasks"> }
+    | { kind: "project"; projectId: Id<"projects"> },
 ): Promise<ResolvedOwner> {
   if (owner.kind === "session") {
     const session = await ctx.runQuery(internal.sessions.getInternal, {
@@ -67,6 +72,21 @@ async function resolveOwner(
         });
       },
       ownerIdSuffix: String(owner.sessionId).slice(-8),
+    };
+  }
+
+  if (owner.kind === "project") {
+    const project = await ctx.runQuery(internal.projects.getInternal, {
+      id: owner.projectId,
+    });
+    if (!project) throw new Error("Project not found");
+    if (!project.sandboxId) throw new Error("Sandbox not active");
+    return {
+      sandboxId: project.sandboxId,
+      repoId: project.repoId,
+      defaultPtyId: undefined,
+      setDefaultPtyId: undefined,
+      ownerIdSuffix: String(owner.projectId).slice(-8),
     };
   }
 

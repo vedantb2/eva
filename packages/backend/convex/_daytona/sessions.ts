@@ -334,10 +334,10 @@ async function completeSessionProgress(
   });
 }
 
-/** Emits task sandbox startup progress steps to streaming for UI updates. */
-async function emitTaskProgress(
+/** Emits sandbox startup progress steps to streaming for UI updates. */
+async function emitPreviewProgress(
   ctx: GenericActionCtx<DataModel>,
-  taskId: Id<"agentTasks">,
+  progressEntityId: string,
   completedSteps: ProgressStep[],
   activeLabel: string,
 ): Promise<void> {
@@ -346,18 +346,18 @@ async function emitTaskProgress(
     { type: "tool", label: activeLabel, status: "active" },
   ];
   await ctx.runMutation(internal.streaming.internalSet, {
-    entityId: `task-sandbox-startup-${taskId}`,
+    entityId: progressEntityId,
     currentActivity: JSON.stringify(steps),
   });
 }
 
-/** Clears task sandbox startup streaming when done. */
-async function completeTaskProgress(
+/** Clears sandbox startup streaming when done. */
+async function completePreviewProgress(
   ctx: GenericActionCtx<DataModel>,
-  taskId: Id<"agentTasks">,
+  progressEntityId: string,
 ): Promise<void> {
   await ctx.runMutation(internal.streaming.internalSet, {
-    entityId: `task-sandbox-startup-${taskId}`,
+    entityId: progressEntityId,
     currentActivity: JSON.stringify([]),
   });
 }
@@ -953,8 +953,10 @@ export const startDesignSandbox = internalAction({
   },
 });
 
-type TaskPreviewSandboxPreparationArgs = {
-  taskId: Id<"agentTasks">;
+type PreviewSandboxPreparationArgs = {
+  progressEntityId: string;
+  volumeTable: "agentTasks" | "projects";
+  volumeEntityId: Id<"agentTasks"> | Id<"projects">;
   existingSandboxId: string | undefined;
   installationId: number;
   repoOwner: string;
@@ -964,17 +966,17 @@ type TaskPreviewSandboxPreparationArgs = {
   repoId: Id<"githubRepos">;
 };
 
-/** Core logic for preparing a task preview sandbox: reuses existing or creates new, syncs refs, and starts services. */
-async function prepareTaskPreviewSandboxInternal(
+/** Core logic for preparing a preview sandbox: reuses existing or creates new, syncs refs, and starts services. */
+async function preparePreviewSandboxInternal(
   ctx: GenericActionCtx<DataModel>,
-  args: TaskPreviewSandboxPreparationArgs,
+  args: PreviewSandboxPreparationArgs,
 ): Promise<PreparedSessionSandbox> {
-  const actionDetails = `taskId=${args.taskId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
+  const actionDetails = `entity=${args.progressEntityId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
   const completedSteps: ProgressStep[] = [];
 
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Loading repository config...",
   );
@@ -990,9 +992,9 @@ async function prepareTaskPreviewSandboxInternal(
     status: "complete",
   });
 
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Resolving sandbox context...",
   );
@@ -1010,9 +1012,9 @@ async function prepareTaskPreviewSandboxInternal(
     status: "complete",
   });
 
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Checking existing sandbox...",
   );
@@ -1023,9 +1025,9 @@ async function prepareTaskPreviewSandboxInternal(
     () =>
       tryReuseSandbox(daytona, args.existingSandboxId, async (sandbox) => {
         const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
-        await emitTaskProgress(
+        await emitPreviewProgress(
           ctx,
-          args.taskId,
+          args.progressEntityId,
           completedSteps,
           "Resuming existing sandbox...",
         );
@@ -1047,9 +1049,9 @@ async function prepareTaskPreviewSandboxInternal(
           status: "complete",
         });
         // Download sandbox config files to repo root
-        await emitTaskProgress(
+        await emitPreviewProgress(
           ctx,
-          args.taskId,
+          args.progressEntityId,
           completedSteps,
           "Downloading config files...",
         );
@@ -1074,9 +1076,9 @@ async function prepareTaskPreviewSandboxInternal(
           label: "Downloading config files...",
           status: "complete",
         });
-        await emitTaskProgress(
+        await emitPreviewProgress(
           ctx,
-          args.taskId,
+          args.progressEntityId,
           completedSteps,
           "Starting dev server...",
         );
@@ -1109,9 +1111,9 @@ async function prepareTaskPreviewSandboxInternal(
             }
           },
         );
-        await emitTaskProgress(
+        await emitPreviewProgress(
           ctx,
-          args.taskId,
+          args.progressEntityId,
           completedSteps,
           "Launching background commands...",
         );
@@ -1155,9 +1157,9 @@ async function prepareTaskPreviewSandboxInternal(
     status: "complete",
   });
 
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Setting up persistence volumes...",
   );
@@ -1168,8 +1170,8 @@ async function prepareTaskPreviewSandboxInternal(
       ensureSessionPersistenceVolumes(
         daytona,
         args.repoId,
-        "agentTasks",
-        args.taskId,
+        args.volumeTable,
+        args.volumeEntityId,
       ),
   );
   completedSteps.push({
@@ -1178,9 +1180,9 @@ async function prepareTaskPreviewSandboxInternal(
     status: "complete",
   });
 
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Creating sandbox...",
   );
@@ -1210,9 +1212,9 @@ async function prepareTaskPreviewSandboxInternal(
     status: "complete",
   });
 
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Syncing repository refs...",
   );
@@ -1235,9 +1237,9 @@ async function prepareTaskPreviewSandboxInternal(
     status: "complete",
   });
 
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Checking out branch...",
   );
@@ -1254,9 +1256,9 @@ async function prepareTaskPreviewSandboxInternal(
   });
 
   // Download sandbox config files to repo root
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Downloading config files...",
   );
@@ -1282,9 +1284,9 @@ async function prepareTaskPreviewSandboxInternal(
     status: "complete",
   });
 
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Starting dev server...",
   );
@@ -1299,9 +1301,9 @@ async function prepareTaskPreviewSandboxInternal(
     status: "complete",
   });
 
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Running startup commands...",
   );
@@ -1326,9 +1328,9 @@ async function prepareTaskPreviewSandboxInternal(
     status: "complete",
   });
 
-  await emitTaskProgress(
+  await emitPreviewProgress(
     ctx,
-    args.taskId,
+    args.progressEntityId,
     completedSteps,
     "Launching background commands...",
   );
@@ -1376,9 +1378,12 @@ export const startTaskPreviewSandbox = internalAction({
     const actionStartedAt = Date.now();
     const actionDetails = `taskId=${args.taskId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
     logSession(`startTaskPreviewSandbox invoked (${actionDetails})`);
+    const progressEntityId = `task-sandbox-startup-${args.taskId}`;
     try {
-      const prepared = await prepareTaskPreviewSandboxInternal(ctx, {
-        taskId: args.taskId,
+      const prepared = await preparePreviewSandboxInternal(ctx, {
+        progressEntityId,
+        volumeTable: "agentTasks",
+        volumeEntityId: args.taskId,
         existingSandboxId: args.existingSandboxId,
         installationId: args.installationId,
         repoOwner: args.repoOwner,
@@ -1401,7 +1406,7 @@ export const startTaskPreviewSandbox = internalAction({
             devCommand: prepared.devCommand,
           }),
       );
-      await completeTaskProgress(ctx, args.taskId);
+      await completePreviewProgress(ctx, progressEntityId);
       logSession(
         `startTaskPreviewSandbox completed in ${formatDurationMs(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
@@ -1409,9 +1414,72 @@ export const startTaskPreviewSandbox = internalAction({
       console.error(
         `[daytona][sessions] startTaskPreviewSandbox failed after ${formatDurationMs(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );
-      await completeTaskProgress(ctx, args.taskId);
+      await completePreviewProgress(ctx, progressEntityId);
       await ctx.runMutation(internal.agentTasks.taskSandboxError, {
         taskId: args.taskId,
+        error: errorMessage(e, "Unknown error"),
+      });
+    }
+    return null;
+  },
+});
+
+/** Starts a project preview sandbox end-to-end and notifies the project of readiness or error. */
+export const startProjectPreviewSandbox = internalAction({
+  args: {
+    projectId: v.id("projects"),
+    existingSandboxId: v.optional(v.string()),
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const actionStartedAt = Date.now();
+    const actionDetails = `projectId=${args.projectId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
+    logSession(`startProjectPreviewSandbox invoked (${actionDetails})`);
+    const progressEntityId = `project-sandbox-startup-${args.projectId}`;
+    try {
+      const prepared = await preparePreviewSandboxInternal(ctx, {
+        progressEntityId,
+        volumeTable: "projects",
+        volumeEntityId: args.projectId,
+        existingSandboxId: args.existingSandboxId,
+        installationId: args.installationId,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        branchName: args.branchName,
+        baseBranch: args.baseBranch,
+        repoId: args.repoId,
+      });
+      await runLoggedSessionStep(
+        prepared.isNew
+          ? "newProjectSandbox.sandboxReady"
+          : "reuseProjectSandbox.sandboxReady",
+        prepared.sandboxDetails,
+        () =>
+          ctx.runMutation(internal.projects.projectSandboxReady, {
+            projectId: args.projectId,
+            sandboxId: prepared.sandbox.id,
+            isNew: prepared.isNew,
+            devPort: prepared.devPort,
+            devCommand: prepared.devCommand,
+          }),
+      );
+      await completePreviewProgress(ctx, progressEntityId);
+      logSession(
+        `startProjectPreviewSandbox completed in ${formatDurationMs(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
+      );
+    } catch (e) {
+      console.error(
+        `[daytona][sessions] startProjectPreviewSandbox failed after ${formatDurationMs(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
+      );
+      await completePreviewProgress(ctx, progressEntityId);
+      await ctx.runMutation(internal.projects.projectSandboxError, {
+        projectId: args.projectId,
         error: errorMessage(e, "Unknown error"),
       });
     }

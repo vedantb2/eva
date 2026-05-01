@@ -46,6 +46,7 @@ const schema = defineSchema({
     toolbarVisible: v.optional(v.boolean()),
     customInstructions: v.optional(v.string()),
     lastSeenAt: v.optional(v.number()),
+    lastSeenPath: v.optional(v.string()),
     lastChangelogDismissedAt: v.optional(v.number()),
   })
     .index("by_clerk_id", ["clerkId"])

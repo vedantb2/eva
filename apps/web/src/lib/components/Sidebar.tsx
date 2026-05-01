@@ -802,7 +802,7 @@ export function Sidebar() {
                 collapsed ? "px-2 py-3" : "px-3 py-3",
               )}
             >
-              <OnlineTeammates collapsed={collapsed} />
+              <TeamMembers collapsed={collapsed} />
               <div
                 className={cn(
                   "flex items-center",
@@ -858,17 +858,21 @@ function getDisplayName(user: {
   );
 }
 
-function OnlineTeammates({ collapsed }: { collapsed: boolean }) {
-  const onlineUsers = useQuery(api.users.listOnlineTeammates, {});
+function TeamMembers({ collapsed }: { collapsed: boolean }) {
+  const teamData = useQuery(api.users.listTeamWithMembers, {});
   const navigate = useNavigate();
 
-  if (!onlineUsers || onlineUsers.length === 0) return null;
+  if (!teamData || teamData.members.length === 0) return null;
+
+  const now = Date.now();
+  const twoMinutes = 2 * 60 * 1000;
 
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-1 pb-3">
-        {onlineUsers.slice(0, 3).map((u) => {
+        {teamData.members.slice(0, 3).map((u) => {
           const name = getDisplayName(u);
+          const isOnline = !!u.lastSeenAt && now - u.lastSeenAt < twoMinutes;
           return (
             <Tooltip key={u._id}>
               <TooltipTrigger asChild>
@@ -882,18 +886,18 @@ function OnlineTeammates({ collapsed }: { collapsed: boolean }) {
                   }}
                   disabled={!u.lastSeenPath}
                 >
-                  <UserInitials user={u} size="sm" hideLastSeen />
+                  <UserInitials user={u} size="sm" hideLastSeen={!isOnline} />
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                {u.lastSeenPath ? `Teleport to ${name}` : `${name} · Online`}
+                {u.lastSeenPath ? `Teleport to ${name}` : name}
               </TooltipContent>
             </Tooltip>
           );
         })}
-        {onlineUsers.length > 3 && (
+        {teamData.members.length > 3 && (
           <span className="text-[10px] text-muted-foreground">
-            +{onlineUsers.length - 3}
+            +{teamData.members.length - 3}
           </span>
         )}
       </div>
@@ -902,39 +906,36 @@ function OnlineTeammates({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="flex flex-col gap-1 pb-3">
-      <span className="text-xs text-muted-foreground mb-1">
-        {onlineUsers.length} online
+      <span className="text-xs font-medium text-sidebar-foreground mb-1">
+        {teamData.teamName}
       </span>
-      {onlineUsers.map((u) => {
-        const name = getDisplayName(u);
-        return (
-          <Tooltip key={u._id}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-1.5 py-1 transition-[transform,background-color]",
-                  u.lastSeenPath
-                    ? "cursor-pointer hover:bg-accent"
-                    : "cursor-default",
-                )}
-                onClick={() => {
-                  if (u.lastSeenPath) {
-                    navigate({ to: u.lastSeenPath });
-                  }
-                }}
-                disabled={!u.lastSeenPath}
-              >
-                <UserInitials user={u} size="sm" hideLastSeen />
-                <span className="truncate text-xs">{name}</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {u.lastSeenPath ? `Teleport to ${name}` : `${name} · Online`}
-            </TooltipContent>
-          </Tooltip>
-        );
-      })}
+      <div className="flex flex-wrap items-center gap-1">
+        {teamData.members.map((u) => {
+          const name = getDisplayName(u);
+          const isOnline = !!u.lastSeenAt && now - u.lastSeenAt < twoMinutes;
+          return (
+            <Tooltip key={u._id}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110"
+                  onClick={() => {
+                    if (u.lastSeenPath) {
+                      navigate({ to: u.lastSeenPath });
+                    }
+                  }}
+                  disabled={!u.lastSeenPath}
+                >
+                  <UserInitials user={u} size="sm" hideLastSeen={!isOnline} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {u.lastSeenPath ? `Teleport to ${name}` : name}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
     </div>
   );
 }

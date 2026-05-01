@@ -118,6 +118,28 @@ export const ensureUserExists = mutation({
       .first();
 
     if (existingUser) {
+      const firstName =
+        typeof identity.firstName === "string" ? identity.firstName : undefined;
+      const lastName =
+        typeof identity.lastName === "string" ? identity.lastName : undefined;
+      const fullName =
+        typeof identity.name === "string" ? identity.name : undefined;
+
+      const needsUpdate =
+        existingUser.email !== (email || undefined) ||
+        existingUser.firstName !== firstName ||
+        existingUser.lastName !== lastName ||
+        existingUser.fullName !== fullName;
+
+      if (needsUpdate) {
+        await ctx.db.patch(existingUser._id, {
+          email: email || undefined,
+          firstName,
+          lastName,
+          fullName,
+        });
+      }
+
       return {
         userId: existingUser._id,
         wasCreated: false,

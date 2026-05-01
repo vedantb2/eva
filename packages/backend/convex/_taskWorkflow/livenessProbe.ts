@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { STALE_RECHECK_MS } from "./recovery";
+import { getTaskRunStreamingEntityId } from "./helpers";
 
 /**
  * Pre-kill liveness probe for stale runs.
@@ -43,6 +44,18 @@ export const probeStaleRunLiveness = internalAction({
     );
 
     if (liveness.alive) {
+      const entityId = getTaskRunStreamingEntityId(args.runId);
+      const streaming = await ctx.runQuery(internal.streaming.internalGet, {
+        entityId,
+      });
+      if (streaming) {
+        await ctx.runMutation(internal.streaming.internalSet, {
+          entityId,
+          currentActivity: streaming.currentActivity,
+          currentContent: streaming.currentContent,
+          pendingQuestion: streaming.pendingQuestion,
+        });
+      }
       // Re-check later and probe again if still stale.
       await ctx.scheduler.runAfter(
         STALE_RECHECK_MS,

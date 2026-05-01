@@ -5,7 +5,9 @@ import { spawn, spawnSync } from "child_process";
 import { createWriteStream, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
 
 const CONVEX_URL = process.env.CONVEX_URL;
+const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
+const STREAMING_HMAC = process.env.STREAMING_HMAC || "";
 const ENTITY_ID = process.env.ENTITY_ID;
 const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 const RUN_ID = process.env.RUN_ID || null;
@@ -28,6 +30,11 @@ const POST_TEXT_STALL_TIMEOUT_MS = Number(process.env.CLAUDE_POST_TEXT_STALL_TIM
 const FIRST_ASSISTANT_EVENT_TIMEOUT_MS = Number(process.env.CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS || "120000");
 const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 const MAX_TOTAL_RUNTIME_MS = Number(process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000");
+const NON_SHELL_TOOL_TIMEOUT_MS = Number(process.env.CLAUDE_NON_SHELL_TOOL_TIMEOUT_MS || "300000");
+const SHELL_TOOL_TIMEOUT_MS = Number(
+  process.env.CLAUDE_SHELL_TOOL_TIMEOUT_MS ||
+    String(Math.max(60000, MAX_TOTAL_RUNTIME_MS - 60000)),
+);
 const SCRIPT_STARTED_AT = Date.now();
 const CALLBACK_HTTP_TIMEOUT_MS = Number(process.env.CALLBACK_HTTP_TIMEOUT_MS || "18000");
 const CALLBACK_HTTP_MAX_RETRIES = Number(process.env.CALLBACK_HTTP_MAX_RETRIES || "4");
@@ -206,8 +213,37 @@ async function callActionWithRetry(path, args, maxRetries = CALLBACK_HTTP_MAX_RE
   }
 }
 
-/** Sends a streaming heartbeat update with current activity and content. */
-async function callStreamingHeartbeat(entityId, currentActivity, currentContent, pendingQuestion) {
+/** Sends one streaming heartbeat request through the scoped HMAC endpoint or legacy mutation fallback. */
+async function callStreamingHeartbeatOnce(
+  entityId,
+  currentActivity,
+  currentContent,
+  pendingQuestion,
+) {
+  if (CONVEX_SITE_URL && STREAMING_HMAC) {
+    const body = new URLSearchParams();
+    body.set("entityId", entityId);
+    body.set("hmac", STREAMING_HMAC);
+    body.set("currentActivity", currentActivity);
+    body.set("currentContent", currentContent || "");
+    if (pendingQuestion) {
+      body.set("pendingQuestion", pendingQuestion);
+    }
+    const res = await fetchWithTimeout(
+      CONVEX_SITE_URL + "/api/streaming/heartbeat",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      },
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
+    }
+    return res.text();
+  }
+
   const args = {
     entityId,
     currentActivity,
@@ -216,11 +252,40 @@ async function callStreamingHeartbeat(entityId, currentActivity, currentContent,
   if (pendingQuestion) {
     args.pendingQuestion = pendingQuestion;
   }
-  return await callMutationWithRetry(
-    "streaming:set",
-    args,
-    STREAMING_HEARTBEAT_MAX_RETRIES,
-  );
+  return await callMutation("streaming:set", args);
+}
+
+/** Sends a streaming heartbeat update with current activity and content. */
+async function callStreamingHeartbeat(
+  entityId,
+  currentActivity,
+  currentContent,
+  pendingQuestion,
+) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await callStreamingHeartbeatOnce(
+        entityId,
+        currentActivity,
+        currentContent,
+        pendingQuestion,
+      );
+    } catch (e) {
+      attempt++;
+      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
+      const delayMs = buildRetryDelayMs(attempt);
+      console.error(
+        "streaming heartbeat attempt " +
+          attempt +
+          " failed, retrying in " +
+          delayMs +
+          "ms:",
+        String(e),
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
 }
 
 /** Shortens a file path to show only the last 3 segments for display. */
@@ -846,6 +911,7 @@ function applyCanonicalEvents(events) {
         accumulatedSteps.push(ev.step);
         lastStepType = ev.step.type === "thinking" ? "thinking" : "tool";
         if (ev.step.type !== "thinking") {
+          noteToolStarted(ev.step);
           if (ev.trackingId) codexToolItemIds.add(ev.trackingId);
           inFlightToolUses++;
         }
@@ -855,9 +921,11 @@ function applyCanonicalEvents(events) {
         if (ev.trackingId !== undefined) {
           if (codexToolItemIds.delete(ev.trackingId) && inFlightToolUses > 0) {
             inFlightToolUses--;
+            noteToolCompleted();
           }
         } else if (inFlightToolUses > 0) {
           inFlightToolUses--;
+          noteToolCompleted();
         }
         break;
       case "mark_last_complete":
@@ -950,15 +1018,69 @@ let consecutiveHeartbeatFailures = 0;
 let heartbeatFailureStreakStartedAt = 0;
 
 // Number of tool_use blocks emitted by the CLI for which no matching tool_result has
-// arrived yet. When > 0 the no-output watchdog is paused — a legitimate long tool call
-// (e.g. pnpm build, pytest, large curl) is allowed to run without the CLI being killed
-// for stdout silence. Balanced by resetAttemptState() on each attempt and by the hard
+// arrived yet. When > 0 the stdout-idle watchdog is paused, but the per-tool
+// timeout below still terminates stuck searches/reads long before the external
+// watchdog. Balanced by resetAttemptState() on each attempt and by the hard
 // MAX_TOTAL_RUNTIME_MS cap which still applies unconditionally.
 let inFlightToolUses = 0;
 // Codex does not tag tool_use/tool_result events — it emits item.started / item.completed
 // with an item.id. Track the set of tool-kind item ids so we only decrement when the
 // matching completion arrives (thinking items are never added to this set).
 const codexToolItemIds = new Set();
+let activeToolStartedAt = 0;
+let activeToolLabel = "";
+let activeToolTimeoutMs = 0;
+
+/** Returns the maximum silence window for a started tool step. */
+function toolTimeoutMsForStep(step) {
+  if (step.type === "bash" || step.type === "subtask") {
+    return SHELL_TOOL_TIMEOUT_MS;
+  }
+  return NON_SHELL_TOOL_TIMEOUT_MS;
+}
+
+/** Records the oldest active tool so stuck searches/reads do not pause watchdogs forever. */
+function noteToolStarted(step) {
+  const timeoutMs = toolTimeoutMsForStep(step);
+  if (inFlightToolUses === 0 || activeToolStartedAt === 0) {
+    activeToolStartedAt = Date.now();
+    activeToolLabel = step.label || step.type || "tool";
+    activeToolTimeoutMs = timeoutMs;
+    return;
+  }
+  activeToolTimeoutMs = Math.min(activeToolTimeoutMs || timeoutMs, timeoutMs);
+}
+
+/** Clears active tool stall tracking once all tool calls have resolved. */
+function noteToolCompleted() {
+  if (inFlightToolUses > 0) {
+    return;
+  }
+  activeToolStartedAt = 0;
+  activeToolLabel = "";
+  activeToolTimeoutMs = 0;
+}
+
+/** Builds a terminal error when a tool has been active too long. */
+function activeToolStallMessage() {
+  if (inFlightToolUses <= 0 || activeToolStartedAt === 0) {
+    return "";
+  }
+  const timeoutMs = activeToolTimeoutMs || NON_SHELL_TOOL_TIMEOUT_MS;
+  const activeMs = Date.now() - activeToolStartedAt;
+  if (activeMs <= timeoutMs) {
+    return "";
+  }
+  return (
+    "Tool stalled while " +
+    (activeToolLabel || "using tool") +
+    " for " +
+    activeMs +
+    "ms (limit " +
+    timeoutMs +
+    "ms)"
+  );
+}
 
 // Idempotent done-file writer. First caller wins; later calls (including the
 // process.on("exit") backstop below) are no-ops. Uses writeFileSync so the file
@@ -2511,6 +2633,7 @@ function processRealtimeStdoutChunk(text) {
 function buildErrorMessage(
   code,
   fatalHeartbeatError,
+  toolStallError,
   timedOutForMaxRuntime,
   timedOutForNoOutput,
   timedOutForFirstEvent,
@@ -2528,6 +2651,9 @@ function buildErrorMessage(
           : "Claude CLI";
   if (fatalHeartbeatError) {
     return fatalHeartbeatError;
+  }
+  if (toolStallError) {
+    return toolStallError;
   }
   if (timedOutForZombie) {
     return cliName + " terminated because the CLI process entered zombie state (likely a grandchild held stdio open after the CLI exited)";
@@ -2702,6 +2828,9 @@ function resetAttemptState() {
   fatalHeartbeatErrorMessage = "";
   heartbeatFailureStreakStartedAt = 0;
   inFlightToolUses = 0;
+  activeToolStartedAt = 0;
+  activeToolLabel = "";
+  activeToolTimeoutMs = 0;
   codexToolItemIds.clear();
 }
 
@@ -2795,6 +2924,7 @@ async function runCliAttempt(options) {
     let timedOutForFirstAssistant = false;
     let timedOutAfterFirstText = false;
     let timedOutForZombie = false;
+    let toolStallErrorMessage = "";
     const noOutputTimer = setInterval(() => {
       if (fatalHeartbeatErrorMessage) {
         terminateAttemptProcess(child);
@@ -2843,11 +2973,23 @@ async function runCliAttempt(options) {
         terminateAttemptProcess(child);
         return;
       }
-      // While a tool_use is in flight (bash command, long build, web fetch, ...) the
-      // CLI legitimately produces no stdout until tool_result arrives. Skip the
-      // activity-silence checks below; the hard MAX_TOTAL_RUNTIME_MS / FIRST_EVENT /
-      // FIRST_ASSISTANT caps above still apply and are the real upper bound.
+      // While a tool_use is in flight the CLI can legitimately produce no stdout
+      // until tool_result arrives. Skip the generic activity-silence checks below,
+      // but keep a type-aware tool timeout so stuck Grep/Glob/Read calls fail fast.
       if (inFlightToolUses > 0) {
+        const stallMessage = activeToolStallMessage();
+        if (stallMessage) {
+          if (!toolStallErrorMessage) {
+            toolStallErrorMessage = stallMessage;
+            log(
+              options.processLabel +
+                " " +
+                stallMessage +
+                "; terminating process",
+            );
+          }
+          terminateAttemptProcess(child);
+        }
         return;
       }
       if (
@@ -2911,6 +3053,8 @@ async function runCliAttempt(options) {
           timedOutAfterFirstText +
           ", timedOutForZombie=" +
           timedOutForZombie +
+          ", toolStallError=" +
+          (toolStallErrorMessage || "none") +
           ", outputBytes=" +
           attemptOutput.length +
           ", stderrBytes=" +
@@ -2926,6 +3070,7 @@ async function runCliAttempt(options) {
         timedOutForFirstAssistant,
         timedOutAfterFirstText,
         timedOutForZombie,
+        toolStallErrorMessage,
       });
     });
     child.on("error", (err) => {
@@ -3101,6 +3246,7 @@ try {
   let finalTimedOutForFirstAssistant = Boolean(firstAttempt.timedOutForFirstAssistant);
   let finalTimedOutAfterFirstText = Boolean(firstAttempt.timedOutAfterFirstText);
   let finalTimedOutForZombie = Boolean(firstAttempt.timedOutForZombie);
+  const finalToolStallErrorMessage = firstAttempt.toolStallErrorMessage || "";
   let finalResultEvent = extractResultEvent(firstAttempt.output);
   log(
     "firstAttempt result: code=" +
@@ -3127,6 +3273,7 @@ try {
       buildErrorMessage(
         finalCode,
         fatalHeartbeatErrorMessage,
+        finalToolStallErrorMessage,
         finalTimedOutForMaxRuntime,
         finalTimedOutForNoOutput,
         finalTimedOutForFirstEvent,

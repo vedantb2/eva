@@ -1,5 +1,12 @@
 # Changelog
 
+## Harden quick-task heartbeats and stuck tool detection - 2026-05-01
+
+- **Why**: A quick task sat on `Searching code...` and was eventually killed by the external watchdog after `no heartbeat for 900s`. The active-tool threshold only delayed the kill; it did not remove the fragile JWT-authenticated heartbeat path or bound short internal tools like Grep/Glob/Read.
+- **Change**: Restored a scoped HMAC streaming heartbeat route (`/api/streaming/heartbeat`) and pass per-entity `STREAMING_HMAC`/`CONVEX_SITE_URL` into sandbox runners, so heartbeat refreshes no longer depend on Convex user auth for every 10s ping. The callback still falls back to `streaming:set` when HMAC env is unavailable.
+- **Hardening**: Liveness probes now refresh the streaming timestamp after proving the runner is alive, reject completed/zombie callback PIDs, and the sandbox callback terminates stuck non-shell tools after 5 minutes instead of letting `Searching code...` linger until a watchdog kill.
+- **Reason**: Heartbeat transport, liveness verification, and tool stall detection are separate failure boundaries. Keeping each one explicit prevents a single stale UI step from being mistaken for healthy long-running work.
+
 ## Quick-task sidebar visual refinement - 2026-04-30
 
 - Swapped quick-task icons in the sidebar badge: active sandboxes now display a green pulsing dot (matches sessions), running tasks show a spinner.

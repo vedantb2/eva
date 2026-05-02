@@ -1,5 +1,11 @@
 # Changelog
 
+## Sync sandbox preview address bar from iframe navigation - 2026-05-02
+
+- **Why**: Web Preview route entry only updated the iframe from the address bar. Once the user clicked through a cross-origin Daytona preview, Eva could not read the iframe URL directly, so the address bar stayed stale.
+- **Change**: Added an in-sandbox navigation-sync proxy for web previews. It forwards the dev server, injects a tiny history/location sync script into HTML, preserves WebSocket upgrades for dev-server HMR, and posts route changes back to the existing preview nav bar listener.
+- **Reason**: Browser same-origin rules intentionally block the parent app from reading a cross-origin iframe URL. Keeping the cooperation layer inside the sandbox avoids a larger same-origin platform proxy and leaves Editor/Desktop iframe URLs untouched.
+
 ## Harden quick-task heartbeats and stuck tool detection - 2026-05-01
 
 - **Why**: A quick task sat on `Searching code...` and was eventually killed by the external watchdog after `no heartbeat for 900s`. The active-tool threshold only delayed the kill; it did not remove the fragile JWT-authenticated heartbeat path or bound short internal tools like Grep/Glob/Read.

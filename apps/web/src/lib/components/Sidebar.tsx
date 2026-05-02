@@ -862,17 +862,23 @@ function TeamMembers({ collapsed }: { collapsed: boolean }) {
   const teamData = useQuery(api.users.listTeamWithMembers, {});
   const navigate = useNavigate();
 
-  if (!teamData || teamData.members.length === 0) return null;
-
   const now = Date.now();
   const twoMinutes = 2 * 60 * 1000;
+
+  const onlineMembers = teamData
+    ? teamData.members.filter(
+        (u) => !!u.lastSeenAt && now - u.lastSeenAt < twoMinutes,
+      )
+    : [];
+
+  if (!teamData || onlineMembers.length === 0) return null;
 
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-1 pb-3">
-        {teamData.members.slice(0, 3).map((u) => {
+        {onlineMembers.slice(0, 3).map((u) => {
           const name = getDisplayName(u);
-          const isOnline = !!u.lastSeenAt && now - u.lastSeenAt < twoMinutes;
+
           return (
             <Tooltip key={u._id}>
               <TooltipTrigger asChild>
@@ -886,7 +892,7 @@ function TeamMembers({ collapsed }: { collapsed: boolean }) {
                   }}
                   disabled={!u.lastSeenPath}
                 >
-                  <UserInitials user={u} size="sm" hideLastSeen={!isOnline} />
+                  <UserInitials user={u} size="sm" hideLastSeen />
                 </button>
               </TooltipTrigger>
               <TooltipContent>
@@ -895,9 +901,9 @@ function TeamMembers({ collapsed }: { collapsed: boolean }) {
             </Tooltip>
           );
         })}
-        {teamData.members.length > 3 && (
+        {onlineMembers.length > 3 && (
           <span className="text-[10px] text-muted-foreground">
-            +{teamData.members.length - 3}
+            +{onlineMembers.length - 3}
           </span>
         )}
       </div>
@@ -907,12 +913,11 @@ function TeamMembers({ collapsed }: { collapsed: boolean }) {
   return (
     <div className="flex flex-col gap-1 pb-3">
       <span className="text-xs font-medium text-sidebar-foreground mb-1">
-        {teamData.teamName}
+        {teamData.teamName} · {onlineMembers.length} online
       </span>
       <div className="flex flex-wrap items-center gap-1">
-        {teamData.members.map((u) => {
+        {onlineMembers.map((u) => {
           const name = getDisplayName(u);
-          const isOnline = !!u.lastSeenAt && now - u.lastSeenAt < twoMinutes;
           return (
             <Tooltip key={u._id}>
               <TooltipTrigger asChild>
@@ -926,7 +931,7 @@ function TeamMembers({ collapsed }: { collapsed: boolean }) {
                   }}
                   disabled={!u.lastSeenPath}
                 >
-                  <UserInitials user={u} size="sm" hideLastSeen={!isOnline} />
+                  <UserInitials user={u} size="sm" hideLastSeen />
                 </button>
               </TooltipTrigger>
               <TooltipContent>

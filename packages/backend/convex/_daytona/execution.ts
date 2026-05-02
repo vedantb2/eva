@@ -27,6 +27,7 @@ import {
 } from "./git";
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
+import { ensurePreviewNavigationProxy } from "./previewProxy";
 
 const sessionPersistenceKindValidator = v.union(
   v.literal("sessions"),
@@ -130,7 +131,7 @@ export const runStartupCommands = internalAction({
           console.log(`[daytona] output: ${output.slice(0, 500)}`);
         }
       } catch (e) {
-        const msg = errorMessage(e, "unknown error");
+        const msg = errorMessage(e, "command failed");
         console.error(`[daytona] runStartupCommands: failed: ${command}`, msg);
         errors.push(`${command}: ${msg}`);
         // Continue with other commands even if one fails
@@ -200,7 +201,7 @@ export const runBackgroundCommands = internalAction({
         // Short timeout — we only wait for the shell to fork the daemon.
         await exec(sandbox, launchCmd, 10);
       } catch (e) {
-        const msg = errorMessage(e, "unknown error");
+        const msg = errorMessage(e, "command failed");
         console.error(
           `[daytona] runBackgroundCommands: failed to launch: ${command}`,
           msg,
@@ -219,6 +220,7 @@ export const getPreviewUrl = action({
     sandboxId: v.string(),
     port: v.number(),
     checkReady: v.optional(v.boolean()),
+    navigationSync: v.optional(v.boolean()),
     repoId: v.id("githubRepos"),
   },
   returns: v.object({
@@ -233,7 +235,6 @@ export const getPreviewUrl = action({
     }
 
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    const signedPreview = await sandbox.getSignedPreviewUrl(args.port, 86400);
     let ready = true;
     if (args.checkReady) {
       try {
@@ -249,6 +250,18 @@ export const getPreviewUrl = action({
       }
     }
 
+    let signedPort = args.port;
+    if (ready && args.navigationSync) {
+      try {
+        signedPort = await ensurePreviewNavigationProxy(sandbox, args.port);
+      } catch (e) {
+        console.warn(
+          `[daytona] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "proxy startup failed")}`,
+        );
+      }
+    }
+
+    const signedPreview = await sandbox.getSignedPreviewUrl(signedPort, 86400);
     const parsedUrl = new URL(signedPreview.url);
     parsedUrl.protocol = "https:";
     const url = parsedUrl.toString();

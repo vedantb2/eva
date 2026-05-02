@@ -42,6 +42,10 @@ interface PreviewNavBarProps {
   onRefresh?: () => void;
 }
 
+type PreviewHistoryCommand =
+  | "eva-preview-history-back"
+  | "eva-preview-history-forward";
+
 export function PreviewNavBar({
   previewUrl,
   iframeRef,
@@ -72,6 +76,10 @@ export function PreviewNavBar({
     }
   }, [iframeRef]);
 
+  function postHistoryCommand(type: PreviewHistoryCommand) {
+    iframeRef.current?.contentWindow?.postMessage({ type }, "*");
+  }
+
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -99,17 +107,27 @@ export function PreviewNavBar({
   }, [iframeRef, syncPathFromIframe]);
 
   function goBack() {
+    let handled = false;
     try {
       iframeRef.current?.contentWindow?.history.back();
-      setTimeout(syncPathFromIframe, 200);
+      handled = true;
     } catch {}
+    if (!handled) {
+      postHistoryCommand("eva-preview-history-back");
+    }
+    setTimeout(syncPathFromIframe, 200);
   }
 
   function goForward() {
+    let handled = false;
     try {
       iframeRef.current?.contentWindow?.history.forward();
-      setTimeout(syncPathFromIframe, 200);
+      handled = true;
     } catch {}
+    if (!handled) {
+      postHistoryCommand("eva-preview-history-forward");
+    }
+    setTimeout(syncPathFromIframe, 200);
   }
 
   function reload() {

@@ -10,10 +10,17 @@ import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
 import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { useSessionStorage } from "usehooks-ts";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
+import {
+  buildTerminalHistoryKey,
+  createTerminalHistoryWriter,
+  parseTerminalControlMessage,
+  type TerminalHistoryWriter,
+} from "./_utils";
 
 /**
  * Discriminated owner — a terminal pane belongs to either a session or a
@@ -58,16 +65,6 @@ function getCssRgba(
   return `rgba(${value.split(/\s+/).join(", ")}, ${alpha})`;
 }
 
-function isControlMessage(
-  data: unknown,
-): data is { type: string; status: string; error?: string } {
-  if (typeof data !== "object" || data === null || !("type" in data)) {
-    return false;
-  }
-  const obj: Record<string, unknown> = Object.assign({}, data);
-  return obj.type === "control";
-}
-
 export function TerminalPanel({
   owner,
   sandboxId,
@@ -86,6 +83,17 @@ export function TerminalPanel({
   const wsRef = useRef<WebSocket | null>(null);
   const intentionalCloseRef = useRef(false);
   const reconnectAttemptsRef = useRef(0);
+  const terminalHistoryKey = buildTerminalHistoryKey(
+    owner,
+    sandboxId ?? "no-sandbox",
+    ptyInstanceId,
+  );
+  const [terminalHistory, setTerminalHistory] = useSessionStorage(
+    terminalHistoryKey,
+    "",
+  );
+  const terminalHistoryRef = useRef(terminalHistory);
+  terminalHistoryRef.current = terminalHistory;
 
   const connectPty = useAction(api.pty.connectPty);
   const resizePtyAction = useAction(api.pty.resizePty);
@@ -94,7 +102,11 @@ export function TerminalPanel({
   resizePtyRef.current = resizePtyAction;
 
   const connectWebSocket = useCallback(
-    async (terminal: Terminal, mounted: { current: boolean }) => {
+    async (
+      terminal: Terminal,
+      mounted: { current: boolean },
+      historyWriter: TerminalHistoryWriter,
+    ) => {
       const { wsUrl, isNewPty } = await connectPty({
         owner,
         cols: terminal.cols,
@@ -117,46 +129,43 @@ export function TerminalPanel({
         if (!terminalInstanceRef.current) return;
 
         if (typeof event.data === "string") {
-          try {
-            const parsed: unknown = JSON.parse(event.data);
-            if (isControlMessage(parsed)) {
-              if (parsed.status === "connected") {
+          const parsed = parseTerminalControlMessage(event.data);
+          if (parsed) {
+            if (parsed.status === "connected") {
+              terminalInstanceRef.current.writeln(
+                "\x1b[32m* Connected to sandbox\x1b[0m\r\n",
+              );
+              if (
+                isNewPty &&
+                runDevCommandOnConnect &&
+                devCommand &&
+                ws.readyState === WebSocket.OPEN
+              ) {
                 terminalInstanceRef.current.writeln(
-                  "\x1b[32m* Connected to sandbox\x1b[0m\r\n",
+                  "\x1b[33m* Starting dev server...\x1b[0m\r\n",
                 );
-                if (
-                  isNewPty &&
-                  runDevCommandOnConnect &&
-                  devCommand &&
-                  ws.readyState === WebSocket.OPEN
-                ) {
-                  terminalInstanceRef.current.writeln(
-                    "\x1b[33m* Starting dev server...\x1b[0m\r\n",
-                  );
-                  setTimeout(() => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                      ws.send(devCommand + "\r");
-                    }
-                  }, 300);
-                }
-                return;
-              }
-              if (parsed.status === "error") {
-                terminalInstanceRef.current.writeln(
-                  `\x1b[31m* Error: ${parsed.error ?? "unknown"}\x1b[0m`,
-                );
-                return;
+                setTimeout(() => {
+                  if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(devCommand + "\r");
+                  }
+                }, 300);
               }
               return;
             }
-          } catch {
-            // Not JSON - treat as terminal output
+            if (parsed.status === "error") {
+              terminalInstanceRef.current.writeln(
+                `\x1b[31m* Error: ${parsed.error ?? "terminal error"}\x1b[0m`,
+              );
+              return;
+            }
+            return;
           }
           terminalInstanceRef.current.write(event.data);
+          historyWriter.append(event.data);
         } else {
-          terminalInstanceRef.current.write(
-            decoder.decode(event.data, { stream: true }),
-          );
+          const text = decoder.decode(event.data, { stream: true });
+          terminalInstanceRef.current.write(text);
+          historyWriter.append(text);
         }
       };
 
@@ -178,18 +187,14 @@ export function TerminalPanel({
 
         setTimeout(() => {
           if (mounted.current && terminalInstanceRef.current) {
-            connectWebSocket(terminalInstanceRef.current, mounted).catch(
-              () => {},
-            );
+            connectWebSocket(
+              terminalInstanceRef.current,
+              mounted,
+              historyWriter,
+            ).catch(() => {});
           }
         }, RECONNECT_DELAY_MS);
       };
-
-      terminal.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(data);
-        }
-      });
     },
     [connectPty, owner, devCommand, ptyInstanceId, runDevCommandOnConnect],
   );
@@ -201,6 +206,7 @@ export function TerminalPanel({
 
     const mounted = { current: true };
     const containerEl = terminalRef.current;
+    const historyWriter = createTerminalHistoryWriter(setTerminalHistory);
 
     const initTerminal = async () => {
       setIsLoading(true);
@@ -248,6 +254,13 @@ export function TerminalPanel({
         terminalInstanceRef.current = terminal;
         fitAddonRef.current = fitAddon;
 
+        terminal.onData((data) => {
+          const currentWs = wsRef.current;
+          if (currentWs?.readyState === WebSocket.OPEN) {
+            currentWs.send(data);
+          }
+        });
+
         await new Promise<void>((resolve) => {
           setTimeout(() => {
             fitAddon.fit();
@@ -255,12 +268,19 @@ export function TerminalPanel({
           }, 0);
         });
 
-        for (let i = 0; i < terminal.rows - 1; i++) {
-          terminal.writeln("");
+        const restoredHistory = terminalHistoryRef.current;
+        if (restoredHistory.length > 0) {
+          terminal.write(restoredHistory);
+        }
+
+        if (restoredHistory.length === 0) {
+          for (let i = 0; i < terminal.rows - 1; i++) {
+            terminal.writeln("");
+          }
         }
         terminal.writeln("\x1b[33m* Connecting to sandbox...\x1b[0m");
 
-        await connectWebSocket(terminal, mounted);
+        await connectWebSocket(terminal, mounted, historyWriter);
       } catch (err) {
         if (mounted.current) {
           setError(
@@ -289,8 +309,17 @@ export function TerminalPanel({
         terminalInstanceRef.current.dispose();
         terminalInstanceRef.current = null;
       }
+      historyWriter.dispose();
     };
-  }, [isActive, sandboxId, owner, retryCount, connectWebSocket, ptyInstanceId]);
+  }, [
+    isActive,
+    sandboxId,
+    owner,
+    retryCount,
+    connectWebSocket,
+    ptyInstanceId,
+    setTerminalHistory,
+  ]);
 
   useLayoutEffect(() => {
     if (!isForeground) {

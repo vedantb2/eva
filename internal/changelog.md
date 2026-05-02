@@ -1,5 +1,11 @@
 # Changelog
 
+## Persist sandbox terminal history across refresh - 2026-05-02
+
+- **Why**: Daytona PTY sessions survive a browser refresh, but xterm's screen buffer lives only in the mounted React component. Refreshing the session page reconnected to the same PTY with an empty browser-side buffer.
+- **Change**: Terminal panes now keep a bounded raw-output transcript in tab-scoped `sessionStorage` via `useSessionStorage`, keyed by owner, sandbox ID, and pane ID. On remount, the panel replays that transcript before reconnecting to the live PTY and flushes pending output on page hide/unload.
+- **Reason**: This preserves the user's refresh workflow without persisting terminal output to Convex or changing PTY lifecycle semantics.
+
 ## Sync sandbox preview address bar from iframe navigation - 2026-05-02
 
 - **Why**: Web Preview route entry only updated the iframe from the address bar. Once the user clicked through a cross-origin Daytona preview, Eva could not read the iframe URL directly, so the address bar stayed stale.

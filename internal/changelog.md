@@ -1,5 +1,11 @@
 # Changelog
 
+## Add MCP connector icon metadata - 2026-05-02
+
+- **Why**: Claude custom connectors were showing a blank connector icon because the backend MCP implementation did not advertise a visual identifier.
+- **Change**: Reused the existing `apps/web/public/icon.png` asset as a data URI in the backend MCP server metadata.
+- **Reason**: The MCP spec permits `data:` icon URIs, which avoids adding a public image route or depending on a separate web-app origin for connector rendering.
+
 ## Persist sandbox terminal history across refresh - 2026-05-02
 
 - **Why**: Daytona PTY sessions survive a browser refresh, but xterm's screen buffer lives only in the mounted React component. Refreshing the session page reconnected to the same PTY with an empty browser-side buffer.

@@ -65,8 +65,8 @@ function AuthorizedFlow({ search }: { search: AuthorizeSearch }) {
         target.searchParams.set("state", search.state);
         window.location.replace(target.toString());
       })
-      .catch((err: Error) => {
-        setError(err.message);
+      .catch(() => {
+        setError("Please try connecting Claude again.");
       });
   }, [authorize, search]);
 
@@ -85,12 +85,20 @@ function AuthorizedFlow({ search }: { search: AuthorizeSearch }) {
 }
 
 function SignInPrompt() {
+  const currentUrl = window.location.href;
+
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       <p className="text-sm font-medium text-foreground">
         Sign in to Eva to connect Claude
       </p>
-      <SignInButton mode="modal" forceRedirectUrl={window.location.href}>
+      <SignInButton
+        mode="redirect"
+        forceRedirectUrl={currentUrl}
+        fallbackRedirectUrl={currentUrl}
+        signUpForceRedirectUrl={currentUrl}
+        signUpFallbackRedirectUrl={currentUrl}
+      >
         <Button size="lg">Sign in</Button>
       </SignInButton>
     </div>

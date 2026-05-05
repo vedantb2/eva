@@ -1,5 +1,11 @@
 # Changelog
 
+## Drop MCP_BASE_URL and skip self-referential token-mint HTTP roundtrip - 2026-05-05
+
+- **Why**: `MCP_BASE_URL` pointed at a Railway MCP deployment that has since been deleted; the MCP server now lives on the same Convex deployment, so the token-mint flow was making Convex call back into its own HTTP API for no reason.
+- **Change**: `mintSandboxMcpToken` now calls `internal.mcp.nodeActions.mintInternalToken` directly via `ctx.runAction` instead of fetching `${MCP_BASE_URL}/api/internal/mint-token`. The sandbox MCP config in `_daytona/helpers.ts` reads `CONVEX_SITE_URL` instead of `MCP_BASE_URL`. Removed the now-orphaned `mintInternalToken` httpAction in `mcp/native.ts`, the `/api/internal/mint-token` route in `http.ts`, and the redundant `bootstrapSecret` arg from the internal action (no longer crossing a trust boundary).
+- **Action required**: `MCP_BASE_URL` has been removed from both dev and prod Convex deployments; no further action needed.
+
 ## Keep quick-task sandbox stop spinner visible - 2026-05-05
 
 - **Why**: Quick-task detail controls could return to the start/view state immediately after requesting a sandbox stop, even though Daytona can take roughly 30 seconds to finish stopping the sandbox.

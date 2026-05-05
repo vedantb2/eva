@@ -357,7 +357,7 @@ export async function signAndLaunchScript(
     mcpTokenPromise,
   ]);
 
-  const mcpBaseUrl = mcpToken ? (process.env.MCP_BASE_URL ?? "") : "";
+  const mcpBaseUrl = mcpToken ? (process.env.CONVEX_SITE_URL ?? "") : "";
 
   await launchScript(
     sandbox,

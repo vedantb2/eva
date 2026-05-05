@@ -1,5 +1,11 @@
 # Changelog
 
+## Open public sign-ups and drop bespoke env-mode flag - 2026-05-05
+
+- **Why**: The `ENVIRONMENT=production` backend flag and parallel `VITE_ENV === "production"` frontend flag existed to lock down a "public hosted Eva" deployment to existing users only. We no longer need that gating, and the custom `VITE_ENV` env var duplicated information Vite already exposes natively.
+- **Change**: Removed the `ensureUserExists` sign-up throw in `auth.ts`, the disabled-buttons + self-host fallback message on the landing route, the `ENVIRONMENT` doc row, and `VITE_ENV` from the t3-env schema and env files. Remaining dev-only UI (the "Sign in as Eva" button and dev-only sidebar nav) now reads `import.meta.env.DEV` directly.
+- **Why `import.meta.env.DEV`**: Vite-native typed boolean, statically replaced at build time, mode-aware (`vite build --mode staging` evaluates to `false`), and removes the need for a custom env var in `.env.local` / Convex.
+
 ## Drop MCP_BASE_URL and skip self-referential token-mint HTTP roundtrip - 2026-05-05
 
 - **Why**: `MCP_BASE_URL` pointed at a Railway MCP deployment that has since been deleted; the MCP server now lives on the same Convex deployment, so the token-mint flow was making Convex call back into its own HTTP API for no reason.

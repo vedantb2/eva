@@ -1,10 +1,9 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { Button } from "@conductor/ui";
-import { clientEnv } from "@/env/client";
 import { z } from "zod";
 
-const isProduction = clientEnv.VITE_ENV === "production";
+const isDev = import.meta.env.DEV;
 
 const searchSchema = z.object({
   agent: z.boolean().optional(),
@@ -53,32 +52,19 @@ function LandingPage() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          {isProduction ? (
-            <>
-              <Button size="lg" variant="default" disabled>
-                Sign In
-              </Button>
-              <Button size="lg" variant="outline" disabled>
-                Sign Up
-              </Button>
-            </>
-          ) : (
-            <>
-              <SignInButton mode="modal">
-                <Button size="lg" variant="default">
-                  Sign In
-                </Button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <Button size="lg" variant="outline">
-                  Sign Up
-                </Button>
-              </SignUpButton>
-            </>
-          )}
+          <SignInButton mode="modal">
+            <Button size="lg" variant="default">
+              Sign In
+            </Button>
+          </SignInButton>
+          <SignUpButton mode="modal">
+            <Button size="lg" variant="outline">
+              Sign Up
+            </Button>
+          </SignUpButton>
         </div>
 
-        {!isProduction && (
+        {isDev && (
           <div className="flex justify-center">
             <Button
               size="lg"
@@ -89,13 +75,6 @@ function LandingPage() {
             >
               Sign in as Eva
             </Button>
-          </div>
-        )}
-
-        {isProduction && (
-          <div className="max-w-sm rounded-lg bg-muted/40 px-4 py-3 text-center text-sm text-muted-foreground">
-            Eva is fully open source and self-hosted. Clone the repo, create
-            your own Convex and Clerk projects, and run it locally.
           </div>
         )}
       </div>

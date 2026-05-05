@@ -168,7 +168,6 @@ openssl ec -in private.pem -pubout -out public.pem
 ```env
 VITE_CONVEX_URL=https://your-deployment.convex.cloud
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
-VITE_ENV=development
 ```
 
 #### Convex (`npx convex env set VAR value`)
@@ -190,15 +189,14 @@ VITE_ENV=development
 
 **Optional:**
 
-| Variable                  | Purpose                                        |
-| ------------------------- | ---------------------------------------------- |
-| `ENVIRONMENT`             | Set to `production` to disable public sign-ups |
-| `SANDBOX_JWT_PRIVATE_KEY` | ES256 JWK for sandbox auth (JSON)              |
-| `SANDBOX_JWT_JWKS`        | Public JWKS for sandbox auth (JSON)            |
-| `MCP_BOOTSTRAP_SECRET`    | Secret for MCP bootstrap API                   |
-| `MCP_JWT_SECRET`          | Secret for MCP JWT signing                     |
-| `CLERK_SECRET_KEY`        | Clerk secret key (for MCP server)              |
-| `CLERK_PUBLISHABLE_KEY`   | Clerk publishable key (for MCP server)         |
+| Variable                  | Purpose                                |
+| ------------------------- | -------------------------------------- |
+| `SANDBOX_JWT_PRIVATE_KEY` | ES256 JWK for sandbox auth (JSON)      |
+| `SANDBOX_JWT_JWKS`        | Public JWKS for sandbox auth (JSON)    |
+| `MCP_BOOTSTRAP_SECRET`    | Secret for MCP bootstrap API           |
+| `MCP_JWT_SECRET`          | Secret for MCP JWT signing             |
+| `CLERK_SECRET_KEY`        | Clerk secret key (for MCP server)      |
+| `CLERK_PUBLISHABLE_KEY`   | Clerk publishable key (for MCP server) |
 
 ### Step 7: Add Daytona API Key
 

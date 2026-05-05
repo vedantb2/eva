@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SignInButton } from "@clerk/clerk-react";
-import {
-  AuthLoading,
-  Authenticated,
-  Unauthenticated,
-  useMutation,
-} from "convex/react";
+import { SignInButton, useAuth } from "@clerk/clerk-react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { api } from "@conductor/backend";
@@ -26,30 +21,49 @@ export const Route = createFileRoute("/mcp/oauth/authorize")({
   component: McpOauthAuthorize,
 });
 
+/**
+ * Gates on Clerk's auth state (not Convex's). If we gated on Convex's
+ * `<Unauthenticated>`, a signed-in user with a transient Convex auth
+ * loading state could see the sign-in button, click it, and Clerk would
+ * redirect them to `signInFallbackRedirectUrl="/home"` (since they're
+ * already signed in and there's no real sign-in flow to complete).
+ */
 function McpOauthAuthorize() {
   const search = Route.useSearch();
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) {
+    return (
+      <Shell>
+        <Status>Loading…</Status>
+      </Shell>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <Shell>
+        <SignInPrompt />
+      </Shell>
+    );
+  }
+
   return (
     <Shell>
-      <AuthLoading>
-        <Status>Loading…</Status>
-      </AuthLoading>
-      <Unauthenticated>
-        <SignInPrompt />
-      </Unauthenticated>
-      <Authenticated>
-        <AuthorizedFlow search={search} />
-      </Authenticated>
+      <AuthorizedFlow search={search} />
     </Shell>
   );
 }
 
 /** Mints an authorization code via Convex and redirects to the OAuth client's redirect_uri. */
 function AuthorizedFlow({ search }: { search: AuthorizeSearch }) {
+  const { isLoading: convexLoading, isAuthenticated } = useConvexAuth();
   const authorize = useMutation(api.mcp.oauth.authorize);
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
 
   useEffect(() => {
+    if (convexLoading || !isAuthenticated) return;
     if (startedRef.current) return;
     startedRef.current = true;
 
@@ -68,7 +82,7 @@ function AuthorizedFlow({ search }: { search: AuthorizeSearch }) {
       .catch(() => {
         setError("Please try connecting Claude again.");
       });
-  }, [authorize, search]);
+  }, [authorize, search, convexLoading, isAuthenticated]);
 
   if (error) {
     return (
@@ -93,7 +107,6 @@ function SignInPrompt() {
         Sign in to Eva to connect Claude
       </p>
       <SignInButton
-        mode="redirect"
         forceRedirectUrl={currentUrl}
         fallbackRedirectUrl={currentUrl}
         signUpForceRedirectUrl={currentUrl}

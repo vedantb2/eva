@@ -31,8 +31,8 @@ interface UseSandboxPreviewArgs {
   devPort?: number;
   /**
    * Full sessionStorage namespace for cached preview URLs — e.g.
-   * `preview:<sessionId>` or `task-preview:<taskId>`. Final keys take the
-   * shape `conductor:<cacheScope>:<port>`.
+   * `preview:<sessionId>` or `task-preview:<taskId>`. Final keys include the
+   * sandbox ID, port, and preview-url behavior version.
    */
   cacheScope: string;
 }
@@ -56,13 +56,13 @@ export function useSandboxPreview({
   const [port, setPort] = useQueryState("port", previewPortParser);
   const effectivePort = devPort ?? port;
 
-  // sessionStorage acts as both cache and live state — when port or sandboxId
+  // sessionStorage is both cache and live state — when port or sandboxId
   // changes useSessionStorage re-reads the new key automatically. sandboxId is
   // part of the key because Daytona signed preview URLs embed the sandbox ID
   // in the subdomain; reusing a cached URL after the sandbox is destroyed and
   // recreated would 400 with "Sandbox not found".
   const [previewInfo, setPreviewInfo] = useSessionStorage<PreviewInfo | null>(
-    `conductor:${cacheScope}:${sandboxId ?? "no-sandbox"}:${effectivePort}`,
+    `conductor:${cacheScope}:nav-sync-v1:${sandboxId ?? "no-sandbox"}:${effectivePort}`,
     null,
   );
 
@@ -86,6 +86,7 @@ export function useSandboxPreview({
         sandboxId,
         port: effectivePort,
         checkReady: true,
+        navigationSync: true,
         repoId,
       });
       if (data.ready) {

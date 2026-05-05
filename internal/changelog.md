@@ -1,5 +1,41 @@
 # Changelog
 
+## Keep quick-task sandbox stop spinner visible - 2026-05-05
+
+- **Why**: Quick-task detail controls could return to the start/view state immediately after requesting a sandbox stop, even though Daytona can take roughly 30 seconds to finish stopping the sandbox.
+- **Change**: The quick-task sandbox UI now treats `stopping` as an active lifecycle state, keeps the sandbox panel in its stopping view, and shows a disabled spinner control until the backend marks the sandbox closed.
+
+## Prevent quick-task sandbox resume from silently creating replacements - 2026-05-05
+
+- **Why**: Quick-task sandbox startup could spend time restoring a saved Daytona sandbox, hit a resume/setup error, then silently abandon that filesystem and create a new sandbox.
+- **Change**: The task preview resume path now only falls through to sandbox creation when the saved sandbox ID is genuinely missing or deleted. Preparation failures on a found sandbox now fail the start attempt and preserve the existing `task.sandboxId`.
+- **Reason**: Reviewer sandboxes are stateful; silently replacing them can discard the database/filesystem state the user expected to resume.
+
+## Add MCP connector icon metadata - 2026-05-02
+
+- **Why**: Claude custom connectors were showing a blank connector icon because the backend MCP implementation did not advertise a visual identifier.
+- **Change**: Reused the existing `apps/web/public/icon.png` asset as a data URI in the backend MCP server metadata.
+- **Reason**: The MCP spec permits `data:` icon URIs, which avoids adding a public image route or depending on a separate web-app origin for connector rendering.
+
+## Persist sandbox terminal history across refresh - 2026-05-02
+
+- **Why**: Daytona PTY sessions survive a browser refresh, but xterm's screen buffer lives only in the mounted React component. Refreshing the session page reconnected to the same PTY with an empty browser-side buffer.
+- **Change**: Terminal panes now keep a bounded raw-output transcript in tab-scoped `sessionStorage` via `useSessionStorage`, keyed by owner, sandbox ID, and pane ID. On remount, the panel replays that transcript before reconnecting to the live PTY and flushes pending output on page hide/unload.
+- **Reason**: This preserves the user's refresh workflow without persisting terminal output to Convex or changing PTY lifecycle semantics.
+
+## Sync sandbox preview address bar from iframe navigation - 2026-05-02
+
+- **Why**: Web Preview route entry only updated the iframe from the address bar. Once the user clicked through a cross-origin Daytona preview, Eva could not read the iframe URL directly, so the address bar stayed stale.
+- **Change**: Added an in-sandbox navigation-sync proxy for web previews. It forwards the dev server, injects a tiny history/location sync script into HTML, preserves WebSocket upgrades for dev-server HMR, and posts route changes back to the existing preview nav bar listener.
+- **Reason**: Browser same-origin rules intentionally block the parent app from reading a cross-origin iframe URL. Keeping the cooperation layer inside the sandbox avoids a larger same-origin platform proxy and leaves Editor/Desktop iframe URLs untouched.
+
+## Harden quick-task heartbeats and stuck tool detection - 2026-05-01
+
+- **Why**: A quick task sat on `Searching code...` and was eventually killed by the external watchdog after `no heartbeat for 900s`. The active-tool threshold only delayed the kill; it did not remove the fragile JWT-authenticated heartbeat path or bound short internal tools like Grep/Glob/Read.
+- **Change**: Restored a scoped HMAC streaming heartbeat route (`/api/streaming/heartbeat`) and pass per-entity `STREAMING_HMAC`/`CONVEX_SITE_URL` into sandbox runners, so heartbeat refreshes no longer depend on Convex user auth for every 10s ping. The callback still falls back to `streaming:set` when HMAC env is unavailable.
+- **Hardening**: Liveness probes now refresh the streaming timestamp after proving the runner is alive, reject completed/zombie callback PIDs, and the sandbox callback terminates stuck non-shell tools after 5 minutes instead of letting `Searching code...` linger until a watchdog kill.
+- **Reason**: Heartbeat transport, liveness verification, and tool stall detection are separate failure boundaries. Keeping each one explicit prevents a single stale UI step from being mistaken for healthy long-running work.
+
 ## Quick-task sidebar visual refinement - 2026-04-30
 
 - Swapped quick-task icons in the sidebar badge: active sandboxes now display a green pulsing dot (matches sessions), running tasks show a spinner.

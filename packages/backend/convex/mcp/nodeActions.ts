@@ -13,6 +13,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { registerTools } from "./tools";
 import { registerSupabaseTools } from "./supabase";
+import { MCP_ICON_DATA_URI, MCP_ICON_MIME_TYPE, MCP_ICON_SIZES } from "./icon";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment Helpers
@@ -973,6 +974,13 @@ export const handleMcpRequest = internalAction({
       const server = new McpServer({
         name: "eva-mcp",
         version: "1.0.0",
+        icons: [
+          {
+            src: MCP_ICON_DATA_URI,
+            mimeType: MCP_ICON_MIME_TYPE,
+            sizes: MCP_ICON_SIZES,
+          },
+        ],
       });
 
       // Register tools with credentials (including optional scoped repo)

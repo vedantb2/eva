@@ -49,6 +49,7 @@ export const listOnlineTeammates = authQuery({
       lastName: v.optional(v.string()),
       fullName: v.optional(v.string()),
       lastSeenAt: v.optional(v.number()),
+      lastSeenPath: v.optional(v.string()),
     }),
   ),
   handler: async (ctx) => {
@@ -82,10 +83,88 @@ export const listOnlineTeammates = authQuery({
           lastName: user.lastName,
           fullName: user.fullName,
           lastSeenAt: user.lastSeenAt,
+          lastSeenPath: user.lastSeenPath,
         });
       }
     }
     return online;
+  },
+});
+
+/** Lists the current user's team name and all teammates, sorted with online users first. */
+export const listTeamWithMembers = authQuery({
+  args: {},
+  returns: v.union(
+    v.object({
+      teamName: v.string(),
+      members: v.array(
+        v.object({
+          _id: v.id("users"),
+          firstName: v.optional(v.string()),
+          lastName: v.optional(v.string()),
+          fullName: v.optional(v.string()),
+          lastSeenAt: v.optional(v.number()),
+          lastSeenPath: v.optional(v.string()),
+        }),
+      ),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx) => {
+    const memberships = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .collect();
+
+    if (memberships.length === 0) return null;
+
+    const teamMembership = memberships[0];
+    const team = await ctx.db.get(teamMembership.teamId);
+    if (!team) return null;
+
+    let displayName = team.name;
+    if (team.isPersonal) {
+      if (team.createdBy === ctx.userId) {
+        displayName = "My Team";
+      } else {
+        const owner = await ctx.db.get(team.createdBy);
+        const ownerName = owner?.firstName ?? owner?.fullName ?? "Unknown";
+        displayName = `${ownerName}'s Team`;
+      }
+    }
+
+    const teamMembers = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team", (q) => q.eq("teamId", teamMembership.teamId))
+      .collect();
+
+    const now = Date.now();
+    const twoMinutes = 2 * 60 * 1000;
+    const members = [];
+    for (const tm of teamMembers) {
+      if (tm.userId === ctx.userId) continue;
+      const user = await ctx.db.get(tm.userId);
+      if (user) {
+        members.push({
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          fullName: user.fullName,
+          lastSeenAt: user.lastSeenAt,
+          lastSeenPath: user.lastSeenPath,
+        });
+      }
+    }
+
+    members.sort((a, b) => {
+      const aOnline = a.lastSeenAt && now - a.lastSeenAt < twoMinutes;
+      const bOnline = b.lastSeenAt && now - b.lastSeenAt < twoMinutes;
+      if (aOnline && !bOnline) return -1;
+      if (!aOnline && bOnline) return 1;
+      return 0;
+    });
+
+    return { teamName: displayName, members };
   },
 });
 

@@ -36,6 +36,70 @@ function verifyDeployKey(request: Request): boolean {
   return timingSafeEqual(auth, `Convex ${expected}`);
 }
 
+/** Computes the scoped streaming heartbeat HMAC for a single entity. */
+async function computeStreamingHmac(entityId: string): Promise<string | null> {
+  const secret = process.env.ENCRYPTION_KEY;
+  if (!secret) return null;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(entityId));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** Reads a required form field from an x-www-form-urlencoded request body. */
+function requiredFormValue(
+  params: URLSearchParams,
+  key: string,
+): string | null {
+  const value = params.get(key);
+  if (value === null || value.length === 0) return null;
+  return value;
+}
+
+http.route({
+  path: "/api/streaming/heartbeat",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.text();
+    const params = new URLSearchParams(body);
+    const entityId = requiredFormValue(params, "entityId");
+    const hmac = requiredFormValue(params, "hmac");
+    const currentActivity = requiredFormValue(params, "currentActivity");
+    if (!entityId || !hmac || !currentActivity) {
+      return new Response("Missing required heartbeat fields", {
+        status: 400,
+      });
+    }
+
+    const expected = await computeStreamingHmac(entityId);
+    if (!expected) {
+      return new Response("ENCRYPTION_KEY is not configured", {
+        status: 500,
+      });
+    }
+    if (!timingSafeEqual(hmac, expected)) {
+      return new Response("Invalid heartbeat signature", { status: 401 });
+    }
+
+    await ctx.runMutation(internal.streaming.internalSet, {
+      entityId,
+      currentActivity,
+      currentContent: params.get("currentContent") ?? "",
+      pendingQuestion: params.get("pendingQuestion") ?? undefined,
+    });
+
+    return Response.json({ ok: true });
+  }),
+});
+
 /** Parses and validates the request body for the env-vars endpoint. */
 function parseEnvVarsBody(
   body: unknown,

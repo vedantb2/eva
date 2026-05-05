@@ -14,6 +14,14 @@ import { createSandbox, WARMING_LIFECYCLE } from "./git";
 
 const MAX_WARMUP_RETRIES = 2;
 const WARMUP_RETRY_DELAY_MS = 5_000;
+const CALLBACK_LIVENESS_COMMAND = [
+  "test -f /tmp/run-design.pid",
+  "test ! -f /tmp/run-design.done",
+  'pid="$(cat /tmp/run-design.pid)"',
+  'kill -0 "$pid" 2>/dev/null',
+  'state="$(ps -p "$pid" -o stat= 2>/dev/null | tr -d " ")"',
+  'case "$state" in Z*) exit 1 ;; *) exit 0 ;; esac',
+].join(" && ");
 
 /** Warms the Daytona snapshot cache for a repo by creating and immediately deleting a sandbox, with retries. */
 export const warmSnapshotCache = internalAction({
@@ -147,11 +155,7 @@ export const verifySandboxLiveness = internalAction({
 
     // Sandbox is started — verify the callback runner PID is still alive.
     // Short timeout so we never block the watchdog path on exec hangs.
-    const pidAlive = await exec(
-      sandbox,
-      'test -f /tmp/run-design.pid && kill -0 "$(cat /tmp/run-design.pid)" 2>/dev/null',
-      5,
-    )
+    const pidAlive = await exec(sandbox, CALLBACK_LIVENESS_COMMAND, 5)
       .then(() => true)
       .catch(() => false);
 

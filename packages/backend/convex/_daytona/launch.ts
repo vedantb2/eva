@@ -1,6 +1,7 @@
 "use node";
 
 import type { Sandbox } from "@daytonaio/sdk";
+import { createHmac } from "crypto";
 import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import { exec, requireEnv } from "./helpers";
@@ -30,6 +31,20 @@ const CURSOR_INSTALL_TIMEOUT_SECONDS = 300;
 const CURSOR_FALLBACK_BIN_PATH = "/home/eva/.local/bin/cursor-agent";
 const CALLBACK_READY_TIMEOUT_SECONDS = 75;
 const CALLBACK_READY_POLL_ATTEMPTS = 60;
+
+/** Computes a scoped streaming HMAC if the deployment encryption key is available. */
+function computeStreamingHmac(entityId: string): string | null {
+  const secret = process.env.ENCRYPTION_KEY;
+  if (!secret) return null;
+  return createHmac("sha256", secret).update(entityId).digest("hex");
+}
+
+/** Resolves the Convex site URL used for HTTP actions, falling back from cloud URL. */
+function resolveConvexSiteUrl(convexCloudUrl: string): string {
+  const configured = process.env.CONVEX_SITE_URL;
+  if (configured) return configured;
+  return convexCloudUrl.replace(".convex.cloud", ".convex.site");
+}
 
 /** Installs the Codex CLI globally if not already available on the sandbox. */
 async function ensureCodexCliAvailable(sandbox: Sandbox): Promise<void> {
@@ -132,6 +147,8 @@ export async function launchScript(
   await Promise.all(uploadTasks);
 
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");
+  const streamingEntityId = opts.extraEnvVars?.STREAMING_ENTITY_ID ?? entityId;
+  const streamingHmac = computeStreamingHmac(streamingEntityId);
   const envParts = [
     `CONVEX_URL=${quote([convexUrl])}`,
     `CONVEX_TOKEN=${quote([convexToken])}`,
@@ -153,6 +170,12 @@ export async function launchScript(
     `CURSOR_PERSIST_DIR=${quote([CURSOR_PERSIST_VOLUME_MOUNT_PATH])}`,
     `CURSOR_BIN_PATH=${quote([CURSOR_FALLBACK_BIN_PATH])}`,
   ];
+  if (streamingHmac) {
+    envParts.push(
+      `CONVEX_SITE_URL=${quote([resolveConvexSiteUrl(convexUrl)])}`,
+    );
+    envParts.push(`STREAMING_HMAC=${quote([streamingHmac])}`);
+  }
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);
     envParts.push(`CLAUDE_BASE_CONFIG_DIR=${quote([CLAUDE_BASE_CONFIG_DIR])}`);

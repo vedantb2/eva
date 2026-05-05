@@ -111,8 +111,11 @@ export function TaskDetailInline({
     );
   }
 
-  // Show sandbox panel when active and user wants to see it
-  if (showSandbox && (isSandboxActive || isSandboxStarting)) {
+  // Show sandbox panel while the sandbox lifecycle is in progress.
+  if (
+    showSandbox &&
+    (isSandboxActive || isSandboxStarting || isSandboxStopping)
+  ) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
         {/* Sandbox header with back button and stop controls */}
@@ -133,6 +136,12 @@ export function TaskDetailInline({
                 Starting sandbox...
               </div>
             ) : null}
+            {isSandboxStopping ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <IconLoader2 size={16} className="animate-spin" />
+                Stopping sandbox...
+              </div>
+            ) : null}
             {isSandboxActive ? (
               <Button
                 variant="destructive"
@@ -146,7 +155,7 @@ export function TaskDetailInline({
                 ) : (
                   <IconPlayerStop size={14} />
                 )}
-                Stop Sandbox
+                {isSandboxStopping ? "Stopping..." : "Stop Sandbox"}
               </Button>
             ) : null}
           </div>
@@ -167,7 +176,11 @@ export function TaskDetailInline({
               <div className="w-full max-w-md px-4">
                 <StreamingActivityDisplay
                   activity={sandboxStartupActivity}
-                  thinkingLabel="Starting sandbox..."
+                  thinkingLabel={
+                    isSandboxStopping
+                      ? "Stopping sandbox..."
+                      : "Starting sandbox..."
+                  }
                 />
               </div>
             </div>
@@ -194,7 +207,9 @@ export function TaskDetailInline({
                   <div className="flex items-center gap-2 mt-2">
                     {/* Sandbox controls */}
                     {canStartSandbox ? (
-                      isSandboxActive || isSandboxStarting ? (
+                      isSandboxActive ||
+                      isSandboxStarting ||
+                      isSandboxStopping ? (
                         <div className="flex items-center gap-2">
                           {/* While the sandbox is starting we still want the
                               user to be able to click through to the sandbox
@@ -205,16 +220,19 @@ export function TaskDetailInline({
                             variant="outline"
                             size="sm"
                             onClick={handleToggleSandboxView}
+                            disabled={isSandboxStopping}
                             className="gap-1.5"
                           >
                             {isSandboxStarting && !isSandboxActive ? (
                               <IconLoader2 size={14} className="animate-spin" />
+                            ) : isSandboxStopping ? (
+                              <IconLoader2 size={14} className="animate-spin" />
                             ) : (
                               <IconTerminal2 size={14} />
                             )}
-                            View Sandbox
+                            {isSandboxStopping ? "Stopping..." : "View Sandbox"}
                           </Button>
-                          {isSandboxActive ? (
+                          {isSandboxActive && !isSandboxStopping ? (
                             <Button
                               variant="destructive"
                               size="sm"
@@ -230,7 +248,7 @@ export function TaskDetailInline({
                               ) : (
                                 <IconPlayerStop size={14} />
                               )}
-                              Stop
+                              {isSandboxStopping ? "Stopping..." : "Stop"}
                             </Button>
                           ) : null}
                         </div>

@@ -39,6 +39,19 @@ export const heartbeat = authMutation({
   },
 });
 
+/** Updates the current page path for the user, shown to teammates in the sidebar. */
+export const updatePath = authMutation({
+  args: { path: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { path }) => {
+    const user = await ctx.db.get(ctx.userId);
+    if (user && user.lastSeenPath !== path) {
+      await ctx.db.patch(ctx.userId, { lastSeenPath: path });
+    }
+    return null;
+  },
+});
+
 /** Lists all currently present users in a room. */
 export const list = authQuery({
   args: { roomToken: v.string() },

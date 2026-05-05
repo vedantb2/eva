@@ -162,7 +162,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     setIsSandboxStopping(true);
     try {
       await stopTaskSandboxMutation({ taskId });
-      setShowSandbox(false);
     } catch (err) {
       console.error("Failed to stop sandbox:", err);
     } finally {

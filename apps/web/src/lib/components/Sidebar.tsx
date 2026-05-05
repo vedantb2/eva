@@ -33,7 +33,6 @@ import {
 import { clientEnv } from "@/env/client";
 import { api } from "@conductor/backend";
 import {
-  AvatarStack,
   Button,
   Spinner,
   Tooltip,
@@ -803,7 +802,7 @@ export function Sidebar() {
                 collapsed ? "px-2 py-3" : "px-3 py-3",
               )}
             >
-              <OnlineTeammates collapsed={collapsed} />
+              <TeamMembers collapsed={collapsed} />
               <div
                 className={cn(
                   "flex items-center",
@@ -847,20 +846,64 @@ export function Sidebar() {
   );
 }
 
-function OnlineTeammates({ collapsed }: { collapsed: boolean }) {
-  const onlineUsers = useQuery(api.users.listOnlineTeammates, {});
+function getDisplayName(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+}): string {
+  return (
+    `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+    user.fullName ||
+    ""
+  );
+}
 
-  if (!onlineUsers || onlineUsers.length === 0) return null;
+function TeamMembers({ collapsed }: { collapsed: boolean }) {
+  const teamData = useQuery(api.users.listTeamWithMembers, {});
+  const navigate = useNavigate();
+
+  const now = Date.now();
+  const twoMinutes = 2 * 60 * 1000;
+
+  const onlineMembers = teamData
+    ? teamData.members.filter(
+        (u) => !!u.lastSeenAt && now - u.lastSeenAt < twoMinutes,
+      )
+    : [];
+
+  if (!teamData || onlineMembers.length === 0) return null;
 
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-1 pb-3">
-        {onlineUsers.slice(0, 3).map((u) => (
-          <UserInitials key={u._id} user={u} size="sm" hideLastSeen />
-        ))}
-        {onlineUsers.length > 3 && (
+        {onlineMembers.slice(0, 3).map((u) => {
+          const name = getDisplayName(u);
+
+          return (
+            <Tooltip key={u._id}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110"
+                  onClick={() => {
+                    if (u.lastSeenPath) {
+                      navigate({ to: u.lastSeenPath });
+                    }
+                  }}
+                  disabled={!u.lastSeenPath}
+                >
+                  <UserInitials user={u} size="sm" hideLastSeen />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {u.lastSeenPath ? `Teleport to ${name}` : name}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+        {onlineMembers.length > 3 && (
           <span className="text-[10px] text-muted-foreground">
-            +{onlineUsers.length - 3}
+            +{onlineMembers.length - 3}
           </span>
         )}
       </div>
@@ -868,15 +911,36 @@ function OnlineTeammates({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <div className="flex items-center gap-2 pb-3">
-      <AvatarStack size={20}>
-        {onlineUsers.map((u) => (
-          <UserInitials key={u._id} user={u} size="sm" hideLastSeen />
-        ))}
-      </AvatarStack>
-      <span className="text-xs text-muted-foreground">
-        {onlineUsers.length} online
+    <div className="flex flex-col gap-1 pb-3">
+      <span className="text-xs font-medium text-sidebar-foreground mb-1">
+        {teamData.teamName} · {onlineMembers.length} online
       </span>
+      <div className="flex flex-wrap items-center gap-1">
+        {onlineMembers.map((u) => {
+          const name = getDisplayName(u);
+          return (
+            <Tooltip key={u._id}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110"
+                  onClick={() => {
+                    if (u.lastSeenPath) {
+                      navigate({ to: u.lastSeenPath });
+                    }
+                  }}
+                  disabled={!u.lastSeenPath}
+                >
+                  <UserInitials user={u} size="sm" hideLastSeen />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {u.lastSeenPath ? `Teleport to ${name}` : name}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
     </div>
   );
 }

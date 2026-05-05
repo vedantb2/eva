@@ -2,22 +2,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import { SignInButton, useAuth } from "@clerk/clerk-react";
 import { useConvexAuth, useMutation } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { z } from "zod";
 import { api } from "@conductor/backend";
 import { Button, Spinner } from "@conductor/ui";
-
-const searchSchema = z.object({
-  client_id: z.string(),
-  redirect_uri: z.string(),
-  state: z.string(),
-  code_challenge: z.string(),
-  code_challenge_method: z.string(),
-});
-
-type AuthorizeSearch = z.infer<typeof searchSchema>;
+import {
+  clearMcpOauthParams,
+  mcpOauthParamsSchema,
+  saveMcpOauthParams,
+  type McpOauthParams,
+} from "@/lib/mcpOauthStorage";
 
 export const Route = createFileRoute("/mcp/oauth/authorize")({
-  validateSearch: searchSchema,
+  validateSearch: mcpOauthParamsSchema,
+  // Persist the OAuth params before any auth-driven redirect can strip them.
+  // Prod Clerk live keys can bounce us to `/home` during the popup's session
+  // handshake; `/home` reads this storage to recover us back into the flow.
+  beforeLoad: ({ search }) => {
+    saveMcpOauthParams(search);
+  },
   component: McpOauthAuthorize,
 });
 
@@ -56,7 +57,7 @@ function McpOauthAuthorize() {
 }
 
 /** Mints an authorization code via Convex and redirects to the OAuth client's redirect_uri. */
-function AuthorizedFlow({ search }: { search: AuthorizeSearch }) {
+function AuthorizedFlow({ search }: { search: McpOauthParams }) {
   const { isLoading: convexLoading, isAuthenticated } = useConvexAuth();
   const authorize = useMutation(api.mcp.oauth.authorize);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +75,7 @@ function AuthorizedFlow({ search }: { search: AuthorizeSearch }) {
       codeChallengeMethod: search.code_challenge_method,
     })
       .then(({ code }) => {
+        clearMcpOauthParams();
         const target = new URL(search.redirect_uri);
         target.searchParams.set("code", code);
         target.searchParams.set("state", search.state);

@@ -1,5 +1,10 @@
 # Changelog
 
+## Recover MCP OAuth flow when prod Clerk handshake bounces popup to /home - 2026-05-05
+
+- **Why**: On prod (Clerk live keys), the popup Claude opens at `/mcp/oauth/authorize` could land on `/home` — the global `signInFallbackRedirectUrl` — before our route ever ran. Staging (Clerk test keys) didn't reproduce this because dev instances skip the cross-domain session handshake. End result: Claude's "Connect" flow failed silently in production.
+- **Change**: Persist the OAuth search params to `sessionStorage` as early as possible — once from `main.tsx` before the Clerk provider mounts, and again in the route's `beforeLoad`. `/home` now has a `beforeLoad` that consumes any pending params and redirects back into the OAuth route. A 2-attempt counter (keyed on the OAuth `state` nonce) prevents a redirect loop and lets a fresh flow start cleanly. New helper module `lib/mcpOauthStorage.ts` owns the schema and storage logic.
+
 ## Preserve MCP OAuth route through SPA history rewrite - 2026-05-05
 
 - **Why**: The custom TanStack history adapter treated `/mcp/oauth/authorize` as an owner/repo/app path and rewrote it internally to `/mcp/oauth--authorize`. That made the MCP OAuth URL miss its real route and fall into normal app navigation, which redirected signed-in users back to `/home` instead of completing Claude's connector callback.

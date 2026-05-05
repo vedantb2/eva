@@ -23,6 +23,7 @@ const NON_REPO_PREFIXES = new Set([
   "api",
   "settings",
   "agent-callback",
+  "mcp",
 ]);
 
 function toInternalHref(href: string): string {

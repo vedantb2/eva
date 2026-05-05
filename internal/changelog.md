@@ -1,5 +1,10 @@
 # Changelog
 
+## Preserve MCP OAuth route through SPA history rewrite - 2026-05-05
+
+- **Why**: The custom TanStack history adapter treated `/mcp/oauth/authorize` as an owner/repo/app path and rewrote it internally to `/mcp/oauth--authorize`. That made the MCP OAuth URL miss its real route and fall into normal app navigation, which redirected signed-in users back to `/home` instead of completing Claude's connector callback.
+- **Change**: Added `mcp` to the non-repo route prefixes so `/mcp/oauth/authorize` stays intact and the OAuth route can mint the authorization code.
+
 ## Move MCP OAuth sign-in to main app domain to fix Clerk production key restriction - 2026-05-05
 
 - **Why**: Clerk production keys are pinned to a single domain (e.g., `eva.carepulse.co.uk`). The MCP OAuth sign-in UI was on a Convex HTTP page hosted at `*.convex.site`, causing Clerk to reject production keys with "Production Keys are only allowed for domain 'eva.carepulse.co.uk'".

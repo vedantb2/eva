@@ -1,5 +1,11 @@
 # Changelog
 
+## Move MCP OAuth sign-in to main app domain to fix Clerk production key restriction - 2026-05-05
+
+- **Why**: Clerk production keys are pinned to a single domain (e.g., `eva.carepulse.co.uk`). The MCP OAuth sign-in UI was on a Convex HTTP page hosted at `*.convex.site`, causing Clerk to reject production keys with "Production Keys are only allowed for domain 'eva.carepulse.co.uk'".
+- **Change**: Created a new TanStack route `/mcp/oauth/authorize` on the main web app that handles Clerk sign-in and OAuth code minting. Convex `authorizeGet` now 302-redirects to this route instead of rendering HTML directly. Added a public `authorize` mutation in `mcp/oauth.ts` that requires Clerk auth, validates the OAuth request, and mints the auth code. Deleted the old `authorizePost` handler and related dead code.
+- **Requires**: `WEB_APP_URL` env var in Convex (e.g., `https://eva.carepulse.co.uk` for prod) so the OAuth flow can redirect to the correct domain.
+
 ## Drive GitHub install URL from Convex env instead of hardcoded slug - 2026-05-05
 
 - **Why**: `ReposClient.tsx` had a hardcoded `GITHUB_APP_NAME = "vb-eva-dev"` for building the GitHub App install URL. The dev slug was shipped to every environment, so production users would have been sent to the wrong install page. Backend already reads the slug from `process.env.GITHUB_APP_SLUG` (used in `snapshotActions.ts` and `_daytona/git.ts`), so the value belonged on the same source of truth.

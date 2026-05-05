@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as GlobalInboxRouteImport } from './routes/_global/inbox'
 import { Route as GlobalHomeRouteImport } from './routes/_global/home'
 import { Route as GlobalTeamsIndexRouteImport } from './routes/_global/teams/index'
+import { Route as McpOauthAuthorizeRouteImport } from './routes/mcp/oauth/authorize'
 import { Route as RepoOwnerRepoRouteImport } from './routes/_repo/$owner/$repo'
 import { Route as GlobalTeamsTeamIdRouteImport } from './routes/_global/teams/$teamId'
 import { Route as GlobalSetupIdRouteImport } from './routes/_global/setup/$id'
@@ -83,6 +84,11 @@ const GlobalTeamsIndexRoute = GlobalTeamsIndexRouteImport.update({
   id: '/teams/',
   path: '/teams/',
   getParentRoute: () => GlobalRoute,
+} as any)
+const McpOauthAuthorizeRoute = McpOauthAuthorizeRouteImport.update({
+  id: '/mcp/oauth/authorize',
+  path: '/mcp/oauth/authorize',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const RepoOwnerRepoRoute = RepoOwnerRepoRouteImport.update({
   id: '/$owner/$repo',
@@ -288,6 +294,7 @@ export interface FileRoutesByFullPath {
   '/setup/$id': typeof GlobalSetupIdRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRoute
   '/$owner/$repo': typeof RepoOwnerRepoRouteWithChildren
+  '/mcp/oauth/authorize': typeof McpOauthAuthorizeRoute
   '/teams/': typeof GlobalTeamsIndexRoute
   '/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
   '/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
@@ -328,6 +335,7 @@ export interface FileRoutesByTo {
   '/settings/theme': typeof GlobalSettingsThemeRoute
   '/setup/$id': typeof GlobalSetupIdRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRoute
+  '/mcp/oauth/authorize': typeof McpOauthAuthorizeRoute
   '/teams': typeof GlobalTeamsIndexRoute
   '/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
   '/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
@@ -372,6 +380,7 @@ export interface FileRoutesById {
   '/_global/setup/$id': typeof GlobalSetupIdRoute
   '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRoute
   '/_repo/$owner/$repo': typeof RepoOwnerRepoRouteWithChildren
+  '/mcp/oauth/authorize': typeof McpOauthAuthorizeRoute
   '/_global/teams/': typeof GlobalTeamsIndexRoute
   '/_repo/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
   '/_repo/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
@@ -415,6 +424,7 @@ export interface FileRouteTypes {
     | '/setup/$id'
     | '/teams/$teamId'
     | '/$owner/$repo'
+    | '/mcp/oauth/authorize'
     | '/teams/'
     | '/$owner/$repo/inbox'
     | '/$owner/$repo/stats'
@@ -455,6 +465,7 @@ export interface FileRouteTypes {
     | '/settings/theme'
     | '/setup/$id'
     | '/teams/$teamId'
+    | '/mcp/oauth/authorize'
     | '/teams'
     | '/$owner/$repo/inbox'
     | '/$owner/$repo/stats'
@@ -498,6 +509,7 @@ export interface FileRouteTypes {
     | '/_global/setup/$id'
     | '/_global/teams/$teamId'
     | '/_repo/$owner/$repo'
+    | '/mcp/oauth/authorize'
     | '/_global/teams/'
     | '/_repo/$owner/$repo/inbox'
     | '/_repo/$owner/$repo/stats'
@@ -534,6 +546,7 @@ export interface RootRouteChildren {
   GlobalRoute: typeof GlobalRouteWithChildren
   RepoRoute: typeof RepoRouteWithChildren
   AgentCallbackRoute: typeof AgentCallbackRoute
+  McpOauthAuthorizeRoute: typeof McpOauthAuthorizeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -586,6 +599,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/teams/'
       preLoaderRoute: typeof GlobalTeamsIndexRouteImport
       parentRoute: typeof GlobalRoute
+    }
+    '/mcp/oauth/authorize': {
+      id: '/mcp/oauth/authorize'
+      path: '/mcp/oauth/authorize'
+      fullPath: '/mcp/oauth/authorize'
+      preLoaderRoute: typeof McpOauthAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_repo/$owner/$repo': {
       id: '/_repo/$owner/$repo'
@@ -936,6 +956,7 @@ const rootRouteChildren: RootRouteChildren = {
   GlobalRoute: GlobalRouteWithChildren,
   RepoRoute: RepoRouteWithChildren,
   AgentCallbackRoute: AgentCallbackRoute,
+  McpOauthAuthorizeRoute: McpOauthAuthorizeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

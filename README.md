@@ -77,7 +77,7 @@ Access your connected databases (Convex, Supabase) directly from Claude. Query, 
 
 ## Self-Hosting
 
-Eva is self-hosted — there is no managed cloud version. You create your own Convex deployment, set up your own Clerk project, and run the app yourself. This gives you full control over your data and infrastructure.
+Eva is self-hosted - there is no managed cloud version. You create your own Convex deployment, set up your own Clerk project, and run the app yourself. This gives you full control over your data and infrastructure.
 
 ## Setup
 

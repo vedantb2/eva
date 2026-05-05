@@ -8,6 +8,7 @@ export {
   listSiblingApps,
   getInternal,
   listGroupedByCodebase,
+  getAppSlug,
 } from "./_githubRepos/queries";
 
 export {

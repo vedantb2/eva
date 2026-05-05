@@ -239,6 +239,19 @@ export const listSiblingApps = authQuery({
   },
 });
 
+/** Returns the configured GitHub App slug used to build install/configure URLs. */
+export const getAppSlug = authQuery({
+  args: {},
+  returns: v.string(),
+  handler: async () => {
+    const slug = process.env.GITHUB_APP_SLUG;
+    if (!slug) {
+      throw new Error("GITHUB_APP_SLUG is not set in Convex env");
+    }
+    return slug;
+  },
+});
+
 /** Gets a GitHub repo by ID without access control (internal use only). */
 export const getInternal = internalQuery({
   args: { id: v.id("githubRepos") },

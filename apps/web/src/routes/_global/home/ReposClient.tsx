@@ -32,13 +32,16 @@ import { EmptyOnboarding } from "./_components/EmptyOnboarding";
 import { RepoGroup } from "./_components/RepoGroup";
 import { HiddenReposSheet } from "./_components/HiddenReposSheet";
 
-const GITHUB_APP_NAME = "vb-eva-dev";
 const WELCOME_STORAGE_KEY = "eva-welcome-dismissed";
+
+const buildConnectUrl = (slug: string) =>
+  `https://github.com/apps/${slug}/installations/new`;
 
 export function ReposClient() {
   const navigate = useNavigate();
   const repos = useQuery(api.githubRepos.list, {});
   const teams = useQuery(api.teams.list) ?? [];
+  const appSlug = useQuery(api.githubRepos.getAppSlug);
   const syncRepos = useAction(api.github.syncRepos);
   const [syncing, setSyncing] = useState(false);
   const [hiddenOpen, setHiddenOpen] = useState(false);
@@ -62,11 +65,12 @@ export function ReposClient() {
     setWelcomeDismissed(true);
   };
 
-  const connectUrl =
-    "https://github.com/apps/" + GITHUB_APP_NAME + "/installations/new";
+  const connectUrl = appSlug ? buildConnectUrl(appSlug) : undefined;
   const configureUrl = "https://github.com/settings/installations";
 
   const hasRepos = repos && repos.length > 0;
+  const primaryHref = hasRepos ? configureUrl : connectUrl;
+  const primaryLabel = hasRepos ? "Add Repos" : "Connect GitHub";
 
   const groupedRepos = repos
     ? repos.reduce<Record<string, typeof repos>>((groups, repo) => {
@@ -167,31 +171,40 @@ export function ReposClient() {
               </Dialog>
             </>
           )}
-          <Button
-            size="sm"
-            asChild
-            className="motion-press bg-foreground font-medium text-background hover:scale-[1.01] active:scale-[0.96]"
-          >
-            <a
-              href={hasRepos ? configureUrl : connectUrl}
-              target={hasRepos ? "_blank" : undefined}
-              rel={hasRepos ? "noopener noreferrer" : undefined}
+          {primaryHref ? (
+            <Button
+              size="sm"
+              asChild
+              className="motion-press bg-foreground font-medium text-background hover:scale-[1.01] active:scale-[0.96]"
+            >
+              <a
+                href={primaryHref}
+                target={hasRepos ? "_blank" : undefined}
+                rel={hasRepos ? "noopener noreferrer" : undefined}
+              >
+                <IconPlus size={16} />
+                <span className="hidden sm:inline">{primaryLabel}</span>
+              </a>
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              disabled
+              className="motion-press bg-foreground font-medium text-background"
             >
               <IconPlus size={16} />
-              <span className="hidden sm:inline">
-                {hasRepos ? "Add Repos" : "Connect GitHub"}
-              </span>
-            </a>
-          </Button>
+              <span className="hidden sm:inline">{primaryLabel}</span>
+            </Button>
+          )}
         </div>
       }
     >
-      {repos === undefined ? (
+      {repos === undefined || appSlug === undefined ? (
         <div className="flex items-center justify-center py-20">
           <Spinner size="md" />
         </div>
       ) : repos.length === 0 ? (
-        <EmptyOnboarding connectUrl={connectUrl} />
+        <EmptyOnboarding connectUrl={buildConnectUrl(appSlug)} />
       ) : (
         <>
           <AnimatePresence initial={false}>

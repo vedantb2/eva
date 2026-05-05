@@ -1,5 +1,11 @@
 # Changelog
 
+## Drive GitHub install URL from Convex env instead of hardcoded slug - 2026-05-05
+
+- **Why**: `ReposClient.tsx` had a hardcoded `GITHUB_APP_NAME = "vb-eva-dev"` for building the GitHub App install URL. The dev slug was shipped to every environment, so production users would have been sent to the wrong install page. Backend already reads the slug from `process.env.GITHUB_APP_SLUG` (used in `snapshotActions.ts` and `_daytona/git.ts`), so the value belonged on the same source of truth.
+- **Change**: Added `getAppSlug` `authQuery` in `_githubRepos/queries.ts` that returns `process.env.GITHUB_APP_SLUG` (throws if missing). `ReposClient` now fetches the slug via `useQuery(api.githubRepos.getAppSlug)` and constructs the install URL with a `buildConnectUrl` helper. Loading state waits for both `repos` and `appSlug` before rendering the body; the header connect button renders disabled while the slug is loading.
+- **Reason**: One env var per deployment now drives both backend cloning and the frontend install link, so dev/staging/prod each get the correct app slug without separate frontend config.
+
 ## Open public sign-ups and drop bespoke env-mode flag - 2026-05-05
 
 - **Why**: The `ENVIRONMENT=production` backend flag and parallel `VITE_ENV === "production"` frontend flag existed to lock down a "public hosted Eva" deployment to existing users only. We no longer need that gating, and the custom `VITE_ENV` env var duplicated information Vite already exposes natively.

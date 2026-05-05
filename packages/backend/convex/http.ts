@@ -546,7 +546,6 @@ import {
   authorizePost,
   token,
   mcpHandler,
-  mintInternalToken,
   health,
 } from "./mcp/native";
 
@@ -605,13 +604,6 @@ http.route({
   path: "/mcp",
   method: "DELETE",
   handler: mcpHandler,
-});
-
-// Internal token minting (for scoped repo access from Eva sandboxes)
-http.route({
-  path: "/api/internal/mint-token",
-  method: "POST",
-  handler: mintInternalToken,
 });
 
 // Health check

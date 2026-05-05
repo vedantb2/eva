@@ -258,7 +258,6 @@ export const mintInternalToken = internalAction({
   args: {
     clerkUserId: v.string(),
     repoId: v.string(),
-    bootstrapSecret: v.string(),
   },
   returns: v.union(
     v.object({
@@ -267,11 +266,7 @@ export const mintInternalToken = internalAction({
     }),
     v.null(),
   ),
-  handler: async (_ctx, { clerkUserId, repoId, bootstrapSecret }) => {
-    // Verify bootstrap secret
-    const expectedSecret = process.env.MCP_BOOTSTRAP_SECRET;
-    if (!expectedSecret || bootstrapSecret !== expectedSecret) return null;
-
+  handler: async (_ctx, { clerkUserId, repoId }) => {
     const internalSecret = process.env.MCP_INTERNAL_SECRET;
     if (!internalSecret) return null;
 

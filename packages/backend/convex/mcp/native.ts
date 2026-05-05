@@ -516,52 +516,6 @@ export const mcpHandler = httpAction(async (ctx, request) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Internal Token Minting (for scoped repo access)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const mintInternalToken = httpAction(async (ctx, request) => {
-  // Verify bootstrap secret
-  const auth = request.headers.get("Authorization");
-  if (!auth || !auth.startsWith("MCPBootstrap ")) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const bootstrapSecret = auth.slice("MCPBootstrap ".length);
-
-  const bodyRaw = await request.json();
-  if (typeof bodyRaw !== "object" || bodyRaw === null) {
-    return Response.json({ error: "Invalid request body" }, { status: 400 });
-  }
-
-  const body = bodyRaw as Record<string, unknown>;
-  const clerkUserId = body.clerkUserId;
-  const repoId = body.repoId;
-
-  if (typeof clerkUserId !== "string" || typeof repoId !== "string") {
-    return Response.json(
-      { error: "clerkUserId and repoId required" },
-      { status: 400 },
-    );
-  }
-
-  // Delegate to Node.js action (which has access to MCP_INTERNAL_SECRET)
-  const result = await ctx.runAction(
-    internal.mcp.nodeActions.mintInternalToken,
-    {
-      clerkUserId,
-      repoId,
-      bootstrapSecret,
-    },
-  );
-
-  if (!result) {
-    return Response.json({ error: "Invalid credentials" }, { status: 403 });
-  }
-
-  return Response.json(result);
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Health Check
 // ─────────────────────────────────────────────────────────────────────────────
 

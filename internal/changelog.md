@@ -1,5 +1,17 @@
 # Changelog
 
+## Open public sign-ups and drop bespoke env-mode flag - 2026-05-05
+
+- **Why**: The `ENVIRONMENT=production` backend flag and parallel `VITE_ENV === "production"` frontend flag existed to lock down a "public hosted Eva" deployment to existing users only. We no longer need that gating, and the custom `VITE_ENV` env var duplicated information Vite already exposes natively.
+- **Change**: Removed the `ensureUserExists` sign-up throw in `auth.ts`, the disabled-buttons + self-host fallback message on the landing route, the `ENVIRONMENT` doc row, and `VITE_ENV` from the t3-env schema and env files. Remaining dev-only UI (the "Sign in as Eva" button and dev-only sidebar nav) now reads `import.meta.env.DEV` directly.
+- **Why `import.meta.env.DEV`**: Vite-native typed boolean, statically replaced at build time, mode-aware (`vite build --mode staging` evaluates to `false`), and removes the need for a custom env var in `.env.local` / Convex.
+
+## Drop MCP_BASE_URL and skip self-referential token-mint HTTP roundtrip - 2026-05-05
+
+- **Why**: `MCP_BASE_URL` pointed at a Railway MCP deployment that has since been deleted; the MCP server now lives on the same Convex deployment, so the token-mint flow was making Convex call back into its own HTTP API for no reason.
+- **Change**: `mintSandboxMcpToken` now calls `internal.mcp.nodeActions.mintInternalToken` directly via `ctx.runAction` instead of fetching `${MCP_BASE_URL}/api/internal/mint-token`. The sandbox MCP config in `_daytona/helpers.ts` reads `CONVEX_SITE_URL` instead of `MCP_BASE_URL`. Removed the now-orphaned `mintInternalToken` httpAction in `mcp/native.ts`, the `/api/internal/mint-token` route in `http.ts`, and the redundant `bootstrapSecret` arg from the internal action (no longer crossing a trust boundary).
+- **Action required**: `MCP_BASE_URL` has been removed from both dev and prod Convex deployments; no further action needed.
+
 ## Keep quick-task sandbox stop spinner visible - 2026-05-05
 
 - **Why**: Quick-task detail controls could return to the start/view state immediately after requesting a sandbox stop, even though Daytona can take roughly 30 seconds to finish stopping the sandbox.

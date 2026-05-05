@@ -30,7 +30,6 @@ import {
   IconTool,
   IconX,
 } from "@tabler/icons-react";
-import { clientEnv } from "@/env/client";
 import { api } from "@conductor/backend";
 import {
   Button,
@@ -183,7 +182,7 @@ export function Sidebar() {
     owner && repoName ? { owner, name: repoName, appName } : "skip",
   );
 
-  const isDev = clientEnv.VITE_ENV === "development";
+  const isDev = import.meta.env.DEV;
 
   const repoNavigation = useMemo(() => {
     if (!isRepoRoute || !repoBasePath) return [];

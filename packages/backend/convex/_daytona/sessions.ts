@@ -265,20 +265,62 @@ async function installSnapshotDependenciesWithRetry(
   }
 }
 
-/** Attempts to reuse an existing sandbox by running a preparation function on it. */
+function isSandboxGoneMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("not found") ||
+    lower.includes("does not exist") ||
+    lower.includes("no such") ||
+    lower.includes("404") ||
+    lower.includes("deleted")
+  );
+}
+
+type TryReuseSandboxOptions = {
+  fallbackOnPrepareError?: boolean;
+};
+
+/**
+ * Attempts to reuse an existing sandbox by running a preparation function on it.
+ * Only a missing/deleted sandbox should fall through to creating a replacement;
+ * failed preparation on a found sandbox usually means the old filesystem is
+ * still the user's source of truth and must not be silently abandoned.
+ */
 async function tryReuseSandbox(
   daytona: Daytona,
   existingSandboxId: string | undefined,
   prepareFn: (sandbox: Sandbox) => Promise<void>,
+  options?: TryReuseSandboxOptions,
 ): Promise<Sandbox | null> {
   if (!existingSandboxId) return null;
+  let sandbox: Sandbox;
   try {
-    const sandbox = await daytona.get(existingSandboxId);
+    sandbox = await daytona.get(existingSandboxId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (isSandboxGoneMessage(message)) {
+      logSession(
+        `tryReuseSandbox found missing sandbox ${existingSandboxId}; creating replacement`,
+      );
+      return null;
+    }
+    throw error;
+  }
+
+  try {
     await prepareFn(sandbox);
-    return sandbox;
-  } catch {
+  } catch (error) {
+    if (options?.fallbackOnPrepareError === false) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    logSession(
+      `tryReuseSandbox preparation failed for ${existingSandboxId}; creating replacement: ${message}`,
+    );
     return null;
   }
+
+  return sandbox;
 }
 
 type SessionSandboxPreparationArgs = {
@@ -1021,130 +1063,137 @@ async function prepareTaskPreviewSandboxInternal(
     "tryReuseTaskSandbox",
     actionDetails,
     () =>
-      tryReuseSandbox(daytona, args.existingSandboxId, async (sandbox) => {
-        const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
-        await emitTaskProgress(
-          ctx,
-          args.taskId,
-          completedSteps,
-          "Resuming existing sandbox...",
-        );
-        await runLoggedSessionStep(
-          "reuseTaskSandbox.prepare",
-          sandboxDetails,
-          async () => {
-            await ensureSandboxRunning(sandbox);
-            await checkoutSessionBranchWithRetry(
-              sandbox,
-              args.branchName,
-              args.baseBranch,
-            );
-          },
-        );
-        completedSteps.push({
-          type: "tool",
-          label: "Resuming existing sandbox...",
-          status: "complete",
-        });
-        // Download sandbox config files to repo root
-        await emitTaskProgress(
-          ctx,
-          args.taskId,
-          completedSteps,
-          "Downloading config files...",
-        );
-        await runLoggedSessionStep(
-          "reuseTaskSandbox.downloadConfigFiles",
-          sandboxDetails,
-          async () => {
-            const configFiles = await ctx.runQuery(
-              internal.sandboxConfigFiles.getConfigFilesForSnapshot,
-              { repoId: args.repoId },
-            );
-            await downloadSandboxConfigFiles(
-              sandbox,
-              configFiles,
-              "/tmp/repo",
-              logSession,
-            );
-          },
-        );
-        completedSteps.push({
-          type: "tool",
-          label: "Downloading config files...",
-          status: "complete",
-        });
-        await emitTaskProgress(
-          ctx,
-          args.taskId,
-          completedSteps,
-          "Starting dev server...",
-        );
-        const { port: devPort, devCommand } = await runLoggedSessionStep(
-          "reuseTaskSandbox.startSessionServices",
-          sandboxDetails,
-          () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
-        );
-        completedSteps.push({
-          type: "tool",
-          label: "Starting dev server...",
-          status: "complete",
-        });
-        // Note: runStartupCommands is intentionally not surfaced as a UI step
-        // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
-        // makes it a no-op once the sandbox has been initialised, so showing
-        // "Running startup commands..." would be misleading on resume.
-        await runLoggedSessionStep(
-          "reuseTaskSandbox.runStartupCommands",
-          sandboxDetails,
-          async () => {
-            const result = await ctx.runAction(
-              internal.daytona.runStartupCommands,
-              { sandboxId: sandbox.id, repoId: args.repoId },
-            );
-            if (result.ran && result.commandCount > 0) {
-              logSession(
-                `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+      tryReuseSandbox(
+        daytona,
+        args.existingSandboxId,
+        async (sandbox) => {
+          const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
+          await emitTaskProgress(
+            ctx,
+            args.taskId,
+            completedSteps,
+            "Resuming existing sandbox...",
+          );
+          await runLoggedSessionStep(
+            "reuseTaskSandbox.prepare",
+            sandboxDetails,
+            async () => {
+              await ensureSandboxRunning(sandbox);
+              await checkoutSessionBranchWithRetry(
+                sandbox,
+                args.branchName,
+                args.baseBranch,
               );
-            }
-          },
-        );
-        await emitTaskProgress(
-          ctx,
-          args.taskId,
-          completedSteps,
-          "Launching background commands...",
-        );
-        await runLoggedSessionStep(
-          "reuseTaskSandbox.runBackgroundCommands",
-          sandboxDetails,
-          async () => {
-            const result = await ctx.runAction(
-              internal.daytona.runBackgroundCommands,
-              { sandboxId: sandbox.id, repoId: args.repoId },
-            );
-            if (result.ran && result.commandCount > 0) {
-              logSession(
-                `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+            },
+          );
+          completedSteps.push({
+            type: "tool",
+            label: "Resuming existing sandbox...",
+            status: "complete",
+          });
+          // Download sandbox config files to repo root
+          await emitTaskProgress(
+            ctx,
+            args.taskId,
+            completedSteps,
+            "Downloading config files...",
+          );
+          await runLoggedSessionStep(
+            "reuseTaskSandbox.downloadConfigFiles",
+            sandboxDetails,
+            async () => {
+              const configFiles = await ctx.runQuery(
+                internal.sandboxConfigFiles.getConfigFilesForSnapshot,
+                { repoId: args.repoId },
               );
-            }
-          },
-        );
-        completedSteps.push({
-          type: "tool",
-          label: "Launching background commands...",
-          status: "complete",
-        });
-        reusedResult = {
-          sandbox,
-          isNew: false,
-          usedSnapshot: false,
-          sandboxDetails,
-          branchName: args.branchName,
-          devPort,
-          devCommand,
-        };
-      }),
+              await downloadSandboxConfigFiles(
+                sandbox,
+                configFiles,
+                "/tmp/repo",
+                logSession,
+              );
+            },
+          );
+          completedSteps.push({
+            type: "tool",
+            label: "Downloading config files...",
+            status: "complete",
+          });
+          await emitTaskProgress(
+            ctx,
+            args.taskId,
+            completedSteps,
+            "Starting dev server...",
+          );
+          const { port: devPort, devCommand } = await runLoggedSessionStep(
+            "reuseTaskSandbox.startSessionServices",
+            sandboxDetails,
+            () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
+          );
+          completedSteps.push({
+            type: "tool",
+            label: "Starting dev server...",
+            status: "complete",
+          });
+          // Note: runStartupCommands is intentionally not surfaced as a UI step
+          // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
+          // makes it a no-op once the sandbox has been initialised, so showing
+          // "Running startup commands..." would be misleading on resume.
+          await runLoggedSessionStep(
+            "reuseTaskSandbox.runStartupCommands",
+            sandboxDetails,
+            async () => {
+              const result = await ctx.runAction(
+                internal.daytona.runStartupCommands,
+                { sandboxId: sandbox.id, repoId: args.repoId },
+              );
+              if (result.ran && result.commandCount > 0) {
+                logSession(
+                  `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                );
+              }
+            },
+          );
+          await emitTaskProgress(
+            ctx,
+            args.taskId,
+            completedSteps,
+            "Launching background commands...",
+          );
+          await runLoggedSessionStep(
+            "reuseTaskSandbox.runBackgroundCommands",
+            sandboxDetails,
+            async () => {
+              const result = await ctx.runAction(
+                internal.daytona.runBackgroundCommands,
+                { sandboxId: sandbox.id, repoId: args.repoId },
+              );
+              if (result.ran && result.commandCount > 0) {
+                logSession(
+                  `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                );
+              }
+            },
+          );
+          completedSteps.push({
+            type: "tool",
+            label: "Launching background commands...",
+            status: "complete",
+          });
+          reusedResult = {
+            sandbox,
+            isNew: false,
+            usedSnapshot: false,
+            sandboxDetails,
+            branchName: args.branchName,
+            devPort,
+            devCommand,
+          };
+        },
+        {
+          fallbackOnPrepareError: false,
+        },
+      ),
   );
   if (reused && reusedResult) {
     return reusedResult;

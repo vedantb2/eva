@@ -1,5 +1,16 @@
 # Changelog
 
+## Keep quick-task sandbox stop spinner visible - 2026-05-05
+
+- **Why**: Quick-task detail controls could return to the start/view state immediately after requesting a sandbox stop, even though Daytona can take roughly 30 seconds to finish stopping the sandbox.
+- **Change**: The quick-task sandbox UI now treats `stopping` as an active lifecycle state, keeps the sandbox panel in its stopping view, and shows a disabled spinner control until the backend marks the sandbox closed.
+
+## Prevent quick-task sandbox resume from silently creating replacements - 2026-05-05
+
+- **Why**: Quick-task sandbox startup could spend time restoring a saved Daytona sandbox, hit a resume/setup error, then silently abandon that filesystem and create a new sandbox.
+- **Change**: The task preview resume path now only falls through to sandbox creation when the saved sandbox ID is genuinely missing or deleted. Preparation failures on a found sandbox now fail the start attempt and preserve the existing `task.sandboxId`.
+- **Reason**: Reviewer sandboxes are stateful; silently replacing them can discard the database/filesystem state the user expected to resume.
+
 ## Add MCP connector icon metadata - 2026-05-02
 
 - **Why**: Claude custom connectors were showing a blank connector icon because the backend MCP implementation did not advertise a visual identifier.

@@ -1,5 +1,11 @@
 # Changelog
 
+## Auto-start dev server without opening terminal tab - 2026-05-06
+
+- **Why**: The first terminal pane was only created when the user opened the Terminal tab, so the dev command didn't run until then. The preview iframe would sit waiting for a server that hadn't started yet.
+- **Change**: Switched terminal pane creation from lazy (on tab open) to eager (on sandbox active). The pane is mounted in the background before the user opens the tab, so the PTY connects immediately and the dev command auto-runs. Unrelated preview tab kept its lazy-create behavior.
+- **Reason**: Dev servers should start on sandbox init, not on UI interaction. Output continues streaming in the background while the user is on the preview tab.
+
 ## Lock page interaction while following another user - 2026-05-06
 
 - **Why**: The follow-user feature crashed inside the repo layout because `Sidebar`'s `TeamMembers` calls `useFollow()` but only the `_global` route was wrapped in `FollowProvider`. Even when it worked, the follower could click around and navigate themselves, defeating the "redirect me to their screen" intent.

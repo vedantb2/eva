@@ -97,13 +97,16 @@ export function useSandboxPanes({
     [setTerminalState],
   );
 
-  // Auto-create the first pane the moment its tab is opened.
+  // Eagerly create the first terminal pane the moment the sandbox is active so
+  // its PTY connects and the dev command auto-runs without the user having to
+  // open the Terminal tab. The pane stays mounted (parent div is hidden when
+  // not active), so output keeps streaming in the background.
   useEffect(() => {
-    if (activeTab !== "terminal" || termIds.length > 0) return;
+    if (!isActive || termIds.length > 0) return;
     const id = crypto.randomUUID();
     setTermIds([id]);
     setTermActive(id);
-  }, [activeTab, termIds.length, setTermIds, setTermActive]);
+  }, [isActive, termIds.length, setTermIds, setTermActive]);
 
   useEffect(() => {
     if (activeTab !== "preview" || previewIds.length > 0) return;

@@ -53,6 +53,7 @@ import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSideba
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoSwitcher } from "@/lib/components/RepoSwitcher";
 import { RootSidebarContent } from "@/lib/components/sidebar/RootSidebarContent";
+import { useFollow } from "@/lib/contexts/FollowContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
@@ -859,7 +860,7 @@ function getDisplayName(user: {
 
 function TeamMembers({ collapsed }: { collapsed: boolean }) {
   const teamData = useQuery(api.users.listTeamWithMembers, {});
-  const navigate = useNavigate();
+  const { following, startFollowing, stopFollowing } = useFollow();
 
   const now = Date.now();
   const twoMinutes = 2 * 60 * 1000;
@@ -877,25 +878,35 @@ function TeamMembers({ collapsed }: { collapsed: boolean }) {
       <div className="flex flex-col items-center gap-1 pb-3">
         {onlineMembers.slice(0, 3).map((u) => {
           const name = getDisplayName(u);
+          const isFollowing = following?.userId === u._id;
 
           return (
             <Tooltip key={u._id}>
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110"
+                  className={cn(
+                    "cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110",
+                    isFollowing && "ring-2 ring-blue-500",
+                  )}
                   onClick={() => {
-                    if (u.lastSeenPath) {
-                      navigate({ to: u.lastSeenPath });
+                    if (isFollowing) {
+                      stopFollowing();
+                    } else if (u.lastSeenPath) {
+                      startFollowing(u._id, name);
                     }
                   }}
-                  disabled={!u.lastSeenPath}
+                  disabled={!u.lastSeenPath && !isFollowing}
                 >
                   <UserInitials user={u} size="sm" hideLastSeen />
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                {u.lastSeenPath ? `Teleport to ${name}` : name}
+                {isFollowing
+                  ? `Stop following ${name}`
+                  : u.lastSeenPath
+                    ? `Follow ${name}`
+                    : name}
               </TooltipContent>
             </Tooltip>
           );
@@ -917,24 +928,34 @@ function TeamMembers({ collapsed }: { collapsed: boolean }) {
       <div className="flex flex-wrap items-center gap-1">
         {onlineMembers.map((u) => {
           const name = getDisplayName(u);
+          const isFollowing = following?.userId === u._id;
           return (
             <Tooltip key={u._id}>
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110"
+                  className={cn(
+                    "cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110",
+                    isFollowing && "ring-2 ring-blue-500",
+                  )}
                   onClick={() => {
-                    if (u.lastSeenPath) {
-                      navigate({ to: u.lastSeenPath });
+                    if (isFollowing) {
+                      stopFollowing();
+                    } else if (u.lastSeenPath) {
+                      startFollowing(u._id, name);
                     }
                   }}
-                  disabled={!u.lastSeenPath}
+                  disabled={!u.lastSeenPath && !isFollowing}
                 >
                   <UserInitials user={u} size="sm" hideLastSeen />
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                {u.lastSeenPath ? `Teleport to ${name}` : name}
+                {isFollowing
+                  ? `Stop following ${name}`
+                  : u.lastSeenPath
+                    ? `Follow ${name}`
+                    : name}
               </TooltipContent>
             </Tooltip>
           );

@@ -1,5 +1,11 @@
 # Changelog
 
+## Lock page interaction while following another user - 2026-05-06
+
+- **Why**: The follow-user feature crashed inside the repo layout because `Sidebar`'s `TeamMembers` calls `useFollow()` but only the `_global` route was wrapped in `FollowProvider`. Even when it worked, the follower could click around and navigate themselves, defeating the "redirect me to their screen" intent.
+- **Change**: Added `FollowProvider` and rendered `FollowOverlay` inside `_repo/$owner/$repo.tsx` mirroring the `_global.tsx` layout. The follow overlay's fullscreen ring now captures pointer events with `cursor-not-allowed`, and the "Following X" badge sits on a higher z-index so the close button (and Escape key) remain the only ways to exit follow mode.
+- **Reason**: Both global and repo routes share the sidebar, so they need the same follow context. Blocking page interactions enforces the contract that following means strictly mirroring the other user's navigation.
+
 ## Drive GitHub install URL from Convex env instead of hardcoded slug - 2026-05-05
 
 - **Why**: `ReposClient.tsx` had a hardcoded `GITHUB_APP_NAME = "vb-eva-dev"` for building the GitHub App install URL. The dev slug was shipped to every environment, so production users would have been sent to the wrong install page. Backend already reads the slug from `process.env.GITHUB_APP_SLUG` (used in `snapshotActions.ts` and `_daytona/git.ts`), so the value belonged on the same source of truth.

@@ -6,6 +6,8 @@ import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { SearchProvider } from "@/lib/contexts/SearchContext";
 import { RepoProvider } from "@/lib/contexts/RepoContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
+import { FollowProvider } from "@/lib/contexts/FollowContext";
+import { FollowOverlay } from "@/lib/components/FollowOverlay";
 import { LiveCursors } from "@/lib/components/LiveCursors";
 
 export const Route = createFileRoute("/_repo/$owner/$repo")({
@@ -40,12 +42,15 @@ function RepoLayoutInner() {
       <SidebarProvider>
         <PageTitleProvider>
           <SearchProvider>
-            <Sidebar />
-            <MainContent>
-              <Outlet />
-            </MainContent>
-            <SpotlightSearch />
-            <LiveCursors />
+            <FollowProvider>
+              <Sidebar />
+              <MainContent>
+                <Outlet />
+              </MainContent>
+              <SpotlightSearch />
+              <LiveCursors />
+              <FollowOverlay />
+            </FollowProvider>
           </SearchProvider>
         </PageTitleProvider>
       </SidebarProvider>

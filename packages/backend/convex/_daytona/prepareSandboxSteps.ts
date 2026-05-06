@@ -180,21 +180,35 @@ export async function prepareSandboxSteps(
     );
   }
 
-  // Step 4: Run startup commands if configured (non-fatal on failure)
+  // Step 4: Run startup commands if configured (non-fatal on failure).
+  // Only push the completed step when commands actually ran — on a resumed
+  // sandbox the marker file makes runStartupCommands a no-op, and showing
+  // "Running startup commands... complete" would be misleading.
+  await emitSteps(step, args.streamingEntityId, [
+    ...completedSteps,
+    { type: "tool", label: "Running startup commands...", status: "active" },
+  ]);
   try {
     const result = await step.runAction(
       internal.daytona.runStartupCommands,
       { sandboxId, repoId: args.repoId },
       { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
     );
-    if (result.ran && result.commandCount > 0) {
-      console.log(
-        `[prepareSandbox] Ran ${result.commandCount} startup command(s)`,
-      );
-      if (result.errors.length > 0) {
-        console.warn(
-          `[prepareSandbox] Startup command errors: ${result.errors.join("; ")}`,
+    if (result.ran) {
+      completedSteps.push({
+        type: "tool",
+        label: "Running startup commands...",
+        status: "complete",
+      });
+      if (result.commandCount > 0) {
+        console.log(
+          `[prepareSandbox] Ran ${result.commandCount} startup command(s)`,
         );
+        if (result.errors.length > 0) {
+          console.warn(
+            `[prepareSandbox] Startup command errors: ${result.errors.join("; ")}`,
+          );
+        }
       }
     }
   } catch (e) {
@@ -206,20 +220,35 @@ export async function prepareSandboxSteps(
   }
 
   // Step 5: Launch background commands (long-running daemons). Non-fatal.
+  await emitSteps(step, args.streamingEntityId, [
+    ...completedSteps,
+    {
+      type: "tool",
+      label: "Launching background commands...",
+      status: "active",
+    },
+  ]);
   try {
     const result = await step.runAction(
       internal.daytona.runBackgroundCommands,
       { sandboxId, repoId: args.repoId },
       { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
     );
-    if (result.ran && result.commandCount > 0) {
-      console.log(
-        `[prepareSandbox] Launched ${result.commandCount} background command(s)`,
-      );
-      if (result.errors.length > 0) {
-        console.warn(
-          `[prepareSandbox] Background command errors: ${result.errors.join("; ")}`,
+    if (result.ran) {
+      completedSteps.push({
+        type: "tool",
+        label: "Launching background commands...",
+        status: "complete",
+      });
+      if (result.commandCount > 0) {
+        console.log(
+          `[prepareSandbox] Launched ${result.commandCount} background command(s)`,
         );
+        if (result.errors.length > 0) {
+          console.warn(
+            `[prepareSandbox] Background command errors: ${result.errors.join("; ")}`,
+          );
+        }
       }
     }
   } catch (e) {

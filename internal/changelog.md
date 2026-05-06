@@ -1,5 +1,23 @@
 # Changelog
 
+## Show startup and background command progress in all sandbox flows - 2026-05-06
+
+- **Why**: Quick-task runs silently executed startup/background commands without UI feedback, while quick-task view-changes showed progress steps. Sessions only showed startup progress, not background.
+- **Change**: Added progress-step emissions around all `runStartupCommands` and `runBackgroundCommands` calls in `prepareSandboxSteps.ts` (used by quick-task runs, evals, automations) and both session reuse/new paths. Startup commands only show complete on resumed sandboxes if commands actually ran (marker file skips re-execution).
+- **Reason**: Users now see consistent "Running startup commands… / Launching background commands…" feedback across all sandbox startup paths, matching the UX they already see in quick-task view-changes.
+
+## Auto-start dev server without opening terminal tab - 2026-05-06
+
+- **Why**: The first terminal pane was only created when the user opened the Terminal tab, so the dev command didn't run until then. The preview iframe would sit waiting for a server that hadn't started yet.
+- **Change**: Switched terminal pane creation from lazy (on tab open) to eager (on sandbox active). The pane is mounted in the background before the user opens the tab, so the PTY connects immediately and the dev command auto-runs. Unrelated preview tab kept its lazy-create behavior.
+- **Reason**: Dev servers should start on sandbox init, not on UI interaction. Output continues streaming in the background while the user is on the preview tab.
+
+## Lock page interaction while following another user - 2026-05-06
+
+- **Why**: The follow-user feature crashed inside the repo layout because `Sidebar`'s `TeamMembers` calls `useFollow()` but only the `_global` route was wrapped in `FollowProvider`. Even when it worked, the follower could click around and navigate themselves, defeating the "redirect me to their screen" intent.
+- **Change**: Added `FollowProvider` and rendered `FollowOverlay` inside `_repo/$owner/$repo.tsx` mirroring the `_global.tsx` layout. The follow overlay's fullscreen ring now captures pointer events with `cursor-not-allowed`, and the "Following X" badge sits on a higher z-index so the close button (and Escape key) remain the only ways to exit follow mode.
+- **Reason**: Both global and repo routes share the sidebar, so they need the same follow context. Blocking page interactions enforces the contract that following means strictly mirroring the other user's navigation.
+
 ## Recover MCP OAuth flow when prod Clerk handshake bounces popup to /home - 2026-05-05
 
 - **Why**: On prod (Clerk live keys), the popup Claude opens at `/mcp/oauth/authorize` could land on `/home` — the global `signInFallbackRedirectUrl` — before our route ever ran. Staging (Clerk test keys) didn't reproduce this because dev instances skip the cross-domain session handshake. End result: Claude's "Connect" flow failed silently in production.

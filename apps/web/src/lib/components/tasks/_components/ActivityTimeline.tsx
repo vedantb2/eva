@@ -121,7 +121,7 @@ export function ActivityTimeline({
   return (
     <div className="pt-4">
       <div className="space-y-2">
-        {activityTimeline.map((item) => {
+        {activityTimeline.map((item, index) => {
           if (item.kind === "audit") {
             const audit = item.audit;
             const auditIndex = (allAudits ?? []).indexOf(audit);
@@ -131,6 +131,7 @@ export function ActivityTimeline({
                 key={`audit-${audit._id}`}
                 audit={audit}
                 isLatest={isLatest}
+                isFirst={index === 0}
                 auditStreaming={auditStreaming}
                 auditElapsed={auditElapsed}
                 fixElapsed={fixElapsed}
@@ -145,6 +146,7 @@ export function ActivityTimeline({
               <RunTimelineItem
                 run={run}
                 isActiveRun={isActiveRun}
+                isFirst={index === 0}
                 streaming={streaming}
                 activeRunElapsed={activeRunElapsed}
                 isStopping={isStopping}

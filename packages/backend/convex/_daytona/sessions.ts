@@ -508,6 +508,10 @@ async function prepareSessionSandboxInternal(
             () => startDesktopWithChrome(sandbox),
           );
         }
+        // Note: runStartupCommands is intentionally not surfaced as a UI step
+        // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
+        // makes it a no-op once the sandbox has been initialised, so showing
+        // "Running startup commands..." would be misleading on resume.
         await runLoggedSessionStep(
           "reuseSessionSandbox.runStartupCommands",
           sandboxDetails,
@@ -523,6 +527,13 @@ async function prepareSessionSandboxInternal(
             }
           },
         );
+        await emitSessionProgress(
+          ctx,
+          args.sessionId,
+          completedSteps,
+          "Launching background commands...",
+        );
+        let reuseBgRan = false;
         await runLoggedSessionStep(
           "reuseSessionSandbox.runBackgroundCommands",
           sandboxDetails,
@@ -531,6 +542,7 @@ async function prepareSessionSandboxInternal(
               internal.daytona.runBackgroundCommands,
               { sandboxId: sandbox.id, repoId: args.repoId },
             );
+            reuseBgRan = result.ran;
             if (result.ran && result.commandCount > 0) {
               logSession(
                 `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
@@ -538,6 +550,13 @@ async function prepareSessionSandboxInternal(
             }
           },
         );
+        if (reuseBgRan) {
+          completedSteps.push({
+            type: "tool",
+            label: "Launching background commands...",
+            status: "complete",
+          });
+        }
         reusedResult = {
           sandbox,
           isNew: false,
@@ -750,6 +769,13 @@ async function prepareSessionSandboxInternal(
     status: "complete",
   });
 
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Launching background commands...",
+  );
+  let bgRan = false;
   await runLoggedSessionStep(
     "newSessionSandbox.runBackgroundCommands",
     sandboxDetails,
@@ -758,6 +784,7 @@ async function prepareSessionSandboxInternal(
         internal.daytona.runBackgroundCommands,
         { sandboxId: sandbox.id, repoId: args.repoId },
       );
+      bgRan = result.ran;
       if (result.ran && result.commandCount > 0) {
         logSession(
           `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
@@ -765,6 +792,13 @@ async function prepareSessionSandboxInternal(
       }
     },
   );
+  if (bgRan) {
+    completedSteps.push({
+      type: "tool",
+      label: "Launching background commands...",
+      status: "complete",
+    });
+  }
 
   await completeSessionProgress(ctx, args.sessionId);
   return {

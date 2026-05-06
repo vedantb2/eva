@@ -1,5 +1,11 @@
 # Changelog
 
+## Show startup and background command progress in all sandbox flows - 2026-05-06
+
+- **Why**: Quick-task runs silently executed startup/background commands without UI feedback, while quick-task view-changes showed progress steps. Sessions only showed startup progress, not background.
+- **Change**: Added progress-step emissions around all `runStartupCommands` and `runBackgroundCommands` calls in `prepareSandboxSteps.ts` (used by quick-task runs, evals, automations) and both session reuse/new paths. Startup commands only show complete on resumed sandboxes if commands actually ran (marker file skips re-execution).
+- **Reason**: Users now see consistent "Running startup commands… / Launching background commands…" feedback across all sandbox startup paths, matching the UX they already see in quick-task view-changes.
+
 ## Auto-start dev server without opening terminal tab - 2026-05-06
 
 - **Why**: The first terminal pane was only created when the user opened the Terminal tab, so the dev command didn't run until then. The preview iframe would sit waiting for a server that hadn't started yet.

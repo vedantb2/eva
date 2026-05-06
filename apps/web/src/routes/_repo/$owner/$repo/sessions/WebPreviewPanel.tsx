@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   Spinner,
   Button,
@@ -7,6 +7,7 @@ import {
   WebPreviewBody,
   useWebPreview,
 } from "@conductor/ui";
+import { useSessionStorage } from "usehooks-ts";
 import {
   IconAlertTriangle,
   IconRefresh,
@@ -35,25 +36,6 @@ interface WebPreviewPanelProps {
   port: number;
   onPortChange: (port: number) => void;
   pathStorageKey: string;
-}
-
-function readPreviewPath(storageKey: string): string {
-  try {
-    const stored = sessionStorage.getItem(storageKey);
-    return stored ? normalizePreviewPath(stored) : "/";
-  } catch {
-    return "/";
-  }
-}
-
-function writePreviewPath(storageKey: string, path: string): string {
-  const normalized = normalizePreviewPath(path);
-  try {
-    sessionStorage.setItem(storageKey, normalized);
-  } catch {
-    // non-critical; the live preview path still updates in memory
-  }
-  return normalized;
 }
 
 function NavigationBar({
@@ -108,30 +90,27 @@ export function WebPreviewPanel({
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [warningHintDismissed, setWarningHintDismissed] = useState(false);
-  const [previewPath, setPreviewPath] = useState(() =>
-    readPreviewPath(pathStorageKey),
-  );
-
-  useEffect(() => {
-    setPreviewPath(readPreviewPath(pathStorageKey));
-  }, [pathStorageKey]);
+  const [previewPath, setPreviewPath] = useSessionStorage(pathStorageKey, "/", {
+    serializer: (value) => value,
+    deserializer: (value) => normalizePreviewPath(value),
+  });
 
   // iframeSrc is recomputed only at remount points (previewInfo change,
-  // storage-key change, or iframeKey bump from a refresh). Reading the path
-  // from sessionStorage here — instead of from previewPath state — keeps the
-  // src stable while the user navigates inside the iframe, so we don't fight
-  // the iframe with declarative src updates.
+  // storage-key change, or iframeKey bump from a refresh). previewPath is
+  // intentionally excluded from deps so the src stays stable while the user
+  // navigates inside the iframe — otherwise we'd fight the iframe with
+  // declarative src updates.
   const iframeSrc = useMemo(() => {
     if (!previewInfo) return undefined;
-    return buildUrlWithPath(previewInfo.url, readPreviewPath(pathStorageKey));
+    return buildUrlWithPath(previewInfo.url, previewPath);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewInfo, pathStorageKey, iframeKey]);
 
   const handlePathChange = useCallback(
     (path: string) => {
-      setPreviewPath(writePreviewPath(pathStorageKey, path));
+      setPreviewPath(normalizePreviewPath(path));
     },
-    [pathStorageKey],
+    [setPreviewPath],
   );
 
   if (!isActive || !sandboxId) {

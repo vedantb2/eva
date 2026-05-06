@@ -24,7 +24,7 @@ import {
   cn,
 } from "@conductor/ui";
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
 
@@ -248,7 +248,7 @@ export function DocsSidebar({
                   <ContextMenuTrigger asChild>
                     <div
                       className={cn(
-                        "group mx-1 rounded-md px-3 py-3.5 transition-colors",
+                        "group mx-1 rounded-md px-3 py-3 transition-colors",
                         isSelected
                           ? "bg-sidebar-accent text-sidebar-primary"
                           : "text-sidebar-foreground hover:bg-sidebar-accent/70",
@@ -257,18 +257,20 @@ export function DocsSidebar({
                       <Link
                         to={href}
                         onClick={onNavigate}
-                        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                        className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                       >
                         <span
                           className={cn(
-                            "block truncate text-sm",
+                            "min-w-0 flex-1 truncate text-sm",
                             isSelected && "font-medium text-sidebar-primary",
                           )}
                         >
                           {doc.title}
                         </span>
-                        <span className="text-xs text-muted-foreground">
-                          {dayjs(doc.updatedAt ?? doc._creationTime).fromNow()}
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {compactRelativeTime(
+                            doc.updatedAt ?? doc._creationTime,
+                          )}
                         </span>
                       </Link>
                     </div>

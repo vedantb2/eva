@@ -16,7 +16,8 @@ interface JsonObject {
 
 type TerminalHistoryOwner =
   | { kind: "session"; sessionId: string }
-  | { kind: "task"; taskId: string };
+  | { kind: "task"; taskId: string }
+  | { kind: "project"; projectId: string };
 
 export interface TerminalControlMessage {
   type: "control";
@@ -71,7 +72,12 @@ export function buildTerminalHistoryKey(
   sandboxId: string,
   ptyInstanceId: string,
 ): string {
-  const ownerId = owner.kind === "session" ? owner.sessionId : owner.taskId;
+  const ownerId =
+    owner.kind === "session"
+      ? owner.sessionId
+      : owner.kind === "task"
+        ? owner.taskId
+        : owner.projectId;
   return `conductor:terminal-history:${owner.kind}:${ownerId}:${sandboxId}:${ptyInstanceId}`;
 }
 

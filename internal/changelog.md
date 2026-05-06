@@ -1,5 +1,11 @@
 # Changelog
 
+## Project-level sandbox preview - 2026-05-06
+
+- **Why**: Projects lacked the sandbox preview feature available on quick tasks. Reviewers need to test the entire project codebase in a sandbox environment without selecting individual tasks.
+- **Change**: Extended sandbox lifecycle (start/stop/ready/error mutations + workflow + Daytona action) to projects table. Added `reviewProjectSandboxStatus`, `devPort`, `devCommand` fields to `projects` schema. Extended PTY layer (`pty.ts`, `TerminalPanel.tsx`, `TerminalHistoryOwner`) to support `{ kind: "project"; projectId }` owner discriminant. Created `useProjectSandbox` hook and `ProjectSandboxPanel` component (mirrors task sandbox panel). Wired `ProjectDetailClient` header with Start/View/Stop Sandbox buttons and conditional sandbox view that replaces the task list when active. Sandbox only starts when project phase is `active` and uses the project's branch directly.
+- **Reason**: Full feature parity between task and project sandboxes. Users can now run the entire project repo in a Daytona sandbox and inspect the generated code before merging.
+
 ## Show startup and background command progress in all sandbox flows - 2026-05-06
 
 - **Why**: Quick-task runs silently executed startup/background commands without UI feedback, while quick-task view-changes showed progress steps. Sessions only showed startup progress, not background.

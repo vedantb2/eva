@@ -116,7 +116,7 @@ export function Sidebar() {
   const { pageTitle } = usePageTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useHotkey("Mod+i", (e) => {
+  useHotkey("Mod+I", (e) => {
     e.preventDefault();
     setCollapsed(!collapsed);
   });

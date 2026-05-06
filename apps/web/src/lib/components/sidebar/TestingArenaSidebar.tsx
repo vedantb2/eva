@@ -17,7 +17,7 @@ import {
   Spinner,
   cn,
 } from "@conductor/ui";
-import { IconFileText, IconPlus } from "@tabler/icons-react";
+import { IconAlertTriangle, IconFileText } from "@tabler/icons-react";
 import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { branchParser, searchParser } from "@/lib/search-params";
@@ -90,11 +90,11 @@ export function TestingArenaSidebar({
         <Button
           size="icon-sm"
           variant="ghost"
-          className="shrink-0 text-sidebar-primary"
+          className="shrink-0 text-amber-600 dark:text-amber-400"
           onClick={() => setShowTestAllModal(true)}
-          title="Test all"
+          title="Test all documents"
         >
-          <IconPlus size={16} />
+          <IconAlertTriangle size={16} />
         </Button>
       </div>
 

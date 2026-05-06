@@ -367,20 +367,17 @@ export function DocsSidebar({
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Document Title</label>
-                <Input
-                  placeholder="e.g., User Authentication PRD"
-                  value={newDocTitle}
-                  onChange={(event) => setNewDocTitle(event.target.value)}
-                  autoFocus
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && newDocTitle.trim()) {
-                      void handleCreateDoc();
-                    }
-                  }}
-                />
-              </div>
+              <Input
+                placeholder="e.g., User Authentication PRD"
+                value={newDocTitle}
+                onChange={(event) => setNewDocTitle(event.target.value)}
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && newDocTitle.trim()) {
+                    void handleCreateDoc();
+                  }
+                }}
+              />
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-md bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"

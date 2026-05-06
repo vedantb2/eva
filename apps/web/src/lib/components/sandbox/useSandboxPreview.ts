@@ -54,7 +54,7 @@ export function useSandboxPreview({
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const [port, setPort] = useQueryState("port", previewPortParser);
-  const effectivePort = devPort ?? port;
+  const effectivePort = port ?? devPort ?? 3000;
 
   // sessionStorage is both cache and live state — when port or sandboxId
   // changes useSessionStorage re-reads the new key automatically. sandboxId is

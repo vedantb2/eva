@@ -240,7 +240,7 @@ export const getPreviewUrl = action({
       try {
         const result = await exec(
           sandbox,
-          `curl -s -o /dev/null -w "%{http_code}" http://localhost:${args.port}`,
+          `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${args.port}`,
           3,
         );
         const code = parseInt(result.trim() || "0", 10);

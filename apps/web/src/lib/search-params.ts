@@ -105,9 +105,7 @@ export const projectViewParser = parseAsStringLiteral(projectViews)
   .withDefault("kanban")
   .withOptions(tabOptions);
 
-export const previewPortParser = parseAsInteger
-  .withDefault(3001)
-  .withOptions(searchOptions);
+export const previewPortParser = parseAsInteger.withOptions(searchOptions);
 
 export const branchParser = parseAsString
   .withDefault("main")

@@ -1,5 +1,11 @@
 # Changelog
 
+## Keep Daytona sandbox preview on the resolved dev port - 2026-05-06
+
+- **Why**: The preview pane could display port 3000 while hidden state still defaulted to 3001, and the navigation-sync proxy generated Daytona preview URLs for port 33000, outside Daytona's supported preview range.
+- **Change**: Removed the 3001 preview-port default, resolved preview ports as `URL override -> saved devPort -> 3000`, synchronized the port input from the resolved port prop, and moved the navigation-sync proxy to available ports in the 9000-9999 range.
+- **Reason**: Preview URL generation, the visible port control, and Daytona's supported preview-port contract now agree on the same target port.
+
 ## Project-level sandbox preview - 2026-05-06
 
 - **Why**: Projects lacked the sandbox preview feature available on quick tasks. Reviewers need to test the entire project codebase in a sandbox environment without selecting individual tasks.

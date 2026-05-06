@@ -62,7 +62,7 @@ export function useSandboxPreview({
   // in the subdomain; reusing a cached URL after the sandbox is destroyed and
   // recreated would 400 with "Sandbox not found".
   const [previewInfo, setPreviewInfo] = useSessionStorage<PreviewInfo | null>(
-    `conductor:${cacheScope}:nav-sync-v1:${sandboxId ?? "no-sandbox"}:${effectivePort}`,
+    `conductor:${cacheScope}:nav-sync-v2:${sandboxId ?? "no-sandbox"}:${effectivePort}`,
     null,
   );
 

@@ -5,7 +5,6 @@ import { useAction } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
-import { useSessionStorage } from "usehooks-ts";
 import { previewPortParser } from "@/lib/search-params";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
 
@@ -29,45 +28,46 @@ interface UseSandboxPreviewArgs {
   isActive: boolean;
   repoId: Id<"githubRepos">;
   devPort?: number;
-  /**
-   * Full sessionStorage namespace for cached preview URLs — e.g.
-   * `preview:<sessionId>` or `task-preview:<taskId>`. Final keys include the
-   * sandbox ID, port, and preview-url behavior version.
-   */
-  cacheScope: string;
+}
+
+function clearLegacyPreviewUrlCache(): void {
+  const keys: string[] = [];
+  for (let i = 0; i < sessionStorage.length; i += 1) {
+    const key = sessionStorage.key(i);
+    if (key?.startsWith("conductor:") && key.includes(":nav-sync-")) {
+      keys.push(key);
+    }
+  }
+
+  for (const key of keys) {
+    sessionStorage.removeItem(key);
+  }
 }
 
 /**
- * Drives the WebPreview pane: resolves a sandbox+port to a live URL, polls
- * until the dev server is reachable, and caches the resolved URL in
- * sessionStorage (via `useSessionStorage`) so navigating back doesn't
- * re-fetch. Used by both the session and quick-task sandbox panels.
+ * Drives the WebPreview pane: resolves a sandbox+port to a live URL and polls
+ * until the dev server is reachable. Signed Daytona preview URLs are kept in
+ * memory only because persisting them can resurrect stale iframe targets.
  */
 export function useSandboxPreview({
   sandboxId,
   isActive,
   repoId,
   devPort,
-  cacheScope,
 }: UseSandboxPreviewArgs): SandboxPreviewApi {
+  const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
   const [port, setPort] = useQueryState("port", previewPortParser);
   const effectivePort = port ?? devPort ?? 3000;
 
-  // sessionStorage is both cache and live state — when port or sandboxId
-  // changes useSessionStorage re-reads the new key automatically. sandboxId is
-  // part of the key because Daytona signed preview URLs embed the sandbox ID
-  // in the subdomain; reusing a cached URL after the sandbox is destroyed and
-  // recreated would 400 with "Sandbox not found".
-  const [previewInfo, setPreviewInfo] = useSessionStorage<PreviewInfo | null>(
-    `conductor:${cacheScope}:nav-sync-v2:${sandboxId ?? "no-sandbox"}:${effectivePort}`,
-    null,
-  );
-
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    clearLegacyPreviewUrlCache();
+  }, []);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -103,31 +103,18 @@ export function useSandboxPreview({
       setError(err instanceof Error ? err.message : "Failed to load preview");
       setIsLoading(false);
     }
-  }, [
-    sandboxId,
-    isActive,
-    getPreviewUrl,
-    stopPolling,
-    repoId,
-    effectivePort,
-    setPreviewInfo,
-  ]);
+  }, [sandboxId, isActive, getPreviewUrl, stopPolling, repoId, effectivePort]);
 
   useEffect(() => {
     if (isActive && sandboxId) {
-      // useSessionStorage already hydrated `previewInfo` from cache; only
-      // fetch if there isn't one yet for this port.
-      if (previewInfo) return;
+      setPreviewInfo(null);
       fetchPreview();
     }
     if (!isActive) {
       setPreviewInfo(null);
+      setIsLoading(false);
     }
     return stopPolling;
-    // We intentionally omit `previewInfo` from deps — re-running on every
-    // cache write would cause a fetch loop. The cached value is only checked
-    // on (isActive, sandboxId, port) transitions.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, sandboxId, effectivePort, fetchPreview, stopPolling]);
 
   return {

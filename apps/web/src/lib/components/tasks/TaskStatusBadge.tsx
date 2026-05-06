@@ -91,7 +91,7 @@ export const statusConfig: Record<
     cardBg: "bg-status-done-subtle",
     bar: "bg-status-done-bar",
     text: "text-status-done",
-    label: "Done",
+    label: "Merged",
     icon: IconCircleCheck,
   },
   cancelled: {

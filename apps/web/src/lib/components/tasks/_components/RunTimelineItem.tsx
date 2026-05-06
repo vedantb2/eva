@@ -42,6 +42,7 @@ type Streaming = FunctionReturnType<typeof api.streaming.get>;
 export function RunTimelineItem({
   run,
   isActiveRun,
+  isFirst,
   streaming,
   activeRunElapsed,
   isStopping,
@@ -51,6 +52,7 @@ export function RunTimelineItem({
 }: {
   run: Run;
   isActiveRun: boolean;
+  isFirst: boolean;
   streaming: Streaming | undefined;
   activeRunElapsed: number;
   isStopping: boolean;
@@ -59,7 +61,10 @@ export function RunTimelineItem({
   onViewComment: () => void;
 }) {
   return (
-    <Accordion type="multiple" defaultValue={isActiveRun ? [run._id] : []}>
+    <Accordion
+      type="multiple"
+      defaultValue={isActiveRun || isFirst ? [run._id] : []}
+    >
       <AccordionItem value={run._id} className="rounded-lg bg-muted/40 px-3">
         <div className="flex items-center gap-2">
           <AccordionTrigger className="flex-1 min-w-0">

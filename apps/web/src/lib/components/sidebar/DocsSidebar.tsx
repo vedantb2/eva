@@ -257,7 +257,7 @@ export function DocsSidebar({
                       <Link
                         to={href}
                         onClick={onNavigate}
-                        className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                        className="flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                       >
                         <span
                           className={cn(
@@ -267,7 +267,14 @@ export function DocsSidebar({
                         >
                           {doc.title}
                         </span>
-                        <span className="shrink-0 text-xs text-muted-foreground">
+                        <span
+                          className={cn(
+                            "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
+                            isSelected
+                              ? "max-w-[80px] pl-2 opacity-100"
+                              : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
+                          )}
+                        >
                           {compactRelativeTime(
                             doc.updatedAt ?? doc._creationTime,
                           )}

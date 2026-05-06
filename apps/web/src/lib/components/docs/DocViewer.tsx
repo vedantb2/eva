@@ -29,6 +29,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  cn,
 } from "@conductor/ui";
 import {
   IconPlus,
@@ -39,7 +40,7 @@ import {
   IconHistory,
   IconTestPipe,
   IconExternalLink,
-  IconDots,
+  IconSettings,
   IconPlayerStop,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
@@ -214,67 +215,68 @@ function DocEditor({ doc }: { doc: Doc }) {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
-        <div className="flex items-baseline gap-2 min-w-0">
-          <input
-            value={doc.title}
-            onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
-            className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0 min-w-0 w-auto cursor-text placeholder:text-muted-foreground"
-            placeholder="Document title"
-            size={Math.max(doc.title.length, 12)}
-          />
-          <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+        <input
+          value={doc.title}
+          onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
+          className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0 min-w-0 w-auto cursor-text placeholder:text-muted-foreground"
+          placeholder="Document title"
+          size={Math.max(doc.title.length, 12)}
+        />
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {isGeneratingTests && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Spinner size="sm" />
+              <span className="hidden sm:inline">Generating...</span>
+            </div>
+          )}
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
             {dayjs(doc.updatedAt).fromNow()}
           </span>
-        </div>
-        {isGeneratingTests && (
-          <div className="flex items-center gap-1.5 ml-auto text-sm text-muted-foreground">
-            <Spinner size="sm" />
-            <span className="hidden sm:inline">Generating...</span>
-          </div>
-        )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="icon"
-              variant="ghost"
-              className={isGeneratingTests ? "" : "ml-auto"}
-            >
-              <IconDots size={16} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setInterviewOpen(true)}>
-              <IconMessageChatbot size={16} />
-              Interview Me
-            </DropdownMenuItem>
-            {doc.testGenStatus === "completed" && doc.testPrUrl ? (
-              <DropdownMenuItem asChild>
-                <a
-                  href={doc.testPrUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <IconExternalLink size={16} />
-                  View Tests PR
-                </a>
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem
-                onClick={() => setTestGenConfirmOpen(true)}
-                disabled={isGeneratingTests}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="motion-press hover:scale-[1.01] active:scale-[0.96]"
               >
-                <IconTestPipe size={16} />
-                Generate Tests
+                <IconSettings size={16} />
+                <span className="hidden sm:inline">Options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setInterviewOpen(true)}>
+                <IconMessageChatbot size={16} />
+                Interview Me
               </DropdownMenuItem>
-            )}
-            {(doc.interviewHistory ?? []).length > 0 && (
-              <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
-                <IconHistory size={16} />
-                View History
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {doc.testGenStatus === "completed" && doc.testPrUrl ? (
+                <DropdownMenuItem asChild>
+                  <a
+                    href={doc.testPrUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconExternalLink size={16} />
+                    View Tests PR
+                  </a>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() => setTestGenConfirmOpen(true)}
+                  disabled={isGeneratingTests}
+                >
+                  <IconTestPipe size={16} />
+                  Generate Tests
+                </DropdownMenuItem>
+              )}
+              {(doc.interviewHistory ?? []).length > 0 && (
+                <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
+                  <IconHistory size={16} />
+                  View History
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       <DocInterviewDialog
         doc={doc}

@@ -25,12 +25,14 @@ type Streaming = FunctionReturnType<typeof api.streaming.get>;
 export function AuditTimelineItem({
   audit,
   isLatest,
+  isFirst,
   auditStreaming,
   auditElapsed,
   fixElapsed,
 }: {
   audit: Audit;
   isLatest: boolean;
+  isFirst: boolean;
   auditStreaming: Streaming | undefined;
   auditElapsed: number;
   fixElapsed: number;
@@ -43,7 +45,7 @@ export function AuditTimelineItem({
       {audit.fixStatus && (
         <Accordion
           type="multiple"
-          defaultValue={isFixStreaming ? [`fix-${audit._id}`] : []}
+          defaultValue={isFixStreaming || isFirst ? [`fix-${audit._id}`] : []}
         >
           <AccordionItem
             value={`fix-${audit._id}`}
@@ -102,7 +104,7 @@ export function AuditTimelineItem({
       )}
       <Accordion
         type="multiple"
-        defaultValue={isAuditStreaming ? [`audit-${audit._id}`] : []}
+        defaultValue={isAuditStreaming || isFirst ? [`audit-${audit._id}`] : []}
       >
         <AccordionItem
           value={`audit-${audit._id}`}

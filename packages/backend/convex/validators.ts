@@ -84,6 +84,13 @@ export const auditSeverityValidator = v.union(
   v.literal("low"),
 );
 
+export const priorityValidator = v.union(
+  v.literal("urgent"),
+  v.literal("high"),
+  v.literal("medium"),
+  v.literal("low"),
+);
+
 export const evalResultValidator = v.object({
   requirement: v.string(),
   passed: v.boolean(),
@@ -662,6 +669,7 @@ export const agentTaskFields = {
   tags: v.optional(v.array(v.string())),
   taskNumber: v.optional(v.number()),
   status: taskStatusValidator,
+  priority: v.optional(priorityValidator),
   createdAt: v.number(),
   updatedAt: v.number(),
   createdBy: v.optional(v.id("users")),
@@ -791,6 +799,7 @@ export const projectFields = {
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   phase: phaseValidator,
+  priority: v.optional(priorityValidator),
   rawInput: v.string(),
   projectLead: v.optional(v.id("users")),
   members: v.optional(v.array(v.id("users"))),

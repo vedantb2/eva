@@ -1,5 +1,11 @@
 # Changelog
 
+## Linear-style priority field for quick tasks and projects - 2026-05-06
+
+- **Why**: Quick tasks and projects had no way to express urgency, so users couldn't sort or scan their work by what mattered most.
+- **Change**: Added an optional priority field (Urgent / High / Medium / Low) on `agentTasks` and `projects` schemas, with a shared inline-SVG `PriorityIcon` (Linear-accurate visuals: orange-red square with `!` for urgent, ascending bars with N filled for the rest, three muted dashes for unset) and a `PriorityPicker` popover. Wired pickers into the quick-task creation modal + detail panel, the project creation modal + metadata bar + inline-editable table cell. Read-only icons appear on the quick-task table column, kanban/list card corners, and project table. Priority is sortable via the existing Options dropdown on both views. Mutations accept `null` to clear the field.
+- **Reason**: Single source of truth — `undefined` means "no priority" everywhere — keeps the schema and downstream code (icon, picker, sort comparator) on one type union of four values rather than introducing a synthetic fifth literal.
+
 ## Keep Daytona sandbox preview on the resolved dev port - 2026-05-06
 
 - **Why**: The preview pane could display port 3000 while hidden state still defaulted to 3001, and the navigation-sync proxy generated Daytona preview URLs for port 33000, outside Daytona's supported preview range.

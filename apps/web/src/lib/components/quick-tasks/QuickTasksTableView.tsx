@@ -22,6 +22,8 @@ import {
   TASK_STATUSES,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { compactRelativeTime } from "@conductor/shared/dates";
+import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
+import { PRIORITY_LABELS } from "@/lib/components/priority/priorityMeta";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
@@ -63,6 +65,21 @@ const columns: ColumnDef<Task, unknown>[] = [
       <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }) => <StatusCell status={row.original.status} />,
+  },
+  {
+    accessorKey: "priority",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Priority" />
+    ),
+    cell: ({ row }) => {
+      const level = row.original.priority;
+      return (
+        <span title={level ? PRIORITY_LABELS[level] : "No priority"}>
+          <PriorityIcon level={level} size={14} />
+        </span>
+      );
+    },
+    enableSorting: false,
   },
   {
     id: "project",

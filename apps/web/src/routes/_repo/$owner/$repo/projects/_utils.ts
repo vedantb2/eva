@@ -6,7 +6,7 @@ import {
 } from "@/lib/components/projects/ProjectPhaseBadge";
 
 type ProjectView = "kanban" | "timeline" | "list" | "table";
-type SortField = "created" | "title";
+type SortField = "created" | "title" | "priority";
 type SortDir = "asc" | "desc";
 
 interface ProjectFilters {

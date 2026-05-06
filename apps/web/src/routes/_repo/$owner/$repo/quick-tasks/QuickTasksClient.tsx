@@ -26,6 +26,7 @@ import {
 } from "./_components/QuickTasksBulkBar";
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { useQuickTaskFilters } from "./_utils";
+import { priorityCompare } from "@/lib/components/priority/priorityMeta";
 
 export function QuickTasksClient() {
   const navigate = useNavigate();
@@ -158,6 +159,8 @@ export function QuickTasksClient() {
         cmp = a.createdAt - b.createdAt;
       } else if (sortField === "title") {
         cmp = a.title.localeCompare(b.title);
+      } else if (sortField === "priority") {
+        cmp = priorityCompare(a.priority, b.priority);
       }
       return sortDir === "asc" ? cmp : -cmp;
     });

@@ -44,6 +44,7 @@ import {
   phaseConfig,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
+import { priorityCompare } from "@/lib/components/priority/priorityMeta";
 import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
 import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
 import { ProjectsTableView } from "@/lib/components/projects/ProjectsTableView";
@@ -66,6 +67,7 @@ const VIEW_OPTIONS: {
 const SORT_FIELD_LABELS: Record<SortField, string> = {
   created: "Date Created",
   title: "Title",
+  priority: "Priority",
 };
 
 export function ProjectsClient() {
@@ -106,6 +108,9 @@ export function ProjectsClient() {
             break;
           case "title":
             comparison = a.title.localeCompare(b.title);
+            break;
+          case "priority":
+            comparison = priorityCompare(a.priority, b.priority);
             break;
         }
         return sortDir === "asc" ? comparison : -comparison;
@@ -250,7 +255,7 @@ export function ProjectsClient() {
                 <DropdownMenuRadioGroup
                   value={sortField}
                   onValueChange={(v) => {
-                    if (v === "created" || v === "title") {
+                    if (v === "created" || v === "title" || v === "priority") {
                       setParams({ sortField: v });
                     }
                   }}

@@ -1,5 +1,68 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+} from "../_generated/server";
+
+const CODE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Authorize the current Clerk-authenticated user against an MCP OAuth client
+ * and return a fresh authorization code.
+ *
+ * Called from the web app's `/mcp/oauth/authorize` route, which handles the
+ * Clerk sign-in flow (production Clerk keys are pinned to the primary web
+ * domain, so we cannot mount Clerk inside the Convex-hosted page).
+ */
+export const authorize = mutation({
+  args: {
+    clientId: v.string(),
+    redirectUri: v.string(),
+    codeChallenge: v.string(),
+    codeChallengeMethod: v.string(),
+  },
+  returns: v.object({ code: v.string() }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const clerkUserId = identity.subject;
+
+    const client = await ctx.db
+      .query("mcpClientRegistrations")
+      .withIndex("by_clientId", (q) => q.eq("clientId", args.clientId))
+      .first();
+    if (!client) {
+      throw new Error("Unknown client_id");
+    }
+    if (
+      client.redirectUris.length > 0 &&
+      !client.redirectUris.includes(args.redirectUri)
+    ) {
+      throw new Error("redirect_uri does not match registered URIs");
+    }
+
+    const codeBytes = new Uint8Array(32);
+    crypto.getRandomValues(codeBytes);
+    const code = Array.from(codeBytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    await ctx.db.insert("mcpAuthCodes", {
+      code,
+      clerkUserId,
+      codeChallenge: args.codeChallenge,
+      codeChallengeMethod: args.codeChallengeMethod,
+      redirectUri: args.redirectUri,
+      clientId: args.clientId,
+      expiresAt: Date.now() + CODE_TTL_MS,
+    });
+
+    return { code };
+  },
+});
 
 /**
  * Store an OAuth authorization code.

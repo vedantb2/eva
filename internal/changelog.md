@@ -18,6 +18,22 @@
 - **Change**: Added `FollowProvider` and rendered `FollowOverlay` inside `_repo/$owner/$repo.tsx` mirroring the `_global.tsx` layout. The follow overlay's fullscreen ring now captures pointer events with `cursor-not-allowed`, and the "Following X" badge sits on a higher z-index so the close button (and Escape key) remain the only ways to exit follow mode.
 - **Reason**: Both global and repo routes share the sidebar, so they need the same follow context. Blocking page interactions enforces the contract that following means strictly mirroring the other user's navigation.
 
+## Recover MCP OAuth flow when prod Clerk handshake bounces popup to /home - 2026-05-05
+
+- **Why**: On prod (Clerk live keys), the popup Claude opens at `/mcp/oauth/authorize` could land on `/home` — the global `signInFallbackRedirectUrl` — before our route ever ran. Staging (Clerk test keys) didn't reproduce this because dev instances skip the cross-domain session handshake. End result: Claude's "Connect" flow failed silently in production.
+- **Change**: Persist the OAuth search params to `sessionStorage` as early as possible — once from `main.tsx` before the Clerk provider mounts, and again in the route's `beforeLoad`. `/home` now has a `beforeLoad` that consumes any pending params and redirects back into the OAuth route. A 2-attempt counter (keyed on the OAuth `state` nonce) prevents a redirect loop and lets a fresh flow start cleanly. New helper module `lib/mcpOauthStorage.ts` owns the schema and storage logic.
+
+## Preserve MCP OAuth route through SPA history rewrite - 2026-05-05
+
+- **Why**: The custom TanStack history adapter treated `/mcp/oauth/authorize` as an owner/repo/app path and rewrote it internally to `/mcp/oauth--authorize`. That made the MCP OAuth URL miss its real route and fall into normal app navigation, which redirected signed-in users back to `/home` instead of completing Claude's connector callback.
+- **Change**: Added `mcp` to the non-repo route prefixes so `/mcp/oauth/authorize` stays intact and the OAuth route can mint the authorization code.
+
+## Move MCP OAuth sign-in to main app domain to fix Clerk production key restriction - 2026-05-05
+
+- **Why**: Clerk production keys are pinned to a single domain (e.g., `eva.carepulse.co.uk`). The MCP OAuth sign-in UI was on a Convex HTTP page hosted at `*.convex.site`, causing Clerk to reject production keys with "Production Keys are only allowed for domain 'eva.carepulse.co.uk'".
+- **Change**: Created a new TanStack route `/mcp/oauth/authorize` on the main web app that handles Clerk sign-in and OAuth code minting. Convex `authorizeGet` now 302-redirects to this route instead of rendering HTML directly. Added a public `authorize` mutation in `mcp/oauth.ts` that requires Clerk auth, validates the OAuth request, and mints the auth code. Deleted the old `authorizePost` handler and related dead code.
+- **Requires**: `WEB_APP_URL` env var in Convex (e.g., `https://eva.carepulse.co.uk` for prod) so the OAuth flow can redirect to the correct domain.
+
 ## Drive GitHub install URL from Convex env instead of hardcoded slug - 2026-05-05
 
 - **Why**: `ReposClient.tsx` had a hardcoded `GITHUB_APP_NAME = "vb-eva-dev"` for building the GitHub App install URL. The dev slug was shipped to every environment, so production users would have been sent to the wrong install page. Backend already reads the slug from `process.env.GITHUB_APP_SLUG` (used in `snapshotActions.ts` and `_daytona/git.ts`), so the value belonged on the same source of truth.

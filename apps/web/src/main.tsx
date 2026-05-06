@@ -9,8 +9,14 @@ import { convex } from "./lib/components/ClientProvider";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
 import { AppSkeleton } from "./lib/components/AppSkeleton";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
+import { saveMcpOauthParamsFromUrl } from "./lib/mcpOauthStorage";
 import "./fonts";
 import "./globals.css";
+
+// Persist any in-flight MCP OAuth params before Clerk's session handshake
+// gets a chance to redirect us off `/mcp/oauth/authorize`. See
+// `mcpOauthStorage.ts` for the full flow.
+saveMcpOauthParamsFromUrl();
 
 /**
  * Handles stale deployment detection: closes the Convex WebSocket to prevent

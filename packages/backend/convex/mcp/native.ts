@@ -2,6 +2,12 @@ import { httpAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { z } from "zod";
 
+function getWebAppUrl(): string {
+  const url = process.env.WEB_APP_URL;
+  if (!url) throw new Error("WEB_APP_URL is not set in Convex env");
+  return url.replace(/\/$/, "");
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // OAuth Metadata
 // ─────────────────────────────────────────────────────────────────────────────
@@ -81,15 +87,6 @@ export const register = httpAction(async (ctx, request) => {
 // OAuth Authorization
 // ─────────────────────────────────────────────────────────────────────────────
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
 const authorizeQuerySchema = z.object({
   client_id: z.string(),
   redirect_uri: z.string(),
@@ -98,6 +95,11 @@ const authorizeQuerySchema = z.object({
   code_challenge_method: z.string(),
 });
 
+/**
+ * Redirect to the web app's `/mcp/oauth/authorize` route, which handles Clerk
+ * sign-in (production Clerk keys are pinned to the primary web domain) and
+ * then mints an authorization code via the `mcp.oauth.authorize` mutation.
+ */
 export const authorizeGet = httpAction(async (ctx, request) => {
   try {
     const url = new URL(request.url);
@@ -119,176 +121,14 @@ export const authorizeGet = httpAction(async (ctx, request) => {
       });
     }
 
-    // Get publishable key from action (runs in Node.js)
-    const publishableKey = await ctx.runAction(
-      internal.mcp.nodeActions.getClerkPublishableKey,
-      {},
-    );
-
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign in to Eva</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0a0a; color: #fafafa;
-      display: flex; justify-content: center; align-items: center;
-      min-height: 100vh;
-    }
-    .container { width: 100%; max-width: 440px; text-align: center; padding: 24px; }
-    h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
-    .subtitle { color: #a3a3a3; font-size: 14px; margin-bottom: 24px; }
-    #sign-in-container { min-height: 300px; display: flex; justify-content: center; }
-    .error { color: #ef4444; font-size: 14px; margin-top: 16px; display: none; }
-    .loading { color: #a3a3a3; font-size: 14px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Sign in to Eva</h1>
-    <p class="subtitle">Sign in with your Eva account to connect Claude.</p>
-    <div id="sign-in-container">
-      <p class="loading">Loading...</p>
-    </div>
-    <p id="error-msg" class="error"></p>
-    <form id="auth-form" method="POST" action="/mcp/oauth/authorize" style="display:none">
-      <input type="hidden" name="client_id" value="${escapeHtml(params.client_id)}" />
-      <input type="hidden" name="redirect_uri" value="${escapeHtml(params.redirect_uri)}" />
-      <input type="hidden" name="state" value="${escapeHtml(params.state)}" />
-      <input type="hidden" name="code_challenge" value="${escapeHtml(params.code_challenge)}" />
-      <input type="hidden" name="code_challenge_method" value="${escapeHtml(params.code_challenge_method)}" />
-      <input type="hidden" name="clerk_token" id="clerk-token" value="" />
-    </form>
-  </div>
-  <script>
-    var PUBLISHABLE_KEY = ${JSON.stringify(publishableKey)};
-    var keyParts = PUBLISHABLE_KEY.split('_');
-    var keyPayload = keyParts.slice(2).join('_');
-    var fapiUrl = atob(keyPayload).replace(/\\$$/, '');
-    var script = document.createElement('script');
-    script.src = 'https://' + fapiUrl + '/npm/@clerk/clerk-js@5/dist/clerk.browser.js';
-    script.async = true;
-    script.crossOrigin = 'anonymous';
-    script.setAttribute('data-clerk-publishable-key', PUBLISHABLE_KEY);
-    script.addEventListener('load', initClerk);
-    document.head.appendChild(script);
-
-    function initClerk() {
-      var clerk = window.Clerk;
-      if (!clerk) return;
-      clerk.load().then(function() {
-        if (clerk.session) {
-          submitToken(clerk);
-          return;
-        }
-        var container = document.getElementById('sign-in-container');
-        container.innerHTML = '';
-        clerk.mountSignIn(container, {
-          afterSignInUrl: window.location.href,
-          afterSignUpUrl: window.location.href,
-          appearance: {
-            variables: {
-              colorBackground: '#171717',
-              colorText: '#fafafa',
-              colorPrimary: '#6366f1'
-            }
-          }
-        });
-        clerk.addListener(function(event) {
-          if (event.session) submitToken(clerk);
-        });
-      });
+    const target = new URL(`${getWebAppUrl()}/mcp/oauth/authorize`);
+    for (const [key, value] of Object.entries(params)) {
+      target.searchParams.set(key, value);
     }
 
-    function submitToken(clerk) {
-      clerk.session.getToken().then(function(token) {
-        document.getElementById('clerk-token').value = token;
-        document.getElementById('auth-form').submit();
-      });
-    }
-  </script>
-</body>
-</html>`;
-
-    return new Response(html, {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
+    return Response.redirect(target.toString(), 302);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Authorization failed";
-    return new Response(`<h1>Error</h1><p>${message}</p>`, {
-      status: 400,
-      headers: { "Content-Type": "text/html" },
-    });
-  }
-});
-
-export const authorizePost = httpAction(async (ctx, request) => {
-  try {
-    const formData = await request.formData();
-    const body: Record<string, string> = {};
-    formData.forEach((value, key) => {
-      if (typeof value === "string") {
-        body[key] = value;
-      }
-    });
-
-    // Validate client exists and redirect_uri matches
-    const client = await ctx.runQuery(internal.mcp.oauth.getClient, {
-      clientId: body.client_id ?? "",
-    });
-
-    if (!client) {
-      throw new Error("Unknown client_id");
-    }
-
-    if (
-      client.redirectUris.length > 0 &&
-      !client.redirectUris.includes(body.redirect_uri ?? "")
-    ) {
-      throw new Error("redirect_uri does not match registered URIs");
-    }
-
-    // Verify Clerk token and get user ID (runs in Node.js)
-    const clerkUserId = await ctx.runAction(
-      internal.mcp.nodeActions.verifyClerkTokenAction,
-      { token: body.clerk_token ?? "" },
-    );
-
-    if (!clerkUserId) {
-      throw new Error("Invalid Clerk token");
-    }
-
-    // Generate random code
-    const codeBytes = new Uint8Array(32);
-    crypto.getRandomValues(codeBytes);
-    const code = Array.from(codeBytes)
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
-    const CODE_TTL_MS = 5 * 60 * 1000;
-
-    await ctx.runMutation(internal.mcp.oauth.storeAuthCode, {
-      code,
-      clerkUserId,
-      codeChallenge: body.code_challenge ?? "",
-      codeChallengeMethod: body.code_challenge_method ?? "",
-      redirectUri: body.redirect_uri ?? "",
-      clientId: body.client_id ?? "",
-      expiresAt: Date.now() + CODE_TTL_MS,
-    });
-
-    const redirectUrl = new URL(body.redirect_uri ?? "");
-    redirectUrl.searchParams.set("code", code);
-    redirectUrl.searchParams.set("state", body.state ?? "");
-
-    return Response.redirect(redirectUrl.toString(), 302);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Authorization failed";
-    console.error("[MCP][authorizePost] FAILED:", message);
     return new Response(`<h1>Error</h1><p>${message}</p>`, {
       status: 400,
       headers: { "Content-Type": "text/html" },

@@ -297,7 +297,7 @@ export const kickOffSnapshotBuild = internalAction({
           contextHashes: [],
         },
         cpu: 4,
-        memory: 12,
+        memory: 16,
         disk: 10,
       }),
     });

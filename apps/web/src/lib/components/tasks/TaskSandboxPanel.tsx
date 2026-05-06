@@ -53,7 +53,6 @@ export function TaskSandboxPanel({
     isActive,
     repoId,
     devPort,
-    cacheScope: `task-preview:${taskIdStr}`,
   });
 
   const panes = useSandboxPanes({

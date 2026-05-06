@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, type RefObject } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type RefObject,
+} from "react";
 import { Input, Spinner } from "@conductor/ui";
 import { WebPreviewNavigationButton } from "@conductor/ui";
 import {
@@ -20,11 +26,17 @@ function getPathFromUrl(fullUrl: string): string {
   }
 }
 
-function buildUrlWithPath(baseUrl: string, path: string): string {
+export function normalizePreviewPath(path: string): string {
+  const trimmed = path.trim();
+  if (!trimmed) return "/";
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+export function buildUrlWithPath(baseUrl: string, path: string): string {
   try {
     const parsed = new URL(baseUrl);
     if (parsed.protocol === "http:") parsed.protocol = "https:";
-    const fullPath = path.startsWith("/") ? path : `/${path}`;
+    const fullPath = normalizePreviewPath(path);
     return `${parsed.origin}${fullPath}`;
   } catch {
     return baseUrl;
@@ -36,8 +48,10 @@ interface PreviewNavBarProps {
   iframeRef: RefObject<HTMLIFrameElement | null>;
   containerRef: RefObject<HTMLDivElement | null>;
   port: number;
+  path?: string;
   onPortChange?: (port: number) => void;
   defaultPath?: string;
+  onPathChange?: (path: string) => void;
   isLoading?: boolean;
   onRefresh?: () => void;
 }
@@ -51,34 +65,49 @@ export function PreviewNavBar({
   iframeRef,
   containerRef,
   port,
+  path,
   onPortChange,
   defaultPath = "/",
+  onPathChange,
   isLoading = false,
   onRefresh,
 }: PreviewNavBarProps) {
   const [portInput, setPortInput] = useState(String(port));
-  const [pathInput, setPathInput] = useState(defaultPath);
-  const [prevPreviewUrl, setPrevPreviewUrl] = useState(previewUrl);
+  const [pathInput, setPathInput] = useState(path ?? defaultPath);
+  // Tracks the last value emitted via onPathChange so the three event sources
+  // (input commit, iframe load, in-iframe postMessage) don't fire redundant
+  // notifications for the same path.
+  const lastNotifiedPathRef = useRef<string | null>(null);
 
   useEffect(() => {
     setPortInput(String(port));
   }, [port]);
 
-  if (previewUrl !== prevPreviewUrl) {
-    setPrevPreviewUrl(previewUrl);
-    setPathInput(getPathFromUrl(previewUrl ?? defaultPath));
-  }
+  useEffect(() => {
+    setPathInput(path ?? defaultPath);
+  }, [path, defaultPath]);
+
+  const notifyPathChange = useCallback(
+    (nextPath: string) => {
+      if (lastNotifiedPathRef.current === nextPath) return;
+      lastNotifiedPathRef.current = nextPath;
+      onPathChange?.(nextPath);
+    },
+    [onPathChange],
+  );
 
   const syncPathFromIframe = useCallback(() => {
     try {
       const href = iframeRef.current?.contentWindow?.location.href;
       if (href) {
-        setPathInput(getPathFromUrl(href));
+        const nextPath = getPathFromUrl(href);
+        setPathInput(nextPath);
+        notifyPathChange(nextPath);
       }
     } catch {
       // cross-origin — cannot read iframe location
     }
-  }, [iframeRef]);
+  }, [iframeRef, notifyPathChange]);
 
   function postHistoryCommand(type: PreviewHistoryCommand) {
     iframeRef.current?.contentWindow?.postMessage({ type }, "*");
@@ -99,7 +128,9 @@ export function PreviewNavBar({
         "url" in event.data &&
         typeof event.data.url === "string"
       ) {
-        setPathInput(getPathFromUrl(event.data.url));
+        const nextPath = getPathFromUrl(event.data.url);
+        setPathInput(nextPath);
+        notifyPathChange(nextPath);
       }
     }
 
@@ -108,7 +139,7 @@ export function PreviewNavBar({
       iframe.removeEventListener("load", syncPathFromIframe);
       window.removeEventListener("message", handleMessage);
     };
-  }, [iframeRef, syncPathFromIframe]);
+  }, [iframeRef, syncPathFromIframe, notifyPathChange]);
 
   function goBack() {
     let handled = false;
@@ -142,7 +173,10 @@ export function PreviewNavBar({
 
   function commitPath() {
     if (!iframeRef.current || !previewUrl) return;
-    iframeRef.current.src = buildUrlWithPath(previewUrl, pathInput);
+    const nextPath = normalizePreviewPath(pathInput);
+    setPathInput(nextPath);
+    notifyPathChange(nextPath);
+    iframeRef.current.src = buildUrlWithPath(previewUrl, nextPath);
   }
 
   function commitPort() {

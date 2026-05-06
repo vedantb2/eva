@@ -91,6 +91,14 @@ export function SandboxPaneSlots({
                 onRefresh={preview.fetchPreview}
                 port={preview.effectivePort}
                 onPortChange={preview.setPort}
+                pathStorageKey={[
+                  "conductor",
+                  owner.kind,
+                  cacheKey,
+                  "preview-path",
+                  id,
+                  preview.effectivePort,
+                ].join(":")}
               />
             </div>
           ))}

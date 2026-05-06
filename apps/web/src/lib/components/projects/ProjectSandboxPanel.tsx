@@ -50,7 +50,6 @@ export function ProjectSandboxPanel({
     isActive,
     repoId,
     devPort,
-    cacheScope: `project-preview:${projectIdStr}`,
   });
 
   const panes = useSandboxPanes({

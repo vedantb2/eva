@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useMutation } from "convex/react";
 import {
   Button,
@@ -8,12 +8,13 @@ import {
   Plan,
   PlanHeader,
   PlanTitle,
+  PlanAction,
   PlanContent,
   PlanFooter,
   PlanTrigger,
   MessageResponse,
 } from "@conductor/ui";
-import { IconCode, IconPencil } from "@tabler/icons-react";
+import { IconCheck, IconCode, IconCopy, IconPencil } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { SessionPrdPlanEditor } from "./SessionPrdPlanEditor";
@@ -38,8 +39,23 @@ export function SessionPrdPlanView({
   const [editingSnapshot, setEditingSnapshot] = useState<string | null>(null);
   const [editKey, setEditKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showEdit = !isArchived && editingSnapshot === null;
+
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(planContent);
+    setCopied(true);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
+  }, [planContent]);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    };
+  }, []);
 
   const handleStartEdit = useCallback(() => {
     setEditingSnapshot(planContent);
@@ -76,7 +92,22 @@ export function SessionPrdPlanView({
     >
       <PlanHeader className={cn("p-4", isPanel && "shrink-0")}>
         <PlanTitle>Product Requirements</PlanTitle>
-        <PlanTrigger />
+        <PlanAction>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            onClick={handleCopy}
+            aria-label={copied ? "Copied" : "Copy PRD"}
+          >
+            {copied ? (
+              <IconCheck className="size-4 text-success" />
+            ) : (
+              <IconCopy className="size-4" />
+            )}
+          </Button>
+          <PlanTrigger />
+        </PlanAction>
       </PlanHeader>
       <PlanContent
         className={cn(

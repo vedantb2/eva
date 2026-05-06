@@ -819,16 +819,12 @@ export function ChatPanel({
                         ? "Describe the product requirements to Eva..."
                         : "Ask questions or request changes to Eva..."
                   }
-                  disabled={isInputDisabled}
                 />
                 <PromptInputFooter>
                   <PromptInputTools>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button
-                          className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-                          disabled={isInputDisabled}
-                        >
+                        <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50">
                           <SelectedModeIcon className="size-3.5" />
                           {selectedModeOption.label}
                         </button>
@@ -860,7 +856,6 @@ export function ChatPanel({
                     <ResponseLengthSelect
                       value={responseLength}
                       onValueChange={setResponseLength}
-                      disabled={isInputDisabled}
                     />
                   </PromptInputTools>
                   <div className="flex min-w-0 items-center gap-1">
@@ -868,10 +863,9 @@ export function ChatPanel({
                       value={model}
                       options={modelOptions}
                       onValueChange={setModel}
-                      disabled={isInputDisabled}
                       className="max-w-48 truncate sm:max-w-none"
                     />
-                    <PromptInputSpeech disabled={isInputDisabled} />
+                    <PromptInputSpeech />
                     {isExecuting ? (
                       <Button
                         size="icon-sm"

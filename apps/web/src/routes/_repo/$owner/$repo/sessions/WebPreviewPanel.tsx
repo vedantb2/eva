@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Spinner,
   Button,
@@ -13,7 +13,11 @@ import {
   IconWorld,
   IconX,
 } from "@tabler/icons-react";
-import { PreviewNavBar } from "@/lib/components/PreviewNavBar";
+import {
+  PreviewNavBar,
+  buildUrlWithPath,
+  normalizePreviewPath,
+} from "@/lib/components/PreviewNavBar";
 
 interface PreviewInfo {
   url: string;
@@ -30,6 +34,26 @@ interface WebPreviewPanelProps {
   onRefresh: () => void;
   port: number;
   onPortChange: (port: number) => void;
+  pathStorageKey: string;
+}
+
+function readPreviewPath(storageKey: string): string {
+  try {
+    const stored = sessionStorage.getItem(storageKey);
+    return stored ? normalizePreviewPath(stored) : "/";
+  } catch {
+    return "/";
+  }
+}
+
+function writePreviewPath(storageKey: string, path: string): string {
+  const normalized = normalizePreviewPath(path);
+  try {
+    sessionStorage.setItem(storageKey, normalized);
+  } catch {
+    // non-critical; the live preview path still updates in memory
+  }
+  return normalized;
 }
 
 function NavigationBar({
@@ -39,6 +63,8 @@ function NavigationBar({
   containerRef,
   port,
   onPortChange,
+  previewPath,
+  onPathChange,
 }: {
   previewInfo: PreviewInfo | null;
   isLoading: boolean;
@@ -46,6 +72,8 @@ function NavigationBar({
   containerRef: React.RefObject<HTMLDivElement | null>;
   port: number;
   onPortChange: (port: number) => void;
+  previewPath: string;
+  onPathChange: (path: string) => void;
 }) {
   const { iframeRef } = useWebPreview();
 
@@ -56,7 +84,9 @@ function NavigationBar({
         iframeRef={iframeRef}
         containerRef={containerRef}
         port={port}
+        path={previewPath}
         onPortChange={onPortChange}
+        onPathChange={onPathChange}
         isLoading={isLoading}
         onRefresh={onRefresh}
       />
@@ -74,9 +104,35 @@ export function WebPreviewPanel({
   onRefresh,
   port,
   onPortChange,
+  pathStorageKey,
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [warningHintDismissed, setWarningHintDismissed] = useState(false);
+  const [previewPath, setPreviewPath] = useState(() =>
+    readPreviewPath(pathStorageKey),
+  );
+
+  useEffect(() => {
+    setPreviewPath(readPreviewPath(pathStorageKey));
+  }, [pathStorageKey]);
+
+  // iframeSrc is recomputed only at remount points (previewInfo change,
+  // storage-key change, or iframeKey bump from a refresh). Reading the path
+  // from sessionStorage here — instead of from previewPath state — keeps the
+  // src stable while the user navigates inside the iframe, so we don't fight
+  // the iframe with declarative src updates.
+  const iframeSrc = useMemo(() => {
+    if (!previewInfo) return undefined;
+    return buildUrlWithPath(previewInfo.url, readPreviewPath(pathStorageKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewInfo, pathStorageKey, iframeKey]);
+
+  const handlePathChange = useCallback(
+    (path: string) => {
+      setPreviewPath(writePreviewPath(pathStorageKey, path));
+    },
+    [pathStorageKey],
+  );
 
   if (!isActive || !sandboxId) {
     return (
@@ -96,7 +152,7 @@ export function WebPreviewPanel({
   return (
     <WebPreview
       ref={containerRef}
-      defaultUrl={previewInfo?.url ?? ""}
+      defaultUrl={iframeSrc ?? ""}
       className="h-full rounded-none border-0"
     >
       <NavigationBar
@@ -106,6 +162,8 @@ export function WebPreviewPanel({
         containerRef={containerRef}
         port={port}
         onPortChange={onPortChange}
+        previewPath={previewPath}
+        onPathChange={handlePathChange}
       />
       {!warningHintDismissed ? (
         <div className="flex items-start gap-2 bg-orange-500/10 px-3 py-2 text-xs text-orange-700 dark:text-orange-300">
@@ -126,7 +184,7 @@ export function WebPreviewPanel({
       ) : null}
       <WebPreviewBody
         key={iframeKey}
-        src={previewInfo?.url}
+        src={iframeSrc}
         loading={
           isLoading && !previewInfo ? (
             <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">

@@ -3,8 +3,8 @@
 ## Keep Daytona sandbox preview on the resolved dev port - 2026-05-06
 
 - **Why**: The preview pane could display port 3000 while hidden state still defaulted to 3001, and the navigation-sync proxy generated Daytona preview URLs for port 33000, outside Daytona's supported preview range.
-- **Change**: Removed the 3001 preview-port default, resolved preview ports as `URL override -> saved devPort -> 3000`, synchronized the port input from the resolved port prop, moved the navigation-sync proxy to available ports in the 9000-9999 range, and stopped caching signed preview URLs in sessionStorage.
-- **Reason**: Preview URL generation, the visible port control, and Daytona's supported preview-port contract now agree on the same target port. Signed preview URLs are time-bound capability URLs and should be resolved fresh instead of persisted.
+- **Change**: Removed the 3001 preview-port default, resolved preview ports as `URL override -> saved devPort -> 3000`, synchronized the port input from the resolved port prop, moved the navigation-sync proxy to available ports in the 9000-9999 range, stopped caching signed preview URLs in sessionStorage, and kept only per-pane preview paths cached.
+- **Reason**: Preview URL generation, the visible port control, and Daytona's supported preview-port contract now agree on the same target port. Signed preview URLs are time-bound capability URLs and should be resolved fresh, while simple app paths are safe to restore after refresh.
 
 ## Project-level sandbox preview - 2026-05-06
 

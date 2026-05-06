@@ -3,8 +3,11 @@
 import type { Sandbox } from "@daytonaio/sdk";
 import { exec } from "./helpers";
 
-const PROXY_PORT_OFFSET = 30000;
-const FALLBACK_PROXY_PORT_BASE = 64000;
+// Daytona preview URLs only expose HTTP ports 3000-9999, so the injected
+// navigation proxy must listen inside that range.
+const PROXY_PORT_MIN = 9000;
+const PROXY_PORT_MAX = 9999;
+const PROXY_PORT_COUNT = PROXY_PORT_MAX - PROXY_PORT_MIN + 1;
 const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 
@@ -12,14 +15,68 @@ function isPort(value: number): boolean {
   return Number.isInteger(value) && value > 0 && value <= 65535;
 }
 
-function previewProxyPort(targetPort: number): number {
-  const shifted = targetPort + PROXY_PORT_OFFSET;
-  if (shifted <= 65535) return shifted;
+function previewProxyPortCandidates(targetPort: number): number[] {
+  const start = PROXY_PORT_MIN + (targetPort % PROXY_PORT_COUNT);
+  const candidates: number[] = [];
 
-  const wrapped = targetPort - PROXY_PORT_OFFSET;
-  if (wrapped >= 1024) return wrapped;
+  for (let offset = 0; offset < PROXY_PORT_COUNT; offset += 1) {
+    const candidate =
+      PROXY_PORT_MIN + ((start - PROXY_PORT_MIN + offset) % PROXY_PORT_COUNT);
+    if (candidate !== targetPort) {
+      candidates.push(candidate);
+    }
+  }
 
-  return FALLBACK_PROXY_PORT_BASE + (targetPort % 1000);
+  return candidates;
+}
+
+async function listListeningPorts(sandbox: Sandbox): Promise<Set<number>> {
+  const ports = new Set<number>();
+  try {
+    const output = await exec(
+      sandbox,
+      "(ss -ltnH 2>/dev/null || netstat -ltn 2>/dev/null || true) | awk '{print $4}'",
+      5,
+      "/tmp",
+    );
+    for (const line of output.split(/\r?\n/)) {
+      const match = line.trim().match(/:(\d+)$/);
+      if (!match?.[1]) continue;
+
+      const port = Number(match[1]);
+      if (isPort(port)) {
+        ports.add(port);
+      }
+    }
+  } catch {
+    return ports;
+  }
+  return ports;
+}
+
+async function resolvePreviewProxyPort(
+  sandbox: Sandbox,
+  targetPort: number,
+): Promise<number> {
+  const candidates = previewProxyPortCandidates(targetPort);
+  const listeningPorts = await listListeningPorts(sandbox);
+
+  for (const candidate of candidates) {
+    if (!listeningPorts.has(candidate)) continue;
+    if (await proxyAlreadyRunning(sandbox, targetPort, candidate)) {
+      return candidate;
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (!listeningPorts.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    `No available Daytona preview proxy port in ${PROXY_PORT_MIN}-${PROXY_PORT_MAX}`,
+  );
 }
 
 function buildPreviewProxyScript(): string {
@@ -331,7 +388,7 @@ export async function ensurePreviewNavigationProxy(
     throw new Error(`Invalid preview target port: ${targetPort}`);
   }
 
-  const proxyPort = previewProxyPort(targetPort);
+  const proxyPort = await resolvePreviewProxyPort(sandbox, targetPort);
   if (await proxyAlreadyRunning(sandbox, targetPort, proxyPort)) {
     return proxyPort;
   }

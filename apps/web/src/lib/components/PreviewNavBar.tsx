@@ -60,6 +60,10 @@ export function PreviewNavBar({
   const [pathInput, setPathInput] = useState(defaultPath);
   const [prevPreviewUrl, setPrevPreviewUrl] = useState(previewUrl);
 
+  useEffect(() => {
+    setPortInput(String(port));
+  }, [port]);
+
   if (previewUrl !== prevPreviewUrl) {
     setPrevPreviewUrl(previewUrl);
     setPathInput(getPathFromUrl(previewUrl ?? defaultPath));

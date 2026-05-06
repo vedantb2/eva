@@ -453,20 +453,17 @@ export function SessionListSidebar<T extends SessionItem>({
           <DialogHeader>
             <DialogTitle>{createTitle}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Session Title</label>
-            <Input
-              placeholder={createPlaceholder}
-              value={newSessionTitle}
-              onChange={(event) => setNewSessionTitle(event.target.value)}
-              autoFocus
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && newSessionTitle.trim()) {
-                  void handleCreate();
-                }
-              }}
-            />
-          </div>
+          <Input
+            placeholder={createPlaceholder}
+            value={newSessionTitle}
+            onChange={(event) => setNewSessionTitle(event.target.value)}
+            autoFocus
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && newSessionTitle.trim()) {
+                void handleCreate();
+              }
+            }}
+          />
           <DialogFooter>
             <Button
               variant="ghost"

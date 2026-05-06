@@ -59,7 +59,7 @@ export const phaseConfig: Record<
     bg: "bg-status-done-bg",
     bar: "bg-status-done-bar",
     text: "text-status-done",
-    label: "Completed",
+    label: "Merged",
     icon: IconCircleCheck,
   },
   cancelled: {

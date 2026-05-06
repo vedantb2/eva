@@ -43,7 +43,7 @@ const phaseStatusMap: Record<ProjectPhase, GanttStatus> = {
   },
   completed: {
     id: "completed",
-    name: "Completed",
+    name: "Merged",
     color: "hsl(var(--status-done-bar))",
   },
   cancelled: {

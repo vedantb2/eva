@@ -18,8 +18,8 @@ const DAYTONA_API_URL = "https://app.daytona.io/api";
 const PTY_WORKSPACE_CANDIDATES = [WORKSPACE_DIR, LEGACY_WORKSPACE_DIR];
 
 /**
- * Discriminated owner — a PTY belongs to either a session or a quick task.
- * Both expose a sandbox and a repo; sessions additionally track a default
+ * Discriminated owner — a PTY belongs to a session, a quick task, or a project.
+ * All expose a sandbox and a repo; sessions additionally track a default
  * `ptySessionId` for the legacy single-terminal flow.
  */
 const ownerArg = v.union(
@@ -30,6 +30,10 @@ const ownerArg = v.union(
   v.object({
     kind: v.literal("task"),
     taskId: v.id("agentTasks"),
+  }),
+  v.object({
+    kind: v.literal("project"),
+    projectId: v.id("projects"),
   }),
 );
 
@@ -48,7 +52,8 @@ async function resolveOwner(
   ctx: ActionCtx,
   owner:
     | { kind: "session"; sessionId: Id<"sessions"> }
-    | { kind: "task"; taskId: Id<"agentTasks"> },
+    | { kind: "task"; taskId: Id<"agentTasks"> }
+    | { kind: "project"; projectId: Id<"projects"> },
 ): Promise<ResolvedOwner> {
   if (owner.kind === "session") {
     const session = await ctx.runQuery(internal.sessions.getInternal, {
@@ -70,18 +75,33 @@ async function resolveOwner(
     };
   }
 
-  const task = await ctx.runQuery(internal.agentTasks.getInternal, {
-    id: owner.taskId,
+  if (owner.kind === "task") {
+    const task = await ctx.runQuery(internal.agentTasks.getInternal, {
+      id: owner.taskId,
+    });
+    if (!task) throw new Error("Task not found");
+    if (!task.sandboxId) throw new Error("Sandbox not active");
+    if (!task.repoId) throw new Error("Task has no repo");
+    return {
+      sandboxId: task.sandboxId,
+      repoId: task.repoId,
+      defaultPtyId: undefined,
+      setDefaultPtyId: undefined,
+      ownerIdSuffix: String(owner.taskId).slice(-8),
+    };
+  }
+
+  const project = await ctx.runQuery(internal.projects.getInternal, {
+    id: owner.projectId,
   });
-  if (!task) throw new Error("Task not found");
-  if (!task.sandboxId) throw new Error("Sandbox not active");
-  if (!task.repoId) throw new Error("Task has no repo");
+  if (!project) throw new Error("Project not found");
+  if (!project.sandboxId) throw new Error("Sandbox not active");
   return {
-    sandboxId: task.sandboxId,
-    repoId: task.repoId,
+    sandboxId: project.sandboxId,
+    repoId: project.repoId,
     defaultPtyId: undefined,
     setDefaultPtyId: undefined,
-    ownerIdSuffix: String(owner.taskId).slice(-8),
+    ownerIdSuffix: String(owner.projectId).slice(-8),
   };
 }
 

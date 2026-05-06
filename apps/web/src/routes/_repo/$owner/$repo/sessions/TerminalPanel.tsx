@@ -23,13 +23,14 @@ import {
 } from "./_utils";
 
 /**
- * Discriminated owner — a terminal pane belongs to either a session or a
- * quick task. The PTY backend resolves the sandbox and repo from whichever
+ * Discriminated owner — a terminal pane belongs to a session, a quick task,
+ * or a project. The PTY backend resolves the sandbox and repo from whichever
  * is provided.
  */
 export type PtyOwner =
   | { kind: "session"; sessionId: Id<"sessions"> }
-  | { kind: "task"; taskId: Id<"agentTasks"> };
+  | { kind: "task"; taskId: Id<"agentTasks"> }
+  | { kind: "project"; projectId: Id<"projects"> };
 
 interface TerminalPanelProps {
   owner: PtyOwner;

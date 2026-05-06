@@ -17,7 +17,8 @@ import {
   Spinner,
   cn,
 } from "@conductor/ui";
-import { IconFileText, IconPlus } from "@tabler/icons-react";
+import { IconAlertTriangle, IconFileText } from "@tabler/icons-react";
+import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { branchParser, searchParser } from "@/lib/search-params";
 
@@ -89,11 +90,11 @@ export function TestingArenaSidebar({
         <Button
           size="icon-sm"
           variant="ghost"
-          className="shrink-0 text-sidebar-primary"
+          className="shrink-0 text-amber-600 dark:text-amber-400"
           onClick={() => setShowTestAllModal(true)}
-          title="Test all"
+          title="Test all documents"
         >
-          <IconPlus size={16} />
+          <IconAlertTriangle size={16} />
         </Button>
       </div>
 
@@ -128,14 +129,24 @@ export function TestingArenaSidebar({
                   to={href}
                   onClick={onNavigate}
                   className={cn(
-                    "mx-1 flex items-center gap-2.5 rounded-md px-3 py-3.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
+                    "group mx-1 flex items-center rounded-md px-3 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
                     isSelected
                       ? "bg-sidebar-accent font-medium text-sidebar-primary"
                       : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
                   )}
                 >
-                  <IconFileText size={14} className="shrink-0" />
-                  <span className="truncate">{doc.title}</span>
+                  <IconFileText size={14} className="mr-2.5 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{doc.title}</span>
+                  <span
+                    className={cn(
+                      "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
+                      isSelected
+                        ? "max-w-[80px] pl-2 opacity-100"
+                        : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
+                    )}
+                  >
+                    {compactRelativeTime(doc.updatedAt ?? doc._creationTime)}
+                  </span>
                 </Link>
               );
             })}

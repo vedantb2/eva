@@ -1,13 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  Button,
-  cn,
-} from "@conductor/ui";
+import { Popover, PopoverTrigger, PopoverContent, cn } from "@conductor/ui";
 import {
   IconBrandGithub,
   IconChevronRight,
@@ -17,6 +11,48 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import type { Doc } from "@conductor/backend";
+
+const AVATAR_PALETTE = [
+  "bg-blue-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-purple-500",
+  "bg-cyan-500",
+  "bg-indigo-500",
+  "bg-orange-500",
+];
+
+function getAvatarColor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash + seed.charCodeAt(i)) % AVATAR_PALETTE.length;
+  }
+  return AVATAR_PALETTE[hash];
+}
+
+function OwnerAvatar({ owner }: { owner: string }) {
+  const [imgError, setImgError] = useState(false);
+  return (
+    <div
+      className={cn(
+        "relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md text-sm font-semibold text-white",
+        getAvatarColor(owner),
+      )}
+    >
+      <span>{owner.charAt(0).toUpperCase()}</span>
+      {!imgError && (
+        <img
+          src={`https://github.com/${encodeURIComponent(owner)}.png?size=72`}
+          alt=""
+          className="absolute inset-0 size-full object-cover"
+          onError={() => setImgError(true)}
+          loading="lazy"
+        />
+      )}
+    </div>
+  );
+}
 
 interface RepoSwitcherProps {
   repos: Doc<"githubRepos">[];
@@ -173,16 +209,43 @@ export function RepoSwitcher({
         : "text-foreground/80 hover:bg-accent/60",
     );
 
+  const hasSelection = Boolean(currentOwner && currentName);
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button size="sm" variant="outline" className={className}>
-          <IconBrandGithub size={16} className="text-muted-foreground" />
-          <span className="flex-1 truncate text-left text-sm font-medium">
-            {displayLabel}
-          </span>
-          <IconSelector size={16} className="text-muted-foreground" />
-        </Button>
+        <button
+          type="button"
+          className={cn(
+            "flex w-full items-center gap-3 rounded-md bg-sidebar-accent/50 px-3 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
+            className,
+          )}
+        >
+          {currentOwner ? (
+            <OwnerAvatar owner={currentOwner} key={currentOwner} />
+          ) : (
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
+              <IconBrandGithub size={16} className="text-muted-foreground" />
+            </div>
+          )}
+          <div className="flex min-w-0 flex-1 flex-col">
+            {hasSelection ? (
+              <>
+                <span className="truncate text-[11px] text-muted-foreground">
+                  {currentOwner}
+                </span>
+                <span className="truncate text-sm font-semibold text-sidebar-foreground">
+                  {displayLabel}
+                </span>
+              </>
+            ) : (
+              <span className="truncate text-sm font-semibold text-sidebar-foreground">
+                Select a repo
+              </span>
+            )}
+          </div>
+          <IconSelector size={16} className="shrink-0 text-muted-foreground" />
+        </button>
       </PopoverTrigger>
       <PopoverContent
         align="start"

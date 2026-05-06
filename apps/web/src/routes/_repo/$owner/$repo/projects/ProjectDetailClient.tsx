@@ -20,11 +20,17 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
 import { ProjectMetadataBar } from "@/lib/components/projects/ProjectMetadataBar";
+import { ProjectSandboxPanel } from "@/lib/components/projects/ProjectSandboxPanel";
+import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
+import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 
 import {
   IconGitPullRequest,
   IconHammer,
   IconPlayerStop,
+  IconPlayerPlay,
+  IconTerminal2,
+  IconArrowLeft,
   IconLoader2,
   IconChevronRight,
   IconChevronDown,
@@ -57,6 +63,24 @@ export function ProjectDetailClient() {
   );
   const currentUserId = useQuery(api.auth.me);
   const isOwner = project ? currentUserId === project.userId : false;
+
+  const {
+    canStartSandbox,
+    showSandbox,
+    isSandboxActive,
+    isSandboxStarting,
+    isSandboxStopping,
+    sandboxStartupActivity,
+    sandboxId: projectSandboxId,
+    handleStartSandbox,
+    handleStopSandbox,
+    handleToggleSandboxView,
+  } = useProjectSandbox(
+    typedProjectId,
+    project?.phase,
+    project?.sandboxId,
+    project?.reviewProjectSandboxStatus,
+  );
 
   const handleStopBuild = async () => {
     if (!project) return;
@@ -148,6 +172,52 @@ export function ProjectDetailClient() {
                 </a>
               </Button>
             )}
+            {canStartSandbox ? (
+              isSandboxActive || isSandboxStarting || isSandboxStopping ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    onClick={handleToggleSandboxView}
+                    disabled={isSandboxStopping}
+                  >
+                    {isSandboxStarting && !isSandboxActive ? (
+                      <IconLoader2 size={16} className="animate-spin" />
+                    ) : isSandboxStopping ? (
+                      <IconLoader2 size={16} className="animate-spin" />
+                    ) : (
+                      <IconTerminal2 size={16} />
+                    )}
+                    <span className="hidden sm:inline">
+                      {isSandboxStopping ? "Stopping..." : "View Sandbox"}
+                    </span>
+                  </Button>
+                  {isSandboxActive && !isSandboxStopping ? (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="rounded-full"
+                      onClick={handleStopSandbox}
+                      disabled={isSandboxStopping}
+                    >
+                      <IconPlayerStop size={16} />
+                      <span className="hidden sm:inline">Stop Sandbox</span>
+                    </Button>
+                  ) : null}
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={handleStartSandbox}
+                >
+                  <IconPlayerPlay size={16} />
+                  <span className="hidden sm:inline">Start Sandbox</span>
+                </Button>
+              )
+            ) : null}
             {project.activeBuildWorkflowId ? (
               <Button
                 size="sm"
@@ -176,7 +246,61 @@ export function ProjectDetailClient() {
     >
       <ProjectMetadataBar projectId={typedProjectId} />
       <div className="flex-1 flex flex-col min-h-0">
-        {isDraftOrFinalized ? (
+        {showSandbox &&
+        (isSandboxActive || isSandboxStarting || isSandboxStopping) ? (
+          <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleSandboxView}
+                className="gap-1.5"
+              >
+                <IconArrowLeft size={16} />
+                Back to Tasks
+              </Button>
+              <div className="flex items-center gap-2">
+                {isSandboxStarting && !isSandboxActive ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <IconLoader2 size={16} className="animate-spin" />
+                    Starting sandbox...
+                  </div>
+                ) : null}
+                {isSandboxStopping ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <IconLoader2 size={16} className="animate-spin" />
+                    Stopping sandbox...
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">
+              {isSandboxActive && projectSandboxId ? (
+                <ProjectSandboxPanel
+                  projectId={typedProjectId}
+                  sandboxId={projectSandboxId}
+                  isActive={isSandboxActive}
+                  repoId={repo._id}
+                  devPort={project.devPort}
+                  devCommand={project.devCommand}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="w-full max-w-md px-4">
+                    <StreamingActivityDisplay
+                      activity={sandboxStartupActivity}
+                      thinkingLabel={
+                        isSandboxStopping
+                          ? "Stopping sandbox..."
+                          : "Starting sandbox..."
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : isDraftOrFinalized ? (
           <ProjectTabs
             projectId={typedProjectId}
             projectPhase={project.phase}

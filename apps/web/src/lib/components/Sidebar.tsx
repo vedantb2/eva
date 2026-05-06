@@ -1,6 +1,7 @@
 "use client";
 
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
 import { UserButton, useUser } from "@clerk/clerk-react";
 import { useMemo, useState } from "react";
@@ -114,6 +115,11 @@ export function Sidebar() {
   const { collapsed, setCollapsed } = useSidebar();
   const { pageTitle } = usePageTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useHotkey("Mod+I", (e) => {
+    e.preventDefault();
+    setCollapsed(!collapsed);
+  });
   const [contextSidebarMode, setContextSidebarMode] =
     useState<ContextSidebarMode>(() => getInitialContextSidebarMode(pathname));
 
@@ -615,7 +621,6 @@ export function Sidebar() {
                               currentName={repoName}
                               currentAppName={appName}
                               onSelect={handleRepoSwitch}
-                              className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
                             />
                           )}
 

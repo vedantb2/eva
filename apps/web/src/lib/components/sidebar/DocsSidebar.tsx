@@ -24,7 +24,7 @@ import {
   cn,
 } from "@conductor/ui";
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
 
@@ -248,7 +248,7 @@ export function DocsSidebar({
                   <ContextMenuTrigger asChild>
                     <div
                       className={cn(
-                        "group mx-1 rounded-md px-3 py-3.5 transition-colors",
+                        "group mx-1 rounded-md px-3 py-3 transition-colors",
                         isSelected
                           ? "bg-sidebar-accent text-sidebar-primary"
                           : "text-sidebar-foreground hover:bg-sidebar-accent/70",
@@ -257,18 +257,27 @@ export function DocsSidebar({
                       <Link
                         to={href}
                         onClick={onNavigate}
-                        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                        className="flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                       >
                         <span
                           className={cn(
-                            "block truncate text-sm",
+                            "min-w-0 flex-1 truncate text-sm",
                             isSelected && "font-medium text-sidebar-primary",
                           )}
                         >
                           {doc.title}
                         </span>
-                        <span className="text-xs text-muted-foreground">
-                          {dayjs(doc.updatedAt ?? doc._creationTime).fromNow()}
+                        <span
+                          className={cn(
+                            "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
+                            isSelected
+                              ? "max-w-[80px] pl-2 opacity-100"
+                              : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
+                          )}
+                        >
+                          {compactRelativeTime(
+                            doc.updatedAt ?? doc._creationTime,
+                          )}
                         </span>
                       </Link>
                     </div>
@@ -358,20 +367,17 @@ export function DocsSidebar({
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Document Title</label>
-                <Input
-                  placeholder="e.g., User Authentication PRD"
-                  value={newDocTitle}
-                  onChange={(event) => setNewDocTitle(event.target.value)}
-                  autoFocus
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && newDocTitle.trim()) {
-                      void handleCreateDoc();
-                    }
-                  }}
-                />
-              </div>
+              <Input
+                placeholder="e.g., User Authentication PRD"
+                value={newDocTitle}
+                onChange={(event) => setNewDocTitle(event.target.value)}
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && newDocTitle.trim()) {
+                    void handleCreateDoc();
+                  }
+                }}
+              />
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-md bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"

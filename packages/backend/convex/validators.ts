@@ -783,6 +783,13 @@ export const projectFields = {
   prUrl: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
   lastSandboxActivity: v.optional(v.number()),
+  // UI state for the project-level Start/Stop preview sandbox button.
+  // Mirrors `agentTasks.reviewTaskSandboxStatus` lifecycle.
+  reviewProjectSandboxStatus: v.optional(taskSandboxStatusValidator),
+  // Dev port + full command for the active project preview sandbox.
+  // Populated by `projectSandboxReady` from `startSessionServices` output.
+  devPort: v.optional(v.number()),
+  devCommand: v.optional(v.string()),
   phase: phaseValidator,
   rawInput: v.string(),
   projectLead: v.optional(v.id("users")),

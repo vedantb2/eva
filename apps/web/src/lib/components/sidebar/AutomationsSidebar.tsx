@@ -19,7 +19,7 @@ import {
   cn,
 } from "@conductor/ui";
 import { IconPlayerPlay, IconPlus } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
 
@@ -115,7 +115,7 @@ export function AutomationsSidebar({
                 <div
                   key={automation._id}
                   className={cn(
-                    "group mx-1 rounded-md px-3 py-3.5 transition-colors",
+                    "group mx-1 rounded-md transition-colors",
                     isSelected
                       ? "bg-sidebar-accent text-sidebar-primary"
                       : "text-sidebar-foreground hover:bg-sidebar-accent/70",
@@ -124,35 +124,33 @@ export function AutomationsSidebar({
                   <Link
                     to={href}
                     onClick={onNavigate}
-                    className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                    className="flex items-center px-3 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                   >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "block flex-1 truncate text-sm",
-                          isSelected && "font-medium text-sidebar-primary",
-                        )}
-                      >
-                        {automation.title}
-                      </span>
-                      <span
-                        className={cn(
-                          "h-2 w-2 shrink-0 rounded-full",
-                          automation.enabled
-                            ? "bg-emerald-500"
-                            : "bg-muted-foreground/30",
-                        )}
-                      />
-                    </div>
                     <span
                       className={cn(
-                        "text-xs text-muted-foreground transition-opacity",
-                        isSelected
-                          ? "opacity-100"
-                          : "opacity-0 group-hover:opacity-100",
+                        "mr-2 h-2 w-2 shrink-0 rounded-full",
+                        automation.enabled
+                          ? "bg-emerald-500"
+                          : "bg-muted-foreground/30",
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate text-sm",
+                        isSelected && "font-medium text-sidebar-primary",
                       )}
                     >
-                      {dayjs(automation._creationTime).fromNow()}
+                      {automation.title}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
+                        isSelected
+                          ? "max-w-[80px] pl-2 opacity-100"
+                          : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
+                      )}
+                    >
+                      {compactRelativeTime(automation._creationTime)}
                     </span>
                   </Link>
                 </div>

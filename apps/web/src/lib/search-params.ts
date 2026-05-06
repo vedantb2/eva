@@ -1,4 +1,5 @@
 import {
+  parseAsBoolean,
   parseAsString,
   parseAsStringLiteral,
   parseAsArrayOf,
@@ -76,6 +77,10 @@ export const sandboxTabParser = parseAsStringLiteral(sandboxTabs)
   .withDefault("preview")
   .withOptions(tabOptions);
 
+export const sandboxOpenParser = parseAsBoolean
+  .withDefault(false)
+  .withOptions(tabOptions);
+
 export const designTabParser = parseAsString
   .withDefault("0")
   .withOptions(tabOptions);
@@ -100,9 +105,7 @@ export const projectViewParser = parseAsStringLiteral(projectViews)
   .withDefault("kanban")
   .withOptions(tabOptions);
 
-export const previewPortParser = parseAsInteger
-  .withDefault(3001)
-  .withOptions(searchOptions);
+export const previewPortParser = parseAsInteger.withOptions(searchOptions);
 
 export const branchParser = parseAsString
   .withDefault("main")

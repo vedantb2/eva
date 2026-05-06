@@ -13,10 +13,12 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { Spinner, Button } from "@conductor/ui";
 import {
+  IconAlertTriangle,
   IconRefresh,
   IconMaximize,
   IconExternalLink,
   IconPlayerStop,
+  IconX,
 } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
@@ -113,9 +115,15 @@ export function SandboxIframeService({
   const [state, setState] = useState<ServiceState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [iframeKey, setIframeKey] = useState(0);
+  const [warningHintDismissed, setWarningHintDismissed] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const attempts = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const refreshIframe = useCallback(() => {
+    setIframeKey((k) => k + 1);
+  }, []);
 
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
 
@@ -297,29 +305,56 @@ export function SandboxIframeService({
   return (
     <div className="h-full flex flex-col" ref={containerRef}>
       {url && state === "running" && (
-        <div className="flex items-center justify-end gap-1 pb-1 mb-1 px-2 py-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            onClick={toggleFullscreen}
-          >
-            <IconMaximize className="w-4 h-4" />
-          </Button>
-          <Button size="icon" variant="ghost" className="size-8" asChild>
-            <a href={url} target="_blank" rel="noopener noreferrer">
-              <IconExternalLink className="w-4 h-4" />
-            </a>
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-8 text-destructive hover:bg-destructive/10"
-            onClick={stop}
-          >
-            <IconPlayerStop className="w-4 h-4" />
-          </Button>
-        </div>
+        <>
+          <div className="flex items-center justify-end gap-1 pb-1 mb-1 px-2 py-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-8"
+              onClick={refreshIframe}
+            >
+              <IconRefresh className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-8"
+              onClick={toggleFullscreen}
+            >
+              <IconMaximize className="w-4 h-4" />
+            </Button>
+            <Button size="icon" variant="ghost" className="size-8" asChild>
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                <IconExternalLink className="w-4 h-4" />
+              </a>
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-8 text-destructive hover:bg-destructive/10"
+              onClick={stop}
+            >
+              <IconPlayerStop className="w-4 h-4" />
+            </Button>
+          </div>
+          {!warningHintDismissed ? (
+            <div className="flex items-start gap-2 bg-orange-500/10 px-3 py-2 text-xs text-orange-700 dark:text-orange-300">
+              <IconAlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <p className="flex-1 leading-relaxed">
+                If you see a preview warning, click Accept, then click the
+                refresh button above.
+              </p>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-5 w-5 shrink-0 text-orange-700/70 hover:bg-orange-500/20 hover:text-orange-700 dark:text-orange-300/70 dark:hover:text-orange-300"
+                onClick={() => setWarningHintDismissed(true)}
+              >
+                <IconX size={12} />
+              </Button>
+            </div>
+          ) : null}
+        </>
       )}
       <div className="flex-1 min-h-0 relative">
         {state === "starting" && (
@@ -341,6 +376,7 @@ export function SandboxIframeService({
         )}
         {url && state === "running" && (
           <iframe
+            key={iframeKey}
             src={ensureHttps(url)}
             className="absolute inset-0 w-full h-full border-0"
             allow={iframeAllow}

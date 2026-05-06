@@ -99,11 +99,13 @@ export function PreviewNavBar({
   const syncPathFromIframe = useCallback(() => {
     try {
       const href = iframeRef.current?.contentWindow?.location.href;
-      if (href) {
-        const nextPath = getPathFromUrl(href);
-        setPathInput(nextPath);
-        notifyPathChange(nextPath);
-      }
+      // Skip about:blank, data:, blob:, etc. — the iframe fires `load` for the
+      // initial empty document before the real URL is applied, and we don't
+      // want that captured as a navigable path.
+      if (!href || !/^https?:/i.test(href)) return;
+      const nextPath = getPathFromUrl(href);
+      setPathInput(nextPath);
+      notifyPathChange(nextPath);
     } catch {
       // cross-origin — cannot read iframe location
     }

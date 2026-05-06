@@ -615,7 +615,6 @@ export function Sidebar() {
                               currentName={repoName}
                               currentAppName={appName}
                               onSelect={handleRepoSwitch}
-                              className="w-full justify-start gap-2 border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground hover:bg-sidebar-accent"
                             />
                           )}
 

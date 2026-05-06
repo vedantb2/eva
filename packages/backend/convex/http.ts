@@ -543,7 +543,6 @@ import {
   protectedResourceMetadata,
   register,
   authorizeGet,
-  authorizePost,
   token,
   mcpHandler,
   health,
@@ -573,12 +572,6 @@ http.route({
   path: "/mcp/oauth/authorize",
   method: "GET",
   handler: authorizeGet,
-});
-
-http.route({
-  path: "/mcp/oauth/authorize",
-  method: "POST",
-  handler: authorizePost,
 });
 
 http.route({

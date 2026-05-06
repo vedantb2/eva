@@ -2,10 +2,7 @@
 
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
-import {
-  createClerkClient,
-  verifyToken as clerkVerifyToken,
-} from "@clerk/backend";
+import { createClerkClient } from "@clerk/backend";
 import { jwtVerify, SignJWT, importJWK } from "jose";
 import { z } from "zod";
 import { internal } from "../_generated/api";
@@ -34,37 +31,6 @@ function getClerkSecretKey(): string {
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Actions
 // ─────────────────────────────────────────────────────────────────────────────
-
-export const getClerkPublishableKey = internalAction({
-  args: {},
-  returns: v.string(),
-  handler: async () => {
-    const key = process.env.CLERK_PUBLISHABLE_KEY;
-    if (!key) throw new Error("CLERK_PUBLISHABLE_KEY is required");
-    return key;
-  },
-});
-
-export const verifyClerkTokenAction = internalAction({
-  args: { token: v.string() },
-  returns: v.union(v.string(), v.null()),
-  handler: async (_ctx, { token }) => {
-    try {
-      const payload = await clerkVerifyToken(token, {
-        secretKey: getClerkSecretKey(),
-      });
-      if (typeof payload === "object" && payload !== null && "sub" in payload) {
-        const sub = payload.sub;
-        if (typeof sub === "string") {
-          return sub;
-        }
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  },
-});
 
 export const issueTokens = internalAction({
   args: { clerkUserId: v.string() },

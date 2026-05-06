@@ -6,6 +6,8 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useEffect, useState, useCallback } from "react";
+import { useQueryState } from "nuqs";
+import { sandboxOpenParser } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
 
 const PREVIEW_SANDBOX_ALLOWED_STATUSES = ["code_review", "business_review"];
@@ -74,7 +76,10 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const stopTaskSandboxMutation = useMutation(api.agentTasks.stopTaskSandbox);
 
   const [baseBranch, setBaseBranch] = useState("main");
-  const [showSandbox, setShowSandbox] = useState(false);
+  const [showSandbox, setShowSandbox] = useQueryState(
+    "sandbox",
+    sandboxOpenParser,
+  );
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
   const [isSandboxStopping, setIsSandboxStopping] = useState(false);
   const [isStarting, setIsStarting] = useState(false);

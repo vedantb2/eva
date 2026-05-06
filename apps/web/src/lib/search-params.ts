@@ -1,4 +1,5 @@
 import {
+  parseAsBoolean,
   parseAsString,
   parseAsStringLiteral,
   parseAsArrayOf,
@@ -74,6 +75,10 @@ const sandboxTabs = [
 export type SandboxTab = (typeof sandboxTabs)[number];
 export const sandboxTabParser = parseAsStringLiteral(sandboxTabs)
   .withDefault("preview")
+  .withOptions(tabOptions);
+
+export const sandboxOpenParser = parseAsBoolean
+  .withDefault(false)
   .withOptions(tabOptions);
 
 export const designTabParser = parseAsString

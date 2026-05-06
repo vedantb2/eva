@@ -24,6 +24,7 @@ export const get = authQuery({
       lastName: v.optional(v.string()),
       fullName: v.optional(v.string()),
       lastSeenAt: v.optional(v.number()),
+      lastSeenPath: v.optional(v.string()),
     }),
     v.null(),
   ),
@@ -35,6 +36,7 @@ export const get = authQuery({
       lastName: user.lastName,
       fullName: user.fullName,
       lastSeenAt: user.lastSeenAt,
+      lastSeenPath: user.lastSeenPath,
     };
   },
 });

@@ -1,7 +1,9 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { AuthGate } from "@/lib/components/ClientProvider";
+import { FollowOverlay } from "@/lib/components/FollowOverlay";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
+import { FollowProvider } from "@/lib/contexts/FollowContext";
 import { SidebarProvider, useSidebar } from "@/lib/contexts/SidebarContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
 
@@ -38,9 +40,12 @@ function GlobalLayout() {
     <AuthGate>
       <SidebarProvider>
         <PageTitleProvider>
-          <Sidebar />
-          <GlobalMainContent />
-          <NotificationToastStream />
+          <FollowProvider>
+            <Sidebar />
+            <GlobalMainContent />
+            <FollowOverlay />
+            <NotificationToastStream />
+          </FollowProvider>
         </PageTitleProvider>
       </SidebarProvider>
     </AuthGate>

@@ -19,7 +19,6 @@ import {
   MessageResponse,
   PromptInput,
   PromptInputProvider,
-  PromptInputTextarea,
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
@@ -52,7 +51,7 @@ import {
   IconLayoutSidebarRightExpand,
   IconDots,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { ResponseLength } from "@conductor/ui";
@@ -67,6 +66,11 @@ import {
 import type { Id } from "@conductor/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import {
+  MentionTextarea,
+  type MentionTextareaHandle,
+} from "@/lib/components/chat/MentionTextarea";
 import type { FunctionReturnType } from "convex/server";
 import dayjs from "@conductor/shared/dates";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
@@ -247,6 +251,8 @@ export function ChatPanel({
   onToggleSandbox,
 }: ChatPanelProps) {
   const { repo } = useRepo();
+  const docs = useQuery(api.docs.list, { repoId: repo._id }) ?? [];
+  const mentionRef = useRef<MentionTextareaHandle>(null);
   const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -307,7 +313,8 @@ export function ChatPanel({
 
   const handleSend = async (text: string) => {
     if (!text.trim()) return;
-    const content = text.trim();
+    const visible = text.trim();
+    const content = mentionRef.current?.tokenize(visible) ?? visible;
     if (isExecuting) {
       await enqueueMessage({
         sessionId,
@@ -720,9 +727,11 @@ export function ChatPanel({
                                 )}
                             </>
                           ) : (
-                            <p className="text-sm whitespace-pre-wrap break-words">
-                              {message.content}
-                            </p>
+                            <MessageMentionText
+                              text={message.content}
+                              owner={repo.owner}
+                              repo={repo.name}
+                            />
                           )}
                         </>
                       )}
@@ -811,7 +820,9 @@ export function ChatPanel({
           <div>
             <PromptInputProvider>
               <PromptInput onSubmit={handlePromptSubmit}>
-                <PromptInputTextarea
+                <MentionTextarea
+                  ref={mentionRef}
+                  docs={docs}
                   placeholder={
                     !isSandboxActive
                       ? "Start the sandbox to begin chatting..."

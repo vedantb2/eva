@@ -155,6 +155,7 @@ export function QuickTasksKanbanBoard({
             title={task.title}
             description={task.description}
             status={task.status}
+            priority={task.priority}
             hasError={errorTaskIdSet.has(task._id)}
             deploymentStatus={deploymentStatusMap.get(task._id)}
             sandboxStatus={task.reviewTaskSandboxStatus}
@@ -184,6 +185,7 @@ export function QuickTasksKanbanBoard({
             title={task.title}
             description={task.description}
             status={task.status}
+            priority={task.priority}
             hasError={errorTaskIdSet.has(task._id)}
             deploymentStatus={deploymentStatusMap.get(task._id)}
             sandboxStatus={task.reviewTaskSandboxStatus}

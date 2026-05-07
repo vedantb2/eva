@@ -13,6 +13,7 @@ import {
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "./_queues/helpers";
+import { resolveDocMentions } from "./_mentions/resolveDocMentions";
 import {
   buildRootDirectoryInstruction,
   buildCustomInstructionsBlock,
@@ -365,12 +366,18 @@ export const getSessionData = internalQuery({
 
     const branchName = session.branchName || `eva/session-${args.sessionId}`;
 
+    const { resolvedMessage, prefixBlock } = await resolveDocMentions(
+      ctx,
+      args.message,
+      session.repoId,
+    );
+
     let prompt: string;
     if (effectiveMode === "plan") {
       prompt = buildPlanPrompt(
         { owner: repo.owner, name: repo.name },
         session.planContent || "",
-        args.message,
+        resolvedMessage,
         args.responseLength,
         rootDirectory,
         customInstructionsBlock,
@@ -380,11 +387,14 @@ export const getSessionData = internalQuery({
         { owner: repo.owner, name: repo.name },
         branchName,
         session.planContent || "",
-        args.message,
+        resolvedMessage,
         args.responseLength,
         rootDirectory,
         customInstructionsBlock,
       );
+    }
+    if (prefixBlock) {
+      prompt = `${prefixBlock}\n\n${prompt}`;
     }
 
     return {

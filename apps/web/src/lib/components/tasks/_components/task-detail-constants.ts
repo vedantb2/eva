@@ -1,5 +1,6 @@
 export const NO_PROJECT_VALUE = "__none__";
 export const UNASSIGNED_VALUE = "__unassigned__";
+export const NO_PRIORITY_VALUE = "__no_priority__";
 
 export const GHOST_TRIGGER_CLASS =
   "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-md text-[13px] [&>svg:last-child]:hidden";

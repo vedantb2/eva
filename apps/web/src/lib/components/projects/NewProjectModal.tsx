@@ -20,6 +20,8 @@ import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconGitBranch } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
+import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
+import type { Priority } from "@/lib/components/priority/priorityMeta";
 
 const MarkdownEditor = lazy(() =>
   import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
@@ -39,6 +41,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [baseBranch, setBaseBranch] = useState(defaultBranch);
+  const [priority, setPriority] = useState<Priority | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
 
   const editorRef = useRef<MarkdownEditorHandle>(null);
@@ -51,6 +54,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
     setTitle("");
     setDescription("");
     setBaseBranch(defaultBranch);
+    setPriority(undefined);
   }, [defaultBranch]);
 
   const handleClose = useCallback(() => {
@@ -71,6 +75,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
         title: title.trim(),
         rawInput: desc,
         baseBranch,
+        priority,
       });
 
       resetForm();
@@ -150,6 +155,8 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
               />
             </PopoverContent>
           </Popover>
+
+          <PriorityPicker value={priority} onChange={setPriority} />
         </div>
 
         <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-end bg-muted/15">

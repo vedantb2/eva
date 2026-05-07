@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
@@ -20,6 +21,9 @@ import {
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { compactRelativeTime } from "@conductor/shared/dates";
+import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
+import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
+import { PRIORITY_LABELS } from "@/lib/components/priority/priorityMeta";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -62,6 +66,19 @@ const columns: ColumnDef<Project, unknown>[] = [
       return (
         <span className="text-xs text-muted-foreground truncate max-w-[200px] block">
           {desc}
+        </span>
+      );
+    },
+    enableSorting: false,
+  },
+  {
+    id: "priority",
+    header: "Priority",
+    cell: ({ row }) => {
+      const level = row.original.priority;
+      return (
+        <span title={level ? PRIORITY_LABELS[level] : "No priority"}>
+          <PriorityIcon level={level} size={14} />
         </span>
       );
     },
@@ -143,14 +160,38 @@ export function ProjectsTableView({
   const [sorting, setSorting] = useState<SortingState>([
     { id: "created", desc: true },
   ]);
+  const updateProject = useMutation(api.projects.update);
 
   const scrollRef = useCallback((node: HTMLDivElement | null) => {
     setScrollParent(node);
   }, []);
 
+  const resolvedColumns = useMemo<ColumnDef<Project, unknown>[]>(() => {
+    return columns.map((col) => {
+      if ("id" in col && col.id === "priority") {
+        return {
+          ...col,
+          cell: ({ row }: { row: { original: Project } }) => (
+            <div onClick={(e) => e.stopPropagation()}>
+              <PriorityPicker
+                value={row.original.priority}
+                onChange={(p) =>
+                  updateProject({ id: row.original._id, priority: p ?? null })
+                }
+                compact
+                className="px-1"
+              />
+            </div>
+          ),
+        };
+      }
+      return col;
+    });
+  }, [updateProject]);
+
   const table = useReactTable({
     data: projects,
-    columns,
+    columns: resolvedColumns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: (updater) => {

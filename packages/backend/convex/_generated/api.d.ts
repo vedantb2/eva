@@ -34,6 +34,8 @@ import type * as _githubRepos_helpers from "../_githubRepos/helpers.js";
 import type * as _githubRepos_mutations from "../_githubRepos/mutations.js";
 import type * as _githubRepos_queries from "../_githubRepos/queries.js";
 import type * as _githubRepos_sync from "../_githubRepos/sync.js";
+import type * as _mentions_mentionToken from "../_mentions/mentionToken.js";
+import type * as _mentions_resolveDocMentions from "../_mentions/resolveDocMentions.js";
 import type * as _projects_development from "../_projects/development.js";
 import type * as _projects_helpers from "../_projects/helpers.js";
 import type * as _projects_internal from "../_projects/internal.js";
@@ -182,6 +184,8 @@ declare const fullApi: ApiFromModules<{
   "_githubRepos/mutations": typeof _githubRepos_mutations;
   "_githubRepos/queries": typeof _githubRepos_queries;
   "_githubRepos/sync": typeof _githubRepos_sync;
+  "_mentions/mentionToken": typeof _mentions_mentionToken;
+  "_mentions/resolveDocMentions": typeof _mentions_resolveDocMentions;
   "_projects/development": typeof _projects_development;
   "_projects/helpers": typeof _projects_helpers;
   "_projects/internal": typeof _projects_internal;

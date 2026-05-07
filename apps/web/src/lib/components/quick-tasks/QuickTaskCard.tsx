@@ -36,6 +36,11 @@ import {
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { DEPLOYMENT_STATUS_CONFIG } from "@/lib/components/tasks/_components/task-detail-constants";
+import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
+import {
+  PRIORITY_LABELS,
+  type Priority,
+} from "@/lib/components/priority/priorityMeta";
 import dayjs, { compactRelativeTime } from "@conductor/shared/dates";
 import { useState } from "react";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
@@ -55,6 +60,7 @@ interface QuickTaskCardProps {
   title: string;
   description?: string;
   status: TaskStatus;
+  priority?: Priority;
   taskNumber?: number;
   scheduledAt?: number;
   tags?: string[];
@@ -83,6 +89,7 @@ export function QuickTaskCard({
   id,
   title,
   status,
+  priority,
   taskNumber,
   scheduledAt,
   tags,
@@ -203,6 +210,16 @@ export function QuickTaskCard({
           </h4>
 
           <div className="flex shrink-0 items-center gap-1">
+            {priority ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center">
+                    <PriorityIcon level={priority} size={14} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{PRIORITY_LABELS[priority]}</TooltipContent>
+              </Tooltip>
+            ) : null}
             {sandboxStatus ? (
               <Tooltip>
                 <TooltipTrigger asChild>

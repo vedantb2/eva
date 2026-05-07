@@ -1,6 +1,10 @@
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
-import { roleValidator, phaseValidator } from "../validators";
+import {
+  roleValidator,
+  phaseValidator,
+  priorityValidator,
+} from "../validators";
 import {
   authMutation,
   hasRepoAccess,
@@ -21,6 +25,7 @@ export const create = authMutation({
     title: v.string(),
     rawInput: v.string(),
     baseBranch: v.optional(v.string()),
+    priority: v.optional(priorityValidator),
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
@@ -35,6 +40,7 @@ export const create = authMutation({
       baseBranch: args.baseBranch,
       phase: "draft",
       projectStartDate: Date.now(),
+      priority: args.priority,
     });
     await setProjectConversation(ctx.db, projectId, [
       {
@@ -56,6 +62,7 @@ export const update = authMutation({
     branchName: v.optional(v.string()),
     generatedSpec: v.optional(v.string()),
     phase: v.optional(phaseValidator),
+    priority: v.optional(v.union(priorityValidator, v.null())),
     projectLead: v.optional(v.union(v.id("users"), v.null())),
     members: v.optional(v.array(v.id("users"))),
     projectStartDate: v.optional(v.number()),
@@ -64,7 +71,7 @@ export const update = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    const { id, generatedSpec, projectLead, ...fields } = args;
+    const { id, generatedSpec, projectLead, priority, ...fields } = args;
     const updates: Record<string, string | number | Array<string> | undefined> =
       {};
     for (const [key, value] of Object.entries(fields)) {
@@ -72,6 +79,7 @@ export const update = authMutation({
     }
     if (projectLead !== undefined)
       updates.projectLead = projectLead ?? undefined;
+    if (priority !== undefined) updates.priority = priority ?? undefined;
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(args.id, updates);
     }

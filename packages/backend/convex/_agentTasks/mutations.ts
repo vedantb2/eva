@@ -1,7 +1,11 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
-import { taskStatusValidator, aiModelValidator } from "../validators";
+import {
+  taskStatusValidator,
+  aiModelValidator,
+  priorityValidator,
+} from "../validators";
 import { createNotification } from "../notifications";
 import {
   authMutation,
@@ -32,6 +36,7 @@ export const update = authMutation({
     assignedTo: v.optional(v.union(v.id("users"), v.null())),
     model: v.optional(aiModelValidator),
     baseBranch: v.optional(v.string()),
+    priority: v.optional(v.union(priorityValidator, v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -50,6 +55,8 @@ export const update = authMutation({
       updates.assignedTo = args.assignedTo ?? undefined;
     if (args.model !== undefined) updates.model = args.model;
     if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
+    if (args.priority !== undefined)
+      updates.priority = args.priority ?? undefined;
     await ctx.db.patch(args.id, updates);
     if (args.assignedTo !== undefined && args.assignedTo !== task.assignedTo) {
       if (args.assignedTo && args.assignedTo !== ctx.userId) {
@@ -217,6 +224,7 @@ export const createQuickTask = authMutation({
     projectId: v.optional(v.id("projects")),
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
+    priority: v.optional(priorityValidator),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -253,6 +261,7 @@ export const createQuickTask = authMutation({
       taskNumber,
       tags: normalizeTaskTags(args.tags),
       assignedTo: args.assignedTo,
+      priority: args.priority,
     });
     if (args.assignedTo && args.assignedTo !== ctx.userId) {
       const task = await ctx.db.get(taskId);

@@ -48,6 +48,8 @@ import { getUserInitials, UserInitials } from "@conductor/shared";
 import { Facehash } from "facehash";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
 import { getUserDisplayName } from "@/lib/components/tasks/_components/task-detail-constants";
+import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
+import type { Priority } from "@/lib/components/priority/priorityMeta";
 
 const MarkdownEditor = lazy(() =>
   import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
@@ -94,6 +96,7 @@ export function QuickTaskModal({
   );
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState("");
+  const [priority, setPriority] = useState<Priority | undefined>(undefined);
 
   const editorRef = useRef<MarkdownEditorHandle>(null);
 
@@ -118,6 +121,7 @@ export function QuickTaskModal({
     setAssignedTo(undefined);
     setSelectedTags([]);
     setTagSearch("");
+    setPriority(undefined);
   }, [defaultBranch, defaultModel, projectId]);
 
   const handleClose = useCallback(async () => {
@@ -172,6 +176,7 @@ export function QuickTaskModal({
           projectId: selectedProjectId,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
+          priority,
         });
       }
       resetForm();
@@ -332,6 +337,8 @@ export function QuickTaskModal({
               </Command>
             </PopoverContent>
           </Popover>
+
+          <PriorityPicker value={priority} onChange={setPriority} />
 
           <Popover>
             <PopoverTrigger asChild>

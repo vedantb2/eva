@@ -47,7 +47,7 @@ import { useQuickTaskFilters } from "../_utils";
 type QuickTaskView = "kanban" | "list" | "table";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
-type SortField = "lastRun" | "updated" | "created" | "title";
+type SortField = "lastRun" | "updated" | "created" | "title" | "priority";
 type SortDir = "asc" | "desc";
 type TimeRange = "7d" | "30d" | "90d" | "all";
 
@@ -75,6 +75,7 @@ const SORT_FIELD_LABELS: Record<SortField, string> = {
   updated: "Updated",
   created: "Created",
   title: "Title",
+  priority: "Priority",
 };
 
 const TIME_RANGE_LABELS: Record<TimeRange, string> = {

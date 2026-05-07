@@ -277,6 +277,7 @@ export function QuickTasksListView({
                                       title={task.title}
                                       description={task.description}
                                       status={task.status}
+                                      priority={task.priority}
                                       hasError={errorTaskIdSet.has(task._id)}
                                       sandboxStatus={
                                         task.reviewTaskSandboxStatus

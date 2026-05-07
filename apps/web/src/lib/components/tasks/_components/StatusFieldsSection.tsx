@@ -40,12 +40,19 @@ import {
   TASK_STATUSES,
   type TaskStatus,
 } from "../TaskStatusBadge";
+import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
+import {
+  PRIORITY_LABELS,
+  PRIORITY_ORDER,
+  type Priority,
+} from "@/lib/components/priority/priorityMeta";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   GHOST_TRIGGER_CLASS,
   DEPLOYMENT_STATUS_CONFIG,
   getUserDisplayName,
   NO_PROJECT_VALUE,
+  NO_PRIORITY_VALUE,
   UNASSIGNED_VALUE,
 } from "./task-detail-constants";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
@@ -190,6 +197,52 @@ export function StatusFieldsSection({
       </Select>
 
       <Select
+        value={task?.priority ?? NO_PRIORITY_VALUE}
+        onValueChange={(val) => {
+          if (val === NO_PRIORITY_VALUE) {
+            updateTask({ id: taskId, priority: null });
+            return;
+          }
+          const matched = PRIORITY_ORDER.find((p) => p === val);
+          if (matched) {
+            updateTask({ id: taskId, priority: matched });
+          }
+        }}
+      >
+        <SelectTrigger className={GHOST_TRIGGER_CLASS}>
+          <SelectValue>
+            <div
+              className={`flex items-center gap-1.5 ${task?.priority ? "" : "text-muted-foreground"}`}
+            >
+              <PriorityIcon level={task?.priority} size={14} />
+              <span>
+                {task?.priority ? PRIORITY_LABELS[task.priority] : "Priority"}
+              </span>
+            </div>
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectLabel>Priority</SelectLabel>
+            <SelectItem value={NO_PRIORITY_VALUE}>
+              <div className="flex items-center gap-1.5">
+                <PriorityIcon level={undefined} size={14} />
+                <span>No priority</span>
+              </div>
+            </SelectItem>
+            {PRIORITY_ORDER.map((p: Priority) => (
+              <SelectItem key={p} value={p}>
+                <div className="flex items-center gap-1.5">
+                  <PriorityIcon level={p} size={14} />
+                  <span>{PRIORITY_LABELS[p]}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+
+      <Select
         value={selectedProjectValue}
         onValueChange={(val) => {
           if (val === NO_PROJECT_VALUE) {
@@ -240,10 +293,10 @@ export function StatusFieldsSection({
         value={task?.assignedTo ?? UNASSIGNED_VALUE}
         onValueChange={(val) => {
           if (val === UNASSIGNED_VALUE) {
-            updateTask({ id: taskId, assignedTo: undefined });
+            updateTask({ id: taskId, assignedTo: null });
           } else {
             const user = users?.find((u) => u._id === val);
-            updateTask({ id: taskId, assignedTo: user?._id });
+            if (user) updateTask({ id: taskId, assignedTo: user._id });
           }
         }}
       >

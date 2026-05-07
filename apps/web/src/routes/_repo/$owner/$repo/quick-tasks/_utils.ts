@@ -6,7 +6,7 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 
 type QuickTaskView = "kanban" | "list" | "table";
-type SortField = "lastRun" | "updated" | "created" | "title";
+type SortField = "lastRun" | "updated" | "created" | "title" | "priority";
 type SortDir = "asc" | "desc";
 type TimeRange = "7d" | "30d" | "90d" | "all";
 

@@ -30,6 +30,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
+import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 
 const GHOST_TRIGGER_CLASS =
   "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-md text-[13px] [&>svg:last-child]:hidden shrink-0";
@@ -54,6 +55,14 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
     <div className="flex items-center gap-0.5 px-3 sm:px-4 py-1 overflow-x-auto scrollbar-none">
       <div className="flex items-center h-8 px-2 shrink-0">
         <ProjectPhaseBadge phase={project.phase} />
+      </div>
+      <div className="flex items-center h-8 shrink-0">
+        <PriorityPicker
+          value={project.priority}
+          onChange={(p) =>
+            updateProject({ id: projectId, priority: p ?? null })
+          }
+        />
       </div>
       <Select
         value={project.projectLead ?? "none"}

@@ -108,6 +108,8 @@ export default defineConfig({
       "@tanstack/react-router",
       "@tanstack/react-query",
       "@clerk/clerk-react",
+      "@tiptap/react",
+      "@tiptap/core",
     ],
   },
   build: {

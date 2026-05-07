@@ -1,5 +1,11 @@
 # Changelog
 
+## Retry and preserve quick-task PR URLs - 2026-05-07
+
+- **Why**: Successful quick-task runs could finish without a stored PR URL when GitHub PR creation failed or when a later run refreshed an existing PR body without returning the PR URL.
+- **Change**: Quick-task PR creation and refresh now run as explicitly retried workflow action steps. PR creation reuses an existing open PR on the same branch, PR refresh returns the existing PR URL, and both paths fail the workflow instead of silently returning `null` when no PR can be created or found.
+- **Reason**: PR creation is a required publishing step for successful quick tasks, so missing PRs should be retried and surfaced as workflow failures rather than hidden behind a successful run.
+
 ## Keep persistent sandboxes alive for one hour - 2026-05-07
 
 - **Why**: Reviewers need more time to inspect sandbox previews before Daytona auto-stops persistent sandboxes.

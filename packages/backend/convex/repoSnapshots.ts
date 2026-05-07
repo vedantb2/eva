@@ -35,6 +35,7 @@ export const getRepoSnapshot = authQuery({
       repoId: v.id("githubRepos"),
       snapshotName: v.string(),
       schedule: snapshotScheduleValidator,
+      enabled: v.optional(v.boolean()),
       cronJobId: v.optional(v.string()),
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
@@ -189,7 +190,7 @@ export const saveRepoSnapshot = authMutation({
 
       let cronJobId: string | undefined;
       const cronspec = resolveCronspec(args.schedule);
-      if (cronspec) {
+      if (cronspec && existing.enabled === true) {
         const id = await crons.register(
           ctx,
           { kind: "cron", cronspec },
@@ -215,6 +216,7 @@ export const saveRepoSnapshot = authMutation({
       repoId: canonicalRepoId,
       snapshotName,
       schedule: args.schedule,
+      enabled: true,
       workflowRef: args.workflowRef,
       buildCommands: args.buildCommands,
       createdAt: now,
@@ -234,6 +236,51 @@ export const saveRepoSnapshot = authMutation({
     }
 
     return id;
+  },
+});
+
+/** Toggles the enabled state of a snapshot, registering or deleting the cron job. */
+export const setSnapshotEnabled = authMutation({
+  args: {
+    repoSnapshotId: v.id("repoSnapshots"),
+    enabled: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const config = await ctx.db.get(args.repoSnapshotId);
+    if (!config) throw new Error("Snapshot config not found");
+
+    const cronName = `snapshot-rebuild-${config.repoId}`;
+
+    if (config.cronJobId) {
+      try {
+        await crons.delete(ctx, { name: cronName });
+      } catch {
+        // Cron may already be deleted
+      }
+    }
+
+    let cronJobId: string | undefined;
+    if (args.enabled) {
+      const cronspec = resolveCronspec(config.schedule);
+      if (cronspec) {
+        const id = await crons.register(
+          ctx,
+          { kind: "cron", cronspec },
+          internal.repoSnapshots.triggerScheduledBuild,
+          { repoSnapshotId: config._id },
+          cronName,
+        );
+        cronJobId = String(id);
+      }
+    }
+
+    await ctx.db.patch(args.repoSnapshotId, {
+      enabled: args.enabled,
+      cronJobId,
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
 

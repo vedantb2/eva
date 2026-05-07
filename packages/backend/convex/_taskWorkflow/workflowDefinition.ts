@@ -14,6 +14,10 @@ import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
 
+const PR_STEP_RETRY = {
+  retry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 },
+};
+
 /** Main durable workflow that orchestrates sandbox setup, task execution, audit, PR creation, and cleanup. */
 export const taskExecutionWorkflow = workflow.define({
   args: {
@@ -239,9 +243,10 @@ export const taskExecutionWorkflow = workflow.define({
               ],
               draft: isQuickTask,
             },
+            PR_STEP_RETRY,
           );
         } else {
-          await step.runAction(
+          completionPrUrl = await step.runAction(
             internal.taskWorkflowActions.refreshPullRequestBody,
             {
               installationId: args.installationId,
@@ -250,6 +255,7 @@ export const taskExecutionWorkflow = workflow.define({
               branchName: data.branchName,
               body: enrichedBody,
             },
+            PR_STEP_RETRY,
           );
         }
       }

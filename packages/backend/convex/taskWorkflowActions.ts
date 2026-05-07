@@ -117,6 +117,25 @@ function mergeBodyWithAuditSection(
   return stripped ? `${stripped}\n\n${auditSection}` : auditSection;
 }
 
+async function findOpenPullRequestForBranch(params: {
+  installationId: number;
+  repoOwner: string;
+  repoName: string;
+  branchName: string;
+}): Promise<{ url: string; number: number; body: string | null } | null> {
+  const octokit = await getInstallationOctokit(params.installationId);
+  const pulls = await octokit.rest.pulls.list({
+    owner: params.repoOwner,
+    repo: params.repoName,
+    state: "open",
+    head: `${params.repoOwner}:${params.branchName}`,
+    per_page: 1,
+  });
+  const pr = pulls.data[0];
+  if (!pr) return null;
+  return { url: pr.html_url, number: pr.number, body: pr.body };
+}
+
 /** Creates a GitHub pull request via the installation Octokit and optionally adds labels. */
 export const createPullRequest = internalAction({
   args: {
@@ -130,45 +149,50 @@ export const createPullRequest = internalAction({
     labels: v.array(v.string()),
     draft: v.optional(v.boolean()),
   },
-  returns: v.union(v.string(), v.null()),
+  returns: v.string(),
   handler: async (_ctx, args) => {
-    try {
-      const octokit = await getInstallationOctokit(args.installationId);
-      const pr = await octokit.rest.pulls.create({
+    const octokit = await getInstallationOctokit(args.installationId);
+    const existingPr = await findOpenPullRequestForBranch(args);
+    if (existingPr) {
+      await octokit.rest.pulls.update({
         owner: args.repoOwner,
         repo: args.repoName,
+        pull_number: existingPr.number,
         title: `Eva: ${args.title}`,
         body: args.body,
-        head: args.branchName,
-        base: args.baseBranch ?? "staging",
-        draft: args.draft ?? false,
       });
-
-      // The PR exists on GitHub from here on. Label failures must NOT
-      // invalidate the URL — if we drop it, the app can't reconcile the PR
-      // when the merge webhook fires later, and the task status never updates.
-      if (args.labels.length > 0) {
-        try {
-          await octokit.rest.issues.addLabels({
-            owner: args.repoOwner,
-            repo: args.repoName,
-            issue_number: pr.data.number,
-            labels: args.labels,
-          });
-        } catch (labelError) {
-          console.error(
-            `Failed to add labels to PR ${pr.data.html_url}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
-          );
-        }
-      }
-
-      return pr.data.html_url;
-    } catch (error) {
-      console.error(
-        `Failed to create PR: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return null;
+      return existingPr.url;
     }
+
+    const pr = await octokit.rest.pulls.create({
+      owner: args.repoOwner,
+      repo: args.repoName,
+      title: `Eva: ${args.title}`,
+      body: args.body,
+      head: args.branchName,
+      base: args.baseBranch ?? "staging",
+      draft: args.draft ?? false,
+    });
+
+    // The PR exists on GitHub from here on. Label failures must NOT
+    // invalidate the URL - if we drop it, the app can't reconcile the PR
+    // when the merge webhook fires later, and the task status never updates.
+    if (args.labels.length > 0) {
+      try {
+        await octokit.rest.issues.addLabels({
+          owner: args.repoOwner,
+          repo: args.repoName,
+          issue_number: pr.data.number,
+          labels: args.labels,
+        });
+      } catch (labelError) {
+        console.error(
+          `Failed to add labels to PR ${pr.data.html_url}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
+        );
+      }
+    }
+
+    return pr.data.html_url;
   },
 });
 
@@ -307,39 +331,28 @@ export const refreshPullRequestBody = internalAction({
     branchName: v.string(),
     body: v.string(),
   },
-  returns: v.null(),
+  returns: v.string(),
   handler: async (_ctx, args) => {
-    try {
-      const octokit = await getInstallationOctokit(args.installationId);
-      const pulls = await octokit.rest.pulls.list({
-        owner: args.repoOwner,
-        repo: args.repoName,
-        state: "open",
-        head: `${args.repoOwner}:${args.branchName}`,
-        per_page: 1,
-      });
-      const pr = pulls.data[0];
-      if (!pr) return null;
-
-      // Preserve existing audit section if present
-      const existingBody = pr.body ?? "";
-      const auditMatch = existingBody.match(AUDIT_SECTION_REGEX);
-      const newBody = auditMatch
-        ? `${args.body}\n\n${auditMatch[0]}`
-        : args.body;
-
-      await octokit.rest.pulls.update({
-        owner: args.repoOwner,
-        repo: args.repoName,
-        pull_number: pr.number,
-        body: newBody,
-      });
-    } catch (error) {
-      console.error(
-        `Failed to refresh PR body: ${error instanceof Error ? error.message : String(error)}`,
+    const octokit = await getInstallationOctokit(args.installationId);
+    const pr = await findOpenPullRequestForBranch(args);
+    if (!pr) {
+      throw new Error(
+        `No open pull request found for ${args.repoOwner}/${args.repoName}:${args.branchName}`,
       );
     }
-    return null;
+
+    // Preserve existing audit section if present
+    const existingBody = pr.body ?? "";
+    const auditMatch = existingBody.match(AUDIT_SECTION_REGEX);
+    const newBody = auditMatch ? `${args.body}\n\n${auditMatch[0]}` : args.body;
+
+    await octokit.rest.pulls.update({
+      owner: args.repoOwner,
+      repo: args.repoName,
+      pull_number: pr.number,
+      body: newBody,
+    });
+    return pr.url;
   },
 });
 

@@ -14,6 +14,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  cn,
 } from "@conductor/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
@@ -45,6 +46,7 @@ export function SnapshotsClient() {
   const saveRepoSnapshot = useMutation(api.repoSnapshots.saveRepoSnapshot);
   const deleteRepoSnapshot = useMutation(api.repoSnapshots.deleteRepoSnapshot);
   const startBuild = useMutation(api.repoSnapshots.startBuild);
+  const setSnapshotEnabled = useMutation(api.repoSnapshots.setSnapshotEnabled);
 
   // UI-only state (not data)
   const [building, setBuilding] = useState(false);
@@ -54,6 +56,7 @@ export function SnapshotsClient() {
   const schedule = snapshot?.schedule ?? "manual";
   const workflowRef = snapshot?.workflowRef ?? "main";
   const buildCommandsText = snapshot?.buildCommands?.join("\n") ?? "";
+  const isEnabled = snapshot?.enabled === true;
 
   // Save on change for schedule
   const handleScheduleChange = (newSchedule: string) => {
@@ -138,6 +141,40 @@ export function SnapshotsClient() {
                 <IconTrash size={14} className="mr-1.5" />
                 Delete Config
               </Button>
+            </div>
+          )}
+
+          {snapshot && (
+            <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium">Enabled</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    When off, scheduled rebuilds are paused. Manual rebuilds
+                    still work.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSnapshotEnabled({
+                      repoSnapshotId: snapshot._id,
+                      enabled: !isEnabled,
+                    })
+                  }
+                  className={cn(
+                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    isEnabled ? "bg-emerald-500" : "bg-muted-foreground/30",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none block h-5 w-5 rounded-full bg-white transition-transform",
+                      isEnabled ? "translate-x-5" : "translate-x-0",
+                    )}
+                  />
+                </button>
+              </div>
             </div>
           )}
 

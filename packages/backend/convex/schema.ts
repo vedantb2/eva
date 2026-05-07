@@ -268,6 +268,7 @@ const schema = defineSchema({
     repoId: v.id("githubRepos"),
     snapshotName: v.string(),
     schedule: snapshotScheduleValidator,
+    enabled: v.optional(v.boolean()),
     cronJobId: v.optional(v.string()),
     workflowRef: v.optional(v.string()),
     buildCommands: v.optional(v.array(v.string())),

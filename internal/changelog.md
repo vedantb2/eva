@@ -1,5 +1,11 @@
 # Changelog
 
+## Extract @mention primitives into reusable library - 2026-05-07
+
+- **Why**: Task comment mentions and chat doc mentions were ~95% identical code; extracting shared primitives eliminates duplication and ensures consistent UX across surfaces.
+- **Change**: Created `apps/web/src/lib/components/mentions/` with headless `MentionEditor<TItem>` generic component (contentEditable + portal popup, composition slots for rendering/filtering), `MentionText` render primitive (parses and renders `@[label](id)` tokens), and shared utilities (`mentionToken.ts`, `mentionEditorUtils.ts`). Both `chat/MentionTextarea` and `tasks/CommentMentionInput` now wrap `MentionEditor`; `chat/MessageMentionText` and `tasks/CommentsSection` use `MentionText` directly. Deleted local duplicate `tasks/CommentText.tsx`.
+- **Reason**: Shared mention editor logic deduplicates ~300 lines. Generic `<TItem extends MentionItem>` prevents type casts (`as UserMentionItem`) and enables strong typing on `renderItem` callback. React 19 ref-as-prop pattern avoids `forwardRef` and eliminates `as` type assertions, adhering to project no-`as` rule.
+
 ## Custom animated sidebar icons - 2026-05-07
 
 - **Why**: Generic static icons in the sidebar lacked visual polish and feedback.

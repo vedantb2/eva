@@ -22,7 +22,7 @@ import {
   CommentMentionInput,
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
-import { CommentText } from "./CommentText";
+import { MentionText } from "@/lib/components/mentions";
 
 interface CommentsSectionProps {
   taskId: Id<"agentTasks">;
@@ -190,7 +190,7 @@ export function CommentsSection({
                   <IconTrash size={12} />
                 </Button>
               </div>
-              <CommentText text={comment.content} />
+              <MentionText text={comment.content} />
             </div>
           ))}
         </div>

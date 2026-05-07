@@ -74,6 +74,9 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const cancelExecution = useMutation(api.taskWorkflow.cancelExecution);
   const startTaskSandboxMutation = useMutation(api.agentTasks.startTaskSandbox);
   const stopTaskSandboxMutation = useMutation(api.agentTasks.stopTaskSandbox);
+  const retryStartupCommandsMutation = useMutation(
+    api.agentTasks.retryStartupCommands,
+  );
 
   const [baseBranch, setBaseBranch] = useState("main");
   const [showSandbox, setShowSandbox] = useQueryState(
@@ -82,6 +85,8 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   );
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
   const [isSandboxStopping, setIsSandboxStopping] = useState(false);
+  const [isRetryingStartupCommands, setIsRetryingStartupCommands] =
+    useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
@@ -174,6 +179,18 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     }
   }, [stopTaskSandboxMutation, taskId]);
 
+  const handleRetryStartupCommands = useCallback(async () => {
+    setIsRetryingStartupCommands(true);
+    try {
+      await retryStartupCommandsMutation({ taskId });
+      setShowSandbox(true);
+    } catch (err) {
+      console.error("Failed to retry startup commands:", err);
+    } finally {
+      setIsRetryingStartupCommands(false);
+    }
+  }, [retryStartupCommandsMutation, setShowSandbox, taskId]);
+
   const handleToggleSandboxView = useCallback(() => {
     setShowSandbox((prev) => !prev);
   }, []);
@@ -261,6 +278,8 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     handleStartSandbox,
     handleStopSandbox,
     handleToggleSandboxView,
+    handleRetryStartupCommands,
+    isRetryingStartupCommands,
     sandboxId: task?.sandboxId,
     reviewTaskSandboxStatus: task?.reviewTaskSandboxStatus,
 

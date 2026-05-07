@@ -30,6 +30,7 @@ export { listDrafts, saveDraft, activateDraft } from "./_agentTasks/drafts";
 export {
   startTaskSandbox,
   stopTaskSandbox,
+  retryStartupCommands,
   taskSandboxReady,
   taskSandboxError,
 } from "./_agentTasks/sandbox";

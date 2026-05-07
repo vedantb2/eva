@@ -19,6 +19,7 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
   IconArrowLeft,
+  IconRefresh,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useTaskDetail } from "./useTaskDetail";
@@ -99,6 +100,8 @@ export function TaskDetailInline({
     handleStartSandbox,
     handleStopSandbox,
     handleToggleSandboxView,
+    handleRetryStartupCommands,
+    isRetryingStartupCommands,
     sandboxId,
     sandboxStartupActivity,
   } = useTaskDetail(taskId);
@@ -234,6 +237,26 @@ export function TaskDetailInline({
                           </Button>
                           {isSandboxActive && !isSandboxStopping ? (
                             <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRetryStartupCommands}
+                              disabled={isRetryingStartupCommands}
+                              className="gap-1.5"
+                              title="Re-run startup commands (forces re-execution)"
+                            >
+                              {isRetryingStartupCommands ? (
+                                <IconLoader2
+                                  size={14}
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <IconRefresh size={14} />
+                              )}
+                              Run Startup Commands
+                            </Button>
+                          ) : null}
+                          {isSandboxActive && !isSandboxStopping ? (
+                            <Button
                               variant="destructive"
                               size="sm"
                               onClick={handleStopSandbox}
@@ -253,15 +276,32 @@ export function TaskDetailInline({
                           ) : null}
                         </div>
                       ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleStartSandbox}
-                          className="gap-1.5"
-                        >
-                          <IconPlayerPlay size={14} />
-                          Start Sandbox
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleStartSandbox}
+                            className="gap-1.5"
+                          >
+                            <IconPlayerPlay size={14} />
+                            Start Sandbox
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRetryStartupCommands}
+                            disabled={isRetryingStartupCommands}
+                            className="gap-1.5"
+                            title="Start sandbox and force-run startup commands"
+                          >
+                            {isRetryingStartupCommands ? (
+                              <IconLoader2 size={14} className="animate-spin" />
+                            ) : (
+                              <IconRefresh size={14} />
+                            )}
+                            Run Startup Commands
+                          </Button>
+                        </div>
                       )
                     ) : null}
                     {task?.scheduledAt ? (

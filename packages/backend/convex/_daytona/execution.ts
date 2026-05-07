@@ -83,6 +83,9 @@ export const runStartupCommands = internalAction({
   args: {
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
+    // When true, skip the marker file check and re-run commands even if they
+    // previously ran. Used by the retry flow to recover from failed runs.
+    force: v.optional(v.boolean()),
   },
   returns: v.object({
     ran: v.boolean(),
@@ -103,21 +106,24 @@ export const runStartupCommands = internalAction({
       return { ran: false, commandCount: 0, errors: [] };
     }
 
-    // Check if startup commands have already run (marker file)
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    try {
-      await exec(sandbox, "test -f /tmp/.startup-commands-done", 5);
-      // Marker exists, commands already ran
-      console.log(
-        `[daytona] runStartupCommands: marker exists, skipping ${commands.length} commands`,
-      );
-      return { ran: false, commandCount: 0, errors: [] };
-    } catch {
-      // Marker doesn't exist, proceed
+
+    if (!args.force) {
+      // Check if startup commands have already run (marker file)
+      try {
+        await exec(sandbox, "test -f /tmp/.startup-commands-done", 5);
+        // Marker exists, commands already ran
+        console.log(
+          `[daytona] runStartupCommands: marker exists, skipping ${commands.length} commands`,
+        );
+        return { ran: false, commandCount: 0, errors: [] };
+      } catch {
+        // Marker doesn't exist, proceed
+      }
     }
 
     console.log(
-      `[daytona] runStartupCommands: executing ${commands.length} startup command(s)`,
+      `[daytona] runStartupCommands: executing ${commands.length} startup command(s)${args.force ? " (forced)" : ""}`,
     );
 
     const errors: string[] = [];

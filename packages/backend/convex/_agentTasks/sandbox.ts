@@ -63,6 +63,75 @@ export const startTaskSandbox = authMutation({
 });
 
 /**
+ * Re-runs startup commands for a task's preview sandbox by kicking off the
+ * regular sandbox startup workflow with `forceStartupCommands: true`. Used to
+ * recover when startup commands previously failed (the marker file is created
+ * regardless of failure, so a normal start would skip them).
+ *
+ * Auto-starts the sandbox if it isn't running yet — same workflow path either
+ * way, just with the force flag set so commands always re-execute.
+ */
+export const retryStartupCommands = authMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+
+    if (!task.repoId) throw new Error("Task has no associated repository");
+
+    if (task.status !== "code_review" && task.status !== "business_review") {
+      throw new Error(
+        `Task must be in code_review or business_review status to run startup commands. Current status: ${task.status}`,
+      );
+    }
+
+    if (
+      task.reviewTaskSandboxStatus === "starting" ||
+      task.reviewTaskSandboxStatus === "stopping"
+    ) {
+      throw new Error(
+        "Sandbox is currently starting or stopping. Wait for it to settle before retrying.",
+      );
+    }
+
+    const repo = await ctx.db.get(task.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const hasAccess = await hasRepoAccess(ctx.db, repo._id, ctx.userId);
+    if (!hasAccess) throw new Error("No access to repository");
+
+    const branchName = `eva/task-${args.taskId}`;
+    const baseBranch = task.baseBranch ?? repo.defaultBaseBranch ?? "main";
+
+    await ctx.db.patch(args.taskId, {
+      reviewTaskSandboxStatus: "starting",
+      updatedAt: Date.now(),
+    });
+
+    await workflow.start(
+      ctx,
+      internal.taskSandboxWorkflow.taskPreviewSandboxStartupWorkflow,
+      {
+        taskId: args.taskId,
+        existingSandboxId: task.sandboxId,
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        branchName,
+        baseBranch,
+        repoId: task.repoId,
+        forceStartupCommands: true,
+      },
+    );
+
+    return null;
+  },
+});
+
+/**
  * Stops the preview sandbox in Daytona. Keeps `sandboxId` so the reviewer
  * can resume the same paused filesystem (DB state intact) on next start.
  *

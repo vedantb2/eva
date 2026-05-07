@@ -1,5 +1,11 @@
 # Changelog
 
+## Retry failed startup commands on quick tasks - 2026-05-07
+
+- **Why**: When startup commands failed during sandbox setup, the marker file `/.startup-commands-done` was still created, preventing users from retrying the commands. Users had no way to recover without starting a fresh sandbox.
+- **Change**: Added `force?: boolean` param to `runStartupCommands` action to bypass the marker-file check. New `retryStartupCommands` authenticated mutation kicks off the task sandbox workflow with `forceStartupCommands: true`. Added "Run Startup Commands" button (`IconRefresh`) to TaskDetailInline, visible when sandbox is active or closed. Button auto-starts sandbox if needed and re-executes startup commands.
+- **Reason**: Startup command failures are recoverable within the same sandbox. Users can now click a button to retry without losing their sandbox state or manually recreating it.
+
 ## Fall back to git clone when snapshot is broken - 2026-05-07
 
 - **Why**: Quick tasks and other sandbox flows failed completely when a repo's snapshot was in error or build_failed state, with no recovery path and no way to proceed without manually rebuilding the snapshot.

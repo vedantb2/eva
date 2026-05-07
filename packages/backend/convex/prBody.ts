@@ -51,6 +51,38 @@ export function buildTaskPrSections(
   return sections;
 }
 
+/** Builds the Project / Tasks sections used in project PR bodies. Listed
+ * tasks are those that have at least one successful run on the project
+ * branch — i.e. tasks that have actually contributed commits. */
+export function buildProjectPrSections(
+  projectTitle: string,
+  projectDescription: string | undefined,
+  completedTasks: Array<{ title: string; description: string | undefined }>,
+): PrSection[] {
+  const sections: PrSection[] = [
+    {
+      heading: "Project",
+      content: projectDescription
+        ? `**${projectTitle}**\n\n${projectDescription}`
+        : `**${projectTitle}**`,
+    },
+  ];
+
+  if (completedTasks.length > 0) {
+    const lines = completedTasks.map((t, i) =>
+      t.description
+        ? `${i + 1}. **${t.title}** — ${t.description}`
+        : `${i + 1}. **${t.title}**`,
+    );
+    sections.push({
+      heading: "Completed Tasks",
+      content: lines.join("\n"),
+    });
+  }
+
+  return sections;
+}
+
 /** Assembles a pull request body from an array of heading/content sections. */
 export function buildPrBody(sections: PrSection[], evaUrl?: string): string {
   const parts: string[] = [];

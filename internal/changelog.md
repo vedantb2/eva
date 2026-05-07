@@ -1,5 +1,11 @@
 # Changelog
 
+## Manual PR creation for projects - 2026-05-07
+
+- **Why**: Project PR creation may fail due to transient issues (GitHub API downtime, network failures). Users had no recovery path and had to re-run the entire build workflow to retry.
+- **Change**: Added `createProjectPr` action that rebuilds the PR from project metadata (title, description, list of completed tasks). Moved View Preview button in project header to a More dropdown alongside a new "Create PR" item, enabled when no PR URL exists, the project is in active phase, and no build is running. PR creation is idempotent: returns the existing PR if already tracked, or creates and persists it.
+- **Reason**: PR creation is the publishing step for completed projects, so users should be able to retry on failure without re-executing the build. Mirrors the task Create PR pattern introduced earlier.
+
 ## Manual PR creation for tasks - 2026-05-07
 
 - **Why**: When a task workflow's auto PR creation step failed (e.g., GitHub API downtime), users had no way to recover and create the PR later without re-running the entire task.

@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import {
   Tooltip,
@@ -12,6 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
   Spinner,
 } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -36,6 +40,7 @@ import {
   IconChevronDown,
   IconCalendarClock,
   IconBrandVercel,
+  IconDots,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useNavigate } from "@tanstack/react-router";
@@ -52,8 +57,13 @@ export function ProjectDetailClient() {
   const [isStartingBuild, setIsStartingBuild] = useState(false);
   const [isStoppingBuild, setIsStoppingBuild] = useState(false);
   const [showStopBuildConfirm, setShowStopBuildConfirm] = useState(false);
+  const [isCreatingPr, setIsCreatingPr] = useState(false);
+  const [prError, setPrError] = useState<string | null>(null);
   const startBuild = useMutation(api.buildWorkflow.startBuild);
   const cancelBuild = useMutation(api.buildWorkflow.cancelBuild);
+  const createProjectPrAction = useAction(
+    api.taskWorkflowActions.createProjectPr,
+  );
 
   const project = useQuery(api.projects.get, { id: typedProjectId });
   const streaming = useQuery(api.streaming.get, { entityId: projectId });
@@ -94,6 +104,20 @@ export function ProjectDetailClient() {
     }
   };
 
+  const handleCreatePr = useCallback(async () => {
+    setPrError(null);
+    setIsCreatingPr(true);
+    try {
+      await createProjectPrAction({ projectId: typedProjectId });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to create PR";
+      setPrError(message);
+    } finally {
+      setIsCreatingPr(false);
+    }
+  }, [createProjectPrAction, typedProjectId]);
+
   if (project === undefined) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -114,6 +138,15 @@ export function ProjectDetailClient() {
 
   const isDraftOrFinalized =
     project.phase === "draft" || project.phase === "finalized";
+
+  const hasDeployedPreview =
+    latestDeployment?.deploymentStatus === "deployed" &&
+    Boolean(latestDeployment.deploymentUrl);
+  const canCreatePr =
+    !project.prUrl &&
+    !project.activeBuildWorkflowId &&
+    project.phase === "active";
+  const showMoreMenu = canCreatePr || hasDeployedPreview;
 
   return (
     <PageWrapper
@@ -136,114 +169,140 @@ export function ProjectDetailClient() {
       childPadding={false}
       headerRight={
         !isDraftOrFinalized ? (
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {latestDeployment?.deploymentStatus === "deployed" &&
-              latestDeployment.deploymentUrl && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full"
-                        disabled
-                      >
-                        <IconBrandVercel size={16} />
-                        <span className="hidden sm:inline">View Preview</span>
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Please start sandbox and view changes through the preview
-                    tab there instead
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            {project.prUrl && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                asChild
-              >
-                <a
-                  href={project.prUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <IconGitPullRequest size={16} />
-                  <span className="hidden sm:inline">View PR</span>
-                </a>
-              </Button>
-            )}
-            {canStartSandbox ? (
-              isSandboxActive || isSandboxStarting || isSandboxStopping ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full"
-                    onClick={handleToggleSandboxView}
-                    disabled={isSandboxStopping}
-                  >
-                    {isSandboxStarting && !isSandboxActive ? (
-                      <IconLoader2 size={16} className="animate-spin" />
-                    ) : isSandboxStopping ? (
-                      <IconLoader2 size={16} className="animate-spin" />
-                    ) : (
-                      <IconTerminal2 size={16} />
-                    )}
-                    <span className="hidden sm:inline">
-                      {isSandboxStopping ? "Stopping..." : "View Sandbox"}
-                    </span>
-                  </Button>
-                  {isSandboxActive && !isSandboxStopping ? (
+          <div className="flex flex-col items-end gap-1">
+            {prError && <p className="text-xs text-destructive">{prError}</p>}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {showMoreMenu && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       size="sm"
                       className="rounded-full"
-                      onClick={handleStopSandbox}
-                      disabled={isSandboxStopping}
                     >
-                      <IconPlayerStop size={16} />
-                      <span className="hidden sm:inline">Stop Sandbox</span>
+                      <IconDots size={16} />
+                      <span className="hidden sm:inline">More</span>
                     </Button>
-                  ) : null}
-                </>
-              ) : (
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {canCreatePr && (
+                      <DropdownMenuItem
+                        onClick={handleCreatePr}
+                        disabled={isCreatingPr}
+                      >
+                        {isCreatingPr ? (
+                          <IconLoader2 size={14} className="animate-spin" />
+                        ) : (
+                          <IconGitPullRequest size={14} />
+                        )}
+                        Create PR
+                      </DropdownMenuItem>
+                    )}
+                    {hasDeployedPreview && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <DropdownMenuItem disabled>
+                              <IconBrandVercel size={14} />
+                              View Preview
+                            </DropdownMenuItem>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Please start sandbox and view changes through the
+                          preview tab there instead
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              {project.prUrl && (
                 <Button
                   variant="outline"
                   size="sm"
                   className="rounded-full"
-                  onClick={handleStartSandbox}
+                  asChild
                 >
-                  <IconPlayerPlay size={16} />
-                  <span className="hidden sm:inline">Start Sandbox</span>
+                  <a
+                    href={project.prUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconGitPullRequest size={16} />
+                    <span className="hidden sm:inline">View PR</span>
+                  </a>
                 </Button>
-              )
-            ) : null}
-            {project.activeBuildWorkflowId ? (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setShowStopBuildConfirm(true)}
-                disabled={isStoppingBuild}
-              >
-                {isStoppingBuild ? (
-                  <IconLoader2 size={16} className="animate-spin" />
+              )}
+              {canStartSandbox ? (
+                isSandboxActive || isSandboxStarting || isSandboxStopping ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
+                      onClick={handleToggleSandboxView}
+                      disabled={isSandboxStopping}
+                    >
+                      {isSandboxStarting && !isSandboxActive ? (
+                        <IconLoader2 size={16} className="animate-spin" />
+                      ) : isSandboxStopping ? (
+                        <IconLoader2 size={16} className="animate-spin" />
+                      ) : (
+                        <IconTerminal2 size={16} />
+                      )}
+                      <span className="hidden sm:inline">
+                        {isSandboxStopping ? "Stopping..." : "View Sandbox"}
+                      </span>
+                    </Button>
+                    {isSandboxActive && !isSandboxStopping ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={handleStopSandbox}
+                        disabled={isSandboxStopping}
+                      >
+                        <IconPlayerStop size={16} />
+                        <span className="hidden sm:inline">Stop Sandbox</span>
+                      </Button>
+                    ) : null}
+                  </>
                 ) : (
-                  <IconPlayerStop size={16} />
-                )}
-                <span className="hidden sm:inline">Stop Build</span>
-              </Button>
-            ) : (
-              <SplitBuildButton
-                projectId={typedProjectId}
-                scheduledBuildAt={project.scheduledBuildAt}
-                hasActiveBuild={!!project.activeBuildWorkflowId}
-                onBuild={() => setIsBuildModalOpen(true)}
-              />
-            )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    onClick={handleStartSandbox}
+                  >
+                    <IconPlayerPlay size={16} />
+                    <span className="hidden sm:inline">Start Sandbox</span>
+                  </Button>
+                )
+              ) : null}
+              {project.activeBuildWorkflowId ? (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setShowStopBuildConfirm(true)}
+                  disabled={isStoppingBuild}
+                >
+                  {isStoppingBuild ? (
+                    <IconLoader2 size={16} className="animate-spin" />
+                  ) : (
+                    <IconPlayerStop size={16} />
+                  )}
+                  <span className="hidden sm:inline">Stop Build</span>
+                </Button>
+              ) : (
+                <SplitBuildButton
+                  projectId={typedProjectId}
+                  scheduledBuildAt={project.scheduledBuildAt}
+                  hasActiveBuild={!!project.activeBuildWorkflowId}
+                  onBuild={() => setIsBuildModalOpen(true)}
+                />
+              )}
+            </div>
           </div>
         ) : null
       }

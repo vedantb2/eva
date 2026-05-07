@@ -1,10 +1,12 @@
 import { v } from "convex/values";
 import { authQuery, hasRepoAccess } from "../functions";
+import { internalQuery } from "../_generated/server";
 import {
   projectWithDetailsValidator,
   projectSummaryValidator,
   getProjectConversation,
   getProjectGeneratedSpec,
+  buildProjectBranchName,
 } from "./helpers";
 
 /** Lists all projects for a repo. */
@@ -68,6 +70,70 @@ export const countBuilding = authQuery({
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
     return projects.filter((p) => p.activeBuildWorkflowId !== undefined).length;
+  },
+});
+
+/** Fetches everything the manual Create PR action needs for a project: repo
+ * metadata for the GitHub call, branch derivation, and the list of completed
+ * tasks to include in the PR body. */
+export const getProjectPrCreationData = internalQuery({
+  args: {
+    projectId: v.id("projects"),
+  },
+  returns: v.object({
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.optional(v.string()),
+    projectTitle: v.string(),
+    projectDescription: v.optional(v.string()),
+    rootDirectory: v.string(),
+    existingPrUrl: v.union(v.string(), v.null()),
+    completedTasks: v.array(
+      v.object({
+        title: v.string(),
+        description: v.optional(v.string()),
+      }),
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+
+    const repo = await ctx.db.get(project.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const branchName =
+      project.branchName ??
+      buildProjectBranchName(args.projectId, project.branchVersion);
+
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    const completedTasks = tasks
+      .filter(
+        (t) =>
+          t.status === "code_review" ||
+          t.status === "business_review" ||
+          t.status === "done",
+      )
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((t) => ({ title: t.title, description: t.description }));
+
+    return {
+      installationId: repo.installationId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName,
+      baseBranch: project.baseBranch,
+      projectTitle: project.title,
+      projectDescription: project.description,
+      rootDirectory: repo.rootDirectory ?? "",
+      existingPrUrl: project.prUrl ?? null,
+      completedTasks,
+    };
   },
 });
 

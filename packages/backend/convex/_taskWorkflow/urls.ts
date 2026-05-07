@@ -37,3 +37,14 @@ export function buildEvaSessionUrl(
   const segment = repoSegment(repoName, rootDirectory);
   return `${getEvaBaseUrl()}/${repoOwner}/${segment}/sessions/${sessionId}`;
 }
+
+/** Builds a link to view a project in the Eva web app. */
+export function buildEvaProjectUrl(
+  repoOwner: string,
+  repoName: string,
+  projectId: string,
+  rootDirectory?: string,
+): string {
+  const segment = repoSegment(repoName, rootDirectory);
+  return `${getEvaBaseUrl()}/${repoOwner}/${segment}/projects/${projectId}`;
+}

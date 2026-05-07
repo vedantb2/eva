@@ -10,8 +10,12 @@ import { deploymentStatusValidator } from "./validators";
 import { extractJsonBlock } from "./_taskWorkflow/helpers";
 import { resolveAllEnvVars } from "./envVarResolver";
 import { fetchStableBranchAlias } from "./_deployment/vercel";
-import { buildPrBody, buildTaskPrSections } from "./prBody";
-import { buildEvaTaskUrl } from "./_taskWorkflow/urls";
+import {
+  buildPrBody,
+  buildTaskPrSections,
+  buildProjectPrSections,
+} from "./prBody";
+import { buildEvaTaskUrl, buildEvaProjectUrl } from "./_taskWorkflow/urls";
 
 // Re-export URL builders for backwards compatibility
 export { buildEvaTaskUrl, buildEvaSessionUrl } from "./_taskWorkflow/urls";
@@ -205,6 +209,77 @@ export const createTaskPr = action({
         prUrl,
       });
     }
+
+    return { url: prUrl };
+  },
+});
+
+/** Manually creates the PR for a project branch — used when the workflow's
+ * auto PR step (driven by the first task to complete) failed. Idempotent:
+ * returns the existing PR URL if one is already tracked on the project. The
+ * body summarises the project and lists tasks that have completed at least
+ * one successful run, so users can recover even after multiple tasks have
+ * landed without a PR. */
+export const createProjectPr = action({
+  args: { projectId: v.id("projects") },
+  returns: v.object({ url: v.string() }),
+  handler: async (ctx, args): Promise<{ url: string }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const data = await ctx.runQuery(
+      internal.projects.getProjectPrCreationData,
+      { projectId: args.projectId },
+    );
+
+    if (data.existingPrUrl) {
+      return { url: data.existingPrUrl };
+    }
+
+    const sections = buildProjectPrSections(
+      data.projectTitle,
+      data.projectDescription,
+      data.completedTasks,
+    );
+    const evaUrl = buildEvaProjectUrl(
+      data.repoOwner,
+      data.repoName,
+      args.projectId,
+      data.rootDirectory || undefined,
+    );
+    const body = buildPrBody(sections, evaUrl);
+
+    const labels = [
+      "eva",
+      "project",
+      ...(data.rootDirectory
+        ? [data.rootDirectory.split("/").pop()].filter(
+            (l): l is string => l !== undefined && l !== "",
+          )
+        : []),
+    ];
+
+    const prUrl: string = await ctx.runAction(
+      internal.taskWorkflowActions.createPullRequest,
+      {
+        installationId: data.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        branchName: data.branchName,
+        baseBranch: data.baseBranch,
+        title: data.projectTitle,
+        body,
+        labels,
+        draft: false,
+      },
+    );
+
+    await ctx.runMutation(internal.projects.setProjectPrUrl, {
+      projectId: args.projectId,
+      prUrl,
+    });
 
     return { url: prUrl };
   },

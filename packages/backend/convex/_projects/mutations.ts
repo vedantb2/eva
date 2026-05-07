@@ -1,5 +1,6 @@
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { internalMutation } from "../_generated/server";
 import {
   roleValidator,
   phaseValidator,
@@ -167,6 +168,22 @@ export const updatePrUrl = authMutation({
   handler: async (ctx, args) => {
     await getProjectWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, { prUrl: args.prUrl });
+    return null;
+  },
+});
+
+/** Internal-only setter so server-side actions can persist a project's PR URL
+ * without going through user auth. Used by the manual Create PR action. */
+export const setProjectPrUrl = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    prUrl: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return null;
+    await ctx.db.patch(args.projectId, { prUrl: args.prUrl });
     return null;
   },
 });

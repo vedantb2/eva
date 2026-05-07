@@ -325,6 +325,15 @@ export const cancelExecution = authMutation({
       });
       await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(run._id));
       await clearStreamingActivity(ctx, getTaskAuditStreamingEntityId(run._id));
+
+      // workflow.cancel() aborts execution before the workflow's own sandbox
+      // cleanup step runs, so we stop the execution sandbox here.
+      if (run.sandboxId && run.repoId) {
+        await ctx.scheduler.runAfter(0, internal.daytona.stopSandbox, {
+          sandboxId: run.sandboxId,
+          repoId: run.repoId,
+        });
+      }
     }
 
     await clearStreamingActivity(ctx, String(args.taskId));

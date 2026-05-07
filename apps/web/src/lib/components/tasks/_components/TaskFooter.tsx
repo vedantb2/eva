@@ -4,7 +4,16 @@ import { useRef } from "react";
 import { api } from "@conductor/backend";
 import type { Doc, Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { Button, Tooltip, TooltipTrigger, TooltipContent } from "@conductor/ui";
+import {
+  Button,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@conductor/ui";
 import {
   IconGitPullRequest,
   IconBrandVercel,
@@ -14,6 +23,8 @@ import {
   IconLoader2,
   IconChevronDown,
   IconCalendarClock,
+  IconDots,
+  IconRefresh,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import type { TaskStatus } from "../TaskStatusBadge";
@@ -32,6 +43,13 @@ interface TaskFooterProps {
   latestDeployment: RunDoc | undefined;
   executionError: string | null;
   isStarting: boolean;
+  canStartSandbox: boolean;
+  isSandboxActive: boolean;
+  isSandboxStarting: boolean;
+  isSandboxStopping: boolean;
+  isRetryingStartupCommands: boolean;
+  onStartSandbox: () => void;
+  onRunStartupCommands: () => void;
   onStartExecution: () => void;
   onResolveConfirm: () => void;
   onRequestChanges: () => void;
@@ -46,14 +64,29 @@ export function TaskFooter({
   latestDeployment,
   executionError,
   isStarting,
+  canStartSandbox,
+  isSandboxActive,
+  isSandboxStarting,
+  isSandboxStopping,
+  isRetryingStartupCommands,
+  onStartSandbox,
+  onRunStartupCommands,
   onStartExecution,
   onResolveConfirm,
   onRequestChanges,
 }: TaskFooterProps) {
   const showRunButton =
     status === "todo" || (status === "in_progress" && !hasActiveRun);
+  const showStartSandbox =
+    canStartSandbox &&
+    !isSandboxActive &&
+    !isSandboxStarting &&
+    !isSandboxStopping;
+  const showMoreMenu =
+    canStartSandbox || Boolean(latestDeployment?.deploymentStatus);
   const hasSecondaryContent =
-    Boolean(latestDeployment?.deploymentStatus) ||
+    showStartSandbox ||
+    showMoreMenu ||
     Boolean(latestPrUrl) ||
     (!hasActiveRun &&
       (status === "code_review" || status === "business_review")) ||
@@ -77,21 +110,52 @@ export function TaskFooter({
           <div className="h-6 w-px bg-muted-foreground/20" />
         )}
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-          {latestDeployment?.deploymentStatus && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Button variant="outline" disabled>
-                    <IconBrandVercel size={18} />
-                    <span className="hidden sm:inline">View Preview</span>
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                Please start sandbox and view changes through the preview tab
-                there instead
-              </TooltipContent>
-            </Tooltip>
+          {showMoreMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <IconDots size={18} />
+                  <span className="hidden sm:inline">More</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canStartSandbox && (
+                  <DropdownMenuItem
+                    onClick={onRunStartupCommands}
+                    disabled={isRetryingStartupCommands}
+                  >
+                    {isRetryingStartupCommands ? (
+                      <IconLoader2 size={14} className="animate-spin" />
+                    ) : (
+                      <IconRefresh size={14} />
+                    )}
+                    Run Startup Commands
+                  </DropdownMenuItem>
+                )}
+                {latestDeployment?.deploymentStatus && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <DropdownMenuItem disabled>
+                          <IconBrandVercel size={14} />
+                          View Preview
+                        </DropdownMenuItem>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Please start sandbox and view changes through the preview
+                      tab there instead
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {showStartSandbox && (
+            <Button variant="outline" onClick={onStartSandbox}>
+              <IconPlayerPlay size={18} />
+              <span className="hidden sm:inline">Start Sandbox</span>
+            </Button>
           )}
           {latestPrUrl && (
             <Button asChild variant="outline">

@@ -16,10 +16,8 @@ import {
   IconMessagePlus,
   IconLoader2,
   IconClock,
-  IconPlayerPlay,
   IconPlayerStop,
   IconArrowLeft,
-  IconRefresh,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useTaskDetail } from "./useTaskDetail";
@@ -208,101 +206,49 @@ export function TaskDetailInline({
                     taskId={taskId}
                   />
                   <div className="flex items-center gap-2 mt-2">
-                    {/* Sandbox controls */}
-                    {canStartSandbox ? (
-                      isSandboxActive ||
+                    {canStartSandbox &&
+                    (isSandboxActive ||
                       isSandboxStarting ||
-                      isSandboxStopping ? (
-                        <div className="flex items-center gap-2">
-                          {/* While the sandbox is starting we still want the
-                              user to be able to click through to the sandbox
-                              view (e.g. after a page refresh) — the inner
-                              panel already shows a "Starting sandbox..."
-                              spinner, so don't disable the button here. */}
+                      isSandboxStopping) ? (
+                      <div className="flex items-center gap-2">
+                        {/* While the sandbox is starting we still want the
+                            user to be able to click through to the sandbox
+                            view (e.g. after a page refresh) — the inner
+                            panel already shows a "Starting sandbox..."
+                            spinner, so don't disable the button here. */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleToggleSandboxView}
+                          disabled={isSandboxStopping}
+                          className="gap-1.5"
+                        >
+                          {isSandboxStarting && !isSandboxActive ? (
+                            <IconLoader2 size={14} className="animate-spin" />
+                          ) : isSandboxStopping ? (
+                            <IconLoader2 size={14} className="animate-spin" />
+                          ) : (
+                            <IconTerminal2 size={14} />
+                          )}
+                          {isSandboxStopping ? "Stopping..." : "View Sandbox"}
+                        </Button>
+                        {isSandboxActive && !isSandboxStopping ? (
                           <Button
-                            variant="outline"
+                            variant="destructive"
                             size="sm"
-                            onClick={handleToggleSandboxView}
+                            onClick={handleStopSandbox}
                             disabled={isSandboxStopping}
                             className="gap-1.5"
                           >
-                            {isSandboxStarting && !isSandboxActive ? (
-                              <IconLoader2 size={14} className="animate-spin" />
-                            ) : isSandboxStopping ? (
+                            {isSandboxStopping ? (
                               <IconLoader2 size={14} className="animate-spin" />
                             ) : (
-                              <IconTerminal2 size={14} />
+                              <IconPlayerStop size={14} />
                             )}
-                            {isSandboxStopping ? "Stopping..." : "View Sandbox"}
+                            {isSandboxStopping ? "Stopping..." : "Stop"}
                           </Button>
-                          {isSandboxActive && !isSandboxStopping ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleRetryStartupCommands}
-                              disabled={isRetryingStartupCommands}
-                              className="gap-1.5"
-                              title="Re-run startup commands (forces re-execution)"
-                            >
-                              {isRetryingStartupCommands ? (
-                                <IconLoader2
-                                  size={14}
-                                  className="animate-spin"
-                                />
-                              ) : (
-                                <IconRefresh size={14} />
-                              )}
-                              Run Startup Commands
-                            </Button>
-                          ) : null}
-                          {isSandboxActive && !isSandboxStopping ? (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={handleStopSandbox}
-                              disabled={isSandboxStopping}
-                              className="gap-1.5"
-                            >
-                              {isSandboxStopping ? (
-                                <IconLoader2
-                                  size={14}
-                                  className="animate-spin"
-                                />
-                              ) : (
-                                <IconPlayerStop size={14} />
-                              )}
-                              {isSandboxStopping ? "Stopping..." : "Stop"}
-                            </Button>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleStartSandbox}
-                            className="gap-1.5"
-                          >
-                            <IconPlayerPlay size={14} />
-                            Start Sandbox
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleRetryStartupCommands}
-                            disabled={isRetryingStartupCommands}
-                            className="gap-1.5"
-                            title="Start sandbox and force-run startup commands"
-                          >
-                            {isRetryingStartupCommands ? (
-                              <IconLoader2 size={14} className="animate-spin" />
-                            ) : (
-                              <IconRefresh size={14} />
-                            )}
-                            Run Startup Commands
-                          </Button>
-                        </div>
-                      )
+                        ) : null}
+                      </div>
                     ) : null}
                     {task?.scheduledAt ? (
                       <Badge
@@ -452,6 +398,13 @@ export function TaskDetailInline({
             latestDeployment={latestDeployment}
             executionError={executionError}
             isStarting={isStarting}
+            canStartSandbox={canStartSandbox}
+            isSandboxActive={isSandboxActive}
+            isSandboxStarting={isSandboxStarting}
+            isSandboxStopping={isSandboxStopping}
+            isRetryingStartupCommands={isRetryingStartupCommands}
+            onStartSandbox={handleStartSandbox}
+            onRunStartupCommands={handleRetryStartupCommands}
             onStartExecution={handleStartExecution}
             onResolveConfirm={() => setShowResolveConfirm(true)}
             onRequestChanges={() => {

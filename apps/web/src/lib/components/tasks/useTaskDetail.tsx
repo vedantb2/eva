@@ -2,7 +2,7 @@
 
 import { useElapsedSeconds } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useEffect, useState, useCallback } from "react";
@@ -77,6 +77,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const retryStartupCommandsMutation = useMutation(
     api.agentTasks.retryStartupCommands,
   );
+  const createTaskPrAction = useAction(api.taskWorkflowActions.createTaskPr);
 
   const [baseBranch, setBaseBranch] = useState("main");
   const [showSandbox, setShowSandbox] = useQueryState(
@@ -87,6 +88,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const [isSandboxStopping, setIsSandboxStopping] = useState(false);
   const [isRetryingStartupCommands, setIsRetryingStartupCommands] =
     useState(false);
+  const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
@@ -191,6 +193,19 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     }
   }, [retryStartupCommandsMutation, setShowSandbox, taskId]);
 
+  const handleCreatePr = useCallback(async () => {
+    setIsCreatingPr(true);
+    try {
+      await createTaskPrAction({ taskId });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to create PR";
+      setExecutionError(message);
+    } finally {
+      setIsCreatingPr(false);
+    }
+  }, [createTaskPrAction, taskId]);
+
   const handleToggleSandboxView = useCallback(() => {
     setShowSandbox((prev) => !prev);
   }, []);
@@ -200,6 +215,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const canEditTaskText = status === "todo" && !hasActiveRun;
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const latestDeployment = runs?.find((r) => r.deploymentStatus);
+  const canCreatePr = !latestPrUrl && (runs?.length ?? 0) > 0 && !hasActiveRun;
   const modalWidthClass = "max-w-[calc(100vw-2rem)] md:max-w-[72rem]";
   const layoutGridClass = "grid-cols-1 md:grid-cols-[1fr_1fr_200px]";
   const hasTabContent =
@@ -282,6 +298,10 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     isRetryingStartupCommands,
     sandboxId: task?.sandboxId,
     reviewTaskSandboxStatus: task?.reviewTaskSandboxStatus,
+
+    canCreatePr,
+    isCreatingPr,
+    handleCreatePr,
 
     layoutGridClass,
     modalWidthClass,

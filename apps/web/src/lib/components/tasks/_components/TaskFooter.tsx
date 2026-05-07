@@ -48,6 +48,9 @@ interface TaskFooterProps {
   isSandboxStarting: boolean;
   isSandboxStopping: boolean;
   isRetryingStartupCommands: boolean;
+  canCreatePr: boolean;
+  isCreatingPr: boolean;
+  onCreatePr: () => void;
   onStartSandbox: () => void;
   onRunStartupCommands: () => void;
   onStartExecution: () => void;
@@ -69,6 +72,9 @@ export function TaskFooter({
   isSandboxStarting,
   isSandboxStopping,
   isRetryingStartupCommands,
+  canCreatePr,
+  isCreatingPr,
+  onCreatePr,
   onStartSandbox,
   onRunStartupCommands,
   onStartExecution,
@@ -83,7 +89,9 @@ export function TaskFooter({
     !isSandboxStarting &&
     !isSandboxStopping;
   const showMoreMenu =
-    canStartSandbox || Boolean(latestDeployment?.deploymentStatus);
+    canStartSandbox ||
+    canCreatePr ||
+    Boolean(latestDeployment?.deploymentStatus);
   const hasSecondaryContent =
     showStartSandbox ||
     showMoreMenu ||
@@ -130,6 +138,19 @@ export function TaskFooter({
                       <IconRefresh size={14} />
                     )}
                     Run Startup Commands
+                  </DropdownMenuItem>
+                )}
+                {canCreatePr && (
+                  <DropdownMenuItem
+                    onClick={onCreatePr}
+                    disabled={isCreatingPr}
+                  >
+                    {isCreatingPr ? (
+                      <IconLoader2 size={14} className="animate-spin" />
+                    ) : (
+                      <IconGitPullRequest size={14} />
+                    )}
+                    Create PR
                   </DropdownMenuItem>
                 )}
                 {latestDeployment?.deploymentStatus && (

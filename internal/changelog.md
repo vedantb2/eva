@@ -1,5 +1,11 @@
 # Changelog
 
+## Manual PR creation for tasks - 2026-05-07
+
+- **Why**: When a task workflow's auto PR creation step failed (e.g., GitHub API downtime), users had no way to recover and create the PR later without re-running the entire task.
+- **Change**: Added `createTaskPr` public action that rebuilds the PR body using the same `buildTaskPrSections` helper (Task / Change Requests / Proof sections, idempotent label set) and produces identical output to the workflow's auto-generation. Extracted shared PR section-building logic into `buildTaskPrSections()` in `prBody.ts`. New "Create PR" item in the More dropdown on task footer, enabled when a run exists but no PR URL is stored yet. Action is idempotent: returns the existing PR if one is already tracked, or creates a new one and persists it on the latest run.
+- **Reason**: PR creation is a publishing step for successful tasks, so recovering from transient failures should be user-facing and not require re-execution. Shared helper ensures consistency between auto and manual PR generation paths.
+
 ## Fix snapshot config files for sub-apps - 2026-05-07
 
 - **Why**: Sandbox config files uploaded against sub-apps (e.g., `carepulse-staging-backup.zip` on `apps/web`) were not baked into the snapshot and were wiped at sandbox runtime. Quick tasks failed with `Path <file> does not exist` because only the root repo's (empty) config file list was queried.

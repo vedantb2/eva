@@ -150,6 +150,107 @@ export const getTaskData = internalQuery({
   },
 });
 
+/** Fetches everything the manual Create PR action needs in one round-trip:
+ * task/repo metadata for the GitHub call, the latest run to attach the
+ * resulting URL to, and the change-request/proof enrichment for the body. */
+export const getTaskPrCreationData = internalQuery({
+  args: {
+    taskId: v.id("agentTasks"),
+  },
+  returns: v.object({
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.optional(v.string()),
+    taskTitle: v.string(),
+    taskDescription: v.optional(v.string()),
+    rootDirectory: v.string(),
+    projectId: v.optional(v.id("projects")),
+    isQuickTask: v.boolean(),
+    latestRunId: v.union(v.id("agentRuns"), v.null()),
+    existingPrUrl: v.union(v.string(), v.null()),
+    changeRequests: v.array(v.string()),
+    proofs: v.array(
+      v.object({
+        fileName: v.union(v.string(), v.null()),
+        message: v.union(v.string(), v.null()),
+        url: v.union(v.string(), v.null()),
+        contentType: v.union(v.string(), v.null()),
+      }),
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+    if (!task.repoId) throw new Error("Task has no repository");
+
+    const repo = await ctx.db.get(task.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const runs = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const sortedRuns = runs.sort(
+      (a, b) =>
+        (b.startedAt ?? b._creationTime) - (a.startedAt ?? a._creationTime),
+    );
+    const latestRun = sortedRuns[0] ?? null;
+    const existingPrUrl = sortedRuns.find((r) => r.prUrl)?.prUrl ?? null;
+
+    const comments = await ctx.db
+      .query("taskComments")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    const changeRequests = comments
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((c) => c.content);
+
+    const taskProofs = await ctx.db
+      .query("taskProof")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+
+    const proofs = await Promise.all(
+      taskProofs.map(async (p) => {
+        if (!p.storageId) {
+          return {
+            fileName: p.fileName ?? null,
+            message: p.message ?? null,
+            url: null,
+            contentType: null,
+          };
+        }
+        const meta = await ctx.db.system.get("_storage", p.storageId);
+        return {
+          fileName: p.fileName ?? null,
+          message: p.message ?? null,
+          url: (await ctx.storage.getUrl(p.storageId)) ?? null,
+          contentType: meta?.contentType ?? null,
+        };
+      }),
+    );
+
+    return {
+      installationId: repo.installationId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName: `eva/task-${args.taskId}`,
+      baseBranch: task.baseBranch,
+      taskTitle: task.title,
+      taskDescription: task.description,
+      rootDirectory: repo.rootDirectory ?? "",
+      projectId: task.projectId,
+      isQuickTask: task.projectId === undefined,
+      latestRunId: latestRun ? latestRun._id : null,
+      existingPrUrl,
+      changeRequests,
+      proofs,
+    };
+  },
+});
+
 /** Fetches task comments and proof attachments for enriching PR descriptions. */
 export const getPrEnrichmentData = internalQuery({
   args: {

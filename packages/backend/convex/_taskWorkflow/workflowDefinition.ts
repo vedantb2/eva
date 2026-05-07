@@ -8,7 +8,7 @@ import {
 } from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
 import { buildAuditPrompt } from "./prompts";
-import { buildPrBody } from "../prBody";
+import { buildPrBody, buildTaskPrSections } from "../prBody";
 import { buildEvaTaskUrl } from "./urls";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
@@ -165,47 +165,11 @@ export const taskExecutionWorkflow = workflow.define({
           { taskId: args.taskId },
         );
 
-        const prSections: Array<{ heading: string; content: string }> = [
-          {
-            heading: "Task",
-            content: data.taskDescription ?? "No description",
-          },
-        ];
-
-        if (enrichment.changeRequests.length > 0) {
-          prSections.push({
-            heading: "Change Requests",
-            content: enrichment.changeRequests
-              .map((cr: string, i: number) => `${i + 1}. ${cr}`)
-              .join("\n"),
-          });
-        }
-
-        type ProofItem = {
-          fileName: string | null;
-          message: string | null;
-          url: string | null;
-          contentType: string | null;
-        };
-
-        if (enrichment.proofs.length > 0) {
-          const proofLines = enrichment.proofs.map((p: ProofItem) => {
-            if (p.message) return `- ${p.message}`;
-            if (p.url) {
-              const isImage = p.contentType?.startsWith("image/") ?? false;
-              const isVideo = p.contentType?.startsWith("video/") ?? false;
-              const name = p.fileName ?? "Proof";
-              if (isImage) return `![${name}](${p.url})`;
-              if (isVideo) return `- [${name}](${p.url}) (video)`;
-              return `- [${name}](${p.url})`;
-            }
-            return `- ${p.fileName ?? "Proof attached"}`;
-          });
-          prSections.push({
-            heading: "Proof",
-            content: proofLines.join("\n"),
-          });
-        }
+        const prSections = buildTaskPrSections(
+          data.taskDescription,
+          enrichment.changeRequests,
+          enrichment.proofs,
+        );
 
         const evaUrl = buildEvaTaskUrl(
           data.repoOwner,

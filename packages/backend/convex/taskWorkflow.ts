@@ -12,6 +12,7 @@ export {
   updateProjectSandbox,
   finalizeRunStreamingPhase,
   completeRun,
+  setRunPrUrl,
 } from "./_taskWorkflow/runLifecycle";
 
 export {
@@ -30,7 +31,11 @@ export {
   clearActiveWorkflow,
 } from "./_taskWorkflow/scheduling";
 
-export { getTaskData, getPrEnrichmentData } from "./_taskWorkflow/queries";
+export {
+  getTaskData,
+  getPrEnrichmentData,
+  getTaskPrCreationData,
+} from "./_taskWorkflow/queries";
 
 export {
   handleCompletion,

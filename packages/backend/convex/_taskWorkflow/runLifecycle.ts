@@ -73,6 +73,22 @@ export const updateRunToRunning = internalMutation({
   },
 });
 
+/** Records a PR URL on a specific run — used by the manual Create PR action
+ * when the workflow's auto PR step failed and the user retried later. */
+export const setRunPrUrl = internalMutation({
+  args: {
+    runId: v.id("agentRuns"),
+    prUrl: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) return null;
+    await ctx.db.patch(args.runId, { prUrl: args.prUrl });
+    return null;
+  },
+});
+
 /** Persists the sandbox ID on a run record after sandbox creation. */
 export const saveSandboxId = internalMutation({
   args: {

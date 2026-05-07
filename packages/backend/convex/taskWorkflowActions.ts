@@ -2,7 +2,7 @@
 
 import { v } from "convex/values";
 import type { GenericActionCtx } from "convex/server";
-import { internalAction } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { DataModel, Id } from "./_generated/dataModel";
 import { getInstallationOctokit } from "./githubAuth";
@@ -10,6 +10,8 @@ import { deploymentStatusValidator } from "./validators";
 import { extractJsonBlock } from "./_taskWorkflow/helpers";
 import { resolveAllEnvVars } from "./envVarResolver";
 import { fetchStableBranchAlias } from "./_deployment/vercel";
+import { buildPrBody, buildTaskPrSections } from "./prBody";
+import { buildEvaTaskUrl } from "./_taskWorkflow/urls";
 
 // Re-export URL builders for backwards compatibility
 export { buildEvaTaskUrl, buildEvaSessionUrl } from "./_taskWorkflow/urls";
@@ -135,6 +137,78 @@ async function findOpenPullRequestForBranch(params: {
   if (!pr) return null;
   return { url: pr.html_url, number: pr.number, body: pr.body };
 }
+
+/** Manually creates the PR for a task branch — used when the workflow's auto
+ * PR step failed. Idempotent: returns the existing PR URL if one is already
+ * tracked on a run. The body matches the format the workflow would produce. */
+export const createTaskPr = action({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.object({ url: v.string() }),
+  handler: async (ctx, args): Promise<{ url: string }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const data = await ctx.runQuery(
+      internal.taskWorkflow.getTaskPrCreationData,
+      { taskId: args.taskId },
+    );
+
+    if (data.existingPrUrl) {
+      return { url: data.existingPrUrl };
+    }
+
+    const sections = buildTaskPrSections(
+      data.taskDescription,
+      data.changeRequests,
+      data.proofs,
+    );
+    const evaUrl = buildEvaTaskUrl(
+      data.repoOwner,
+      data.repoName,
+      args.taskId,
+      data.projectId,
+      data.rootDirectory || undefined,
+    );
+    const body = buildPrBody(sections, evaUrl);
+
+    const labels = [
+      "eva",
+      data.isQuickTask ? "quick-task" : "project",
+      ...(data.isQuickTask ? ["draft"] : []),
+      ...(data.rootDirectory
+        ? [data.rootDirectory.split("/").pop()].filter(
+            (l): l is string => l !== undefined && l !== "",
+          )
+        : []),
+    ];
+
+    const prUrl: string = await ctx.runAction(
+      internal.taskWorkflowActions.createPullRequest,
+      {
+        installationId: data.installationId,
+        repoOwner: data.repoOwner,
+        repoName: data.repoName,
+        branchName: data.branchName,
+        baseBranch: data.baseBranch,
+        title: data.taskTitle,
+        body,
+        labels,
+        draft: data.isQuickTask,
+      },
+    );
+
+    if (data.latestRunId) {
+      await ctx.runMutation(internal.taskWorkflow.setRunPrUrl, {
+        runId: data.latestRunId,
+        prUrl,
+      });
+    }
+
+    return { url: prUrl };
+  },
+});
 
 /** Creates a GitHub pull request via the installation Octokit and optionally adds labels. */
 export const createPullRequest = internalAction({

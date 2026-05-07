@@ -102,6 +102,9 @@ export function TaskDetailInline({
     isRetryingStartupCommands,
     sandboxId,
     sandboxStartupActivity,
+    canCreatePr,
+    isCreatingPr,
+    handleCreatePr,
   } = useTaskDetail(taskId);
 
   if (isLoading) {
@@ -403,6 +406,9 @@ export function TaskDetailInline({
             isSandboxStarting={isSandboxStarting}
             isSandboxStopping={isSandboxStopping}
             isRetryingStartupCommands={isRetryingStartupCommands}
+            canCreatePr={canCreatePr}
+            isCreatingPr={isCreatingPr}
+            onCreatePr={handleCreatePr}
             onStartSandbox={handleStartSandbox}
             onRunStartupCommands={handleRetryStartupCommands}
             onStartExecution={handleStartExecution}

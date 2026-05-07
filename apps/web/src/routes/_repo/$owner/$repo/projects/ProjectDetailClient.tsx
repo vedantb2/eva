@@ -139,21 +139,25 @@ export function ProjectDetailClient() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             {latestDeployment?.deploymentStatus === "deployed" &&
               latestDeployment.deploymentUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                  asChild
-                >
-                  <a
-                    href={latestDeployment.deploymentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <IconBrandVercel size={16} />
-                    <span className="hidden sm:inline">View Preview</span>
-                  </a>
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full"
+                        disabled
+                      >
+                        <IconBrandVercel size={16} />
+                        <span className="hidden sm:inline">View Preview</span>
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Please start sandbox and view changes through the preview
+                    tab there instead
+                  </TooltipContent>
+                </Tooltip>
               )}
             {project.prUrl && (
               <Button

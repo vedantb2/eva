@@ -97,7 +97,6 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           onSandboxToggle={handleSandboxToggle}
           isArchived={session.archived === true}
           deploymentStatus={session.deploymentStatus}
-          deploymentUrl={session.deploymentUrl}
           sandboxCollapsed={rightPanelCollapsed}
           onToggleSandbox={onToggleRightPanel}
         />

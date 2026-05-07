@@ -81,41 +81,15 @@ export function TaskFooter({
             <Tooltip>
               <TooltipTrigger asChild>
                 <div>
-                  <Button
-                    asChild={
-                      latestDeployment.deploymentStatus === "deployed" &&
-                      !!latestDeployment.deploymentUrl
-                    }
-                    variant="outline"
-                    disabled={latestDeployment.deploymentStatus !== "deployed"}
-                  >
-                    {latestDeployment.deploymentStatus === "deployed" &&
-                    latestDeployment.deploymentUrl ? (
-                      <a
-                        href={latestDeployment.deploymentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <IconBrandVercel size={18} />
-                        <span className="hidden sm:inline">View Preview</span>
-                      </a>
-                    ) : (
-                      <>
-                        <IconBrandVercel size={18} />
-                        <span className="hidden sm:inline">View Preview</span>
-                      </>
-                    )}
+                  <Button variant="outline" disabled>
+                    <IconBrandVercel size={18} />
+                    <span className="hidden sm:inline">View Preview</span>
                   </Button>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                {latestDeployment.deploymentStatus === "deployed"
-                  ? "Open preview deployment"
-                  : latestDeployment.deploymentStatus === "error"
-                    ? "Deployment failed"
-                    : latestDeployment.deploymentStatus === "building"
-                      ? "Deployment is building..."
-                      : "Deployment is queued..."}
+                Please start sandbox and view changes through the preview tab
+                there instead
               </TooltipContent>
             </Tooltip>
           )}

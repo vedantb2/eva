@@ -221,7 +221,6 @@ interface ChatPanelProps {
   onSandboxToggle: (action: "start" | "stop") => void;
   isArchived?: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
-  deploymentUrl?: string;
   sandboxCollapsed?: boolean;
   onToggleSandbox?: () => void;
 }
@@ -246,7 +245,6 @@ export function ChatPanel({
   onSandboxToggle,
   isArchived,
   deploymentStatus,
-  deploymentUrl,
   sandboxCollapsed,
   onToggleSandbox,
 }: ChatPanelProps) {
@@ -530,20 +528,20 @@ export function ChatPanel({
             {hasSummary ? "Regenerate Summary" : "Summarise Session"}
           </DropdownMenuItem>
           {deploymentStatus && (
-            <DropdownMenuItem
-              disabled={deploymentStatus !== "deployed"}
-              onClick={() => {
-                if (deploymentStatus === "deployed" && deploymentUrl) {
-                  window.open(deploymentUrl, "_blank", "noopener,noreferrer");
-                }
-              }}
-            >
-              <IconBrandVercel size={14} />
-              View Preview
-              {deploymentStatus === "building" && " (Building...)"}
-              {deploymentStatus === "queued" && " (Queued...)"}
-              {deploymentStatus === "error" && " (Failed)"}
-            </DropdownMenuItem>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <DropdownMenuItem disabled>
+                    <IconBrandVercel size={14} />
+                    View Preview
+                  </DropdownMenuItem>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                Please start sandbox and view changes through the preview tab
+                there instead
+              </TooltipContent>
+            </Tooltip>
           )}
           {prUrl && (
             <DropdownMenuItem

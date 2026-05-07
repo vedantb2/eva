@@ -140,16 +140,27 @@ function buildSnapshotImage(
       "mkdir -p /home/eva/.pnpm",
       // Clone the target repo
       `git clone --branch ${branch} https://x-access-token:${token}@github.com/${owner}/${repoName}.git /tmp/repo`,
+      // Stage config files outside the repo so they survive `git clean -fd` at
+      // sandbox-startup time. The runtime helper copySandboxConfigFilesToWorkspace
+      // copies them into the workspace after the worktree is normalized.
+      // Each file's commands are joined with && into a single RUN so multi-chunk
+      // downloads (curl chunks to /tmp, cat into final file, rm chunks) all live
+      // in one Docker layer — otherwise intermediate layers would balloon image
+      // size with /tmp blobs.
+      "mkdir -p /home/eva/sandbox-config",
+      ...filterDownloadableConfigFiles(configFiles).map((f) =>
+        buildConfigFileDownloadCommands(f, "/home/eva/sandbox-config").join(
+          " && ",
+        ),
+      ),
+      // Mirror them into the workspace too so the build itself has them
+      // available (e.g. if a build command reads them).
+      ...(filterDownloadableConfigFiles(configFiles).length > 0
+        ? ["cp -a /home/eva/sandbox-config/. /tmp/repo/"]
+        : []),
     )
     .workdir("/tmp/repo")
     .runCommands(
-      // Download config files directly to repo root. Each file's commands are
-      // joined with && into a single RUN so multi-chunk downloads (curl chunks
-      // to /tmp, cat into final file, rm chunks) all live in one Docker layer —
-      // otherwise intermediate layers would balloon image size with /tmp blobs.
-      ...filterDownloadableConfigFiles(configFiles).map((f) =>
-        buildConfigFileDownloadCommands(f).join(" && "),
-      ),
       // Install dependencies
       "pnpm install --frozen-lockfile",
     );

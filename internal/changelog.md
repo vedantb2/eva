@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix snapshot config files for sub-apps - 2026-05-07
+
+- **Why**: Sandbox config files uploaded against sub-apps (e.g., `carepulse-staging-backup.zip` on `apps/web`) were not baked into the snapshot and were wiped at sandbox runtime. Quick tasks failed with `Path <file> does not exist` because only the root repo's (empty) config file list was queried.
+- **Change**: `getConfigFilesForSnapshot` now aggregates config files across all sibling repos sharing `(owner, name)` — mirrors the existing snapshot-lookup pattern where one snapshot serves the root repo plus all sub-apps. Files are downloaded to `/home/eva/sandbox-config/` during build instead of `/tmp/repo/`, so they survive the `git clean -fd` cleanup at sandbox startup. The existing runtime helper `copySandboxConfigFilesToWorkspace` picks them back up and copies them into the working directory.
+- **Reason**: Snapshot files are scoped per `(owner, name)`, not per individual `repoId`. Without aggregation, sub-app uploads never made it into the snapshot. Without the persistent staging directory, the snapshot bake was wasted because runtime cleanup wiped the files before the startup commands could use them.
+
 ## Retry failed startup commands on quick tasks - 2026-05-07
 
 - **Why**: When startup commands failed during sandbox setup, the marker file `/.startup-commands-done` was still created, preventing users from retrying the commands. Users had no way to recover without starting a fresh sandbox.

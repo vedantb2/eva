@@ -143,6 +143,11 @@ export const remove = authMutation({
  * Internal query returning each config file as an ordered list of chunk URLs.
  * Legacy single-blob records are returned as a 1-element chunkUrls array.
  * The snapshot/sandbox builder downloads each chunk in order and concatenates.
+ *
+ * Aggregates across all sibling repos sharing the snapshot anchor's owner/name —
+ * one snapshot is built per (owner, name) and serves the root repo plus every
+ * sub-app, so config files uploaded against any sibling repoId must be baked in.
+ * Last write wins on filename collision (later sibling overrides earlier).
  */
 export const getConfigFilesForSnapshot = internalQuery({
   args: { repoId: v.id("githubRepos") },
@@ -153,24 +158,37 @@ export const getConfigFilesForSnapshot = internalQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    const files = await ctx.db
-      .query("sandboxConfigFiles")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+    const anchorRepo = await ctx.db.get(args.repoId);
+    if (!anchorRepo) return [];
+
+    const siblings = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", anchorRepo.owner).eq("name", anchorRepo.name),
+      )
       .collect();
 
-    const results: Array<{
-      fileName: string;
-      chunkUrls: Array<string | null>;
-    }> = [];
-    for (const file of files) {
-      // Prefer chunks (new format); fall back to legacy single storageId
-      const chunkIds = file.chunks ?? (file.storageId ? [file.storageId] : []);
-      const chunkUrls: Array<string | null> = [];
-      for (const chunkId of chunkIds) {
-        chunkUrls.push(await ctx.storage.getUrl(chunkId));
+    const filesByName = new Map<
+      string,
+      { fileName: string; chunkUrls: Array<string | null> }
+    >();
+    for (const sibling of siblings) {
+      const files = await ctx.db
+        .query("sandboxConfigFiles")
+        .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
+        .collect();
+
+      for (const file of files) {
+        // Prefer chunks (new format); fall back to legacy single storageId
+        const chunkIds =
+          file.chunks ?? (file.storageId ? [file.storageId] : []);
+        const chunkUrls: Array<string | null> = [];
+        for (const chunkId of chunkIds) {
+          chunkUrls.push(await ctx.storage.getUrl(chunkId));
+        }
+        filesByName.set(file.fileName, { fileName: file.fileName, chunkUrls });
       }
-      results.push({ fileName: file.fileName, chunkUrls });
     }
-    return results;
+    return Array.from(filesByName.values());
   },
 });

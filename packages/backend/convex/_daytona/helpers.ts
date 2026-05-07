@@ -39,14 +39,21 @@ export function filterDownloadableConfigFiles(
  * Builds shell commands to download a config file. Single-chunk files use a
  * straight `curl -o`. Multi-chunk files download each chunk to /tmp, concatenate
  * with `cat` into the destination, then remove the chunk temp files.
+ * `destDir` is optional; when omitted, files land in the caller's cwd.
  */
-export function buildConfigFileDownloadCommands(file: {
-  fileName: string;
-  chunkUrls: string[];
-}): string[] {
+export function buildConfigFileDownloadCommands(
+  file: {
+    fileName: string;
+    chunkUrls: string[];
+  },
+  destDir?: string,
+): string[] {
+  const destPath = destDir
+    ? `${destDir.replace(/\/$/, "")}/${file.fileName}`
+    : file.fileName;
   if (file.chunkUrls.length === 1) {
     return [
-      `curl -fSL --retry 3 --retry-delay 5 -o '${file.fileName}' '${file.chunkUrls[0]}'`,
+      `curl -fSL --retry 3 --retry-delay 5 -o '${destPath}' '${file.chunkUrls[0]}'`,
     ];
   }
   const downloadCmds = file.chunkUrls.map(
@@ -58,7 +65,7 @@ export function buildConfigFileDownloadCommands(file: {
     .join(" ");
   return [
     ...downloadCmds,
-    `cat ${chunkPaths} > '${file.fileName}'`,
+    `cat ${chunkPaths} > '${destPath}'`,
     `rm ${chunkPaths}`,
   ];
 }

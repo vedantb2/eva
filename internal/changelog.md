@@ -1,5 +1,23 @@
 # Changelog
 
+## Keep persistent sandboxes alive for one hour - 2026-05-07
+
+- **Why**: Reviewers need more time to inspect sandbox previews before Daytona auto-stops persistent sandboxes.
+- **Change**: Changed the shared Daytona session lifecycle auto-stop interval from 15 minutes to 60 minutes.
+- **Reason**: Quick tasks use the persistent session lifecycle, so updating the lifecycle constant is the smallest effective change.
+
+## Mention documents in session and design prompt input - 2026-05-07
+
+- **Why**: Users had no way to reference repo docs from a session or design prompt — they had to copy-paste content manually for the AI to have the doc as context.
+- **Change**: Typing `@` in a session or design prompt opens a filter-as-you-type popup of the current repo's docs, sorted alphabetically. Selected docs render as bold, atomic, lightly-highlighted pills inside the input (`contenteditable=false` with zero-width-space anchors so the cursor can't enter and adjacent typing stays plain). Stored as `@[Title](docId)` tokens in `messages.content`. On send, a backend resolver (`_mentions/resolveDocMentions.ts`) extracts unique doc IDs, validates each against the session's `repoId` (drops cross-repo or deleted docs), prepends a `## Referenced documents` block with full doc content to the AI prompt, and replaces inline tokens with plain `@Title`. In chat history, mentions render as clickable links that navigate to `/{owner}/{repo}/docs/{id}` via TanStack Router. Design history strips tokens to plain `@Title` for the trailing context window.
+- **Reason**: Single-string token in `messages.content` (no schema change) keeps storage simple. The Convex id charset (`[a-z0-9_]`) makes the regex unambiguous against ordinary markdown links, and the repo-scoped resolver prevents cross-repo content leaks.
+
+## Linear-style priority field for quick tasks and projects - 2026-05-06
+
+- **Why**: Quick tasks and projects had no way to express urgency, so users couldn't sort or scan their work by what mattered most.
+- **Change**: Added an optional priority field (Urgent / High / Medium / Low) on `agentTasks` and `projects` schemas, with a shared inline-SVG `PriorityIcon` (Linear-accurate visuals: orange-red square with `!` for urgent, ascending bars with N filled for the rest, three muted dashes for unset) and a `PriorityPicker` popover. Wired pickers into the quick-task creation modal + detail panel, the project creation modal + metadata bar + inline-editable table cell. Read-only icons appear on the quick-task table column, kanban/list card corners, and project table. Priority is sortable via the existing Options dropdown on both views. Mutations accept `null` to clear the field.
+- **Reason**: Single source of truth — `undefined` means "no priority" everywhere — keeps the schema and downstream code (icon, picker, sort comparator) on one type union of four values rather than introducing a synthetic fifth literal.
+
 ## Keep Daytona sandbox preview on the resolved dev port - 2026-05-06
 
 - **Why**: The preview pane could display port 3000 while hidden state still defaulted to 3001, and the navigation-sync proxy generated Daytona preview URLs for port 33000, outside Daytona's supported preview range.

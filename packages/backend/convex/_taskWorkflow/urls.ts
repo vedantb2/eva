@@ -1,4 +1,8 @@
-const EVA_BASE_URL = "https://eva-web-git-staging-evalucom.vercel.app";
+function getEvaBaseUrl(): string {
+  const url = process.env.WEB_APP_URL;
+  if (!url) throw new Error("WEB_APP_URL is not set in Convex env");
+  return url.replace(/\/$/, "");
+}
 
 function repoSegment(repoName: string, rootDirectory?: string): string {
   if (!rootDirectory) return repoName;
@@ -16,10 +20,11 @@ export function buildEvaTaskUrl(
   rootDirectory?: string,
 ): string {
   const segment = repoSegment(repoName, rootDirectory);
+  const baseUrl = getEvaBaseUrl();
   if (projectId) {
-    return `${EVA_BASE_URL}/${repoOwner}/${segment}/projects/${projectId}`;
+    return `${baseUrl}/${repoOwner}/${segment}/projects/${projectId}`;
   }
-  return `${EVA_BASE_URL}/${repoOwner}/${segment}/quick-tasks/${taskId}`;
+  return `${baseUrl}/${repoOwner}/${segment}/quick-tasks/${taskId}`;
 }
 
 /** Builds a link to view a session in the Eva web app. */
@@ -30,5 +35,5 @@ export function buildEvaSessionUrl(
   rootDirectory?: string,
 ): string {
   const segment = repoSegment(repoName, rootDirectory);
-  return `${EVA_BASE_URL}/${repoOwner}/${segment}/sessions/${sessionId}`;
+  return `${getEvaBaseUrl()}/${repoOwner}/${segment}/sessions/${sessionId}`;
 }

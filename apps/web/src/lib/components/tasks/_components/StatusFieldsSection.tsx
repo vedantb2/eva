@@ -293,10 +293,10 @@ export function StatusFieldsSection({
         value={task?.assignedTo ?? UNASSIGNED_VALUE}
         onValueChange={(val) => {
           if (val === UNASSIGNED_VALUE) {
-            updateTask({ id: taskId, assignedTo: undefined });
+            updateTask({ id: taskId, assignedTo: null });
           } else {
             const user = users?.find((u) => u._id === val);
-            updateTask({ id: taskId, assignedTo: user?._id });
+            if (user) updateTask({ id: taskId, assignedTo: user._id });
           }
         }}
       >

@@ -885,6 +885,17 @@ export async function pushBranchToOrigin(
   });
 }
 
+/**
+ * Detects Daytona errors meaning the named snapshot is unusable in a way a
+ * rebuild would fix (terminal `error` / `build_failed` states from
+ * snapshotWorkflow). Caller falls back to creating the sandbox without the
+ * snapshot — slower setup, but the run can still proceed.
+ */
+function isSnapshotUnusableError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /Snapshot\s+\S+\s+is\s+(error|build_failed)/i.test(msg);
+}
+
 /** Creates a sandbox and prepares the repo by cloning or syncing from a snapshot. */
 export async function createSandboxAndPrepareRepo(
   daytona: Daytona,
@@ -907,18 +918,40 @@ export async function createSandboxAndPrepareRepo(
       details,
       async () => {
         if (onProgress) await onProgress("Creating sandbox...");
-        sandbox = await createSandbox(
-          daytona,
-          installationId,
-          sandboxEnvVars,
-          lifecycle,
-          snapshotName,
-          volumes,
-        );
+        let effectiveSnapshot = snapshotName;
+        try {
+          sandbox = await createSandbox(
+            daytona,
+            installationId,
+            sandboxEnvVars,
+            lifecycle,
+            effectiveSnapshot,
+            volumes,
+          );
+        } catch (err) {
+          if (effectiveSnapshot && isSnapshotUnusableError(err)) {
+            logGit(
+              `createSandboxAndPrepareRepo: snapshot ${effectiveSnapshot} is in error state — falling back to default snapshot + git clone (${err instanceof Error ? err.message : String(err)})`,
+            );
+            if (onProgress)
+              await onProgress("Snapshot unavailable — cloning instead...");
+            effectiveSnapshot = undefined;
+            sandbox = await createSandbox(
+              daytona,
+              installationId,
+              sandboxEnvVars,
+              lifecycle,
+              undefined,
+              volumes,
+            );
+          } else {
+            throw err;
+          }
+        }
         if (onSandboxAcquired) {
           await onSandboxAcquired(sandbox);
         }
-        if (snapshotName) {
+        if (effectiveSnapshot) {
           await normalizeSnapshotWorktree(sandbox);
           if (syncStrategy.mode !== "none") {
             if (onProgress) await onProgress("Syncing repository...");

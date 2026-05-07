@@ -1,5 +1,11 @@
 # Changelog
 
+## Fall back to git clone when snapshot is broken - 2026-05-07
+
+- **Why**: Quick tasks and other sandbox flows failed completely when a repo's snapshot was in error or build_failed state, with no recovery path and no way to proceed without manually rebuilding the snapshot.
+- **Change**: `createSandboxAndPrepareRepo()` now catches `Snapshot <id> is error` and `is build_failed` errors from Daytona. On such errors, the function falls back: it creates the sandbox using the default snapshot (no custom pre-baked dependencies) and clones the repo from git, then proceeds normally. The fallback is transparent — callers don't change, and `usedSnapshot: false` correctly indicates the snapshot wasn't used.
+- **Reason**: Broken snapshots should not block task execution. Users get a slower first sandbox setup (git clone + install vs pre-baked), but the task proceeds without manual intervention. The fallback applies to all sandbox flows (quick tasks, sessions, audits, ephemeral) and affects only the new-sandbox path; resume of an existing sandbox is unaffected.
+
 ## Retry and preserve quick-task PR URLs - 2026-05-07
 
 - **Why**: Successful quick-task runs could finish without a stored PR URL when GitHub PR creation failed or when a later run refreshed an existing PR body without returning the PR URL.

@@ -22,7 +22,7 @@ import {
 const DEFAULT_CHIP_CLASS = "rounded bg-muted px-1 font-medium text-foreground";
 
 const DEFAULT_EDITOR_CLASS =
-  "block w-full whitespace-pre-wrap break-words bg-transparent text-sm outline-none data-[empty]:before:pointer-events-none data-[empty]:before:select-none data-[empty]:before:text-muted-foreground/90 data-[empty]:before:content-[attr(data-placeholder)]";
+  "relative block w-full whitespace-pre-wrap break-words bg-transparent text-sm outline-none data-[empty]:before:pointer-events-none data-[empty]:before:select-none data-[empty]:before:absolute data-[empty]:before:text-muted-foreground/90 data-[empty]:before:content-[attr(data-placeholder)]";
 
 export interface MentionItem<TId extends string = string> {
   id: TId;

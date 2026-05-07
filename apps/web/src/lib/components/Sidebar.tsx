@@ -8,29 +8,32 @@ import { useMemo, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  IconChartBar,
-  IconChecklist,
   IconChevronLeft,
   IconChevronRight,
-  IconFileText,
-  IconFlask,
   IconHammer,
-  IconInbox,
-  IconLayoutKanban,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
   IconMenu2,
   IconMoon,
-  IconPalette,
-  IconPlayerPlay,
   IconSearch,
   IconSettings,
   IconSun,
-  IconTerminal2,
   IconTestPipe,
   IconTool,
   IconX,
 } from "@tabler/icons-react";
+import {
+  AutomationsIcon,
+  DesignsIcon,
+  DocumentsIcon,
+  InboxIcon,
+  ProjectsIcon,
+  QuickTasksIcon,
+  SessionsIcon,
+  SettingsIcon,
+  StatsIcon,
+  TestingArenaIcon,
+} from "@/lib/components/sidebar/icons/AnimatedNavIcons";
 import { api } from "@conductor/backend";
 import {
   Button,
@@ -201,12 +204,12 @@ export function Sidebar() {
           {
             name: "Projects",
             href: `${repoBasePath}/projects`,
-            icon: IconLayoutKanban,
+            icon: ProjectsIcon,
           },
           {
             name: "Designs",
             href: `${repoBasePath}/designs`,
-            icon: IconPalette,
+            icon: DesignsIcon,
             devOnly: true,
           },
         ],
@@ -218,12 +221,12 @@ export function Sidebar() {
           {
             name: "Quick Tasks",
             href: `${repoBasePath}/quick-tasks`,
-            icon: IconChecklist,
+            icon: QuickTasksIcon,
           },
           {
             name: "Sessions",
             href: `${repoBasePath}/sessions`,
-            icon: IconTerminal2,
+            icon: SessionsIcon,
           },
         ],
       },
@@ -235,13 +238,13 @@ export function Sidebar() {
           {
             name: "Documents",
             href: `${repoBasePath}/docs`,
-            icon: IconFileText,
+            icon: DocumentsIcon,
             devOnly: true,
           },
           {
             name: "Testing Arena",
             href: `${repoBasePath}/testing-arena`,
-            icon: IconFlask,
+            icon: TestingArenaIcon,
             devOnly: true,
           },
         ],
@@ -253,22 +256,22 @@ export function Sidebar() {
           {
             name: "Inbox",
             href: `${repoBasePath}/inbox`,
-            icon: IconInbox,
+            icon: InboxIcon,
           },
           {
             name: "Automations",
             href: `${repoBasePath}/automations`,
-            icon: IconPlayerPlay,
+            icon: AutomationsIcon,
           },
           {
             name: "Stats",
             href: `${repoBasePath}/stats`,
-            icon: IconChartBar,
+            icon: StatsIcon,
           },
           {
             name: "Settings",
             href: `${repoBasePath}/settings/config`,
-            icon: IconSettings,
+            icon: SettingsIcon,
           },
         ],
       },
@@ -675,7 +678,7 @@ export function Sidebar() {
                                             )}
                                           >
                                             <item.icon
-                                              size={16}
+                                              size={19}
                                               className={cn(
                                                 "shrink-0",
                                                 isActive
@@ -740,7 +743,7 @@ export function Sidebar() {
                                         className={navItemClass(isActive)}
                                       >
                                         <item.icon
-                                          size={16}
+                                          size={19}
                                           className={cn(
                                             "shrink-0",
                                             isActive

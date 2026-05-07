@@ -1,5 +1,11 @@
 # Changelog
 
+## Custom animated sidebar icons - 2026-05-07
+
+- **Why**: Generic static icons in the sidebar lacked visual polish and feedback.
+- **Change**: Replaced Tabler icons with 10 handcrafted SVG icons (Projects, Designs, QuickTasks, Sessions, Documents, TestingArena, Inbox, Automations, Stats, Settings). Each icon has bespoke `@keyframes` animations triggered on parent hover — cards bounce and breathe, dots pulse and scatter, gears spin, bubbles rise, etc. Icons scale from 16px to 19px, and the entire SVG gains a 1.2x hover scale on top of the inner animations via a springy easing curve. Animations layer via CSS `group-hover:` selectors on sub-shape classes (`.nav-icon-card`, `.nav-icon-bubble`, etc.), enabling clean choreography without JS.
+- **Reason**: Animated icons draw the eye, provide hover feedback, and reinforce interaction without cluttering the layout. SVG-native animations (strokeDasharray, transforms, keyframes) scale to any viewport and remain crisp at any size.
+
 ## Manual PR creation for projects - 2026-05-07
 
 - **Why**: Project PR creation may fail due to transient issues (GitHub API downtime, network failures). Users had no recovery path and had to re-run the entire build workflow to retry.

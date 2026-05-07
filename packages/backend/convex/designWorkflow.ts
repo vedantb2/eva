@@ -12,6 +12,10 @@ import {
 } from "./prompts";
 import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
 import { startNextQueuedDesignMessage } from "./_queues/helpers";
+import {
+  resolveDocMentions,
+  stripMentionTokens,
+} from "./_mentions/resolveDocMentions";
 
 const designCompleteEvent = defineEvent({
   name: "designComplete",
@@ -68,7 +72,10 @@ function buildDesignPrompt(
   const history = conversationHistory
     .filter((m) => m.content)
     .slice(-6)
-    .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+    .map(
+      (m) =>
+        `${m.role === "user" ? "User" : "Assistant"}: ${stripMentionTokens(m.content)}`,
+    )
     .join("\n\n");
 
   const baseContext = selectedBase
@@ -271,9 +278,15 @@ export const getSessionDataAndPrompt = internalQuery({
       user?.customInstructions ?? undefined,
     );
 
-    const prompt = buildDesignPrompt(
-      { owner: repo.owner, name: repo.name },
+    const { resolvedMessage, prefixBlock } = await resolveDocMentions(
+      ctx,
       args.message,
+      session.repoId,
+    );
+
+    let prompt = buildDesignPrompt(
+      { owner: repo.owner, name: repo.name },
+      resolvedMessage,
       conversationHistory,
       selectedBase,
       persona,
@@ -281,6 +294,9 @@ export const getSessionDataAndPrompt = internalQuery({
       args.numDesigns ?? 3,
       customInstructionsBlock,
     );
+    if (prefixBlock) {
+      prompt = `${prefixBlock}\n\n${prompt}`;
+    }
 
     return {
       sandboxId: session.sandboxId,

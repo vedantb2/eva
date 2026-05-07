@@ -3,7 +3,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Spinner,
@@ -15,7 +15,7 @@ import {
   MessageContent,
   MessageResponse,
   PromptInput,
-  PromptInputTextarea,
+  PromptInputProvider,
   PromptInputFooter,
   PromptInputTools,
   PromptInputSubmit,
@@ -43,6 +43,12 @@ import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import dayjs from "@conductor/shared/dates";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import {
+  MentionTextarea,
+  type MentionTextareaHandle,
+} from "@/lib/components/chat/MentionTextarea";
 
 type QueuedDesignMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -83,12 +89,15 @@ export function DesignChatPanel({
     parentId: designSessionId,
   });
   const personas = useQuery(api.designPersonas.list, { repoId });
+  const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const executeMessage = useMutation(api.designSessions.executeMessage);
   const enqueueMessage = useMutation(api.designSessions.enqueueMessage);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
   const updateQueuedMessage = useMutation(api.queuedMessages.update);
   const deleteQueuedMessage = useMutation(api.queuedMessages.remove);
+  const { repo } = useRepo();
 
+  const mentionRef = useRef<MentionTextareaHandle>(null);
   const [isSending, setIsSending] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] =
     useState<Id<"designPersonas">>();
@@ -117,10 +126,12 @@ export function DesignChatPanel({
 
   const handleSend = async (text: string) => {
     if (!text.trim() || !isSandboxActive) return;
+    const visible = text.trim();
+    const message = mentionRef.current?.tokenize(visible) ?? visible;
     if (isExecuting) {
       await enqueueMessage({
         id: designSessionId,
-        message: text.trim(),
+        message,
         model,
         personaId: selectedPersonaId,
         numDesigns,
@@ -131,7 +142,7 @@ export function DesignChatPanel({
     try {
       await executeMessage({
         id: designSessionId,
-        message: text.trim(),
+        message,
         model,
         personaId: selectedPersonaId,
         numDesigns,
@@ -274,9 +285,11 @@ export function DesignChatPanel({
                               </>
                             ) : (
                               <>
-                                <p className="text-sm whitespace-pre-wrap break-words">
-                                  {message.content}
-                                </p>
+                                <MessageMentionText
+                                  text={message.content}
+                                  owner={repo.owner}
+                                  repo={repo.name}
+                                />
                                 <div className="flex items-center justify-between gap-3">
                                   {message.personaId && (
                                     <span className="text-[11px] text-muted-foreground/60">
@@ -321,70 +334,75 @@ export function DesignChatPanel({
                 await deleteQueuedMessage({ id });
               }}
             />
-            <PromptInput onSubmit={handlePromptSubmit}>
-              <PromptInputTextarea
-                placeholder={
-                  !isSandboxActive
-                    ? "Start the sandbox to begin designing..."
-                    : "Describe the design you want..."
-                }
-                disabled={!isSandboxActive}
-              />
-              <PromptInputFooter>
-                <PromptInputTools>
-                  <ModelSelect
-                    value={model}
-                    options={modelOptions}
-                    onValueChange={setModel}
-                    disabled={!isSandboxActive}
-                  />
-                  <PersonaDropdown
-                    repoId={repoId}
-                    value={selectedPersonaId}
-                    onChange={setSelectedPersonaId}
-                  />
-                </PromptInputTools>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span>Designs:</span>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setNumDesigns(n)}
+            <PromptInputProvider>
+              <PromptInput onSubmit={handlePromptSubmit}>
+                <MentionTextarea
+                  ref={mentionRef}
+                  docs={docs}
+                  placeholder={
+                    !isSandboxActive
+                      ? "Start the sandbox to begin designing..."
+                      : "Describe the design you want..."
+                  }
+                />
+                <PromptInputFooter>
+                  <PromptInputTools>
+                    <ModelSelect
+                      value={model}
+                      options={modelOptions}
+                      onValueChange={setModel}
                       disabled={!isSandboxActive}
-                      className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
-                        numDesigns === n
-                          ? "bg-primary text-primary-foreground"
-                          : "hover:bg-accent"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1">
-                  <PromptInputSpeech disabled={!isSandboxActive} />
-                  {isExecuting ? (
-                    <Button
-                      size="icon-sm"
-                      type="button"
-                      variant="destructive"
-                      onClick={handleCancel}
-                      title="Stop Eva"
-                    >
-                      <IconPlayerStop className="size-4" />
-                    </Button>
-                  ) : null}
-                  <PromptInputSubmit
-                    status={
-                      isSending && !parentIsExecuting ? "submitted" : undefined
-                    }
-                    disabled={!isSandboxActive}
-                    title={isExecuting ? "Queue message" : "Send message"}
-                  />
-                </div>
-              </PromptInputFooter>
-            </PromptInput>
+                    />
+                    <PersonaDropdown
+                      repoId={repoId}
+                      value={selectedPersonaId}
+                      onChange={setSelectedPersonaId}
+                    />
+                  </PromptInputTools>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span>Designs:</span>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setNumDesigns(n)}
+                        disabled={!isSandboxActive}
+                        className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
+                          numDesigns === n
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-accent"
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <PromptInputSpeech disabled={!isSandboxActive} />
+                    {isExecuting ? (
+                      <Button
+                        size="icon-sm"
+                        type="button"
+                        variant="destructive"
+                        onClick={handleCancel}
+                        title="Stop Eva"
+                      >
+                        <IconPlayerStop className="size-4" />
+                      </Button>
+                    ) : null}
+                    <PromptInputSubmit
+                      status={
+                        isSending && !parentIsExecuting
+                          ? "submitted"
+                          : undefined
+                      }
+                      disabled={!isSandboxActive}
+                      title={isExecuting ? "Queue message" : "Send message"}
+                    />
+                  </div>
+                </PromptInputFooter>
+              </PromptInput>
+            </PromptInputProvider>
           </div>
         )}
       </ChatPageWrapper>

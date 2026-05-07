@@ -1,5 +1,11 @@
 # Changelog
 
+## Mention documents in session and design prompt input - 2026-05-07
+
+- **Why**: Users had no way to reference repo docs from a session or design prompt — they had to copy-paste content manually for the AI to have the doc as context.
+- **Change**: Typing `@` in a session or design prompt opens a filter-as-you-type popup of the current repo's docs, sorted alphabetically. Selected docs render as bold, atomic, lightly-highlighted pills inside the input (`contenteditable=false` with zero-width-space anchors so the cursor can't enter and adjacent typing stays plain). Stored as `@[Title](docId)` tokens in `messages.content`. On send, a backend resolver (`_mentions/resolveDocMentions.ts`) extracts unique doc IDs, validates each against the session's `repoId` (drops cross-repo or deleted docs), prepends a `## Referenced documents` block with full doc content to the AI prompt, and replaces inline tokens with plain `@Title`. In chat history, mentions render as clickable links that navigate to `/{owner}/{repo}/docs/{id}` via TanStack Router. Design history strips tokens to plain `@Title` for the trailing context window.
+- **Reason**: Single-string token in `messages.content` (no schema change) keeps storage simple. The Convex id charset (`[a-z0-9_]`) makes the regex unambiguous against ordinary markdown links, and the repo-scoped resolver prevents cross-repo content leaks.
+
 ## Linear-style priority field for quick tasks and projects - 2026-05-06
 
 - **Why**: Quick tasks and projects had no way to express urgency, so users couldn't sort or scan their work by what mattered most.

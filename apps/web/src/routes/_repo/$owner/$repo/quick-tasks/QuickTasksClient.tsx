@@ -25,8 +25,7 @@ import {
   type BulkAction,
 } from "./_components/QuickTasksBulkBar";
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
-import { useQuickTaskFilters } from "./_utils";
-import { priorityCompare } from "@/lib/components/priority/priorityMeta";
+import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 
 export function QuickTasksClient() {
   const navigate = useNavigate();
@@ -42,18 +41,7 @@ export function QuickTasksClient() {
     null,
   );
   const [
-    {
-      q,
-      view,
-      project,
-      user,
-      assignee,
-      tags,
-      sortField,
-      sortDir,
-      timeRange,
-      statuses,
-    },
+    { q, view, project, user, assignee, tags, timeRange, statuses },
     setParams,
   ] = useQuickTaskFilters();
 
@@ -83,101 +71,7 @@ export function QuickTasksClient() {
     return [...tagSet].sort();
   }, [tasks]);
 
-  const quickTasks = useMemo(() => {
-    if (!tasks) return [];
-    let filtered = tasks;
-
-    // Search filter
-    if (q.trim()) {
-      const query = q.trim().toLowerCase();
-      filtered = filtered.filter(
-        (t) =>
-          t.title.toLowerCase().includes(query) ||
-          (t.description && t.description.toLowerCase().includes(query)),
-      );
-    }
-
-    // Project filter
-    if (project !== "all") {
-      filtered =
-        project === "none"
-          ? filtered.filter((t) => !t.projectId)
-          : filtered.filter((t) => t.projectId === project);
-    }
-
-    // Created by filter
-    if (user !== "all") {
-      filtered = filtered.filter((t) => t.createdBy === user);
-    }
-
-    // Assignee filter
-    if (assignee !== "all") {
-      filtered =
-        assignee === "unassigned"
-          ? filtered.filter((t) => !t.assignedTo)
-          : filtered.filter((t) => t.assignedTo === assignee);
-    }
-
-    // Status filter (exclude drafts, they're not shown in quick tasks view)
-    const statusSet = new Set<string>(statuses);
-    filtered = filtered.filter(
-      (t) => t.status !== "draft" && statusSet.has(t.status),
-    );
-
-    // Tags filter
-    if (tags.length > 0) {
-      const tagSet = new Set(tags);
-      filtered = filtered.filter(
-        (t) => t.tags && t.tags.some((tag) => tagSet.has(tag)),
-      );
-    }
-
-    // Time range filter
-    if (timeRange !== "all") {
-      const now = Date.now();
-      const msMap: Record<string, number> = {
-        "7d": 7 * 24 * 60 * 60 * 1000,
-        "30d": 30 * 24 * 60 * 60 * 1000,
-        "90d": 90 * 24 * 60 * 60 * 1000,
-      };
-      const cutoff = now - (msMap[timeRange] ?? 0);
-      filtered = filtered.filter((t) => t.createdAt >= cutoff);
-    }
-
-    // Sorting
-    const sorted = [...filtered].sort((a, b) => {
-      let cmp = 0;
-      if (sortField === "lastRun") {
-        // Fall back to createdAt so tasks that have never run are sorted by
-        // creation time rather than collapsing to 0 and sinking to the bottom.
-        const aTime = a.lastRunStartedAt ?? a.createdAt;
-        const bTime = b.lastRunStartedAt ?? b.createdAt;
-        cmp = aTime - bTime;
-      } else if (sortField === "updated") {
-        cmp = a.updatedAt - b.updatedAt;
-      } else if (sortField === "created") {
-        cmp = a.createdAt - b.createdAt;
-      } else if (sortField === "title") {
-        cmp = a.title.localeCompare(b.title);
-      } else if (sortField === "priority") {
-        cmp = priorityCompare(a.priority, b.priority);
-      }
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-
-    return sorted;
-  }, [
-    tasks,
-    q,
-    project,
-    user,
-    assignee,
-    statuses,
-    tags,
-    timeRange,
-    sortField,
-    sortDir,
-  ]);
+  const quickTasks = useFilteredQuickTasks(tasks);
   const hasAnyTasks = (tasks ?? []).length > 0;
   const hasQuickTasks = quickTasks.length > 0;
 

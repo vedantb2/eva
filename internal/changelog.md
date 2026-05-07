@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix quick task detail navigation to respect filters and sort - 2026-05-07
+
+- **Why**: Detail page prev/next buttons ignored the user's chosen sort field, sort direction, and search query, always using hardcoded status-grouped order sorted by creation date. Users complained buttons "don't respect the filters applied or anything".
+- **Change**: Extracted filter+sort logic into shared `applyQuickTaskFilters()` helper and `useFilteredQuickTasks()` hook in `_utils.ts`. Both list and detail pages now use the same canonical filtered+sorted array. Detail page additionally applies view-aware grouping: in kanban view, tasks are regrouped by status (`TASK_STATUSES` order) while preserving sort order within each column, so prev/next walks top-of-todo → bottom-of-todo → top-of-in_progress (matching kanban's visual flow). In list/table view, prev/next uses the global sort order directly.
+- **Reason**: Single source of truth for filtering/sorting eliminates duplication (was ~95 lines in each component) and ensures detail nav matches the list's order. View-aware grouping preserves kanban's spatial metaphor while respecting the user's sort preferences.
+
 ## Extract @mention primitives into reusable library - 2026-05-07
 
 - **Why**: Task comment mentions and chat doc mentions were ~95% identical code; extracting shared primitives eliminates duplication and ensures consistent UX across surfaces.

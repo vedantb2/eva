@@ -8,17 +8,15 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
-import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 import { Route } from "./$taskId";
 import { EntityContextUsage } from "@/lib/components/context-usage";
-import { useQuickTaskFilters } from "./_utils";
+import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 
 export function QuickTaskDetailClient() {
   const { taskId } = Route.useParams();
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
-  const [{ project, user, assignee, tags, timeRange, statuses }] =
-    useQuickTaskFilters();
+  const [{ view }] = useQuickTaskFilters();
   const typedTaskId = taskId as Id<"agentTasks">;
 
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
@@ -39,65 +37,9 @@ export function QuickTaskDetailClient() {
     return [...tagSet].sort();
   }, [tasks]);
 
-  const filteredTasks = useMemo(() => {
-    if (!tasks) return [];
-    let filtered = tasks;
-    if (project !== "all") {
-      filtered =
-        project === "none"
-          ? filtered.filter((t) => !t.projectId)
-          : filtered.filter((t) => t.projectId === project);
-    }
-    if (user !== "all") {
-      filtered = filtered.filter((t) => t.createdBy === user);
-    }
-    if (assignee !== "all") {
-      filtered =
-        assignee === "unassigned"
-          ? filtered.filter((t) => !t.assignedTo)
-          : filtered.filter((t) => t.assignedTo === assignee);
-    }
-    const statusSet = new Set<string>(statuses);
-    filtered = filtered.filter(
-      (t) => t.status !== "draft" && statusSet.has(t.status),
-    );
-    if (tags.length > 0) {
-      const tagSet = new Set(tags);
-      filtered = filtered.filter(
-        (t) => t.tags && t.tags.some((tag) => tagSet.has(tag)),
-      );
-    }
-    if (timeRange !== "all") {
-      const now = Date.now();
-      const msMap: Record<string, number> = {
-        "7d": 7 * 24 * 60 * 60 * 1000,
-        "30d": 30 * 24 * 60 * 60 * 1000,
-        "90d": 90 * 24 * 60 * 60 * 1000,
-      };
-      const cutoff = now - (msMap[timeRange] ?? 0);
-      filtered = filtered.filter((t) => t.createdAt >= cutoff);
-    }
-    return filtered;
-  }, [tasks, project, user, assignee, statuses, tags, timeRange]);
-
-  const orderedTasks = useMemo(() => {
-    if (filteredTasks.length === 0) return [];
-    const byStatus = new Map<string, typeof filteredTasks>();
-    for (const task of filteredTasks) {
-      const list = byStatus.get(task.status) ?? [];
-      list.push(task);
-      byStatus.set(task.status, list);
-    }
-    const result: typeof filteredTasks = [];
-    for (const status of TASK_STATUSES) {
-      const group = byStatus.get(status);
-      if (group) {
-        group.sort((a, b) => b.createdAt - a.createdAt);
-        result.push(...group);
-      }
-    }
-    return result;
-  }, [filteredTasks]);
+  const orderedTasks = useFilteredQuickTasks(tasks, {
+    groupByStatus: view === "kanban",
+  });
 
   const { prevTaskId, nextTaskId } = useMemo(() => {
     if (orderedTasks.length === 0) {

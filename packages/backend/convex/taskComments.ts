@@ -3,6 +3,7 @@ import { internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { createNotification } from "./notifications";
 import { authQuery, authMutation, hasTaskAccess } from "./functions";
+import { extractMentionedUserIds } from "./_mentions/extractMentionedUserIds";
 
 const taskCommentValidator = v.object({
   _id: v.id("taskComments"),
@@ -45,7 +46,7 @@ export const listByTask = authQuery({
   },
 });
 
-/** Creates a comment on a task and notifies the assignee. */
+/** Creates a comment on a task and notifies the assignee + mentioned users. */
 export const create = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -62,6 +63,7 @@ export const create = authMutation({
       authorId: ctx.userId,
       createdAt: Date.now(),
     });
+    const notifiedUserIds = new Set<string>([ctx.userId]);
     if (task.assignedTo && task.assignedTo !== ctx.userId) {
       await createNotification(ctx, {
         userId: task.assignedTo,
@@ -72,6 +74,41 @@ export const create = authMutation({
         taskId: args.taskId,
         message: buildCommentNotificationMessage(args.content, task.projectId),
       });
+      notifiedUserIds.add(task.assignedTo);
+    }
+    const mentionedUserIds = extractMentionedUserIds(ctx, args.content);
+    if (mentionedUserIds.length > 0) {
+      const repo = task.repoId ? await ctx.db.get(task.repoId) : null;
+      const teamId = repo?.teamId;
+      const author = await ctx.db.get(ctx.userId);
+      const authorName = author?.fullName?.trim() || "Someone";
+      const mentionTitle = `${authorName} mentioned you in a comment`;
+      const mentionMessage = buildCommentNotificationMessage(
+        args.content,
+        task.projectId,
+      );
+      for (const mentionedUserId of mentionedUserIds) {
+        if (notifiedUserIds.has(mentionedUserId)) continue;
+        if (teamId) {
+          const membership = await ctx.db
+            .query("teamMembers")
+            .withIndex("by_team_and_user", (q) =>
+              q.eq("teamId", teamId).eq("userId", mentionedUserId),
+            )
+            .first();
+          if (!membership) continue;
+        }
+        await createNotification(ctx, {
+          userId: mentionedUserId,
+          type: "mention",
+          title: mentionTitle,
+          repoId: task.repoId,
+          projectId: task.projectId,
+          taskId: args.taskId,
+          message: mentionMessage,
+        });
+        notifiedUserIds.add(mentionedUserId);
+      }
     }
     return commentId;
   },

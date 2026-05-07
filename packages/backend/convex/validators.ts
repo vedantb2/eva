@@ -114,6 +114,7 @@ export const notificationTypeValidator = v.union(
   v.literal("task_complete"),
   v.literal("task_assigned"),
   v.literal("comment_added"),
+  v.literal("mention"),
   v.literal("run_completed"),
   v.literal("rate_limit"),
   v.literal("system"),

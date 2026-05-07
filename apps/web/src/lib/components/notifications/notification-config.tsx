@@ -9,6 +9,7 @@ import {
   IconInfoCircle,
   IconUserPlus,
   IconMessage,
+  IconAt,
   IconPlayerPlay,
 } from "@tabler/icons-react";
 import { Avatar, AvatarFallback } from "@conductor/ui";
@@ -61,6 +62,13 @@ export const typeConfig: Record<
   comment_added: {
     icon: IconMessage,
     label: "Comment",
+    badgeVariant: "default",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
+  },
+  mention: {
+    icon: IconAt,
+    label: "Mention",
     badgeVariant: "default",
     iconBg: "bg-primary/10",
     iconColor: "text-primary",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
@@ -9,7 +9,6 @@ import {
   Button,
   Checkbox,
   Label,
-  Textarea,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -19,6 +18,11 @@ import {
 import { UserInitials } from "@conductor/shared";
 import dayjs from "@conductor/shared/dates";
 import { IconTrash, IconArrowUp, IconLoader2 } from "@tabler/icons-react";
+import {
+  CommentMentionInput,
+  type CommentMentionInputHandle,
+} from "./CommentMentionInput";
+import { CommentText } from "./CommentText";
 
 interface CommentsSectionProps {
   taskId: Id<"agentTasks">;
@@ -49,25 +53,34 @@ export function CommentsSection({
   const [deletingCommentId, setDeletingCommentId] =
     useState<Id<"taskComments"> | null>(null);
   const [isDeletingComment, setIsDeletingComment] = useState(false);
+  const mentionRef = useRef<CommentMentionInputHandle>(null);
 
   const createComment = useMutation(api.taskComments.create);
   const removeComment = useMutation(api.taskComments.remove);
   const startExecution = useMutation(api.agentTasks.startExecution);
 
+  const tokenizeAndReset = (raw: string): string => {
+    const tokenized = mentionRef.current?.tokenize(raw) ?? raw;
+    mentionRef.current?.reset();
+    return tokenized;
+  };
+
   const handleAddComment = async () => {
     const text = commentText.trim();
     if (!text) return;
+    const content = tokenizeAndReset(text);
     setCommentText("");
-    await createComment({ taskId, content: text });
+    await createComment({ taskId, content });
   };
 
   const handleSubmitRequestChanges = async () => {
     const text = commentText.trim();
     if (!text) return;
+    const content = tokenizeAndReset(text);
     setCommentText("");
     setRequestingChanges(false);
     try {
-      await createComment({ taskId, content: text });
+      await createComment({ taskId, content });
       await startExecution({ id: taskId });
       onRequestChangesSubmitted();
     } catch (err) {
@@ -96,19 +109,18 @@ export function CommentsSection({
     <div className="space-y-4">
       <div className="space-y-3">
         <div className="relative">
-          <Textarea
-            rows={3}
+          <CommentMentionInput
+            ref={mentionRef}
+            value={commentText}
+            onValueChange={(next) => {
+              setCommentText(next);
+              if (executionError) setExecutionError(null);
+            }}
             placeholder={
               requestingChanges
                 ? "Describe the changes you'd like Eva to make..."
                 : "Add a comment..."
             }
-            value={commentText}
-            onChange={(e) => {
-              setCommentText(e.target.value);
-              if (executionError) setExecutionError(null);
-            }}
-            className="w-full pr-12 pb-3"
           />
           <Button
             size="icon"
@@ -178,9 +190,7 @@ export function CommentsSection({
                   <IconTrash size={12} />
                 </Button>
               </div>
-              <p className="text-sm text-foreground whitespace-pre-wrap">
-                {comment.content}
-              </p>
+              <CommentText text={comment.content} />
             </div>
           ))}
         </div>

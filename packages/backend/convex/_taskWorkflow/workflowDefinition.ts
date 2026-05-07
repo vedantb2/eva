@@ -38,6 +38,7 @@ export const taskExecutionWorkflow = workflow.define({
     let completionSuccess: boolean | undefined;
     let completionError: string | null = null;
     let completionPrUrl: string | null = null;
+    let completionPrError: string | null = null;
     let completionActivityLog: string | null = null;
     let completionResult: string | null = null;
     let finalSuccess = false;
@@ -180,56 +181,76 @@ export const taskExecutionWorkflow = workflow.define({
         );
         const enrichedBody = buildPrBody(prSections, evaUrl);
 
-        if (args.isFirstTaskOnBranch) {
-          // Quick tasks land in business_review on completion; the PR should
-          // mirror that by opening as draft. The user promotes it to ready
-          // when they move the task to code_review.
-          const isQuickTask = !args.projectId;
-          completionPrUrl = await step.runAction(
-            internal.taskWorkflowActions.createPullRequest,
-            {
-              installationId: args.installationId,
-              repoOwner: data.repoOwner,
-              repoName: data.repoName,
-              branchName: data.branchName,
-              baseBranch: args.baseBranch,
-              title: data.taskTitle,
-              body: enrichedBody,
-              labels: [
-                "eva",
-                isQuickTask ? "quick-task" : "project",
-                ...(isQuickTask ? ["draft"] : []),
-                ...(data.rootDirectory
-                  ? [data.rootDirectory.split("/").pop()].filter(
-                      (l): l is string => l !== undefined && l !== "",
-                    )
-                  : []),
-              ],
-              draft: isQuickTask,
-            },
-            PR_STEP_RETRY,
-          );
-        } else {
-          completionPrUrl = await step.runAction(
-            internal.taskWorkflowActions.refreshPullRequestBody,
-            {
-              installationId: args.installationId,
-              repoOwner: data.repoOwner,
-              repoName: data.repoName,
-              branchName: data.branchName,
-              body: enrichedBody,
-            },
-            PR_STEP_RETRY,
+        // Wrap PR creation/refresh in try/catch so a GitHub failure (closed PR
+        // already exists, base branch missing, transient API error after retries)
+        // does not bubble to the outer catch — which would silently flip the run
+        // back to success: true with a null prUrl and no error, hiding the
+        // failure from the user. Commits are already pushed; the manual
+        // "Create PR" button is the recovery path.
+        try {
+          if (args.isFirstTaskOnBranch) {
+            // Quick tasks land in business_review on completion; the PR should
+            // mirror that by opening as draft. The user promotes it to ready
+            // when they move the task to code_review.
+            const isQuickTask = !args.projectId;
+            completionPrUrl = await step.runAction(
+              internal.taskWorkflowActions.createPullRequest,
+              {
+                installationId: args.installationId,
+                repoOwner: data.repoOwner,
+                repoName: data.repoName,
+                branchName: data.branchName,
+                baseBranch: args.baseBranch,
+                title: data.taskTitle,
+                body: enrichedBody,
+                labels: [
+                  "eva",
+                  isQuickTask ? "quick-task" : "project",
+                  ...(isQuickTask ? ["draft"] : []),
+                  ...(data.rootDirectory
+                    ? [data.rootDirectory.split("/").pop()].filter(
+                        (l): l is string => l !== undefined && l !== "",
+                      )
+                    : []),
+                ],
+                draft: isQuickTask,
+              },
+              PR_STEP_RETRY,
+            );
+          } else {
+            completionPrUrl = await step.runAction(
+              internal.taskWorkflowActions.refreshPullRequestBody,
+              {
+                installationId: args.installationId,
+                repoOwner: data.repoOwner,
+                repoName: data.repoName,
+                branchName: data.branchName,
+                body: enrichedBody,
+              },
+              PR_STEP_RETRY,
+            );
+          }
+        } catch (prError) {
+          const action = args.isFirstTaskOnBranch ? "creation" : "refresh";
+          completionPrError = `PR ${action} failed: ${prError instanceof Error ? prError.message : String(prError)}. Commits are pushed; use the Create PR button to recover.`;
+          console.error(
+            `PR ${action} failed for run ${args.runId}: ${completionPrError}`,
           );
         }
       }
+
+      // Surface a PR-step failure to the user even though the run is otherwise
+      // successful — the commits are already on GitHub, so we keep success: true
+      // (no auto-retry, no sandbox-preserve), but record the error so the UI
+      // shows what went wrong instead of silently dropping it.
+      const recordedError = finalError ?? completionPrError;
 
       await step.runMutation(internal.taskWorkflow.finalizeRunStreamingPhase, {
         runId: args.runId,
         taskId: args.taskId,
         projectId: args.projectId,
         success: finalSuccess,
-        error: finalError,
+        error: recordedError,
         prUrl: completionPrUrl,
         activityLog: result.activityLog,
         claudeResult: result.result ?? undefined,
@@ -298,7 +319,7 @@ export const taskExecutionWorkflow = workflow.define({
         taskId: args.taskId,
         projectId: args.projectId,
         success: finalSuccess,
-        error: finalError,
+        error: recordedError,
         prUrl: completionPrUrl,
         activityLog: result.activityLog,
         mode: args.mode,

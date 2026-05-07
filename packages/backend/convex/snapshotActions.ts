@@ -114,6 +114,10 @@ function buildSnapshotImage(
     .dockerfileCommands(["USER eva"])
     .workdir("/workspace")
     .runCommands(
+      // Pin pnpm to a Node-20-compatible version. Without this, `corepack enable` lets
+      // pnpm download the latest version on first invocation — pnpm v11+ requires Node
+      // v22.13+ and uses `node:sqlite`, which crashes on node:20-bookworm.
+      "corepack prepare pnpm@10.33.4 --activate",
       // Git config
       gitConfigCmd,
       // Cursor CLI (installs `cursor-agent` to /home/eva/.local/bin — curl-bash, not npm)
@@ -363,7 +367,8 @@ export const pollSnapshotProgress = internalAction({
 
     // Terminal states: fetch build logs and complete the build
     if (state === "active" || state === "error" || state === "build_failed") {
-      // Fetch full build logs from the Daytona API (only on terminal state to avoid wasted calls)
+      // Fetch full build logs from the Daytona API (only on terminal state to avoid wasted calls).
+      // Both the URL endpoint AND the returned log-stream URL require Bearer auth.
       let logs = "";
       try {
         const logsResp = await fetch(
@@ -376,7 +381,9 @@ export const pollSnapshotProgress = internalAction({
           const logsData: unknown = await logsResp.json();
           const url = extractUrl(logsData);
           if (url) {
-            const logStream = await fetch(url);
+            const logStream = await fetch(url, {
+              headers: { Authorization: `Bearer ${daytonaApiKey}` },
+            });
             if (logStream.ok) {
               logs = await logStream.text();
             }

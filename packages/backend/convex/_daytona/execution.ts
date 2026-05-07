@@ -303,6 +303,10 @@ function isSandboxSetupRetryable(message: string): boolean {
   return (
     (lowered.includes("sandbox exec") && lowered.includes("timed out")) ||
     lowered.includes("command execution timeout") ||
+    // Daytona returns exit code -1 when the command was terminated abnormally
+    // (sandbox not yet accepting commands, transport error, killed mid-exec) —
+    // this is transient, unlike non-zero exit codes from real command failures.
+    lowered.includes("sandbox command failed with exit code -1") ||
     gitNetworkMarkers.some((marker) => lowered.includes(marker))
   );
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## Keep persistent sandboxes alive for one hour - 2026-05-07
+
+- **Why**: Reviewers need more time to inspect sandbox previews before Daytona auto-stops persistent sandboxes.
+- **Change**: Changed the shared Daytona session lifecycle auto-stop interval from 15 minutes to 60 minutes.
+- **Reason**: Quick tasks use the persistent session lifecycle, so updating the lifecycle constant is the smallest effective change.
+
 ## Mention documents in session and design prompt input - 2026-05-07
 
 - **Why**: Users had no way to reference repo docs from a session or design prompt — they had to copy-paste content manually for the AI to have the doc as context.

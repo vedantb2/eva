@@ -10,6 +10,16 @@ import {
 import { Input, Spinner } from "@conductor/ui";
 import { WebPreviewNavigationButton } from "@conductor/ui";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogBody,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  Button,
+} from "@conductor/ui";
+import {
   IconArrowLeft,
   IconArrowRight,
   IconRefresh,
@@ -74,6 +84,7 @@ export function PreviewNavBar({
 }: PreviewNavBarProps) {
   const [portInput, setPortInput] = useState(String(port));
   const [pathInput, setPathInput] = useState(path ?? defaultPath);
+  const [isExternalLinkModalOpen, setIsExternalLinkModalOpen] = useState(false);
   // Tracks the last value emitted via onPathChange so the three event sources
   // (input commit, iframe load, in-iframe postMessage) don't fire redundant
   // notifications for the same path.
@@ -202,6 +213,17 @@ export function PreviewNavBar({
     }
   }
 
+  function handleOpenInNewTab() {
+    if (openInNewTabHref) {
+      window.open(openInNewTabHref, "_blank", "noopener,noreferrer");
+      setIsExternalLinkModalOpen(false);
+    }
+  }
+
+  function handleOpenInNewTabClick() {
+    setIsExternalLinkModalOpen(true);
+  }
+
   return (
     <>
       <WebPreviewNavigationButton tooltip="Back" onClick={goBack}>
@@ -245,11 +267,9 @@ export function PreviewNavBar({
       <WebPreviewNavigationButton
         tooltip="Open in new tab"
         disabled={!previewUrl}
-        asChild
+        onClick={handleOpenInNewTabClick}
       >
-        <a href={openInNewTabHref} target="_blank" rel="noopener noreferrer">
-          <IconExternalLink className="w-3.5 h-3.5" />
-        </a>
+        <IconExternalLink className="w-3.5 h-3.5" />
       </WebPreviewNavigationButton>
       <WebPreviewNavigationButton
         tooltip="Fullscreen"
@@ -257,6 +277,34 @@ export function PreviewNavBar({
       >
         <IconMaximize className="w-3.5 h-3.5" />
       </WebPreviewNavigationButton>
+
+      <Dialog
+        open={isExternalLinkModalOpen}
+        onOpenChange={setIsExternalLinkModalOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Open Preview in New Tab</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <DialogDescription className="text-sm text-foreground">
+              Opening in a new tab prevents the Sandbox from automatically
+              stopping, which can result in extra charges. It is okay to leave
+              for a few hours, but please remember to close the tab once you are
+              done previewing changes.
+            </DialogDescription>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsExternalLinkModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleOpenInNewTab}>Open in New Tab</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -506,6 +506,11 @@ async function prepareSessionSandboxInternal(
             );
           },
         );
+        await runLoggedSessionStep(
+          "reuseSessionSandbox.setupBranch",
+          sandboxDetails,
+          () => setupBranch(sandbox, args.branchName, args.baseBranch),
+        );
         // Restore baked config files from /home/eva/sandbox-config into the workspace.
         // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
         await runLoggedSessionStep(
@@ -690,6 +695,23 @@ async function prepareSessionSandboxInternal(
   completedSteps.push({
     type: "tool",
     label: "Checking out branch...",
+    status: "complete",
+  });
+
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Pushing branch...",
+  );
+  await runLoggedSessionStep(
+    "newSessionSandbox.setupBranch",
+    sandboxDetails,
+    () => setupBranch(sandbox, args.branchName, args.baseBranch),
+  );
+  completedSteps.push({
+    type: "tool",
+    label: "Pushing branch...",
     status: "complete",
   });
 

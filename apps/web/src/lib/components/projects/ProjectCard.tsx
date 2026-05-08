@@ -112,7 +112,7 @@ export function ProjectCard({
       <div
         role="button"
         tabIndex={0}
-        className="relative z-[1] block w-full cursor-pointer p-2 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+        className="relative z-[1] block w-full cursor-pointer p-2.5 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         onClick={onClick}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -128,26 +128,26 @@ export function ProjectCard({
         </div>
         {previewText ? (
           <p
-            className={`mt-1 line-clamp-1 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground/80"}`}
+            className={`mt-2 line-clamp-1 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground/80"}`}
           >
             {previewText}
           </p>
         ) : null}
         <ProjectProgressBar
           projectId={projectId}
-          className="mt-2 h-1.5 bg-secondary/75"
+          className="mt-4 h-1.5 bg-secondary/75"
         />
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <AvatarStack size={16} className="pr-1">
+        <div className="mt-4 flex items-center gap-1.5">
+          <AvatarStack size={20} className="-space-x-0.5">
             {shownAvatarIds.map((id) => (
               <UserInitials key={id} userId={id} hideLastSeen />
             ))}
-            {hiddenCount > 0 ? (
-              <div className="flex h-full w-full items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground">
-                +{hiddenCount}
-              </div>
-            ) : null}
           </AvatarStack>
+          {hiddenCount > 0 ? (
+            <span className="text-[11px] font-medium leading-none text-muted-foreground">
+              +{hiddenCount}
+            </span>
+          ) : null}
         </div>
       </div>
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

@@ -1,5 +1,11 @@
 # Changelog
 
+## Per-app system prompt - 2026-05-08
+
+- **Why**: Users wanted to specify recurring instructions per app (e.g. "run pnpm migrate after making backend changes") once instead of repeating them in every quick task and session message.
+- **Change**: Added `systemPrompt` field on `githubRepos` (per-app, not propagated to monorepo siblings) edited via a new textarea on `Settings → App`. The text gets appended as a `## System Prompt` block to every quick task prompt (implementation + conflict resolution), every project task prompt (same code path), and every session prompt (plan + edit modes), alongside the existing user-level `## Custom Instructions` block.
+- **Reason**: Recurring per-app commands belong on the app, not buried in user personalisation or repeated on every run. Keeps user-level personalisation orthogonal to app-level automation hooks.
+
 ## Skip redundant config file download on sandbox prepare - 2026-05-08
 
 - **Why**: Every sandbox prepare (new or resume) re-downloaded config files via curl from the network, even though they were baked into the snapshot at `/home/eva/sandbox-config/` during snapshot build. Large files (100MB+) caused `curl: (23) Failure writing output to destination` on disk-full errors, and the download added 3+ minutes per resume.

@@ -18,6 +18,14 @@ export function buildCustomInstructionsBlock(
   return `\n\n## Custom Instructions\n${parts.join("\n\n")}`;
 }
 
+/** Builds the per-app system prompt block, appended to every quick task and session run for that app. */
+export function buildSystemPromptBlock(
+  systemPrompt: string | undefined,
+): string {
+  if (!systemPrompt || !systemPrompt.trim()) return "";
+  return `\n\n## System Prompt\n${systemPrompt}`;
+}
+
 /** Builds an instruction string directing the agent to work inside a specific root directory. */
 export function buildRootDirectoryInstruction(rootDirectory: string): string {
   if (!rootDirectory) return "";

@@ -781,6 +781,7 @@ export const githubRepoFields = {
   backgroundCommands: v.optional(v.array(v.string())),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
+  systemPrompt: v.optional(v.string()),
 };
 
 export const conversationMessageValidator = v.object({

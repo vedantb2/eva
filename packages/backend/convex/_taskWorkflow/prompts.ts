@@ -1,5 +1,8 @@
 import type { Id } from "../_generated/dataModel";
-import { buildRootDirectoryInstruction } from "../prompts";
+import {
+  buildRootDirectoryInstruction,
+  buildSystemPromptBlock,
+} from "../prompts";
 import { extractFailuresFromJson } from "./auditParser";
 
 export const WORKSPACE_DIR = "/tmp/repo";
@@ -40,6 +43,7 @@ export function buildImplementationPrompt(
   repoName: string,
   changeRequests?: string[],
   projectContext?: { title: string; description?: string },
+  systemPrompt?: string,
 ): string {
   const commitScope = isQuickTask
     ? "feat"
@@ -119,7 +123,7 @@ ${proofOfCompletionSection}
 - Use lockfile for package manager.
 - Prefix shell commands with timeouts: \`timeout 180 npm install\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
-- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}${buildSystemPromptBlock(systemPrompt)}`;
 }
 
 /** Builds a prompt for resolving merge conflicts against the base branch. */
@@ -129,6 +133,7 @@ export function buildConflictResolutionPrompt(
   rootDirectory: string,
   repoOwner: string,
   repoName: string,
+  systemPrompt?: string,
 ): string {
   return `You are resolving merge conflicts. Do NOT re-implement or change any feature — only resolve conflicts and ensure compatibility with the latest base branch.
 
@@ -145,7 +150,7 @@ export function buildConflictResolutionPrompt(
 - Do NOT run git push or gh pr commands. Eva handles publishing and PR creation after your successful completion.
 - Use lockfile for package manager.
 - Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
-- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}${buildSystemPromptBlock(systemPrompt)}`;
 }
 
 type AuditFailure = {

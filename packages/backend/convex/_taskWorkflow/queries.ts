@@ -106,6 +106,7 @@ export const getTaskData = internalQuery({
             rootDirectory,
             repo.owner,
             repo.name,
+            repo.systemPrompt,
           )
         : buildImplementationPrompt(
             task,
@@ -117,6 +118,7 @@ export const getTaskData = internalQuery({
             repo.name,
             changeRequests.length > 0 ? changeRequests : undefined,
             projectContext,
+            repo.systemPrompt,
           );
 
     const canonicalRepoId = repo.parentRepoId ?? args.repoId;

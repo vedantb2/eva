@@ -17,6 +17,7 @@ import { resolveDocMentions } from "./_mentions/resolveDocMentions";
 import {
   buildRootDirectoryInstruction,
   buildCustomInstructionsBlock,
+  buildSystemPromptBlock,
   getResponseLengthInstruction,
 } from "./prompts";
 
@@ -47,6 +48,7 @@ function buildPlanPrompt(
   responseLength: string,
   rootDirectory: string,
   customInstructionsBlock: string,
+  systemPrompt: string | undefined,
 ): string {
   return `PRD planning for ${repo.owner}/${repo.name}. Explore with Glob, Grep, Read.
 
@@ -61,7 +63,7 @@ Rules:
 - ONLY write plan.md — no other files
 - Respond with 1-2 sentences on what changed
 - Non-technical: WHAT and WHY, not HOW
-- Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 /** Builds an edit-mode prompt with full read+write access for answering questions and making code changes. */
@@ -73,6 +75,7 @@ function buildEditPrompt(
   responseLength: string,
   rootDirectory: string,
   customInstructionsBlock: string,
+  systemPrompt: string | undefined,
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const planContext = planContent
@@ -96,7 +99,7 @@ Rules:
 - Never commit images/video. Minimal, focused changes. Use lockfile. GITHUB_TOKEN is set.
 - Respond as business outcome, no code/paths/jargon (e.g. "Added dark mode toggle. Pushed to branch.")
 - No commit hashes or process commentary
-- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "edit")}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 // --- Workflow ---
@@ -381,6 +384,7 @@ export const getSessionData = internalQuery({
         args.responseLength,
         rootDirectory,
         customInstructionsBlock,
+        repo.systemPrompt,
       );
     } else {
       prompt = buildEditPrompt(
@@ -391,6 +395,7 @@ export const getSessionData = internalQuery({
         args.responseLength,
         rootDirectory,
         customInstructionsBlock,
+        repo.systemPrompt,
       );
     }
     if (prefixBlock) {

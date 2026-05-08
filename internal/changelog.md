@@ -1,5 +1,11 @@
 # Changelog
 
+## Surface PR step failures separately from run errors - 2026-05-08
+
+- **Why**: PR creation/refresh failures were silently swallowed. When `createPullRequest` or `refreshPullRequestBody` threw (e.g. "Draft pull requests are not supported in this repository" on free-plan private repos, or "No open PR found" after a merge), the error was caught but discarded if the underlying run succeeded. UI showed `status: success`, `prUrl: null`, and no error — no signal anything went wrong, and users couldn't recover without checking server logs.
+- **Change**: Added `prError: v.optional(v.string())` field to `agentRuns` to record PR-step-specific failures independently from run-level errors. The try/catch wrapper around PR actions now stores failures in `completionPrError` and passes it separately (not merged into `error`) through `finalizeRunStreamingPhase` / `completeRun` mutations. The run-level `error` field clears on success, but `prError` persists even on success runs. Frontend derives `latestPrError` from run query and displays it alongside the existing destructive-text error message in `TaskFooter`, so the "Create PR" recovery button is always accompanied by the actual error message explaining why.
+- **Reason**: PR failures happen _after_ commits are already pushed (they're in the happy-path, not caught by outer exception handlers). Preserving the error separately lets users see what broke without obscuring the run's success status or losing debugging context. The existing manual "Create PR" button is the recovery path; now users know _why_ they need to click it.
+
 ## Per-app system prompt - 2026-05-08
 
 - **Why**: Users wanted to specify recurring instructions per app (e.g. "run pnpm migrate after making backend changes") once instead of repeating them in every quick task and session message.

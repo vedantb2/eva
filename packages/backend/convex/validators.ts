@@ -712,6 +712,7 @@ export const agentRunFields = {
   resultSummary: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   error: v.optional(v.string()),
+  prError: v.optional(v.string()),
   errorType: v.optional(errorTypeValidator),
   limitResetAt: v.optional(v.number()),
   exitReason: v.optional(v.string()),

@@ -243,16 +243,17 @@ export const taskExecutionWorkflow = workflow.define({
 
       // Surface a PR-step failure to the user even though the run is otherwise
       // successful — the commits are already on GitHub, so we keep success: true
-      // (no auto-retry, no sandbox-preserve), but record the error so the UI
-      // shows what went wrong instead of silently dropping it.
-      const recordedError = finalError ?? completionPrError;
-
+      // (no auto-retry, no sandbox-preserve), but record the error in the
+      // dedicated prError field so the UI can show what went wrong instead of
+      // silently dropping it (the run-level `error` field is cleared on success
+      // runs by finalizeRunStatus).
       await step.runMutation(internal.taskWorkflow.finalizeRunStreamingPhase, {
         runId: args.runId,
         taskId: args.taskId,
         projectId: args.projectId,
         success: finalSuccess,
-        error: recordedError,
+        error: finalError,
+        prError: completionPrError,
         prUrl: completionPrUrl,
         activityLog: result.activityLog,
         claudeResult: result.result ?? undefined,
@@ -321,7 +322,8 @@ export const taskExecutionWorkflow = workflow.define({
         taskId: args.taskId,
         projectId: args.projectId,
         success: finalSuccess,
-        error: recordedError,
+        error: finalError,
+        prError: completionPrError,
         prUrl: completionPrUrl,
         activityLog: result.activityLog,
         mode: args.mode,
@@ -384,6 +386,7 @@ export const taskExecutionWorkflow = workflow.define({
             projectId: args.projectId,
             success: fallbackSuccess,
             error: fallbackError,
+            prError: completionPrError,
             prUrl: completionPrUrl,
             activityLog: completionActivityLog,
             exitReason: fallbackExitReason,
@@ -399,6 +402,7 @@ export const taskExecutionWorkflow = workflow.define({
           projectId: args.projectId,
           success: fallbackSuccess,
           error: fallbackError,
+          prError: completionPrError,
           prUrl: completionPrUrl,
           activityLog: completionActivityLog,
           exitReason: fallbackExitReason,

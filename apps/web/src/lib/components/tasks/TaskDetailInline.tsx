@@ -71,6 +71,7 @@ export function TaskDetailInline({
     auditElapsed,
     fixElapsed,
     latestPrUrl,
+    latestPrError,
     latestDeployment,
     activeTab,
     setActiveTab,
@@ -399,6 +400,7 @@ export function TaskDetailInline({
             status={status}
             hasActiveRun={hasActiveRun}
             latestPrUrl={latestPrUrl}
+            latestPrError={latestPrError}
             latestDeployment={latestDeployment}
             executionError={executionError}
             isStarting={isStarting}

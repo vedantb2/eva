@@ -114,6 +114,7 @@ export async function finalizeRunStatus(
     projectId: Id<"projects"> | undefined;
     success: boolean;
     error: string | null;
+    prError: string | null;
     prUrl: string | null;
     exitReason?: string;
     claudeResult?: string;
@@ -134,6 +135,7 @@ export async function finalizeRunStatus(
     ),
     prUrl: params.prUrl ?? undefined,
     error: params.success ? undefined : (params.error ?? "Unknown error"),
+    prError: params.prError ?? undefined,
     exitReason: params.exitReason ?? (params.success ? "completed" : "error"),
   });
 }

@@ -214,6 +214,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const showProofSection = status !== undefined && status !== "todo";
   const canEditTaskText = status === "todo" && !hasActiveRun;
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
+  const latestPrError = runs?.find((r) => r.prError)?.prError;
   const latestDeployment = runs?.find((r) => r.deploymentStatus);
   const canCreatePr = !latestPrUrl && (runs?.length ?? 0) > 0 && !hasActiveRun;
   const modalWidthClass = "max-w-[calc(100vw-2rem)] md:max-w-[72rem]";
@@ -261,6 +262,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     auditElapsed,
     fixElapsed,
     latestPrUrl,
+    latestPrError,
     latestDeployment,
     enabledAuditCount,
 

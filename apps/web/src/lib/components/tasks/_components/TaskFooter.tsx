@@ -40,6 +40,7 @@ interface TaskFooterProps {
   status: TaskStatus | undefined;
   hasActiveRun: boolean;
   latestPrUrl: string | undefined;
+  latestPrError: string | undefined;
   latestDeployment: RunDoc | undefined;
   executionError: string | null;
   isStarting: boolean;
@@ -64,6 +65,7 @@ export function TaskFooter({
   status,
   hasActiveRun,
   latestPrUrl,
+  latestPrError,
   latestDeployment,
   executionError,
   isStarting,
@@ -102,8 +104,10 @@ export function TaskFooter({
 
   return (
     <div className="space-y-2 w-full">
-      {executionError && (
-        <p className="text-xs text-destructive text-right">{executionError}</p>
+      {(executionError || latestPrError) && (
+        <p className="text-xs text-destructive text-right">
+          {executionError ?? latestPrError}
+        </p>
       )}
       <div className="flex items-center gap-3 flex-wrap justify-end">
         {showRunButton && (

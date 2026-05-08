@@ -1,4 +1,5 @@
 export const NO_PROJECT_VALUE = "__none__";
+export const NEW_PROJECT_VALUE = "__new_project__";
 export const UNASSIGNED_VALUE = "__unassigned__";
 export const NO_PRIORITY_VALUE = "__no_priority__";
 export const SCREENSHOTS_INHERIT_VALUE = "__inherit__";

@@ -11,13 +11,23 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
+  Command,
+  CommandList,
+  CommandGroup,
+  CommandItem,
 } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
 import { BranchSelect } from "@/lib/components/BranchSelect";
-import { IconGitBranch } from "@tabler/icons-react";
+import {
+  IconGitBranch,
+  IconListCheck,
+  IconSparkles,
+  IconCheck,
+} from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
@@ -32,9 +42,18 @@ const MarkdownEditor = lazy(() =>
 interface NewProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** When provided, called with the new project id and auto-navigation is skipped. */
+  onCreated?: (projectId: Id<"projects">) => void;
+  /** Default value of the planning-mode picker. Defaults to false (interview/plan flow). */
+  defaultSkipPlanning?: boolean;
 }
 
-export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
+export function NewProjectModal({
+  isOpen,
+  onClose,
+  onCreated,
+  defaultSkipPlanning = false,
+}: NewProjectModalProps) {
   const { repo, basePath } = useRepo();
   const navigate = useNavigate();
   const defaultBranch = repo?.defaultBaseBranch ?? "main";
@@ -42,6 +61,8 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
   const [description, setDescription] = useState("");
   const [baseBranch, setBaseBranch] = useState(defaultBranch);
   const [priority, setPriority] = useState<Priority | undefined>(undefined);
+  const [skipPlanning, setSkipPlanning] = useState(defaultSkipPlanning);
+  const [planningPickerOpen, setPlanningPickerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const editorRef = useRef<MarkdownEditorHandle>(null);
@@ -55,7 +76,8 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
     setDescription("");
     setBaseBranch(defaultBranch);
     setPriority(undefined);
-  }, [defaultBranch]);
+    setSkipPlanning(defaultSkipPlanning);
+  }, [defaultBranch, defaultSkipPlanning]);
 
   const handleClose = useCallback(() => {
     resetForm();
@@ -76,11 +98,16 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
         rawInput: desc,
         baseBranch,
         priority,
+        skipPlanning,
       });
 
       resetForm();
       onClose();
-      navigate({ to: basePath + "/projects/" + projectId });
+      if (onCreated) {
+        onCreated(projectId);
+      } else {
+        navigate({ to: basePath + "/projects/" + projectId });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -157,6 +184,67 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
           </Popover>
 
           <PriorityPicker value={priority} onChange={setPriority} />
+
+          <Popover
+            open={planningPickerOpen}
+            onOpenChange={setPlanningPickerOpen}
+          >
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+              >
+                {skipPlanning ? (
+                  <IconListCheck size={14} />
+                ) : (
+                  <IconSparkles size={14} />
+                )}
+                <span className="text-foreground">
+                  {skipPlanning ? "Tasks only" : "With interview/plan"}
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-0">
+              <Command>
+                <CommandList>
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => {
+                        setSkipPlanning(false);
+                        setPlanningPickerOpen(false);
+                      }}
+                    >
+                      <IconSparkles size={14} className="mr-2" />
+                      <div className="flex-1">
+                        <div className="text-sm">With interview/plan</div>
+                        <div className="text-xs text-muted-foreground">
+                          AI interview, then generated spec
+                        </div>
+                      </div>
+                      {!skipPlanning && (
+                        <IconCheck size={14} className="ml-2" />
+                      )}
+                    </CommandItem>
+                    <CommandItem
+                      onSelect={() => {
+                        setSkipPlanning(true);
+                        setPlanningPickerOpen(false);
+                      }}
+                    >
+                      <IconListCheck size={14} className="mr-2" />
+                      <div className="flex-1">
+                        <div className="text-sm">Tasks only</div>
+                        <div className="text-xs text-muted-foreground">
+                          Skip planning, just a task container
+                        </div>
+                      </div>
+                      {skipPlanning && <IconCheck size={14} className="ml-2" />}
+                    </CommandItem>
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-end bg-muted/15">

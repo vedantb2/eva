@@ -1,5 +1,11 @@
 # Changelog
 
+## Skip-planning mode for project creation - 2026-05-08
+
+- **Why**: Users creating projects from task contexts want to skip the AI interview/planning phase entirely. Having to go through it every time slowed down the workflow.
+- **Change**: Added planning-mode selector to `NewProjectModal`: dropdown with "With interview/plan" and "Tasks only" options. Default selection is context-aware (projects page defaults to interview/plan, task contexts like QuickTaskModal and StatusFieldsSection default to tasks-only). When "Tasks only" is selected, projects go straight to `active` phase with empty conversation and immediate branch name assignment.
+- **Reason**: Task-focused workflows need fast project creation without the planning ceremony. Context-aware defaults reduce friction in common cases while preserving the full interview flow for users who want it.
+
 ## Per-task override for proof-of-completion toggle - 2026-05-08
 
 - **Why**: The agent-browser screenshots/videos setting was global per repo. Users wanted to opt specific tasks in or out without changing the repo-wide setting.

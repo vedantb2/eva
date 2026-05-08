@@ -27,6 +27,7 @@ import {
 import {
   IconUserPlus,
   IconFolder,
+  IconFolderPlus,
   IconTags,
   IconGitBranch,
   IconInfoCircle,
@@ -54,6 +55,7 @@ import {
   DEPLOYMENT_STATUS_CONFIG,
   getUserDisplayName,
   NO_PROJECT_VALUE,
+  NEW_PROJECT_VALUE,
   NO_PRIORITY_VALUE,
   UNASSIGNED_VALUE,
   SCREENSHOTS_INHERIT_VALUE,
@@ -62,6 +64,7 @@ import {
 } from "./task-detail-constants";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 
 type RunDoc = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
@@ -98,6 +101,7 @@ export function StatusFieldsSection({
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const { repo } = useRepo();
   const [tagDraft, setTagDraft] = useState("");
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
   const tagDraftRef = useRef<HTMLInputElement>(null);
 
   const addTag = async (raw: string) => {
@@ -321,6 +325,10 @@ export function StatusFieldsSection({
       <Select
         value={selectedProjectValue}
         onValueChange={(val) => {
+          if (val === NEW_PROJECT_VALUE) {
+            setIsCreatingProject(true);
+            return;
+          }
           if (val === NO_PROJECT_VALUE) {
             updateTask({ id: taskId, projectId: null });
           } else {
@@ -361,9 +369,21 @@ export function StatusFieldsSection({
                 </div>
               </SelectItem>
             ))}
+            <SelectItem value={NEW_PROJECT_VALUE}>
+              <div className="flex items-center gap-1.5">
+                <IconFolderPlus size={14} className="text-muted-foreground" />
+                <span>New project...</span>
+              </div>
+            </SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>
+      <NewProjectModal
+        isOpen={isCreatingProject}
+        onClose={() => setIsCreatingProject(false)}
+        onCreated={(id) => updateTask({ id: taskId, projectId: id })}
+        defaultSkipPlanning
+      />
 
       <Select
         value={task?.assignedTo ?? UNASSIGNED_VALUE}

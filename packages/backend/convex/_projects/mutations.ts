@@ -17,9 +17,15 @@ import {
   setProjectConversation,
   setProjectGeneratedSpec,
   deleteProjectDetails,
+  buildProjectBranchName,
 } from "./helpers";
 
-/** Creates a new project in draft phase with an initial conversation message. */
+/**
+ * Creates a new project. Defaults to `draft` phase with an initial conversation
+ * message for the AI interview/plan flow. When `skipPlanning` is true, the
+ * project goes straight to `active` phase as a plain tasks-only container —
+ * no AI conversation, no generated spec, branch name set immediately.
+ */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -27,29 +33,39 @@ export const create = authMutation({
     rawInput: v.string(),
     baseBranch: v.optional(v.string()),
     priority: v.optional(priorityValidator),
+    skipPlanning: v.optional(v.boolean()),
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+    const skipPlanning = args.skipPlanning ?? false;
     const projectId = await ctx.db.insert("projects", {
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
       rawInput: args.rawInput,
+      description: skipPlanning ? args.rawInput : undefined,
       baseBranch: args.baseBranch,
-      phase: "draft",
+      phase: skipPlanning ? "active" : "draft",
       projectStartDate: Date.now(),
       priority: args.priority,
     });
-    await setProjectConversation(ctx.db, projectId, [
-      {
-        role: "user",
-        content: args.rawInput,
-        userId: ctx.userId,
-      },
-    ]);
+    if (skipPlanning) {
+      await ctx.db.patch(projectId, {
+        branchName: buildProjectBranchName(projectId),
+      });
+      await setProjectConversation(ctx.db, projectId, []);
+    } else {
+      await setProjectConversation(ctx.db, projectId, [
+        {
+          role: "user",
+          content: args.rawInput,
+          userId: ctx.userId,
+        },
+      ]);
+    }
     return projectId;
   },
 });

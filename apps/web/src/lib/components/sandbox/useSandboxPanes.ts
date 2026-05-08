@@ -104,21 +104,17 @@ export function useSandboxPanes({
   );
 
   // Terminal panes are shared Convex state so every collaborator sees and
-  // controls the same PTYs. Ensure the default pane exists once the sandbox is
-  // active; the mutation is idempotent for concurrent viewers.
+  // controls the same PTYs. Ensure the default pane exists on mount even when
+  // the sandbox is inactive — TerminalView needs a slot to render its
+  // "start the sandbox to view terminal" empty state. The mutation is
+  // idempotent for concurrent viewers.
   useEffect(() => {
-    if (!isActive || termIds.length > 0) return;
+    if (termIds.length > 0) return;
     void ensureDefaultTerminalPane({ owner }).then((panes) => {
       const firstPane = panes[0];
       if (firstPane) setTermActive(firstPane.id);
     });
-  }, [
-    isActive,
-    termIds.length,
-    ensureDefaultTerminalPane,
-    owner,
-    setTermActive,
-  ]);
+  }, [termIds.length, ensureDefaultTerminalPane, owner, setTermActive]);
 
   useEffect(() => {
     if (activeTab !== "preview" || previewIds.length > 0) return;

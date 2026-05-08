@@ -95,9 +95,9 @@ export function registerTools(
 
   const environmentArg = z
     .enum(["staging", "prod"])
-    .default("staging")
+    .default("prod")
     .describe(
-      'Which Convex deployment to query. "staging" (default) reads from NEXT_PUBLIC_CONVEX_URL/CONVEX_DEPLOY_KEY. "prod" reads from PROD_CONVEX_URL/PROD_CONVEX_DEPLOY_KEY.',
+      'Which Convex deployment to query. "prod" (default) reads from PROD_CONVEX_URL/PROD_CONVEX_DEPLOY_KEY. "staging" reads from NEXT_PUBLIC_CONVEX_URL/CONVEX_DEPLOY_KEY.',
     );
 
   // ─────────────────────────────────────────────────────────────────────────────

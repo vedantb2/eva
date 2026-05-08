@@ -579,7 +579,7 @@ export const getRepoConvexCredentials = internalAction({
     ctx,
     { repoId, userId, environment },
   ): Promise<{ convexUrl: string; deployKey: string } | null> => {
-    const env = environment ?? "staging";
+    const env = environment ?? "prod";
     const cacheKey = `${userId}:${repoId}:${env}`;
     const cached = repoCredentialsCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {

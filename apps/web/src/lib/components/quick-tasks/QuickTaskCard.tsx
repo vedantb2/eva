@@ -24,13 +24,7 @@ import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
-import {
-  IconClock,
-  IconDots,
-  IconFolder,
-  IconTag,
-  IconBrandVercelFilled,
-} from "@tabler/icons-react";
+import { IconClock, IconDots, IconFolder, IconTag } from "@tabler/icons-react";
 import {
   statusConfig,
   type TaskStatus,
@@ -235,25 +229,6 @@ export function QuickTaskCard({
                 </TooltipContent>
               </Tooltip>
             ) : null}
-            {deploymentStatus && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex items-center">
-                    <IconBrandVercelFilled
-                      size={14}
-                      className={
-                        DEPLOYMENT_STATUS_CONFIG[deploymentStatus]?.iconColor ??
-                        "text-muted-foreground"
-                      }
-                    />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {DEPLOYMENT_STATUS_CONFIG[deploymentStatus]?.label ??
-                    "Unknown"}
-                </TooltipContent>
-              </Tooltip>
-            )}
             {scheduledAt ? (
               <Tooltip>
                 <TooltipTrigger asChild>

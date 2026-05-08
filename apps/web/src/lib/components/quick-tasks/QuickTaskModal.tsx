@@ -50,6 +50,10 @@ import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/Ma
 import { getUserDisplayName } from "@/lib/components/tasks/_components/task-detail-constants";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
+import {
+  ScreenshotsToggle,
+  type ScreenshotsToggleValue,
+} from "./ScreenshotsToggle";
 
 const MarkdownEditor = lazy(() =>
   import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
@@ -97,6 +101,8 @@ export function QuickTaskModal({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState("");
   const [priority, setPriority] = useState<Priority | undefined>(undefined);
+  const [screenshotsVideosEnabled, setScreenshotsVideosEnabled] =
+    useState<ScreenshotsToggleValue>(undefined);
 
   const editorRef = useRef<MarkdownEditorHandle>(null);
 
@@ -122,6 +128,7 @@ export function QuickTaskModal({
     setSelectedTags([]);
     setTagSearch("");
     setPriority(undefined);
+    setScreenshotsVideosEnabled(undefined);
   }, [defaultBranch, defaultModel, projectId]);
 
   const handleClose = useCallback(async () => {
@@ -165,6 +172,7 @@ export function QuickTaskModal({
           model,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
+          screenshotsVideosEnabled,
         });
       } else {
         await createQuickTask({
@@ -177,6 +185,7 @@ export function QuickTaskModal({
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
           priority,
+          screenshotsVideosEnabled,
         });
       }
       resetForm();
@@ -339,6 +348,12 @@ export function QuickTaskModal({
           </Popover>
 
           <PriorityPicker value={priority} onChange={setPriority} />
+
+          <ScreenshotsToggle
+            value={screenshotsVideosEnabled}
+            repoDefault={repo.screenshotsVideosEnabled ?? false}
+            onChange={setScreenshotsVideosEnabled}
+          />
 
           <Popover>
             <PopoverTrigger asChild>

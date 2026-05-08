@@ -1,5 +1,11 @@
 # Changelog
 
+## Per-task override for proof-of-completion toggle - 2026-05-08
+
+- **Why**: The agent-browser screenshots/videos setting was global per repo. Users wanted to opt specific tasks in or out without changing the repo-wide setting.
+- **Change**: Added `screenshotsVideosEnabled: boolean | undefined` field to `agentTasks` for tri-state override (undefined = inherit repo, true = force on, false = force off). New `ScreenshotsToggle` tri-state picker component wired into `QuickTaskModal` (creation time) and `StatusFieldsSection` (post-creation edit). Future runs read the latest task value, so changes take effect on next run (including change-requests after completion).
+- **Reason**: Proof of completion is usually desired, but some tasks (e.g. internal-only tests, highly flaky UI flows) benefit from disabling it to avoid noise. Making it per-task avoids re-running tasks or changing repo settings just to skip screenshots. The tri-state preserves the ability to inherit repo defaults so changes to the org-level policy apply to new runs automatically.
+
 ## Sandbox lifecycle events in task activity timeline - 2026-05-08
 
 - **Why**: Quick task activity tabs didn't show sandbox started/stopped/failed events like the session detail page does, leaving reviewers without visibility into when the sandbox became available for testing.

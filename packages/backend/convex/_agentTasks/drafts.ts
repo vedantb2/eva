@@ -87,6 +87,7 @@ export const activateDraft = authMutation({
     model: v.optional(aiModelValidator),
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
+    screenshotsVideosEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -103,6 +104,7 @@ export const activateDraft = authMutation({
       updatedAt: Date.now(),
       tags: normalizeTaskTags(args.tags),
       assignedTo: args.assignedTo,
+      screenshotsVideosEnabled: args.screenshotsVideosEnabled,
     });
     if (args.assignedTo && args.assignedTo !== ctx.userId) {
       await createNotification(ctx, {

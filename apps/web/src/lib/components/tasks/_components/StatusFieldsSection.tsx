@@ -32,6 +32,8 @@ import {
   IconInfoCircle,
   IconBrandVercelFilled,
   IconChevronDown,
+  IconCamera,
+  IconCameraOff,
 } from "@tabler/icons-react";
 import { UserInitials, getUserInitials } from "@conductor/shared";
 import { Facehash } from "facehash";
@@ -54,8 +56,12 @@ import {
   NO_PROJECT_VALUE,
   NO_PRIORITY_VALUE,
   UNASSIGNED_VALUE,
+  SCREENSHOTS_INHERIT_VALUE,
+  SCREENSHOTS_ON_VALUE,
+  SCREENSHOTS_OFF_VALUE,
 } from "./task-detail-constants";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 type RunDoc = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
@@ -90,6 +96,7 @@ export function StatusFieldsSection({
 }: StatusFieldsSectionProps) {
   const updateTask = useMutation(api.agentTasks.update);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
+  const { repo } = useRepo();
   const [tagDraft, setTagDraft] = useState("");
   const tagDraftRef = useRef<HTMLInputElement>(null);
 
@@ -238,6 +245,75 @@ export function StatusFieldsSection({
                 </div>
               </SelectItem>
             ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={
+          task?.screenshotsVideosEnabled === undefined
+            ? SCREENSHOTS_INHERIT_VALUE
+            : task.screenshotsVideosEnabled
+              ? SCREENSHOTS_ON_VALUE
+              : SCREENSHOTS_OFF_VALUE
+        }
+        onValueChange={(val) => {
+          if (val === SCREENSHOTS_INHERIT_VALUE) {
+            updateTask({ id: taskId, screenshotsVideosEnabled: null });
+          } else if (val === SCREENSHOTS_ON_VALUE) {
+            updateTask({ id: taskId, screenshotsVideosEnabled: true });
+          } else if (val === SCREENSHOTS_OFF_VALUE) {
+            updateTask({ id: taskId, screenshotsVideosEnabled: false });
+          }
+        }}
+      >
+        <SelectTrigger className={GHOST_TRIGGER_CLASS}>
+          <SelectValue>
+            {(() => {
+              const isOverride = task?.screenshotsVideosEnabled !== undefined;
+              const repoDefault = repo.screenshotsVideosEnabled ?? false;
+              const effective = task?.screenshotsVideosEnabled ?? repoDefault;
+              const Icon = effective ? IconCamera : IconCameraOff;
+              return (
+                <div
+                  className={`flex items-center gap-1.5 ${isOverride ? "" : "text-muted-foreground"}`}
+                >
+                  <Icon size={14} className="text-muted-foreground" />
+                  <span>
+                    {isOverride
+                      ? task?.screenshotsVideosEnabled
+                        ? "Proof: on"
+                        : "Proof: off"
+                      : `Proof: inherit (${repoDefault ? "on" : "off"})`}
+                  </span>
+                </div>
+              );
+            })()}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectLabel>Proof of completion</SelectLabel>
+            <SelectItem value={SCREENSHOTS_INHERIT_VALUE}>
+              <div className="flex items-center gap-1.5">
+                <IconCamera size={14} className="text-muted-foreground" />
+                <span>
+                  Inherit ({repo.screenshotsVideosEnabled ? "on" : "off"})
+                </span>
+              </div>
+            </SelectItem>
+            <SelectItem value={SCREENSHOTS_ON_VALUE}>
+              <div className="flex items-center gap-1.5">
+                <IconCamera size={14} className="text-muted-foreground" />
+                <span>Force on</span>
+              </div>
+            </SelectItem>
+            <SelectItem value={SCREENSHOTS_OFF_VALUE}>
+              <div className="flex items-center gap-1.5">
+                <IconCameraOff size={14} className="text-muted-foreground" />
+                <span>Force off</span>
+              </div>
+            </SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>

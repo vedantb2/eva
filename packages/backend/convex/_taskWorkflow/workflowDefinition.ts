@@ -130,6 +130,10 @@ export const taskExecutionWorkflow = workflow.define({
       finalSuccess = result.success;
       finalError = result.error;
 
+      console.log(
+        `[task-workflow] run=${args.runId} taskId=${args.taskId} projectId=${args.projectId ?? "none"} agentSuccess=${finalSuccess} isFirstTaskOnBranch=${args.isFirstTaskOnBranch} branchName=${data.branchName} baseBranch=${args.baseBranch ?? "(default)"}`,
+      );
+
       if (finalSuccess && sandboxId) {
         try {
           await step.runAction(internal.daytona.pushSandboxBranch, {
@@ -144,6 +148,9 @@ export const taskExecutionWorkflow = workflow.define({
           preserveSandboxOnFailure = true;
           finalSuccess = false;
           finalError = `Task committed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
+          console.error(
+            `[task-workflow] run=${args.runId} pushSandboxBranch failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
 
@@ -189,6 +196,9 @@ export const taskExecutionWorkflow = workflow.define({
         // back to success: true with a null prUrl and no error, hiding the
         // failure from the user. Commits are already pushed; the manual
         // "Create PR" button is the recovery path.
+        console.log(
+          `[task-workflow] run=${args.runId} entering PR step path=${args.isFirstTaskOnBranch ? "create" : "refresh"}`,
+        );
         try {
           if (args.isFirstTaskOnBranch) {
             // Quick tasks land in business_review on completion; the PR should
@@ -208,7 +218,6 @@ export const taskExecutionWorkflow = workflow.define({
                 labels: [
                   "eva",
                   isQuickTask ? "quick-task" : "project",
-                  ...(isQuickTask ? ["draft"] : []),
                   ...(data.rootDirectory
                     ? [data.rootDirectory.split("/").pop()].filter(
                         (l): l is string => l !== undefined && l !== "",

@@ -683,6 +683,11 @@ export const agentTaskFields = {
   assignedTo: v.optional(v.id("users")),
   model: v.optional(aiModelValidator),
   baseBranch: v.optional(v.string()),
+  // Per-task override for the repo-level `screenshotsVideosEnabled` setting.
+  // undefined = inherit repo. true = force on. false = force off. Resolved at
+  // run time in `_taskWorkflow/queries.ts` (`getTaskData`) where the agent
+  // prompt and sandbox env var are computed.
+  screenshotsVideosEnabled: v.optional(v.boolean()),
   activeWorkflowId: v.optional(v.string()),
   scheduledRetryAt: v.optional(v.number()),
   scheduledAt: v.optional(v.number()),

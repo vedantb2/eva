@@ -96,7 +96,9 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    const screenshotsVideosEnabled = repo.screenshotsVideosEnabled ?? false;
+    // Per-task override wins. `undefined` on the task means "inherit repo".
+    const screenshotsVideosEnabled =
+      task.screenshotsVideosEnabled ?? repo.screenshotsVideosEnabled ?? false;
 
     const prompt =
       args.mode === "resolve_conflicts"

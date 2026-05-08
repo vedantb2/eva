@@ -180,7 +180,6 @@ export const createTaskPr = action({
     const labels = [
       "eva",
       data.isQuickTask ? "quick-task" : "project",
-      ...(data.isQuickTask ? ["draft"] : []),
       ...(data.rootDirectory
         ? [data.rootDirectory.split("/").pop()].filter(
             (l): l is string => l !== undefined && l !== "",

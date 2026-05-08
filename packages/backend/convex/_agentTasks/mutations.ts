@@ -37,6 +37,8 @@ export const update = authMutation({
     model: v.optional(aiModelValidator),
     baseBranch: v.optional(v.string()),
     priority: v.optional(v.union(priorityValidator, v.null())),
+    // null = clear the override (fall back to repo setting). undefined = no change.
+    screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -57,6 +59,9 @@ export const update = authMutation({
     if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
     if (args.priority !== undefined)
       updates.priority = args.priority ?? undefined;
+    if (args.screenshotsVideosEnabled !== undefined)
+      updates.screenshotsVideosEnabled =
+        args.screenshotsVideosEnabled ?? undefined;
     await ctx.db.patch(args.id, updates);
     if (args.assignedTo !== undefined && args.assignedTo !== task.assignedTo) {
       if (args.assignedTo && args.assignedTo !== ctx.userId) {
@@ -225,6 +230,7 @@ export const createQuickTask = authMutation({
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
     priority: v.optional(priorityValidator),
+    screenshotsVideosEnabled: v.optional(v.boolean()),
   },
   returns: v.id("agentTasks"),
   handler: async (ctx, args) => {
@@ -262,6 +268,7 @@ export const createQuickTask = authMutation({
       tags: normalizeTaskTags(args.tags),
       assignedTo: args.assignedTo,
       priority: args.priority,
+      screenshotsVideosEnabled: args.screenshotsVideosEnabled,
     });
     if (args.assignedTo && args.assignedTo !== ctx.userId) {
       const task = await ctx.db.get(taskId);

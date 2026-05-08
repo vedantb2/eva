@@ -212,50 +212,6 @@ export function TaskDetailInline({
                     taskId={taskId}
                   />
                   <div className="flex items-center gap-2 mt-2">
-                    {canStartSandbox &&
-                    (isSandboxActive ||
-                      isSandboxStarting ||
-                      isSandboxStopping) ? (
-                      <div className="flex items-center gap-2">
-                        {/* While the sandbox is starting we still want the
-                            user to be able to click through to the sandbox
-                            view (e.g. after a page refresh) — the inner
-                            panel already shows a "Starting sandbox..."
-                            spinner, so don't disable the button here. */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleToggleSandboxView}
-                          disabled={isSandboxStopping}
-                          className="gap-1.5"
-                        >
-                          {isSandboxStarting && !isSandboxActive ? (
-                            <IconLoader2 size={14} className="animate-spin" />
-                          ) : isSandboxStopping ? (
-                            <IconLoader2 size={14} className="animate-spin" />
-                          ) : (
-                            <IconTerminal2 size={14} />
-                          )}
-                          {isSandboxStopping ? "Stopping..." : "View Sandbox"}
-                        </Button>
-                        {isSandboxActive && !isSandboxStopping ? (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={handleStopSandbox}
-                            disabled={isSandboxStopping}
-                            className="gap-1.5"
-                          >
-                            {isSandboxStopping ? (
-                              <IconLoader2 size={14} className="animate-spin" />
-                            ) : (
-                              <IconPlayerStop size={14} />
-                            )}
-                            {isSandboxStopping ? "Stopping..." : "Stop"}
-                          </Button>
-                        ) : null}
-                      </div>
-                    ) : null}
                     {task?.scheduledAt ? (
                       <Badge
                         variant="outline"
@@ -415,6 +371,8 @@ export function TaskDetailInline({
             isCreatingPr={isCreatingPr}
             onCreatePr={handleCreatePr}
             onStartSandbox={handleStartSandbox}
+            onViewSandbox={handleToggleSandboxView}
+            onStopSandbox={handleStopSandbox}
             onRunStartupCommands={handleRetryStartupCommands}
             onStartExecution={handleStartExecution}
             onResolveConfirm={() => setShowResolveConfirm(true)}

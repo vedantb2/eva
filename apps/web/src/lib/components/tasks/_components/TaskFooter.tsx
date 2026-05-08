@@ -20,6 +20,8 @@ import {
   IconMessagePlus,
   IconHammer,
   IconPlayerPlay,
+  IconPlayerStop,
+  IconTerminal2,
   IconLoader2,
   IconChevronDown,
   IconCalendarClock,
@@ -53,6 +55,8 @@ interface TaskFooterProps {
   isCreatingPr: boolean;
   onCreatePr: () => void;
   onStartSandbox: () => void;
+  onViewSandbox: () => void;
+  onStopSandbox: () => void;
   onRunStartupCommands: () => void;
   onStartExecution: () => void;
   onResolveConfirm: () => void;
@@ -78,6 +82,8 @@ export function TaskFooter({
   isCreatingPr,
   onCreatePr,
   onStartSandbox,
+  onViewSandbox,
+  onStopSandbox,
   onRunStartupCommands,
   onStartExecution,
   onResolveConfirm,
@@ -90,12 +96,18 @@ export function TaskFooter({
     !isSandboxActive &&
     !isSandboxStarting &&
     !isSandboxStopping;
+  const showViewSandbox =
+    canStartSandbox &&
+    (isSandboxActive || isSandboxStarting || isSandboxStopping);
+  const showStopSandbox = isSandboxActive && !isSandboxStopping;
   const showMoreMenu =
     canStartSandbox ||
     canCreatePr ||
     Boolean(latestDeployment?.deploymentStatus);
   const hasSecondaryContent =
     showStartSandbox ||
+    showViewSandbox ||
+    showStopSandbox ||
     showMoreMenu ||
     Boolean(latestPrUrl) ||
     (!hasActiveRun &&
@@ -180,6 +192,34 @@ export function TaskFooter({
             <Button variant="outline" onClick={onStartSandbox}>
               <IconPlayerPlay size={18} />
               <span className="hidden sm:inline">Start Sandbox</span>
+            </Button>
+          )}
+          {showViewSandbox && (
+            <Button
+              variant="outline"
+              onClick={onViewSandbox}
+              disabled={isSandboxStopping}
+            >
+              {isSandboxStarting && !isSandboxActive ? (
+                <IconLoader2 size={18} className="animate-spin" />
+              ) : isSandboxStopping ? (
+                <IconLoader2 size={18} className="animate-spin" />
+              ) : (
+                <IconTerminal2 size={18} />
+              )}
+              <span className="hidden sm:inline">
+                {isSandboxStopping ? "Stopping..." : "View Sandbox"}
+              </span>
+            </Button>
+          )}
+          {showStopSandbox && (
+            <Button
+              variant="destructive"
+              onClick={onStopSandbox}
+              disabled={isSandboxStopping}
+            >
+              <IconPlayerStop size={18} />
+              <span className="hidden sm:inline">Stop Sandbox</span>
             </Button>
           )}
           {latestPrUrl && (

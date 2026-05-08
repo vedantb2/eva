@@ -47,6 +47,7 @@ export const taskExecutionWorkflow = workflow.define({
     let runFinalized = false;
     let sandboxStopped = false;
     let preserveSandboxOnFailure = false;
+    let keepTaskSandboxActiveAfterRun = false;
 
     try {
       await step.runMutation(internal.taskWorkflow.updateRunToRunning, {
@@ -62,6 +63,7 @@ export const taskExecutionWorkflow = workflow.define({
         branchName: args.branchName,
         mode: args.mode,
       });
+      keepTaskSandboxActiveAfterRun = data.keepTaskSandboxActiveAfterRun;
       // Reuse the persisted sandbox for project tasks (project.sandboxId) or
       // for quick tasks on follow-up runs (task.sandboxId — set after the first
       // run completes). Quick-task sandboxes are persistent (stop/pause, not
@@ -346,11 +348,15 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
-      // Stop (don't delete) the quick-task sandbox so the reviewer can resume
-      // the same paused filesystem — DB state, generated artifacts, etc. —
-      // when they click Start Sandbox or post a change-request. Daytona
-      // auto-archives stopped sandboxes after 7 days idle (platform default).
-      if (!args.projectId && sandboxId && !preserveSandboxOnFailure) {
+      // Stop (don't delete) quick-task sandboxes that were not already open in
+      // the reviewer UI. If a change-request reused an active preview sandbox,
+      // keep it active so "View Sandbox" continues pointing at a live sandbox.
+      if (
+        !args.projectId &&
+        sandboxId &&
+        !preserveSandboxOnFailure &&
+        !keepTaskSandboxActiveAfterRun
+      ) {
         await step.runAction(internal.daytona.stopSandbox, {
           sandboxId,
           repoId: args.repoId,
@@ -424,7 +430,8 @@ export const taskExecutionWorkflow = workflow.define({
         !args.projectId &&
         sandboxId &&
         !sandboxStopped &&
-        !preserveSandboxOnFailure
+        !preserveSandboxOnFailure &&
+        !keepTaskSandboxActiveAfterRun
       ) {
         try {
           await step.runAction(internal.daytona.stopSandbox, {

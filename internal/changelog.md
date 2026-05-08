@@ -1,5 +1,11 @@
 # Changelog
 
+## Preserve active quick-task sandbox after request changes - 2026-05-08
+
+- **Why**: Requesting changes reused the same quick-task sandbox but always stopped it after the agent finished, creating a window where "View Sandbox" could point at a sandbox that was being stopped or had just been stopped.
+- **Change**: Task workflow data now records whether the reviewer-facing quick-task sandbox was active when the run started. The workflow keeps that sandbox running after completion only when it was already active; closed sandboxes still stop after the run.
+- **Reason**: The lifecycle should restore the user's previous review state instead of forcing every change-request run into the stopped state.
+
 ## Fix quick task detail navigation to respect filters and sort - 2026-05-07
 
 - **Why**: Detail page prev/next buttons ignored the user's chosen sort field, sort direction, and search query, always using hardcoded status-grouped order sorted by creation date. Users complained buttons "don't respect the filters applied or anything".

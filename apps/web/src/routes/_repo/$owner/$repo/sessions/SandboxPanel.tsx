@@ -6,7 +6,10 @@ import { sandboxTabParser } from "@/lib/search-params";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
-import { useSandboxPanes } from "@/lib/components/sandbox/useSandboxPanes";
+import {
+  useSandboxPanes,
+  type SharedTerminalPane,
+} from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -18,6 +21,7 @@ interface SandboxPanelProps {
   repoId: Id<"githubRepos">;
   devPort?: number;
   devCommand?: string;
+  terminalPanes?: SharedTerminalPane[];
   planContent?: string;
   isArchived?: boolean;
 }
@@ -29,6 +33,7 @@ export function SandboxPanel({
   repoId,
   devPort,
   devCommand,
+  terminalPanes,
   planContent,
   isArchived,
 }: SandboxPanelProps) {
@@ -52,6 +57,7 @@ export function SandboxPanel({
     isActive,
     activeTab,
     setActiveTab,
+    terminalPanes,
   });
 
   const handleTabChange = useCallback(

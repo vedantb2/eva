@@ -6,7 +6,10 @@ import { useQueryState } from "nuqs";
 import { sandboxTabParser } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
-import { useSandboxPanes } from "@/lib/components/sandbox/useSandboxPanes";
+import {
+  useSandboxPanes,
+  type SharedTerminalPane,
+} from "@/lib/components/sandbox/useSandboxPanes";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 
 const TASK_ENABLED_TABS = ["preview", "terminal", "editor", "desktop"] as const;
@@ -27,6 +30,7 @@ interface TaskSandboxPanelProps {
    * pane so it auto-starts the dev server with the resolved PORT.
    */
   devCommand?: string;
+  terminalPanes?: SharedTerminalPane[];
 }
 
 /**
@@ -44,6 +48,7 @@ export function TaskSandboxPanel({
   repoId,
   devPort,
   devCommand,
+  terminalPanes,
 }: TaskSandboxPanelProps) {
   const taskIdStr = String(taskId);
   const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
@@ -61,6 +66,7 @@ export function TaskSandboxPanel({
     isActive,
     activeTab,
     setActiveTab,
+    terminalPanes,
   });
 
   // PRD is session-only; bounce back to preview if a stale URL points there.

@@ -109,6 +109,7 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           repoId={session.repoId}
           devPort={session.devPort}
           devCommand={session.devCommand}
+          terminalPanes={session.terminalPanes}
           planContent={session.planContent}
           isArchived={session.archived === true}
         />

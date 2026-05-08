@@ -44,7 +44,7 @@ export function SandboxPaneSlots({
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
-    termIds,
+    termPanes,
     resolvedPreviewActive,
     resolvedTermActive,
     setPreviewActive,
@@ -117,18 +117,18 @@ export function SandboxPaneSlots({
       >
         {activeTab === "terminal" ? (
           <TerminalPaneTabs
-            termIds={termIds}
+            termIds={termPanes.map((pane) => pane.id)}
             activeId={resolvedTermActive}
             onSelect={setTermActive}
             onClose={handleCloseTerminal}
           />
         ) : null}
         <div className="flex min-h-0 flex-1 flex-col">
-          {termIds.map((id) => (
+          {termPanes.map((pane, index) => (
             <div
-              key={id}
+              key={pane.id}
               className={cn(
-                resolvedTermActive === id
+                resolvedTermActive === pane.id
                   ? "flex min-h-0 flex-1 flex-col"
                   : "hidden",
               )}
@@ -137,11 +137,11 @@ export function SandboxPaneSlots({
                 owner={owner}
                 sandboxId={sandboxId}
                 isActive={isActive}
-                ptyInstanceId={id}
+                ptyInstanceId={pane.id}
                 isForeground={
-                  resolvedTermActive === id && activeTab === "terminal"
+                  resolvedTermActive === pane.id && activeTab === "terminal"
                 }
-                runDevCommandOnConnect={id === termIds[0]}
+                runDevCommandOnConnect={index === 0}
                 devCommand={devCommand}
               />
             </div>

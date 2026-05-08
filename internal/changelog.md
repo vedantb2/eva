@@ -1,5 +1,11 @@
 # Changelog
 
+## Shared sandbox terminals - 2026-05-08
+
+- **Why**: Each browser was creating its own terminal PTYs from localStorage, so the dev server ran a duplicate copy per viewer (often on fallback ports), and collaborators couldn't see or control each other's terminal tabs.
+- **Change**: Moved terminal pane identity to shared Convex state on `sessions`, `agentTasks`, and `projects`. New `sandboxPanes.ts` mutations (`ensureDefaultTerminalPane`, `createTerminalPane`, `closeTerminalPane`) own the pane list. Each viewer's selected tab stays in localStorage so one collaborator switching tabs doesn't move another's view. The first pane's id is stable, so everyone connects to the same dev-server PTY and can `Ctrl+C`/restart/run other commands in it.
+- **Reason**: Terminal panes are sandbox process state, not per-browser UI state — sharing their ids makes the dev server (and every other terminal) a single PTY everyone can view and control.
+
 ## Preserve active quick-task sandbox after request changes - 2026-05-08
 
 - **Why**: Requesting changes reused the same quick-task sandbox but always stopped it after the agent finished, creating a window where "View Sandbox" could point at a sandbox that was being stopped or had just been stopped.

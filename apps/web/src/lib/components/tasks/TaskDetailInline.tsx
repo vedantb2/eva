@@ -174,6 +174,7 @@ export function TaskDetailInline({
               repoId={task.repoId}
               devPort={task.devPort}
               devCommand={task.devCommand}
+              terminalPanes={task.terminalPanes}
             />
           ) : (
             <div className="flex items-center justify-center h-full">

@@ -346,6 +346,7 @@ export function ProjectDetailClient() {
                   repoId={repo._id}
                   devPort={project.devPort}
                   devCommand={project.devCommand}
+                  terminalPanes={project.terminalPanes}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full">

@@ -128,6 +128,7 @@ import type * as repoUtils from "../repoUtils.js";
 import type * as sandboxAuthConfig from "../sandboxAuthConfig.js";
 import type * as sandboxConfigFiles from "../sandboxConfigFiles.js";
 import type * as sandboxJwt from "../sandboxJwt.js";
+import type * as sandboxPanes from "../sandboxPanes.js";
 import type * as screenshots from "../screenshots.js";
 import type * as sessionWorkflow from "../sessionWorkflow.js";
 import type * as sessions from "../sessions.js";
@@ -279,6 +280,7 @@ declare const fullApi: ApiFromModules<{
   sandboxAuthConfig: typeof sandboxAuthConfig;
   sandboxConfigFiles: typeof sandboxConfigFiles;
   sandboxJwt: typeof sandboxJwt;
+  sandboxPanes: typeof sandboxPanes;
   screenshots: typeof screenshots;
   sessionWorkflow: typeof sessionWorkflow;
   sessions: typeof sessions;

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
+import type { Doc } from "@conductor/backend";
 import { useLocalStorage } from "usehooks-ts";
 import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import type { SandboxTab } from "@/lib/search-params";
@@ -15,9 +16,13 @@ interface PaneStorageState {
   activeId: string;
 }
 
+export type SharedTerminalPane = NonNullable<
+  Doc<"sessions">["terminalPanes"]
+>[number];
+
 export interface SandboxPanesApi {
   previewIds: string[];
-  termIds: string[];
+  termPanes: SharedTerminalPane[];
   resolvedPreviewActive: string;
   resolvedTermActive: string;
   setPreviewActive: (id: string) => void;
@@ -41,6 +46,7 @@ interface UseSandboxPanesArgs {
   isActive: boolean;
   activeTab: SandboxTab | null;
   setActiveTab: (tab: SandboxTab) => Promise<URLSearchParams>;
+  terminalPanes: SharedTerminalPane[] | undefined;
 }
 
 /**
@@ -56,8 +62,14 @@ export function useSandboxPanes({
   isActive,
   activeTab,
   setActiveTab,
+  terminalPanes,
 }: UseSandboxPanesArgs): SandboxPanesApi {
   const disconnectPtyAction = useAction(api.pty.disconnectPty);
+  const ensureDefaultTerminalPane = useMutation(
+    api.sandboxPanes.ensureDefaultTerminalPane,
+  );
+  const createTerminalPane = useMutation(api.sandboxPanes.createTerminalPane);
+  const closeTerminalPane = useMutation(api.sandboxPanes.closeTerminalPane);
 
   const [previewState, setPreviewState] = useLocalStorage<PaneStorageState>(
     `conductor:${storageScope}:previews`,
@@ -78,35 +90,35 @@ export function useSandboxPanes({
     [setPreviewState],
   );
 
-  const [terminalState, setTerminalState] = useLocalStorage<PaneStorageState>(
-    `conductor:${storageScope}:terminals`,
-    { ids: [], activeId: "" },
+  const [termActive, setTermActiveState] = useLocalStorage<string>(
+    `conductor:${storageScope}:active-terminal`,
+    "",
   );
-  const termIds = terminalState.ids;
-  const termActive = terminalState.activeId;
-  const setTermIds = useCallback(
-    (ids: string[]) => {
-      setTerminalState((current) => ({ ...current, ids }));
-    },
-    [setTerminalState],
-  );
+  const termPanes = terminalPanes ?? [];
+  const termIds = termPanes.map((pane) => pane.id);
   const setTermActive = useCallback(
     (activeId: string) => {
-      setTerminalState((current) => ({ ...current, activeId }));
+      setTermActiveState(activeId);
     },
-    [setTerminalState],
+    [setTermActiveState],
   );
 
-  // Create the first terminal pane on mount (independent of sandbox state) so
-  // TerminalPanel can render its own "start the sandbox" empty state when no
-  // sandbox is active. Once the sandbox boots, the existing pane's PTY-connect
-  // effect fires and the dev command auto-runs in the background.
+  // Terminal panes are shared Convex state so every collaborator sees and
+  // controls the same PTYs. Ensure the default pane exists once the sandbox is
+  // active; the mutation is idempotent for concurrent viewers.
   useEffect(() => {
-    if (termIds.length > 0) return;
-    const id = crypto.randomUUID();
-    setTermIds([id]);
-    setTermActive(id);
-  }, [termIds.length, setTermIds, setTermActive]);
+    if (!isActive || termIds.length > 0) return;
+    void ensureDefaultTerminalPane({ owner }).then((panes) => {
+      const firstPane = panes[0];
+      if (firstPane) setTermActive(firstPane.id);
+    });
+  }, [
+    isActive,
+    termIds.length,
+    ensureDefaultTerminalPane,
+    owner,
+    setTermActive,
+  ]);
 
   useEffect(() => {
     if (activeTab !== "preview" || previewIds.length > 0) return;
@@ -152,25 +164,31 @@ export function useSandboxPanes({
 
   const handleNewTerminal = useCallback(() => {
     if (!isActive || termIds.length >= MAX_TERMINAL_PANES) return;
-    const id = crypto.randomUUID();
-    const next = termIds.length === 0 ? [id] : [...termIds, id];
-    setTermIds(next);
-    setTermActive(id);
-    void setActiveTab("terminal");
-  }, [isActive, termIds, setTermIds, setTermActive, setActiveTab]);
+    void createTerminalPane({ owner }).then((pane) => {
+      setTermActive(pane.id);
+      void setActiveTab("terminal");
+    });
+  }, [
+    isActive,
+    termIds.length,
+    createTerminalPane,
+    owner,
+    setTermActive,
+    setActiveTab,
+  ]);
 
   const handleCloseTerminal = useCallback(
     async (ptyId: string) => {
       if (termIds[0] === ptyId) return;
       const removedIdx = termIds.indexOf(ptyId);
       if (removedIdx < 0) return;
-      const next = termIds.filter((t) => t !== ptyId);
+      const next = termIds.filter((id) => id !== ptyId);
       try {
         await disconnectPtyAction({ owner, ptyInstanceId: ptyId });
       } catch {
         // still remove from UI
       }
-      setTermIds(next);
+      await closeTerminalPane({ owner, paneId: ptyId });
       if (termActive === ptyId) {
         const pick = next[removedIdx - 1] ?? next[0] ?? "";
         setTermActive(pick);
@@ -180,8 +198,8 @@ export function useSandboxPanes({
       termIds,
       termActive,
       disconnectPtyAction,
+      closeTerminalPane,
       owner,
-      setTermIds,
       setTermActive,
     ],
   );
@@ -207,7 +225,7 @@ export function useSandboxPanes({
 
   return {
     previewIds,
-    termIds,
+    termPanes,
     resolvedPreviewActive,
     resolvedTermActive,
     setPreviewActive,

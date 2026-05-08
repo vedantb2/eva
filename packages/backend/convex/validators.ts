@@ -662,6 +662,12 @@ export const taskSandboxStatusValidator = v.union(
   v.literal("closed"),
 );
 
+export const terminalPaneValidator = v.object({
+  id: v.string(),
+  title: v.string(),
+  createdAt: v.number(),
+});
+
 export const agentTaskFields = {
   title: v.string(),
   description: v.optional(v.string()),
@@ -693,6 +699,7 @@ export const agentTaskFields = {
   // taskSandboxReady from startSessionServices() output.
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
+  terminalPanes: v.optional(v.array(terminalPaneValidator)),
 };
 
 export const agentRunFields = {
@@ -740,6 +747,7 @@ export const sessionFields = {
   activeWorkflowId: v.optional(v.string()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
+  terminalPanes: v.optional(v.array(terminalPaneValidator)),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
 };
@@ -799,6 +807,7 @@ export const projectFields = {
   // Populated by `projectSandboxReady` from `startSessionServices` output.
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
+  terminalPanes: v.optional(v.array(terminalPaneValidator)),
   phase: phaseValidator,
   priority: v.optional(priorityValidator),
   rawInput: v.string(),

@@ -185,7 +185,8 @@ export const stopTaskSandbox = authMutation({
 /**
  * Awaits the Daytona stop and finalizes the task sandbox status to `"closed"`.
  * Always flips status, even if Daytona errors — a stuck `"stopping"` state
- * would leave the user unable to Start.
+ * would leave the user unable to Start. Captures any Daytona error so the
+ * mutation can record a `stop_failed` event with full detail.
  */
 export const finalizeStopTaskSandbox = internalAction({
   args: {
@@ -195,30 +196,45 @@ export const finalizeStopTaskSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    let stopError: string | undefined;
     try {
       await ctx.runAction(internal.daytona.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });
-    } finally {
-      await ctx.runMutation(
-        internal._agentTasks.sandbox.markTaskSandboxClosed,
-        { taskId: args.taskId },
-      );
+    } catch (err) {
+      stopError = err instanceof Error ? err.message : String(err);
     }
+    await ctx.runMutation(internal._agentTasks.sandbox.markTaskSandboxClosed, {
+      taskId: args.taskId,
+      error: stopError,
+    });
     return null;
   },
 });
 
-/** Internal: flips task sandbox status from `"stopping"` to `"closed"` after Daytona stop completes. */
+/**
+ * Internal: flips task sandbox status from `"stopping"` to `"closed"` after
+ * Daytona stop completes, and logs a `stopped` (success) or `stop_failed`
+ * (with error detail) event to the activity timeline.
+ */
 export const markTaskSandboxClosed = internalMutation({
-  args: { taskId: v.id("agentTasks") },
+  args: {
+    taskId: v.id("agentTasks"),
+    error: v.optional(v.string()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
     // Only flip if still stopping — don't overwrite a fresh start.
     if (task.reviewTaskSandboxStatus !== "stopping") return null;
+    await ctx.db.insert("taskSandboxEvents", {
+      taskId: args.taskId,
+      event: args.error ? "stop_failed" : "stopped",
+      errorDetail: args.error,
+      createdAt: Date.now(),
+    });
     await ctx.db.patch(args.taskId, {
       reviewTaskSandboxStatus: "closed",
       updatedAt: Date.now(),
@@ -227,7 +243,10 @@ export const markTaskSandboxClosed = internalMutation({
   },
 });
 
-/** Marks a task preview sandbox as ready (internal use). */
+/**
+ * Marks a task preview sandbox as ready (internal use), and logs a `started`
+ * event for fresh sandboxes or `reconnected` for resumed sandboxes.
+ */
 export const taskSandboxReady = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -241,6 +260,12 @@ export const taskSandboxReady = internalMutation({
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
 
+    await ctx.db.insert("taskSandboxEvents", {
+      taskId: args.taskId,
+      event: args.isNew ? "started" : "reconnected",
+      createdAt: Date.now(),
+    });
+
     await ctx.db.patch(args.taskId, {
       sandboxId: args.sandboxId,
       reviewTaskSandboxStatus: "active",
@@ -253,7 +278,10 @@ export const taskSandboxReady = internalMutation({
   },
 });
 
-/** Records a task sandbox startup failure (internal use). */
+/**
+ * Records a task sandbox startup failure (internal use) and logs a `failed`
+ * event with the error detail so the user can inspect what went wrong.
+ */
 export const taskSandboxError = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -263,6 +291,13 @@ export const taskSandboxError = internalMutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
+
+    await ctx.db.insert("taskSandboxEvents", {
+      taskId: args.taskId,
+      event: "failed",
+      errorDetail: args.error,
+      createdAt: Date.now(),
+    });
 
     await ctx.db.patch(args.taskId, {
       reviewTaskSandboxStatus: "closed",

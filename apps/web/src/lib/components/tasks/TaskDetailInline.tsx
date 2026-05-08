@@ -55,6 +55,7 @@ export function TaskDetailInline({
     pastAudits,
     comments,
     proofs,
+    sandboxEvents,
     users,
     projects,
     streaming,
@@ -335,6 +336,7 @@ export function TaskDetailInline({
                       runs={runs}
                       allAudits={allAudits}
                       comments={comments}
+                      sandboxEvents={sandboxEvents}
                       streaming={streaming}
                       auditStreaming={auditStreaming}
                       activeRunElapsed={activeRunElapsed}

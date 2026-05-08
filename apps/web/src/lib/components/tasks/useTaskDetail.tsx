@@ -69,6 +69,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const enabledAuditCount =
     auditCategories?.filter((c) => c.enabled).length ?? 0;
   const proofs = useQuery(api.taskProof.listByTask, { taskId });
+  const sandboxEvents = useQuery(api.taskSandboxEvents.listByTask, { taskId });
 
   const startExecution = useMutation(api.agentTasks.startExecution);
   const cancelExecution = useMutation(api.taskWorkflow.cancelExecution);
@@ -237,6 +238,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     pastAudits,
     comments,
     proofs,
+    sandboxEvents,
     users,
     projects,
     streaming,

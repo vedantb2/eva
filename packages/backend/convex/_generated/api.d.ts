@@ -140,6 +140,7 @@ import type * as syncSettings from "../syncSettings.js";
 import type * as taskComments from "../taskComments.js";
 import type * as taskDependencies from "../taskDependencies.js";
 import type * as taskProof from "../taskProof.js";
+import type * as taskSandboxEvents from "../taskSandboxEvents.js";
 import type * as taskSandboxWorkflow from "../taskSandboxWorkflow.js";
 import type * as taskWorkflow from "../taskWorkflow.js";
 import type * as taskWorkflowActions from "../taskWorkflowActions.js";
@@ -292,6 +293,7 @@ declare const fullApi: ApiFromModules<{
   taskComments: typeof taskComments;
   taskDependencies: typeof taskDependencies;
   taskProof: typeof taskProof;
+  taskSandboxEvents: typeof taskSandboxEvents;
   taskSandboxWorkflow: typeof taskSandboxWorkflow;
   taskWorkflow: typeof taskWorkflow;
   taskWorkflowActions: typeof taskWorkflowActions;

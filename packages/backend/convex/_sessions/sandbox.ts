@@ -118,14 +118,9 @@ export const stopSandbox = authMutation({
       return null;
     }
 
-    await ctx.db.insert("messages", {
-      parentId: args.sessionId,
-      role: "assistant",
-      content: "Sandbox stopped",
-      timestamp: Date.now(),
-      userId: ctx.userId,
-      isSystemAlert: true,
-    });
+    // The "Sandbox stopped" / "Failed to stop sandbox" divider is inserted by
+    // `markSandboxClosed` once Daytona's stop call settles, so the divider
+    // matches the actual outcome rather than being optimistic.
     await ctx.db.patch(args.sessionId, {
       // Keep sandboxId so we can resume the stopped sandbox later.
       ptySessionId: undefined,
@@ -139,7 +134,8 @@ export const stopSandbox = authMutation({
 /**
  * Awaits the Daytona stop and finalizes the session status to `"closed"`.
  * Always flips status, even if Daytona errors — a stuck `"stopping"` state
- * would leave the user unable to Start.
+ * would leave the user unable to Start. Captures any Daytona error so the
+ * mutation can post a "Failed to stop sandbox" alert with full detail.
  */
 export const finalizeStopSandbox = internalAction({
   args: {
@@ -149,29 +145,47 @@ export const finalizeStopSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    let stopError: string | undefined;
     try {
       await ctx.runAction(internal.daytona.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });
-    } finally {
-      await ctx.runMutation(internal._sessions.sandbox.markSandboxClosed, {
-        sessionId: args.sessionId,
-      });
+    } catch (err) {
+      stopError = err instanceof Error ? err.message : String(err);
     }
+    await ctx.runMutation(internal._sessions.sandbox.markSandboxClosed, {
+      sessionId: args.sessionId,
+      error: stopError,
+    });
     return null;
   },
 });
 
-/** Internal: flips session status from `"stopping"` to `"closed"` after Daytona stop completes. */
+/**
+ * Internal: flips session status from `"stopping"` to `"closed"` after Daytona
+ * stop completes, and posts a "Sandbox stopped" (success) or "Failed to stop
+ * sandbox" (with error detail) divider to the chat.
+ */
 export const markSandboxClosed = internalMutation({
-  args: { sessionId: v.id("sessions") },
+  args: {
+    sessionId: v.id("sessions"),
+    error: v.optional(v.string()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
     // Only flip if still stopping — don't overwrite a fresh start.
     if (session.status !== "stopping") return null;
+    await ctx.db.insert("messages", {
+      parentId: args.sessionId,
+      role: "assistant",
+      content: args.error ? "Failed to stop sandbox" : "Sandbox stopped",
+      timestamp: Date.now(),
+      isSystemAlert: true,
+      errorDetail: args.error,
+    });
     await ctx.db.patch(args.sessionId, {
       status: "closed",
       updatedAt: Date.now(),

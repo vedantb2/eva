@@ -12,6 +12,7 @@ import dayjs from "@conductor/shared/dates";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
+import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 
 const RunTimelineItem = lazy(() =>
   import("./RunTimelineItem").then((m) => ({ default: m.RunTimelineItem })),
@@ -21,6 +22,10 @@ type Runs = FunctionReturnType<typeof api.agentRuns.listByTask>;
 type Audits = FunctionReturnType<typeof api.audits.listByTask>;
 type Comments = FunctionReturnType<typeof api.taskComments.listByTask>;
 type Streaming = FunctionReturnType<typeof api.streaming.get>;
+type SandboxEvents = FunctionReturnType<
+  typeof api.taskSandboxEvents.listByTask
+>;
+type SandboxEvent = NonNullable<SandboxEvents>[number];
 
 type ActivityItem =
   | {
@@ -32,12 +37,33 @@ type ActivityItem =
       kind: "run";
       timestamp: number;
       run: NonNullable<Runs>[number];
+    }
+  | {
+      kind: "sandboxEvent";
+      timestamp: number;
+      event: SandboxEvent;
     };
+
+function sandboxEventLabel(event: SandboxEvent["event"]): string {
+  switch (event) {
+    case "started":
+      return "Sandbox started";
+    case "reconnected":
+      return "Sandbox reconnected";
+    case "stopped":
+      return "Sandbox stopped";
+    case "stop_failed":
+      return "Failed to stop sandbox";
+    case "failed":
+      return "Failed to start sandbox";
+  }
+}
 
 export function ActivityTimeline({
   runs,
   allAudits,
   comments,
+  sandboxEvents,
   streaming,
   auditStreaming,
   activeRunElapsed,
@@ -49,6 +75,7 @@ export function ActivityTimeline({
   runs: Runs | undefined;
   allAudits: Audits | undefined;
   comments: Comments | undefined;
+  sandboxEvents: SandboxEvents | undefined;
   streaming: Streaming | undefined;
   auditStreaming: Streaming | undefined;
   activeRunElapsed: number;
@@ -114,6 +141,11 @@ export function ActivityTimeline({
       timestamp: run.startedAt ?? run._creationTime,
       run,
     })),
+    ...(sandboxEvents ?? []).map((event) => ({
+      kind: "sandboxEvent" as const,
+      timestamp: event.createdAt,
+      event,
+    })),
   ].sort((a, b) => b.timestamp - a.timestamp);
 
   if (activityTimeline.length === 0) return null;
@@ -135,6 +167,17 @@ export function ActivityTimeline({
                 auditStreaming={auditStreaming}
                 auditElapsed={auditElapsed}
                 fixElapsed={fixElapsed}
+              />
+            );
+          }
+          if (item.kind === "sandboxEvent") {
+            const event = item.event;
+            return (
+              <SystemAlertMessage
+                key={`sandbox-${event._id}`}
+                content={sandboxEventLabel(event.event)}
+                errorDetail={event.errorDetail}
+                timestamp={event.createdAt}
               />
             );
           }

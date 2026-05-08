@@ -1,5 +1,11 @@
 # Changelog
 
+## Sandbox lifecycle events in task activity timeline - 2026-05-08
+
+- **Why**: Quick task activity tabs didn't show sandbox started/stopped/failed events like the session detail page does, leaving reviewers without visibility into when the sandbox became available for testing.
+- **Change**: Added `taskSandboxEvents` table to log sandbox lifecycle (started, reconnected, stopped, stop_failed, failed) at mutation hook points. Frontend renders these as dividers with relative timestamps in the task activity timeline. Updated sessions to log stop outcomes async (success or failure) for consistency.
+- **Reason**: Sandbox lifecycle is part of the task execution history. Showing these markers in the activity timeline gives reviewers clear context about testing availability without cluttering the main timeline with run/audit details.
+
 ## Surface PR step failures separately from run errors - 2026-05-08
 
 - **Why**: PR creation/refresh failures were silently swallowed. When `createPullRequest` or `refreshPullRequestBody` threw (e.g. "Draft pull requests are not supported in this repository" on free-plan private repos, or "No open PR found" after a merge), the error was caught but discarded if the underlying run succeeded. UI showed `status: success`, `prUrl: null`, and no error — no signal anything went wrong, and users couldn't recover without checking server logs.

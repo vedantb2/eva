@@ -11,15 +11,18 @@ import {
   DialogFooter,
 } from "@conductor/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
+import dayjs from "@conductor/shared/dates";
 
 interface SystemAlertMessageProps {
   content: string;
   errorDetail?: string;
+  timestamp?: number;
 }
 
 export function SystemAlertMessage({
   content,
   errorDetail,
+  timestamp,
 }: SystemAlertMessageProps) {
   const [showError, setShowError] = useState(false);
 
@@ -34,6 +37,11 @@ export function SystemAlertMessage({
         <div className="h-px flex-1 bg-border" />
         <span className="text-xs font-medium text-muted-foreground whitespace-nowrap max-w-[60%] truncate sm:max-w-none sm:truncate-none">
           {content}
+          {timestamp !== undefined && (
+            <span className="ml-1.5 text-muted-foreground/70 font-normal">
+              · {dayjs(timestamp).fromNow()}
+            </span>
+          )}
         </span>
         {errorDetail && (
           <button

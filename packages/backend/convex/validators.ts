@@ -908,3 +908,18 @@ export const queuedMessageFields = {
   personaId: v.optional(v.id("designPersonas")),
   numDesigns: v.optional(v.number()),
 };
+
+export const taskSandboxEventValidator = v.union(
+  v.literal("started"),
+  v.literal("reconnected"),
+  v.literal("stopped"),
+  v.literal("stop_failed"),
+  v.literal("failed"),
+);
+
+export const taskSandboxEventFields = {
+  taskId: v.id("agentTasks"),
+  event: taskSandboxEventValidator,
+  errorDetail: v.optional(v.string()),
+  createdAt: v.number(),
+};

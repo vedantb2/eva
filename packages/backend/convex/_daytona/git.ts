@@ -705,7 +705,7 @@ export async function normalizeSnapshotWorktree(
 }
 
 /** Copies baked sandbox config files into the codebase root after git cleanup. */
-async function copySandboxConfigFilesToWorkspace(
+export async function copySandboxConfigFilesToWorkspace(
   sandbox: Sandbox,
 ): Promise<void> {
   const workspaceDir = workspaceDirShell();

@@ -1,5 +1,11 @@
 # Changelog
 
+## Skip redundant config file download on sandbox prepare - 2026-05-08
+
+- **Why**: Every sandbox prepare (new or resume) re-downloaded config files via curl from the network, even though they were baked into the snapshot at `/home/eva/sandbox-config/` during snapshot build. Large files (100MB+) caused `curl: (23) Failure writing output to destination` on disk-full errors, and the download added 3+ minutes per resume.
+- **Change**: Replaced all 6 session prepare paths (reuseSessionSandbox, newSessionSandbox, reuseTaskSandbox, newTaskSandbox, reuseProjectSandbox, newProjectSandbox) to call `copySandboxConfigFilesToWorkspace()` (local `cp -a` from the persistent baked location) instead of `downloadSandboxConfigFiles()` (network curl). Deleted the now-unused download function.
+- **Reason**: Config files are snapshot artifacts already on disk. Local copy is idempotent, instant (~100ms), can't fail from network/disk issues, and eliminates the 3+ minute resume bottleneck.
+
 ## Shared sandbox terminals - 2026-05-08
 
 - **Why**: Each browser was creating its own terminal PTYs from localStorage, so the dev server ran a duplicate copy per viewer (often on fallback ports), and collaborators couldn't see or control each other's terminal tabs.

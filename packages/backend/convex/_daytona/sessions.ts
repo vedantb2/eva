@@ -11,7 +11,6 @@ import {
   errorMessage,
   sleep,
   workspaceDirShell,
-  downloadSandboxConfigFiles,
 } from "./helpers";
 import {
   setupBranch,
@@ -19,6 +18,7 @@ import {
   createSandboxAndPrepareRepo,
   fetchBranchRefs,
   resolveBaseTarget,
+  copySandboxConfigFilesToWorkspace,
   SESSION_LIFECYCLE,
 } from "./git";
 import { ensureSessionPersistenceVolumes } from "./volumes";
@@ -506,23 +506,12 @@ async function prepareSessionSandboxInternal(
             );
           },
         );
-        // Download sandbox config files to repo root
+        // Restore baked config files from /home/eva/sandbox-config into the workspace.
+        // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
         await runLoggedSessionStep(
-          "reuseSessionSandbox.downloadConfigFiles",
+          "reuseSessionSandbox.copyConfigFiles",
           sandboxDetails,
-          async () => {
-            const configFiles = await ctx.runQuery(
-              internal.sandboxConfigFiles.getConfigFilesForSnapshot,
-              { repoId: args.repoId },
-            );
-            // Download to repo root (/tmp/repo), not rootDir (which may be a subdirectory like apps/web)
-            await downloadSandboxConfigFiles(
-              sandbox,
-              configFiles,
-              "/tmp/repo",
-              logSession,
-            );
-          },
+          () => copySandboxConfigFilesToWorkspace(sandbox),
         );
         const { port: devPort, devCommand } = await runLoggedSessionStep(
           "reuseSessionSandbox.startSessionServices",
@@ -704,33 +693,22 @@ async function prepareSessionSandboxInternal(
     status: "complete",
   });
 
-  // Download sandbox config files to repo root
+  // Restore baked config files from /home/eva/sandbox-config into the workspace.
+  // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
   await emitSessionProgress(
     ctx,
     args.sessionId,
     completedSteps,
-    "Downloading config files...",
+    "Restoring config files...",
   );
   await runLoggedSessionStep(
-    "newSessionSandbox.downloadConfigFiles",
+    "newSessionSandbox.copyConfigFiles",
     sandboxDetails,
-    async () => {
-      const configFiles = await ctx.runQuery(
-        internal.sandboxConfigFiles.getConfigFilesForSnapshot,
-        { repoId: args.repoId },
-      );
-      // Download to repo root (/tmp/repo), not rootDir (which may be a subdirectory like apps/web)
-      await downloadSandboxConfigFiles(
-        sandbox,
-        configFiles,
-        "/tmp/repo",
-        logSession,
-      );
-    },
+    () => copySandboxConfigFilesToWorkspace(sandbox),
   );
   completedSteps.push({
     type: "tool",
-    label: "Downloading config files...",
+    label: "Restoring config files...",
     status: "complete",
   });
 
@@ -1154,32 +1132,22 @@ async function prepareTaskPreviewSandboxInternal(
             label: "Resuming existing sandbox...",
             status: "complete",
           });
-          // Download sandbox config files to repo root
+          // Restore baked config files from /home/eva/sandbox-config into the workspace.
+          // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
           await emitTaskProgress(
             ctx,
             args.taskId,
             completedSteps,
-            "Downloading config files...",
+            "Restoring config files...",
           );
           await runLoggedSessionStep(
-            "reuseTaskSandbox.downloadConfigFiles",
+            "reuseTaskSandbox.copyConfigFiles",
             sandboxDetails,
-            async () => {
-              const configFiles = await ctx.runQuery(
-                internal.sandboxConfigFiles.getConfigFilesForSnapshot,
-                { repoId: args.repoId },
-              );
-              await downloadSandboxConfigFiles(
-                sandbox,
-                configFiles,
-                "/tmp/repo",
-                logSession,
-              );
-            },
+            () => copySandboxConfigFilesToWorkspace(sandbox),
           );
           completedSteps.push({
             type: "tool",
-            label: "Downloading config files...",
+            label: "Restoring config files...",
             status: "complete",
           });
           await emitTaskProgress(
@@ -1369,32 +1337,22 @@ async function prepareTaskPreviewSandboxInternal(
     status: "complete",
   });
 
-  // Download sandbox config files to repo root
+  // Restore baked config files from /home/eva/sandbox-config into the workspace.
+  // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
   await emitTaskProgress(
     ctx,
     args.taskId,
     completedSteps,
-    "Downloading config files...",
+    "Restoring config files...",
   );
   await runLoggedSessionStep(
-    "newTaskSandbox.downloadConfigFiles",
+    "newTaskSandbox.copyConfigFiles",
     sandboxDetails,
-    async () => {
-      const configFiles = await ctx.runQuery(
-        internal.sandboxConfigFiles.getConfigFilesForSnapshot,
-        { repoId: args.repoId },
-      );
-      await downloadSandboxConfigFiles(
-        sandbox,
-        configFiles,
-        "/tmp/repo",
-        logSession,
-      );
-    },
+    () => copySandboxConfigFilesToWorkspace(sandbox),
   );
   completedSteps.push({
     type: "tool",
-    label: "Downloading config files...",
+    label: "Restoring config files...",
     status: "complete",
   });
 
@@ -1575,31 +1533,22 @@ async function prepareProjectPreviewSandboxInternal(
             label: "Resuming existing sandbox...",
             status: "complete",
           });
+          // Restore baked config files from /home/eva/sandbox-config into the workspace.
+          // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
           await emitProjectProgress(
             ctx,
             args.projectId,
             completedSteps,
-            "Downloading config files...",
+            "Restoring config files...",
           );
           await runLoggedSessionStep(
-            "reuseProjectSandbox.downloadConfigFiles",
+            "reuseProjectSandbox.copyConfigFiles",
             sandboxDetails,
-            async () => {
-              const configFiles = await ctx.runQuery(
-                internal.sandboxConfigFiles.getConfigFilesForSnapshot,
-                { repoId: args.repoId },
-              );
-              await downloadSandboxConfigFiles(
-                sandbox,
-                configFiles,
-                "/tmp/repo",
-                logSession,
-              );
-            },
+            () => copySandboxConfigFilesToWorkspace(sandbox),
           );
           completedSteps.push({
             type: "tool",
-            label: "Downloading config files...",
+            label: "Restoring config files...",
             status: "complete",
           });
           await emitProjectProgress(
@@ -1781,31 +1730,22 @@ async function prepareProjectPreviewSandboxInternal(
     status: "complete",
   });
 
+  // Restore baked config files from /home/eva/sandbox-config into the workspace.
+  // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
   await emitProjectProgress(
     ctx,
     args.projectId,
     completedSteps,
-    "Downloading config files...",
+    "Restoring config files...",
   );
   await runLoggedSessionStep(
-    "newProjectSandbox.downloadConfigFiles",
+    "newProjectSandbox.copyConfigFiles",
     sandboxDetails,
-    async () => {
-      const configFiles = await ctx.runQuery(
-        internal.sandboxConfigFiles.getConfigFilesForSnapshot,
-        { repoId: args.repoId },
-      );
-      await downloadSandboxConfigFiles(
-        sandbox,
-        configFiles,
-        "/tmp/repo",
-        logSession,
-      );
-    },
+    () => copySandboxConfigFilesToWorkspace(sandbox),
   );
   completedSteps.push({
     type: "tool",
-    label: "Downloading config files...",
+    label: "Restoring config files...",
     status: "complete",
   });
 

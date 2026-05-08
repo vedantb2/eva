@@ -15,9 +15,6 @@ export type SandboxConfigFile = {
   chunkUrls: Array<string | null>;
 };
 
-/** Per-chunk timeout (seconds) when downloading config files inside a sandbox. */
-const CHUNK_DOWNLOAD_TIMEOUT_SECONDS = 60;
-
 /**
  * Filters config files to those with all chunk URLs available.
  * Skips any file with a missing chunk URL — concatenating partial chunks would corrupt the file.
@@ -68,41 +65,6 @@ export function buildConfigFileDownloadCommands(
     `cat ${chunkPaths} > '${destPath}'`,
     `rm ${chunkPaths}`,
   ];
-}
-
-/**
- * Computes the exec timeout (seconds) for downloading a single config file,
- * scaling with chunk count plus overhead for concat/cleanup.
- */
-export function configFileDownloadTimeout(chunkCount: number): number {
-  return CHUNK_DOWNLOAD_TIMEOUT_SECONDS * chunkCount + 30;
-}
-
-/**
- * Downloads all config files (single-chunk or multi-chunk) into the given cwd
- * inside the sandbox. Concatenates chunks back into the original file.
- */
-export async function downloadSandboxConfigFiles(
-  sandbox: Sandbox,
-  configFiles: SandboxConfigFile[],
-  cwd: string,
-  log?: (msg: string) => void,
-): Promise<void> {
-  const filesToDownload = filterDownloadableConfigFiles(configFiles);
-  if (filesToDownload.length === 0) return;
-  log?.(
-    `Downloading ${filesToDownload.length} config file(s): ${filesToDownload.map((f) => f.fileName).join(", ")}`,
-  );
-  for (const file of filesToDownload) {
-    const cmds = buildConfigFileDownloadCommands(file);
-    // Join with && so a chunk failure short-circuits the rest
-    await exec(
-      sandbox,
-      cmds.join(" && "),
-      configFileDownloadTimeout(file.chunkUrls.length),
-      cwd,
-    );
-  }
 }
 
 /** Returns a shell expression that resolves to the active workspace directory. */

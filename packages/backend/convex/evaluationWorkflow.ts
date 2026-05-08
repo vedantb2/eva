@@ -122,6 +122,15 @@ export const evaluationWorkflow = workflow.define({
         const fixResult = await step.awaitEvent(fixCompleteEvent);
 
         if (fixResult.success) {
+          await step.runAction(internal.daytona.pushSandboxBranch, {
+            sandboxId: fixSandboxId,
+            installationId: args.installationId,
+            repoOwner: fixData.repoOwner,
+            repoName: fixData.repoName,
+            repoId: fixData.repoId,
+            branchName: fixBranchName,
+          });
+
           const prUrl = await step.runAction(
             internal.taskWorkflowActions.createPullRequest,
             {
@@ -420,13 +429,14 @@ ${failedResults.map((r, i) => `${i + 1}. ${r.requirement}\n   Issue: ${r.detail}
 1. Explore the codebase to understand the current implementation
 2. Fix each failing requirement by making the necessary code changes
 3. After making changes, commit your work with a clear commit message
-4. Make sure your changes don't break existing functionality
+4. Do NOT push. Eva publishes the branch after you finish successfully.
+5. Make sure your changes don't break existing functionality
 
 Rules:
 - Make minimal, focused changes to fix only the failing requirements
 - Follow existing code patterns and conventions
 - Do not refactor unrelated code
-- Commit and push all changes when done${rootDirInstruction}`;
+- Do NOT run git push or gh pr commands${rootDirInstruction}`;
 
     const prDescription = `## Evaluation Fix
 

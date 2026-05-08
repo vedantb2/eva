@@ -147,6 +147,23 @@ export const createSessionPr = action({
       return { url: session.prUrl };
     }
 
+    if (session.sandboxId) {
+      try {
+        await ctx.runAction(internal.daytona.pushSandboxBranch, {
+          sandboxId: session.sandboxId,
+          installationId: repo.installationId,
+          repoOwner: repo.owner,
+          repoName: repo.name,
+          repoId: session.repoId,
+          branchName: session.branchName,
+        });
+      } catch (error) {
+        throw new Error(
+          `Failed to publish session branch before creating PR: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
     // No PR exists yet - create a non-draft PR (fallback for older sessions)
     const appLabel = repo.rootDirectory
       ? repo.rootDirectory.split("/").pop()

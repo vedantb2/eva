@@ -1,5 +1,11 @@
 # Changelog
 
+## Backend-owned branch publishing for git actions - 2026-05-08
+
+- **Why**: Session draft PR creation and deployment polling could run before the branch existed on GitHub. Sessions, automations, evaluation fixes, and test generation still relied on the model to run `git push`, unlike quick tasks where the backend already owns publishing.
+- **Change**: Git-writing prompts now ask the model to commit only. After a successful run, the workflow pushes the sandbox branch via `pushSandboxBranch` before deployment polling or PR creation. Manual session PR creation also publishes the sandbox branch first so older failed sessions can recover. Draft PR creation errors are posted as session system alerts instead of only surfacing in Convex logs. The session startup progress label now says "Preparing branch" instead of "Pushing branch".
+- **Reason**: Git publishing is deterministic platform work. Keeping it out of the model path prevents missing remote branches, which caused GitHub `head` validation failures and branch polling errors.
+
 ## Skip-planning mode for project creation - 2026-05-08
 
 - **Why**: Users creating projects from task contexts want to skip the AI interview/planning phase entirely. Having to go through it every time slowed down the workflow.

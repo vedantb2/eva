@@ -108,40 +108,56 @@ export const testGenWorkflow = workflow.define({
     // Step 4: Wait for callback
     const result = await step.awaitEvent(testGenCompleteEvent);
 
-    // Step 5: Save result status
-    await step.runMutation(internal.testGenWorkflow.saveResult, {
-      docId: args.docId,
-      success: result.success,
-      result: result.result,
-      error: result.error,
-    });
+    let workflowSuccess = result.success;
+    let workflowError = result.error;
+    let prUrl: string | null = null;
 
-    // Step 6: Create PR if successful
     if (result.success) {
-      const prUrl = await step.runAction(
-        internal.taskWorkflowActions.createPullRequest,
-        {
+      try {
+        await step.runAction(internal.daytona.pushSandboxBranch, {
+          sandboxId,
           installationId: args.installationId,
           repoOwner: docData.repoOwner,
           repoName: docData.repoName,
+          repoId: docData.repoId,
           branchName: docData.branchName,
-          title: `Add tests for ${docData.docTitle}`,
-          body: buildPrBody([
-            {
-              heading: "Summary",
-              content: `Auto-generated tests for the **${docData.docTitle}** document.`,
-            },
-          ]),
-          labels: ["tests", "eva"],
-        },
-      );
-
-      if (prUrl) {
-        await step.runMutation(internal.testGenWorkflow.savePrUrl, {
-          docId: args.docId,
-          testPrUrl: prUrl,
         });
+
+        prUrl = await step.runAction(
+          internal.taskWorkflowActions.createPullRequest,
+          {
+            installationId: args.installationId,
+            repoOwner: docData.repoOwner,
+            repoName: docData.repoName,
+            branchName: docData.branchName,
+            title: `Add tests for ${docData.docTitle}`,
+            body: buildPrBody([
+              {
+                heading: "Summary",
+                content: `Auto-generated tests for the **${docData.docTitle}** document.`,
+              },
+            ]),
+            labels: ["tests", "eva"],
+          },
+        );
+      } catch (error) {
+        workflowSuccess = false;
+        workflowError = `Test generation completed locally, but Eva could not publish the branch or create a PR. ${error instanceof Error ? error.message : String(error)}`;
       }
+    }
+
+    await step.runMutation(internal.testGenWorkflow.saveResult, {
+      docId: args.docId,
+      success: workflowSuccess,
+      result: result.result,
+      error: workflowError,
+    });
+
+    if (workflowSuccess && prUrl) {
+      await step.runMutation(internal.testGenWorkflow.savePrUrl, {
+        docId: args.docId,
+        testPrUrl: prUrl,
+      });
     }
   },
 });
@@ -201,12 +217,13 @@ ${formatUserFlows(doc.userFlows ?? [])}
 5. Place tests alongside existing tests or in the appropriate directory
 6. Match the existing testing framework and patterns
 7. git add -A && git commit -m "test: add tests for ${commitTitle}"
-8. git push -u origin ${branchName}
+8. Do NOT push. Eva publishes branch "${branchName}" after you finish successfully.
 
 ## Rules:
 - Only generate test files, do NOT modify source code
 - Cover each requirement with at least one test case
-- Do NOT run the tests`;
+- Do NOT run the tests
+- Do NOT run git push or gh pr commands`;
 
     return {
       repoOwner: repo.owner,

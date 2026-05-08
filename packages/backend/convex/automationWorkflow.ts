@@ -7,7 +7,7 @@ import { buildPrBody } from "./prBody";
 import { buildRootDirectoryInstruction } from "./prompts/shared";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
-/** Builds a write-mode prompt for automations that edit code, commit, and push. */
+/** Builds a write-mode prompt for automations that edit code and commit locally. */
 function buildAutomationPrompt(
   title: string,
   description: string,
@@ -24,16 +24,17 @@ function buildAutomationPrompt(
 2. Implement changes by editing source code files
 3. Run the build command to verify no build errors. If errors, fix and re-run (max 3 attempts — if still failing, commit what you have and report the error)
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "automation: ${title.replace(/"/g, '\\"')}"
-5. Run: git push -u origin ${branchName}
+5. Do NOT push. Eva publishes branch "${branchName}" after you finish successfully.
 
 ## Summary (REQUIRED):
-After pushing, write a brief summary of the changes you made. This will be added to the PR description.
+After committing, write a brief summary of the changes you made. This will be added to the PR description.
 
 ## Rules:
 - Do NOT create .md plan files or run lint/dev commands (except the build step above)
 - Do NOT use agent-browser, take screenshots, or record videos
 - Do NOT run audits
-- Use lockfile for package manager. GITHUB_TOKEN is set.
+- Do NOT run git push or gh pr commands
+- Use lockfile for package manager.
 - Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 60 npm run build\`, \`timeout 60 npm test\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
@@ -293,6 +294,15 @@ export const automationExecutionWorkflow = workflow.define({
       const result = await step.awaitEvent(taskCompleteEvent);
 
       if (result.success && !isReadOnly) {
+        await step.runAction(internal.daytona.pushSandboxBranch, {
+          sandboxId,
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          repoId: args.repoId,
+          branchName: args.branchName,
+        });
+
         completionPrUrl = await step.runAction(
           internal.taskWorkflowActions.createPullRequest,
           {

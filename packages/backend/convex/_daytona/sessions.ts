@@ -702,7 +702,7 @@ async function prepareSessionSandboxInternal(
     ctx,
     args.sessionId,
     completedSteps,
-    "Pushing branch...",
+    "Preparing branch...",
   );
   await runLoggedSessionStep(
     "newSessionSandbox.setupBranch",
@@ -711,7 +711,7 @@ async function prepareSessionSandboxInternal(
   );
   completedSteps.push({
     type: "tool",
-    label: "Pushing branch...",
+    label: "Preparing branch...",
     status: "complete",
   });
 

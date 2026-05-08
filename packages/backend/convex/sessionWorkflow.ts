@@ -89,15 +89,16 @@ Steps:
 1. Read CLAUDE.md if it exists
 2. Find relevant files with Glob, Grep, Read
 3. If changes are needed, make them with Edit or Write
-4. If code changed, commit and push:
-   git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}" && git push -u origin ${branchName}
+4. If code changed, commit:
+   git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"
+5. Do NOT push. Eva publishes branch "${branchName}" after you finish successfully.
 
 Rules:
 - ONLY work on "${branchName}" — never interact with main
 - If the user is asking a question, answer it — don't make unnecessary changes
-- No PRs, no build/lint/test/dev commands, no commit if no source changed
-- Never commit images/video. Minimal, focused changes. Use lockfile. GITHUB_TOKEN is set.
-- Respond as business outcome, no code/paths/jargon (e.g. "Added dark mode toggle. Pushed to branch.")
+- No PRs, no git push, no build/lint/test/dev commands, no commit if no source changed
+- Never commit images/video. Minimal, focused changes. Use lockfile.
+- Respond with the business outcome, no code/paths/jargon (e.g. "Added dark mode toggle.")
 - No commit hashes or process commentary
 - Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
@@ -234,17 +235,39 @@ export const sessionExecuteWorkflow = workflow.define({
       }
     }
 
+    let savedSuccess = result.success;
+    let savedError = result.error;
+
+    if (args.mode !== "plan" && result.success && data.branchName) {
+      try {
+        await step.runAction(internal.daytona.pushSandboxBranch, {
+          sandboxId,
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          repoId: data.repoId,
+          branchName: data.branchName,
+        });
+      } catch (error) {
+        savedSuccess = false;
+        savedError = `Session completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
+        console.error(
+          `[sessionWorkflow] pushSandboxBranch failed sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
     await step.runMutation(internal.sessionWorkflow.saveResult, {
       sessionId: args.sessionId,
-      success: result.success,
+      success: savedSuccess,
       result: result.result,
-      error: result.error,
+      error: savedError,
       activityLog: result.activityLog,
       planContent,
       pendingQuestion: result.pendingQuestion,
     });
 
-    if (args.mode !== "plan" && result.success && data.branchName) {
+    if (args.mode !== "plan" && savedSuccess && data.branchName) {
       await step.runMutation(
         internal.sessionWorkflow.scheduleSessionDeploymentTracking,
         {
@@ -259,9 +282,24 @@ export const sessionExecuteWorkflow = workflow.define({
       );
 
       // Create draft PR after successful execution (skips if PR already exists)
-      await step.runAction(internal.github.createDraftSessionPr, {
-        sessionId: args.sessionId,
-      });
+      try {
+        await step.runAction(internal.github.createDraftSessionPr, {
+          sessionId: args.sessionId,
+        });
+      } catch (error) {
+        const errorDetail =
+          error instanceof Error ? error.message : String(error);
+        console.error(
+          `[sessionWorkflow] createDraftSessionPr failed sessionId=${args.sessionId}: ${errorDetail}`,
+        );
+        await step.runMutation(internal.messages.addInternal, {
+          parentId: args.sessionId,
+          role: "assistant",
+          content: "Failed to create draft PR",
+          isSystemAlert: true,
+          errorDetail,
+        });
+      }
     }
   },
 });

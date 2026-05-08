@@ -274,15 +274,20 @@ export function QuickTaskCard({
         {hasMetadata && (
           <div className="flex flex-wrap items-center gap-1">
             {projectName ? (
-              <Badge
-                variant="default"
-                className="shrink-0 px-1.5 py-0 text-[10px] font-medium leading-4"
-              >
-                <div className="flex flex-row gap-0.5 items-center">
-                  <IconFolder size={10} />
-                  {projectName}
-                </div>
-              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="default"
+                    className="max-w-full px-1.5 py-0 text-[10px] font-medium leading-4"
+                  >
+                    <div className="flex min-w-0 flex-row items-center gap-0.5">
+                      <IconFolder size={10} className="shrink-0" />
+                      <span className="truncate">{projectName}</span>
+                    </div>
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>{projectName}</TooltipContent>
+              </Tooltip>
             ) : null}
             {tags?.map((tag) => (
               <Badge

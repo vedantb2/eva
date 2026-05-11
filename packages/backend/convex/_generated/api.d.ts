@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as _agentRuns_mutations from "../_agentRuns/mutations.js";
+import type * as _agentRuns_queries from "../_agentRuns/queries.js";
 import type * as _agentTasks_drafts from "../_agentTasks/drafts.js";
 import type * as _agentTasks_execution from "../_agentTasks/execution.js";
 import type * as _agentTasks_helpers from "../_agentTasks/helpers.js";
@@ -192,6 +194,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "_agentRuns/mutations": typeof _agentRuns_mutations;
+  "_agentRuns/queries": typeof _agentRuns_queries;
   "_agentTasks/drafts": typeof _agentTasks_drafts;
   "_agentTasks/execution": typeof _agentTasks_execution;
   "_agentTasks/helpers": typeof _agentTasks_helpers;

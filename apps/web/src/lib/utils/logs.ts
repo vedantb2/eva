@@ -1,3 +1,5 @@
+import { isRecord } from "@conductor/shared/typeGuards";
+
 export const USD_TO_GBP = 0.74;
 export const GBP_TO_USD = 1.34;
 
@@ -22,10 +24,6 @@ const EMPTY_PARSED: ParsedResultEvent = {
   cacheReadTokens: 0,
   cacheCreationTokens: 0,
 };
-
-function isRecord(val: unknown): val is Record<string, unknown> {
-  return typeof val === "object" && val !== null && !Array.isArray(val);
-}
 
 /** Finds the model with the highest cost from modelUsage object. */
 function getPrimaryModel(modelUsage: Record<string, unknown>): string {

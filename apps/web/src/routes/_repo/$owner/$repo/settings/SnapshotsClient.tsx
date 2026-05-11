@@ -32,7 +32,7 @@ import {
   IconClock,
   IconUpload,
 } from "@tabler/icons-react";
-import { formatDurationMs } from "@/lib/utils/formatDuration";
+import { formatDurationMs } from "@conductor/shared/duration";
 import { parseCommandLines } from "./_utils";
 import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
 

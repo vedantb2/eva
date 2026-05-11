@@ -6,7 +6,7 @@ import {
   CollapsibleContent,
 } from "@conductor/ui";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
-import { formatDuration } from "@/lib/utils/formatDuration";
+import { formatDuration } from "@conductor/shared/duration";
 
 export function StreamingActivityDisplay({
   activity,

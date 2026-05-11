@@ -1,6 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
+import { formatDurationMsShort } from "@conductor/shared/duration";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { DataModel, Id } from "../_generated/dataModel";
@@ -38,11 +39,6 @@ function devOverrides(
   return { devPort: repo.devPort, devCommand: repo.devCommand };
 }
 
-/** Formats a duration in milliseconds as a human-readable string. */
-function formatDurationMs(durationMs: number): string {
-  return `${durationMs}ms`;
-}
-
 /** Logs a session-scoped message with the daytona/sessions prefix. */
 function logSession(message: string): void {
   console.log(`[daytona][sessions] ${message}`);
@@ -59,12 +55,12 @@ async function runLoggedSessionStep<T>(
   try {
     const result = await fn();
     logSession(
-      `${label} completed in ${formatDurationMs(Date.now() - startedAt)}${details ? ` (${details})` : ""}`,
+      `${label} completed in ${formatDurationMsShort(Date.now() - startedAt)}${details ? ` (${details})` : ""}`,
     );
     return result;
   } catch (error) {
     console.error(
-      `[daytona][sessions] ${label} failed after ${formatDurationMs(Date.now() - startedAt)}${details ? ` (${details})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
+      `[daytona][sessions] ${label} failed after ${formatDurationMsShort(Date.now() - startedAt)}${details ? ` (${details})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
     );
     throw error;
   }
@@ -889,11 +885,11 @@ export const startSessionSandbox = internalAction({
           }),
       );
       logSession(
-        `startSessionSandbox completed in ${formatDurationMs(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
+        `startSessionSandbox completed in ${formatDurationMsShort(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
     } catch (e) {
       console.error(
-        `[daytona][sessions] startSessionSandbox failed after ${formatDurationMs(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
+        `[daytona][sessions] startSessionSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );
       await ctx.runMutation(internal.sessions.sandboxError, {
         sessionId: args.sessionId,
@@ -1892,11 +1888,11 @@ export const startProjectPreviewSandbox = internalAction({
       );
       await completeProjectProgress(ctx, args.projectId);
       logSession(
-        `startProjectPreviewSandbox completed in ${formatDurationMs(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
+        `startProjectPreviewSandbox completed in ${formatDurationMsShort(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
     } catch (e) {
       console.error(
-        `[daytona][sessions] startProjectPreviewSandbox failed after ${formatDurationMs(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
+        `[daytona][sessions] startProjectPreviewSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );
       await completeProjectProgress(ctx, args.projectId);
       await ctx.runMutation(internal.projects.projectSandboxError, {
@@ -1954,11 +1950,11 @@ export const startTaskPreviewSandbox = internalAction({
       );
       await completeTaskProgress(ctx, args.taskId);
       logSession(
-        `startTaskPreviewSandbox completed in ${formatDurationMs(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
+        `startTaskPreviewSandbox completed in ${formatDurationMsShort(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
     } catch (e) {
       console.error(
-        `[daytona][sessions] startTaskPreviewSandbox failed after ${formatDurationMs(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
+        `[daytona][sessions] startTaskPreviewSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );
       await completeTaskProgress(ctx, args.taskId);
       await ctx.runMutation(internal.agentTasks.taskSandboxError, {

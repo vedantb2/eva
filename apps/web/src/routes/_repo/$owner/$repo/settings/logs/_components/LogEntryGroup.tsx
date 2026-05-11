@@ -12,7 +12,7 @@ import {
 import { ProviderIcon } from "@conductor/ui/ai";
 import { IconChevronRight, IconCode } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
-import { formatDurationMsShort } from "@/lib/utils/formatDuration";
+import { formatDurationMsShort } from "@conductor/shared/duration";
 import {
   parseResultEvent,
   formatCost,

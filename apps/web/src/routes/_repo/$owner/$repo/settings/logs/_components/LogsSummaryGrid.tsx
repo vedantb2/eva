@@ -8,7 +8,7 @@ import {
   IconArrowUp,
 } from "@tabler/icons-react";
 import { formatCost, formatTokens, GBP_TO_USD } from "../_utils";
-import { formatDurationMs } from "@/lib/utils/formatDuration";
+import { formatDurationMs } from "@conductor/shared/duration";
 
 interface LogsSummaryGridProps {
   totalCost: number;

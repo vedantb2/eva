@@ -1,3 +1,5 @@
+import { isRecord } from "@conductor/shared/typeGuards";
+
 type AuditSeverity = "critical" | "high" | "medium" | "low";
 type EvalResult = {
   requirement: string;
@@ -6,11 +8,6 @@ type EvalResult = {
   severity?: AuditSeverity;
 };
 type AuditSection = { name: string; results: EvalResult[] };
-
-/** Type guard that checks if a value is a non-null, non-array object. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 /** Type guard that validates an item conforms to the EvalResult shape. */
 function isEvalResult(item: unknown): item is EvalResult {

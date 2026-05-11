@@ -23,7 +23,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
-import { formatDuration } from "@/lib/utils/formatDuration";
+import { formatDuration } from "@conductor/shared/duration";
 import { RunActivityLog } from "../RunActivityLog";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";

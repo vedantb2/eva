@@ -1,6 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
+import { isRecord } from "@conductor/shared/typeGuards";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { resolveAllEnvVars } from "./envVarResolver";
@@ -11,11 +12,6 @@ interface LinearIssue {
   identifier: string;
   title: string;
   description: string;
-}
-
-/** Type guard that checks whether a value is a non-array plain object. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** Fetches Linear issues by their identifiers using the Linear GraphQL API. */

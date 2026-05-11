@@ -7,6 +7,7 @@ import type {
   VolumeMount,
 } from "@daytonaio/sdk";
 import { quote } from "shell-quote";
+import { formatDurationMsShort } from "@conductor/shared/duration";
 import { buildGitHubRepoUrl, getInstallationToken } from "../githubAuth";
 import {
   exec,
@@ -65,11 +66,6 @@ const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 90;
 // Used as fallback when a repo has no custom snapshot.
 const DEFAULT_SNAPSHOT = "daytona-large";
 
-/** Formats a duration in milliseconds as a human-readable string. */
-function formatDurationMs(durationMs: number): string {
-  return `${durationMs}ms`;
-}
-
 /** Logs a git-related message with a consistent prefix. */
 function logGit(message: string): void {
   console.log(`[daytona][git] ${message}`);
@@ -124,14 +120,14 @@ async function execGitCommand(
   try {
     const result = await exec(sandbox, command, timeoutSeconds);
     logGit(
-      `exec completed in ${formatDurationMs(Date.now() - startedAt)}: ${sanitized}`,
+      `exec completed in ${formatDurationMsShort(Date.now() - startedAt)}: ${sanitized}`,
     );
     return result;
   } catch (error) {
     const elapsed = Date.now() - startedAt;
     const message = error instanceof Error ? error.message : String(error);
     logGit(
-      `exec failed after ${formatDurationMs(elapsed)} [timeout=${timeoutSeconds}s]: ${sanitized} — ${message}`,
+      `exec failed after ${formatDurationMsShort(elapsed)} [timeout=${timeoutSeconds}s]: ${sanitized} — ${message}`,
     );
     if (isSandboxExecTimeout(message)) {
       await cleanupTimedOutGitState(sandbox);
@@ -158,14 +154,14 @@ async function execSdkGitOperation<T>(
       `sdk ${label} (${timeoutSeconds}s)`,
     );
     logGit(
-      `sdk completed in ${formatDurationMs(Date.now() - startedAt)}: ${label}`,
+      `sdk completed in ${formatDurationMsShort(Date.now() - startedAt)}: ${label}`,
     );
     return result;
   } catch (error) {
     const elapsed = Date.now() - startedAt;
     const message = error instanceof Error ? error.message : String(error);
     logGit(
-      `sdk failed after ${formatDurationMs(elapsed)} [timeout=${timeoutSeconds}s]: ${label} — ${message}`,
+      `sdk failed after ${formatDurationMsShort(elapsed)} [timeout=${timeoutSeconds}s]: ${label} — ${message}`,
     );
     if (isSandboxExecTimeout(message)) {
       await cleanupTimedOutGitState(sandbox);
@@ -185,12 +181,12 @@ async function runLoggedGitStep<T>(
   try {
     const result = await fn();
     logGit(
-      `${label} completed in ${formatDurationMs(Date.now() - startedAt)}${details ? ` (${details})` : ""}`,
+      `${label} completed in ${formatDurationMsShort(Date.now() - startedAt)}${details ? ` (${details})` : ""}`,
     );
     return result;
   } catch (error) {
     logGit(
-      `${label} failed after ${formatDurationMs(Date.now() - startedAt)}${details ? ` (${details})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
+      `${label} failed after ${formatDurationMsShort(Date.now() - startedAt)}${details ? ` (${details})` : ""}: ${error instanceof Error ? error.message : String(error)}`,
     );
     throw error;
   }

@@ -1,3 +1,5 @@
+import { isRecord } from "@conductor/shared/typeGuards";
+
 export interface ParsedFinding {
   id: string;
   title: string;
@@ -15,11 +17,6 @@ const VALID_SEVERITIES: Record<string, Severity> = {
   high: "high",
   critical: "critical",
 };
-
-/** Type guard for checking if a value is a plain object (non-array). */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 /** Extracts structured findings from the FINDINGS_JSON marker in the LLM result text. */
 export function parseFindingsFromResult(

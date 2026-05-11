@@ -35,7 +35,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { FindingsList } from "./_components/FindingsList";
 import { AutomationDeleteDialog } from "./_components/AutomationDeleteDialog";
 import dayjs from "@conductor/shared/dates";
-import { formatDuration } from "@/lib/utils/formatDuration";
+import { formatDuration } from "@conductor/shared/duration";
 import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";

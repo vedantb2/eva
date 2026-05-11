@@ -2,8 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import type { Id } from "@conductor/backend";
-import { useQueryState } from "nuqs";
-import { sandboxTabParser } from "@/lib/search-params";
+import type { SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import {
@@ -31,6 +30,8 @@ interface TaskSandboxPanelProps {
    */
   devCommand?: string;
   terminalPanes?: SharedTerminalPane[];
+  activeTab: SandboxTab;
+  onTabChange: (tab: SandboxTab) => void;
 }
 
 /**
@@ -49,9 +50,10 @@ export function TaskSandboxPanel({
   devPort,
   devCommand,
   terminalPanes,
+  activeTab,
+  onTabChange,
 }: TaskSandboxPanelProps) {
   const taskIdStr = String(taskId);
-  const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
 
   const preview = useSandboxPreview({
     sandboxId,
@@ -65,24 +67,23 @@ export function TaskSandboxPanel({
     storageScope: `task:${taskIdStr}`,
     isActive,
     activeTab,
-    setActiveTab,
+    setActiveTab: onTabChange,
     terminalPanes,
   });
 
-  // PRD is session-only; bounce back to preview if a stale URL points there.
   useEffect(() => {
     if (activeTab !== "prd") return;
-    void setActiveTab("preview");
-  }, [activeTab, setActiveTab]);
+    onTabChange("preview");
+  }, [activeTab, onTabChange]);
 
   const tabBarValue = activeTab === "prd" ? "preview" : activeTab;
 
   const handleTabChange = useCallback(
     (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
       if (tab === "prd") return;
-      void setActiveTab(tab);
+      onTabChange(tab);
     },
-    [setActiveTab],
+    [onTabChange],
   );
 
   return (

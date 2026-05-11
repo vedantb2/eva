@@ -101,7 +101,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
                     key={task._id}
                     title={task.title}
                     taskNumber={task.taskNumber}
-                    to={`${basePath}/quick-tasks/${task._id}`}
+                    to={`${basePath}/quick-tasks/${task._id}/activity`}
                   />
                 ))}
               </Section>
@@ -118,7 +118,7 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
                     key={task._id}
                     title={task.title}
                     taskNumber={task.taskNumber}
-                    to={`${basePath}/quick-tasks/${task._id}`}
+                    to={`${basePath}/quick-tasks/${task._id}/activity`}
                   />
                 ))}
               </Section>

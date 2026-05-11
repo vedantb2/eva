@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useQueryState } from "nuqs";
-import { testingTabParser, branchParser } from "@/lib/search-params";
+import { branchParser } from "@/lib/search-params";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -38,11 +38,27 @@ import {
   IconTool,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
-import { UITestingPanel } from "./UITestingPanelClient";
+import { UITestingPanel } from "../UITestingPanelClient";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
+import { isTestingArenaTab } from "@/lib/search-params";
 
-export const Route = createFileRoute("/_repo/$owner/$repo/testing-arena/$id")({
+export const Route = createFileRoute(
+  "/_repo/$owner/$repo/testing-arena/$id/$arenaTab",
+)({
+  beforeLoad: ({ params }) => {
+    if (!isTestingArenaTab(params.arenaTab)) {
+      throw redirect({
+        to: "/$owner/$repo/testing-arena/$id/$arenaTab",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          id: params.id,
+          arenaTab: "code",
+        },
+      });
+    }
+  },
   component: TestingArenaDetailRoute,
 });
 
@@ -355,8 +371,9 @@ function CodeTestingContent({
 }
 
 function TestingArenaDetailRoute() {
-  const { id } = Route.useParams();
-  const { repo } = useRepo();
+  const { id, arenaTab } = Route.useParams();
+  const navigate = useNavigate();
+  const { repo, basePath } = useRepo();
   const doc = useQuery(api.docs.get, { id: id as Id<"docs"> });
   const reports = useQuery(
     api.evaluationReports.listByDoc,
@@ -371,7 +388,7 @@ function TestingArenaDetailRoute() {
   );
   const startEvaluation = useMutation(api.evaluationWorkflow.startEvaluation);
   const [isRunning, setIsRunning] = useState(false);
-  const [activeTab, setActiveTab] = useQueryState("tab", testingTabParser);
+  const activeTab = isTestingArenaTab(arenaTab) ? arenaTab : "code";
   const [branch, setBranch] = useQueryState("branch", branchParser);
 
   const handleRunTest = async () => {
@@ -411,7 +428,11 @@ function TestingArenaDetailRoute() {
           <Tabs
             value={activeTab}
             onValueChange={(v) => {
-              setActiveTab(v as "code" | "ui");
+              if (v === "code" || v === "ui") {
+                navigate({
+                  to: `${basePath}/testing-arena/${id}/${v}`,
+                });
+              }
             }}
           >
             <TabsList className="h-8">

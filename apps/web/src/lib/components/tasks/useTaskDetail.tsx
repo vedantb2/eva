@@ -6,13 +6,31 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useEffect, useState, useCallback } from "react";
-import { useQueryState } from "nuqs";
-import { sandboxOpenParser } from "@/lib/search-params";
+import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
 
 const PREVIEW_SANDBOX_ALLOWED_STATUSES = ["code_review", "business_review"];
 
-export function useTaskDetail(taskId: Id<"agentTasks">) {
+export type QuickTaskDetailRouting = {
+  detailTab: TaskDetailTab;
+  onDetailTabChange: (tab: TaskDetailTab) => void;
+  onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => void;
+};
+
+export type QuickTaskSandboxRouting = {
+  sandboxTab: TaskRouteSandboxTab;
+  onSandboxTabChange: (tab: TaskRouteSandboxTab) => void;
+  onExitSandboxView: () => void;
+};
+
+export type UseTaskDetailRouting =
+  | { mode: "quick-detail"; quick: QuickTaskDetailRouting }
+  | { mode: "quick-sandbox"; quick: QuickTaskSandboxRouting };
+
+export function useTaskDetail(
+  taskId: Id<"agentTasks">,
+  routing?: UseTaskDetailRouting,
+) {
   const taskResult = useQuery(api.agentTasks.get, { id: taskId });
   const task = taskResult ?? undefined;
   const currentUserId = useQuery(api.auth.me);
@@ -81,10 +99,7 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const createTaskPrAction = useAction(api.taskWorkflowActions.createTaskPr);
 
   const [baseBranch, setBaseBranch] = useState("main");
-  const [showSandbox, setShowSandbox] = useQueryState(
-    "sandbox",
-    sandboxOpenParser,
-  );
+  const [embeddedShowSandbox, setEmbeddedShowSandbox] = useState(false);
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
   const [isSandboxStopping, setIsSandboxStopping] = useState(false);
   const [isRetryingStartupCommands, setIsRetryingStartupCommands] =
@@ -94,9 +109,33 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const [isStopping, setIsStopping] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showResolveConfirm, setShowResolveConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState<TaskDetailTab>("activity");
+  const [internalActiveTab, setInternalActiveTab] =
+    useState<TaskDetailTab>("activity");
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [requestingChanges, setRequestingChanges] = useState(false);
+
+  const activeTab: TaskDetailTab =
+    routing?.mode === "quick-detail"
+      ? routing.quick.detailTab
+      : internalActiveTab;
+
+  const setActiveTab = useCallback(
+    (tab: TaskDetailTab) => {
+      if (routing?.mode === "quick-detail") {
+        routing.quick.onDetailTabChange(tab);
+      } else {
+        setInternalActiveTab(tab);
+      }
+    },
+    [routing],
+  );
+
+  const showSandbox =
+    routing?.mode === "quick-sandbox"
+      ? true
+      : routing?.mode === "quick-detail"
+        ? false
+        : embeddedShowSandbox;
 
   useEffect(() => {
     setBaseBranch(task?.baseBranch ?? "main");
@@ -146,10 +185,6 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   const isSandboxActive = task?.reviewTaskSandboxStatus === "active";
   const isSandboxStartingFromStatus =
     task?.reviewTaskSandboxStatus === "starting";
-  // `stopping` is a transient backend state set synchronously by `stopTaskSandbox`,
-  // cleared once Daytona's stop call completes (~10s). The UI keeps the spinner
-  // up and the Start button disabled across this window to prevent the stop/start
-  // race that previously orphaned sandboxes.
   const isSandboxStoppingFromStatus =
     task?.reviewTaskSandboxStatus === "stopping";
   const sandboxStartupStreaming = useQuery(
@@ -159,17 +194,25 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
       : "skip",
   );
 
+  const openSandboxAfterStart = useCallback(() => {
+    if (routing?.mode === "quick-detail") {
+      routing.quick.onOpenSandboxView("preview");
+    } else {
+      setEmbeddedShowSandbox(true);
+    }
+  }, [routing]);
+
   const handleStartSandbox = useCallback(async () => {
     setIsSandboxStarting(true);
     try {
       await startTaskSandboxMutation({ taskId });
-      setShowSandbox(true);
+      openSandboxAfterStart();
     } catch (err) {
       console.error("Failed to start sandbox:", err);
     } finally {
       setIsSandboxStarting(false);
     }
-  }, [startTaskSandboxMutation, taskId]);
+  }, [startTaskSandboxMutation, taskId, openSandboxAfterStart]);
 
   const handleStopSandbox = useCallback(async () => {
     setIsSandboxStopping(true);
@@ -186,13 +229,13 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     setIsRetryingStartupCommands(true);
     try {
       await retryStartupCommandsMutation({ taskId });
-      setShowSandbox(true);
+      openSandboxAfterStart();
     } catch (err) {
       console.error("Failed to retry startup commands:", err);
     } finally {
       setIsRetryingStartupCommands(false);
     }
-  }, [retryStartupCommandsMutation, setShowSandbox, taskId]);
+  }, [retryStartupCommandsMutation, taskId, openSandboxAfterStart]);
 
   const handleCreatePr = useCallback(async () => {
     setIsCreatingPr(true);
@@ -208,8 +251,16 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
   }, [createTaskPrAction, taskId]);
 
   const handleToggleSandboxView = useCallback(() => {
-    setShowSandbox((prev) => !prev);
-  }, []);
+    if (routing?.mode === "quick-sandbox") {
+      routing.quick.onExitSandboxView();
+      return;
+    }
+    if (routing?.mode === "quick-detail") {
+      routing.quick.onOpenSandboxView("preview");
+      return;
+    }
+    setEmbeddedShowSandbox((prev) => !prev);
+  }, [routing]);
 
   const status = task?.status;
   const showProofSection = status !== undefined && status !== "todo";
@@ -287,10 +338,8 @@ export function useTaskDetail(taskId: Id<"agentTasks">) {
     handleStopExecution,
     handleResolveConflicts,
 
-    // Sandbox preview
     canStartSandbox,
     showSandbox,
-    setShowSandbox,
     isSandboxActive,
     isSandboxStarting: isSandboxStarting || isSandboxStartingFromStatus,
     sandboxStartupActivity: sandboxStartupStreaming?.currentActivity,

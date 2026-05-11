@@ -83,7 +83,7 @@ import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { SessionPromptSubmit } from "./_components/SessionPromptSubmit";
-import { prStateIconClass } from "./_utils/prStateIconClass";
+import { prStateIconClass } from "./_utils/-prStateIconClass";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";

@@ -73,7 +73,7 @@ export default defineConfig({
     tanstackRouter({
       routesDirectory: "./src/routes",
       routeFileIgnorePattern:
-        "(_components|_utils\\.ts|Client\\.tsx|Panel\\.tsx)",
+        "(_components|_utils\\.ts|_utils\\/|Client\\.tsx|Panel\\.tsx)",
       autoCodeSplitting: true,
     }),
     react(),

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Id } from "@conductor/backend";
 import {
   Badge,
@@ -34,17 +35,24 @@ import { StopConfirmDialog } from "./_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "./_components/ResolveConfirmDialog";
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
+import type { SandboxTab } from "@/lib/search-params";
+import type { UseTaskDetailRouting } from "./useTaskDetail";
 
 interface TaskDetailInlineProps {
   onClose: () => void;
   taskId: Id<"agentTasks">;
   allTags?: string[];
+  routing?: Extract<UseTaskDetailRouting, { mode: "quick-detail" }>;
 }
 
 export function TaskDetailInline({
   taskId,
   allTags = [],
+  routing,
 }: TaskDetailInlineProps) {
+  const [embeddedSandboxTab, setEmbeddedSandboxTab] =
+    useState<SandboxTab>("preview");
+
   const {
     isLoading,
     task,
@@ -107,7 +115,7 @@ export function TaskDetailInline({
     canCreatePr,
     isCreatingPr,
     handleCreatePr,
-  } = useTaskDetail(taskId);
+  } = useTaskDetail(taskId, routing);
 
   if (isLoading) {
     return (
@@ -177,6 +185,8 @@ export function TaskDetailInline({
               devPort={task.devPort}
               devCommand={task.devCommand}
               terminalPanes={task.terminalPanes}
+              activeTab={embeddedSandboxTab}
+              onTabChange={setEmbeddedSandboxTab}
             />
           ) : (
             <div className="flex items-center justify-center h-full">

@@ -1,8 +1,7 @@
 import { useCallback } from "react";
 import type { Id } from "@conductor/backend";
-import { useQueryState } from "nuqs";
+import type { SandboxTab } from "@/lib/search-params";
 import { IconClipboardList } from "@tabler/icons-react";
-import { sandboxTabParser } from "@/lib/search-params";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
@@ -24,6 +23,8 @@ interface SandboxPanelProps {
   terminalPanes?: SharedTerminalPane[];
   planContent?: string;
   isArchived?: boolean;
+  activeTab: SandboxTab;
+  onTabChange: (tab: SandboxTab) => void;
 }
 
 export function SandboxPanel({
@@ -36,13 +37,14 @@ export function SandboxPanel({
   terminalPanes,
   planContent,
   isArchived,
+  activeTab,
+  onTabChange,
 }: SandboxPanelProps) {
   const { repo } = useRepo();
   const sessionIdStr = String(sessionId);
   const { setMode } = useSessionSettings(sessionIdStr, {
     defaultModel: repo.defaultModel,
   });
-  const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
 
   const preview = useSandboxPreview({
     sandboxId,
@@ -56,15 +58,15 @@ export function SandboxPanel({
     storageScope: `session:${sessionIdStr}`,
     isActive,
     activeTab,
-    setActiveTab,
+    setActiveTab: onTabChange,
     terminalPanes,
   });
 
   const handleTabChange = useCallback(
     (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
-      void setActiveTab(tab);
+      onTabChange(tab);
     },
-    [setActiveTab],
+    [onTabChange],
   );
 
   return (

@@ -45,7 +45,7 @@ interface UseSandboxPanesArgs {
   storageScope: string;
   isActive: boolean;
   activeTab: SandboxTab | null;
-  setActiveTab: (tab: SandboxTab) => Promise<URLSearchParams>;
+  setActiveTab: (tab: SandboxTab) => void;
   terminalPanes: SharedTerminalPane[] | undefined;
 }
 

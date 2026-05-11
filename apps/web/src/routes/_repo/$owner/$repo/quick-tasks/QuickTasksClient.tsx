@@ -204,7 +204,7 @@ export function QuickTasksClient() {
   };
 
   const handleOpenTask = (id: string) => {
-    navigate({ to: `${basePath}/quick-tasks/${id}` });
+    navigate({ to: `${basePath}/quick-tasks/${id}/activity` });
   };
 
   const closeBulkAction = () => setActiveBulkAction(null);

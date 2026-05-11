@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
@@ -8,12 +10,19 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
-import { Route } from "./$taskId";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
+import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 
-export function QuickTaskDetailClient() {
-  const { taskId } = Route.useParams();
+interface QuickTaskDetailClientProps {
+  taskId: string;
+  detailTab: TaskDetailTab;
+}
+
+export function QuickTaskDetailClient({
+  taskId,
+  detailTab,
+}: QuickTaskDetailClientProps) {
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
   const [{ view }] = useQuickTaskFilters();
@@ -59,12 +68,41 @@ export function QuickTaskDetailClient() {
   };
 
   const handleNavigatePrev = () => {
-    if (prevTaskId) navigate({ to: `${basePath}/quick-tasks/${prevTaskId}` });
+    if (prevTaskId) {
+      navigate({
+        to: `${basePath}/quick-tasks/${prevTaskId}/${detailTab}`,
+      });
+    }
   };
 
   const handleNavigateNext = () => {
-    if (nextTaskId) navigate({ to: `${basePath}/quick-tasks/${nextTaskId}` });
+    if (nextTaskId) {
+      navigate({
+        to: `${basePath}/quick-tasks/${nextTaskId}/${detailTab}`,
+      });
+    }
   };
+
+  const routing = useMemo(
+    () =>
+      ({
+        mode: "quick-detail",
+        quick: {
+          detailTab,
+          onDetailTabChange: (tab: TaskDetailTab) => {
+            navigate({
+              to: `${basePath}/quick-tasks/${typedTaskId}/${tab}`,
+            });
+          },
+          onOpenSandboxView: (sandboxTab) => {
+            navigate({
+              to: `${basePath}/quick-tasks/${typedTaskId}/sandbox/${sandboxTab}`,
+            });
+          },
+        },
+      }) as const,
+    [basePath, detailTab, navigate, typedTaskId],
+  );
 
   if (tasks === undefined) {
     return (
@@ -127,6 +165,7 @@ export function QuickTaskDetailClient() {
             onClose={handleBack}
             taskId={typedTaskId}
             allTags={allTags}
+            routing={routing}
           />
         </div>
       </div>

@@ -95,6 +95,7 @@ TanStack Router (eva web app):
 
 - Never use `window.location.href` for navigation. Always use `useNavigate` from `@tanstack/react-router` or the `<Link>` component.
 - `window.location.href` causes a full page reload, losing client-side state. TanStack Router navigation preserves SPA behavior.
+- Primary tabs = path segments + index redirect to default; avoid local-only Tabs when the view must be linkable.
 
 Vite (apps/web):
 

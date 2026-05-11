@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { useNavigate } from "@tanstack/react-router";
+import {
+  isSnapshotSettingsTab,
+  type SnapshotSettingsTab,
+} from "@/lib/search-params";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
@@ -36,8 +41,13 @@ import {
   WarmupStatusBadge,
 } from "./_components/BuildRow";
 
-export function SnapshotsClient() {
-  const { repoId } = useRepo();
+export function SnapshotsClient({
+  activeTab,
+}: {
+  activeTab: SnapshotSettingsTab;
+}) {
+  const navigate = useNavigate();
+  const { repoId, basePath } = useRepo();
   const snapshot = useQuery(api.repoSnapshots.getRepoSnapshot, { repoId });
   const builds = useQuery(
     api.repoSnapshots.listBuilds,
@@ -114,6 +124,16 @@ export function SnapshotsClient() {
     builds && builds.length > 0 && builds[0].status === "running";
   const lastBuild = builds && builds.length > 0 ? builds[0] : null;
 
+  const handleSnapshotsTabChange = useCallback(
+    (value: string) => {
+      if (!isSnapshotSettingsTab(value)) return;
+      navigate({
+        to: `${basePath}/settings/snapshots/${value}`,
+      });
+    },
+    [basePath, navigate],
+  );
+
   if (snapshot === undefined) {
     return (
       <PageWrapper title="Snapshots" comfortable>
@@ -126,7 +146,11 @@ export function SnapshotsClient() {
 
   return (
     <PageWrapper title="Snapshots" comfortable>
-      <Tabs defaultValue="configuration" className="space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={handleSnapshotsTabChange}
+        className="space-y-4"
+      >
         <TabsList>
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="status">Status</TabsTrigger>

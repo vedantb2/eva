@@ -73,15 +73,28 @@ const sandboxTabs = [
   "prd",
 ] as const;
 export type SandboxTab = (typeof sandboxTabs)[number];
-export const sandboxTabParser = parseAsStringLiteral(sandboxTabs)
-  .withDefault("preview")
-  .withOptions(tabOptions);
+
+export function isSessionSandboxTab(s: string): s is SandboxTab {
+  return (sandboxTabs as readonly string[]).includes(s);
+}
+
+const taskRouteSandboxTabs = [
+  "preview",
+  "editor",
+  "terminal",
+  "desktop",
+] as const;
+export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];
+
+export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
+  return (taskRouteSandboxTabs as readonly string[]).includes(s);
+}
 
 export const sandboxOpenParser = parseAsBoolean
   .withDefault(false)
   .withOptions(tabOptions);
 
-export const designTabParser = parseAsString
+export const designVariationParser = parseAsString
   .withDefault("0")
   .withOptions(tabOptions);
 
@@ -91,9 +104,23 @@ export const viewModeParser = parseAsStringLiteral(viewModes)
   .withOptions(tabOptions);
 
 const testingTabs = ["code", "ui"] as const;
-export const testingTabParser = parseAsStringLiteral(testingTabs)
-  .withDefault("code")
-  .withOptions(tabOptions);
+export type TestingArenaTab = (typeof testingTabs)[number];
+
+export function isTestingArenaTab(s: string): s is TestingArenaTab {
+  return (testingTabs as readonly string[]).includes(s);
+}
+
+const snapshotSettingsTabs = [
+  "configuration",
+  "status",
+  "builds",
+  "config-files",
+] as const;
+export type SnapshotSettingsTab = (typeof snapshotSettingsTabs)[number];
+
+export function isSnapshotSettingsTab(s: string): s is SnapshotSettingsTab {
+  return (snapshotSettingsTabs as readonly string[]).includes(s);
+}
 
 const inboxFilters = ["all", "unread"] as const;
 export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
@@ -111,15 +138,19 @@ export const branchParser = parseAsString
   .withDefault("main")
   .withOptions(searchOptions);
 
-const envVarTabs = ["repo", "team"] as const;
-export const envVarTabParser = parseAsStringLiteral(envVarTabs)
-  .withDefault("repo")
-  .withOptions(tabOptions);
+const envVarScopes = ["repo", "team"] as const;
+export type EnvVarScope = (typeof envVarScopes)[number];
+
+export function isEnvVarScope(s: string): s is EnvVarScope {
+  return (envVarScopes as readonly string[]).includes(s);
+}
 
 const teamDetailTabs = ["members", "repos", "env"] as const;
-export const teamDetailTabParser = parseAsStringLiteral(teamDetailTabs)
-  .withDefault("members")
-  .withOptions(tabOptions);
+export type TeamDetailTab = (typeof teamDetailTabs)[number];
+
+export function isTeamDetailTab(s: string): s is TeamDetailTab {
+  return (teamDetailTabs as readonly string[]).includes(s);
+}
 
 export const logEntityTypesParser = parseAsArrayOf(parseAsString)
   .withDefault([])

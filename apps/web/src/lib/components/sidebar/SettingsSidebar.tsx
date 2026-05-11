@@ -48,7 +48,7 @@ export function SettingsSidebar({
         { name: "App", href: `${baseUrl}/app`, icon: IconTerminal2 },
         {
           name: "Env Variables",
-          href: `${baseUrl}/env-variables`,
+          href: `${baseUrl}/env-variables/repo`,
           icon: IconKey,
         },
         { name: "Snapshots", href: `${baseUrl}/snapshots`, icon: IconCamera },

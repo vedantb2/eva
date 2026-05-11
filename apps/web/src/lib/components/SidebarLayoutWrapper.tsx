@@ -107,7 +107,7 @@ export function SidebarLayoutWrapper({
       <div className="h-full min-h-0 flex flex-row overflow-hidden">
         <div
           className={cn(
-            "hidden lg:block overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            "hidden lg:block overflow-hidden transition-[width] duration-300 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]",
             collapsed ? "w-16" : "w-72",
           )}
         >

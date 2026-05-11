@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import type { Id } from "@conductor/backend";
-import { useQueryState } from "nuqs";
-import { sandboxTabParser } from "@/lib/search-params";
+import type { SandboxTab, TaskRouteSandboxTab } from "@/lib/search-params";
+import { useNavigate } from "@tanstack/react-router";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import {
@@ -24,20 +25,12 @@ interface ProjectSandboxPanelProps {
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
-  /**
-   * Resolved dev port for the current sandbox, populated by
-   * `projectSandboxReady` from `startSessionServices` output.
-   */
   devPort?: number;
-  /** Full dev command for the current sandbox; runs in the first terminal pane. */
   devCommand?: string;
   terminalPanes?: SharedTerminalPane[];
+  sandboxTab: TaskRouteSandboxTab;
 }
 
-/**
- * Right-side sandbox panel for a project — mirrors the task sandbox panel.
- * Exposes Preview, Terminal, Editor, and Desktop tabs (PRD is omitted).
- */
 export function ProjectSandboxPanel({
   projectId,
   sandboxId,
@@ -46,9 +39,23 @@ export function ProjectSandboxPanel({
   devPort,
   devCommand,
   terminalPanes,
+  sandboxTab,
 }: ProjectSandboxPanelProps) {
+  const navigate = useNavigate();
+  const { basePath } = useRepo();
   const projectIdStr = String(projectId);
-  const [activeTab, setActiveTab] = useQueryState("tab", sandboxTabParser);
+
+  const activeTab: SandboxTab = sandboxTab;
+
+  const navigateToSandboxTab = useCallback(
+    (tab: SandboxTab) => {
+      if (tab === "prd") return;
+      navigate({
+        to: `${basePath}/projects/${projectIdStr}/sandbox/${tab}`,
+      });
+    },
+    [basePath, navigate, projectIdStr],
+  );
 
   const preview = useSandboxPreview({
     sandboxId,
@@ -62,30 +69,22 @@ export function ProjectSandboxPanel({
     storageScope: `project:${projectIdStr}`,
     isActive,
     activeTab,
-    setActiveTab,
+    setActiveTab: navigateToSandboxTab,
     terminalPanes,
   });
-
-  // PRD is session-only; bounce back to preview if a stale URL points there.
-  useEffect(() => {
-    if (activeTab !== "prd") return;
-    void setActiveTab("preview");
-  }, [activeTab, setActiveTab]);
-
-  const tabBarValue = activeTab === "prd" ? "preview" : activeTab;
 
   const handleTabChange = useCallback(
     (tab: "preview" | "desktop" | "editor" | "terminal" | "prd") => {
       if (tab === "prd") return;
-      void setActiveTab(tab);
+      navigateToSandboxTab(tab);
     },
-    [setActiveTab],
+    [navigateToSandboxTab],
   );
 
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
-        activeTab={tabBarValue}
+        activeTab={activeTab}
         onTabChange={handleTabChange}
         onNewPreview={panes.handleNewPreview}
         onNewTerminal={panes.handleNewTerminal}
@@ -95,7 +94,7 @@ export function ProjectSandboxPanel({
       />
       <div className="flex-1 overflow-hidden bg-card">
         <SandboxPaneSlots
-          activeTab={tabBarValue}
+          activeTab={activeTab}
           panes={panes}
           preview={preview}
           owner={{ kind: "project", projectId }}

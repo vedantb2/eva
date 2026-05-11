@@ -2,7 +2,7 @@ import { useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { useQueryStates } from "nuqs";
-import { designTabParser, viewModeParser } from "@/lib/search-params";
+import { designVariationParser, viewModeParser } from "@/lib/search-params";
 import {
   Button,
   Spinner,
@@ -56,8 +56,8 @@ export function DesignPreviewPanel({
   onStartSandbox,
   onSelectVariation,
 }: DesignPreviewPanelProps) {
-  const [{ tab, view }, setDesignParams] = useQueryStates({
-    tab: designTabParser,
+  const [{ variation: tab, view }, setDesignParams] = useQueryStates({
+    variation: designVariationParser,
     view: viewModeParser,
   });
   const activeTabIndex = Number(tab);
@@ -86,7 +86,7 @@ export function DesignPreviewPanel({
         value={tab}
         onValueChange={(v) => {
           if (v === "0" || v === "1" || v === "2") {
-            setDesignParams({ tab: v });
+            setDesignParams({ variation: v });
           }
         }}
         className="flex flex-col h-full"

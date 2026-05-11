@@ -2,6 +2,7 @@
 
 ## 2026-05-11
 
+- Repo Settings → Snapshots tabs are URL-backed (`…/snapshots/configuration|status|builds|config-files`); `/snapshots` redirects to `configuration`.
 - Projects sidebar badge now mirrors Quick Tasks: hover popover with separate Building and Sandbox sections linking to each project, backed by new `projects.getActive` query.
 - "Run Eva on this task" is hidden for project tasks in both the task card menu (context + dropdown) and the task detail footer — project tasks run via the project build workflow, not individually.
 - Implementation-mode agent Summary prompt now asks the agent to name impacted user-facing routes in its prose summary (or explicitly say none), so the run summary / PR body tells reviewers where to look.

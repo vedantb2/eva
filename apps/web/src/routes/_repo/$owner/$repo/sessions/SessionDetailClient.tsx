@@ -6,11 +6,19 @@ import { useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
-import { useRepo } from "@/lib/contexts/RepoContext";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 
-export function SessionDetailClient({ sessionId }: { sessionId: string }) {
-  const { repo } = useRepo();
+import type { SandboxTab } from "@/lib/search-params";
+
+export function SessionDetailClient({
+  sessionId,
+  activeSandboxTab,
+  onSandboxTabChange,
+}: {
+  sessionId: string;
+  activeSandboxTab: SandboxTab;
+  onSandboxTabChange: (tab: SandboxTab) => void;
+}) {
   const typedSessionId = sessionId as Id<"sessions">;
   const session = useQuery(api.sessions.get, { id: typedSessionId });
   const messages = useQuery(api.messages.listByParent, {
@@ -112,6 +120,8 @@ export function SessionDetailClient({ sessionId }: { sessionId: string }) {
           terminalPanes={session.terminalPanes}
           planContent={session.planContent}
           isArchived={session.archived === true}
+          activeTab={activeSandboxTab}
+          onTabChange={onSandboxTabChange}
         />
       }
       leftDefaultSize="30%"

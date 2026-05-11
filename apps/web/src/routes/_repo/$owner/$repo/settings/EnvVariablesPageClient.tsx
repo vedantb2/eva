@@ -1,22 +1,26 @@
 "use client";
 
-import { useQueryState } from "nuqs";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Tabs, TabsList, TabsTrigger } from "@conductor/ui";
-import { envVarTabParser } from "@/lib/search-params";
+import type { EnvVarScope } from "@/lib/search-params";
+import { useNavigate } from "@tanstack/react-router";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import { EnvVariablesClient } from "./EnvVariablesClient";
 import { TeamEnvVarsClient } from "./TeamEnvVarsClient";
 
-export function EnvVariablesPageClient() {
-  const [tab, setTab] = useQueryState("tab", envVarTabParser);
+export function EnvVariablesPageClient({ scope }: { scope: EnvVarScope }) {
+  const navigate = useNavigate();
+  const { basePath } = useRepo();
 
   return (
     <PageWrapper title="Environment Variables" comfortable>
       <Tabs
-        value={tab}
+        value={scope}
         onValueChange={(value) => {
           if (value === "repo" || value === "team") {
-            setTab(value);
+            navigate({
+              to: `${basePath}/settings/env-variables/${value}`,
+            });
           }
         }}
       >
@@ -25,8 +29,8 @@ export function EnvVariablesPageClient() {
           <TabsTrigger value="team">Team</TabsTrigger>
         </TabsList>
       </Tabs>
-      {tab === "repo" && <EnvVariablesClient />}
-      {tab === "team" && <TeamEnvVarsClient />}
+      {scope === "repo" && <EnvVariablesClient />}
+      {scope === "team" && <TeamEnvVarsClient />}
     </PageWrapper>
   );
 }

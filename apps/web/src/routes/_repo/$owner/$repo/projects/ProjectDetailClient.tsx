@@ -46,10 +46,17 @@ import dayjs from "@conductor/shared/dates";
 import { useNavigate } from "@tanstack/react-router";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
-import { Route } from "./$projectId";
+import type { TaskRouteSandboxTab } from "@/lib/search-params";
 
-export function ProjectDetailClient() {
-  const { projectId } = Route.useParams();
+export function ProjectDetailClient({
+  projectId,
+  surface,
+  sandboxTab,
+}: {
+  projectId: string;
+  surface: "main" | "sandbox";
+  sandboxTab?: TaskRouteSandboxTab;
+}) {
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
   const typedProjectId = projectId as Id<"projects">;
@@ -76,7 +83,6 @@ export function ProjectDetailClient() {
 
   const {
     canStartSandbox,
-    showSandbox,
     isSandboxActive,
     isSandboxStarting,
     isSandboxStopping,
@@ -84,13 +90,25 @@ export function ProjectDetailClient() {
     sandboxId: projectSandboxId,
     handleStartSandbox,
     handleStopSandbox,
-    handleToggleSandboxView,
   } = useProjectSandbox(
     typedProjectId,
     project?.phase,
     project?.sandboxId,
     project?.reviewProjectSandboxStatus,
   );
+
+  const openProjectSandboxView = () => {
+    navigate({ to: `${basePath}/projects/${projectId}/sandbox/preview` });
+  };
+
+  const exitProjectSandboxView = () => {
+    navigate({ to: `${basePath}/projects/${projectId}` });
+  };
+
+  const handleStartSandboxAndOpen = async () => {
+    await handleStartSandbox();
+    openProjectSandboxView();
+  };
 
   const handleStopBuild = async () => {
     if (!project) return;
@@ -147,6 +165,86 @@ export function ProjectDetailClient() {
     !project.activeBuildWorkflowId &&
     project.phase === "active";
   const showMoreMenu = canCreatePr || hasDeployedPreview;
+
+  if (surface === "sandbox") {
+    const tab = sandboxTab ?? "preview";
+    return (
+      <PageWrapper
+        title={
+          <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
+            <button
+              onClick={() => navigate({ to: `${basePath}/projects` })}
+              className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
+            >
+              Projects
+            </button>
+            <IconChevronRight
+              size={14}
+              className="text-muted-foreground/50 flex-shrink-0"
+            />
+            <span className="truncate font-semibold">{project.title}</span>
+          </div>
+        }
+        fillHeight
+        childPadding={false}
+      >
+        <div className="flex flex-col h-full overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={exitProjectSandboxView}
+              className="gap-1.5"
+            >
+              <IconArrowLeft size={16} />
+              Back to Tasks
+            </Button>
+            <div className="flex items-center gap-2">
+              {isSandboxStarting && !isSandboxActive ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <IconLoader2 size={16} className="animate-spin" />
+                  Starting sandbox...
+                </div>
+              ) : null}
+              {isSandboxStopping ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <IconLoader2 size={16} className="animate-spin" />
+                  Stopping sandbox...
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex-1 min-h-0">
+            {isSandboxActive && projectSandboxId ? (
+              <ProjectSandboxPanel
+                projectId={typedProjectId}
+                sandboxId={projectSandboxId}
+                isActive={isSandboxActive}
+                repoId={repo._id}
+                devPort={project.devPort}
+                devCommand={project.devCommand}
+                terminalPanes={project.terminalPanes}
+                sandboxTab={tab}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="w-full max-w-md px-4">
+                  <StreamingActivityDisplay
+                    activity={sandboxStartupActivity}
+                    thinkingLabel={
+                      isSandboxStopping
+                        ? "Stopping sandbox..."
+                        : "Starting sandbox..."
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </PageWrapper>
+    );
+  }
 
   return (
     <PageWrapper
@@ -241,7 +339,7 @@ export function ProjectDetailClient() {
                       variant="outline"
                       size="sm"
                       className="rounded-full"
-                      onClick={handleToggleSandboxView}
+                      onClick={openProjectSandboxView}
                       disabled={isSandboxStopping}
                     >
                       {isSandboxStarting && !isSandboxActive ? (
@@ -273,7 +371,7 @@ export function ProjectDetailClient() {
                     variant="outline"
                     size="sm"
                     className="rounded-full"
-                    onClick={handleStartSandbox}
+                    onClick={handleStartSandboxAndOpen}
                   >
                     <IconPlayerPlay size={16} />
                     <span className="hidden sm:inline">Start Sandbox</span>
@@ -309,62 +407,7 @@ export function ProjectDetailClient() {
     >
       <ProjectMetadataBar projectId={typedProjectId} />
       <div className="flex-1 flex flex-col min-h-0">
-        {showSandbox &&
-        (isSandboxActive || isSandboxStarting || isSandboxStopping) ? (
-          <div className="flex flex-col h-full overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleToggleSandboxView}
-                className="gap-1.5"
-              >
-                <IconArrowLeft size={16} />
-                Back to Tasks
-              </Button>
-              <div className="flex items-center gap-2">
-                {isSandboxStarting && !isSandboxActive ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <IconLoader2 size={16} className="animate-spin" />
-                    Starting sandbox...
-                  </div>
-                ) : null}
-                {isSandboxStopping ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <IconLoader2 size={16} className="animate-spin" />
-                    Stopping sandbox...
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex-1 min-h-0">
-              {isSandboxActive && projectSandboxId ? (
-                <ProjectSandboxPanel
-                  projectId={typedProjectId}
-                  sandboxId={projectSandboxId}
-                  isActive={isSandboxActive}
-                  repoId={repo._id}
-                  devPort={project.devPort}
-                  devCommand={project.devCommand}
-                  terminalPanes={project.terminalPanes}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="w-full max-w-md px-4">
-                    <StreamingActivityDisplay
-                      activity={sandboxStartupActivity}
-                      thinkingLabel={
-                        isSandboxStopping
-                          ? "Stopping sandbox..."
-                          : "Starting sandbox..."
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : isDraftOrFinalized ? (
+        {isDraftOrFinalized ? (
           <ProjectTabs
             projectId={typedProjectId}
             projectPhase={project.phase}

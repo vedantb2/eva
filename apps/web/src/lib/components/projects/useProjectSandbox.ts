@@ -5,8 +5,6 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useQueryState } from "nuqs";
-import { sandboxOpenParser } from "@/lib/search-params";
 
 const PREVIEW_SANDBOX_ALLOWED_PHASES = ["active"];
 
@@ -23,10 +21,6 @@ export function useProjectSandbox(
     api.projects.stopProjectSandbox,
   );
 
-  const [showSandbox, setShowSandbox] = useQueryState(
-    "sandbox",
-    sandboxOpenParser,
-  );
   const [isStartingLocal, setIsStartingLocal] = useState(false);
   const [isStoppingLocal, setIsStoppingLocal] = useState(false);
 
@@ -47,13 +41,12 @@ export function useProjectSandbox(
     setIsStartingLocal(true);
     try {
       await startProjectSandboxMutation({ projectId });
-      void setShowSandbox(true);
     } catch (err) {
       console.error("Failed to start project sandbox:", err);
     } finally {
       setIsStartingLocal(false);
     }
-  }, [startProjectSandboxMutation, projectId, setShowSandbox]);
+  }, [startProjectSandboxMutation, projectId]);
 
   const handleStopSandbox = useCallback(async () => {
     setIsStoppingLocal(true);
@@ -66,14 +59,8 @@ export function useProjectSandbox(
     }
   }, [stopProjectSandboxMutation, projectId]);
 
-  const handleToggleSandboxView = useCallback(() => {
-    void setShowSandbox((prev) => !prev);
-  }, [setShowSandbox]);
-
   return {
     canStartSandbox,
-    showSandbox,
-    setShowSandbox,
     isSandboxActive,
     isSandboxStarting: isStartingLocal || isSandboxStartingFromStatus,
     isSandboxStopping: isStoppingLocal || isSandboxStoppingFromStatus,
@@ -81,6 +68,5 @@ export function useProjectSandbox(
     sandboxId,
     handleStartSandbox,
     handleStopSandbox,
-    handleToggleSandboxView,
   };
 }

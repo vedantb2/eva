@@ -1,19 +1,22 @@
-import { useQueryState } from "nuqs";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { teamDetailTabParser } from "@/lib/search-params";
+import type { TeamDetailTab } from "@/lib/search-params";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@conductor/ui";
 import { TeamMembersTab } from "./_components/TeamMembersTab";
 import { TeamReposTab } from "./_components/TeamReposTab";
 import { TeamEnvVarsTab } from "./_components/TeamEnvVarsTab";
+import { useNavigate } from "@tanstack/react-router";
 
-interface TeamDetailClientProps {
+export function TeamDetailClient({
+  teamId,
+  tab,
+}: {
   teamId: string;
-}
-
-export function TeamDetailClient({ teamId }: TeamDetailClientProps) {
+  tab: TeamDetailTab;
+}) {
+  const navigate = useNavigate();
   const typedTeamId = teamId as Id<"teams">;
   const team = useQuery(api.teams.get, { id: typedTeamId });
   const members =
@@ -30,8 +33,6 @@ export function TeamDetailClient({ teamId }: TeamDetailClientProps) {
     team ? { teamId: team._id } : "skip",
   );
 
-  const [tab, setTab] = useQueryState("tab", teamDetailTabParser);
-
   if (!team) {
     return (
       <PageWrapper title="Team">
@@ -47,7 +48,11 @@ export function TeamDetailClient({ teamId }: TeamDetailClientProps) {
       <Tabs
         value={tab}
         onValueChange={(v) => {
-          if (v === "members" || v === "repos" || v === "env") setTab(v);
+          if (v === "members" || v === "repos" || v === "env") {
+            navigate({
+              to: `/teams/${teamId}/${v}`,
+            });
+          }
         }}
       >
         <TabsList className="mb-4">

@@ -1,8 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { WorkflowId } from "@convex-dev/workflow";
-import { workflow } from "./workflowManager";
+import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
 import { buildTaskDoneEvent } from "./taskWorkflow";
 import { trackProjectBuildWorkflow } from "./workflowWatchdog";
@@ -344,9 +343,7 @@ export const cancelBuild = authMutation({
       throw new Error("No active build to cancel");
     }
 
-    try {
-      await workflow.cancel(ctx, project.activeBuildWorkflowId as WorkflowId);
-    } catch {}
+    await cancelTrackedWorkflow(ctx, project.activeBuildWorkflowId);
 
     const tasks = await ctx.db
       .query("agentTasks")
@@ -356,11 +353,7 @@ export const cancelBuild = authMutation({
     for (const task of tasks) {
       if (task.status !== "in_progress") continue;
 
-      if (task.activeWorkflowId) {
-        try {
-          await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
-        } catch {}
-      }
+      await cancelTrackedWorkflow(ctx, task.activeWorkflowId);
 
       const run = await ctx.db
         .query("agentRuns")

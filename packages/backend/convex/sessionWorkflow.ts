@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
-import { workflow } from "./workflowManager";
+import { defineEvent } from "@convex-dev/workflow";
+import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
@@ -687,9 +687,7 @@ export const cancelExecution = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
-    if (session.activeWorkflowId) {
-      await workflow.cancel(ctx, session.activeWorkflowId as WorkflowId);
-    }
+    await cancelTrackedWorkflow(ctx, session.activeWorkflowId);
 
     if (session.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {

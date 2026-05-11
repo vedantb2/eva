@@ -3,7 +3,7 @@ import { type MutationCtx, internalMutation } from "./_generated/server";
 import { type WorkflowId } from "@convex-dev/workflow";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { workflow } from "./workflowManager";
+import { cancelTrackedWorkflow } from "./workflowManager";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 import {
   getProjectConversation,
@@ -130,9 +130,7 @@ async function cancelStaleWorkflow(
   workflowId: string,
   streamingEntityIds: string[],
 ): Promise<void> {
-  try {
-    await workflow.cancel(ctx, workflowId as WorkflowId);
-  } catch {}
+  await cancelTrackedWorkflow(ctx, workflowId);
   for (const entityId of streamingEntityIds) {
     await clearStreamingActivity(ctx, entityId);
   }
@@ -345,9 +343,7 @@ export const handleStaleBuild = internalMutation({
     if (!project || project.activeBuildWorkflowId !== args.workflowId)
       return null;
 
-    try {
-      await workflow.cancel(ctx, args.workflowId as WorkflowId);
-    } catch {}
+    await cancelTrackedWorkflow(ctx, args.workflowId);
 
     await ctx.db.patch(args.projectId, {
       activeBuildWorkflowId: undefined,

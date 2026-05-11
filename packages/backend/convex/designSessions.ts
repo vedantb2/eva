@@ -1,8 +1,7 @@
 import { internalAction, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { type WorkflowId } from "@convex-dev/workflow";
-import { workflow } from "./workflowManager";
+import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import {
   aiModelValidator,
   normalizeAIModel,
@@ -539,13 +538,7 @@ export const cancelExecution = authMutation({
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
 
-    if (session.activeWorkflowId) {
-      try {
-        await workflow.cancel(ctx, session.activeWorkflowId as WorkflowId);
-      } catch {
-        // Workflow may have already completed
-      }
-    }
+    await cancelTrackedWorkflow(ctx, session.activeWorkflowId);
 
     const last = await ctx.db
       .query("messages")

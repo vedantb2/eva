@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { WorkflowId } from "@convex-dev/workflow";
-import { workflow } from "../workflowManager";
+import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authMutation, hasTaskAccess } from "../functions";
 import { aiModelValidator } from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
@@ -291,11 +291,7 @@ export const cancelExecution = authMutation({
       throw new Error("Not authorized");
     }
 
-    if (task.activeWorkflowId) {
-      try {
-        await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
-      } catch {}
-    }
+    await cancelTrackedWorkflow(ctx, task.activeWorkflowId);
 
     const run = await ctx.db
       .query("agentRuns")

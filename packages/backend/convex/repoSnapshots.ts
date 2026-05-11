@@ -1,8 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { components } from "./_generated/api";
-import { Crons } from "@convex-dev/crons";
 import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import {
@@ -13,8 +11,7 @@ import {
 } from "./validators";
 import { authQuery, authMutation } from "./functions";
 import { workflow } from "./workflowManager";
-
-const crons = new Crons(components.crons);
+import { safeDeleteCron, safeReplaceCron } from "./cronManager";
 
 /** Converts a schedule string to a cron expression, returning null for "manual". */
 function resolveCronspec(schedule: string): string | null {
@@ -180,26 +177,14 @@ export const saveRepoSnapshot = authMutation({
       : `snapshot-${canonicalRepoId}`;
 
     if (existing) {
-      if (existing.cronJobId) {
-        try {
-          await crons.delete(ctx, { name: cronName });
-        } catch {
-          // Cron may already be deleted
-        }
-      }
-
-      let cronJobId: string | undefined;
       const cronspec = resolveCronspec(args.schedule);
-      if (cronspec && existing.enabled === true) {
-        const id = await crons.register(
-          ctx,
-          { kind: "cron", cronspec },
-          internal.repoSnapshots.triggerScheduledBuild,
-          { repoSnapshotId: existing._id },
-          cronName,
-        );
-        cronJobId = String(id);
-      }
+      const cronJobId = await safeReplaceCron(ctx, {
+        name: cronName,
+        existingCronJobId: existing.cronJobId,
+        cronspec: cronspec && existing.enabled === true ? cronspec : null,
+        handler: internal.repoSnapshots.triggerScheduledBuild,
+        args: { repoSnapshotId: existing._id },
+      });
 
       await ctx.db.patch(existing._id, {
         schedule: args.schedule,
@@ -223,16 +208,15 @@ export const saveRepoSnapshot = authMutation({
       updatedAt: now,
     });
 
-    const cronspec = resolveCronspec(args.schedule);
-    if (cronspec) {
-      const cronId = await crons.register(
-        ctx,
-        { kind: "cron", cronspec },
-        internal.repoSnapshots.triggerScheduledBuild,
-        { repoSnapshotId: id },
-        cronName,
-      );
-      await ctx.db.patch(id, { cronJobId: String(cronId) });
+    const cronJobId = await safeReplaceCron(ctx, {
+      name: cronName,
+      existingCronJobId: undefined,
+      cronspec: resolveCronspec(args.schedule),
+      handler: internal.repoSnapshots.triggerScheduledBuild,
+      args: { repoSnapshotId: id },
+    });
+    if (cronJobId) {
+      await ctx.db.patch(id, { cronJobId });
     }
 
     return id;
@@ -251,29 +235,13 @@ export const setSnapshotEnabled = authMutation({
     if (!config) throw new Error("Snapshot config not found");
 
     const cronName = `snapshot-rebuild-${config.repoId}`;
-
-    if (config.cronJobId) {
-      try {
-        await crons.delete(ctx, { name: cronName });
-      } catch {
-        // Cron may already be deleted
-      }
-    }
-
-    let cronJobId: string | undefined;
-    if (args.enabled) {
-      const cronspec = resolveCronspec(config.schedule);
-      if (cronspec) {
-        const id = await crons.register(
-          ctx,
-          { kind: "cron", cronspec },
-          internal.repoSnapshots.triggerScheduledBuild,
-          { repoSnapshotId: config._id },
-          cronName,
-        );
-        cronJobId = String(id);
-      }
-    }
+    const cronJobId = await safeReplaceCron(ctx, {
+      name: cronName,
+      existingCronJobId: config.cronJobId,
+      cronspec: args.enabled ? resolveCronspec(config.schedule) : null,
+      handler: internal.repoSnapshots.triggerScheduledBuild,
+      args: { repoSnapshotId: config._id },
+    });
 
     await ctx.db.patch(args.repoSnapshotId, {
       enabled: args.enabled,
@@ -293,13 +261,7 @@ export const deleteRepoSnapshot = authMutation({
     if (!config) return null;
 
     const cronName = `snapshot-rebuild-${config.repoId}`;
-    if (config.cronJobId) {
-      try {
-        await crons.delete(ctx, { name: cronName });
-      } catch {
-        // Cron may already be deleted
-      }
-    }
+    await safeDeleteCron(ctx, cronName, config.cronJobId);
 
     await ctx.scheduler.runAfter(
       0,

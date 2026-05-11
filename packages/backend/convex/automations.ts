@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
-import { internal, components } from "./_generated/api";
-import { Crons } from "@convex-dev/crons";
+import { internal } from "./_generated/api";
 import {
   aiModelValidator,
   automationFields,
@@ -12,16 +11,14 @@ import {
   normalizeAIModel,
 } from "./validators";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
-import { workflow } from "./workflowManager";
-import type { WorkflowId } from "@convex-dev/workflow";
+import { workflow, cancelTrackedWorkflow } from "./workflowManager";
+import { safeDeleteCron, safeReplaceCron } from "./cronManager";
 import type { Doc, Id } from "./_generated/dataModel";
 import { taskCompleteEvent } from "./_taskWorkflow/events";
 import {
   recordCompletionLog,
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
-
-const crons = new Crons(components.crons);
 
 /** Lists all automations for a given repository. */
 export const list = authQuery({
@@ -117,25 +114,13 @@ export const update = authMutation({
       args.enabled !== undefined ? args.enabled : automation.enabled;
 
     const cronName = `automation-${String(args.id)}`;
-    if (automation.cronJobId) {
-      try {
-        await crons.delete(ctx, { name: cronName });
-      } catch {
-        // may already be deleted
-      }
-      patch.cronJobId = undefined;
-    }
-
-    if (newEnabled && newSchedule) {
-      const cronId = await crons.register(
-        ctx,
-        { kind: "cron", cronspec: newSchedule },
-        internal.automations.triggerAutomation,
-        { automationId: args.id },
-        cronName,
-      );
-      patch.cronJobId = String(cronId);
-    }
+    patch.cronJobId = await safeReplaceCron(ctx, {
+      name: cronName,
+      existingCronJobId: automation.cronJobId,
+      cronspec: newEnabled && newSchedule ? newSchedule : null,
+      handler: internal.automations.triggerAutomation,
+      args: { automationId: args.id },
+    });
 
     await ctx.db.patch(args.id, patch);
     return null;
@@ -154,13 +139,7 @@ export const remove = authMutation({
     }
 
     const cronName = `automation-${String(args.id)}`;
-    if (automation.cronJobId) {
-      try {
-        await crons.delete(ctx, { name: cronName });
-      } catch {
-        // may already be deleted
-      }
-    }
+    await safeDeleteCron(ctx, cronName, automation.cronJobId);
 
     const runs = await ctx.db
       .query("automationRuns")
@@ -461,11 +440,7 @@ export const cancelRun = authMutation({
       throw new Error("Not authorized");
     }
 
-    if (run.activeWorkflowId) {
-      try {
-        await workflow.cancel(ctx, run.activeWorkflowId as WorkflowId);
-      } catch {}
-    }
+    await cancelTrackedWorkflow(ctx, run.activeWorkflowId);
 
     await ctx.db.patch(args.runId, {
       status: "error",

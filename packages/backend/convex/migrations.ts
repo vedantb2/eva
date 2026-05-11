@@ -1,8 +1,7 @@
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { type WorkflowId } from "@convex-dev/workflow";
-import { workflow } from "./workflowManager";
+import { cancelTrackedWorkflow } from "./workflowManager";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 
 /** Finds and resets stale in-progress tasks and their timed-out runs. */
@@ -41,11 +40,7 @@ export const cleanupStaleRuns = internalMutation({
       )
         continue;
 
-      if (task.activeWorkflowId) {
-        try {
-          await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
-        } catch {}
-      }
+      await cancelTrackedWorkflow(ctx, task.activeWorkflowId);
 
       for (const staleRun of staleActiveRuns) {
         await ctx.db.patch(staleRun._id, {

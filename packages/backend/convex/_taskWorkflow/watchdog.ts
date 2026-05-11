@@ -1,8 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
-import type { WorkflowId } from "@convex-dev/workflow";
-import { workflow } from "../workflowManager";
+import { cancelTrackedWorkflow } from "../workflowManager";
 import { buildTaskDoneEvent } from "./events";
 import {
   cleanUpStaleRun,
@@ -294,9 +293,7 @@ export const handleStaleRun = internalMutation({
     )[0];
     if (latestRun && latestRun._id !== args.runId) return null;
 
-    try {
-      await workflow.cancel(ctx, task.activeWorkflowId as WorkflowId);
-    } catch {}
+    await cancelTrackedWorkflow(ctx, task.activeWorkflowId);
 
     const run = await ctx.db.get(args.runId);
 

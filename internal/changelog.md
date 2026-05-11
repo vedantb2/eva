@@ -1,5 +1,11 @@
 # Changelog
 
+## Extract cancelTrackedWorkflow and safeReplaceCron helpers - 2026-05-11
+
+- **Why**: Eleven mutations across the backend (`automations`, `buildWorkflow` x2, `designSessions`, `migrations`, `sessionWorkflow`, `testGenWorkflow`, `workflowWatchdog` x2, `_taskWorkflow/recovery`, `_taskWorkflow/publicMutations`, `_taskWorkflow/watchdog`) repeated the same try/swallow `workflow.cancel(ctx, entity.activeWorkflowId as WorkflowId)` pattern. Separately, `automations` and `repoSnapshots` each instantiated their own `Crons` client and inlined the same delete-if-tracked-then-register-if-spec sequence for managing cron jobs.
+- **Change**: Added `cancelTrackedWorkflow(ctx, workflowId)` to `workflowManager.ts` (handles the undefined case and swallows already-cancelled errors), and a new `cronManager.ts` exporting a shared `crons` client plus `safeDeleteCron` and `safeReplaceCron<F>` helpers (`safeReplaceCron` preserves the link between `handler` and `args` via `FunctionArgs<F>`). Migrated all 12 cancel sites and 5 cron management sites; `sessionWorkflow.ts`'s user-initiated cancel now also swallows already-completed errors, matching the rest of the backend. Dropped redundant `WorkflowId`/`workflow`/`Crons`/`components` imports from the migrated files.
+- **Reason**: The `WorkflowId` cast lives in one place. Cron lifecycle policy (e.g. logging which cron was replaced, retry behaviour on register failure) becomes a one-file edit instead of a four-site sweep.
+
 ## Extract sendCompletionEvent helper - 2026-05-11
 
 - **Why**: Fourteen mutations across the backend (workflow completion callbacks in `summarizeWorkflow`, `testGenWorkflow`, `docPrdWorkflow`, `docInterviewWorkflow` (x2), `projectInterviewWorkflow` (x2), `evaluationWorkflow` (x2), `designWorkflow`, `sessionWorkflow`, `automations`, plus the build-task done senders in `_taskWorkflow/runLifecycle` and `_taskWorkflow/watchdog`, and the task completion + audit mutations in `_taskWorkflow/publicMutations`) repeated the same `workflow.sendEvent(...)` pattern: spread an event spec, cast `entity.activeWorkflowId` to `WorkflowId`, then build a `{ success, result, error, activityLog }` (or build-task-shaped) value.

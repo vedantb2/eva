@@ -1,7 +1,6 @@
 import type { MutationCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { workflow } from "../workflowManager";
-import type { WorkflowId } from "@convex-dev/workflow";
+import { cancelTrackedWorkflow } from "../workflowManager";
 import type { Id } from "../_generated/dataModel";
 import {
   clearStreamingActivity,
@@ -111,11 +110,7 @@ export async function cleanUpStaleRun(
     taskStatus: string;
   },
 ): Promise<void> {
-  if (params.activeWorkflowId) {
-    try {
-      await workflow.cancel(ctx, params.activeWorkflowId as WorkflowId);
-    } catch {}
-  }
+  await cancelTrackedWorkflow(ctx, params.activeWorkflowId);
 
   if (params.sandboxId && params.repoId) {
     await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {

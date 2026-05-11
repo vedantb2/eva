@@ -36,19 +36,13 @@ import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
   IconFileText,
   IconTrash,
-  IconUserPlus,
-  IconFolder,
-  IconFolderPlus,
   IconGitBranch,
   IconTag,
   IconCheck,
   IconX,
 } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { getUserInitials, UserInitials } from "@conductor/shared";
-import { Facehash } from "facehash";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
-import { getUserDisplayName } from "@/lib/components/tasks/_components/task-detail-constants";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
 import {
@@ -56,6 +50,8 @@ import {
   type ScreenshotsToggleValue,
 } from "./ScreenshotsToggle";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
+import { AssigneeSelector } from "./_components/AssigneeSelector";
+import { ProjectPicker } from "./_components/ProjectPicker";
 
 const MarkdownEditor = lazy(() =>
   import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
@@ -231,13 +227,6 @@ export function QuickTaskModal({
 
   const canSubmit = !isLoading && !!title.trim() && !!baseBranch;
 
-  const assignedUser = assignedTo
-    ? users?.find((u) => u._id === assignedTo)
-    : undefined;
-  const selectedProject = selectedProjectId
-    ? projects?.find((p) => p._id === selectedProjectId)
-    : undefined;
-
   useHotkey(
     "Mod+Enter",
     (e) => {
@@ -289,72 +278,11 @@ export function QuickTaskModal({
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-                >
-                  {assignedUser ? (
-                    <>
-                      <UserInitials
-                        user={assignedUser}
-                        size="sm"
-                        hideLastSeen
-                      />
-                      <span className="text-foreground">
-                        {getUserDisplayName(assignedUser)}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <IconUserPlus size={14} />
-                      <span>Assignee</span>
-                    </>
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-52 p-0">
-                <Command>
-                  <CommandInput placeholder="Search users..." />
-                  <CommandList>
-                    <CommandEmpty>No users found</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem
-                        value="unassigned"
-                        onSelect={() => setAssignedTo(undefined)}
-                      >
-                        <IconUserPlus
-                          size={14}
-                          className="text-muted-foreground"
-                        />
-                        Unassigned
-                        {!assignedTo && (
-                          <IconCheck size={14} className="ml-auto" />
-                        )}
-                      </CommandItem>
-                      {(users ?? []).map((user) => (
-                        <CommandItem
-                          key={user._id}
-                          value={getUserDisplayName(user)}
-                          onSelect={() => setAssignedTo(user._id)}
-                        >
-                          <Facehash
-                            size={16}
-                            name={getUserInitials(user)}
-                            enableBlink
-                          />
-                          {getUserDisplayName(user)}
-                          {assignedTo === user._id && (
-                            <IconCheck size={14} className="ml-auto" />
-                          )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <AssigneeSelector
+              users={users}
+              assignedTo={assignedTo}
+              setAssignedTo={setAssignedTo}
+            />
 
             <PriorityPicker value={priority} onChange={setPriority} />
 
@@ -364,78 +292,14 @@ export function QuickTaskModal({
               onChange={setScreenshotsVideosEnabled}
             />
 
-            <Popover
+            <ProjectPicker
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              setSelectedProjectId={setSelectedProjectId}
               open={projectPickerOpen}
-              onOpenChange={setProjectPickerOpen}
-            >
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-                >
-                  <IconFolder size={14} />
-                  <span className={selectedProject ? "text-foreground" : ""}>
-                    {selectedProject ? selectedProject.title : "Project"}
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-52 p-0">
-                <Command>
-                  <CommandInput placeholder="Search projects..." />
-                  <CommandList>
-                    <CommandEmpty>No projects found</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem
-                        value="no-project"
-                        onSelect={() => {
-                          setSelectedProjectId(undefined);
-                          setProjectPickerOpen(false);
-                        }}
-                      >
-                        No project
-                        {!selectedProjectId && (
-                          <IconCheck size={14} className="ml-auto" />
-                        )}
-                      </CommandItem>
-                      {(projects ?? []).map((p) => (
-                        <CommandItem
-                          key={p._id}
-                          value={p.title}
-                          onSelect={() => {
-                            setSelectedProjectId(p._id);
-                            setProjectPickerOpen(false);
-                          }}
-                        >
-                          <IconFolder
-                            size={14}
-                            className="text-muted-foreground"
-                          />
-                          {p.title}
-                          {selectedProjectId === p._id && (
-                            <IconCheck size={14} className="ml-auto" />
-                          )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                    <CommandGroup>
-                      <CommandItem
-                        value="__new_project__"
-                        onSelect={() => {
-                          setProjectPickerOpen(false);
-                          setIsCreatingProject(true);
-                        }}
-                      >
-                        <IconFolderPlus
-                          size={14}
-                          className="text-muted-foreground"
-                        />
-                        New project...
-                      </CommandItem>
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+              setOpen={setProjectPickerOpen}
+              onCreateProject={() => setIsCreatingProject(true)}
+            />
 
             <Popover>
               <PopoverTrigger asChild>

@@ -25,16 +25,16 @@ import {
   IconCamera,
   IconPlayerPlay,
   IconTrash,
-  IconChevronDown,
-  IconChevronRight,
-  IconCheck,
-  IconX,
-  IconClock,
   IconUpload,
 } from "@tabler/icons-react";
 import { formatDurationMs } from "@conductor/shared/duration";
-import { parseCommandLines } from "./_utils";
+import { parseCommandLines, formatFileSize } from "./_utils";
 import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
+import {
+  BuildRow,
+  BuildStatusBadge,
+  WarmupStatusBadge,
+} from "./_components/BuildRow";
 
 export function SnapshotsClient() {
   const { repoId } = useRepo();
@@ -381,153 +381,6 @@ export function SnapshotsClient() {
       </Tabs>
     </PageWrapper>
   );
-}
-
-function BuildRow({
-  build,
-  isExpanded,
-  duration,
-  onToggle,
-}: {
-  build: {
-    _id: Id<"snapshotBuilds">;
-    status: "running" | "success" | "error";
-    triggeredBy: "cron" | "manual";
-    logs: string;
-    error?: string;
-    startedAt: number;
-    completedAt?: number;
-    warmupStatus?: "pending" | "success" | "error";
-    warmupError?: string;
-  };
-  isExpanded: boolean;
-  duration: string;
-  onToggle: () => void;
-}) {
-  return (
-    <>
-      <tr className="cursor-pointer hover:bg-muted/30" onClick={onToggle}>
-        <td className="px-2 py-2 sm:px-4">
-          {isExpanded ? (
-            <IconChevronDown size={14} />
-          ) : (
-            <IconChevronRight size={14} />
-          )}
-        </td>
-        <td className="px-2 py-2 sm:px-4">
-          {new Date(build.startedAt).toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </td>
-        <td className="px-2 py-2 sm:px-4">{duration}</td>
-        <td className="px-2 py-2 capitalize sm:px-4">{build.triggeredBy}</td>
-        <td className="px-2 py-2 sm:px-4">
-          <BuildStatusBadge status={build.status} />
-        </td>
-        <td className="px-2 py-2 sm:px-4">
-          <WarmupStatusBadge status={build.warmupStatus} />
-        </td>
-      </tr>
-      {isExpanded && (
-        <tr>
-          <td colSpan={6} className="px-4 py-3">
-            {build.error && (
-              <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {build.error}
-              </div>
-            )}
-            {build.warmupError && (
-              <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                Warmup failed: {build.warmupError}
-              </div>
-            )}
-            {build.logs ? (
-              <pre className="max-h-64 overflow-auto rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap sm:p-3 sm:text-[11px]">
-                {build.logs}
-              </pre>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                No logs available.
-              </p>
-            )}
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-function BuildStatusBadge({
-  status,
-}: {
-  status: "running" | "success" | "error";
-}) {
-  if (status === "running") {
-    return (
-      <span className="inline-flex items-center gap-1 text-blue-500">
-        <IconClock size={12} />
-        Running
-      </span>
-    );
-  }
-  if (status === "success") {
-    return (
-      <span className="inline-flex items-center gap-1 text-green-500">
-        <IconCheck size={12} />
-        Success
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-destructive">
-      <IconX size={12} />
-      Error
-    </span>
-  );
-}
-
-function WarmupStatusBadge({
-  status,
-}: {
-  status?: "pending" | "success" | "error";
-}) {
-  if (!status) {
-    return <span className="text-muted-foreground">&mdash;</span>;
-  }
-  if (status === "pending") {
-    return (
-      <span className="inline-flex items-center gap-1 text-blue-500">
-        <IconClock size={12} />
-        Pending
-      </span>
-    );
-  }
-  if (status === "success") {
-    return (
-      <span className="inline-flex items-center gap-1 text-green-500">
-        <IconCheck size={12} />
-        Warmed
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-destructive">
-      <IconX size={12} />
-      Failed
-    </span>
-  );
-}
-
-/** Formats bytes into human-readable size. */
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 /**

@@ -21,9 +21,7 @@ import {
   PromptInputProvider,
   PromptInputFooter,
   PromptInputTools,
-  PromptInputSubmit,
   PromptInputSpeech,
-  usePromptInputController,
   ModelSelect,
   ResponseLengthSelect,
   type PromptInputMessage,
@@ -84,6 +82,8 @@ import {
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { SessionPromptSubmit } from "./_components/SessionPromptSubmit";
+import { prStateIconClass } from "./_utils/prStateIconClass";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
@@ -154,50 +154,6 @@ function parsePendingQuestion(
     return questions.length > 0 ? questions : null;
   } catch {
     return null;
-  }
-}
-
-interface SessionPromptSubmitProps {
-  disabled: boolean;
-  isExecuting: boolean;
-  status: "submitted" | undefined;
-}
-
-function SessionPromptSubmit({
-  disabled,
-  isExecuting,
-  status,
-}: SessionPromptSubmitProps) {
-  const { textInput } = usePromptInputController();
-  const isEmpty = textInput.value.trim().length === 0;
-
-  return (
-    <PromptInputSubmit
-      status={status}
-      disabled={disabled || isEmpty}
-      title={isExecuting ? "Queue message" : "Send message"}
-    />
-  );
-}
-
-/** Maps a session's PR state to an icon color class.
- *   draft  → grey   (matches GitHub's draft pill)
- *   open   → green  (active, ready for review)
- *   merged → purple (reuses status-code-review token)
- *   closed → red    (closed without merge) */
-function prStateIconClass(
-  state: "draft" | "open" | "merged" | "closed" | undefined,
-): string {
-  switch (state) {
-    case "open":
-      return "text-success";
-    case "merged":
-      return "text-status-code-review";
-    case "closed":
-      return "text-destructive";
-    case "draft":
-    default:
-      return "text-muted-foreground";
   }
 }
 

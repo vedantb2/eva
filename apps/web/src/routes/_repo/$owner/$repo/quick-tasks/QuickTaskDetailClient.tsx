@@ -13,6 +13,7 @@ import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
+import type { TaskRouteSandboxTab } from "@/lib/search-params";
 
 interface QuickTaskDetailClientProps {
   taskId: string;
@@ -94,7 +95,7 @@ export function QuickTaskDetailClient({
               to: `${basePath}/quick-tasks/${typedTaskId}/${tab}`,
             });
           },
-          onOpenSandboxView: (sandboxTab) => {
+          onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => {
             navigate({
               to: `${basePath}/quick-tasks/${typedTaskId}/sandbox/${sandboxTab}`,
             });

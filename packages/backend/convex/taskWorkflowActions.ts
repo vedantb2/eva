@@ -1,127 +1,30 @@
 "use node";
 
 import { v } from "convex/values";
-import type { GenericActionCtx } from "convex/server";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { DataModel, Id } from "./_generated/dataModel";
 import { getInstallationOctokit } from "./githubAuth";
-import { deploymentStatusValidator } from "./validators";
-import { extractJsonBlock } from "./_taskWorkflow/helpers";
-import { resolveAllEnvVars } from "./envVarResolver";
-import { fetchStableBranchAlias } from "./_deployment/vercel";
 import {
   buildPrBody,
   buildTaskPrSections,
   buildProjectPrSections,
 } from "./prBody";
 import { buildEvaTaskUrl, buildEvaProjectUrl } from "./_taskWorkflow/urls";
+import {
+  AUDIT_SECTION_REGEX,
+  buildAuditSection,
+  mergeBodyWithAuditSection,
+} from "./_taskWorkflow/prAudit";
+import {
+  MAX_POLL_ATTEMPTS,
+  POLL_INTERVAL_MS,
+  mapGitHubDeploymentState,
+  isTerminalDeploymentStatus,
+  resolveStableDeploymentUrl,
+} from "./_taskWorkflow/deploymentHelpers";
 
 // Re-export URL builders for backwards compatibility
 export { buildEvaTaskUrl, buildEvaSessionUrl } from "./_taskWorkflow/urls";
-
-type AuditRow = {
-  requirement: string;
-  passed: boolean;
-  detail: string;
-};
-
-type AuditSection = {
-  name: string;
-  results: AuditRow[];
-};
-
-type ParsedAudit = {
-  sections?: AuditSection[];
-  accessibility?: AuditRow[];
-  testing?: AuditRow[];
-  codeReview?: AuditRow[];
-  summary?: string;
-};
-
-const AUDIT_SECTION_REGEX =
-  /<!-- EVA_AUDIT_START -->[\s\S]*?<!-- EVA_AUDIT_END -->\s*/m;
-
-/** Escapes pipe characters and newlines so a string is safe for a markdown table cell. */
-function escapeTableCell(value: string): string {
-  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
-}
-
-/** Builds the markdown audit section from parsed audit results or an error message. */
-function buildAuditSection(
-  result: string | null,
-  error: string | null,
-): string {
-  const lines: string[] = [
-    "<!-- EVA_AUDIT_START -->",
-    "## Post-Execution Audit",
-    "",
-  ];
-
-  if (error) {
-    lines.push(`Audit failed: ${escapeTableCell(error)}`);
-    lines.push("<!-- EVA_AUDIT_END -->");
-    return lines.join("\n");
-  }
-
-  if (!result) {
-    lines.push("Audit unavailable.");
-    lines.push("<!-- EVA_AUDIT_END -->");
-    return lines.join("\n");
-  }
-
-  try {
-    const parsed = JSON.parse(extractJsonBlock(result)) as ParsedAudit;
-    const rows: Array<[string, AuditRow]> = [];
-
-    if (parsed.sections && Array.isArray(parsed.sections)) {
-      for (const section of parsed.sections) {
-        for (const row of section.results ?? []) {
-          rows.push([section.name, row]);
-        }
-      }
-    } else {
-      for (const row of parsed.accessibility ?? [])
-        rows.push(["Accessibility", row]);
-      for (const row of parsed.testing ?? []) rows.push(["Testing", row]);
-      for (const row of parsed.codeReview ?? [])
-        rows.push(["Code Review", row]);
-    }
-
-    if (parsed.summary) {
-      lines.push(`Summary: ${escapeTableCell(parsed.summary)}`);
-      lines.push("");
-    }
-
-    lines.push("| Section | Requirement | Passed | Detail |");
-    lines.push("| --- | --- | --- | --- |");
-
-    if (rows.length === 0) {
-      lines.push("| - | - | - | No audit checks returned |");
-    } else {
-      for (const [section, row] of rows) {
-        const status = row.passed ? "PASS" : "FAIL";
-        lines.push(
-          `| ${section} | ${escapeTableCell(row.requirement)} | ${status} | ${escapeTableCell(row.detail)} |`,
-        );
-      }
-    }
-  } catch {
-    lines.push("Audit parsing failed.");
-  }
-
-  lines.push("<!-- EVA_AUDIT_END -->");
-  return lines.join("\n");
-}
-
-/** Merges a new audit section into an existing PR body, replacing any previous audit block. */
-function mergeBodyWithAuditSection(
-  existingBody: string,
-  auditSection: string,
-): string {
-  const stripped = existingBody.replace(AUDIT_SECTION_REGEX, "").trim();
-  return stripped ? `${stripped}\n\n${auditSection}` : auditSection;
-}
 
 async function findOpenPullRequestForBranch(params: {
   installationId: number;
@@ -503,85 +406,6 @@ export const refreshPullRequestBody = internalAction({
     return pr.url;
   },
 });
-
-const MAX_POLL_ATTEMPTS = 20;
-const POLL_INTERVAL_MS = 30_000;
-
-type DeploymentStatus = typeof deploymentStatusValidator.type;
-
-/** Maps a GitHub deployment state string to the internal DeploymentStatus enum. */
-function mapGitHubDeploymentState(state: string): DeploymentStatus {
-  switch (state) {
-    case "queued":
-      return "queued";
-    case "pending":
-    case "in_progress":
-    case "waiting":
-      return "building";
-    case "success":
-      return "deployed";
-    case "error":
-    case "failure":
-    case "inactive":
-      return "error";
-    default:
-      return "building";
-  }
-}
-
-/** Checks whether a deployment status is a final state (deployed or error). */
-function isTerminalDeploymentStatus(status: DeploymentStatus): boolean {
-  return status === "deployed" || status === "error";
-}
-
-/**
- * Resolves the deployment URL to store, preferring Vercel's stable branch
- * alias over the per-commit URL GitHub reports. Never flips a stored URL:
- * while the alias isn't attached yet we return `undefined` (the mutation
- * leaves the field untouched, since it spreads `deploymentUrl` only when
- * not undefined) and signal the caller to keep polling. On the final
- * attempt we fall back to the per-commit URL as a safety net so the UI
- * isn't permanently empty. If the token isn't configured we degrade to the
- * per-commit URL immediately — same behaviour as before this change.
- */
-async function resolveStableDeploymentUrl(
-  ctx: GenericActionCtx<DataModel>,
-  repoId: Id<"githubRepos">,
-  perCommitUrl: string | undefined,
-  attempt: number,
-): Promise<{ url: string | undefined; shouldKeepPolling: boolean }> {
-  if (!perCommitUrl) return { url: undefined, shouldKeepPolling: false };
-
-  const envVars = await resolveAllEnvVars(ctx, repoId);
-  const token = envVars.VERCEL_TOKEN;
-  if (!token) {
-    // No token configured → fall back to today's behaviour immediately.
-    return { url: perCommitUrl, shouldKeepPolling: false };
-  }
-  const teamId = envVars.VERCEL_TEAM_ID;
-
-  const alias = await fetchStableBranchAlias({
-    perCommitHostname: perCommitUrl,
-    token,
-    teamId,
-  });
-  if (alias) {
-    // Vercel's API returns aliases as bare hostnames (e.g. `my-app-git-feat-team.vercel.app`).
-    // Prepend `https://` so the stored URL is absolute — without a scheme, browsers treat
-    // it as a relative path and prepend the current page's origin when rendered in `<a href>`.
-    return { url: `https://${alias}`, shouldKeepPolling: false };
-  }
-
-  // Alias not yet attached. Keep polling but DO NOT touch the stored URL —
-  // returning `undefined` makes the mutation skip the `deploymentUrl` patch,
-  // so users never see a per-commit URL briefly before it flips to the
-  // stable alias. On the final attempt we accept the per-commit URL as a
-  // safety net so the preview button isn't empty forever.
-  if (attempt < MAX_POLL_ATTEMPTS - 1) {
-    return { url: undefined, shouldKeepPolling: true };
-  }
-  return { url: perCommitUrl, shouldKeepPolling: false };
-}
 
 /** Polls GitHub deployment status for a task run branch, scheduling retries until terminal or max attempts. */
 export const pollDeploymentStatus = internalAction({

@@ -1,5 +1,11 @@
 # Changelog
 
+## Extract pr-audit and deployment helpers from taskWorkflowActions.ts - 2026-05-11
+
+- **Why**: `convex/taskWorkflowActions.ts` had grown to 874 lines mixing three concerns: pure markdown helpers for the PR audit section (~100 lines), Convex actions that create/refresh/append PRs (~380 lines), and deployment status polling with its own helpers (~80 lines of pure logic on top of two `internalAction` polling loops). Splitting the Convex action exports out would change the `internal.taskWorkflowActions.X` references at ~25 call sites, but the pure helpers can move without renaming any API path.
+- **Change**: Created `_taskWorkflow/prAudit.ts` for the markdown-table audit helpers (`escapeTableCell`, `buildAuditSection`, `mergeBodyWithAuditSection`, `AUDIT_SECTION_REGEX` and the local `AuditRow`/`AuditSection`/`ParsedAudit` types) and `_taskWorkflow/deploymentHelpers.ts` (marked `"use node"`, contains `mapGitHubDeploymentState`, `isTerminalDeploymentStatus`, `resolveStableDeploymentUrl`, plus the `MAX_POLL_ATTEMPTS` / `POLL_INTERVAL_MS` constants and the `DeploymentStatus` type). `taskWorkflowActions.ts` now imports the helpers and only houses the eight Convex actions (`createTaskPr`, `createProjectPr`, `createPullRequest`, `convertPrToDraft`, `markPrReadyForReview`, `appendAuditToPullRequest`, `refreshPullRequestBody`, `pollDeploymentStatus`, `pollSessionDeploymentStatus`) plus the local `findOpenPullRequestForBranch` helper — down from 874 to 698 lines.
+- **Reason**: PR audit formatting and deployment status mapping are pure logic with no Convex action surface — keeping them in the actions file made the file harder to navigate without justifying the coupling. All Convex API references (`internal.taskWorkflowActions.*`, `api.taskWorkflowActions.*`) stay unchanged so no caller updates were needed.
+
 ## Split validators.ts into \_validators/ subfolder - 2026-05-11
 
 - **Why**: `convex/validators.ts` had grown to 931 lines mixing four unrelated concerns: Convex validators (enums, shapes, table field defs), AI model configuration (validators + types + helper functions, ~390 lines), and the `PERSONALISATION_PRESETS` constant. Navigating to find "what statuses can a session have" required scrolling past the entire AI model registry.

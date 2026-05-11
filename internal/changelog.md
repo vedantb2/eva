@@ -1,5 +1,11 @@
 # Changelog
 
+## Migrate remaining workflows from prepareSandbox action to prepareSandboxSteps - 2026-05-11
+
+- **Why**: Five workflows (`docPrdWorkflow`, `docInterviewWorkflow` (x2), `projectInterviewWorkflow` (x2), `summarizeWorkflow`, `testGenWorkflow`) still called `step.runAction(internal.daytona.prepareSandbox, ...)` and unwrapped `{ sandboxId }` — the atomic action wrapper around sandbox setup. The newer `prepareSandboxSteps` helper performs the same work as discrete workflow steps and emits per-step progress (creating sandbox, fetching branches, setting up branch, running startup commands), giving users visible progress in the streaming UI during slow operations.
+- **Change**: Replaced all 7 sites with `prepareSandboxSteps(step, { ... })`. The helper returns the `sandboxId` directly so the `{ sandboxId }` destructure becomes a plain assignment; `ephemeral` is now explicit at each call site (`false` everywhere except `testGenWorkflow`, which keeps `true`). Added `import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";` to each file.
+- **Reason**: Sandbox setup progress is no longer hidden behind a single opaque action — interview, summarize, PRD-parse, and test-gen flows now report the same per-step progress that task and automation workflows already showed. Future improvements to sandbox preparation (extra steps, retry policies) only need to land in one file.
+
 ## Extract cancelTrackedWorkflow and safeReplaceCron helpers - 2026-05-11
 
 - **Why**: Eleven mutations across the backend (`automations`, `buildWorkflow` x2, `designSessions`, `migrations`, `sessionWorkflow`, `testGenWorkflow`, `workflowWatchdog` x2, `_taskWorkflow/recovery`, `_taskWorkflow/publicMutations`, `_taskWorkflow/watchdog`) repeated the same try/swallow `workflow.cancel(ctx, entity.activeWorkflowId as WorkflowId)` pattern. Separately, `automations` and `repoSnapshots` each instantiated their own `Crons` client and inlined the same delete-if-tracked-then-register-if-spec sequence for managing cron jobs.

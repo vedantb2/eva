@@ -12,6 +12,7 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
+import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
 const summarizeCompleteEvent = defineEvent({
   name: "summarizeComplete",
@@ -33,19 +34,17 @@ export const summarizeSessionWorkflow = workflow.define({
       { sessionId: args.sessionId },
     );
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.prepareSandbox,
-      {
-        existingSandboxId: sessionData.sandboxId,
-        installationId: args.installationId,
-        repoOwner: sessionData.repoOwner,
-        repoName: sessionData.repoName,
-        repoId: sessionData.repoId,
-        sessionPersistenceId: args.sessionId,
-        sessionPersistenceKind: "sessions",
-        streamingEntityId: `summary:${args.sessionId}`,
-      },
-    );
+    const sandboxId = await prepareSandboxSteps(step, {
+      existingSandboxId: sessionData.sandboxId,
+      installationId: args.installationId,
+      repoOwner: sessionData.repoOwner,
+      repoName: sessionData.repoName,
+      repoId: sessionData.repoId,
+      sessionPersistenceId: args.sessionId,
+      sessionPersistenceKind: "sessions",
+      streamingEntityId: `summary:${args.sessionId}`,
+      ephemeral: false,
+    });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,

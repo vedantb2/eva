@@ -18,6 +18,7 @@ import {
   setProjectConversation,
   setProjectGeneratedSpec,
 } from "./_projects/helpers";
+import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
 const projectInterviewCompleteEvent = defineEvent({
   name: "projectInterviewComplete",
@@ -105,19 +106,17 @@ export const projectInterviewWorkflow = workflow.define({
     );
     const fullPrompt = `${PROJECT_INTERVIEW_SYSTEM_PROMPT} ${questionPrompt}`;
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.prepareSandbox,
-      {
-        existingSandboxId: projectData.sandboxId,
-        installationId: args.installationId,
-        repoOwner: projectData.repoOwner,
-        repoName: projectData.repoName,
-        repoId: projectData.repoId,
-        streamingEntityId: args.projectId,
-        sessionPersistenceId: args.projectId,
-        sessionPersistenceKind: "projects",
-      },
-    );
+    const sandboxId = await prepareSandboxSteps(step, {
+      existingSandboxId: projectData.sandboxId,
+      installationId: args.installationId,
+      repoOwner: projectData.repoOwner,
+      repoName: projectData.repoName,
+      repoId: projectData.repoId,
+      streamingEntityId: args.projectId,
+      sessionPersistenceId: args.projectId,
+      sessionPersistenceKind: "projects",
+      ephemeral: false,
+    });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,
@@ -393,19 +392,17 @@ Based on the interview conversation above, generate an implementation spec with 
 
 Output ONLY valid JSON.`;
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.prepareSandbox,
-      {
-        existingSandboxId: projectData.sandboxId,
-        installationId: args.installationId,
-        repoOwner: projectData.repoOwner,
-        repoName: projectData.repoName,
-        repoId: projectData.repoId,
-        streamingEntityId: args.projectId,
-        sessionPersistenceId: args.projectId,
-        sessionPersistenceKind: "projects",
-      },
-    );
+    const sandboxId = await prepareSandboxSteps(step, {
+      existingSandboxId: projectData.sandboxId,
+      installationId: args.installationId,
+      repoOwner: projectData.repoOwner,
+      repoName: projectData.repoName,
+      repoId: projectData.repoId,
+      streamingEntityId: args.projectId,
+      sessionPersistenceId: args.projectId,
+      sessionPersistenceKind: "projects",
+      ephemeral: false,
+    });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,

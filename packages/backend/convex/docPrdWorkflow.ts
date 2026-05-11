@@ -13,6 +13,7 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
+import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
 const prdCompleteEvent = defineEvent({
   name: "prdComplete",
@@ -90,17 +91,15 @@ export const docPrdWorkflow = workflow.define({
       prdContent: args.prdContent,
     });
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.prepareSandbox,
-      {
-        existingSandboxId: docData.sandboxId,
-        installationId: args.installationId,
-        repoOwner: docData.repoOwner,
-        repoName: docData.repoName,
-        repoId: docData.repoId,
-        streamingEntityId: args.docId,
-      },
-    );
+    const sandboxId = await prepareSandboxSteps(step, {
+      existingSandboxId: docData.sandboxId,
+      installationId: args.installationId,
+      repoOwner: docData.repoOwner,
+      repoName: docData.repoName,
+      repoId: docData.repoId,
+      streamingEntityId: args.docId,
+      ephemeral: false,
+    });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,

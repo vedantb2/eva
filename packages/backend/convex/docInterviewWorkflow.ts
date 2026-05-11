@@ -14,6 +14,7 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
+import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
 const docInterviewCompleteEvent = defineEvent({
   name: "docInterviewComplete",
@@ -101,17 +102,15 @@ export const docInterviewWorkflow = workflow.define({
     );
     const fullPrompt = `${INTERVIEW_PROMPT} ${questionPrompt}`;
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.prepareSandbox,
-      {
-        existingSandboxId: docData.sandboxId,
-        installationId: args.installationId,
-        repoOwner: docData.repoOwner,
-        repoName: docData.repoName,
-        repoId: docData.repoId,
-        streamingEntityId: args.docId,
-      },
-    );
+    const sandboxId = await prepareSandboxSteps(step, {
+      existingSandboxId: docData.sandboxId,
+      installationId: args.installationId,
+      repoOwner: docData.repoOwner,
+      repoName: docData.repoName,
+      repoId: docData.repoId,
+      streamingEntityId: args.docId,
+      ephemeral: false,
+    });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,
@@ -364,17 +363,15 @@ Generate a product description, acceptance criteria, and user journeys for this 
 
 Output ONLY valid JSON.`;
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.prepareSandbox,
-      {
-        existingSandboxId: docData.sandboxId,
-        installationId: args.installationId,
-        repoOwner: docData.repoOwner,
-        repoName: docData.repoName,
-        repoId: docData.repoId,
-        streamingEntityId: args.docId,
-      },
-    );
+    const sandboxId = await prepareSandboxSteps(step, {
+      existingSandboxId: docData.sandboxId,
+      installationId: args.installationId,
+      repoOwner: docData.repoOwner,
+      repoName: docData.repoName,
+      repoId: docData.repoId,
+      streamingEntityId: args.docId,
+      ephemeral: false,
+    });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,

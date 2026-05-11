@@ -12,6 +12,7 @@ import {
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./prBody";
+import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
 const testGenCompleteEvent = defineEvent({
   name: "testGenComplete",
@@ -84,18 +85,15 @@ export const testGenWorkflow = workflow.define({
       docId: args.docId,
     });
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.prepareSandbox,
-      {
-        installationId: args.installationId,
-        repoOwner: docData.repoOwner,
-        repoName: docData.repoName,
-        ephemeral: true,
-        branchName: docData.branchName,
-        repoId: docData.repoId,
-        streamingEntityId: args.docId,
-      },
-    );
+    const sandboxId = await prepareSandboxSteps(step, {
+      installationId: args.installationId,
+      repoOwner: docData.repoOwner,
+      repoName: docData.repoName,
+      ephemeral: true,
+      branchName: docData.branchName,
+      repoId: docData.repoId,
+      streamingEntityId: args.docId,
+    });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,

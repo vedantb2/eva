@@ -11,7 +11,7 @@ import {
   formatElapsed,
 } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { formatDuration } from "@conductor/shared/duration";
 import { AuditActivityLog } from "../AuditActivityLog";
 import type { FunctionReturnType } from "convex/server";

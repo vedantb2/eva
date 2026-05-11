@@ -4,7 +4,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ActivitySteps, Spinner } from "@conductor/ui";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
 interface AuditActivityLogProps {
   runId: Id<"agentRuns">;

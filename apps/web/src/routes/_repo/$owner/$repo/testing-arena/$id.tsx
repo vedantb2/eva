@@ -39,7 +39,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { UITestingPanel } from "./UITestingPanelClient";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/testing-arena/$id")({

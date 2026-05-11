@@ -5,7 +5,7 @@ import {
   ReasoningTrigger,
   CollapsibleContent,
 } from "@conductor/ui";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { formatDuration } from "@conductor/shared/duration";
 
 export function StreamingActivityDisplay({

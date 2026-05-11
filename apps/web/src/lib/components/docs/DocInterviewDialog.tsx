@@ -28,7 +28,7 @@ import {
 } from "@tabler/icons-react";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 

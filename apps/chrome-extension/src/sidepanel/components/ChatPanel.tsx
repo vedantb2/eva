@@ -39,7 +39,7 @@ import {
   type PromptInputMessage,
 } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
-import { parseActivitySteps } from "@/shared/parseActivitySteps";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import dayjs from "@conductor/shared/dates";
 import {
   IconChevronRight,

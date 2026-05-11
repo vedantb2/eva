@@ -46,7 +46,7 @@ import {
 import dayjs from "@conductor/shared/dates";
 
 import { DocInterviewDialog } from "./DocInterviewDialog";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 

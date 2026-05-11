@@ -13,7 +13,7 @@ import {
 } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
 import type { Id } from "@conductor/backend";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { motion } from "motion/react";
 
 interface ChatMessageProps {

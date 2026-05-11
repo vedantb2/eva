@@ -16,7 +16,7 @@ import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQues
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
 export interface ConversationMessage {
   role: "user" | "assistant";

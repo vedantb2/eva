@@ -1,5 +1,11 @@
 # Changelog
 
+## Consolidate parseActivitySteps into packages/shared - 2026-05-11
+
+- **Why**: `parseActivitySteps` was duplicated identically in `apps/web/src/lib/utils/parseActivitySteps.ts` (11 callers) and `apps/chrome-extension/src/shared/parseActivitySteps.ts` (1 caller in `ChatPanel.tsx`). The function parses the JSON `activityLog`/`currentActivity` strings into `ActivityStep[]` arrays the `@conductor/ui` `<ActivitySteps>` component renders. Two copies meant fixing a parse bug (e.g. handling a new step shape) required touching two files in two apps, with no compiler to enforce parity.
+- **Change**: Created `packages/shared/src/utils/parseActivitySteps.ts` containing the (single, unchanged) function and added `./parseActivitySteps` to the `@conductor/shared` package exports. Updated all 12 callers (11 web + 1 chrome-extension) to import from `@conductor/shared/parseActivitySteps`. Deleted both duplicate source files. Web and chrome-extension typecheck unchanged (no new errors introduced — only pre-existing `TS6133` unused-variable noise in unrelated backend/UI files remains).
+- **Reason**: Removes the silent-divergence risk and preps Bundle 20 (consolidating `ChatPanel` + `SessionSidebar` between web and chrome-extension), which will need a single shared import path for `parseActivitySteps` rather than two app-local copies.
+
 ## Consolidate isRecord and formatDuration into packages/shared - 2026-05-11
 
 - **Why**: `isRecord` was defined identically in four places (`apps/web/src/lib/utils/logs.ts`, `convex/linearActions.ts`, `convex/_automationWorkflow/findings.ts`, `convex/_taskWorkflow/auditParser.ts`) and `formatDuration*` lived in `apps/web/src/lib/utils/formatDuration.ts` with seven web callers — meanwhile, the backend had two divergent stubs of `formatDurationMs(ms) → "${ms}ms"` at `_daytona/git.ts:69` and `_daytona/sessions.ts:42` used across 16 log call sites. Same intent, drifting implementations, no single source of truth.

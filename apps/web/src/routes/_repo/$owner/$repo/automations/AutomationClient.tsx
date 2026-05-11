@@ -36,7 +36,7 @@ import { FindingsList } from "./_components/FindingsList";
 import { AutomationDeleteDialog } from "./_components/AutomationDeleteDialog";
 import dayjs from "@conductor/shared/dates";
 import { formatDuration } from "@conductor/shared/duration";
-import { parseActivitySteps } from "@/lib/utils/parseActivitySteps";
+import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";

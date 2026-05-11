@@ -5,7 +5,7 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { evalResultValidator, workflowCompleteValidator } from "./validators";
-import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { trackEvaluationWorkflow } from "./workflowWatchdog";
 import {
   clearStreamingActivity,
   llmJson,
@@ -592,22 +592,7 @@ export const startEvaluation = authMutation({
       },
     );
 
-    const report = await ctx.db.get(reportId);
-    if (
-      report &&
-      report.status !== "error" &&
-      report.activeWorkflowId === undefined
-    ) {
-      await ctx.db.patch(reportId, {
-        activeWorkflowId: String(workflowId),
-      });
-    }
-
-    await ctx.scheduler.runAfter(
-      RUN_TIMEOUT_MS,
-      internal.workflowWatchdog.handleStaleEvaluation,
-      { reportId, workflowId: String(workflowId) },
-    );
+    await trackEvaluationWorkflow(ctx, reportId, workflowId);
 
     return reportId;
   },

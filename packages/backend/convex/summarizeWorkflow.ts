@@ -5,7 +5,7 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
-import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { trackSessionWorkflow } from "./workflowWatchdog";
 import {
   clearStreamingActivity,
   extractFirstJsonValue,
@@ -209,15 +209,7 @@ export const startSummarize = authMutation({
       },
     );
 
-    await ctx.db.patch(args.sessionId, {
-      activeWorkflowId: String(workflowId),
-    });
-
-    await ctx.scheduler.runAfter(
-      RUN_TIMEOUT_MS,
-      internal.workflowWatchdog.handleStaleSession,
-      { sessionId: args.sessionId, workflowId: String(workflowId) },
-    );
+    await trackSessionWorkflow(ctx, args.sessionId, workflowId);
 
     return null;
   },

@@ -11,7 +11,7 @@ import {
   variationValidator,
 } from "./validators";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
-import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { trackDesignSessionWorkflow } from "./workflowWatchdog";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 import { startNextQueuedDesignMessage } from "./_queues/helpers";
 
@@ -492,15 +492,7 @@ export const executeMessage = authMutation({
       },
     );
 
-    await ctx.db.patch(args.id, {
-      activeWorkflowId: String(workflowId),
-    });
-
-    await ctx.scheduler.runAfter(
-      RUN_TIMEOUT_MS,
-      internal.workflowWatchdog.handleStaleDesignSession,
-      { designSessionId: args.id, workflowId: String(workflowId) },
-    );
+    await trackDesignSessionWorkflow(ctx, args.id, workflowId);
 
     return null;
   },

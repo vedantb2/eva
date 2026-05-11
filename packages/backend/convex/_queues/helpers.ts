@@ -3,6 +3,10 @@ import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { DEFAULT_AI_MODEL } from "../validators";
+import {
+  trackDesignSessionWorkflow,
+  trackSessionWorkflow,
+} from "../workflowWatchdog";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -75,15 +79,12 @@ export async function startNextQueuedSessionMessage(
       },
     );
 
-    await ctx.db.patch(sessionId, {
-      activeWorkflowId: String(workflowId),
-      updatedAt: now,
-    });
-
-    await ctx.scheduler.runAfter(
+    await ctx.db.patch(sessionId, { updatedAt: now });
+    await trackSessionWorkflow(
+      ctx,
+      sessionId,
+      workflowId,
       QUEUE_RUN_TIMEOUT_MS,
-      internal.workflowWatchdog.handleStaleSession,
-      { sessionId, workflowId: String(workflowId) },
     );
 
     return true;
@@ -158,15 +159,12 @@ export async function startNextQueuedDesignMessage(
       },
     );
 
-    await ctx.db.patch(designSessionId, {
-      activeWorkflowId: String(workflowId),
-      updatedAt: now,
-    });
-
-    await ctx.scheduler.runAfter(
+    await ctx.db.patch(designSessionId, { updatedAt: now });
+    await trackDesignSessionWorkflow(
+      ctx,
+      designSessionId,
+      workflowId,
       QUEUE_RUN_TIMEOUT_MS,
-      internal.workflowWatchdog.handleStaleDesignSession,
-      { designSessionId, workflowId: String(workflowId) },
     );
 
     return true;

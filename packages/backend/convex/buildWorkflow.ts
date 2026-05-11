@@ -5,7 +5,7 @@ import type { WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
 import { buildTaskDoneEvent } from "./taskWorkflow";
-import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { trackProjectBuildWorkflow } from "./workflowWatchdog";
 import { buildProjectBranchName } from "./_projects/helpers";
 
 // --- Workflow ---
@@ -227,16 +227,9 @@ export const startBuild = authMutation({
       },
     );
 
-    await ctx.db.patch(args.projectId, {
-      activeBuildWorkflowId: String(workflowId),
-      lastBuildError: undefined,
+    await trackProjectBuildWorkflow(ctx, args.projectId, workflowId, {
+      clearLastBuildError: true,
     });
-
-    await ctx.scheduler.runAfter(
-      RUN_TIMEOUT_MS,
-      internal.workflowWatchdog.handleStaleBuild,
-      { projectId: args.projectId, workflowId: String(workflowId) },
-    );
 
     return null;
   },
@@ -277,15 +270,7 @@ export const executeScheduledBuild = internalMutation({
       },
     );
 
-    await ctx.db.patch(args.projectId, {
-      activeBuildWorkflowId: String(workflowId),
-    });
-
-    await ctx.scheduler.runAfter(
-      RUN_TIMEOUT_MS,
-      internal.workflowWatchdog.handleStaleBuild,
-      { projectId: args.projectId, workflowId: String(workflowId) },
-    );
+    await trackProjectBuildWorkflow(ctx, args.projectId, workflowId);
 
     return null;
   },

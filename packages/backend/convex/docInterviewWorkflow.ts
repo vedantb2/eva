@@ -5,7 +5,7 @@ import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
-import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
+import { trackDocWorkflow } from "./workflowWatchdog";
 import { GENERATE_PROMPT, INTERVIEW_PROMPT } from "./prompts";
 import {
   clearStreamingActivity,
@@ -318,15 +318,7 @@ export const startInterview = authMutation({
       },
     );
 
-    await ctx.db.patch(args.docId, {
-      activeWorkflowId: String(workflowId),
-    });
-
-    await ctx.scheduler.runAfter(
-      RUN_TIMEOUT_MS,
-      internal.workflowWatchdog.handleStaleDoc,
-      { docId: args.docId, workflowId: String(workflowId) },
-    );
+    await trackDocWorkflow(ctx, args.docId, workflowId);
 
     return null;
   },
@@ -533,15 +525,7 @@ export const startGenerate = authMutation({
       },
     );
 
-    await ctx.db.patch(args.docId, {
-      activeWorkflowId: String(workflowId),
-    });
-
-    await ctx.scheduler.runAfter(
-      RUN_TIMEOUT_MS,
-      internal.workflowWatchdog.handleStaleDoc,
-      { docId: args.docId, workflowId: String(workflowId) },
-    );
+    await trackDocWorkflow(ctx, args.docId, workflowId);
 
     return null;
   },

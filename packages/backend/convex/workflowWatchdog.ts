@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { type MutationCtx, internalMutation } from "./_generated/server";
 import { type WorkflowId } from "@convex-dev/workflow";
 import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 import {
@@ -15,6 +16,113 @@ import {
 
 /** Maximum time a workflow run is allowed before being considered stale (2 hours). */
 export const RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+
+/** Records a workflow as the active workflow for a session and schedules a stale handler. */
+export async function trackSessionWorkflow(
+  ctx: MutationCtx,
+  sessionId: Id<"sessions">,
+  workflowId: WorkflowId,
+  timeoutMs: number = RUN_TIMEOUT_MS,
+): Promise<void> {
+  const id = String(workflowId);
+  await ctx.db.patch(sessionId, { activeWorkflowId: id });
+  await ctx.scheduler.runAfter(
+    timeoutMs,
+    internal.workflowWatchdog.handleStaleSession,
+    { sessionId, workflowId: id },
+  );
+}
+
+/** Records a workflow as the active workflow for a design session and schedules a stale handler. */
+export async function trackDesignSessionWorkflow(
+  ctx: MutationCtx,
+  designSessionId: Id<"designSessions">,
+  workflowId: WorkflowId,
+  timeoutMs: number = RUN_TIMEOUT_MS,
+): Promise<void> {
+  const id = String(workflowId);
+  await ctx.db.patch(designSessionId, { activeWorkflowId: id });
+  await ctx.scheduler.runAfter(
+    timeoutMs,
+    internal.workflowWatchdog.handleStaleDesignSession,
+    { designSessionId, workflowId: id },
+  );
+}
+
+/** Records a workflow as the active workflow for a doc and schedules a stale handler. */
+export async function trackDocWorkflow(
+  ctx: MutationCtx,
+  docId: Id<"docs">,
+  workflowId: WorkflowId,
+  timeoutMs: number = RUN_TIMEOUT_MS,
+): Promise<void> {
+  const id = String(workflowId);
+  await ctx.db.patch(docId, { activeWorkflowId: id });
+  await ctx.scheduler.runAfter(
+    timeoutMs,
+    internal.workflowWatchdog.handleStaleDoc,
+    { docId, workflowId: id },
+  );
+}
+
+/** Records a workflow as the active workflow for a project and schedules a stale handler. */
+export async function trackProjectWorkflow(
+  ctx: MutationCtx,
+  projectId: Id<"projects">,
+  workflowId: WorkflowId,
+  timeoutMs: number = RUN_TIMEOUT_MS,
+): Promise<void> {
+  const id = String(workflowId);
+  await ctx.db.patch(projectId, { activeWorkflowId: id });
+  await ctx.scheduler.runAfter(
+    timeoutMs,
+    internal.workflowWatchdog.handleStaleProject,
+    { projectId, workflowId: id },
+  );
+}
+
+/** Records a workflow as the active workflow for an evaluation report (guarded against late-arriving errors) and schedules a stale handler. */
+export async function trackEvaluationWorkflow(
+  ctx: MutationCtx,
+  reportId: Id<"evaluationReports">,
+  workflowId: WorkflowId,
+  timeoutMs: number = RUN_TIMEOUT_MS,
+): Promise<void> {
+  const id = String(workflowId);
+  const report = await ctx.db.get(reportId);
+  if (
+    report &&
+    report.status !== "error" &&
+    report.activeWorkflowId === undefined
+  ) {
+    await ctx.db.patch(reportId, { activeWorkflowId: id });
+  }
+  await ctx.scheduler.runAfter(
+    timeoutMs,
+    internal.workflowWatchdog.handleStaleEvaluation,
+    { reportId, workflowId: id },
+  );
+}
+
+/** Records a workflow as the active build workflow for a project and schedules a stale handler. */
+export async function trackProjectBuildWorkflow(
+  ctx: MutationCtx,
+  projectId: Id<"projects">,
+  workflowId: WorkflowId,
+  options: { clearLastBuildError?: boolean } = {},
+  timeoutMs: number = RUN_TIMEOUT_MS,
+): Promise<void> {
+  const id = String(workflowId);
+  await ctx.db.patch(projectId, {
+    activeBuildWorkflowId: id,
+    ...(options.clearLastBuildError ? { lastBuildError: undefined } : {}),
+  });
+  await ctx.scheduler.runAfter(
+    timeoutMs,
+    internal.workflowWatchdog.handleStaleBuild,
+    { projectId, workflowId: id },
+  );
+}
 
 /** Cancels a workflow by ID and clears streaming activity for associated entities. */
 async function cancelStaleWorkflow(

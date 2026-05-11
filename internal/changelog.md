@@ -1,5 +1,11 @@
 # Changelog
 
+## Split automations.ts into \_automations/ subfolder - 2026-05-11
+
+- **Why**: `convex/automations.ts` had grown to 645 lines holding 13 Convex functions for four distinct concerns: automation CRUD (list/get/create/update/remove), automation runs lifecycle (listRuns/acknowledgeRun/countUnreadByRepo/getAutomationData/updateRunStatus/clearRunWorkflow/cancelRun/handleCompletion), the cron-and-manual triggers (triggerAutomation/runNow with ~70 lines of duplicated workflow-start glue), and the findings-to-tasks pipeline (createTasksFromFindings/autoStartTask). Adding a new run-lifecycle field meant scrolling past the cron handler and findings pipeline.
+- **Change**: Created `_automations/{crud,triggers,runs,findings}.ts`, each grouping by concern (CRUD in `crud.ts`, the two workflow-start triggers in `triggers.ts`, all run-lifecycle queries/mutations in `runs.ts`, and the findings flow in `findings.ts`). Rewrote `automations.ts` as a 19-line barrel that re-exports every function — Convex's codegen registers the functions at both `api.automations.X` (barrel) and `api["_automations/Y"].X` (canonical) paths, so all 20+ existing caller sites in the frontend (`AutomationClient`, `AutomationsSidebar`, `UnreadAutomationsBadge`, `FindingsList`, `$id`) and backend (`automationWorkflow.ts`, internal `update` cron handler, `createTasksFromFindings` scheduler) work unchanged.
+- **Reason**: Matches the existing `_sessions/` and `_agentTasks/` subfolder pattern — file responsibility is now obvious from the filename, and adding a new run-lifecycle field or finding-mapping rule touches one ~150-line file instead of the 645-line catch-all. Barrel keeps the change non-breaking.
+
 ## Extract pr-audit and deployment helpers from taskWorkflowActions.ts - 2026-05-11
 
 - **Why**: `convex/taskWorkflowActions.ts` had grown to 874 lines mixing three concerns: pure markdown helpers for the PR audit section (~100 lines), Convex actions that create/refresh/append PRs (~380 lines), and deployment status polling with its own helpers (~80 lines of pure logic on top of two `internalAction` polling loops). Splitting the Convex action exports out would change the `internal.taskWorkflowActions.X` references at ~25 call sites, but the pure helpers can move without renaming any API path.

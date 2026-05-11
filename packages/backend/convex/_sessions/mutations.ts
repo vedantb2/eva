@@ -7,6 +7,7 @@ import {
   sessionStatusValidator,
 } from "../validators";
 import { workflow } from "../workflowManager";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 /** Creates a new session with a sandbox startup workflow. */
 export const create = authMutation({
@@ -31,7 +32,7 @@ export const create = authMutation({
     });
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });
-    const baseBranch = repo.defaultBaseBranch ?? "main";
+    const baseBranch = repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
     await workflow.start(
       ctx,
       internal.sessionWorkflow.sessionSandboxStartupWorkflow,

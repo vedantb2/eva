@@ -198,6 +198,8 @@ VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 | `CLERK_SECRET_KEY`        | Clerk secret key (for MCP server)      |
 | `CLERK_PUBLISHABLE_KEY`   | Clerk publishable key (for MCP server) |
 
+**Git default branch (not an env var):** When a task has no `baseBranch` and the repo has no **Default base branch** (Eva **Settings → Config**), sandboxes and PRs use `staging` (`FALLBACK_GIT_BASE_BRANCH` in `@conductor/shared`). Team/repo **env vars** apply inside sandboxes only; they do not set the PR merge base.
+
 ### Step 7: Add Daytona API Key
 
 The Daytona API key is stored as a **team or repo env var** in the dashboard (not as a Convex deployment env var).

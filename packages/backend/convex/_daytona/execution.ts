@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import type { Sandbox } from "@daytonaio/sdk";
 import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import {
   exec,
@@ -423,7 +424,7 @@ export const prepareSandbox = internalAction({
           await setupBranch(
             sandbox,
             args.branchName,
-            args.baseBranch ?? "main",
+            args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH,
           );
         } else if (args.baseBranch) {
           await emitProgress("Checking out base branch...");

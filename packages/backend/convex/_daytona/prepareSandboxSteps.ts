@@ -1,6 +1,7 @@
 import type { WorkflowCtx } from "@convex-dev/workflow";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 type ProgressStep = {
   type: string;
@@ -50,7 +51,7 @@ export async function prepareSandboxSteps(
   args: PrepareSandboxArgs,
 ): Promise<string> {
   const completedSteps: Array<ProgressStep> = [];
-  const baseBranch = args.baseBranch ?? "main";
+  const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
 
   // Step 1: Create/resume the sandbox only.
   // Snapshot-backed quick tasks should start from local refs instead of

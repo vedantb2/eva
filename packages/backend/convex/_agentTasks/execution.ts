@@ -9,6 +9,7 @@ import {
 } from "../functions";
 import { workflow } from "../workflowManager";
 import { buildProjectBranchName } from "../_projects/helpers";
+import { resolveTaskWorkflowBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 
 /** Starts task execution by creating a run and launching the workflow. */
 export const startExecution = authMutation({
@@ -107,7 +108,7 @@ export const startExecution = authMutation({
               ? (project.branchName ??
                 buildProjectBranchName(task.projectId, project.branchVersion))
               : undefined,
-          baseBranch: task.baseBranch,
+          baseBranch: resolveTaskWorkflowBaseBranch(task, repo),
           isFirstTaskOnBranch: firstOnBranch,
           model: task.model ?? repo.defaultModel,
           userId: ctx.userId,
@@ -147,7 +148,7 @@ export const startExecution = authMutation({
           ? (project.branchName ??
             buildProjectBranchName(task.projectId, project.branchVersion))
           : undefined,
-      baseBranch: task.baseBranch,
+      baseBranch: resolveTaskWorkflowBaseBranch(task, repo),
       isFirstTaskOnBranch: firstOnBranch,
       model: task.model ?? repo.defaultModel,
     };

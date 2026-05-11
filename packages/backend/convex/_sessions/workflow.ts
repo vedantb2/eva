@@ -9,6 +9,7 @@ import {
   workflowCompleteValidator,
   normalizeAIModel,
 } from "../validators";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import {
   recordCompletionLog,
   sendCompletionEvent,
@@ -380,7 +381,7 @@ export const getSessionData = internalQuery({
       repoId: session.repoId,
       prompt,
       branchName,
-      baseBranch: repo.defaultBaseBranch ?? "main",
+      baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
       allowedTools: MODE_TOOLS[effectiveMode],
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,

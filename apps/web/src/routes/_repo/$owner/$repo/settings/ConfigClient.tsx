@@ -9,6 +9,7 @@ import { Input, Button, Checkbox, ModelSelect } from "@conductor/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 export function ConfigClient() {
   const { repo, repoId } = useRepo();
@@ -27,7 +28,7 @@ export function ConfigClient() {
                 Default Base Branch
               </label>
               <BranchSelect
-                value={repo.defaultBaseBranch ?? "main"}
+                value={repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH}
                 onValueChange={(val) =>
                   updateConfig({ repoId, defaultBaseBranch: val || undefined })
                 }

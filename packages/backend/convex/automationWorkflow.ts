@@ -11,6 +11,7 @@ import {
   buildActionableReportPrompt,
 } from "./_automationWorkflow/prompts";
 import { parseFindingsFromResult } from "./_automationWorkflow/findings";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 /** Runs an automation: prepares sandbox, executes the prompt, optionally creates a PR, and cleans up. */
 export const automationExecutionWorkflow = workflow.define({
@@ -74,7 +75,7 @@ export const automationExecutionWorkflow = workflow.define({
         ephemeral: true,
         repoId: args.repoId,
         streamingEntityId,
-        baseBranch: data.defaultBaseBranch ?? "main",
+        baseBranch: data.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
         branchName: isReadOnly ? undefined : args.branchName,
         createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
       });

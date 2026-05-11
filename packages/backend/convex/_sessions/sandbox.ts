@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation } from "../functions";
 import { workflow } from "../workflowManager";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 /** Updates sandbox-related fields (sandbox ID, branch, PR URL) on a session. */
 export const updateSandbox = authMutation({
@@ -58,7 +59,7 @@ export const startSandbox = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
     const branchName = session.branchName || `eva/session-${args.sessionId}`;
-    const baseBranch = repo.defaultBaseBranch ?? "main";
+    const baseBranch = repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
     await ctx.db.patch(args.sessionId, {
       status: "starting",
       updatedAt: Date.now(),

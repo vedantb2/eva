@@ -14,6 +14,7 @@ import {
 } from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./prBody";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 const evalCompleteEvent = defineEvent({
   name: "evalComplete",
@@ -108,7 +109,7 @@ export const evaluationWorkflow = workflow.define({
           ephemeral: true,
           repoId: fixData.repoId,
           streamingEntityId,
-          baseBranch: args.branchName ?? "main",
+          baseBranch: args.branchName ?? FALLBACK_GIT_BASE_BRANCH,
           branchName: fixBranchName,
         });
 
@@ -143,7 +144,7 @@ export const evaluationWorkflow = workflow.define({
               repoOwner: fixData.repoOwner,
               repoName: fixData.repoName,
               branchName: fixBranchName,
-              baseBranch: args.branchName ?? "main",
+              baseBranch: args.branchName ?? FALLBACK_GIT_BASE_BRANCH,
               title: `Fix: ${fixData.docTitle}`,
               body: buildPrBody([
                 {

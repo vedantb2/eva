@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
+import { resolveTaskWorkflowBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 
 const PREVIEW_ALLOWED_STATUSES = ["code_review", "business_review"] as const;
 
@@ -36,7 +37,7 @@ export const startTaskSandbox = authMutation({
     if (!hasAccess) throw new Error("No access to repository");
 
     const branchName = `eva/task-${args.taskId}`;
-    const baseBranch = task.baseBranch ?? repo.defaultBaseBranch ?? "main";
+    const baseBranch = resolveTaskWorkflowBaseBranch(task, repo);
 
     await ctx.db.patch(args.taskId, {
       reviewTaskSandboxStatus: "starting",
@@ -104,7 +105,7 @@ export const retryStartupCommands = authMutation({
     if (!hasAccess) throw new Error("No access to repository");
 
     const branchName = `eva/task-${args.taskId}`;
-    const baseBranch = task.baseBranch ?? repo.defaultBaseBranch ?? "main";
+    const baseBranch = resolveTaskWorkflowBaseBranch(task, repo);
 
     await ctx.db.patch(args.taskId, {
       reviewTaskSandboxStatus: "starting",

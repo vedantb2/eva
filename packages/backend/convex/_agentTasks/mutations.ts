@@ -16,6 +16,7 @@ import {
 } from "../functions";
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
 import { buildProjectBranchName } from "../_projects/helpers";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 /** Extracts the PR number from a GitHub PR URL. */
 function extractPrNumber(prUrl: string): number | null {
@@ -261,7 +262,8 @@ export const createQuickTask = authMutation({
       createdAt: now,
       updatedAt: now,
       createdBy: ctx.userId,
-      baseBranch: args.baseBranch ?? repo.defaultBaseBranch ?? "main",
+      baseBranch:
+        args.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
       model: args.model ?? repo.defaultModel,
       projectId: args.projectId,
       taskNumber,
@@ -316,7 +318,7 @@ export const createQuickTasksBatch = authMutation({
         createdAt: now,
         updatedAt: now,
         createdBy: ctx.userId,
-        baseBranch: repo.defaultBaseBranch ?? "main",
+        baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
         model: repo.defaultModel,
       });
       taskIds.push(taskId);
@@ -396,7 +398,8 @@ export const createBatchWithDependencies = authMutation({
     if (!repo) throw new Error("Repo not found");
 
     const now = Date.now();
-    const baseBranch = args.baseBranch ?? repo.defaultBaseBranch ?? "main";
+    const baseBranch =
+      args.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
     const model = args.model ?? repo.defaultModel;
 
     const taskIds: Id<"agentTasks">[] = [];

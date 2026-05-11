@@ -29,6 +29,7 @@ import {
   type AIModel,
 } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
@@ -80,7 +81,7 @@ export function QuickTaskModal({
   allTags,
 }: QuickTaskModalProps) {
   const { repo } = useRepo();
-  const defaultBranch = repo.defaultBaseBranch ?? "main";
+  const defaultBranch = repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [baseBranch, setBaseBranch] = useState(defaultBranch);

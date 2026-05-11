@@ -7,6 +7,7 @@ import {
   setProjectConversation,
   buildProjectBranchName,
 } from "./helpers";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 /** Converts a finalized project spec into tasks with dependencies and sets the project to active. */
 export const startDevelopment = authMutation({
@@ -90,7 +91,7 @@ export const createFromTasks = authMutation({
       title: args.title,
       rawInput: args.title,
       phase: "active",
-      baseBranch: repo.defaultBaseBranch ?? "main",
+      baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
       projectStartDate: Date.now(),
     });
     await setProjectConversation(ctx.db, projectId, []);

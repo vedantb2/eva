@@ -86,7 +86,7 @@ export const upsert = internalMutation({
       teamId: args.teamId,
       rootDirectory: normalizedRoot,
       parentRepoId: args.parentRepoId,
-      defaultBaseBranch: "main",
+      defaultBaseBranch: "staging",
     });
   },
 });

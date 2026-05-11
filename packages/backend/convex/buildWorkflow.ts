@@ -6,6 +6,7 @@ import { authMutation, hasRepoAccess } from "./functions";
 import { buildTaskDoneEvent } from "./taskWorkflow";
 import { trackProjectBuildWorkflow } from "./workflowWatchdog";
 import { buildProjectBranchName } from "./_projects/helpers";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 // --- Workflow ---
 
@@ -160,7 +161,10 @@ export const startTaskForBuild = internalMutation({
         branchName:
           project.branchName ??
           buildProjectBranchName(args.projectId, project.branchVersion),
-        baseBranch: project.baseBranch ?? "main",
+        baseBranch:
+          project.baseBranch ??
+          repo.defaultBaseBranch ??
+          FALLBACK_GIT_BASE_BRANCH,
         isFirstTaskOnBranch,
         model: task.model ?? repo.defaultModel,
         userId: args.userId,

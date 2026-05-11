@@ -19,6 +19,7 @@ import {
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -56,7 +57,7 @@ export function NewProjectModal({
 }: NewProjectModalProps) {
   const { repo, basePath } = useRepo();
   const navigate = useNavigate();
-  const defaultBranch = repo?.defaultBaseBranch ?? "main";
+  const defaultBranch = repo?.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [baseBranch, setBaseBranch] = useState(defaultBranch);

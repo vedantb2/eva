@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { getInstallationOctokit } from "./githubAuth";
 import {
   buildPrBody,
@@ -221,7 +222,7 @@ export const createPullRequest = internalAction({
       title: `Eva: ${args.title}`,
       body: args.body,
       head: args.branchName,
-      base: args.baseBranch ?? "staging",
+      base: args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH,
       draft: args.draft ?? false,
     });
 

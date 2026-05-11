@@ -3,6 +3,7 @@ import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { authMutation } from "../functions";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 /** Updates the sandbox ID and/or branch name for a design session (internal). */
 export const updateSandbox = internalMutation({
@@ -37,7 +38,7 @@ export const startSandbox = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
     const branchName = session.branchName || `eva/design-${args.id}`;
-    const baseBranch = repo.defaultBaseBranch ?? "main";
+    const baseBranch = repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
     await ctx.db.patch(args.id, {
       status: "starting",
       updatedAt: Date.now(),

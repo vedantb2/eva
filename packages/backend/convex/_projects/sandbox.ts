@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation, getProjectWithAccess } from "../functions";
 import { workflow } from "../workflowManager";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 const PREVIEW_ALLOWED_PHASES = ["active"] as const;
 
@@ -32,8 +33,10 @@ export const startProjectSandbox = authMutation({
     const repo = await ctx.db.get(project.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    const branchName = project.branchName ?? repo.defaultBaseBranch ?? "main";
-    const baseBranch = project.baseBranch ?? repo.defaultBaseBranch ?? "main";
+    const branchName =
+      project.branchName ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+    const baseBranch =
+      project.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
 
     await ctx.db.patch(args.projectId, {
       reviewProjectSandboxStatus: "starting",

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { runModeValidator } from "../validators";
+import { resolveTaskWorkflowBaseBranch } from "./resolveBaseBranch";
 import {
   buildImplementationPrompt,
   buildConflictResolutionPrompt,
@@ -104,7 +105,7 @@ export const getTaskData = internalQuery({
       args.mode === "resolve_conflicts"
         ? buildConflictResolutionPrompt(
             branchName,
-            task.baseBranch ?? "main",
+            resolveTaskWorkflowBaseBranch(task, repo),
             rootDirectory,
             repo.owner,
             repo.name,
@@ -170,7 +171,7 @@ export const getTaskPrCreationData = internalQuery({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
-    baseBranch: v.optional(v.string()),
+    baseBranch: v.string(),
     taskTitle: v.string(),
     taskDescription: v.optional(v.string()),
     rootDirectory: v.string(),
@@ -245,7 +246,7 @@ export const getTaskPrCreationData = internalQuery({
       repoOwner: repo.owner,
       repoName: repo.name,
       branchName: `eva/task-${args.taskId}`,
-      baseBranch: task.baseBranch,
+      baseBranch: resolveTaskWorkflowBaseBranch(task, repo),
       taskTitle: task.title,
       taskDescription: task.description,
       rootDirectory: repo.rootDirectory ?? "",

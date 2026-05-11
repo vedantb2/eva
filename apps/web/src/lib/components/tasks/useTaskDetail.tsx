@@ -5,6 +5,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { useEffect, useState, useCallback } from "react";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
@@ -88,6 +89,10 @@ export function useTaskDetail(
     auditCategories?.filter((c) => c.enabled).length ?? 0;
   const proofs = useQuery(api.taskProof.listByTask, { taskId });
   const sandboxEvents = useQuery(api.taskSandboxEvents.listByTask, { taskId });
+  const repoForTask = useQuery(
+    api.githubRepos.get,
+    task?.repoId ? { id: task.repoId } : "skip",
+  );
 
   const startExecution = useMutation(api.agentTasks.startExecution);
   const cancelExecution = useMutation(api.taskWorkflow.cancelExecution);
@@ -98,7 +103,7 @@ export function useTaskDetail(
   );
   const createTaskPrAction = useAction(api.taskWorkflowActions.createTaskPr);
 
-  const [baseBranch, setBaseBranch] = useState("main");
+  const [baseBranch, setBaseBranch] = useState(FALLBACK_GIT_BASE_BRANCH);
   const [embeddedShowSandbox, setEmbeddedShowSandbox] = useState(false);
   const [isSandboxStarting, setIsSandboxStarting] = useState(false);
   const [isSandboxStopping, setIsSandboxStopping] = useState(false);
@@ -138,8 +143,14 @@ export function useTaskDetail(
         : embeddedShowSandbox;
 
   useEffect(() => {
-    setBaseBranch(task?.baseBranch ?? "main");
-  }, [task?.baseBranch]);
+    const fromTask = task?.baseBranch?.trim();
+    if (fromTask) {
+      setBaseBranch(fromTask);
+      return;
+    }
+    const fromRepo = repoForTask?.defaultBaseBranch?.trim();
+    setBaseBranch(fromRepo || FALLBACK_GIT_BASE_BRANCH);
+  }, [task?.baseBranch, repoForTask?.defaultBaseBranch]);
 
   const handleStartExecution = async () => {
     setIsStarting(true);

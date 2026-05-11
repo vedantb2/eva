@@ -1,5 +1,11 @@
 # Changelog
 
+## Split validators.ts into \_validators/ subfolder - 2026-05-11
+
+- **Why**: `convex/validators.ts` had grown to 931 lines mixing four unrelated concerns: Convex validators (enums, shapes, table field defs), AI model configuration (validators + types + helper functions, ~390 lines), and the `PERSONALISATION_PRESETS` constant. Navigating to find "what statuses can a session have" required scrolling past the entire AI model registry.
+- **Change**: Created `_validators/{enums,shapes,tableFields,aiModels,personalisation}.ts`, each grouping like with like (33 enum-style literal unions in `enums.ts`, 10 compound object validators in `shapes.ts`, 12 table `*Fields` defs in `tableFields.ts`, the full AI-model surface in `aiModels.ts`, and the role-based presets in `personalisation.ts`). `validators.ts` is now a 5-line barrel that re-exports everything via `export *`, so all 50+ existing import sites and the `@conductor/backend` public surface in `index.ts` continue to work unchanged.
+- **Reason**: Adding a new task status, table field, or AI model now means opening one ~100-200 line file instead of the 931-line catch-all. Re-export barrel keeps the change non-breaking for consumers.
+
 ## Migrate remaining workflows from prepareSandbox action to prepareSandboxSteps - 2026-05-11
 
 - **Why**: Five workflows (`docPrdWorkflow`, `docInterviewWorkflow` (x2), `projectInterviewWorkflow` (x2), `summarizeWorkflow`, `testGenWorkflow`) still called `step.runAction(internal.daytona.prepareSandbox, ...)` and unwrapped `{ sandboxId }` — the atomic action wrapper around sandbox setup. The newer `prepareSandboxSteps` helper performs the same work as discrete workflow steps and emits per-step progress (creating sandbox, fetching branches, setting up branch, running startup commands), giving users visible progress in the streaming UI during slow operations.

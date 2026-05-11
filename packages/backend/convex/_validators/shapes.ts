@@ -1,0 +1,78 @@
+import { v } from "convex/values";
+import {
+  accentColorValidator,
+  auditSeverityValidator,
+  findingSeverityValidator,
+  fontFamilyValidator,
+  letterSpacingValidator,
+  logLevelValidator,
+  radiusValidator,
+  roleValidator,
+} from "./enums";
+
+export const workflowCompleteValidator = v.object({
+  success: v.boolean(),
+  result: v.union(v.string(), v.null()),
+  error: v.union(v.string(), v.null()),
+  activityLog: v.union(v.string(), v.null()),
+  pendingQuestion: v.optional(v.string()),
+});
+
+export const evalResultValidator = v.object({
+  requirement: v.string(),
+  passed: v.boolean(),
+  detail: v.string(),
+  severity: v.optional(auditSeverityValidator),
+});
+
+export const auditSectionValidator = v.object({
+  name: v.string(),
+  results: v.array(evalResultValidator),
+});
+
+export const userFlowValidator = v.object({
+  name: v.string(),
+  steps: v.array(v.string()),
+});
+
+export const variationValidator = v.object({
+  label: v.string(),
+  route: v.optional(v.string()),
+  filePath: v.optional(v.string()),
+});
+
+export const customThemeValidator = v.object({
+  accentColor: v.optional(accentColorValidator),
+  radius: v.optional(radiusValidator),
+  fontFamily: v.optional(fontFamilyValidator),
+  letterSpacing: v.optional(letterSpacingValidator),
+});
+
+export const logEntryValidator = v.object({
+  timestamp: v.number(),
+  level: logLevelValidator,
+  message: v.string(),
+});
+
+export const terminalPaneValidator = v.object({
+  id: v.string(),
+  title: v.string(),
+  createdAt: v.number(),
+});
+
+export const conversationMessageValidator = v.object({
+  role: roleValidator,
+  content: v.string(),
+  activityLog: v.optional(v.string()),
+  userId: v.optional(v.id("users")),
+});
+
+export const automationFindingValidator = v.object({
+  id: v.string(),
+  title: v.string(),
+  description: v.string(),
+  severity: findingSeverityValidator,
+  filePaths: v.optional(v.array(v.string())),
+  suggestedFix: v.optional(v.string()),
+  taskId: v.optional(v.id("agentTasks")),
+});

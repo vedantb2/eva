@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
 import { UserButton, useUser } from "@clerk/clerk-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ComponentType } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -90,6 +90,25 @@ type ContextSidebarMode =
   | "docs"
   | "testing-arena"
   | "automations";
+
+type RepoMainNavIcon = ComponentType<{
+  size?: number;
+  className?: string;
+}>;
+
+type RepoMainNavItem = {
+  name: string;
+  href: string;
+  icon: RepoMainNavIcon;
+  devOnly?: boolean;
+};
+
+type RepoMainNavGroup = {
+  label: string;
+  groupIcon: RepoMainNavIcon;
+  items: RepoMainNavItem[];
+  devOnly?: boolean;
+};
 
 function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
   const segments = pathname.split("/").filter(Boolean);
@@ -194,7 +213,7 @@ export function Sidebar() {
 
   const repoNavigation = useMemo(() => {
     if (!isRepoRoute || !repoBasePath) return [];
-    const allGroups = [
+    const allGroups: RepoMainNavGroup[] = [
       {
         label: "BUILD",
         groupIcon: IconHammer,
@@ -231,7 +250,7 @@ export function Sidebar() {
       {
         label: "TEST",
         groupIcon: IconTestPipe,
-        devOnly: true,
+        // devOnly: true,
         items: [
           {
             name: "Documents",

@@ -26,14 +26,15 @@ export const aiModelValidator = v.union(
   v.literal("opencode:openai/gpt-5.3-codex"),
   v.literal("opencode:openai/gpt-5.4"),
   v.literal("opencode:openai/gpt-5.4-mini"),
-  v.literal("cursor:claude-4-sonnet"),
-  v.literal("cursor:claude-4.6-sonnet-medium"),
-  v.literal("cursor:claude-4.5-opus-high"),
+  v.literal("cursor:claude-4.6-sonnet-medium-thinking"),
+  v.literal("cursor:claude-opus-4-7-thinking-high"),
+  v.literal("cursor:claude-4.6-opus-high-thinking"),
+  v.literal("cursor:claude-4.5-opus-high-thinking"),
+  v.literal("cursor:gpt-5.5-high"),
   v.literal("cursor:gpt-5.4-high"),
-  v.literal("cursor:gpt-5.4-mini-high"),
+  v.literal("cursor:gpt-5.3-codex-high"),
   v.literal("cursor:gemini-3.1-pro"),
   v.literal("cursor:composer-2"),
-  v.literal("cursor:composer-2-fast"),
 );
 
 export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
@@ -54,14 +55,15 @@ export type AIModel =
   | "opencode:openai/gpt-5.3-codex"
   | "opencode:openai/gpt-5.4"
   | "opencode:openai/gpt-5.4-mini"
-  | "cursor:claude-4-sonnet"
-  | "cursor:claude-4.6-sonnet-medium"
-  | "cursor:claude-4.5-opus-high"
+  | "cursor:claude-4.6-sonnet-medium-thinking"
+  | "cursor:claude-opus-4-7-thinking-high"
+  | "cursor:claude-4.6-opus-high-thinking"
+  | "cursor:claude-4.5-opus-high-thinking"
+  | "cursor:gpt-5.5-high"
   | "cursor:gpt-5.4-high"
-  | "cursor:gpt-5.4-mini-high"
+  | "cursor:gpt-5.3-codex-high"
   | "cursor:gemini-3.1-pro"
-  | "cursor:composer-2"
-  | "cursor:composer-2-fast";
+  | "cursor:composer-2";
 export type PersistedAIModel = AIModel | LegacyClaudeModel;
 
 export interface AIModelOption {
@@ -167,51 +169,57 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-4-sonnet",
+    id: "cursor:claude-4.6-sonnet-medium-thinking",
     provider: "cursor",
-    label: "Claude 4 Sonnet",
+    label: "Claude Sonnet 4.6 Thinking",
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-4.6-sonnet-medium",
+    id: "cursor:claude-opus-4-7-thinking-high",
     provider: "cursor",
-    label: "Claude 4.6 Sonnet",
+    label: "Claude Opus 4.7 High Thinking",
     requiresAuth: true,
   },
   {
-    id: "cursor:claude-4.5-opus-high",
+    id: "cursor:claude-4.6-opus-high-thinking",
     provider: "cursor",
-    label: "Claude 4.5 Opus",
+    label: "Claude Opus 4.6 High Thinking",
+    requiresAuth: true,
+  },
+  {
+    id: "cursor:claude-4.5-opus-high-thinking",
+    provider: "cursor",
+    label: "Claude Opus 4.5 High Thinking",
+    requiresAuth: true,
+  },
+  {
+    id: "cursor:gpt-5.5-high",
+    provider: "cursor",
+    label: "GPT-5.5 High",
     requiresAuth: true,
   },
   {
     id: "cursor:gpt-5.4-high",
     provider: "cursor",
-    label: "GPT-5.4",
+    label: "GPT-5.4 High",
     requiresAuth: true,
   },
   {
-    id: "cursor:gpt-5.4-mini-high",
+    id: "cursor:gpt-5.3-codex-high",
     provider: "cursor",
-    label: "GPT-5.4 mini",
+    label: "GPT-5.3 Codex High",
     requiresAuth: true,
   },
   {
     id: "cursor:gemini-3.1-pro",
     provider: "cursor",
-    label: "Gemini 3 Pro",
+    label: "Gemini 3.1 Pro",
     requiresAuth: true,
   },
   {
     id: "cursor:composer-2",
     provider: "cursor",
     label: "Composer 2",
-    requiresAuth: true,
-  },
-  {
-    id: "cursor:composer-2-fast",
-    provider: "cursor",
-    label: "Composer 2 Fast",
     requiresAuth: true,
   },
 ];
@@ -298,22 +306,24 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
       return "opencode:openai/gpt-5.4";
     case "opencode:openai/gpt-5.4-mini":
       return "opencode:openai/gpt-5.4-mini";
-    case "cursor:claude-4-sonnet":
-      return "cursor:claude-4-sonnet";
-    case "cursor:claude-4.6-sonnet-medium":
-      return "cursor:claude-4.6-sonnet-medium";
-    case "cursor:claude-4.5-opus-high":
-      return "cursor:claude-4.5-opus-high";
+    case "cursor:claude-4.6-sonnet-medium-thinking":
+      return "cursor:claude-4.6-sonnet-medium-thinking";
+    case "cursor:claude-opus-4-7-thinking-high":
+      return "cursor:claude-opus-4-7-thinking-high";
+    case "cursor:claude-4.6-opus-high-thinking":
+      return "cursor:claude-4.6-opus-high-thinking";
+    case "cursor:claude-4.5-opus-high-thinking":
+      return "cursor:claude-4.5-opus-high-thinking";
+    case "cursor:gpt-5.5-high":
+      return "cursor:gpt-5.5-high";
     case "cursor:gpt-5.4-high":
       return "cursor:gpt-5.4-high";
-    case "cursor:gpt-5.4-mini-high":
-      return "cursor:gpt-5.4-mini-high";
+    case "cursor:gpt-5.3-codex-high":
+      return "cursor:gpt-5.3-codex-high";
     case "cursor:gemini-3.1-pro":
       return "cursor:gemini-3.1-pro";
     case "cursor:composer-2":
       return "cursor:composer-2";
-    case "cursor:composer-2-fast":
-      return "cursor:composer-2-fast";
     case "sonnet":
     case "claude:sonnet":
     default:

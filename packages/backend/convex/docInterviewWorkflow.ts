@@ -7,7 +7,12 @@ import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { GENERATE_PROMPT, INTERVIEW_PROMPT } from "./prompts";
-import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
+import {
+  clearStreamingActivity,
+  extractFirstJsonValue,
+  llmJson,
+  recordCompletionLog,
+} from "./_taskWorkflow/helpers";
 
 const docInterviewCompleteEvent = defineEvent({
   name: "docInterviewComplete",
@@ -214,8 +219,8 @@ export const saveResult = internalMutation({
       return null;
     }
 
-    const { json } = llmJson.extract(args.result);
-    if (json.length === 0) {
+    const parsed = extractFirstJsonValue(args.result);
+    if (parsed === undefined) {
       const history = updateLastHistoryEntry(
         doc.interviewHistory ?? [],
         JSON.stringify({ error: true }),
@@ -230,7 +235,7 @@ export const saveResult = internalMutation({
 
     const history = updateLastHistoryEntry(
       doc.interviewHistory ?? [],
-      JSON.stringify(json[0]),
+      JSON.stringify(parsed),
       args.activityLog,
     );
     await ctx.db.patch(args.docId, {
@@ -270,13 +275,12 @@ export const handleCompletion = authMutation({
       },
     });
 
-    await ctx.db.insert("logs", {
+    await recordCompletionLog(ctx, {
       entityType: "doc",
       entityId: String(args.docId),
       entityTitle: doc.title,
-      rawResultEvent: args.rawResultEvent,
       repoId: doc.repoId,
-      createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent,
     });
 
     return null;

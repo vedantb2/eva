@@ -11,7 +11,10 @@ import {
   normalizeAIModel,
 } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import {
+  clearStreamingActivity,
+  recordCompletionLog,
+} from "./_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "./_queues/helpers";
 import { resolveDocMentions } from "./_mentions/resolveDocMentions";
 import {
@@ -576,13 +579,12 @@ export const handleCompletion = authMutation({
       },
     });
 
-    await ctx.db.insert("logs", {
+    await recordCompletionLog(ctx, {
       entityType: "session",
       entityId: String(args.sessionId),
       entityTitle: session.title,
-      rawResultEvent: args.rawResultEvent,
       repoId: session.repoId,
-      createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent,
     });
 
     console.log(

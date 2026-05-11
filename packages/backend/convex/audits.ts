@@ -10,7 +10,7 @@ import {
 } from "./validators";
 import { authQuery, authMutation, hasTaskAccess } from "./functions";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-import { extractJsonBlock } from "./_taskWorkflow/helpers";
+import { extractJsonBlock, recordCompletionLog } from "./_taskWorkflow/helpers";
 import {
   parseSectionsFromJson,
   extractSummaryFromJson,
@@ -196,13 +196,12 @@ export const handleSessionCompletion = authMutation({
 
     const session = await ctx.db.get(args.sessionId);
     if (session) {
-      await ctx.db.insert("logs", {
+      await recordCompletionLog(ctx, {
         entityType: "sessionAudit",
         entityId: String(args.sessionId),
         entityTitle: `Audit: ${session.title}`,
-        rawResultEvent: args.rawResultEvent,
         repoId: session.repoId,
-        createdAt: Date.now(),
+        rawResultEvent: args.rawResultEvent,
       });
 
       if (session.prUrl && session.branchName) {

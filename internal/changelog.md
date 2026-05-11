@@ -1,5 +1,11 @@
 # Changelog
 
+## Extract shared workflow helpers for completion logs and JSON parsing - 2026-05-11
+
+- **Why**: Every workflow file (`summarizeWorkflow`, `testGenWorkflow`, `docPrdWorkflow`, `docInterviewWorkflow`, `projectInterviewWorkflow`, `evaluationWorkflow`, `designWorkflow`, `sessionWorkflow`, `audits`, `automations`, `_taskWorkflow/publicMutations`) repeated the same two patterns inline: building a `logs` row from `entityType`/`entityId`/`entityTitle`/`repoId`/`rawResultEvent` after sandbox completion, and pulling the first JSON value from LLM output via `llmJson.extract(text).json[0]`. Eleven copies of the log insert and several copies of the JSON-extract idiom meant changing the shape (e.g. adding a field to `logs`) required edits across the whole backend.
+- **Change**: Added `recordCompletionLog` and `extractFirstJsonValue` exports to `_taskWorkflow/helpers.ts`. Migrated all 11 completion-log callers and 5 clean JSON-extract callers to the helpers. Rewrote `docPrdWorkflow.normalizeParsedDocFields` to narrow `unknown` safely without `as` casts. Two `as`-using JSON extracts (`docInterviewWorkflow`, `evaluationWorkflow`) remain on the original pattern and will move in the later `as`-removal pass.
+- **Reason**: Shared operational mechanics belong in one place. Future schema or library changes touch the helper, not eleven workflow files.
+
 ## Backend-owned branch publishing for git actions - 2026-05-08
 
 - **Why**: Session draft PR creation and deployment polling could run before the branch existed on GitHub. Sessions, automations, evaluation fixes, and test generation still relied on the model to run `git push`, unlike quick tasks where the backend already owns publishing.

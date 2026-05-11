@@ -7,7 +7,11 @@ import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { PROJECT_INTERVIEW_SYSTEM_PROMPT, SPEC_SYSTEM_PROMPT } from "./prompts";
-import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
+import {
+  clearStreamingActivity,
+  extractFirstJsonValue,
+  recordCompletionLog,
+} from "./_taskWorkflow/helpers";
 import {
   getProjectConversation,
   setProjectConversation,
@@ -217,8 +221,8 @@ export const saveResult = internalMutation({
       return null;
     }
 
-    const { json } = llmJson.extract(args.result);
-    if (json.length === 0) {
+    const parsed = extractFirstJsonValue(args.result);
+    if (parsed === undefined) {
       const messages = updateLastConversationEntry(
         conversation,
         JSON.stringify({ error: true }),
@@ -234,7 +238,7 @@ export const saveResult = internalMutation({
 
     const messages = updateLastConversationEntry(
       conversation,
-      JSON.stringify(json[0]),
+      JSON.stringify(parsed),
       args.activityLog,
     );
     await setProjectConversation(ctx.db, args.projectId, messages);
@@ -274,13 +278,12 @@ export const handleCompletion = authMutation({
       },
     });
 
-    await ctx.db.insert("logs", {
+    await recordCompletionLog(ctx, {
       entityType: "project",
       entityId: String(args.projectId),
       entityTitle: project.title,
-      rawResultEvent: args.rawResultEvent,
       repoId: project.repoId,
-      createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent,
     });
 
     return null;
@@ -468,13 +471,12 @@ export const handleSpecCompletion = authMutation({
       },
     });
 
-    await ctx.db.insert("logs", {
+    await recordCompletionLog(ctx, {
       entityType: "project",
       entityId: String(args.projectId),
       entityTitle: project.title,
-      rawResultEvent: args.rawResultEvent,
       repoId: project.repoId,
-      createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent,
     });
 
     return null;
@@ -499,9 +501,9 @@ export const saveSpecResult = internalMutation({
     const conversation = await getProjectConversation(ctx.db, args.projectId);
 
     if (args.success && args.result) {
-      const { json } = llmJson.extract(args.result);
-      if (json.length > 0) {
-        const specJson = JSON.stringify(json[0]);
+      const parsed = extractFirstJsonValue(args.result);
+      if (parsed !== undefined) {
+        const specJson = JSON.stringify(parsed);
         const messages = updateLastConversationEntry(
           conversation,
           specJson,

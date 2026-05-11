@@ -16,6 +16,7 @@ import { workflow } from "./workflowManager";
 import type { WorkflowId } from "@convex-dev/workflow";
 import type { Doc, Id } from "./_generated/dataModel";
 import { taskCompleteEvent } from "./_taskWorkflow/events";
+import { recordCompletionLog } from "./_taskWorkflow/helpers";
 
 const crons = new Crons(components.crons);
 
@@ -510,13 +511,12 @@ export const handleCompletion = authMutation({
 
     const automation = await ctx.db.get(run.automationId);
     if (automation) {
-      await ctx.db.insert("logs", {
+      await recordCompletionLog(ctx, {
         entityType: "automation",
         entityId: String(args.automationRunId),
         entityTitle: automation.title,
-        rawResultEvent: args.rawResultEvent,
         repoId: run.repoId,
-        createdAt: Date.now(),
+        rawResultEvent: args.rawResultEvent,
       });
     }
 

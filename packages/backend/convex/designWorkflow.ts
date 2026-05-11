@@ -10,7 +10,11 @@ import {
   buildCustomInstructionsBlock,
   DESIGN_SYSTEM_PROMPT,
 } from "./prompts";
-import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
+import {
+  clearStreamingActivity,
+  extractFirstJsonValue,
+  recordCompletionLog,
+} from "./_taskWorkflow/helpers";
 import { startNextQueuedDesignMessage } from "./_queues/helpers";
 import {
   resolveDocMentions,
@@ -141,11 +145,10 @@ ${message}
 After completing all steps, output ONLY valid JSON matching the format in your system prompt.${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-/** Extracts the first JSON object from LLM output text. */
+/** Extracts the first JSON object from LLM output text and serializes it. */
 function extractJsonFromText(text: string): string | null {
-  const { json } = llmJson.extract(text);
-  if (json.length === 0) return null;
-  return JSON.stringify(json[0]);
+  const parsed = extractFirstJsonValue(text);
+  return parsed === undefined ? null : JSON.stringify(parsed);
 }
 
 // --- Workflow definition ---
@@ -402,13 +405,12 @@ export const handleCompletion = authMutation({
       },
     });
 
-    await ctx.db.insert("logs", {
+    await recordCompletionLog(ctx, {
       entityType: "designSession",
       entityId: String(args.designSessionId),
       entityTitle: session.title,
-      rawResultEvent: args.rawResultEvent,
       repoId: session.repoId,
-      createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent,
     });
 
     return null;

@@ -6,7 +6,11 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { evalResultValidator, workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
+import {
+  clearStreamingActivity,
+  llmJson,
+  recordCompletionLog,
+} from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./prBody";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 
@@ -376,13 +380,12 @@ export const handleCompletion = authMutation({
       },
     });
 
-    await ctx.db.insert("logs", {
+    await recordCompletionLog(ctx, {
       entityType: "evaluation",
       entityId: String(args.reportId),
       entityTitle: "Evaluation Report",
-      rawResultEvent: args.rawResultEvent,
       repoId: report.repoId,
-      createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent,
     });
 
     return null;
@@ -541,13 +544,12 @@ export const handleFixCompletion = authMutation({
       },
     });
 
-    await ctx.db.insert("logs", {
+    await recordCompletionLog(ctx, {
       entityType: "evaluation",
       entityId: String(args.reportId),
       entityTitle: "Evaluation Fix",
-      rawResultEvent: args.rawResultEvent,
       repoId: report.repoId,
-      createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent,
     });
 
     return null;

@@ -9,6 +9,7 @@ import {
   clearStreamingActivity,
   getTaskAuditStreamingEntityId,
   getTaskRunStreamingEntityId,
+  recordCompletionLog,
 } from "./helpers";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -141,13 +142,12 @@ export const handleCompletion = authMutation({
     }
 
     if (task.repoId) {
-      await ctx.db.insert("logs", {
+      await recordCompletionLog(ctx, {
         entityType: "quickTask",
         entityId: String(args.taskId),
         entityTitle: task.title,
-        rawResultEvent: args.rawResultEvent,
         repoId: task.repoId,
-        createdAt: Date.now(),
+        rawResultEvent: args.rawResultEvent,
       });
     }
 
@@ -212,13 +212,12 @@ export const handleAuditCompletion = authMutation({
 
     const task = await ctx.db.get(args.taskId);
     if (task?.repoId) {
-      await ctx.db.insert("logs", {
+      await recordCompletionLog(ctx, {
         entityType: "taskAudit",
         entityId: String(args.taskId),
         entityTitle: `Audit: ${task.title}`,
-        rawResultEvent: args.rawResultEvent,
         repoId: task.repoId,
-        createdAt: Date.now(),
+        rawResultEvent: args.rawResultEvent,
       });
     }
 

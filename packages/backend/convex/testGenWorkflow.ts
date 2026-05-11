@@ -6,7 +6,10 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import {
+  clearStreamingActivity,
+  recordCompletionLog,
+} from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./prBody";
 
 const testGenCompleteEvent = defineEvent({
@@ -326,13 +329,12 @@ export const handleCompletion = authMutation({
       },
     });
 
-    await ctx.db.insert("logs", {
+    await recordCompletionLog(ctx, {
       entityType: "testGen",
       entityId: String(args.docId),
       entityTitle: `Test Gen: ${doc.title}`,
-      rawResultEvent: args.rawResultEvent,
       repoId: doc.repoId,
-      createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent,
     });
 
     return null;

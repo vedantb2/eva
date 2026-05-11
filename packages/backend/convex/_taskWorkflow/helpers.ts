@@ -150,3 +150,30 @@ export function extractJsonBlock(text: string): string {
 
   return text;
 }
+
+/** Returns the first JSON value parsed from LLM output, or undefined if none found. */
+export function extractFirstJsonValue(text: string): unknown {
+  const { json } = llmJson.extract(text);
+  return json.length > 0 ? json[0] : undefined;
+}
+
+/** Inserts a completion log row used by sandbox-callback handlers across workflows. */
+export async function recordCompletionLog(
+  ctx: MutationCtx,
+  params: {
+    entityType: string;
+    entityId: string;
+    entityTitle: string;
+    repoId: Id<"githubRepos">;
+    rawResultEvent: string | undefined;
+  },
+): Promise<void> {
+  await ctx.db.insert("logs", {
+    entityType: params.entityType,
+    entityId: params.entityId,
+    entityTitle: params.entityTitle,
+    rawResultEvent: params.rawResultEvent,
+    repoId: params.repoId,
+    createdAt: Date.now(),
+  });
+}

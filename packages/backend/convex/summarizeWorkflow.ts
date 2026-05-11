@@ -6,7 +6,11 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
-import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
+import {
+  clearStreamingActivity,
+  extractFirstJsonValue,
+  recordCompletionLog,
+} from "./_taskWorkflow/helpers";
 
 const summarizeCompleteEvent = defineEvent({
   name: "summarizeComplete",
@@ -125,15 +129,12 @@ export const saveResult = internalMutation({
     let summary: string[] = ["No summary available"];
 
     if (args.success && args.result) {
-      const { json } = llmJson.extract(args.result);
-      if (json.length > 0) {
-        const parsed = json[0];
-        if (
-          Array.isArray(parsed) &&
-          parsed.every((item): item is string => typeof item === "string")
-        ) {
-          summary = parsed;
-        }
+      const parsed = extractFirstJsonValue(args.result);
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((item): item is string => typeof item === "string")
+      ) {
+        summary = parsed;
       }
     }
 
@@ -172,13 +173,12 @@ export const handleCompletion = authMutation({
       },
     });
 
-    await ctx.db.insert("logs", {
+    await recordCompletionLog(ctx, {
       entityType: "summarize",
       entityId: String(args.sessionId),
       entityTitle: `Summary: ${session.title}`,
-      rawResultEvent: args.rawResultEvent,
       repoId: session.repoId,
-      createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent,
     });
 
     return null;

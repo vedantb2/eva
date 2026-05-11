@@ -7,7 +7,11 @@ import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { RUN_TIMEOUT_MS } from "./workflowWatchdog";
 import { PARSE_PROMPT } from "./prompts";
-import { clearStreamingActivity, llmJson } from "./_taskWorkflow/helpers";
+import {
+  clearStreamingActivity,
+  extractFirstJsonValue,
+  recordCompletionLog,
+} from "./_taskWorkflow/helpers";
 
 const prdCompleteEvent = defineEvent({
   name: "prdComplete",
@@ -21,39 +25,49 @@ interface ParsedDocFields {
 }
 
 /** Normalizes and sanitizes parsed doc fields (description, requirements, user flows) from LLM output. */
-function normalizeParsedDocFields(
-  raw: Partial<ParsedDocFields>,
-): ParsedDocFields {
+function normalizeParsedDocFields(raw: unknown): ParsedDocFields {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return { description: undefined, requirements: [], userFlows: [] };
+  }
+  const obj: Record<string, unknown> = Object.fromEntries(Object.entries(raw));
+
   const description =
-    typeof raw.description === "string" && raw.description.trim().length > 0
-      ? raw.description.trim()
+    typeof obj.description === "string" && obj.description.trim().length > 0
+      ? obj.description.trim()
       : undefined;
 
-  const requirements = Array.isArray(raw.requirements)
-    ? raw.requirements
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-        .filter(Boolean)
+  const requirementsRaw: unknown[] = Array.isArray(obj.requirements)
+    ? obj.requirements
     : [];
+  const requirements: string[] = [];
+  for (const item of requirementsRaw) {
+    if (typeof item !== "string") continue;
+    const trimmed = item.trim();
+    if (trimmed.length > 0) requirements.push(trimmed);
+  }
 
-  const userFlows = Array.isArray(raw.userFlows)
-    ? raw.userFlows
-        .filter(
-          (flow): flow is { name: string; steps: string[] } =>
-            typeof flow === "object" &&
-            flow !== null &&
-            typeof flow.name === "string" &&
-            Array.isArray(flow.steps),
-        )
-        .map((flow) => ({
-          name: flow.name.trim(),
-          steps: flow.steps
-            .filter((step): step is string => typeof step === "string")
-            .map((step) => step.trim())
-            .filter(Boolean),
-        }))
-        .filter((flow) => flow.name.length > 0 && flow.steps.length > 0)
+  const userFlowsRaw: unknown[] = Array.isArray(obj.userFlows)
+    ? obj.userFlows
     : [];
+  const userFlows: Array<{ name: string; steps: string[] }> = [];
+  for (const flow of userFlowsRaw) {
+    if (typeof flow !== "object" || flow === null || Array.isArray(flow)) {
+      continue;
+    }
+    const f: Record<string, unknown> = Object.fromEntries(Object.entries(flow));
+    if (typeof f.name !== "string") continue;
+    const name = f.name.trim();
+    if (name.length === 0) continue;
+    const rawSteps: unknown[] = Array.isArray(f.steps) ? f.steps : [];
+    const steps: string[] = [];
+    for (const step of rawSteps) {
+      if (typeof step !== "string") continue;
+      const trimmed = step.trim();
+      if (trimmed.length > 0) steps.push(trimmed);
+    }
+    if (steps.length === 0) continue;
+    userFlows.push({ name, steps });
+  }
 
   return { description, requirements, userFlows };
 }
@@ -173,9 +187,8 @@ export const saveResult = internalMutation({
     if (!doc) return null;
 
     if (args.success && args.result) {
-      const { json } = llmJson.extract(args.result);
-      if (json.length > 0) {
-        const parsed = json[0] as Partial<ParsedDocFields>;
+      const parsed = extractFirstJsonValue(args.result);
+      if (parsed !== undefined) {
         const normalized = normalizeParsedDocFields(parsed);
         await ctx.db.patch(args.docId, {
           description: normalized.description,
@@ -225,13 +238,12 @@ export const handleCompletion = authMutation({
       },
     });
 
-    await ctx.db.insert("logs", {
+    await recordCompletionLog(ctx, {
       entityType: "doc",
       entityId: String(args.docId),
       entityTitle: doc.title,
-      rawResultEvent: args.rawResultEvent,
       repoId: doc.repoId,
-      createdAt: Date.now(),
+      rawResultEvent: args.rawResultEvent,
     });
 
     return null;

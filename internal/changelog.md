@@ -1,5 +1,11 @@
 # Changelog
 
+## Extract prompts and findings parser from automationWorkflow.ts - 2026-05-11
+
+- **Why**: `convex/automationWorkflow.ts` had grown to 385 lines mixing three concerns: three prompt builders for the implementation, read-only, and actionable-findings modes (~110 lines combined), the `parseFindingsFromResult` parser plus its `ParsedFinding` interface, `Severity` type, `VALID_SEVERITIES` table, and the local `isRecord` type guard (~80 lines), and the actual `automationExecutionWorkflow` definition. Tweaking a prompt rule or adjusting the JSON schema for findings meant scrolling past the 180-line workflow handler.
+- **Change**: Created `_automationWorkflow/prompts.ts` (~115 lines) for the three prompt builders (`buildAutomationPrompt`, `buildReadOnlyPrompt`, `buildActionableReportPrompt`) and `_automationWorkflow/findings.ts` (~80 lines) for the `parseFindingsFromResult` function, the `ParsedFinding` interface, the `VALID_SEVERITIES` table, and the local `isRecord` helper. Rewrote `automationWorkflow.ts` to import the helpers — the file is now down to 185 lines and contains only the workflow definition. No Convex API surface changed (the helpers are pure functions, not Convex functions) so no caller paths needed updating.
+- **Reason**: Prompt copy is the most frequently edited part of automation logic, and the findings parser is pure logic that is unit-testable in isolation. Co-locating both with the workflow file made each easier to find but harder to navigate. Matches the established `_taskWorkflow/{prAudit,deploymentHelpers}` helper pattern.
+
 ## Split agentRuns.ts into \_agentRuns/ subfolder - 2026-05-11
 
 - **Why**: `convex/agentRuns.ts` had grown to 414 lines mixing seven read queries (~205 lines for `get`, `getWithDetails`, `getActivityLog`, `listByTask`, `getTaskIdsWithLatestRunError`, `getLatestDeploymentStatuses`, `getLatestDeploymentByProject` plus the `agentRunValidator`/`agentRunSummaryValidator` shapes), three auth mutations (`updateStatus`, `appendLog`, `complete` — ~140 lines), one internal mutation (`updateDeploymentStatus` — ~20 lines), and the `buildRunNotificationMessage` helper used only by `complete`. Editing the run-completion notification copy meant scrolling past 200+ lines of unrelated query handlers.

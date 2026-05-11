@@ -17,6 +17,8 @@ import type * as _agentTasks_internal from "../_agentTasks/internal.js";
 import type * as _agentTasks_mutations from "../_agentTasks/mutations.js";
 import type * as _agentTasks_queries from "../_agentTasks/queries.js";
 import type * as _agentTasks_sandbox from "../_agentTasks/sandbox.js";
+import type * as _automationWorkflow_findings from "../_automationWorkflow/findings.js";
+import type * as _automationWorkflow_prompts from "../_automationWorkflow/prompts.js";
 import type * as _automations_crud from "../_automations/crud.js";
 import type * as _automations_findings from "../_automations/findings.js";
 import type * as _automations_runs from "../_automations/runs.js";
@@ -203,6 +205,8 @@ declare const fullApi: ApiFromModules<{
   "_agentTasks/mutations": typeof _agentTasks_mutations;
   "_agentTasks/queries": typeof _agentTasks_queries;
   "_agentTasks/sandbox": typeof _agentTasks_sandbox;
+  "_automationWorkflow/findings": typeof _automationWorkflow_findings;
+  "_automationWorkflow/prompts": typeof _automationWorkflow_prompts;
   "_automations/crud": typeof _automations_crud;
   "_automations/findings": typeof _automations_findings;
   "_automations/runs": typeof _automations_runs;

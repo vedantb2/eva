@@ -64,6 +64,8 @@ import type * as _projects_internal from "../_projects/internal.js";
 import type * as _projects_mutations from "../_projects/mutations.js";
 import type * as _projects_queries from "../_projects/queries.js";
 import type * as _projects_sandbox from "../_projects/sandbox.js";
+import type * as _pty_daytona from "../_pty/daytona.js";
+import type * as _pty_owners from "../_pty/owners.js";
 import type * as _queues_helpers from "../_queues/helpers.js";
 import type * as _repoSnapshots_builds from "../_repoSnapshots/builds.js";
 import type * as _repoSnapshots_config from "../_repoSnapshots/config.js";
@@ -252,6 +254,8 @@ declare const fullApi: ApiFromModules<{
   "_projects/mutations": typeof _projects_mutations;
   "_projects/queries": typeof _projects_queries;
   "_projects/sandbox": typeof _projects_sandbox;
+  "_pty/daytona": typeof _pty_daytona;
+  "_pty/owners": typeof _pty_owners;
   "_queues/helpers": typeof _queues_helpers;
   "_repoSnapshots/builds": typeof _repoSnapshots_builds;
   "_repoSnapshots/config": typeof _repoSnapshots_config;

@@ -86,3 +86,12 @@ export async function getInstallationOctokit(
   });
   return new Octokit({ auth: installationAuth.token });
 }
+
+/** Creates an Octokit client authenticated as the GitHub App itself (not an installation). */
+export function getAppOctokit(): Octokit {
+  const creds = getGitHubCredentials();
+  return new Octokit({
+    authStrategy: createAppAuth,
+    auth: creds,
+  });
+}

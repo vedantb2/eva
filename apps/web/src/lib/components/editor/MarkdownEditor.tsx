@@ -8,7 +8,7 @@ import { useCallback } from "react";
 import { Button } from "@conductor/ui";
 import { IconCheck, IconX } from "@tabler/icons-react";
 
-const prdExtensions = [
+const markdownExtensions = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3, 4, 5, 6] },
   }),
@@ -23,21 +23,21 @@ function getMarkdownFromEditor(editor: Editor): string {
   return editor.getMarkdown();
 }
 
-interface SessionPrdPlanEditorProps {
+interface MarkdownEditorProps {
   initialMarkdown: string;
   onSave: (markdown: string) => void | Promise<void>;
   onCancel: () => void;
   isSaving: boolean;
 }
 
-export function SessionPrdPlanEditor({
+export function MarkdownEditor({
   initialMarkdown,
   onSave,
   onCancel,
   isSaving,
-}: SessionPrdPlanEditorProps) {
+}: MarkdownEditorProps) {
   const editor = useEditor({
-    extensions: prdExtensions,
+    extensions: markdownExtensions,
     content: initialMarkdown,
     contentType: "markdown",
     immediatelyRender: false,

@@ -80,7 +80,6 @@ function normalizeParsedDocFields(raw: unknown): ParsedDocFields {
 export const docPrdWorkflow = workflow.define({
   args: {
     docId: v.id("docs"),
-    prdContent: v.string(),
     userId: v.id("users"),
     installationId: v.number(),
   },
@@ -88,7 +87,6 @@ export const docPrdWorkflow = workflow.define({
     // Step 1: Fetch doc + repo data, build prompt
     const docData = await step.runQuery(internal.docPrdWorkflow.getDocData, {
       docId: args.docId,
-      prdContent: args.prdContent,
     });
 
     const sandboxId = await prepareSandboxSteps(step, {
@@ -132,7 +130,6 @@ export const docPrdWorkflow = workflow.define({
 export const getDocData = internalQuery({
   args: {
     docId: v.id("docs"),
-    prdContent: v.string(),
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
@@ -153,11 +150,11 @@ export const getDocData = internalQuery({
 ## Document Title
 "${doc.title}"
 
-## Uploaded PRD Content
-${args.prdContent}
+## PRD Content
+${doc.content}
 
 ## Task
-Use the uploaded PRD content and repository context to produce description, requirements, and user flows.
+Use the PRD content and repository context to produce description, requirements, and user flows.
 
 Output ONLY valid JSON.`;
 
@@ -190,8 +187,12 @@ export const saveResult = internalMutation({
       const parsed = extractFirstJsonValue(args.result);
       if (parsed !== undefined) {
         const normalized = normalizeParsedDocFields(parsed);
+        // Preserve manual description edits — only set if currently empty.
+        const description = doc.description?.trim()
+          ? doc.description
+          : normalized.description;
         await ctx.db.patch(args.docId, {
-          description: normalized.description,
+          description,
           requirements: normalized.requirements,
           userFlows: normalized.userFlows,
           activeWorkflowId: undefined,
@@ -252,7 +253,6 @@ export const handleCompletion = authMutation({
 export const startPrdParse = authMutation({
   args: {
     docId: v.id("docs"),
-    prdContent: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -267,7 +267,6 @@ export const startPrdParse = authMutation({
       internal.docPrdWorkflow.docPrdWorkflow,
       {
         docId: args.docId,
-        prdContent: args.prdContent,
         userId: ctx.userId,
         installationId: repo.installationId,
       },

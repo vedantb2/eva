@@ -31,6 +31,7 @@ const docValidator = v.object({
   _id: v.id("docs"),
   _creationTime: v.number(),
   repoId: v.id("githubRepos"),
+  sessionId: v.optional(v.id("sessions")),
   title: v.string(),
   content: v.string(),
   description: v.optional(v.string()),
@@ -72,17 +73,12 @@ export const get = authQuery({
   },
 });
 
-/** Creates a new doc in a repo with optional description, user flows, and requirements. */
+/** Creates a new doc in a repo. Requirements/userFlows are populated by extraction (docPrdWorkflow), not by this mutation. */
 export const create = authMutation({
   args: {
     repoId: v.id("githubRepos"),
     title: v.string(),
     content: v.string(),
-    description: v.optional(v.string()),
-    userFlows: v.optional(
-      v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
-    ),
-    requirements: v.optional(v.array(v.string())),
   },
   returns: v.id("docs"),
   handler: async (ctx, args) => {
@@ -94,26 +90,19 @@ export const create = authMutation({
       repoId: args.repoId,
       title: args.title,
       content: args.content,
-      description: args.description,
-      userFlows: args.userFlows,
-      requirements: args.requirements,
       createdAt: now,
       updatedAt: now,
     });
   },
 });
 
-/** Updates a doc's title, content, description, user flows, or requirements. */
+/** Updates a doc's title, content, or description. Requirements/userFlows are managed by extraction (docPrdWorkflow). */
 export const update = authMutation({
   args: {
     id: v.id("docs"),
     title: v.optional(v.string()),
     content: v.optional(v.string()),
     description: v.optional(v.string()),
-    userFlows: v.optional(
-      v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
-    ),
-    requirements: v.optional(v.array(v.string())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -125,8 +114,6 @@ export const update = authMutation({
       title?: string;
       content?: string;
       description?: string;
-      userFlows?: Array<{ name: string; steps: string[] }>;
-      requirements?: string[];
       updatedAt: number;
     } = {
       updatedAt: Date.now(),
@@ -134,11 +121,60 @@ export const update = authMutation({
     if (args.title !== undefined) updates.title = args.title;
     if (args.content !== undefined) updates.content = args.content;
     if (args.description !== undefined) updates.description = args.description;
-    if (args.userFlows !== undefined) updates.userFlows = args.userFlows;
-    if (args.requirements !== undefined)
-      updates.requirements = args.requirements;
     await ctx.db.patch(args.id, updates);
     return null;
+  },
+});
+
+/** Returns the doc associated with a session, if any. Used by PRD tab to determine Save vs Update label. */
+export const getBySession = authQuery({
+  args: { sessionId: v.id("sessions") },
+  returns: v.union(docValidator, v.null()),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) return null;
+    return await ctx.db
+      .query("docs")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .first();
+  },
+});
+
+/** Saves a session's plan content as a doc. If a doc already exists for this session, updates its content. */
+export const createFromSession = authMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.id("docs"),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    const planContent = session.planContent?.trim();
+    if (!planContent) {
+      throw new Error("Session has no plan content to save");
+    }
+    const existing = await ctx.db
+      .query("docs")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .first();
+    const now = Date.now();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        content: session.planContent ?? "",
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+    return await ctx.db.insert("docs", {
+      repoId: session.repoId,
+      sessionId: args.sessionId,
+      title: session.title,
+      content: session.planContent ?? "",
+      createdAt: now,
+      updatedAt: now,
+    });
   },
 });
 

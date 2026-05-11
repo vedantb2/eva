@@ -237,7 +237,7 @@ export function Sidebar() {
             name: "Documents",
             href: `${repoBasePath}/docs`,
             icon: DocumentsIcon,
-            devOnly: true,
+            // devOnly: true,
           },
           {
             name: "Testing Arena",

@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Button,
   cn,
@@ -13,11 +15,22 @@ import {
   PlanFooter,
   PlanTrigger,
   MessageResponse,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
 } from "@conductor/ui";
-import { IconCheck, IconCode, IconCopy, IconPencil } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconCode,
+  IconCopy,
+  IconFileExport,
+  IconPencil,
+} from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
-import { SessionPrdPlanEditor } from "./SessionPrdPlanEditor";
+import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 
 interface SessionPrdPlanViewProps {
   sessionId: Id<"sessions">;
@@ -35,10 +48,15 @@ export function SessionPrdPlanView({
   isArchived,
 }: SessionPrdPlanViewProps) {
   const isPanel = variant === "panel";
+  const { basePath } = useRepo();
+  const navigate = useNavigate();
   const updatePlanContent = useMutation(api.sessions.updatePlanContent);
+  const createDocFromSession = useMutation(api.docs.createFromSession);
+  const linkedDoc = useQuery(api.docs.getBySession, { sessionId });
   const [editingSnapshot, setEditingSnapshot] = useState<string | null>(null);
   const [editKey, setEditKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingDoc, setIsSavingDoc] = useState(false);
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -82,6 +100,20 @@ export function SessionPrdPlanView({
     [sessionId, updatePlanContent],
   );
 
+  const handleSaveAsDocument = useCallback(async () => {
+    if (!planContent.trim()) return;
+    setIsSavingDoc(true);
+    try {
+      const docId = await createDocFromSession({ sessionId });
+      navigate({ to: `${basePath}/docs/${docId}/${DOC_VIEWER_DEFAULT_TAB}` });
+    } finally {
+      setIsSavingDoc(false);
+    }
+  }, [basePath, createDocFromSession, navigate, planContent, sessionId]);
+
+  const hasContent = planContent.trim().length > 0;
+  const docButtonLabel = linkedDoc ? "Update Document" : "Save as Document";
+
   return (
     <Plan
       defaultOpen
@@ -118,7 +150,7 @@ export function SessionPrdPlanView({
         )}
       >
         {editingSnapshot !== null ? (
-          <SessionPrdPlanEditor
+          <MarkdownEditor
             key={editKey}
             initialMarkdown={editingSnapshot}
             onSave={handleSave}
@@ -154,6 +186,29 @@ export function SessionPrdPlanView({
             <IconPencil className="w-3.5 h-3.5" />
             Edit
           </Button>
+        ) : null}
+        {editingSnapshot === null && !isArchived ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className={!hasContent ? "cursor-not-allowed" : undefined}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="motion-press"
+                  onClick={handleSaveAsDocument}
+                  disabled={!hasContent || isSavingDoc}
+                >
+                  <IconFileExport className="w-3.5 h-3.5" />
+                  {docButtonLabel}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!hasContent ? (
+              <TooltipContent>
+                Add plan content before saving as a document
+              </TooltipContent>
+            ) : null}
+          </Tooltip>
         ) : null}
         {editingSnapshot === null ? (
           <Button

@@ -147,6 +147,7 @@ const schema = defineSchema({
   }).index("by_entity", ["entityId"]),
   docs: defineTable({
     repoId: v.id("githubRepos"),
+    sessionId: v.optional(v.id("sessions")),
     title: v.string(),
     content: v.string(),
     description: v.optional(v.string()),
@@ -168,7 +169,9 @@ const schema = defineSchema({
     testPrUrl: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_repo", ["repoId"]),
+  })
+    .index("by_repo", ["repoId"])
+    .index("by_session", ["sessionId"]),
   annotations: defineTable({
     userId: v.id("users"),
     pageUrl: v.string(),

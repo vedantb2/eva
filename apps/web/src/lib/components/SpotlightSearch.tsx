@@ -7,6 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import {
   IconSearch,
@@ -204,7 +205,11 @@ export function SpotlightSearch() {
                     key={d._id}
                     value={d.title}
                     className={itemClass}
-                    onSelect={() => handleSelect(`${basePath}/docs/${d._id}`)}
+                    onSelect={() =>
+                      handleSelect(
+                        `${basePath}/docs/${d._id}/${DOC_VIEWER_DEFAULT_TAB}`,
+                      )
+                    }
                   >
                     <IconFileText size={16} className="flex-shrink-0" />
                     <span className="flex-1 truncate">{d.title}</span>

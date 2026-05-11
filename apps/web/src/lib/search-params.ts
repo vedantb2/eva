@@ -122,6 +122,15 @@ export function isSnapshotSettingsTab(s: string): s is SnapshotSettingsTab {
   return (snapshotSettingsTabs as readonly string[]).includes(s);
 }
 
+const docViewerTabs = ["content", "requirements", "user-flows"] as const;
+export type DocViewerTab = (typeof docViewerTabs)[number];
+
+export function isDocViewerTab(s: string): s is DocViewerTab {
+  return (docViewerTabs as readonly string[]).includes(s);
+}
+
+export const DOC_VIEWER_DEFAULT_TAB: DocViewerTab = "content";
+
 const inboxFilters = ["all", "unread"] as const;
 export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")

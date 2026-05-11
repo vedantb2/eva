@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { MentionText } from "@/lib/components/mentions";
+import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 
 interface MessageMentionTextProps {
   text: string;
@@ -26,8 +27,13 @@ export function MessageMentionText({
           type="button"
           onClick={() =>
             navigate({
-              to: "/$owner/$repo/docs/$id",
-              params: { owner, repo, id: match.id },
+              to: "/$owner/$repo/docs/$id/$docTab",
+              params: {
+                owner,
+                repo,
+                id: match.id,
+                docTab: DOC_VIEWER_DEFAULT_TAB,
+              },
             })
           }
           className="bg-muted text-foreground rounded px-1 font-medium hover:bg-muted/80 transition-colors"

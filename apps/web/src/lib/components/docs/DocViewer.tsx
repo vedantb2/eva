@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
+import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { isDocViewerTab, type DocViewerTab } from "@/lib/search-params";
 import {
   ActivitySteps,
   Button,
@@ -19,23 +22,19 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  Input,
+  MessageResponse,
   Spinner,
-  Textarea,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
-  cn,
+  Textarea,
 } from "@conductor/ui";
 import { ConfirmDeleteButton } from "./_components/ConfirmDeleteButton";
 import {
-  IconPlus,
-  IconGripVertical,
-  IconInfoCircle,
+  IconCheck,
+  IconCopy,
+  IconPencil,
   IconMessageChatbot,
   IconHistory,
   IconTestPipe,
@@ -46,15 +45,24 @@ import {
 import dayjs from "@conductor/shared/dates";
 
 import { DocInterviewDialog } from "./DocInterviewDialog";
+import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
-export function DocViewer({ doc }: { doc: Doc }) {
-  return <DocEditor key={doc._id} doc={doc} />;
+export function DocViewer({
+  doc,
+  activeTab,
+}: {
+  doc: Doc;
+  activeTab: DocViewerTab;
+}) {
+  return <DocEditor key={doc._id} doc={doc} activeTab={activeTab} />;
 }
 
-function DocEditor({ doc }: { doc: Doc }) {
+function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
+  const navigate = useNavigate();
+  const { basePath } = useRepo();
   const streaming = useQuery(api.streaming.get, { entityId: doc._id });
   const streamingSteps = parseActivitySteps(streaming?.currentActivity);
   const [interviewOpen, setInterviewOpen] = useState(false);
@@ -62,8 +70,25 @@ function DocEditor({ doc }: { doc: Doc }) {
   const [testGenConfirmOpen, setTestGenConfirmOpen] = useState(false);
   const [isTriggeringTestGen, setIsTriggeringTestGen] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
+  const [editingSnapshot, setEditingSnapshot] = useState<string | null>(null);
+  const [editKey, setEditKey] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDocTabChange = useCallback(
+    (value: string) => {
+      if (!isDocViewerTab(value)) return;
+      navigate({
+        to: `${basePath}/docs/${doc._id}/${value}`,
+      });
+    },
+    [basePath, doc._id, navigate],
+  );
+
   const startTestGenMutation = useMutation(api.testGenWorkflow.startTestGen);
   const cancelTestGenMutation = useMutation(api.testGenWorkflow.cancelTestGen);
+  const startPrdParse = useMutation(api.docPrdWorkflow.startPrdParse);
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
     (localStore, args) => {
       const current = localStore.getQuery(api.docs.get, { id: args.id });
@@ -81,66 +106,44 @@ function DocEditor({ doc }: { doc: Doc }) {
     },
   );
 
-  const addRequirement = () => {
-    updateDoc({ id: doc._id, requirements: [...(doc.requirements ?? []), ""] });
-  };
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(doc.content);
+    setCopied(true);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
+  }, [doc.content]);
 
-  const updateRequirement = (idx: number, val: string) => {
-    const next = (doc.requirements ?? []).map((r, i) => (i === idx ? val : r));
-    updateDoc({ id: doc._id, requirements: next });
-  };
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    };
+  }, []);
 
-  const removeRequirement = (idx: number) => {
-    const next = (doc.requirements ?? []).filter((_, i) => i !== idx);
-    updateDoc({ id: doc._id, requirements: next });
-  };
+  const handleStartEdit = useCallback(() => {
+    setEditingSnapshot(doc.content);
+    setEditKey((k) => k + 1);
+  }, [doc.content]);
 
-  const addFlow = () => {
-    updateDoc({
-      id: doc._id,
-      userFlows: [...(doc.userFlows ?? []), { name: "", steps: [""] }],
-    });
-  };
+  const handleCancelEdit = useCallback(() => {
+    setEditingSnapshot(null);
+  }, []);
 
-  const removeFlow = (flowIdx: number) => {
-    const next = (doc.userFlows ?? []).filter((_, i) => i !== flowIdx);
-    updateDoc({ id: doc._id, userFlows: next });
-  };
-
-  const updateFlowName = (flowIdx: number, name: string) => {
-    const next = (doc.userFlows ?? []).map((flow, i) =>
-      i === flowIdx ? { ...flow, name } : flow,
-    );
-    updateDoc({ id: doc._id, userFlows: next });
-  };
-
-  const addStep = (flowIdx: number) => {
-    const next = (doc.userFlows ?? []).map((flow, i) =>
-      i === flowIdx ? { ...flow, steps: [...flow.steps, ""] } : flow,
-    );
-    updateDoc({ id: doc._id, userFlows: next });
-  };
-
-  const removeStep = (flowIdx: number, stepIdx: number) => {
-    const next = (doc.userFlows ?? []).map((flow, i) =>
-      i === flowIdx
-        ? { ...flow, steps: flow.steps.filter((_, j) => j !== stepIdx) }
-        : flow,
-    );
-    updateDoc({ id: doc._id, userFlows: next });
-  };
-
-  const updateStep = (flowIdx: number, stepIdx: number, val: string) => {
-    const next = (doc.userFlows ?? []).map((flow, i) =>
-      i === flowIdx
-        ? {
-            ...flow,
-            steps: flow.steps.map((s, j) => (j === stepIdx ? val : s)),
-          }
-        : flow,
-    );
-    updateDoc({ id: doc._id, userFlows: next });
-  };
+  const handleSave = useCallback(
+    async (markdown: string) => {
+      setIsSaving(true);
+      try {
+        await updateDoc({ id: doc._id, content: markdown });
+        // Trigger extraction so requirements/userFlows stay in sync with new content.
+        if (markdown.trim().length > 0) {
+          await startPrdParse({ docId: doc._id });
+        }
+        setEditingSnapshot(null);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [doc._id, updateDoc, startPrdParse],
+  );
 
   const handleGenerateTests = async () => {
     if (isTriggeringTestGen || doc.testGenStatus === "running") return;
@@ -166,6 +169,8 @@ function DocEditor({ doc }: { doc: Doc }) {
   const isGeneratingTests =
     doc.testGenStatus === "running" || isTriggeringTestGen;
 
+  const isEditing = editingSnapshot !== null;
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
@@ -186,6 +191,19 @@ function DocEditor({ doc }: { doc: Doc }) {
           <span className="text-xs text-muted-foreground whitespace-nowrap">
             {dayjs(doc.updatedAt).fromNow()}
           </span>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            onClick={handleCopy}
+            aria-label={copied ? "Copied" : "Copy content"}
+          >
+            {copied ? (
+              <IconCheck className="size-4 text-success" />
+            ) : (
+              <IconCopy className="size-4" />
+            )}
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -249,7 +267,7 @@ function DocEditor({ doc }: { doc: Doc }) {
             <DialogTitle>Generate Tests?</DialogTitle>
             <DialogDescription>
               This will generate tests based on the current requirements and
-              user flows.
+              user flows extracted from the PRD.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -307,172 +325,125 @@ function DocEditor({ doc }: { doc: Doc }) {
       )}
 
       <Tabs
-        defaultValue="requirements"
-        className="flex-1 flex flex-col overflow-hidden"
+        value={activeTab}
+        onValueChange={handleDocTabChange}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <div className="px-4">
+        <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
-            <TabsTrigger value="requirements">Requirements</TabsTrigger>
-            <TabsTrigger value="user-flows">User Flows</TabsTrigger>
+            <TabsTrigger value="content">Content</TabsTrigger>
+            <TabsTrigger value="requirements">
+              Requirements
+              <span className="ml-1.5 text-muted-foreground">
+                {doc.requirements?.length ?? 0}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="user-flows">
+              User Flows
+              <span className="ml-1.5 text-muted-foreground">
+                {doc.userFlows?.length ?? 0}
+              </span>
+            </TabsTrigger>
           </TabsList>
+          {activeTab === "content" && !isEditing ? (
+            <Button size="sm" variant="secondary" onClick={handleStartEdit}>
+              <IconPencil size={14} />
+              Edit
+            </Button>
+          ) : null}
         </div>
 
         <TabsContent
-          value="requirements"
-          className="flex-1 overflow-y-auto scrollbar p-3 space-y-4 mt-0 sm:p-6 sm:space-y-6"
+          value="content"
+          className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <section>
-            <label className="text-sm font-medium text-muted-foreground mb-2 block">
-              Description
-            </label>
-            <Textarea
-              value={doc.description ?? ""}
-              onChange={(e) =>
-                updateDoc({ id: doc._id, description: e.target.value })
-              }
-              placeholder="What does this page or feature do?"
-              rows={2}
-              className="bg-card"
-            />
-          </section>
-
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                Requirements
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <IconInfoCircle
-                      size={14}
-                      className="text-muted-foreground"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Used for code-level testing and evaluation
-                  </TooltipContent>
-                </Tooltip>
+          {!isEditing ? (
+            <section className="mb-3 shrink-0">
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Description
               </label>
-              <Button size="sm" variant="secondary" onClick={addRequirement}>
-                <IconPlus size={14} />
-                Add
-              </Button>
-            </div>
-            {(doc.requirements ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No requirements yet. Add items that should be verified during
-                testing.
-              </p>
+              <Textarea
+                value={doc.description ?? ""}
+                onChange={(e) =>
+                  updateDoc({ id: doc._id, description: e.target.value })
+                }
+                placeholder="A short summary of this PRD."
+                rows={2}
+                className="bg-card"
+              />
+            </section>
+          ) : null}
+
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {editingSnapshot !== null ? (
+              <MarkdownEditor
+                key={editKey}
+                initialMarkdown={editingSnapshot}
+                onSave={handleSave}
+                onCancel={handleCancelEdit}
+                isSaving={isSaving}
+              />
             ) : (
-              <div className="space-y-2">
-                {(doc.requirements ?? []).map((req, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <IconGripVertical
-                      size={14}
-                      className="text-muted-foreground flex-shrink-0"
-                    />
-                    <Input
-                      value={req}
-                      onChange={(e) => updateRequirement(idx, e.target.value)}
-                      placeholder="e.g. Users can log in with email"
-                      className="h-8 text-sm bg-card"
-                    />
-                    <ConfirmDeleteButton
-                      onConfirm={() => removeRequirement(idx)}
-                      label="requirement"
-                    />
-                  </div>
-                ))}
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {doc.content.trim().length > 0 ? (
+                  <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                    {doc.content}
+                  </MessageResponse>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No content yet. Click Edit to add product requirements.
+                  </p>
+                )}
               </div>
             )}
-          </section>
+          </div>
+        </TabsContent>
+
+        <TabsContent
+          value="requirements"
+          className="mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:px-4"
+        >
+          {(doc.requirements?.length ?? 0) > 0 ? (
+            <ul className="list-disc space-y-2 pl-5">
+              {(doc.requirements ?? []).map((req, i) => (
+                <li key={i} className="text-sm">
+                  {req}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No requirements extracted yet. They are populated automatically
+              when you save the PRD content.
+            </p>
+          )}
         </TabsContent>
 
         <TabsContent
           value="user-flows"
-          className="flex-1 overflow-y-auto scrollbar p-3 space-y-4 mt-0 sm:p-6 sm:space-y-6"
+          className="mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:px-4"
         >
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                User Flows
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <IconInfoCircle
-                      size={14}
-                      className="text-muted-foreground"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Used for UI testing in the testing arena
-                  </TooltipContent>
-                </Tooltip>
-              </label>
-              <Button size="sm" variant="secondary" onClick={addFlow}>
-                <IconPlus size={14} />
-                Add Flow
-              </Button>
+          {(doc.userFlows?.length ?? 0) > 0 ? (
+            <div className="space-y-4">
+              {(doc.userFlows ?? []).map((flow, i) => (
+                <div key={i} className="rounded-lg bg-muted/40 p-3 sm:p-4">
+                  <p className="text-sm font-medium">{flow.name}</p>
+                  <ol className="mt-2 list-decimal space-y-1 pl-5">
+                    {flow.steps.map((step, j) => (
+                      <li key={j} className="text-sm text-muted-foreground">
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
             </div>
-            {(doc.userFlows ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No user flows yet. Add step-by-step flows to test in the UI
-                testing tab.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {(doc.userFlows ?? []).map((flow, flowIdx) => (
-                  <div
-                    key={flowIdx}
-                    className="bg-muted/40 rounded-lg p-3 sm:p-4"
-                  >
-                    <div className="flex items-center gap-2 mb-3">
-                      <Input
-                        value={flow.name}
-                        onChange={(e) =>
-                          updateFlowName(flowIdx, e.target.value)
-                        }
-                        placeholder={`Flow ${flowIdx + 1}`}
-                        className="h-8 text-sm bg-background"
-                      />
-                      <ConfirmDeleteButton
-                        onConfirm={() => removeFlow(flowIdx)}
-                        label="flow"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      {flow.steps.map((step, stepIdx) => (
-                        <div key={stepIdx} className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-5 text-right flex-shrink-0 tabular-nums">
-                            {stepIdx + 1}.
-                          </span>
-                          <Input
-                            value={step}
-                            onChange={(e) =>
-                              updateStep(flowIdx, stepIdx, e.target.value)
-                            }
-                            placeholder="Describe this step"
-                            className="h-8 text-sm bg-background"
-                          />
-                          <ConfirmDeleteButton
-                            onConfirm={() => removeStep(flowIdx, stepIdx)}
-                            label="step"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => addStep(flowIdx)}
-                      className="mt-2 text-muted-foreground"
-                    >
-                      <IconPlus size={14} />
-                      Add Step
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No user flows extracted yet. They are populated automatically when
+              you save the PRD content.
+            </p>
+          )}
         </TabsContent>
       </Tabs>
     </div>

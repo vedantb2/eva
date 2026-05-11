@@ -26,7 +26,7 @@ import {
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
-import { searchParser } from "@/lib/search-params";
+import { searchParser, DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 
 interface DocsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -88,7 +88,7 @@ export function DocsSidebar({
       });
       setNewDocTitle("");
       setIsCreateDialogOpen(false);
-      navigate({ to: `${basePath}/docs/${id}` });
+      navigate({ to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}` });
       onNavigate?.();
     } finally {
       setIsCreating(false);
@@ -135,12 +135,9 @@ export function DocsSidebar({
       setShowUploadSection(false);
       setPastedPrdContent("");
       setNewDocTitle("");
-      navigate({ to: `${basePath}/docs/${id}` });
+      navigate({ to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}` });
       onNavigate?.();
-      await startPrdParse({
-        docId: id,
-        prdContent,
-      });
+      await startPrdParse({ docId: id });
     } catch (error) {
       console.error("PRD upload failed", error);
     } finally {
@@ -241,7 +238,7 @@ export function DocsSidebar({
         ) : (
           <div>
             {filteredDocs.map((doc) => {
-              const href = `${basePath}/docs/${doc._id}`;
+              const href = `${basePath}/docs/${doc._id}/${DOC_VIEWER_DEFAULT_TAB}`;
               const isSelected = pathname.startsWith(href);
               return (
                 <ContextMenu key={doc._id}>
@@ -423,8 +420,8 @@ export function DocsSidebar({
             <strong>{docToDelete?.title}</strong>?
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            This action cannot be undone. The document and all its requirements
-            and user flows will be permanently deleted.
+            This action cannot be undone. The document will be permanently
+            deleted.
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDocToDelete(null)}>

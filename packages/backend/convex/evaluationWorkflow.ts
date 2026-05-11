@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
+import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { evalResultValidator, workflowCompleteValidator } from "./validators";
@@ -10,6 +10,7 @@ import {
   clearStreamingActivity,
   llmJson,
   recordCompletionLog,
+  sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./prBody";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
@@ -369,15 +370,11 @@ export const handleCompletion = authMutation({
     const report = await ctx.db.get(args.reportId);
     if (!report || !report.activeWorkflowId) return null;
 
-    await workflow.sendEvent(ctx, {
-      ...evalCompleteEvent,
-      workflowId: report.activeWorkflowId as WorkflowId,
-      value: {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
-      },
+    await sendCompletionEvent(ctx, evalCompleteEvent, report.activeWorkflowId, {
+      success: args.success,
+      result: args.result,
+      error: args.error,
+      activityLog: args.activityLog,
     });
 
     await recordCompletionLog(ctx, {
@@ -533,15 +530,11 @@ export const handleFixCompletion = authMutation({
     const report = await ctx.db.get(args.reportId);
     if (!report || !report.activeWorkflowId) return null;
 
-    await workflow.sendEvent(ctx, {
-      ...fixCompleteEvent,
-      workflowId: report.activeWorkflowId as WorkflowId,
-      value: {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
-      },
+    await sendCompletionEvent(ctx, fixCompleteEvent, report.activeWorkflowId, {
+      success: args.success,
+      result: args.result,
+      error: args.error,
+      activityLog: args.activityLog,
     });
 
     await recordCompletionLog(ctx, {

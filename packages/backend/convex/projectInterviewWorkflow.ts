@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
+import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
@@ -11,6 +11,7 @@ import {
   clearStreamingActivity,
   extractFirstJsonValue,
   recordCompletionLog,
+  sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import {
   getProjectConversation,
@@ -267,16 +268,17 @@ export const handleCompletion = authMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project || !project.activeWorkflowId) return null;
 
-    await workflow.sendEvent(ctx, {
-      ...projectInterviewCompleteEvent,
-      workflowId: project.activeWorkflowId as WorkflowId,
-      value: {
+    await sendCompletionEvent(
+      ctx,
+      projectInterviewCompleteEvent,
+      project.activeWorkflowId,
+      {
         success: args.success,
         result: args.result,
         error: args.error,
         activityLog: args.activityLog,
       },
-    });
+    );
 
     await recordCompletionLog(ctx, {
       entityType: "project",
@@ -444,16 +446,17 @@ export const handleSpecCompletion = authMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project || !project.activeWorkflowId) return null;
 
-    await workflow.sendEvent(ctx, {
-      ...projectInterviewCompleteEvent,
-      workflowId: project.activeWorkflowId as WorkflowId,
-      value: {
+    await sendCompletionEvent(
+      ctx,
+      projectInterviewCompleteEvent,
+      project.activeWorkflowId,
+      {
         success: args.success,
         result: args.result,
         error: args.error,
         activityLog: args.activityLog,
       },
-    });
+    );
 
     await recordCompletionLog(ctx, {
       entityType: "project",

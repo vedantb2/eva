@@ -1,8 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
-import type { WorkflowId } from "@convex-dev/workflow";
-import { workflow } from "../workflowManager";
 import { createNotification } from "../notifications";
 import { runModeValidator } from "../validators";
 import type { Id } from "../_generated/dataModel";
@@ -16,6 +14,7 @@ import {
   upsertStreamingActivity,
   upsertActivityLog,
   finalizeRunStatus,
+  sendCompletionEvent,
 } from "./helpers";
 
 /** Transitions a queued run to running, sets streaming activity, and schedules watchdog timers. */
@@ -330,14 +329,15 @@ export const completeRun = internalMutation({
     }
 
     if (project?.activeBuildWorkflowId) {
-      await workflow.sendEvent(ctx, {
-        ...buildTaskDoneEvent,
-        workflowId: project.activeBuildWorkflowId as WorkflowId,
-        value: {
+      await sendCompletionEvent(
+        ctx,
+        buildTaskDoneEvent,
+        project.activeBuildWorkflowId,
+        {
           taskId: args.taskId,
           success: args.success,
         },
-      });
+      );
     }
 
     return null;

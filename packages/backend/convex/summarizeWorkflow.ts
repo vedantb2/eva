@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
+import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
@@ -10,6 +10,7 @@ import {
   clearStreamingActivity,
   extractFirstJsonValue,
   recordCompletionLog,
+  sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 
 const summarizeCompleteEvent = defineEvent({
@@ -162,16 +163,17 @@ export const handleCompletion = authMutation({
     if (!session || !session.activeWorkflowId) return null;
     if (session.userId !== ctx.userId) throw new Error("Not authorized");
 
-    await workflow.sendEvent(ctx, {
-      ...summarizeCompleteEvent,
-      workflowId: session.activeWorkflowId as WorkflowId,
-      value: {
+    await sendCompletionEvent(
+      ctx,
+      summarizeCompleteEvent,
+      session.activeWorkflowId,
+      {
         success: args.success,
         result: args.result,
         error: args.error,
         activityLog: args.activityLog,
       },
-    });
+    );
 
     await recordCompletionLog(ctx, {
       entityType: "summarize",

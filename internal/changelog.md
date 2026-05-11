@@ -1,5 +1,11 @@
 # Changelog
 
+## Extract sendCompletionEvent helper - 2026-05-11
+
+- **Why**: Fourteen mutations across the backend (workflow completion callbacks in `summarizeWorkflow`, `testGenWorkflow`, `docPrdWorkflow`, `docInterviewWorkflow` (x2), `projectInterviewWorkflow` (x2), `evaluationWorkflow` (x2), `designWorkflow`, `sessionWorkflow`, `automations`, plus the build-task done senders in `_taskWorkflow/runLifecycle` and `_taskWorkflow/watchdog`, and the task completion + audit mutations in `_taskWorkflow/publicMutations`) repeated the same `workflow.sendEvent(...)` pattern: spread an event spec, cast `entity.activeWorkflowId` to `WorkflowId`, then build a `{ success, result, error, activityLog }` (or build-task-shaped) value.
+- **Change**: Added a generic `sendCompletionEvent<Name, V>(ctx, event, workflowId, value)` helper to `_taskWorkflow/helpers.ts`. The helper accepts the event spec from `defineEvent`, a raw workflow id string, and a value typed via `Infer<V>` from the event's validator — so each call site gets the same per-event value type checking it had before. Migrated all 14 sites. Dropped six unused `WorkflowId` imports from the migrated workflow files; `_taskWorkflow/runLifecycle.ts` lost its `workflow`/`WorkflowId` imports entirely after migration.
+- **Reason**: The `WorkflowId` cast now lives at one boundary instead of fourteen, ahead of the wider `as`-removal pass. Changing how completion events are dispatched (e.g. adding tracing, retry on transient errors) is a one-file edit.
+
 ## Extract per-entity workflow tracker helpers - 2026-05-11
 
 - **Why**: Fourteen mutations across the backend repeated the same three-step pattern after `workflow.start(...)`: convert the workflow id to a string, patch `activeWorkflowId` (or `activeBuildWorkflowId`) on the owning entity, and schedule the matching `handleStaleX` watchdog with `RUN_TIMEOUT_MS`. Every entity (sessions, design sessions, docs, projects, evaluation reports, project builds) hardcoded its own copy of `internal.workflowWatchdog.handleStaleX` and `String(workflowId)`.

@@ -14,6 +14,7 @@ import { trackSessionWorkflow } from "./workflowWatchdog";
 import {
   clearStreamingActivity,
   recordCompletionLog,
+  sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "./_queues/helpers";
 import { resolveDocMentions } from "./_mentions/resolveDocMentions";
@@ -567,17 +568,18 @@ export const handleCompletion = authMutation({
       `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,
     );
 
-    await workflow.sendEvent(ctx, {
-      ...sessionCompleteEvent,
-      workflowId: session.activeWorkflowId as WorkflowId,
-      value: {
+    await sendCompletionEvent(
+      ctx,
+      sessionCompleteEvent,
+      session.activeWorkflowId,
+      {
         success: args.success,
         result: args.result,
         error: args.error,
         activityLog: args.activityLog,
         pendingQuestion: args.pendingQuestion,
       },
-    });
+    );
 
     await recordCompletionLog(ctx, {
       entityType: "session",

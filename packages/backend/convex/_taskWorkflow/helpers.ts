@@ -1,6 +1,9 @@
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import type { Infer, Validator } from "convex/values";
+import type { WorkflowId } from "@convex-dev/workflow";
 import { LlmJson } from "@solvers-hub/llm-json";
+import { workflow } from "../workflowManager";
 
 export const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -155,6 +158,30 @@ export function extractJsonBlock(text: string): string {
 export function extractFirstJsonValue(text: string): unknown {
   const { json } = llmJson.extract(text);
   return json.length > 0 ? json[0] : undefined;
+}
+
+/**
+ * Sends a completion event to a tracked workflow.
+ *
+ * Centralizes the branded-WorkflowId boundary so callers can pass the raw string
+ * ID stored on the entity (e.g. `entity.activeWorkflowId`) without needing
+ * their own cast.
+ */
+export async function sendCompletionEvent<
+  Name extends string,
+  V extends Validator<unknown, "required", string>,
+>(
+  ctx: MutationCtx,
+  event: { name: Name; validator: V },
+  workflowId: string,
+  value: Infer<V>,
+): Promise<void> {
+  const branded: WorkflowId = workflowId as WorkflowId;
+  await workflow.sendEvent(ctx, {
+    ...event,
+    workflowId: branded,
+    value,
+  });
 }
 
 /** Inserts a completion log row used by sandbox-callback handlers across workflows. */

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
+import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
@@ -11,6 +11,7 @@ import {
   clearStreamingActivity,
   extractFirstJsonValue,
   recordCompletionLog,
+  sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 
 const prdCompleteEvent = defineEvent({
@@ -227,15 +228,11 @@ export const handleCompletion = authMutation({
     const doc = await ctx.db.get(args.docId);
     if (!doc || !doc.activeWorkflowId) return null;
 
-    await workflow.sendEvent(ctx, {
-      ...prdCompleteEvent,
-      workflowId: doc.activeWorkflowId as WorkflowId,
-      value: {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
-      },
+    await sendCompletionEvent(ctx, prdCompleteEvent, doc.activeWorkflowId, {
+      success: args.success,
+      result: args.result,
+      error: args.error,
+      activityLog: args.activityLog,
     });
 
     await recordCompletionLog(ctx, {

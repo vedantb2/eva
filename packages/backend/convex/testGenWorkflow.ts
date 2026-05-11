@@ -9,6 +9,7 @@ import { trackDocWorkflow } from "./workflowWatchdog";
 import {
   clearStreamingActivity,
   recordCompletionLog,
+  sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { buildPrBody } from "./prBody";
 
@@ -318,15 +319,11 @@ export const handleCompletion = authMutation({
     const doc = await ctx.db.get(args.docId);
     if (!doc || !doc.activeWorkflowId) return null;
 
-    await workflow.sendEvent(ctx, {
-      ...testGenCompleteEvent,
-      workflowId: doc.activeWorkflowId as WorkflowId,
-      value: {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
-      },
+    await sendCompletionEvent(ctx, testGenCompleteEvent, doc.activeWorkflowId, {
+      success: args.success,
+      result: args.result,
+      error: args.error,
+      activityLog: args.activityLog,
     });
 
     await recordCompletionLog(ctx, {

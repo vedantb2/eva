@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { defineEvent, type WorkflowId } from "@convex-dev/workflow";
+import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
@@ -12,6 +12,7 @@ import {
   extractFirstJsonValue,
   llmJson,
   recordCompletionLog,
+  sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 
 const docInterviewCompleteEvent = defineEvent({
@@ -264,16 +265,17 @@ export const handleCompletion = authMutation({
     const doc = await ctx.db.get(args.docId);
     if (!doc || !doc.activeWorkflowId) return null;
 
-    await workflow.sendEvent(ctx, {
-      ...docInterviewCompleteEvent,
-      workflowId: doc.activeWorkflowId as WorkflowId,
-      value: {
+    await sendCompletionEvent(
+      ctx,
+      docInterviewCompleteEvent,
+      doc.activeWorkflowId,
+      {
         success: args.success,
         result: args.result,
         error: args.error,
         activityLog: args.activityLog,
       },
-    });
+    );
 
     await recordCompletionLog(ctx, {
       entityType: "doc",
@@ -412,16 +414,17 @@ export const handleGenerateCompletion = authMutation({
     const doc = await ctx.db.get(args.docId);
     if (!doc || !doc.activeWorkflowId) return null;
 
-    await workflow.sendEvent(ctx, {
-      ...docInterviewCompleteEvent,
-      workflowId: doc.activeWorkflowId as WorkflowId,
-      value: {
+    await sendCompletionEvent(
+      ctx,
+      docInterviewCompleteEvent,
+      doc.activeWorkflowId,
+      {
         success: args.success,
         result: args.result,
         error: args.error,
         activityLog: args.activityLog,
       },
-    });
+    );
 
     await ctx.db.insert("logs", {
       entityType: "doc",

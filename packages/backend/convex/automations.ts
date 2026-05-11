@@ -16,7 +16,10 @@ import { workflow } from "./workflowManager";
 import type { WorkflowId } from "@convex-dev/workflow";
 import type { Doc, Id } from "./_generated/dataModel";
 import { taskCompleteEvent } from "./_taskWorkflow/events";
-import { recordCompletionLog } from "./_taskWorkflow/helpers";
+import {
+  recordCompletionLog,
+  sendCompletionEvent,
+} from "./_taskWorkflow/helpers";
 
 const crons = new Crons(components.crons);
 
@@ -498,15 +501,11 @@ export const handleCompletion = authMutation({
     const run = await ctx.db.get(args.automationRunId);
     if (!run || !run.activeWorkflowId) return null;
 
-    await workflow.sendEvent(ctx, {
-      ...taskCompleteEvent,
-      workflowId: run.activeWorkflowId as WorkflowId,
-      value: {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
-      },
+    await sendCompletionEvent(ctx, taskCompleteEvent, run.activeWorkflowId, {
+      success: args.success,
+      result: args.result,
+      error: args.error,
+      activityLog: args.activityLog,
     });
 
     const automation = await ctx.db.get(run.automationId);

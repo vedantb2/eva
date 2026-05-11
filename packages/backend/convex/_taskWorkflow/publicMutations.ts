@@ -10,6 +10,7 @@ import {
   getTaskAuditStreamingEntityId,
   getTaskRunStreamingEntityId,
   recordCompletionLog,
+  sendCompletionEvent,
 } from "./helpers";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -120,15 +121,11 @@ export const handleCompletion = authMutation({
     });
 
     try {
-      await workflow.sendEvent(ctx, {
-        ...taskCompleteEvent,
-        workflowId,
-        value: {
-          success: args.success,
-          result: args.result,
-          error: args.error,
-          activityLog: args.activityLog,
-        },
+      await sendCompletionEvent(ctx, taskCompleteEvent, workflowId, {
+        success: args.success,
+        result: args.result,
+        error: args.error,
+        activityLog: args.activityLog,
       });
     } catch (error) {
       await ctx.db.patch(latestRunningRun._id, {
@@ -192,15 +189,11 @@ export const handleAuditCompletion = authMutation({
     }
 
     try {
-      await workflow.sendEvent(ctx, {
-        ...auditCompleteEvent,
-        workflowId,
-        value: {
-          success: args.success,
-          result: args.result,
-          error: args.error,
-          activityLog: args.activityLog,
-        },
+      await sendCompletionEvent(ctx, auditCompleteEvent, workflowId, {
+        success: args.success,
+        result: args.result,
+        error: args.error,
+        activityLog: args.activityLog,
       });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);

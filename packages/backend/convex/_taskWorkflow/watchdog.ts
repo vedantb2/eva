@@ -16,6 +16,7 @@ import {
   clearStreamingActivity,
   getTaskAuditStreamingEntityId,
   getTaskRunStreamingEntityId,
+  sendCompletionEvent,
   snapshotStreamingActivityToLog,
 } from "./helpers";
 
@@ -350,11 +351,12 @@ export const handleStaleRun = internalMutation({
       const project = await ctx.db.get(task.projectId);
       if (project?.activeBuildWorkflowId) {
         try {
-          await workflow.sendEvent(ctx, {
-            ...buildTaskDoneEvent,
-            workflowId: project.activeBuildWorkflowId as WorkflowId,
-            value: { taskId: args.taskId, success: false },
-          });
+          await sendCompletionEvent(
+            ctx,
+            buildTaskDoneEvent,
+            project.activeBuildWorkflowId,
+            { taskId: args.taskId, success: false },
+          );
         } catch {}
       }
     }

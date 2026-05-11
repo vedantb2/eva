@@ -113,7 +113,7 @@ ${changeRequestSection}
 5. Do NOT push. The platform publishes branch "${branchName}" after you finish successfully.
 
 ## Summary (REQUIRED):
-After committing, write a short plain-text summary of what changed, for a non-technical reader. Write one or two short paragraphs of prose — no headings, no bullet points, no code blocks, no markdown formatting. Avoid jargon, file paths, and function names. Describe what the user or product can now do differently, not the implementation details.
+After committing, write a short plain-text summary of what changed, for a non-technical reader. Write one or two short paragraphs of prose — no headings, no bullet points, no code blocks, no markdown formatting. Avoid jargon, internal file paths, and function names. Describe what the user or product can now do differently, not the implementation details. If your changes added or modified any user-facing pages, name the route(s) in plain prose so the reader knows where to look (e.g. "you can now manage billing from the new /settings/billing page" or "the /dashboard page now shows ..."). If no routes were affected (backend-only change, schema, cron, etc.), say so explicitly in one short sentence.
 ${proofOfCompletionSection}
 
 ## Rules:

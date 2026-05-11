@@ -90,7 +90,8 @@ export function TaskFooter({
   onRequestChanges,
 }: TaskFooterProps) {
   const showRunButton =
-    status === "todo" || (status === "in_progress" && !hasActiveRun);
+    !task?.projectId &&
+    (status === "todo" || (status === "in_progress" && !hasActiveRun));
   const showStartSandbox =
     canStartSandbox &&
     !isSandboxActive &&

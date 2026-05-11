@@ -767,9 +767,11 @@ export function Sidebar() {
                                           )}
                                         {item.name === "Projects" &&
                                           !collapsed &&
-                                          repo && (
+                                          repo &&
+                                          repoBasePath && (
                                             <BuildingProjectsBadge
                                               repoId={repo._id}
+                                              basePath={repoBasePath}
                                             />
                                           )}
                                       </Link>

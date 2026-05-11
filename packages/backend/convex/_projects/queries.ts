@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authQuery, hasRepoAccess } from "../functions";
 import { internalQuery } from "../_generated/server";
+import { taskSandboxStatusValidator } from "../_validators/enums";
 import {
   projectWithDetailsValidator,
   projectSummaryValidator,
@@ -70,6 +71,39 @@ export const countBuilding = authQuery({
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
     return projects.filter((p) => p.activeBuildWorkflowId !== undefined).length;
+  },
+});
+
+/** Returns projects with an active build workflow or an active/starting preview sandbox. */
+export const getActive = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(
+    v.object({
+      _id: v.id("projects"),
+      title: v.string(),
+      activeBuildWorkflowId: v.optional(v.string()),
+      reviewProjectSandboxStatus: v.optional(taskSandboxStatusValidator),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    return projects
+      .filter(
+        (p) =>
+          p.activeBuildWorkflowId !== undefined ||
+          p.reviewProjectSandboxStatus === "active" ||
+          p.reviewProjectSandboxStatus === "starting",
+      )
+      .map((p) => ({
+        _id: p._id,
+        title: p.title,
+        activeBuildWorkflowId: p.activeBuildWorkflowId,
+        reviewProjectSandboxStatus: p.reviewProjectSandboxStatus,
+      }));
   },
 });
 

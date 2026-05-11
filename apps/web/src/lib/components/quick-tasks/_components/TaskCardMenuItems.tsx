@@ -119,16 +119,20 @@ export function TaskCardMenuItems({
 
   return (
     <>
-      <Item
-        disabled={!canRun}
-        onSelect={() => {
-          void startExecution({ id });
-        }}
-      >
-        <IconPlayerPlay size={16} />
-        Run Eva on this task
-      </Item>
-      <MenuSeparator />
+      {!projectId && (
+        <>
+          <Item
+            disabled={!canRun}
+            onSelect={() => {
+              void startExecution({ id });
+            }}
+          >
+            <IconPlayerPlay size={16} />
+            Run Eva on this task
+          </Item>
+          <MenuSeparator />
+        </>
+      )}
 
       <Sub>
         <SubTrigger>

@@ -38,10 +38,8 @@ export type RepoSyncStrategy =
 
 const SESSION_LIFECYCLE: SandboxLifecycle = {
   autoStopInterval: 90,
-  // Auto-archive after 3 days, then auto-delete after 7 days
-  // (overrides Daytona defaults: 7-day archive, no delete).
+  // Auto-archive after 1 day; no auto-delete (Daytona default).
   autoArchiveInterval: 1 * 24 * 60,
-  autoDeleteInterval: 5 * 24 * 60,
 };
 
 const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {

@@ -1,5 +1,12 @@
 # Changelog
 
+## Add project-level conflict resolution and startup command retry to More menus - 2026-05-12
+
+- **What**: Task footer's "Resolve Conflicts" button moved to More dropdown. Project footer gains "Run Startup Commands" and "Resolve Conflicts" items in More dropdown (replacing standalone buttons on review screens).
+- **Why**: Cleaner task footer with secondary actions consolidated. Projects now support force-rerunning startup commands (via `forceStartupCommands` workflow arg) and agent-driven conflict resolution on the project branch (spawns resolve_conflicts run on carrier task; agent runs in project sandbox on `project.branchName` vs `project.baseBranch`).
+- **Backend**: `projectSandboxWorkflow` plumbed with `forceStartupCommands`; `daytona.startProjectPreviewSandbox` accepts force flag. New mutations `retryProjectStartupCommands` and `resolveProjectConflicts` in `_projects/sandbox.ts`.
+- **Frontend**: Updated `useProjectSandbox` to expose `handleRetryStartupCommands`. `ProjectDetailClient` wired both dropdown items with appropriate show conditions (retry: `canStartSandbox && !starting && !stopping`; resolve: `project.prUrl && !activeBuild && phase === "active"`).
+
 ## Projects badge shows running tasks; "Make changes" checkbox defaults true - 2026-05-12
 
 - **Why**: Sidebar "Projects" badge only surfaced projects with active build workflows or sandboxes, leaving running agent tasks invisible at a glance. User review workflow defaulted "Make changes" checkbox to unchecked, requiring an extra click to request changes when most reviews prompt edits.

@@ -101,9 +101,12 @@ export function TaskFooter({
     canStartSandbox &&
     (isSandboxActive || isSandboxStarting || isSandboxStopping);
   const showStopSandbox = isSandboxActive && !isSandboxStopping;
+  const showResolveConflicts =
+    !hasActiveRun && (status === "code_review" || status === "business_review");
   const showMoreMenu =
     canStartSandbox ||
     canCreatePr ||
+    showResolveConflicts ||
     Boolean(latestDeployment?.deploymentStatus);
   const hasSecondaryContent =
     showStartSandbox ||
@@ -111,8 +114,6 @@ export function TaskFooter({
     showStopSandbox ||
     showMoreMenu ||
     Boolean(latestPrUrl) ||
-    (!hasActiveRun &&
-      (status === "code_review" || status === "business_review")) ||
     (status !== "todo" && status !== "in_progress");
 
   return (
@@ -144,6 +145,19 @@ export function TaskFooter({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {showResolveConflicts && (
+                  <DropdownMenuItem
+                    onClick={onResolveConfirm}
+                    disabled={isStarting}
+                  >
+                    {isStarting ? (
+                      <IconLoader2 size={14} className="animate-spin" />
+                    ) : (
+                      <IconHammer size={14} />
+                    )}
+                    Resolve Conflicts
+                  </DropdownMenuItem>
+                )}
                 {canStartSandbox && (
                   <DropdownMenuItem
                     onClick={onRunStartupCommands}
@@ -231,21 +245,6 @@ export function TaskFooter({
               </a>
             </Button>
           )}
-          {!hasActiveRun &&
-            (status === "code_review" || status === "business_review") && (
-              <Button
-                variant="secondary"
-                onClick={onResolveConfirm}
-                disabled={isStarting}
-              >
-                {isStarting ? (
-                  <IconLoader2 size={18} className="animate-spin" />
-                ) : (
-                  <IconHammer size={18} />
-                )}
-                <span className="hidden sm:inline">Resolve Conflicts</span>
-              </Button>
-            )}
           {status !== "todo" && status !== "in_progress" && (
             <Button variant="secondary" onClick={onRequestChanges}>
               <IconMessagePlus size={18} />

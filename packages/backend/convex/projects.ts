@@ -28,6 +28,8 @@ export { startDevelopment, createFromTasks } from "./_projects/development";
 export {
   startProjectSandbox,
   stopProjectSandbox,
+  retryProjectStartupCommands,
+  resolveProjectConflicts,
   projectSandboxReady,
   projectSandboxError,
 } from "./_projects/sandbox";

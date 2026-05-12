@@ -41,6 +41,7 @@ import {
   IconCalendarClock,
   IconBrandVercel,
   IconDots,
+  IconRefresh,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useNavigate } from "@tanstack/react-router";
@@ -65,9 +66,13 @@ export function ProjectDetailClient({
   const [isStoppingBuild, setIsStoppingBuild] = useState(false);
   const [showStopBuildConfirm, setShowStopBuildConfirm] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
+  const [isResolvingConflicts, setIsResolvingConflicts] = useState(false);
   const [prError, setPrError] = useState<string | null>(null);
   const startBuild = useMutation(api.buildWorkflow.startBuild);
   const cancelBuild = useMutation(api.buildWorkflow.cancelBuild);
+  const resolveProjectConflicts = useMutation(
+    api.projects.resolveProjectConflicts,
+  );
   const createProjectPrAction = useAction(
     api.taskWorkflowActions.createProjectPr,
   );
@@ -90,6 +95,8 @@ export function ProjectDetailClient({
     sandboxId: projectSandboxId,
     handleStartSandbox,
     handleStopSandbox,
+    handleRetryStartupCommands,
+    isRetryingStartupCommands,
   } = useProjectSandbox(
     typedProjectId,
     project?.phase,
@@ -136,6 +143,20 @@ export function ProjectDetailClient({
     }
   }, [createProjectPrAction, typedProjectId]);
 
+  const handleResolveConflicts = useCallback(async () => {
+    setPrError(null);
+    setIsResolvingConflicts(true);
+    try {
+      await resolveProjectConflicts({ projectId: typedProjectId });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to resolve conflicts";
+      setPrError(message);
+    } finally {
+      setIsResolvingConflicts(false);
+    }
+  }, [resolveProjectConflicts, typedProjectId]);
+
   if (project === undefined) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -164,7 +185,17 @@ export function ProjectDetailClient({
     !project.prUrl &&
     !project.activeBuildWorkflowId &&
     project.phase === "active";
-  const showMoreMenu = canCreatePr || hasDeployedPreview;
+  const showRetryStartupCommands =
+    canStartSandbox && !isSandboxStarting && !isSandboxStopping;
+  const showResolveConflicts =
+    Boolean(project.prUrl) &&
+    !project.activeBuildWorkflowId &&
+    project.phase === "active";
+  const showMoreMenu =
+    canCreatePr ||
+    hasDeployedPreview ||
+    showRetryStartupCommands ||
+    showResolveConflicts;
 
   if (surface === "sandbox") {
     const tab = sandboxTab ?? "preview";
@@ -283,6 +314,32 @@ export function ProjectDetailClient({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {showResolveConflicts && (
+                      <DropdownMenuItem
+                        onClick={handleResolveConflicts}
+                        disabled={isResolvingConflicts}
+                      >
+                        {isResolvingConflicts ? (
+                          <IconLoader2 size={14} className="animate-spin" />
+                        ) : (
+                          <IconHammer size={14} />
+                        )}
+                        Resolve Conflicts
+                      </DropdownMenuItem>
+                    )}
+                    {showRetryStartupCommands && (
+                      <DropdownMenuItem
+                        onClick={handleRetryStartupCommands}
+                        disabled={isRetryingStartupCommands}
+                      >
+                        {isRetryingStartupCommands ? (
+                          <IconLoader2 size={14} className="animate-spin" />
+                        ) : (
+                          <IconRefresh size={14} />
+                        )}
+                        Run Startup Commands
+                      </DropdownMenuItem>
+                    )}
                     {canCreatePr && (
                       <DropdownMenuItem
                         onClick={handleCreatePr}

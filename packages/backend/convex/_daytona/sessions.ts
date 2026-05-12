@@ -1461,6 +1461,7 @@ type ProjectPreviewSandboxPreparationArgs = {
   branchName: string;
   baseBranch: string;
   repoId: Id<"githubRepos">;
+  forceStartupCommands?: boolean;
 };
 
 /** Core logic for preparing a project preview sandbox: reuses existing or creates new, syncs refs, and starts services. */
@@ -1591,7 +1592,11 @@ async function prepareProjectPreviewSandboxInternal(
             async () => {
               const result = await ctx.runAction(
                 internal.daytona.runStartupCommands,
-                { sandboxId: sandbox.id, repoId: args.repoId },
+                {
+                  sandboxId: sandbox.id,
+                  repoId: args.repoId,
+                  force: args.forceStartupCommands,
+                },
               );
               if (result.ran && result.commandCount > 0) {
                 logSession(
@@ -1797,6 +1802,7 @@ async function prepareProjectPreviewSandboxInternal(
       const result = await ctx.runAction(internal.daytona.runStartupCommands, {
         sandboxId: sandbox.id,
         repoId: args.repoId,
+        force: args.forceStartupCommands,
       });
       if (result.ran && result.commandCount > 0) {
         logSession(
@@ -1855,6 +1861,7 @@ export const startProjectPreviewSandbox = internalAction({
     branchName: v.string(),
     baseBranch: v.string(),
     repoId: v.id("githubRepos"),
+    forceStartupCommands: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1871,6 +1878,7 @@ export const startProjectPreviewSandbox = internalAction({
         branchName: args.branchName,
         baseBranch: args.baseBranch,
         repoId: args.repoId,
+        forceStartupCommands: args.forceStartupCommands,
       });
       await runLoggedSessionStep(
         prepared.isNew

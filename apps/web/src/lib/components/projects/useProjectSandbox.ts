@@ -20,9 +20,14 @@ export function useProjectSandbox(
   const stopProjectSandboxMutation = useMutation(
     api.projects.stopProjectSandbox,
   );
+  const retryStartupCommandsMutation = useMutation(
+    api.projects.retryProjectStartupCommands,
+  );
 
   const [isStartingLocal, setIsStartingLocal] = useState(false);
   const [isStoppingLocal, setIsStoppingLocal] = useState(false);
+  const [isRetryingStartupCommands, setIsRetryingStartupCommands] =
+    useState(false);
 
   const canStartSandbox =
     phase !== undefined && PREVIEW_SANDBOX_ALLOWED_PHASES.includes(phase);
@@ -59,6 +64,17 @@ export function useProjectSandbox(
     }
   }, [stopProjectSandboxMutation, projectId]);
 
+  const handleRetryStartupCommands = useCallback(async () => {
+    setIsRetryingStartupCommands(true);
+    try {
+      await retryStartupCommandsMutation({ projectId });
+    } catch (err) {
+      console.error("Failed to retry project startup commands:", err);
+    } finally {
+      setIsRetryingStartupCommands(false);
+    }
+  }, [retryStartupCommandsMutation, projectId]);
+
   return {
     canStartSandbox,
     isSandboxActive,
@@ -68,5 +84,7 @@ export function useProjectSandbox(
     sandboxId,
     handleStartSandbox,
     handleStopSandbox,
+    handleRetryStartupCommands,
+    isRetryingStartupCommands,
   };
 }

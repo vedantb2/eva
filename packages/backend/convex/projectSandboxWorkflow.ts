@@ -13,6 +13,7 @@ export const projectPreviewSandboxStartupWorkflow = workflow.define({
     branchName: v.string(),
     baseBranch: v.string(),
     repoId: v.id("githubRepos"),
+    forceStartupCommands: v.optional(v.boolean()),
   },
   handler: async (step, args): Promise<void> => {
     await step.runAction(internal.daytona.startProjectPreviewSandbox, {
@@ -24,6 +25,7 @@ export const projectPreviewSandboxStartupWorkflow = workflow.define({
       branchName: args.branchName,
       baseBranch: args.baseBranch,
       repoId: args.repoId,
+      forceStartupCommands: args.forceStartupCommands,
     });
   },
 });

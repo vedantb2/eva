@@ -47,9 +47,27 @@ import { useQuickTaskFilters } from "../_utils";
 type QuickTaskView = "kanban" | "list" | "table";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
-type SortField = "lastRun" | "updated" | "created" | "title" | "priority";
-type SortDir = "asc" | "desc";
-type TimeRange = "7d" | "30d" | "90d" | "all";
+
+const SORT_FIELDS = [
+  "lastRun",
+  "updated",
+  "created",
+  "title",
+  "priority",
+] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+const isSortField = (v: string): v is SortField =>
+  SORT_FIELDS.some((field) => field === v);
+
+const SORT_DIRS = ["asc", "desc"] as const;
+type SortDir = (typeof SORT_DIRS)[number];
+const isSortDir = (v: string): v is SortDir =>
+  SORT_DIRS.some((dir) => dir === v);
+
+const TIME_RANGES = ["7d", "30d", "90d", "all"] as const;
+type TimeRange = (typeof TIME_RANGES)[number];
+const isTimeRange = (v: string): v is TimeRange =>
+  TIME_RANGES.some((range) => range === v);
 
 interface QuickTasksToolbarProps {
   view: QuickTaskView;
@@ -278,11 +296,11 @@ export function QuickTasksToolbar({
               <DropdownMenuSubContent>
                 <DropdownMenuRadioGroup
                   value={sortField}
-                  onValueChange={(v) =>
-                    setParams({ sortField: v as SortField })
-                  }
+                  onValueChange={(v) => {
+                    if (isSortField(v)) setParams({ sortField: v });
+                  }}
                 >
-                  {(Object.keys(SORT_FIELD_LABELS) as SortField[]).map((f) => (
+                  {SORT_FIELDS.map((f) => (
                     <DropdownMenuRadioItem key={f} value={f}>
                       {SORT_FIELD_LABELS[f]}
                     </DropdownMenuRadioItem>
@@ -291,7 +309,9 @@ export function QuickTasksToolbar({
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup
                   value={sortDir}
-                  onValueChange={(v) => setParams({ sortDir: v as SortDir })}
+                  onValueChange={(v) => {
+                    if (isSortDir(v)) setParams({ sortDir: v });
+                  }}
                 >
                   <DropdownMenuRadioItem value="desc">
                     Descending ↓
@@ -441,11 +461,11 @@ export function QuickTasksToolbar({
               <DropdownMenuSubContent>
                 <DropdownMenuRadioGroup
                   value={timeRange}
-                  onValueChange={(v) =>
-                    setParams({ timeRange: v as TimeRange })
-                  }
+                  onValueChange={(v) => {
+                    if (isTimeRange(v)) setParams({ timeRange: v });
+                  }}
                 >
-                  {(Object.keys(TIME_RANGE_LABELS) as TimeRange[]).map((r) => (
+                  {TIME_RANGES.map((r) => (
                     <DropdownMenuRadioItem key={r} value={r}>
                       {TIME_RANGE_LABELS[r]}
                     </DropdownMenuRadioItem>

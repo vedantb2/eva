@@ -24,11 +24,24 @@ function nextStep(current: Step): Step | null {
   return STEPS[idx + 1];
 }
 
+const stepValidator = v.union(
+  v.literal("projects"),
+  v.literal("taskChildren"),
+  v.literal("tasks"),
+  v.literal("sessions"),
+  v.literal("docs"),
+  v.literal("designSessions"),
+  v.literal("snapshots"),
+  v.literal("automations"),
+  v.literal("flatTables"),
+  v.literal("repo"),
+);
+
 /** Executes one step of the repo deletion pipeline and schedules the next step. */
 export const deleteRepoStep = internalMutation({
   args: {
     repoId: v.id("githubRepos"),
-    step: v.string(),
+    step: stepValidator,
     totalDeleted: v.number(),
     repoLabel: v.string(),
   },
@@ -302,7 +315,7 @@ export const deleteRepoStep = internalMutation({
       `[cleanup] ${repoLabel}: step "${step}" — deleted ${deleted} docs (running total: ${running})`,
     );
 
-    const next = nextStep(step as Step);
+    const next = nextStep(step);
     if (next) {
       await ctx.scheduler.runAfter(0, internal.migrations.deleteRepoStep, {
         repoId,

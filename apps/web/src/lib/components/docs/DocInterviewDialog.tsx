@@ -47,6 +47,23 @@ interface ParsedQuestion {
   options: OptionItem[];
 }
 
+const isValidOption = (o: unknown): o is OptionItem =>
+  typeof o === "object" &&
+  o !== null &&
+  "label" in o &&
+  typeof o.label === "string" &&
+  "description" in o &&
+  typeof o.description === "string";
+
+const isParsedQuestion = (v: unknown): v is ParsedQuestion =>
+  typeof v === "object" &&
+  v !== null &&
+  "question" in v &&
+  typeof v.question === "string" &&
+  "options" in v &&
+  Array.isArray(v.options) &&
+  v.options.every(isValidOption);
+
 interface DocInterviewDialogProps {
   doc: Doc;
   open: boolean;
@@ -154,8 +171,8 @@ export function DocInterviewDialog({
     let currentQuestion = "";
     if (lastAssistantMsg) {
       try {
-        const parsed = JSON.parse(lastAssistantMsg.content) as ParsedQuestion;
-        currentQuestion = parsed.question || "";
+        const parsed: unknown = JSON.parse(lastAssistantMsg.content);
+        if (isParsedQuestion(parsed)) currentQuestion = parsed.question;
       } catch {
         // ignore
       }
@@ -179,12 +196,6 @@ export function DocInterviewDialog({
     setConfirmClear(false);
   };
 
-  const isValidOption = (o: unknown): o is OptionItem =>
-    typeof o === "object" &&
-    o !== null &&
-    typeof (o as OptionItem).label === "string" &&
-    typeof (o as OptionItem).description === "string";
-
   const currentQuestion: ParsedQuestion | null = (() => {
     if (isLoading || readOnly) return null;
     const lastAssistantMsg = [...messages]
@@ -192,14 +203,8 @@ export function DocInterviewDialog({
       .find((m) => m.role === "assistant");
     if (!lastAssistantMsg) return null;
     try {
-      const parsed = JSON.parse(lastAssistantMsg.content);
-      if (
-        parsed.question &&
-        Array.isArray(parsed.options) &&
-        parsed.options.every(isValidOption)
-      ) {
-        return parsed as ParsedQuestion;
-      }
+      const parsed: unknown = JSON.parse(lastAssistantMsg.content);
+      if (isParsedQuestion(parsed)) return parsed;
     } catch {
       return null;
     }

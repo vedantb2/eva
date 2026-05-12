@@ -4,7 +4,13 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import { Markdown } from "@tiptap/markdown";
-import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
+import {
+  useEffect,
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+  type CSSProperties,
+} from "react";
 import { cn } from "@conductor/ui";
 
 const EXTENSIONS = [
@@ -92,17 +98,14 @@ export const MarkdownEditor = forwardRef<
     }
   }, [editor, content, editable]);
 
-  // Build placeholder style
-  const placeholderStyle = placeholder
-    ? {
-        "--placeholder-text": `"${placeholder}"`,
-      }
-    : undefined;
+  // Build placeholder style — typed via index signature so CSS custom property is allowed.
+  const placeholderStyle: CSSProperties & Record<`--${string}`, string> = {};
+  if (placeholder) placeholderStyle["--placeholder-text"] = `"${placeholder}"`;
 
   return (
     <EditorContent
       editor={editor}
-      style={placeholderStyle as React.CSSProperties}
+      style={placeholderStyle}
       className={cn(
         className,
         placeholder &&

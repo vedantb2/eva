@@ -108,13 +108,11 @@ export function QuickTasksListView({
   }, [tasks, searchQuery]);
 
   const tasksByStatus = useMemo(() => {
-    return TASK_STATUSES.reduce(
-      (acc, status) => {
-        acc[status] = filteredTasks.filter((t) => t.status === status);
-        return acc;
-      },
-      {} as Record<DisplayTaskStatus, Task[]>,
-    );
+    const result: Partial<Record<DisplayTaskStatus, Task[]>> = {};
+    for (const status of TASK_STATUSES) {
+      result[status] = filteredTasks.filter((t) => t.status === status);
+    }
+    return result;
   }, [filteredTasks]);
 
   const todoTasks = tasks.filter((t) => t.status === "todo");

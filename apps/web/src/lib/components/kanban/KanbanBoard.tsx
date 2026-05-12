@@ -236,7 +236,7 @@ function VirtualKanbanColumn<T extends BaseTask>({
   renderCard,
   onItemClick,
 }: {
-  status: string;
+  status: TaskStatus;
   items: T[];
   count: number;
   headerExtra?: ReactNode;
@@ -257,7 +257,7 @@ function VirtualKanbanColumn<T extends BaseTask>({
   return (
     <KanbanColumn
       id={status}
-      config={statusConfig[status as TaskStatus]}
+      config={statusConfig[status]}
       count={count}
       headerExtra={headerExtra}
       scrollRef={scrollRef}

@@ -51,7 +51,12 @@ import { ProjectsTableView } from "@/lib/components/projects/ProjectsTableView";
 import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
 import { ActiveFiltersBar } from "./_components/ActiveFiltersBar";
-import { useProjectFilters, type ProjectView, type SortField } from "./_utils";
+import {
+  useProjectFilters,
+  SORT_FIELDS,
+  type ProjectView,
+  type SortField,
+} from "./_utils";
 
 const VIEW_OPTIONS: {
   key: ProjectView;
@@ -260,7 +265,7 @@ export function ProjectsClient() {
                     }
                   }}
                 >
-                  {(Object.keys(SORT_FIELD_LABELS) as SortField[]).map((f) => (
+                  {SORT_FIELDS.map((f) => (
                     <DropdownMenuRadioItem key={f} value={f}>
                       {SORT_FIELD_LABELS[f]}
                     </DropdownMenuRadioItem>

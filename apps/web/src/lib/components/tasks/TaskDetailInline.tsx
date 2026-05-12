@@ -361,38 +361,40 @@ export function TaskDetailInline({
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-end px-4 md:px-6 py-3 shrink-0">
-          <TaskFooter
-            taskId={taskId}
-            task={task}
-            status={status}
-            hasActiveRun={hasActiveRun}
-            latestPrUrl={latestPrUrl}
-            latestPrError={latestPrError}
-            latestDeployment={latestDeployment}
-            executionError={executionError}
-            isStarting={isStarting}
-            canStartSandbox={canStartSandbox}
-            isSandboxActive={isSandboxActive}
-            isSandboxStarting={isSandboxStarting}
-            isSandboxStopping={isSandboxStopping}
-            isRetryingStartupCommands={isRetryingStartupCommands}
-            canCreatePr={canCreatePr}
-            isCreatingPr={isCreatingPr}
-            onCreatePr={handleCreatePr}
-            onStartSandbox={handleStartSandbox}
-            onViewSandbox={handleToggleSandboxView}
-            onStopSandbox={handleStopSandbox}
-            onRunStartupCommands={handleRetryStartupCommands}
-            onStartExecution={handleStartExecution}
-            onResolveConfirm={() => setShowResolveConfirm(true)}
-            onRequestChanges={() => {
-              setRequestingChanges(true);
-              if (executionError) setExecutionError(null);
-              setActiveTab("comments");
-            }}
-          />
-        </div>
+        {task?.projectId === undefined ? (
+          <div className="flex items-center justify-end px-4 md:px-6 py-3 shrink-0">
+            <TaskFooter
+              taskId={taskId}
+              task={task}
+              status={status}
+              hasActiveRun={hasActiveRun}
+              latestPrUrl={latestPrUrl}
+              latestPrError={latestPrError}
+              latestDeployment={latestDeployment}
+              executionError={executionError}
+              isStarting={isStarting}
+              canStartSandbox={canStartSandbox}
+              isSandboxActive={isSandboxActive}
+              isSandboxStarting={isSandboxStarting}
+              isSandboxStopping={isSandboxStopping}
+              isRetryingStartupCommands={isRetryingStartupCommands}
+              canCreatePr={canCreatePr}
+              isCreatingPr={isCreatingPr}
+              onCreatePr={handleCreatePr}
+              onStartSandbox={handleStartSandbox}
+              onViewSandbox={handleToggleSandboxView}
+              onStopSandbox={handleStopSandbox}
+              onRunStartupCommands={handleRetryStartupCommands}
+              onStartExecution={handleStartExecution}
+              onResolveConfirm={() => setShowResolveConfirm(true)}
+              onRequestChanges={() => {
+                setRequestingChanges(true);
+                if (executionError) setExecutionError(null);
+                setActiveTab("comments");
+              }}
+            />
+          </div>
+        ) : null}
       </div>
       <StopConfirmDialog
         open={showStopConfirm}

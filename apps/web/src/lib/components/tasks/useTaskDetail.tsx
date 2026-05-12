@@ -114,6 +114,8 @@ export function useTaskDetail(
   const [isStopping, setIsStopping] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showResolveConfirm, setShowResolveConfirm] = useState(false);
+  const [showStartupCommandsConfirm, setShowStartupCommandsConfirm] =
+    useState(false);
   const [internalActiveTab, setInternalActiveTab] =
     useState<TaskDetailTab>("activity");
   const [executionError, setExecutionError] = useState<string | null>(null);
@@ -342,6 +344,8 @@ export function useTaskDetail(
     setShowStopConfirm,
     showResolveConfirm,
     setShowResolveConfirm,
+    showStartupCommandsConfirm,
+    setShowStartupCommandsConfirm,
     isStarting,
     isStopping,
 

@@ -33,6 +33,7 @@ import { StatusFieldsSection } from "./_components/StatusFieldsSection";
 import { TaskFooter } from "./_components/TaskFooter";
 import { StopConfirmDialog } from "./_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "./_components/ResolveConfirmDialog";
+import { StartupCommandsConfirmDialog } from "./_components/StartupCommandsConfirmDialog";
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import type { SandboxTab } from "@/lib/search-params";
@@ -94,6 +95,8 @@ export function TaskDetailInline({
     setShowStopConfirm,
     showResolveConfirm,
     setShowResolveConfirm,
+    showStartupCommandsConfirm,
+    setShowStartupCommandsConfirm,
     isStarting,
     isStopping,
     handleStartExecution,
@@ -384,7 +387,7 @@ export function TaskDetailInline({
               onStartSandbox={handleStartSandbox}
               onViewSandbox={handleToggleSandboxView}
               onStopSandbox={handleStopSandbox}
-              onRunStartupCommands={handleRetryStartupCommands}
+              onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
               onStartExecution={handleStartExecution}
               onResolveConfirm={() => setShowResolveConfirm(true)}
               onRequestChanges={() => {
@@ -407,6 +410,12 @@ export function TaskDetailInline({
         onOpenChange={setShowResolveConfirm}
         onConfirm={handleResolveConflicts}
         isStarting={isStarting}
+      />
+      <StartupCommandsConfirmDialog
+        open={showStartupCommandsConfirm}
+        onOpenChange={setShowStartupCommandsConfirm}
+        onConfirm={handleRetryStartupCommands}
+        isStarting={isRetryingStartupCommands}
       />
     </>
   );

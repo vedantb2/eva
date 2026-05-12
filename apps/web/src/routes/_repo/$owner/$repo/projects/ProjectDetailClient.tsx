@@ -47,6 +47,8 @@ import dayjs from "@conductor/shared/dates";
 import { useNavigate } from "@tanstack/react-router";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
+import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/ResolveConfirmDialog";
+import { StartupCommandsConfirmDialog } from "@/lib/components/tasks/_components/StartupCommandsConfirmDialog";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 
 export function ProjectDetailClient({
@@ -65,6 +67,9 @@ export function ProjectDetailClient({
   const [isStartingBuild, setIsStartingBuild] = useState(false);
   const [isStoppingBuild, setIsStoppingBuild] = useState(false);
   const [showStopBuildConfirm, setShowStopBuildConfirm] = useState(false);
+  const [showResolveConfirm, setShowResolveConfirm] = useState(false);
+  const [showStartupCommandsConfirm, setShowStartupCommandsConfirm] =
+    useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [isResolvingConflicts, setIsResolvingConflicts] = useState(false);
   const [prError, setPrError] = useState<string | null>(null);
@@ -316,7 +321,7 @@ export function ProjectDetailClient({
                   <DropdownMenuContent align="end">
                     {showResolveConflicts && (
                       <DropdownMenuItem
-                        onClick={handleResolveConflicts}
+                        onClick={() => setShowResolveConfirm(true)}
                         disabled={isResolvingConflicts}
                       >
                         {isResolvingConflicts ? (
@@ -329,7 +334,7 @@ export function ProjectDetailClient({
                     )}
                     {showRetryStartupCommands && (
                       <DropdownMenuItem
-                        onClick={handleRetryStartupCommands}
+                        onClick={() => setShowStartupCommandsConfirm(true)}
                         disabled={isRetryingStartupCommands}
                       >
                         {isRetryingStartupCommands ? (
@@ -537,6 +542,20 @@ export function ProjectDetailClient({
         onOpenChange={setShowStopBuildConfirm}
         onConfirm={handleStopBuild}
         isStopping={isStoppingBuild}
+      />
+
+      <ResolveConfirmDialog
+        open={showResolveConfirm}
+        onOpenChange={setShowResolveConfirm}
+        onConfirm={handleResolveConflicts}
+        isStarting={isResolvingConflicts}
+      />
+
+      <StartupCommandsConfirmDialog
+        open={showStartupCommandsConfirm}
+        onOpenChange={setShowStartupCommandsConfirm}
+        onConfirm={handleRetryStartupCommands}
+        isStarting={isRetryingStartupCommands}
       />
     </PageWrapper>
   );

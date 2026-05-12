@@ -74,7 +74,7 @@ export const countBuilding = authQuery({
   },
 });
 
-/** Returns projects with an active build workflow or an active/starting preview sandbox. */
+/** Returns projects with an active build workflow, in-progress task runs, or an active/starting preview sandbox. */
 export const getActive = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(
@@ -83,6 +83,7 @@ export const getActive = authQuery({
       title: v.string(),
       activeBuildWorkflowId: v.optional(v.string()),
       reviewProjectSandboxStatus: v.optional(taskSandboxStatusValidator),
+      runningTaskCount: v.number(),
     }),
   ),
   handler: async (ctx, args) => {
@@ -91,19 +92,35 @@ export const getActive = authQuery({
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    return projects
-      .filter(
-        (p) =>
-          p.activeBuildWorkflowId !== undefined ||
-          p.reviewProjectSandboxStatus === "active" ||
-          p.reviewProjectSandboxStatus === "starting",
+    const inProgressTasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_repo_and_status", (q) =>
+        q.eq("repoId", args.repoId).eq("status", "in_progress"),
       )
+      .collect();
+    const runningCountByProject = new Map<string, number>();
+    for (const task of inProgressTasks) {
+      if (!task.projectId) continue;
+      runningCountByProject.set(
+        task.projectId,
+        (runningCountByProject.get(task.projectId) ?? 0) + 1,
+      );
+    }
+    return projects
       .map((p) => ({
         _id: p._id,
         title: p.title,
         activeBuildWorkflowId: p.activeBuildWorkflowId,
         reviewProjectSandboxStatus: p.reviewProjectSandboxStatus,
-      }));
+        runningTaskCount: runningCountByProject.get(p._id) ?? 0,
+      }))
+      .filter(
+        (p) =>
+          p.activeBuildWorkflowId !== undefined ||
+          p.reviewProjectSandboxStatus === "active" ||
+          p.reviewProjectSandboxStatus === "starting" ||
+          p.runningTaskCount > 0,
+      );
   },
 });
 

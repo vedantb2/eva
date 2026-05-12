@@ -78,7 +78,6 @@ export function CommentsSection({
     if (!text) return;
     const content = tokenizeAndReset(text);
     setCommentText("");
-    setRequestingChanges(false);
     try {
       await createComment({ taskId, content });
       await startExecution({ id: taskId });
@@ -104,6 +103,13 @@ export function CommentsSection({
   };
 
   const sortedComments = comments ? [...comments].reverse() : undefined;
+  const showMakeChangesCheckbox =
+    status === "business_review" ||
+    status === "code_review" ||
+    status === "done" ||
+    status === "cancelled";
+  const effectiveRequestingChanges =
+    showMakeChangesCheckbox && requestingChanges;
 
   return (
     <div className="space-y-4">
@@ -117,7 +123,7 @@ export function CommentsSection({
               if (executionError) setExecutionError(null);
             }}
             placeholder={
-              requestingChanges
+              effectiveRequestingChanges
                 ? "Describe the changes you'd like Eva to make..."
                 : "Add a comment..."
             }
@@ -127,16 +133,15 @@ export function CommentsSection({
             className="rounded-full absolute right-2 bottom-2 h-8 w-8"
             disabled={!commentText.trim()}
             onClick={
-              requestingChanges ? handleSubmitRequestChanges : handleAddComment
+              effectiveRequestingChanges
+                ? handleSubmitRequestChanges
+                : handleAddComment
             }
           >
             <IconArrowUp size={16} />
           </Button>
         </div>
-        {(status === "business_review" ||
-          status === "code_review" ||
-          status === "done" ||
-          status === "cancelled") && (
+        {showMakeChangesCheckbox && (
           <div className="flex items-center gap-2">
             <Checkbox
               id={`task-make-changes-${taskId}`}
@@ -155,7 +160,7 @@ export function CommentsSection({
             </Label>
           </div>
         )}
-        {requestingChanges && !executionError && (
+        {effectiveRequestingChanges && !executionError && (
           <p className="text-xs text-muted-foreground">
             Submitting will create a comment and re-run Eva with your changes
           </p>

@@ -117,7 +117,7 @@ export function useTaskDetail(
   const [internalActiveTab, setInternalActiveTab] =
     useState<TaskDetailTab>("activity");
   const [executionError, setExecutionError] = useState<string | null>(null);
-  const [requestingChanges, setRequestingChanges] = useState(false);
+  const [requestingChanges, setRequestingChanges] = useState(true);
 
   const activeTab: TaskDetailTab =
     routing?.mode === "quick-detail"

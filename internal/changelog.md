@@ -1,5 +1,11 @@
 # Changelog
 
+## Projects badge shows running tasks; "Make changes" checkbox defaults true - 2026-05-12
+
+- **Why**: Sidebar "Projects" badge only surfaced projects with active build workflows or sandboxes, leaving running agent tasks invisible at a glance. User review workflow defaulted "Make changes" checkbox to unchecked, requiring an extra click to request changes when most reviews prompt edits.
+- **Change**: Backend `projects.getActive` now includes projects with `in_progress` task runs, counts them per project (`runningTaskCount`), and filters to active status. Frontend `BuildingProjectsBadge` renders a new "Running" section (loader glyph) listing projects with active tasks. Sidebar badge displays three indicators when active: running count, building count, sandbox count. Comments section "Make changes" checkbox defaults to `true` for reviewable statuses (`code_review`, `business_review`, `done`, `cancelled`), with placeholder and submit routing respecting the checkbox state; non-reviewable statuses continue to show plain "Add a comment" flow.
+- **Reason**: Balances project visibility (running tasks ≠ builds, deserve equal prominence) and review UX (defaulting to "request changes" matches intent — user unchecks only if commenting without re-run).
+
 ## Replace remaining apps/web `as` casts with type guards and typed reducers - 2026-05-12
 
 - **Why**: CLAUDE.md forbids `as` for type assertions, but several apps/web call sites still used `as` to paper over runtime-validated narrowing (parsed LLM JSON), unfortunate prop-type widening (kanban column status), and accumulator initialisation (status-grouped reduce). Bundle 22 of the refactor sweep targets these so the codebase stops treating its own type system as advisory and contributors stop pattern-matching on existing casts when they need their own narrowing.

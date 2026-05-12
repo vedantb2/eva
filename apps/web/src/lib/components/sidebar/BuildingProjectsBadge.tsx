@@ -22,6 +22,7 @@ export function BuildingProjectsBadge({
   basePath,
 }: BuildingProjectsBadgeProps) {
   const projects = useQuery(api.projects.getActive, { repoId });
+  const runningProjects = projects?.filter((p) => p.runningTaskCount > 0) ?? [];
   const buildingProjects =
     projects?.filter((p) => p.activeBuildWorkflowId !== undefined) ?? [];
   const sandboxProjects =
@@ -31,9 +32,21 @@ export function BuildingProjectsBadge({
         p.reviewProjectSandboxStatus === "starting",
     ) ?? [];
 
-  if (buildingProjects.length === 0 && sandboxProjects.length === 0) {
+  if (
+    runningProjects.length === 0 &&
+    buildingProjects.length === 0 &&
+    sandboxProjects.length === 0
+  ) {
     return null;
   }
+
+  const summaryParts: string[] = [];
+  if (runningProjects.length > 0)
+    summaryParts.push(`${runningProjects.length} running`);
+  if (buildingProjects.length > 0)
+    summaryParts.push(`${buildingProjects.length} building`);
+  if (sandboxProjects.length > 0)
+    summaryParts.push(`${sandboxProjects.length} active`);
 
   return (
     <HoverCard openDelay={200} closeDelay={100}>
@@ -42,6 +55,17 @@ export function BuildingProjectsBadge({
           variant="secondary"
           className="ml-auto cursor-default items-center gap-2 border-none bg-sidebar-accent/50 px-1.5 py-0.5"
         >
+          {runningProjects.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <IconLoader2
+                size={11}
+                className="animate-spin text-muted-foreground"
+              />
+              <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                {runningProjects.length}
+              </span>
+            </span>
+          )}
           {buildingProjects.length > 0 && (
             <span className="flex items-center gap-1.5">
               <IconLoader2
@@ -74,21 +98,41 @@ export function BuildingProjectsBadge({
               Active projects
             </h3>
             <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
-              {buildingProjects.length > 0 && (
-                <span>{buildingProjects.length} building</span>
-              )}
-              {buildingProjects.length > 0 && sandboxProjects.length > 0 && (
-                <span aria-hidden className="text-muted-foreground/40">
-                  ·
+              {summaryParts.map((part, i) => (
+                <span key={part} className="flex items-center gap-1.5">
+                  {i > 0 && (
+                    <span aria-hidden className="text-muted-foreground/40">
+                      ·
+                    </span>
+                  )}
+                  <span>{part}</span>
                 </span>
-              )}
-              {sandboxProjects.length > 0 && (
-                <span>{sandboxProjects.length} active</span>
-              )}
+              ))}
             </span>
           </div>
 
           <div className="space-y-3">
+            {runningProjects.length > 0 && (
+              <Section
+                label="Running"
+                count={runningProjects.length}
+                glyph={
+                  <IconLoader2
+                    size={11}
+                    className="animate-spin text-muted-foreground"
+                  />
+                }
+              >
+                {runningProjects.map((project) => (
+                  <ProjectRow
+                    key={project._id}
+                    title={project.title}
+                    to={`${basePath}/projects/${project._id}`}
+                  />
+                ))}
+              </Section>
+            )}
+
             {buildingProjects.length > 0 && (
               <Section
                 label="Building"

@@ -1,5 +1,11 @@
 # Changelog
 
+## Enforce 7-day minimumReleaseAge for pnpm dependencies — 2026-05-12
+
+- **Why**: Newly published npm packages are the prime vector for supply-chain attacks (typosquats, compromised maintainer accounts, post-publish malicious updates). Installing a version within hours of its release means there is no community window for the wider ecosystem to flag and yank a bad release before it lands in `node_modules`.
+- **Change**: Added `minimumReleaseAge: 10080` (minutes, = 7 days) to `pnpm-workspace.yaml`. pnpm will refuse to install any package version younger than seven days from its publish timestamp across all workspaces.
+- **Reason**: Cheap, repo-wide policy that buys a meaningful detection window without touching CI or developer workflow for normal upgrades. Aligns with current industry guidance on supply-chain hygiene.
+
 ## Docs: URL tabs, markdown-first PRD, session-linked save — 2026-05-11
 
 - **Why**: Doc viewer tabs (content vs requirements vs user flows) lived only in component state, so refresh, back/forward, and shared links could not land on the right surface. Requirements and user flows were edited as separate lists while the canonical PRD lived in `content`, which invited drift and duplicated mental models. Session PRD/plan content had no durable “save as repo document” path tied to the session, and the PRD-parse workflow still accepted a duplicate `prdContent` argument instead of always reading the stored document body.

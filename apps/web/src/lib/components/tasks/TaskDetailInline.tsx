@@ -72,6 +72,7 @@ export function TaskDetailInline({
     isOwner,
     isBlocked,
     hasActiveRun,
+    hasRuns,
     canEditTaskText,
     showProofSection,
     isActivityBusy,
@@ -334,8 +335,8 @@ export function TaskDetailInline({
                     <CommentsSection
                       taskId={taskId}
                       comments={comments}
-                      status={status}
                       hasActiveRun={hasActiveRun}
+                      hasRuns={hasRuns}
                       isOwner={isOwner}
                       requestingChanges={requestingChanges}
                       setRequestingChanges={setRequestingChanges}

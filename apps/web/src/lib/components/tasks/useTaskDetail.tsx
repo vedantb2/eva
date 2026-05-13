@@ -41,6 +41,7 @@ export function useTaskDetail(
   const hasActiveRun = runs?.some(
     (run) => run.status === "queued" || run.status === "running",
   );
+  const hasRuns = (runs?.length ?? 0) > 0;
   const activeRun = runs?.find((run) => run.status === "running");
   const activeRunElapsed = useElapsedSeconds(
     activeRun?.startedAt,
@@ -311,6 +312,7 @@ export function useTaskDetail(
     isOwner,
     isBlocked,
     hasActiveRun: Boolean(hasActiveRun),
+    hasRuns,
     canEditTaskText,
     showProofSection,
     showTabsColumn,

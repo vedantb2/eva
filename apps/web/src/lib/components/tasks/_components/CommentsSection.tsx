@@ -14,6 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
 } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
 import dayjs from "@conductor/shared/dates";
@@ -27,8 +30,8 @@ import { MentionText } from "@/lib/components/mentions";
 interface CommentsSectionProps {
   taskId: Id<"agentTasks">;
   comments: FunctionReturnType<typeof api.taskComments.listByTask> | undefined;
-  status: string | undefined;
   hasActiveRun: boolean;
+  hasRuns: boolean;
   isOwner: boolean;
   requestingChanges: boolean;
   setRequestingChanges: (v: boolean) => void;
@@ -40,8 +43,8 @@ interface CommentsSectionProps {
 export function CommentsSection({
   taskId,
   comments,
-  status,
   hasActiveRun,
+  hasRuns,
   isOwner,
   requestingChanges,
   setRequestingChanges,
@@ -103,13 +106,13 @@ export function CommentsSection({
   };
 
   const sortedComments = comments ? [...comments].reverse() : undefined;
-  const showMakeChangesCheckbox =
-    status === "business_review" ||
-    status === "code_review" ||
-    status === "done" ||
-    status === "cancelled";
-  const effectiveRequestingChanges =
-    showMakeChangesCheckbox && requestingChanges;
+  const disabledReason: string | undefined = hasActiveRun
+    ? "Wait for the current run to finish"
+    : !hasRuns
+      ? "Run Eva on this task before requesting changes"
+      : undefined;
+  const canRequestChanges = disabledReason === undefined;
+  const effectiveRequestingChanges = canRequestChanges && requestingChanges;
 
   return (
     <div className="space-y-4">
@@ -141,25 +144,30 @@ export function CommentsSection({
             <IconArrowUp size={16} />
           </Button>
         </div>
-        {showMakeChangesCheckbox && (
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id={`task-make-changes-${taskId}`}
-              checked={requestingChanges}
-              disabled={Boolean(hasActiveRun)}
-              onCheckedChange={(checked) => {
-                setRequestingChanges(checked === true);
-                if (executionError) setExecutionError(null);
-              }}
-            />
-            <Label
-              htmlFor={`task-make-changes-${taskId}`}
-              className={hasActiveRun ? "text-muted-foreground" : ""}
-            >
-              Make changes
-            </Label>
-          </div>
-        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-2 w-fit">
+              <Checkbox
+                id={`task-make-changes-${taskId}`}
+                checked={effectiveRequestingChanges}
+                disabled={!canRequestChanges}
+                onCheckedChange={(checked) => {
+                  setRequestingChanges(checked === true);
+                  if (executionError) setExecutionError(null);
+                }}
+              />
+              <Label
+                htmlFor={`task-make-changes-${taskId}`}
+                className={!canRequestChanges ? "text-muted-foreground" : ""}
+              >
+                Make changes
+              </Label>
+            </div>
+          </TooltipTrigger>
+          {disabledReason !== undefined && (
+            <TooltipContent>{disabledReason}</TooltipContent>
+          )}
+        </Tooltip>
         {effectiveRequestingChanges && !executionError && (
           <p className="text-xs text-muted-foreground">
             Submitting will create a comment and re-run Eva with your changes

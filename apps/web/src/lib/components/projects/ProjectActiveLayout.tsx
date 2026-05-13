@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
+import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
@@ -36,6 +37,7 @@ interface ProjectActiveLayoutProps {
     role: "user" | "assistant";
     content: string;
   }>;
+  selectedTaskId?: string;
 }
 
 export function ProjectActiveLayout({
@@ -44,15 +46,32 @@ export function ProjectActiveLayout({
   basePath,
   generatedSpec,
   conversationHistory,
+  selectedTaskId: selectedTaskIdParam,
 }: ProjectActiveLayoutProps) {
+  const navigate = useNavigate();
   const cleanupTriggeredRef = useRef(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<Id<"agentTasks"> | null>(
-    null,
-  );
 
   const tasks = useQuery(api.agentTasks.listByProject, { projectId });
   const clearProjectSandbox = useMutation(api.projects.clearProjectSandbox);
+
+  const selectedTaskId = useMemo<Id<"agentTasks"> | null>(() => {
+    if (!selectedTaskIdParam) return null;
+    const typed = selectedTaskIdParam as Id<"agentTasks">;
+    if (!tasks) return typed;
+    return tasks.some((t) => t._id === typed) ? typed : null;
+  }, [selectedTaskIdParam, tasks]);
+
+  const handleSelectTask = useCallback(
+    (id: Id<"agentTasks">) => {
+      navigate({ to: `${basePath}/projects/${projectId}/${id}` });
+    },
+    [navigate, basePath, projectId],
+  );
+
+  const handleCloseTask = useCallback(() => {
+    navigate({ to: `${basePath}/projects/${projectId}` });
+  }, [navigate, basePath, projectId]);
 
   const allTags = useMemo(() => {
     if (!tasks) return [];
@@ -83,7 +102,7 @@ export function ProjectActiveLayout({
           <ProjectTaskListPanel
             tasks={tasks ?? []}
             selectedTaskId={selectedTaskId}
-            onSelectTask={setSelectedTaskId}
+            onSelectTask={handleSelectTask}
             onCreateTask={() => setCreateTaskOpen(true)}
           />
         </div>
@@ -101,7 +120,7 @@ export function ProjectActiveLayout({
         {selectedTaskId ? (
           <TaskDetailInline
             taskId={selectedTaskId}
-            onClose={() => setSelectedTaskId(null)}
+            onClose={handleCloseTask}
             allTags={allTags}
           />
         ) : (

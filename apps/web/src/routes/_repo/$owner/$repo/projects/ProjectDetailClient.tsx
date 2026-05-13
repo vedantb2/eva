@@ -55,10 +55,12 @@ export function ProjectDetailClient({
   projectId,
   surface,
   sandboxTab,
+  selectedTaskId,
 }: {
   projectId: string;
   surface: "main" | "sandbox";
   sandboxTab?: TaskRouteSandboxTab;
+  selectedTaskId?: string;
 }) {
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
@@ -487,6 +489,7 @@ export function ProjectDetailClient({
             basePath={basePath}
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
+            selectedTaskId={selectedTaskId}
           />
         )}
       </div>

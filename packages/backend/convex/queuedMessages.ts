@@ -16,7 +16,7 @@ export const listByParent = authQuery({
   returns: v.array(queuedMessageValidator),
   handler: async (ctx, args) => {
     const parent = await ctx.db.get(args.parentId);
-    if (!parent) {
+    if (!parent || !parent.repoId) {
       return [];
     }
     if (!(await hasRepoAccess(ctx.db, parent.repoId, ctx.userId))) {
@@ -45,7 +45,7 @@ export const update = authMutation({
       throw new Error("Queued message not found");
     }
     const parent = await ctx.db.get(queuedMessage.parentId);
-    if (!parent) {
+    if (!parent || !parent.repoId) {
       throw new Error("Queued message parent not found");
     }
     if (!(await hasRepoAccess(ctx.db, parent.repoId, ctx.userId))) {
@@ -75,7 +75,7 @@ export const remove = authMutation({
       return null;
     }
     const parent = await ctx.db.get(queuedMessage.parentId);
-    if (!parent) {
+    if (!parent || !parent.repoId) {
       return null;
     }
     if (!(await hasRepoAccess(ctx.db, parent.repoId, ctx.userId))) {

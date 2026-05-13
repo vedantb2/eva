@@ -24,6 +24,8 @@ interface ResizablePanelLayoutProps {
   leftMinWidthPx: number;
   rightMinWidthPx: number;
   storageKey: string;
+  /** Initial collapsed state of the right panel when there is no stored value. Defaults to true. */
+  defaultRightCollapsed?: boolean;
 }
 
 const DEFAULT_RIGHT_PANEL_SIZE = "60%";
@@ -35,9 +37,13 @@ export function ResizablePanelLayout({
   leftMinWidthPx,
   rightMinWidthPx,
   storageKey,
+  defaultRightCollapsed = true,
 }: ResizablePanelLayoutProps) {
   const rightPanelRef = usePanelRef();
-  const [savedCollapsed, setSavedCollapsed] = useLocalStorage(storageKey, true);
+  const [savedCollapsed, setSavedCollapsed] = useLocalStorage(
+    storageKey,
+    defaultRightCollapsed,
+  );
   const [rightCollapsed, setRightCollapsed] = useState(savedCollapsed);
   const isMobile = useMediaQuery("(max-width: 767px)");
   const lastExpandedSize = useRef<string>(DEFAULT_RIGHT_PANEL_SIZE);

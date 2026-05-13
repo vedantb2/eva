@@ -12,7 +12,14 @@ import {
 import {
   startNextQueuedDesignMessage,
   startNextQueuedSessionMessage,
+  startNextQueuedProjectChatMessage,
+  startNextQueuedTaskChatMessage,
 } from "./_queues/helpers";
+
+/** Streaming entityId prefix for project chat workflows. */
+export const PROJECT_CHAT_STREAM_PREFIX = "project-chat-";
+/** Streaming entityId prefix for agent task chat workflows. */
+export const TASK_CHAT_STREAM_PREFIX = "task-chat-";
 
 /** Maximum time a workflow run is allowed before being considered stale (2 hours). */
 export const RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
@@ -104,6 +111,38 @@ export async function trackEvaluationWorkflow(
   );
 }
 
+/** Records a workflow as the active chat workflow for a project and schedules a stale handler. */
+export async function trackProjectChatWorkflow(
+  ctx: MutationCtx,
+  projectId: Id<"projects">,
+  workflowId: WorkflowId,
+  timeoutMs: number = RUN_TIMEOUT_MS,
+): Promise<void> {
+  const id = String(workflowId);
+  await ctx.db.patch(projectId, { activeChatWorkflowId: id });
+  await ctx.scheduler.runAfter(
+    timeoutMs,
+    internal.workflowWatchdog.handleStaleProjectChat,
+    { projectId, workflowId: id },
+  );
+}
+
+/** Records a workflow as the active chat workflow for an agent task and schedules a stale handler. */
+export async function trackAgentTaskChatWorkflow(
+  ctx: MutationCtx,
+  taskId: Id<"agentTasks">,
+  workflowId: WorkflowId,
+  timeoutMs: number = RUN_TIMEOUT_MS,
+): Promise<void> {
+  const id = String(workflowId);
+  await ctx.db.patch(taskId, { activeChatWorkflowId: id });
+  await ctx.scheduler.runAfter(
+    timeoutMs,
+    internal.workflowWatchdog.handleStaleAgentTaskChat,
+    { taskId, workflowId: id },
+  );
+}
+
 /** Records a workflow as the active build workflow for a project and schedules a stale handler. */
 export async function trackProjectBuildWorkflow(
   ctx: MutationCtx,
@@ -139,7 +178,11 @@ async function cancelStaleWorkflow(
 /** Updates the last assistant message with a timeout error if it has no content yet. */
 async function timeoutLastMessage(
   ctx: MutationCtx,
-  parentId: Id<"sessions"> | Id<"designSessions">,
+  parentId:
+    | Id<"sessions">
+    | Id<"designSessions">
+    | Id<"projects">
+    | Id<"agentTasks">,
   content: string,
 ): Promise<void> {
   const last = await ctx.db
@@ -327,6 +370,69 @@ export const handleStaleAudit = internalMutation({
       error: "Audit timed out",
     });
 
+    return null;
+  },
+});
+
+/** Cancels a stale project chat workflow, marks the last message as timed out, and starts the next queued message. */
+export const handleStaleProjectChat = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    workflowId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.activeChatWorkflowId !== args.workflowId)
+      return null;
+
+    await cancelStaleWorkflow(ctx, args.workflowId, [
+      `${PROJECT_CHAT_STREAM_PREFIX}${String(args.projectId)}`,
+    ]);
+
+    await timeoutLastMessage(
+      ctx,
+      args.projectId,
+      "Error: Chat execution timed out.",
+    );
+
+    await ctx.db.patch(args.projectId, {
+      activeChatWorkflowId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    await startNextQueuedProjectChatMessage(ctx, args.projectId);
+    return null;
+  },
+});
+
+/** Cancels a stale task chat workflow, marks the last message as timed out, and starts the next queued message. */
+export const handleStaleAgentTaskChat = internalMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    workflowId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task || task.activeChatWorkflowId !== args.workflowId) return null;
+
+    await cancelStaleWorkflow(ctx, args.workflowId, [
+      `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`,
+    ]);
+
+    await timeoutLastMessage(
+      ctx,
+      args.taskId,
+      "Error: Chat execution timed out.",
+    );
+
+    await ctx.db.patch(args.taskId, {
+      activeChatWorkflowId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    await startNextQueuedTaskChatMessage(ctx, args.taskId);
     return null;
   },
 });

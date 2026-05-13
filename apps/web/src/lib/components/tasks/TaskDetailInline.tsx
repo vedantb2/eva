@@ -39,7 +39,9 @@ import { StopConfirmDialog } from "./_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "./_components/ResolveConfirmDialog";
 import { StartupCommandsConfirmDialog } from "./_components/StartupCommandsConfirmDialog";
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
+import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
+import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import type { SandboxTab } from "@/lib/search-params";
 import type { UseTaskDetailRouting } from "./useTaskDetail";
 
@@ -137,14 +139,40 @@ export function TaskDetailInline({
     );
   }
 
-  // Show sandbox panel while the sandbox lifecycle is in progress.
   if (
     showSandbox &&
     (isSandboxActive || isSandboxStarting || isSandboxStopping)
   ) {
+    const sandboxRightPanel =
+      isSandboxActive && sandboxId && task?.repoId ? (
+        <TaskSandboxPanel
+          taskId={taskId}
+          sandboxId={sandboxId}
+          isActive={isSandboxActive}
+          repoId={task.repoId}
+          devPort={task.devPort}
+          devCommand={task.devCommand}
+          terminalPanes={task.terminalPanes}
+          activeTab={embeddedSandboxTab}
+          onTabChange={setEmbeddedSandboxTab}
+        />
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <div className="w-full max-w-md px-4">
+            <StreamingActivityDisplay
+              activity={sandboxStartupActivity}
+              thinkingLabel={
+                isSandboxStopping
+                  ? "Stopping sandbox..."
+                  : "Starting sandbox..."
+              }
+            />
+          </div>
+        </div>
+      );
+
     return (
       <div className="flex flex-col h-full overflow-hidden">
-        {/* Sandbox header with back button and stop controls */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0">
           <Button
             variant="ghost"
@@ -186,34 +214,21 @@ export function TaskDetailInline({
             ) : null}
           </div>
         </div>
-        {/* Sandbox panel */}
         <div className="flex-1 min-h-0">
-          {isSandboxActive && sandboxId && task?.repoId ? (
-            <TaskSandboxPanel
-              taskId={taskId}
-              sandboxId={sandboxId}
-              isActive={isSandboxActive}
-              repoId={task.repoId}
-              devPort={task.devPort}
-              devCommand={task.devCommand}
-              terminalPanes={task.terminalPanes}
-              activeTab={embeddedSandboxTab}
-              onTabChange={setEmbeddedSandboxTab}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="w-full max-w-md px-4">
-                <StreamingActivityDisplay
-                  activity={sandboxStartupActivity}
-                  thinkingLabel={
-                    isSandboxStopping
-                      ? "Stopping sandbox..."
-                      : "Starting sandbox..."
-                  }
-                />
-              </div>
-            </div>
-          )}
+          <ResizablePanelLayout
+            storageKey="task-sandbox-collapsed"
+            leftDefaultSize="30%"
+            leftMinWidthPx={350}
+            rightMinWidthPx={300}
+            defaultRightCollapsed={false}
+            leftPanel={() => (
+              <TaskSandboxChatPanel
+                taskId={taskId}
+                isSandboxActive={isSandboxActive}
+              />
+            )}
+            rightPanel={sandboxRightPanel}
+          />
         </div>
       </div>
     );

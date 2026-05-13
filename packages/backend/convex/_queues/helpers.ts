@@ -4,7 +4,9 @@ import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { DEFAULT_AI_MODEL } from "../validators";
 import {
+  trackAgentTaskChatWorkflow,
   trackDesignSessionWorkflow,
+  trackProjectChatWorkflow,
   trackSessionWorkflow,
 } from "../workflowWatchdog";
 
@@ -175,6 +177,140 @@ export async function startNextQueuedDesignMessage(
       content: `Error: ${errorMessage}`,
     });
     await ctx.db.patch(designSessionId, { updatedAt: Date.now() });
+    return false;
+  }
+}
+
+/** Dequeues and starts the next pending chat message for a project. */
+export async function startNextQueuedProjectChatMessage(
+  ctx: MutationCtx,
+  projectId: Id<"projects">,
+): Promise<boolean> {
+  const project = await ctx.db.get(projectId);
+  if (!project || project.activeChatWorkflowId) {
+    return false;
+  }
+
+  const nextMessage = await ctx.db
+    .query("queuedMessages")
+    .withIndex("by_parent_and_created", (q) => q.eq("parentId", projectId))
+    .order("asc")
+    .first();
+  if (!nextMessage) {
+    return false;
+  }
+
+  await ctx.db.delete(nextMessage._id);
+
+  const now = Date.now();
+  await ctx.db.insert("messages", {
+    parentId: projectId,
+    role: "user",
+    content: nextMessage.content,
+    timestamp: now,
+    userId: nextMessage.userId,
+  });
+
+  try {
+    const workflowId = await workflow.start(
+      ctx,
+      internal.projectChatWorkflow.projectChatExecuteWorkflow,
+      {
+        projectId,
+        message: nextMessage.content,
+        model: nextMessage.model ?? DEFAULT_AI_MODEL,
+        responseLength: nextMessage.responseLength ?? "brief",
+        userId: nextMessage.userId,
+      },
+    );
+
+    await ctx.db.patch(projectId, { updatedAt: now });
+    await trackProjectChatWorkflow(
+      ctx,
+      projectId,
+      workflowId,
+      QUEUE_RUN_TIMEOUT_MS,
+    );
+    return true;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Failed to start queued chat message.";
+    await ctx.db.insert("messages", {
+      parentId: projectId,
+      role: "assistant",
+      content: `Error: ${errorMessage}`,
+      timestamp: Date.now(),
+    });
+    await ctx.db.patch(projectId, { updatedAt: Date.now() });
+    return false;
+  }
+}
+
+/** Dequeues and starts the next pending chat message for an agent task. */
+export async function startNextQueuedTaskChatMessage(
+  ctx: MutationCtx,
+  taskId: Id<"agentTasks">,
+): Promise<boolean> {
+  const task = await ctx.db.get(taskId);
+  if (!task || task.activeChatWorkflowId) {
+    return false;
+  }
+
+  const nextMessage = await ctx.db
+    .query("queuedMessages")
+    .withIndex("by_parent_and_created", (q) => q.eq("parentId", taskId))
+    .order("asc")
+    .first();
+  if (!nextMessage) {
+    return false;
+  }
+
+  await ctx.db.delete(nextMessage._id);
+
+  const now = Date.now();
+  await ctx.db.insert("messages", {
+    parentId: taskId,
+    role: "user",
+    content: nextMessage.content,
+    timestamp: now,
+    userId: nextMessage.userId,
+  });
+
+  try {
+    const workflowId = await workflow.start(
+      ctx,
+      internal.agentTaskChatWorkflow.agentTaskChatExecuteWorkflow,
+      {
+        taskId,
+        message: nextMessage.content,
+        model: nextMessage.model ?? DEFAULT_AI_MODEL,
+        responseLength: nextMessage.responseLength ?? "brief",
+        userId: nextMessage.userId,
+      },
+    );
+
+    await ctx.db.patch(taskId, { updatedAt: now });
+    await trackAgentTaskChatWorkflow(
+      ctx,
+      taskId,
+      workflowId,
+      QUEUE_RUN_TIMEOUT_MS,
+    );
+    return true;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Failed to start queued chat message.";
+    await ctx.db.insert("messages", {
+      parentId: taskId,
+      role: "assistant",
+      content: `Error: ${errorMessage}`,
+      timestamp: Date.now(),
+    });
+    await ctx.db.patch(taskId, { updatedAt: Date.now() });
     return false;
   }
 }

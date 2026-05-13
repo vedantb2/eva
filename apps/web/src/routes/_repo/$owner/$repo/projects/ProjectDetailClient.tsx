@@ -25,8 +25,10 @@ import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
 import { ProjectMetadataBar } from "@/lib/components/projects/ProjectMetadataBar";
 import { ProjectSandboxPanel } from "@/lib/components/projects/ProjectSandboxPanel";
+import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandboxChatPanel";
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
+import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 
 import {
   IconGitPullRequest,
@@ -209,6 +211,32 @@ export function ProjectDetailClient({
 
   if (surface === "sandbox") {
     const tab = sandboxTab ?? "preview";
+    const sandboxPanel =
+      isSandboxActive && projectSandboxId ? (
+        <ProjectSandboxPanel
+          projectId={typedProjectId}
+          sandboxId={projectSandboxId}
+          isActive={isSandboxActive}
+          repoId={repo._id}
+          devPort={project.devPort}
+          devCommand={project.devCommand}
+          terminalPanes={project.terminalPanes}
+          sandboxTab={tab}
+        />
+      ) : (
+        <div className="flex items-center justify-center h-full">
+          <div className="w-full max-w-md px-4">
+            <StreamingActivityDisplay
+              activity={sandboxStartupActivity}
+              thinkingLabel={
+                isSandboxStopping
+                  ? "Stopping sandbox..."
+                  : "Starting sandbox..."
+              }
+            />
+          </div>
+        </div>
+      );
     return (
       <PageWrapper
         title={
@@ -228,61 +256,46 @@ export function ProjectDetailClient({
         }
         fillHeight
         childPadding={false}
-      >
-        <div className="flex flex-col h-full overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 shrink-0">
+        headerRight={
+          <>
+            {isSandboxStarting && !isSandboxActive ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <IconLoader2 size={16} className="animate-spin" />
+                <span className="hidden sm:inline">Starting sandbox...</span>
+              </div>
+            ) : null}
+            {isSandboxStopping ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <IconLoader2 size={16} className="animate-spin" />
+                <span className="hidden sm:inline">Stopping sandbox...</span>
+              </div>
+            ) : null}
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={exitProjectSandboxView}
-              className="gap-1.5"
+              className="gap-1.5 rounded-full"
             >
               <IconArrowLeft size={16} />
-              Back to Tasks
+              <span className="hidden sm:inline">Back to Tasks</span>
             </Button>
-            <div className="flex items-center gap-2">
-              {isSandboxStarting && !isSandboxActive ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <IconLoader2 size={16} className="animate-spin" />
-                  Starting sandbox...
-                </div>
-              ) : null}
-              {isSandboxStopping ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <IconLoader2 size={16} className="animate-spin" />
-                  Stopping sandbox...
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex-1 min-h-0">
-            {isSandboxActive && projectSandboxId ? (
-              <ProjectSandboxPanel
-                projectId={typedProjectId}
-                sandboxId={projectSandboxId}
-                isActive={isSandboxActive}
-                repoId={repo._id}
-                devPort={project.devPort}
-                devCommand={project.devCommand}
-                terminalPanes={project.terminalPanes}
-                sandboxTab={tab}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="w-full max-w-md px-4">
-                  <StreamingActivityDisplay
-                    activity={sandboxStartupActivity}
-                    thinkingLabel={
-                      isSandboxStopping
-                        ? "Stopping sandbox..."
-                        : "Starting sandbox..."
-                    }
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+          </>
+        }
+      >
+        <ResizablePanelLayout
+          storageKey="project-sandbox-collapsed"
+          leftDefaultSize="30%"
+          leftMinWidthPx={350}
+          rightMinWidthPx={300}
+          defaultRightCollapsed={false}
+          leftPanel={() => (
+            <ProjectSandboxChatPanel
+              projectId={typedProjectId}
+              isSandboxActive={isSandboxActive}
+            />
+          )}
+          rightPanel={sandboxPanel}
+        />
       </PageWrapper>
     );
   }

@@ -10,21 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  Conversation,
-  ConversationContent,
-  ConversationEmptyState,
-  ConversationScrollButton,
-  Message as AIMessage,
-  MessageContent,
-  MessageResponse,
-  PromptInput,
-  PromptInputProvider,
-  PromptInputFooter,
-  PromptInputTools,
-  PromptInputSpeech,
-  ModelSelect,
-  ResponseLengthSelect,
-  type PromptInputMessage,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -49,10 +34,9 @@ import {
   IconLayoutSidebarRightExpand,
   IconDots,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import type { ResponseLength } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
 import {
@@ -62,27 +46,15 @@ import {
   type AIModel,
 } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
-import {
-  MentionTextarea,
-  type MentionTextareaHandle,
-} from "@/lib/components/chat/MentionTextarea";
 import type { FunctionReturnType } from "convex/server";
-import dayjs from "@conductor/shared/dates";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
-import { EvaIcon } from "@/lib/components/EvaIcon";
-import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
-import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
 import {
-  StreamingActivityDisplay,
-  ActivityLogDisplay,
-} from "@/lib/components/StreamingActivityDisplay";
-import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
-import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
+  ChatBody,
+  type ChatBodyQueuedMessage,
+} from "@/lib/components/chat/ChatBody";
+import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
-import { SessionPromptSubmit } from "./_components/SessionPromptSubmit";
 import { prStateIconClass } from "./_utils/-prStateIconClass";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
@@ -110,52 +82,6 @@ const SESSION_MODE_OPTIONS: Array<{
   { value: "edit", label: "Edit", icon: IconCode },
   { value: "plan", label: "PRD", icon: IconClipboardList },
 ];
-
-interface ParsedQuestion {
-  question: string;
-  header: string;
-  options: Array<{ label: string; description: string }>;
-  multiSelect: boolean;
-}
-
-function isRecord(val: unknown): val is Record<string, unknown> {
-  return typeof val === "object" && val !== null;
-}
-
-function isOptionItem(
-  val: unknown,
-): val is { label: string; description: string } {
-  return (
-    isRecord(val) &&
-    typeof val.label === "string" &&
-    typeof val.description === "string"
-  );
-}
-
-function isParsedQuestion(val: unknown): val is ParsedQuestion {
-  return (
-    isRecord(val) &&
-    typeof val.question === "string" &&
-    typeof val.header === "string" &&
-    typeof val.multiSelect === "boolean" &&
-    Array.isArray(val.options) &&
-    val.options.every(isOptionItem)
-  );
-}
-
-function parsePendingQuestion(
-  raw: string | undefined | null,
-): ParsedQuestion[] | null {
-  if (!raw) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed) || !Array.isArray(parsed.questions)) return null;
-    const questions = parsed.questions.filter(isParsedQuestion);
-    return questions.length > 0 ? questions : null;
-  } catch {
-    return null;
-  }
-}
 
 interface ChatPanelProps {
   sessionId: Id<"sessions">;
@@ -205,9 +131,6 @@ export function ChatPanel({
   onToggleSandbox,
 }: ChatPanelProps) {
   const { repo } = useRepo();
-  const docs = useQuery(api.docs.list, { repoId: repo._id }) ?? [];
-  const mentionRef = useRef<MentionTextareaHandle>(null);
-  const [isSending, setIsSending] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -230,16 +153,13 @@ export function ChatPanel({
     setMode(AVAILABLE_MODES[nextIndex]);
   });
 
-  const evaIcon = <EvaIcon />;
-
-  const updateLastMessage = useMutation(api.sessions.updateLastMessage);
   const startSummarize = useMutation(api.summarizeWorkflow.startSummarize);
   const addMessage = useMutation(api.sessions.addMessage);
-
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const enqueueMessage = useMutation(api.sessionWorkflow.enqueueMessage);
-  const updateQueuedMessage = useMutation(api.queuedMessages.update);
-  const deleteQueuedMessage = useMutation(api.queuedMessages.remove);
+  const cancelExecutionMutation = useMutation(
+    api.sessionWorkflow.cancelExecution,
+  );
   const createPr = useAction(api.github.createSessionPr);
   const startAuditMutation = useMutation(api.audits.startSessionAudit);
   const sessionAudit = useQuery(
@@ -247,61 +167,63 @@ export function ChatPanel({
     reviewStep === "auditing" ? { sessionId } : "skip",
   );
 
-  const sendToApi = useCallback(
-    async (
-      message: string,
-      sendMode: SessionMode,
-      sendModel: AIModel,
-      sendResponseLength: ResponseLength,
-    ) => {
-      await startExecution({
-        sessionId,
-        message,
-        mode: sendMode,
-        model: sendModel,
-        responseLength: sendResponseLength,
-      });
+  const lastMessage = messages[messages.length - 1];
+  const lastAssistantHasNoContent =
+    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
+  const isExecuting = lastAssistantHasNoContent;
+
+  const handleSend = useCallback(
+    async (content: string) => {
+      if (isExecuting) {
+        await enqueueMessage({
+          sessionId,
+          message: content,
+          mode,
+          model,
+          responseLength,
+        });
+        return;
+      }
+      try {
+        await addMessage({ id: sessionId, role: "user", content, mode });
+        await startExecution({
+          sessionId,
+          message: content,
+          mode,
+          model,
+          responseLength,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to send message";
+        await addMessage({
+          id: sessionId,
+          role: "assistant",
+          content: `Error: ${errorMessage}`,
+          mode,
+        });
+      }
     },
-    [startExecution, sessionId],
+    [
+      isExecuting,
+      enqueueMessage,
+      addMessage,
+      startExecution,
+      sessionId,
+      mode,
+      model,
+      responseLength,
+    ],
   );
 
-  const handleSend = async (text: string) => {
-    if (!text.trim()) return;
-    const visible = text.trim();
-    const content = mentionRef.current?.tokenize(visible) ?? visible;
-    if (isExecuting) {
-      await enqueueMessage({
-        sessionId,
-        message: content,
-        mode,
-        model,
-        responseLength,
-      });
-      return;
-    }
-    setIsSending(true);
-    try {
-      await addMessage({ id: sessionId, role: "user", content, mode });
-      await sendToApi(content, mode, model, responseLength);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to send message";
-      await addMessage({
-        id: sessionId,
-        role: "assistant",
-        content: `Error: ${errorMessage}`,
-        mode,
-      });
-      setIsSending(false);
-    }
-  };
+  const handleCancel = useCallback(async () => {
+    await cancelExecutionMutation({ sessionId });
+  }, [cancelExecutionMutation, sessionId]);
 
   const handleGenerateSummary = async () => {
     setIsSummarizing(true);
     try {
-      await startSummarize({
-        sessionId,
-      });
+      await startSummarize({ sessionId });
     } finally {
       setIsSummarizing(false);
     }
@@ -314,9 +236,7 @@ export function ChatPanel({
     try {
       await createPr({ sessionId });
       try {
-        await startAuditMutation({
-          sessionId,
-        });
+        await startAuditMutation({ sessionId });
       } catch {
         setReviewStep("complete");
       }
@@ -350,78 +270,25 @@ export function ChatPanel({
     }
   }, [reviewStep, completedAudits]);
 
-  const lastMessage = messages[messages.length - 1];
-  const lastAssistantHasNoContent =
-    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
-  const isExecuting = isSending || lastAssistantHasNoContent;
-
-  useEffect(() => {
-    if (isSending && lastMessage?.role === "assistant" && lastMessage.content) {
-      setIsSending(false);
-    }
-  }, [isSending, lastMessage]);
-
-  const cancelExecutionMutation = useMutation(
-    api.sessionWorkflow.cancelExecution,
+  const formatQueuedInfo = useCallback(
+    (message: ChatBodyQueuedMessage): string | undefined => {
+      const modeLabel = message.mode === "plan" ? "PRD" : "Edit";
+      const detailParts = [
+        modeLabel,
+        message.model ? findAIModelOption(message.model).label : null,
+        message.responseLength && message.responseLength !== "default"
+          ? message.responseLength
+          : null,
+      ].filter((part): part is string => Boolean(part));
+      return detailParts.length > 0 ? detailParts.join(" / ") : undefined;
+    },
+    [],
   );
-
-  const handleCancel = async () => {
-    await cancelExecutionMutation({ sessionId });
-  };
-
-  const isInputDisabled = !isSandboxActive;
-  const submitStatus =
-    isSending && !lastAssistantHasNoContent ? "submitted" : undefined;
-
-  const handlePromptSubmit = async ({ text }: PromptInputMessage) => {
-    if (isInputDisabled) return;
-    await handleSend(text);
-  };
 
   const hasSummary = Boolean(summary && summary.length > 0);
   const showSummaryStreaming = Boolean(summaryStreamingActivity);
-  const queuedMessageItems = useMemo(
-    () =>
-      queuedMessages.map((message) => {
-        const modeLabel = message.mode === "plan" ? "PRD" : "Edit";
-        const detailParts = [
-          modeLabel,
-          message.model ? findAIModelOption(message.model).label : null,
-          message.responseLength && message.responseLength !== "default"
-            ? message.responseLength
-            : null,
-        ].filter((part): part is string => Boolean(part));
-        return {
-          id: message._id,
-          content: message.content,
-          info: detailParts.length > 0 ? detailParts.join(" / ") : undefined,
-        };
-      }),
-    [queuedMessages],
-  );
-
-  const [questionDismissed, setQuestionDismissed] = useState(false);
-
-  const pendingQuestionRaw =
-    streamingPendingQuestion ?? lastMessage?.pendingQuestion;
-  const activePendingQuestion = useMemo(
-    () => (questionDismissed ? null : parsePendingQuestion(pendingQuestionRaw)),
-    [questionDismissed, pendingQuestionRaw],
-  );
-
-  useEffect(() => {
-    if (pendingQuestionRaw) {
-      setQuestionDismissed(false);
-    }
-  }, [pendingQuestionRaw]);
-
-  const handleQuestionAnswer = useCallback(
-    async (answer: string) => {
-      setQuestionDismissed(true);
-      await handleSend(answer);
-    },
-    [handleSend],
-  );
+  const isStartupStreaming =
+    isSandboxToggling && !isSandboxActive && Boolean(startupStreamingActivity);
 
   const selectedModeOption =
     SESSION_MODE_OPTIONS.find((option) => option.value === mode) ??
@@ -532,6 +399,132 @@ export function ChatPanel({
     </>
   );
 
+  const preConversationContent = useMemo(() => {
+    if (!showSummaryStreaming && !hasSummary) return null;
+    return (
+      <AnimatePresence initial={false}>
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2 }}
+        >
+          <Accordion
+            type="single"
+            collapsible
+            defaultValue={showSummaryStreaming ? "summary" : undefined}
+            className="w-full min-w-0 px-3 sm:px-6 bg-secondary rounded-b-3xl max-w-3xl mx-auto"
+          >
+            <AccordionItem value="summary" className="border-b-0">
+              <AccordionTrigger className="py-2 text-sm">
+                <div className="flex flex-row gap-2 items-center text-primary">
+                  <IconSparkles size={14} />
+                  <p>Session summary</p>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pb-2">
+                {showSummaryStreaming ? (
+                  <StreamingActivityDisplay
+                    activity={summaryStreamingActivity}
+                  />
+                ) : hasSummary ? (
+                  <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
+                    {summary?.map((item, i) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </motion.div>
+      </AnimatePresence>
+    );
+  }, [showSummaryStreaming, hasSummary, summaryStreamingActivity, summary]);
+
+  const startupStreamingNode = (
+    <div className="rounded-lg bg-secondary p-4">
+      <StreamingActivityDisplay
+        activity={startupStreamingActivity}
+        thinkingLabel="Starting sandbox..."
+      />
+    </div>
+  );
+
+  const emptyStateOverride = isStartupStreaming ? (
+    <div className="flex flex-col items-center justify-center py-8">
+      <StreamingActivityDisplay
+        activity={startupStreamingActivity}
+        thinkingLabel="Starting sandbox..."
+      />
+    </div>
+  ) : null;
+
+  const beforeQueuedContent = isStartupStreaming ? startupStreamingNode : null;
+
+  const preInputContent =
+    mode === "plan" && planContent && sandboxCollapsed !== false ? (
+      <AnimatePresence initial={false}>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          transition={{ duration: 0.2 }}
+        >
+          <SessionPrdPlanView
+            sessionId={sessionId}
+            planContent={planContent}
+            onApprovePlan={() => setMode("edit")}
+            variant="compact"
+            isArchived={isArchived}
+          />
+        </motion.div>
+      </AnimatePresence>
+    ) : null;
+
+  const toolsBefore = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50">
+          <SelectedModeIcon className="size-3.5" />
+          {selectedModeOption.label}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuRadioGroup
+          value={mode}
+          onValueChange={(value) => {
+            if (value === "edit" || value === "plan") {
+              setMode(value);
+            }
+          }}
+        >
+          {SESSION_MODE_OPTIONS.map((option) => {
+            const ModeIcon = option.icon;
+            return (
+              <DropdownMenuRadioItem key={option.value} value={option.value}>
+                <ModeIcon size={14} />
+                {option.label}
+              </DropdownMenuRadioItem>
+            );
+          })}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const emptyStateTitle = isSandboxActive
+    ? "No messages yet. Start the conversation!"
+    : isSandboxToggling
+      ? "Starting sandbox..."
+      : "Sandbox is inactive. Start the sandbox to begin chatting.";
+
+  const placeholder = !isSandboxActive
+    ? "Start the sandbox to begin chatting..."
+    : mode === "plan"
+      ? "Describe the product requirements to Eva..."
+      : "Ask questions or request changes to Eva...";
+
   return (
     <ChatPageWrapper
       title={title}
@@ -539,321 +532,34 @@ export function ChatPanel({
       headerLeft={headerLeft}
       headerRight={headerRight}
     >
-      <AnimatePresence initial={false}>
-        {(showSummaryStreaming || hasSummary) && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Accordion
-              type="single"
-              collapsible
-              defaultValue={showSummaryStreaming ? "summary" : undefined}
-              className="w-full min-w-0 px-3 sm:px-6 bg-secondary rounded-b-3xl max-w-3xl mx-auto"
-            >
-              <AccordionItem value="summary" className="border-b-0">
-                <AccordionTrigger className="py-2 text-sm">
-                  <div className="flex flex-row gap-2 items-center text-primary">
-                    <IconSparkles size={14} />
-                    <p>Session summary</p>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="pb-2">
-                  {showSummaryStreaming ? (
-                    <StreamingActivityDisplay
-                      activity={summaryStreamingActivity}
-                    />
-                  ) : hasSummary ? (
-                    <ul className="list-disc list-inside text-sm text-primary space-y-1 pl-4">
-                      {summary?.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <Conversation className="flex-1 min-h-0">
-        <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
-          {messages.length === 0 ? (
-            isSandboxToggling &&
-            !isSandboxActive &&
-            startupStreamingActivity ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <StreamingActivityDisplay
-                  activity={startupStreamingActivity}
-                  thinkingLabel="Starting sandbox..."
-                />
-              </div>
-            ) : (
-              <ConversationEmptyState
-                title={
-                  isSandboxActive
-                    ? "No messages yet. Start the conversation!"
-                    : isSandboxToggling
-                      ? "Starting sandbox..."
-                      : "Sandbox is inactive. Start the sandbox to begin chatting."
-                }
-              />
-            )
-          ) : (
-            messages.map((message) =>
-              message.isSystemAlert ? (
-                <SystemAlertMessage
-                  key={message._id}
-                  content={message.content ?? ""}
-                  errorDetail={message.errorDetail}
-                />
-              ) : (
-                <motion.div
-                  key={message._id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <AIMessage from={message.role}>
-                    <MessageContent
-                      className={
-                        message.role === "user"
-                          ? "group rounded-xl bg-secondary text-foreground px-4 py-3"
-                          : "px-1 py-2"
-                      }
-                    >
-                      {message.role === "assistant" && !message.content ? (
-                        <>
-                          {streamingContent ? (
-                            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                              {streamingContent}
-                            </MessageResponse>
-                          ) : null}
-                          <StreamingActivityDisplay
-                            activity={streamingActivity}
-                            name="Eva"
-                            icon={evaIcon}
-                            startedAt={message.timestamp}
-                          />
-                          {activePendingQuestion && (
-                            <div className="mt-3">
-                              <MultipleChoiceQuestion
-                                questions={activePendingQuestion}
-                                onAnswer={handleQuestionAnswer}
-                                isLoading={isSending}
-                              />
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          {message.role === "assistant" ? (
-                            <>
-                              {message.activityLog && (
-                                <ActivityLogDisplay
-                                  activityLog={message.activityLog}
-                                  name="Eva"
-                                  icon={evaIcon}
-                                  startedAt={message.timestamp}
-                                  finishedAt={message.finishedAt}
-                                />
-                              )}
-                              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                                {message.content}
-                              </MessageResponse>
-                              {message.imageUrl && (
-                                <ScreenshotPreview url={message.imageUrl} />
-                              )}
-                              {message.videoUrl && (
-                                <VideoPreview url={message.videoUrl} />
-                              )}
-                              {message._id === lastMessage?._id &&
-                                activePendingQuestion && (
-                                  <div className="mt-3">
-                                    <MultipleChoiceQuestion
-                                      questions={activePendingQuestion}
-                                      onAnswer={handleQuestionAnswer}
-                                      isLoading={isSending}
-                                    />
-                                  </div>
-                                )}
-                            </>
-                          ) : (
-                            <MessageMentionText
-                              text={message.content}
-                              owner={repo.owner}
-                              repo={repo.name}
-                            />
-                          )}
-                        </>
-                      )}
-                    </MessageContent>
-                    {message.role === "user" && (
-                      <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
-                        <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {message.mode && (
-                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                              {message.mode === "plan" ? (
-                                <>
-                                  <IconClipboardList className="w-2.5 h-2.5" />{" "}
-                                  PRD
-                                </>
-                              ) : (
-                                <>
-                                  <IconCode className="w-2.5 h-2.5" /> Edit
-                                </>
-                              )}
-                            </div>
-                          )}
-                          {message.timestamp && (
-                            <span className="text-[11px] text-muted-foreground/60">
-                              {dayjs(message.timestamp).format("h:mm A")}
-                            </span>
-                          )}
-                        </div>
-                        <UserMessageAvatar userId={message.userId} />
-                      </div>
-                    )}
-                  </AIMessage>
-                </motion.div>
-              ),
-            )
-          )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-      {!isArchived && !activePendingQuestion && (
-        <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
-          <AnimatePresence initial={false}>
-            {isSandboxToggling &&
-              !isSandboxActive &&
-              startupStreamingActivity && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
-                  className="mb-3 rounded-lg bg-secondary p-4"
-                >
-                  <StreamingActivityDisplay
-                    activity={startupStreamingActivity}
-                    thinkingLabel="Starting sandbox..."
-                  />
-                </motion.div>
-              )}
-          </AnimatePresence>
-          <QueuedMessagesPanel
-            items={queuedMessageItems}
-            onEdit={async (id, content) => {
-              await updateQueuedMessage({ id, content });
-            }}
-            onDelete={async (id) => {
-              await deleteQueuedMessage({ id });
-            }}
-          />
-          <AnimatePresence initial={false}>
-            {mode === "plan" && planContent && sandboxCollapsed !== false && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <SessionPrdPlanView
-                  sessionId={sessionId}
-                  planContent={planContent}
-                  onApprovePlan={() => setMode("edit")}
-                  variant="compact"
-                  isArchived={isArchived}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <div>
-            <PromptInputProvider>
-              <PromptInput onSubmit={handlePromptSubmit}>
-                <MentionTextarea
-                  ref={mentionRef}
-                  docs={docs}
-                  placeholder={
-                    !isSandboxActive
-                      ? "Start the sandbox to begin chatting..."
-                      : mode === "plan"
-                        ? "Describe the product requirements to Eva..."
-                        : "Ask questions or request changes to Eva..."
-                  }
-                />
-                <PromptInputFooter>
-                  <PromptInputTools>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50">
-                          <SelectedModeIcon className="size-3.5" />
-                          {selectedModeOption.label}
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuRadioGroup
-                          value={mode}
-                          onValueChange={(value) => {
-                            if (value === "edit" || value === "plan") {
-                              setMode(value);
-                            }
-                          }}
-                        >
-                          {SESSION_MODE_OPTIONS.map((option) => {
-                            const ModeIcon = option.icon;
-                            return (
-                              <DropdownMenuRadioItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                <ModeIcon size={14} />
-                                {option.label}
-                              </DropdownMenuRadioItem>
-                            );
-                          })}
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <ResponseLengthSelect
-                      value={responseLength}
-                      onValueChange={setResponseLength}
-                    />
-                  </PromptInputTools>
-                  <div className="flex min-w-0 items-center gap-1">
-                    <ModelSelect
-                      value={model}
-                      options={modelOptions}
-                      onValueChange={setModel}
-                      className="max-w-48 truncate sm:max-w-none"
-                    />
-                    <PromptInputSpeech />
-                    {isExecuting ? (
-                      <Button
-                        size="icon-sm"
-                        type="button"
-                        variant="destructive"
-                        onClick={handleCancel}
-                        title="Stop Eva"
-                      >
-                        <IconPlayerStop className="size-4" />
-                      </Button>
-                    ) : null}
-                    <SessionPromptSubmit
-                      status={submitStatus}
-                      disabled={isInputDisabled}
-                      isExecuting={isExecuting}
-                    />
-                  </div>
-                </PromptInputFooter>
-              </PromptInput>
-            </PromptInputProvider>
-          </div>
-        </div>
-      )}
+      <ChatBody
+        repoId={repo._id}
+        repoOwner={repo.owner}
+        repoName={repo.name}
+        messages={messages}
+        queuedMessages={queuedMessages}
+        streamingActivity={streamingActivity}
+        streamingContent={streamingContent}
+        streamingPendingQuestion={streamingPendingQuestion}
+        isExecuting={isExecuting}
+        isInputDisabled={!isSandboxActive}
+        isArchived={isArchived}
+        placeholder={placeholder}
+        emptyStateTitle={emptyStateTitle}
+        emptyStateOverride={emptyStateOverride}
+        beforeQueuedContent={beforeQueuedContent}
+        preInputContent={preInputContent}
+        preConversationContent={preConversationContent}
+        toolsBefore={toolsBefore}
+        model={model}
+        setModel={setModel}
+        modelOptions={modelOptions}
+        responseLength={responseLength}
+        setResponseLength={setResponseLength}
+        onSend={handleSend}
+        onCancel={handleCancel}
+        formatQueuedInfo={formatQueuedInfo}
+      />
       <Dialog
         open={showSummaryModal}
         onOpenChange={(v) => {

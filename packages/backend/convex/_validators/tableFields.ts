@@ -50,6 +50,10 @@ export const agentTaskFields = {
   // across the task lifecycle so reviewers can resume in-sandbox state (DB,
   // generated fixtures) instead of re-bootstrapping from the branch.
   sandboxId: v.optional(v.string()),
+  // Separate from `activeWorkflowId` so a task can host an in-sandbox chat
+  // (via the sandbox view) concurrently with — and without conflicting with —
+  // its main run workflow.
+  activeChatWorkflowId: v.optional(v.string()),
   // UI state for the reviewer-facing Start/Stop sandbox button.
   reviewTaskSandboxStatus: v.optional(taskSandboxStatusValidator),
   // Resolved dev server port + full command for the current sandbox. Stored
@@ -171,10 +175,16 @@ export const projectFields = {
   projectEndDate: v.optional(v.number()),
   activeWorkflowId: v.optional(v.string()),
   activeBuildWorkflowId: v.optional(v.string()),
+  // Separate from build + spec workflows so the in-sandbox chat can run
+  // independently of the project's other lifecycle workflows.
+  activeChatWorkflowId: v.optional(v.string()),
   scheduledBuildAt: v.optional(v.number()),
   scheduledBuildFunctionId: v.optional(v.id("_scheduled_functions")),
   lastBuildError: v.optional(v.string()),
   branchVersion: v.optional(v.number()),
+  // Set when chat or other queue helpers touch the project. Mirrors
+  // `sessions.updatedAt` so the same queue/list helpers work uniformly.
+  updatedAt: v.optional(v.number()),
 };
 
 export const projectDetailsFields = {
@@ -221,7 +231,12 @@ export const messageFields = {
   finishedAt: v.optional(v.number()),
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
-  parentId: v.union(v.id("sessions"), v.id("designSessions")),
+  parentId: v.union(
+    v.id("sessions"),
+    v.id("designSessions"),
+    v.id("projects"),
+    v.id("agentTasks"),
+  ),
   mode: v.optional(sessionModeValidator),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
@@ -233,7 +248,12 @@ export const messageFields = {
 };
 
 export const queuedMessageFields = {
-  parentId: v.union(v.id("sessions"), v.id("designSessions")),
+  parentId: v.union(
+    v.id("sessions"),
+    v.id("designSessions"),
+    v.id("projects"),
+    v.id("agentTasks"),
+  ),
   content: v.string(),
   createdAt: v.number(),
   userId: v.id("users"),

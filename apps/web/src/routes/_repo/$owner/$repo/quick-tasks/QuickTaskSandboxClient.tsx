@@ -11,7 +11,9 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { TaskSandboxPanel } from "@/lib/components/tasks/TaskSandboxPanel";
+import { TaskSandboxChatPanel } from "@/lib/components/tasks/TaskSandboxChatPanel";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
+import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { useTaskDetail } from "@/lib/components/tasks/useTaskDetail";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 
@@ -65,6 +67,34 @@ export function QuickTaskSandboxClient({
     );
   }
 
+  const sandboxRightPanel =
+    isSandboxActive && sandboxId && task?.repoId ? (
+      <TaskSandboxPanel
+        taskId={typedTaskId}
+        sandboxId={sandboxId}
+        isActive={isSandboxActive}
+        repoId={task.repoId}
+        devPort={task.devPort}
+        devCommand={task.devCommand}
+        terminalPanes={task.terminalPanes}
+        activeTab={sandboxTab}
+        onTabChange={(tab) => {
+          routing.quick.onSandboxTabChange(tab === "prd" ? "preview" : tab);
+        }}
+      />
+    ) : (
+      <div className="flex items-center justify-center h-full">
+        <div className="w-full max-w-md px-4">
+          <StreamingActivityDisplay
+            activity={sandboxStartupActivity}
+            thinkingLabel={
+              isSandboxStopping ? "Stopping sandbox..." : "Starting sandbox..."
+            }
+          />
+        </div>
+      </div>
+    );
+
   return (
     <PageWrapper title="Sandbox" fillHeight childPadding={false}>
       <div className="flex flex-col h-full overflow-hidden">
@@ -110,36 +140,20 @@ export function QuickTaskSandboxClient({
           </div>
         </div>
         <div className="flex-1 min-h-0">
-          {isSandboxActive && sandboxId && task?.repoId ? (
-            <TaskSandboxPanel
-              taskId={typedTaskId}
-              sandboxId={sandboxId}
-              isActive={isSandboxActive}
-              repoId={task.repoId}
-              devPort={task.devPort}
-              devCommand={task.devCommand}
-              terminalPanes={task.terminalPanes}
-              activeTab={sandboxTab}
-              onTabChange={(tab) => {
-                routing.quick.onSandboxTabChange(
-                  tab === "prd" ? "preview" : tab,
-                );
-              }}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="w-full max-w-md px-4">
-                <StreamingActivityDisplay
-                  activity={sandboxStartupActivity}
-                  thinkingLabel={
-                    isSandboxStopping
-                      ? "Stopping sandbox..."
-                      : "Starting sandbox..."
-                  }
-                />
-              </div>
-            </div>
-          )}
+          <ResizablePanelLayout
+            storageKey="task-sandbox-collapsed"
+            leftDefaultSize="30%"
+            leftMinWidthPx={350}
+            rightMinWidthPx={300}
+            defaultRightCollapsed={false}
+            leftPanel={() => (
+              <TaskSandboxChatPanel
+                taskId={typedTaskId}
+                isSandboxActive={isSandboxActive}
+              />
+            )}
+            rightPanel={sandboxRightPanel}
+          />
         </div>
       </div>
     </PageWrapper>

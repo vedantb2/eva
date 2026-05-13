@@ -10,6 +10,7 @@
 
 import type * as _agentRuns_mutations from "../_agentRuns/mutations.js";
 import type * as _agentRuns_queries from "../_agentRuns/queries.js";
+import type * as _agentTasks_chatPrompt from "../_agentTasks/chatPrompt.js";
 import type * as _agentTasks_drafts from "../_agentTasks/drafts.js";
 import type * as _agentTasks_execution from "../_agentTasks/execution.js";
 import type * as _agentTasks_helpers from "../_agentTasks/helpers.js";
@@ -61,6 +62,7 @@ import type * as _migrations_cleanup from "../_migrations/cleanup.js";
 import type * as _migrations_deleteRepos from "../_migrations/deleteRepos.js";
 import type * as _migrations_deploymentUrl from "../_migrations/deploymentUrl.js";
 import type * as _migrations_sessionModes from "../_migrations/sessionModes.js";
+import type * as _projects_chatPrompt from "../_projects/chatPrompt.js";
 import type * as _projects_development from "../_projects/development.js";
 import type * as _projects_helpers from "../_projects/helpers.js";
 import type * as _projects_internal from "../_projects/internal.js";
@@ -105,6 +107,7 @@ import type * as _validators_personalisation from "../_validators/personalisatio
 import type * as _validators_shapes from "../_validators/shapes.js";
 import type * as _validators_tableFields from "../_validators/tableFields.js";
 import type * as agentRuns from "../agentRuns.js";
+import type * as agentTaskChatWorkflow from "../agentTaskChatWorkflow.js";
 import type * as agentTasks from "../agentTasks.js";
 import type * as analytics from "../analytics.js";
 import type * as annotations from "../annotations.js";
@@ -151,6 +154,7 @@ import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as prBody from "../prBody.js";
 import type * as presence from "../presence.js";
+import type * as projectChatWorkflow from "../projectChatWorkflow.js";
 import type * as projectInterviewWorkflow from "../projectInterviewWorkflow.js";
 import type * as projectSandboxWorkflow from "../projectSandboxWorkflow.js";
 import type * as projects from "../projects.js";
@@ -204,6 +208,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "_agentRuns/mutations": typeof _agentRuns_mutations;
   "_agentRuns/queries": typeof _agentRuns_queries;
+  "_agentTasks/chatPrompt": typeof _agentTasks_chatPrompt;
   "_agentTasks/drafts": typeof _agentTasks_drafts;
   "_agentTasks/execution": typeof _agentTasks_execution;
   "_agentTasks/helpers": typeof _agentTasks_helpers;
@@ -255,6 +260,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/deleteRepos": typeof _migrations_deleteRepos;
   "_migrations/deploymentUrl": typeof _migrations_deploymentUrl;
   "_migrations/sessionModes": typeof _migrations_sessionModes;
+  "_projects/chatPrompt": typeof _projects_chatPrompt;
   "_projects/development": typeof _projects_development;
   "_projects/helpers": typeof _projects_helpers;
   "_projects/internal": typeof _projects_internal;
@@ -299,6 +305,7 @@ declare const fullApi: ApiFromModules<{
   "_validators/shapes": typeof _validators_shapes;
   "_validators/tableFields": typeof _validators_tableFields;
   agentRuns: typeof agentRuns;
+  agentTaskChatWorkflow: typeof agentTaskChatWorkflow;
   agentTasks: typeof agentTasks;
   analytics: typeof analytics;
   annotations: typeof annotations;
@@ -345,6 +352,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   prBody: typeof prBody;
   presence: typeof presence;
+  projectChatWorkflow: typeof projectChatWorkflow;
   projectInterviewWorkflow: typeof projectInterviewWorkflow;
   projectSandboxWorkflow: typeof projectSandboxWorkflow;
   projects: typeof projects;

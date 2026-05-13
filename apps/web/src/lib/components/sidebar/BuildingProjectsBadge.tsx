@@ -22,7 +22,6 @@ export function BuildingProjectsBadge({
   basePath,
 }: BuildingProjectsBadgeProps) {
   const projects = useQuery(api.projects.getActive, { repoId });
-  const runningProjects = projects?.filter((p) => p.runningTaskCount > 0) ?? [];
   const buildingProjects =
     projects?.filter((p) => p.activeBuildWorkflowId !== undefined) ?? [];
   const sandboxProjects =
@@ -32,17 +31,11 @@ export function BuildingProjectsBadge({
         p.reviewProjectSandboxStatus === "starting",
     ) ?? [];
 
-  if (
-    runningProjects.length === 0 &&
-    buildingProjects.length === 0 &&
-    sandboxProjects.length === 0
-  ) {
+  if (buildingProjects.length === 0 && sandboxProjects.length === 0) {
     return null;
   }
 
   const summaryParts: string[] = [];
-  if (runningProjects.length > 0)
-    summaryParts.push(`${runningProjects.length} running`);
   if (buildingProjects.length > 0)
     summaryParts.push(`${buildingProjects.length} building`);
   if (sandboxProjects.length > 0)
@@ -55,17 +48,6 @@ export function BuildingProjectsBadge({
           variant="secondary"
           className="ml-auto cursor-default items-center gap-2 border-none bg-sidebar-accent/50 px-1.5 py-0.5"
         >
-          {runningProjects.length > 0 && (
-            <span className="flex items-center gap-1.5">
-              <IconLoader2
-                size={11}
-                className="animate-spin text-muted-foreground"
-              />
-              <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
-                {runningProjects.length}
-              </span>
-            </span>
-          )}
           {buildingProjects.length > 0 && (
             <span className="flex items-center gap-1.5">
               <IconLoader2
@@ -112,27 +94,6 @@ export function BuildingProjectsBadge({
           </div>
 
           <div className="space-y-3">
-            {runningProjects.length > 0 && (
-              <Section
-                label="Running"
-                count={runningProjects.length}
-                glyph={
-                  <IconLoader2
-                    size={11}
-                    className="animate-spin text-muted-foreground"
-                  />
-                }
-              >
-                {runningProjects.map((project) => (
-                  <ProjectRow
-                    key={project._id}
-                    title={project.title}
-                    to={`${basePath}/projects/${project._id}`}
-                  />
-                ))}
-              </Section>
-            )}
-
             {buildingProjects.length > 0 && (
               <Section
                 label="Building"

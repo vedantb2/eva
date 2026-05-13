@@ -291,6 +291,9 @@ export function useTaskDetail(
     latestAudit !== null ||
     (comments !== undefined && comments.length > 0);
   const showTabsColumn = status !== "todo" || hasTabContent;
+  const creatorUser = task?.createdBy
+    ? users?.find((u) => u._id === task.createdBy)
+    : undefined;
 
   return {
     isLoading: task === undefined,
@@ -305,6 +308,7 @@ export function useTaskDetail(
     proofs,
     sandboxEvents,
     users,
+    creatorUser,
     projects,
     streaming,
     auditStreaming,

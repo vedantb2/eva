@@ -21,8 +21,12 @@ import {
   IconArrowLeft,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { UserInitials } from "@conductor/shared";
 import { useTaskDetail } from "./useTaskDetail";
-import { isTaskDetailTab } from "./_components/task-detail-constants";
+import {
+  isTaskDetailTab,
+  getUserDisplayName,
+} from "./_components/task-detail-constants";
 import { TaskHeader } from "./_components/TaskHeader";
 import { TaskDescription } from "./_components/TaskDescription";
 import { ActivityTimeline } from "./_components/ActivityTimeline";
@@ -66,6 +70,7 @@ export function TaskDetailInline({
     proofs,
     sandboxEvents,
     users,
+    creatorUser,
     projects,
     streaming,
     auditStreaming,
@@ -239,9 +244,22 @@ export function TaskDetailInline({
                       </Badge>
                     ) : null}
                     {task?.createdAt ? (
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")}
-                      </span>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
+                        {creatorUser ? (
+                          <>
+                            <UserInitials
+                              user={creatorUser}
+                              size="sm"
+                              hideLastSeen
+                            />
+                            <span>{getUserDisplayName(creatorUser)}</span>
+                            <span>·</span>
+                          </>
+                        ) : null}
+                        <span>
+                          {dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")}
+                        </span>
+                      </div>
                     ) : null}
                   </div>
                 </div>

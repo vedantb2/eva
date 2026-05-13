@@ -12,6 +12,7 @@ import { PlanContextPanel } from "./PlanContextPanel";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { IconChecklist } from "@tabler/icons-react";
 import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
+import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 
 interface Project {
   _id: Id<"projects">;
@@ -38,6 +39,7 @@ interface ProjectActiveLayoutProps {
     content: string;
   }>;
   selectedTaskId?: string;
+  detailTab?: TaskDetailTab;
 }
 
 export function ProjectActiveLayout({
@@ -47,6 +49,7 @@ export function ProjectActiveLayout({
   generatedSpec,
   conversationHistory,
   selectedTaskId: selectedTaskIdParam,
+  detailTab,
 }: ProjectActiveLayoutProps) {
   const navigate = useNavigate();
   const cleanupTriggeredRef = useRef(false);
@@ -64,7 +67,7 @@ export function ProjectActiveLayout({
 
   const handleSelectTask = useCallback(
     (id: Id<"agentTasks">) => {
-      navigate({ to: `${basePath}/projects/${projectId}/${id}` });
+      navigate({ to: `${basePath}/projects/${projectId}/${id}/activity` });
     },
     [navigate, basePath, projectId],
   );
@@ -72,6 +75,26 @@ export function ProjectActiveLayout({
   const handleCloseTask = useCallback(() => {
     navigate({ to: `${basePath}/projects/${projectId}` });
   }, [navigate, basePath, projectId]);
+
+  const activeDetailTab: TaskDetailTab = detailTab ?? "activity";
+
+  const routing = useMemo(
+    () =>
+      selectedTaskId
+        ? ({
+            mode: "project-detail",
+            project: {
+              detailTab: activeDetailTab,
+              onDetailTabChange: (tab: TaskDetailTab) => {
+                navigate({
+                  to: `${basePath}/projects/${projectId}/${selectedTaskId}/${tab}`,
+                });
+              },
+            },
+          } as const)
+        : undefined,
+    [activeDetailTab, basePath, navigate, projectId, selectedTaskId],
+  );
 
   const allTags = useMemo(() => {
     if (!tasks) return [];
@@ -119,9 +142,11 @@ export function ProjectActiveLayout({
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {selectedTaskId ? (
           <TaskDetailInline
+            key={selectedTaskId}
             taskId={selectedTaskId}
             onClose={handleCloseTask}
             allTags={allTags}
+            routing={routing}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2 p-4">

@@ -50,17 +50,20 @@ import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfir
 import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/ResolveConfirmDialog";
 import { StartupCommandsConfirmDialog } from "@/lib/components/tasks/_components/StartupCommandsConfirmDialog";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
+import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 
 export function ProjectDetailClient({
   projectId,
   surface,
   sandboxTab,
   selectedTaskId,
+  detailTab,
 }: {
   projectId: string;
   surface: "main" | "sandbox";
   sandboxTab?: TaskRouteSandboxTab;
   selectedTaskId?: string;
+  detailTab?: TaskDetailTab;
 }) {
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
@@ -490,6 +493,7 @@ export function ProjectDetailClient({
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
             selectedTaskId={selectedTaskId}
+            detailTab={detailTab}
           />
         )}
       </div>

@@ -64,10 +64,12 @@ import { Route as RepoOwnerRepoSettingsSnapshotsSnapTabRouteImport } from "./rou
 import { Route as RepoOwnerRepoSettingsEnvVariablesScopeRouteImport } from "./routes/_repo/$owner/$repo/settings/env-variables/$scope";
 import { Route as RepoOwnerRepoSessionsIdSandboxTabRouteImport } from "./routes/_repo/$owner/$repo/sessions/$id/$sandboxTab";
 import { Route as RepoOwnerRepoQuickTasksTaskIdDetailTabRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$taskId/$detailTab";
-import { Route as RepoOwnerRepoProjectsProjectIdTaskIdRouteImport } from "./routes/_repo/$owner/$repo/projects/$projectId/$taskId";
 import { Route as RepoOwnerRepoDocsIdDocTabRouteImport } from "./routes/_repo/$owner/$repo/docs/$id/$docTab";
+import { Route as RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteImport } from "./routes/_repo/$owner/$repo/projects/$projectId/$taskId/route";
+import { Route as RepoOwnerRepoProjectsProjectIdTaskIdIndexRouteImport } from "./routes/_repo/$owner/$repo/projects/$projectId/$taskId/index";
 import { Route as RepoOwnerRepoQuickTasksTaskIdSandboxSandboxTabRouteImport } from "./routes/_repo/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab";
 import { Route as RepoOwnerRepoProjectsProjectIdSandboxSandboxTabRouteImport } from "./routes/_repo/$owner/$repo/projects/$projectId/sandbox/$sandboxTab";
+import { Route as RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRouteImport } from "./routes/_repo/$owner/$repo/projects/$projectId/$taskId/$detailTab";
 
 const AgentCallbackRoute = AgentCallbackRouteImport.update({
   id: "/agent-callback",
@@ -378,17 +380,23 @@ const RepoOwnerRepoQuickTasksTaskIdDetailTabRoute =
     path: "/$detailTab",
     getParentRoute: () => RepoOwnerRepoQuickTasksTaskIdRouteRoute,
   } as any);
-const RepoOwnerRepoProjectsProjectIdTaskIdRoute =
-  RepoOwnerRepoProjectsProjectIdTaskIdRouteImport.update({
-    id: "/$taskId",
-    path: "/$taskId",
-    getParentRoute: () => RepoOwnerRepoProjectsProjectIdRouteRoute,
-  } as any);
 const RepoOwnerRepoDocsIdDocTabRoute =
   RepoOwnerRepoDocsIdDocTabRouteImport.update({
     id: "/$docTab",
     path: "/$docTab",
     getParentRoute: () => RepoOwnerRepoDocsIdRouteRoute,
+  } as any);
+const RepoOwnerRepoProjectsProjectIdTaskIdRouteRoute =
+  RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteImport.update({
+    id: "/$taskId",
+    path: "/$taskId",
+    getParentRoute: () => RepoOwnerRepoProjectsProjectIdRouteRoute,
+  } as any);
+const RepoOwnerRepoProjectsProjectIdTaskIdIndexRoute =
+  RepoOwnerRepoProjectsProjectIdTaskIdIndexRouteImport.update({
+    id: "/",
+    path: "/",
+    getParentRoute: () => RepoOwnerRepoProjectsProjectIdTaskIdRouteRoute,
   } as any);
 const RepoOwnerRepoQuickTasksTaskIdSandboxSandboxTabRoute =
   RepoOwnerRepoQuickTasksTaskIdSandboxSandboxTabRouteImport.update({
@@ -401,6 +409,12 @@ const RepoOwnerRepoProjectsProjectIdSandboxSandboxTabRoute =
     id: "/sandbox/$sandboxTab",
     path: "/sandbox/$sandboxTab",
     getParentRoute: () => RepoOwnerRepoProjectsProjectIdRouteRoute,
+  } as any);
+const RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRoute =
+  RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRouteImport.update({
+    id: "/$detailTab",
+    path: "/$detailTab",
+    getParentRoute: () => RepoOwnerRepoProjectsProjectIdTaskIdRouteRoute,
   } as any);
 
 export interface FileRoutesByFullPath {
@@ -445,8 +459,8 @@ export interface FileRoutesByFullPath {
   "/$owner/$repo/sessions/": typeof RepoOwnerRepoSessionsIndexRoute;
   "/$owner/$repo/settings/": typeof RepoOwnerRepoSettingsIndexRoute;
   "/$owner/$repo/testing-arena/": typeof RepoOwnerRepoTestingArenaIndexRoute;
+  "/$owner/$repo/projects/$projectId/$taskId": typeof RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteWithChildren;
   "/$owner/$repo/docs/$id/$docTab": typeof RepoOwnerRepoDocsIdDocTabRoute;
-  "/$owner/$repo/projects/$projectId/$taskId": typeof RepoOwnerRepoProjectsProjectIdTaskIdRoute;
   "/$owner/$repo/quick-tasks/$taskId/$detailTab": typeof RepoOwnerRepoQuickTasksTaskIdDetailTabRoute;
   "/$owner/$repo/sessions/$id/$sandboxTab": typeof RepoOwnerRepoSessionsIdSandboxTabRoute;
   "/$owner/$repo/settings/env-variables/$scope": typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute;
@@ -459,8 +473,10 @@ export interface FileRoutesByFullPath {
   "/$owner/$repo/settings/env-variables/": typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute;
   "/$owner/$repo/settings/snapshots/": typeof RepoOwnerRepoSettingsSnapshotsIndexRoute;
   "/$owner/$repo/testing-arena/$id/": typeof RepoOwnerRepoTestingArenaIdIndexRoute;
+  "/$owner/$repo/projects/$projectId/$taskId/$detailTab": typeof RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRoute;
   "/$owner/$repo/projects/$projectId/sandbox/$sandboxTab": typeof RepoOwnerRepoProjectsProjectIdSandboxSandboxTabRoute;
   "/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab": typeof RepoOwnerRepoQuickTasksTaskIdSandboxSandboxTabRoute;
+  "/$owner/$repo/projects/$projectId/$taskId/": typeof RepoOwnerRepoProjectsProjectIdTaskIdIndexRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
@@ -497,7 +513,6 @@ export interface FileRoutesByTo {
   "/$owner/$repo/settings": typeof RepoOwnerRepoSettingsIndexRoute;
   "/$owner/$repo/testing-arena": typeof RepoOwnerRepoTestingArenaIndexRoute;
   "/$owner/$repo/docs/$id/$docTab": typeof RepoOwnerRepoDocsIdDocTabRoute;
-  "/$owner/$repo/projects/$projectId/$taskId": typeof RepoOwnerRepoProjectsProjectIdTaskIdRoute;
   "/$owner/$repo/quick-tasks/$taskId/$detailTab": typeof RepoOwnerRepoQuickTasksTaskIdDetailTabRoute;
   "/$owner/$repo/sessions/$id/$sandboxTab": typeof RepoOwnerRepoSessionsIdSandboxTabRoute;
   "/$owner/$repo/settings/env-variables/$scope": typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute;
@@ -510,8 +525,10 @@ export interface FileRoutesByTo {
   "/$owner/$repo/settings/env-variables": typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute;
   "/$owner/$repo/settings/snapshots": typeof RepoOwnerRepoSettingsSnapshotsIndexRoute;
   "/$owner/$repo/testing-arena/$id": typeof RepoOwnerRepoTestingArenaIdIndexRoute;
+  "/$owner/$repo/projects/$projectId/$taskId/$detailTab": typeof RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRoute;
   "/$owner/$repo/projects/$projectId/sandbox/$sandboxTab": typeof RepoOwnerRepoProjectsProjectIdSandboxSandboxTabRoute;
   "/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab": typeof RepoOwnerRepoQuickTasksTaskIdSandboxSandboxTabRoute;
+  "/$owner/$repo/projects/$projectId/$taskId": typeof RepoOwnerRepoProjectsProjectIdTaskIdIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -558,8 +575,8 @@ export interface FileRoutesById {
   "/_repo/$owner/$repo/sessions/": typeof RepoOwnerRepoSessionsIndexRoute;
   "/_repo/$owner/$repo/settings/": typeof RepoOwnerRepoSettingsIndexRoute;
   "/_repo/$owner/$repo/testing-arena/": typeof RepoOwnerRepoTestingArenaIndexRoute;
+  "/_repo/$owner/$repo/projects/$projectId/$taskId": typeof RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteWithChildren;
   "/_repo/$owner/$repo/docs/$id/$docTab": typeof RepoOwnerRepoDocsIdDocTabRoute;
-  "/_repo/$owner/$repo/projects/$projectId/$taskId": typeof RepoOwnerRepoProjectsProjectIdTaskIdRoute;
   "/_repo/$owner/$repo/quick-tasks/$taskId/$detailTab": typeof RepoOwnerRepoQuickTasksTaskIdDetailTabRoute;
   "/_repo/$owner/$repo/sessions/$id/$sandboxTab": typeof RepoOwnerRepoSessionsIdSandboxTabRoute;
   "/_repo/$owner/$repo/settings/env-variables/$scope": typeof RepoOwnerRepoSettingsEnvVariablesScopeRoute;
@@ -572,8 +589,10 @@ export interface FileRoutesById {
   "/_repo/$owner/$repo/settings/env-variables/": typeof RepoOwnerRepoSettingsEnvVariablesIndexRoute;
   "/_repo/$owner/$repo/settings/snapshots/": typeof RepoOwnerRepoSettingsSnapshotsIndexRoute;
   "/_repo/$owner/$repo/testing-arena/$id/": typeof RepoOwnerRepoTestingArenaIdIndexRoute;
+  "/_repo/$owner/$repo/projects/$projectId/$taskId/$detailTab": typeof RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRoute;
   "/_repo/$owner/$repo/projects/$projectId/sandbox/$sandboxTab": typeof RepoOwnerRepoProjectsProjectIdSandboxSandboxTabRoute;
   "/_repo/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab": typeof RepoOwnerRepoQuickTasksTaskIdSandboxSandboxTabRoute;
+  "/_repo/$owner/$repo/projects/$projectId/$taskId/": typeof RepoOwnerRepoProjectsProjectIdTaskIdIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -619,8 +638,8 @@ export interface FileRouteTypes {
     | "/$owner/$repo/sessions/"
     | "/$owner/$repo/settings/"
     | "/$owner/$repo/testing-arena/"
-    | "/$owner/$repo/docs/$id/$docTab"
     | "/$owner/$repo/projects/$projectId/$taskId"
+    | "/$owner/$repo/docs/$id/$docTab"
     | "/$owner/$repo/quick-tasks/$taskId/$detailTab"
     | "/$owner/$repo/sessions/$id/$sandboxTab"
     | "/$owner/$repo/settings/env-variables/$scope"
@@ -633,8 +652,10 @@ export interface FileRouteTypes {
     | "/$owner/$repo/settings/env-variables/"
     | "/$owner/$repo/settings/snapshots/"
     | "/$owner/$repo/testing-arena/$id/"
+    | "/$owner/$repo/projects/$projectId/$taskId/$detailTab"
     | "/$owner/$repo/projects/$projectId/sandbox/$sandboxTab"
-    | "/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab";
+    | "/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab"
+    | "/$owner/$repo/projects/$projectId/$taskId/";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
@@ -671,7 +692,6 @@ export interface FileRouteTypes {
     | "/$owner/$repo/settings"
     | "/$owner/$repo/testing-arena"
     | "/$owner/$repo/docs/$id/$docTab"
-    | "/$owner/$repo/projects/$projectId/$taskId"
     | "/$owner/$repo/quick-tasks/$taskId/$detailTab"
     | "/$owner/$repo/sessions/$id/$sandboxTab"
     | "/$owner/$repo/settings/env-variables/$scope"
@@ -684,8 +704,10 @@ export interface FileRouteTypes {
     | "/$owner/$repo/settings/env-variables"
     | "/$owner/$repo/settings/snapshots"
     | "/$owner/$repo/testing-arena/$id"
+    | "/$owner/$repo/projects/$projectId/$taskId/$detailTab"
     | "/$owner/$repo/projects/$projectId/sandbox/$sandboxTab"
-    | "/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab";
+    | "/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab"
+    | "/$owner/$repo/projects/$projectId/$taskId";
   id:
     | "__root__"
     | "/"
@@ -731,8 +753,8 @@ export interface FileRouteTypes {
     | "/_repo/$owner/$repo/sessions/"
     | "/_repo/$owner/$repo/settings/"
     | "/_repo/$owner/$repo/testing-arena/"
-    | "/_repo/$owner/$repo/docs/$id/$docTab"
     | "/_repo/$owner/$repo/projects/$projectId/$taskId"
+    | "/_repo/$owner/$repo/docs/$id/$docTab"
     | "/_repo/$owner/$repo/quick-tasks/$taskId/$detailTab"
     | "/_repo/$owner/$repo/sessions/$id/$sandboxTab"
     | "/_repo/$owner/$repo/settings/env-variables/$scope"
@@ -745,8 +767,10 @@ export interface FileRouteTypes {
     | "/_repo/$owner/$repo/settings/env-variables/"
     | "/_repo/$owner/$repo/settings/snapshots/"
     | "/_repo/$owner/$repo/testing-arena/$id/"
+    | "/_repo/$owner/$repo/projects/$projectId/$taskId/$detailTab"
     | "/_repo/$owner/$repo/projects/$projectId/sandbox/$sandboxTab"
-    | "/_repo/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab";
+    | "/_repo/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab"
+    | "/_repo/$owner/$repo/projects/$projectId/$taskId/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -1144,19 +1168,26 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof RepoOwnerRepoQuickTasksTaskIdDetailTabRouteImport;
       parentRoute: typeof RepoOwnerRepoQuickTasksTaskIdRouteRoute;
     };
-    "/_repo/$owner/$repo/projects/$projectId/$taskId": {
-      id: "/_repo/$owner/$repo/projects/$projectId/$taskId";
-      path: "/$taskId";
-      fullPath: "/$owner/$repo/projects/$projectId/$taskId";
-      preLoaderRoute: typeof RepoOwnerRepoProjectsProjectIdTaskIdRouteImport;
-      parentRoute: typeof RepoOwnerRepoProjectsProjectIdRouteRoute;
-    };
     "/_repo/$owner/$repo/docs/$id/$docTab": {
       id: "/_repo/$owner/$repo/docs/$id/$docTab";
       path: "/$docTab";
       fullPath: "/$owner/$repo/docs/$id/$docTab";
       preLoaderRoute: typeof RepoOwnerRepoDocsIdDocTabRouteImport;
       parentRoute: typeof RepoOwnerRepoDocsIdRouteRoute;
+    };
+    "/_repo/$owner/$repo/projects/$projectId/$taskId": {
+      id: "/_repo/$owner/$repo/projects/$projectId/$taskId";
+      path: "/$taskId";
+      fullPath: "/$owner/$repo/projects/$projectId/$taskId";
+      preLoaderRoute: typeof RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteImport;
+      parentRoute: typeof RepoOwnerRepoProjectsProjectIdRouteRoute;
+    };
+    "/_repo/$owner/$repo/projects/$projectId/$taskId/": {
+      id: "/_repo/$owner/$repo/projects/$projectId/$taskId/";
+      path: "/";
+      fullPath: "/$owner/$repo/projects/$projectId/$taskId/";
+      preLoaderRoute: typeof RepoOwnerRepoProjectsProjectIdTaskIdIndexRouteImport;
+      parentRoute: typeof RepoOwnerRepoProjectsProjectIdTaskIdRouteRoute;
     };
     "/_repo/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab": {
       id: "/_repo/$owner/$repo/quick-tasks/$taskId/sandbox/$sandboxTab";
@@ -1171,6 +1202,13 @@ declare module "@tanstack/react-router" {
       fullPath: "/$owner/$repo/projects/$projectId/sandbox/$sandboxTab";
       preLoaderRoute: typeof RepoOwnerRepoProjectsProjectIdSandboxSandboxTabRouteImport;
       parentRoute: typeof RepoOwnerRepoProjectsProjectIdRouteRoute;
+    };
+    "/_repo/$owner/$repo/projects/$projectId/$taskId/$detailTab": {
+      id: "/_repo/$owner/$repo/projects/$projectId/$taskId/$detailTab";
+      path: "/$detailTab";
+      fullPath: "/$owner/$repo/projects/$projectId/$taskId/$detailTab";
+      preLoaderRoute: typeof RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRouteImport;
+      parentRoute: typeof RepoOwnerRepoProjectsProjectIdTaskIdRouteRoute;
     };
   }
 }
@@ -1232,16 +1270,34 @@ const RepoOwnerRepoDocsIdRouteRouteWithChildren =
     RepoOwnerRepoDocsIdRouteRouteChildren,
   );
 
+interface RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteChildren {
+  RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRoute: typeof RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRoute;
+  RepoOwnerRepoProjectsProjectIdTaskIdIndexRoute: typeof RepoOwnerRepoProjectsProjectIdTaskIdIndexRoute;
+}
+
+const RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteChildren: RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteChildren =
+  {
+    RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRoute:
+      RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRoute,
+    RepoOwnerRepoProjectsProjectIdTaskIdIndexRoute:
+      RepoOwnerRepoProjectsProjectIdTaskIdIndexRoute,
+  };
+
+const RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteWithChildren =
+  RepoOwnerRepoProjectsProjectIdTaskIdRouteRoute._addFileChildren(
+    RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteChildren,
+  );
+
 interface RepoOwnerRepoProjectsProjectIdRouteRouteChildren {
-  RepoOwnerRepoProjectsProjectIdTaskIdRoute: typeof RepoOwnerRepoProjectsProjectIdTaskIdRoute;
+  RepoOwnerRepoProjectsProjectIdTaskIdRouteRoute: typeof RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteWithChildren;
   RepoOwnerRepoProjectsProjectIdIndexRoute: typeof RepoOwnerRepoProjectsProjectIdIndexRoute;
   RepoOwnerRepoProjectsProjectIdSandboxSandboxTabRoute: typeof RepoOwnerRepoProjectsProjectIdSandboxSandboxTabRoute;
 }
 
 const RepoOwnerRepoProjectsProjectIdRouteRouteChildren: RepoOwnerRepoProjectsProjectIdRouteRouteChildren =
   {
-    RepoOwnerRepoProjectsProjectIdTaskIdRoute:
-      RepoOwnerRepoProjectsProjectIdTaskIdRoute,
+    RepoOwnerRepoProjectsProjectIdTaskIdRouteRoute:
+      RepoOwnerRepoProjectsProjectIdTaskIdRouteRouteWithChildren,
     RepoOwnerRepoProjectsProjectIdIndexRoute:
       RepoOwnerRepoProjectsProjectIdIndexRoute,
     RepoOwnerRepoProjectsProjectIdSandboxSandboxTabRoute:

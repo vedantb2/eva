@@ -47,7 +47,10 @@ interface TaskDetailInlineProps {
   onClose: () => void;
   taskId: Id<"agentTasks">;
   allTags?: string[];
-  routing?: Extract<UseTaskDetailRouting, { mode: "quick-detail" }>;
+  routing?: Extract<
+    UseTaskDetailRouting,
+    { mode: "quick-detail" } | { mode: "project-detail" }
+  >;
 }
 
 export function TaskDetailInline({

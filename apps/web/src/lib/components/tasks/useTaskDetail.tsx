@@ -24,9 +24,15 @@ export type QuickTaskSandboxRouting = {
   onExitSandboxView: () => void;
 };
 
+export type ProjectTaskDetailRouting = {
+  detailTab: TaskDetailTab;
+  onDetailTabChange: (tab: TaskDetailTab) => void;
+};
+
 export type UseTaskDetailRouting =
   | { mode: "quick-detail"; quick: QuickTaskDetailRouting }
-  | { mode: "quick-sandbox"; quick: QuickTaskSandboxRouting };
+  | { mode: "quick-sandbox"; quick: QuickTaskSandboxRouting }
+  | { mode: "project-detail"; project: ProjectTaskDetailRouting };
 
 export function useTaskDetail(
   taskId: Id<"agentTasks">,
@@ -125,12 +131,16 @@ export function useTaskDetail(
   const activeTab: TaskDetailTab =
     routing?.mode === "quick-detail"
       ? routing.quick.detailTab
-      : internalActiveTab;
+      : routing?.mode === "project-detail"
+        ? routing.project.detailTab
+        : internalActiveTab;
 
   const setActiveTab = useCallback(
     (tab: TaskDetailTab) => {
       if (routing?.mode === "quick-detail") {
         routing.quick.onDetailTabChange(tab);
+      } else if (routing?.mode === "project-detail") {
+        routing.project.onDetailTabChange(tab);
       } else {
         setInternalActiveTab(tab);
       }

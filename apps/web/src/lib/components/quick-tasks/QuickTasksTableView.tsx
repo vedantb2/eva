@@ -288,6 +288,7 @@ export function QuickTasksTableView({
                         const task = rows[index].original;
                         if (e.metaKey || e.ctrlKey) {
                           e.preventDefault();
+                          e.stopPropagation();
                           window.open(
                             `${basePath}/quick-tasks/${task._id}/activity`,
                             "_blank",

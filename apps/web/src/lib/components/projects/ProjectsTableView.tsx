@@ -260,6 +260,7 @@ export function ProjectsTableView({
                         const projectId = rows[index].original._id;
                         if (e.metaKey || e.ctrlKey) {
                           e.preventDefault();
+                          e.stopPropagation();
                           window.open(
                             `${basePath}/projects/${projectId}`,
                             "_blank",

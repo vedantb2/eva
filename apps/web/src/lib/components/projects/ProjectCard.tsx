@@ -119,6 +119,7 @@ export function ProjectCard({
         onClick={(event) => {
           if (href && (event.metaKey || event.ctrlKey)) {
             event.preventDefault();
+            event.stopPropagation();
             window.open(href, "_blank");
             return;
           }

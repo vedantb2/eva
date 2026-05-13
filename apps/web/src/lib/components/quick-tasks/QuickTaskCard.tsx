@@ -174,6 +174,7 @@ export function QuickTaskCard({
         if (hasDialogOpen) return;
         if (href && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
+          e.stopPropagation();
           window.open(href, "_blank");
           return;
         }

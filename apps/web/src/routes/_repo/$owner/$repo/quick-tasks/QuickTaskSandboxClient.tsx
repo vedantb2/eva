@@ -3,8 +3,8 @@
 import { Button, Spinner } from "@conductor/ui";
 import {
   IconArrowLeft,
+  IconChevronRight,
   IconLoader2,
-  IconPlayerStop,
 } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -56,7 +56,6 @@ export function QuickTaskSandboxClient({
     sandboxId,
     sandboxStartupActivity,
     handleToggleSandboxView,
-    handleStopSandbox,
   } = useTaskDetail(typedTaskId, routing);
 
   if (isLoading) {
@@ -96,66 +95,67 @@ export function QuickTaskSandboxClient({
     );
 
   return (
-    <PageWrapper title="Sandbox" fillHeight childPadding={false}>
-      <div className="flex flex-col h-full overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 shrink-0">
+    <PageWrapper
+      title={
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-base sm:text-lg md:text-xl">
+          <button
+            onClick={() => navigate({ to: `${basePath}/quick-tasks` })}
+            className="text-muted-foreground hover:text-foreground transition-colors font-semibold whitespace-nowrap flex-shrink-0"
+          >
+            Quick Tasks
+          </button>
+          <IconChevronRight
+            size={14}
+            className="text-muted-foreground/50 flex-shrink-0"
+          />
+          <span className="min-w-0 flex-1 truncate font-semibold">
+            {task?.taskNumber ? `#${task.taskNumber}` : ""}
+            {task?.title ? ` ${task.title}` : ""}
+          </span>
+        </div>
+      }
+      fillHeight
+      childPadding={false}
+      headerRight={
+        <>
+          {isSandboxStarting && !isSandboxActive ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <IconLoader2 size={16} className="animate-spin" />
+              <span className="hidden sm:inline">Starting sandbox...</span>
+            </div>
+          ) : null}
+          {isSandboxStopping ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <IconLoader2 size={16} className="animate-spin" />
+              <span className="hidden sm:inline">Stopping sandbox...</span>
+            </div>
+          ) : null}
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={handleToggleSandboxView}
-            className="gap-1.5"
+            className="gap-1.5 rounded-full"
           >
             <IconArrowLeft size={16} />
-            Back to Details
+            <span className="hidden sm:inline">Back to Details</span>
           </Button>
-          <div className="flex items-center gap-2">
-            {isSandboxStarting && !isSandboxActive ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <IconLoader2 size={16} className="animate-spin" />
-                Starting sandbox...
-              </div>
-            ) : null}
-            {isSandboxStopping ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <IconLoader2 size={16} className="animate-spin" />
-                Stopping sandbox...
-              </div>
-            ) : null}
-            {isSandboxActive ? (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleStopSandbox}
-                disabled={isSandboxStopping}
-                className="gap-1.5"
-              >
-                {isSandboxStopping ? (
-                  <IconLoader2 size={14} className="animate-spin" />
-                ) : (
-                  <IconPlayerStop size={14} />
-                )}
-                {isSandboxStopping ? "Stopping..." : "Stop Sandbox"}
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex-1 min-h-0">
-          <ResizablePanelLayout
-            storageKey="task-sandbox-collapsed"
-            leftDefaultSize="30%"
-            leftMinWidthPx={350}
-            rightMinWidthPx={300}
-            defaultRightCollapsed={false}
-            leftPanel={() => (
-              <TaskSandboxChatPanel
-                taskId={typedTaskId}
-                isSandboxActive={isSandboxActive}
-              />
-            )}
-            rightPanel={sandboxRightPanel}
+        </>
+      }
+    >
+      <ResizablePanelLayout
+        storageKey="task-sandbox-collapsed"
+        leftDefaultSize="30%"
+        leftMinWidthPx={350}
+        rightMinWidthPx={300}
+        defaultRightCollapsed={false}
+        leftPanel={() => (
+          <TaskSandboxChatPanel
+            taskId={typedTaskId}
+            isSandboxActive={isSandboxActive}
           />
-        </div>
-      </div>
+        )}
+        rightPanel={sandboxRightPanel}
+      />
     </PageWrapper>
   );
 }

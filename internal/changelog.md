@@ -1,5 +1,12 @@
 # Changelog
 
+## Add "Open in new tab" context menu and Ctrl+click support to project and task cards - 2026-05-13
+
+- **What**: Project and task cards now show an "Open in new tab" option in their right-click context menu. Ctrl+click (Cmd+click on Mac) on any card opens it in a new browser tab instead of the current view.
+- **Why**: Improves workflow for users who want to open multiple items without losing their current position or view state. Common pattern across most web applications.
+- **Change**: Updated `ProjectCard`, `QuickTaskCard`, and `TaskCardMenuItems` to accept an `href` prop and handle Ctrl/Cmd+click events. Propagated `basePath` from `useRepo()` context through all view components (list, kanban, table) to construct the proper URLs. Added context menu items with external-link icon in both card components.
+- **Components touched**: `ProjectCard`, `ProjectsListView`, `ProjectsKanbanView`, `ProjectsTableView`, `QuickTaskCard`, `TaskCardMenuItems`, `QuickTasksListView`, `QuickTasksKanbanBoard`, `QuickTasksTableView`, `ProjectTaskListPanel`.
+
 ## Add project-level conflict resolution and startup command retry to More menus - 2026-05-12
 
 - **What**: Task footer's "Resolve Conflicts" button moved to More dropdown. Project footer gains "Run Startup Commands" and "Resolve Conflicts" items in More dropdown (replacing standalone buttons on review screens).

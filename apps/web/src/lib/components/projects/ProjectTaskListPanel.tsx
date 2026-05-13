@@ -47,11 +47,13 @@ function SortableTaskWrapper({
   selectedTaskId,
   onSelectTask,
   hasError,
+  basePath,
 }: {
   task: Task;
   selectedTaskId: Id<"agentTasks"> | null;
   onSelectTask: (id: Id<"agentTasks">) => void;
   hasError: boolean;
+  basePath: string;
 }) {
   const {
     attributes,
@@ -93,6 +95,7 @@ function SortableTaskWrapper({
           tags={task.tags}
           createdAt={task._creationTime}
           scheduledAt={task.scheduledAt}
+          href={`${basePath}/quick-tasks/${task._id}/activity`}
           isActive={selectedTaskId === task._id}
           onClick={() => onSelectTask(task._id)}
           assignedTo={task.assignedTo}
@@ -118,7 +121,7 @@ export function ProjectTaskListPanel({
   onSelectTask,
   onCreateTask,
 }: ProjectTaskListPanelProps) {
-  const { repoId } = useRepo();
+  const { repoId, basePath } = useRepo();
   const [localTodoOrder, setLocalTodoOrder] = useState<
     Id<"agentTasks">[] | null
   >(null);
@@ -265,6 +268,7 @@ export function ProjectTaskListPanel({
                           selectedTaskId={selectedTaskId}
                           onSelectTask={onSelectTask}
                           hasError={errorTaskIdSet.has(task._id)}
+                          basePath={basePath}
                         />
                       ))}
                     </SortableContext>
@@ -327,6 +331,7 @@ export function ProjectTaskListPanel({
                             tags={task.tags}
                             createdAt={task._creationTime}
                             scheduledAt={task.scheduledAt}
+                            href={`${basePath}/quick-tasks/${task._id}/activity`}
                             isActive={selectedTaskId === task._id}
                             onClick={() => onSelectTask(task._id)}
                             assignedTo={task.assignedTo}

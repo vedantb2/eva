@@ -24,6 +24,7 @@ import { compactRelativeTime } from "@conductor/shared/dates";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
 import { PRIORITY_LABELS } from "@/lib/components/priority/priorityMeta";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -156,6 +157,7 @@ export function ProjectsTableView({
   projects,
   onOpenProject,
 }: ProjectsTableViewProps) {
+  const { basePath } = useRepo();
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "created", desc: true },
@@ -254,7 +256,18 @@ export function ProjectsTableView({
                 const index = props["data-item-index"];
                 const handleClick =
                   typeof index === "number"
-                    ? () => onOpenProject(rows[index].original._id)
+                    ? (e: React.MouseEvent) => {
+                        const projectId = rows[index].original._id;
+                        if (e.metaKey || e.ctrlKey) {
+                          e.preventDefault();
+                          window.open(
+                            `${basePath}/projects/${projectId}`,
+                            "_blank",
+                          );
+                          return;
+                        }
+                        onOpenProject(projectId);
+                      }
                     : undefined;
                 return (
                   <tr

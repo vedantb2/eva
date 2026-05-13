@@ -155,7 +155,7 @@ export function QuickTasksTableView({
   onToggleSelect,
   onOpenTask,
 }: QuickTasksTableViewProps) {
-  const { repoId } = useRepo();
+  const { repoId, basePath } = useRepo();
   const users = useQuery(api.users.listAll);
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
   const [sorting, setSorting] = useState<SortingState>([
@@ -284,8 +284,16 @@ export function QuickTasksTableView({
                 const index = props["data-item-index"];
                 const handleClick =
                   typeof index === "number"
-                    ? () => {
+                    ? (e: React.MouseEvent) => {
                         const task = rows[index].original;
+                        if (e.metaKey || e.ctrlKey) {
+                          e.preventDefault();
+                          window.open(
+                            `${basePath}/quick-tasks/${task._id}/activity`,
+                            "_blank",
+                          );
+                          return;
+                        }
                         if (isSelecting) {
                           onToggleSelect(task._id);
                         } else {

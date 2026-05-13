@@ -22,7 +22,6 @@ type Project = FunctionReturnType<typeof api.projects.list>[number];
 interface ProjectsListViewProps {
   projectsByPhase: Record<ProjectPhase, Project[]>;
   visiblePhases: Set<ProjectPhase>;
-  basePath: string;
   onOpenProject: (id: string) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
@@ -33,7 +32,7 @@ export function ProjectsListView({
   onOpenProject,
   onDelete,
 }: ProjectsListViewProps) {
-  const { owner, name } = useRepo();
+  const { owner, name, basePath } = useRepo();
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
   const scrollRef: RefCallback<HTMLDivElement> = useCallback(
     (node: HTMLDivElement | null) => {
@@ -123,6 +122,7 @@ export function ProjectsListView({
                                 members={project.members}
                                 projectLead={project.projectLead}
                                 phase={phase}
+                                href={`${basePath}/projects/${project._id}`}
                                 onClick={() => onOpenProject(project._id)}
                                 onDelete={() =>
                                   onDelete(project._id, project.title)

@@ -35,7 +35,7 @@ export function QuickTasksKanbanBoard({
   onToggleSelect,
   onOpenTask,
 }: QuickTasksKanbanBoardProps) {
-  const { repoId } = useRepo();
+  const { repoId, basePath } = useRepo();
   const currentUserId = useQuery(api.auth.me);
   const groupedCodebases = useQuery(api.githubRepos.listGroupedByCodebase);
   const users = useQuery(api.users.listAll);
@@ -166,6 +166,7 @@ export function QuickTasksKanbanBoard({
             projectName={
               task.projectId ? projectNames.get(task.projectId) : undefined
             }
+            href={`${basePath}/quick-tasks/${task._id}/activity`}
             groupedCodebases={groupedCodebases ?? undefined}
             isSelecting={isSelecting}
             isSelected={selectedIds.has(task._id)}

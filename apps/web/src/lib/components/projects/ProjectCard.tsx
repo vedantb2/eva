@@ -13,6 +13,7 @@ import {
   IconUserPlus,
   IconClipboard,
   IconCopy,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import {
   AvatarStack,
@@ -56,6 +57,7 @@ interface ProjectCardProps {
   projectLead?: Id<"users">;
   phase: ProjectPhase;
   isActive?: boolean;
+  href?: string;
   onClick?: () => void;
   onDelete: () => void;
 }
@@ -73,6 +75,7 @@ export function ProjectCard({
   projectLead,
   phase,
   isActive,
+  href,
   onClick,
   onDelete,
 }: ProjectCardProps) {
@@ -113,7 +116,14 @@ export function ProjectCard({
         role="button"
         tabIndex={0}
         className="relative z-[1] block w-full cursor-pointer p-2.5 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-        onClick={onClick}
+        onClick={(event) => {
+          if (href && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            window.open(href, "_blank");
+            return;
+          }
+          onClick?.();
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
@@ -269,6 +279,16 @@ export function ProjectCard({
           </ContextMenuSubContent>
         </ContextMenuSub>
         <ContextMenuSeparator />
+        {href ? (
+          <ContextMenuItem
+            onClick={() => {
+              window.open(href, "_blank");
+            }}
+          >
+            <IconExternalLink size={16} />
+            Open in new tab
+          </ContextMenuItem>
+        ) : null}
         {branchName ? (
           <ContextMenuItem asChild>
             <a

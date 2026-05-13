@@ -31,6 +31,7 @@ import {
   IconArrowMoveRight,
   IconBrain,
   IconClipboard,
+  IconExternalLink,
   IconFolder,
   IconLink,
   IconPlayerPlay,
@@ -56,6 +57,7 @@ export interface TaskCardMenuItemsProps {
   id: Id<"agentTasks">;
   title: string;
   status: TaskStatus;
+  href?: string;
   assignedTo?: Id<"users">;
   model?: string;
   projectId?: Id<"projects">;
@@ -73,6 +75,7 @@ export function TaskCardMenuItems({
   id,
   title,
   status,
+  href,
   assignedTo,
   model,
   projectId,
@@ -133,6 +136,20 @@ export function TaskCardMenuItems({
           <MenuSeparator />
         </>
       )}
+
+      {href ? (
+        <>
+          <Item
+            onSelect={() => {
+              window.open(href, "_blank");
+            }}
+          >
+            <IconExternalLink size={16} />
+            Open in new tab
+          </Item>
+          <MenuSeparator />
+        </>
+      ) : null}
 
       <Sub>
         <SubTrigger>

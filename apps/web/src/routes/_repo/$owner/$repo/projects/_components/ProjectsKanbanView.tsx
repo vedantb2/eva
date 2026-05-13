@@ -20,6 +20,7 @@ interface ProjectsKanbanViewProps {
   visiblePhases: Set<ProjectPhase>;
   owner: string;
   name: string;
+  basePath: string;
   onOpenProject: (id: string) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
@@ -29,6 +30,7 @@ export function ProjectsKanbanView({
   visiblePhases,
   owner,
   name,
+  basePath,
   onOpenProject,
   onDelete,
 }: ProjectsKanbanViewProps) {
@@ -50,6 +52,7 @@ export function ProjectsKanbanView({
               projects={projectsByPhase[phase]}
               owner={owner}
               name={name}
+              basePath={basePath}
               onOpenProject={onOpenProject}
               onDelete={onDelete}
             />
@@ -65,6 +68,7 @@ function VirtualProjectColumn({
   projects,
   owner,
   name,
+  basePath,
   onOpenProject,
   onDelete,
 }: {
@@ -72,6 +76,7 @@ function VirtualProjectColumn({
   projects: Project[];
   owner: string;
   name: string;
+  basePath: string;
   onOpenProject: (id: string) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }) {
@@ -115,6 +120,7 @@ function VirtualProjectColumn({
                   members={project.members}
                   projectLead={project.projectLead}
                   phase={phase}
+                  href={`${basePath}/projects/${project._id}`}
                   onClick={() => onOpenProject(project._id)}
                   onDelete={() => onDelete(project._id, project.title)}
                 />

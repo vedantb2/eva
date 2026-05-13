@@ -65,6 +65,7 @@ interface QuickTaskCardProps {
   deploymentStatus?: DeploymentStatus;
   sandboxStatus?: SandboxStatus;
   groupedCodebases?: GroupedCodebase[];
+  href?: string;
   onClick?: () => void;
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -94,6 +95,7 @@ export function QuickTaskCard({
   deploymentStatus,
   sandboxStatus,
   groupedCodebases,
+  href,
   onClick,
   isSelecting,
   isSelected,
@@ -134,6 +136,7 @@ export function QuickTaskCard({
     id,
     title,
     status,
+    href,
     assignedTo,
     model,
     projectId,
@@ -169,6 +172,11 @@ export function QuickTaskCard({
       onClick={(e) => {
         if (e.detail === 0) return;
         if (hasDialogOpen) return;
+        if (href && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          window.open(href, "_blank");
+          return;
+        }
         onClick?.();
       }}
       role={onClick ? "button" : undefined}

@@ -383,6 +383,7 @@ export function ProjectsClient() {
                     visiblePhases={visiblePhases}
                     owner={owner}
                     name={name}
+                    basePath={basePath}
                     onOpenProject={handleOpenProject}
                     onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />
@@ -428,7 +429,6 @@ export function ProjectsClient() {
                   <ProjectsListView
                     projectsByPhase={projectsByPhase}
                     visiblePhases={visiblePhases}
-                    basePath={basePath}
                     onOpenProject={handleOpenProject}
                     onDelete={(id, title) => setProjectToDelete({ id, title })}
                   />

@@ -15,16 +15,22 @@ import {
 import type { ComponentProps } from "react";
 import { cn } from "../utils/cn";
 
+// The control bar carries the dark backdrop (set via Tailwind on the bar),
+// so individual controls stay transparent and hover applies a subtle light
+// overlay on top — that reads as a "dimmer highlight" rather than going
+// transparent against the chat bubble behind.
 const variables: Record<string, string> = {
-  "--media-primary-color": "rgb(255 255 255 / 0.95)",
-  "--media-secondary-color": "rgb(0 0 0 / 0.7)",
-  "--media-text-color": "rgb(255 255 255 / 0.95)",
-  "--media-background-color": "rgb(0 0 0 / 0.85)",
-  "--media-control-hover-background": "rgb(255 255 255 / 0.15)",
+  "--media-primary-color": "rgb(255 255 255 / 0.96)",
+  "--media-secondary-color": "transparent",
+  "--media-text-color": "rgb(255 255 255 / 0.92)",
+  "--media-background-color": "rgb(9 9 11 / 1)",
+  "--media-control-background": "transparent",
+  "--media-control-hover-background": "rgb(255 255 255 / 0.14)",
   "--media-font-family": "var(--font-sans)",
-  "--media-live-button-icon-color": "rgb(255 255 255 / 0.75)",
-  "--media-live-button-indicator-color": "var(--destructive)",
-  "--media-range-track-background": "rgb(255 255 255 / 0.25)",
+  "--media-live-button-icon-color": "rgb(255 255 255 / 0.78)",
+  "--media-live-button-indicator-color": "rgb(244 63 94)",
+  "--media-range-track-background": "rgb(255 255 255 / 0.22)",
+  "--media-range-thumb-background": "rgb(255 255 255 / 0.95)",
 };
 
 export type VideoPlayerProps = ComponentProps<typeof MediaController>;
@@ -35,7 +41,10 @@ export const VideoPlayer = ({
   ...props
 }: VideoPlayerProps) => (
   <MediaController
-    className={cn("overflow-hidden rounded-lg", className)}
+    className={cn(
+      "overflow-hidden rounded-xl ring-1 ring-white/5 shadow-lg shadow-black/20",
+      className,
+    )}
     style={{
       ...variables,
       ...style,
@@ -46,8 +55,17 @@ export const VideoPlayer = ({
 
 export type VideoPlayerControlBarProps = ComponentProps<typeof MediaControlBar>;
 
-export const VideoPlayerControlBar = (props: VideoPlayerControlBarProps) => (
-  <MediaControlBar {...props} />
+export const VideoPlayerControlBar = ({
+  className,
+  ...props
+}: VideoPlayerControlBarProps) => (
+  <MediaControlBar
+    className={cn(
+      "bg-zinc-950/95 px-1 [&>*]:transition-colors [&>*]:duration-150",
+      className,
+    )}
+    {...props}
+  />
 );
 
 export type VideoPlayerTimeRangeProps = ComponentProps<typeof MediaTimeRange>;
@@ -56,7 +74,7 @@ export const VideoPlayerTimeRange = ({
   className,
   ...props
 }: VideoPlayerTimeRangeProps) => (
-  <MediaTimeRange className={cn("p-2.5", className)} {...props} />
+  <MediaTimeRange className={cn("p-2.5 min-w-12", className)} {...props} />
 );
 
 export type VideoPlayerTimeDisplayProps = ComponentProps<
@@ -67,7 +85,10 @@ export const VideoPlayerTimeDisplay = ({
   className,
   ...props
 }: VideoPlayerTimeDisplayProps) => (
-  <MediaTimeDisplay className={cn("p-2.5", className)} {...props} />
+  <MediaTimeDisplay
+    className={cn("p-2.5 text-xs tabular-nums tracking-tight", className)}
+    {...props}
+  />
 );
 
 export type VideoPlayerVolumeRangeProps = ComponentProps<
@@ -78,7 +99,7 @@ export const VideoPlayerVolumeRange = ({
   className,
   ...props
 }: VideoPlayerVolumeRangeProps) => (
-  <MediaVolumeRange className={cn("p-2.5", className)} {...props} />
+  <MediaVolumeRange className={cn("p-2 rounded-md", className)} {...props} />
 );
 
 export type VideoPlayerPlayButtonProps = ComponentProps<typeof MediaPlayButton>;
@@ -87,7 +108,7 @@ export const VideoPlayerPlayButton = ({
   className,
   ...props
 }: VideoPlayerPlayButtonProps) => (
-  <MediaPlayButton className={cn("p-2.5", className)} {...props} />
+  <MediaPlayButton className={cn("p-2 rounded-md", className)} {...props} />
 );
 
 export type VideoPlayerSeekBackwardButtonProps = ComponentProps<
@@ -98,7 +119,10 @@ export const VideoPlayerSeekBackwardButton = ({
   className,
   ...props
 }: VideoPlayerSeekBackwardButtonProps) => (
-  <MediaSeekBackwardButton className={cn("p-2.5", className)} {...props} />
+  <MediaSeekBackwardButton
+    className={cn("p-2 rounded-md", className)}
+    {...props}
+  />
 );
 
 export type VideoPlayerSeekForwardButtonProps = ComponentProps<
@@ -109,7 +133,10 @@ export const VideoPlayerSeekForwardButton = ({
   className,
   ...props
 }: VideoPlayerSeekForwardButtonProps) => (
-  <MediaSeekForwardButton className={cn("p-2.5", className)} {...props} />
+  <MediaSeekForwardButton
+    className={cn("p-2 rounded-md", className)}
+    {...props}
+  />
 );
 
 export type VideoPlayerMuteButtonProps = ComponentProps<typeof MediaMuteButton>;
@@ -118,7 +145,7 @@ export const VideoPlayerMuteButton = ({
   className,
   ...props
 }: VideoPlayerMuteButtonProps) => (
-  <MediaMuteButton className={cn("p-2.5", className)} {...props} />
+  <MediaMuteButton className={cn("p-2 rounded-md", className)} {...props} />
 );
 
 export type VideoPlayerPlaybackRateButtonProps = ComponentProps<
@@ -129,7 +156,10 @@ export const VideoPlayerPlaybackRateButton = ({
   className,
   ...props
 }: VideoPlayerPlaybackRateButtonProps) => (
-  <MediaPlaybackRateButton className={cn("p-2.5", className)} {...props} />
+  <MediaPlaybackRateButton
+    className={cn("p-2 rounded-md", className)}
+    {...props}
+  />
 );
 
 export type VideoPlayerContentProps = ComponentProps<"video">;

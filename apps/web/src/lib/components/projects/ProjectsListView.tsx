@@ -122,6 +122,9 @@ export function ProjectsListView({
                                 members={project.members}
                                 projectLead={project.projectLead}
                                 phase={phase}
+                                sandboxStatus={
+                                  project.reviewProjectSandboxStatus
+                                }
                                 href={`${basePath}/projects/${project._id}`}
                                 onClick={() => onOpenProject(project._id)}
                                 onDelete={() =>

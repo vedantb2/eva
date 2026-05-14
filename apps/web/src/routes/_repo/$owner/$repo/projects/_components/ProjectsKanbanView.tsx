@@ -120,6 +120,7 @@ function VirtualProjectColumn({
                   members={project.members}
                   projectLead={project.projectLead}
                   phase={phase}
+                  sandboxStatus={project.reviewProjectSandboxStatus}
                   href={`${basePath}/projects/${project._id}`}
                   onClick={() => onOpenProject(project._id)}
                   onDelete={() => onDelete(project._id, project.title)}

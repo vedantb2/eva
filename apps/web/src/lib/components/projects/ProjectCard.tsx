@@ -17,6 +17,7 @@ import {
 } from "@tabler/icons-react";
 import {
   AvatarStack,
+  cn,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
@@ -35,12 +36,19 @@ import {
   DialogFooter,
   Input,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@conductor/ui";
 import {
   phaseConfig,
   PROJECT_PHASES,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
+import {
+  SANDBOX_STATUS_STYLES,
+  type SandboxStatus,
+} from "@/lib/components/sandbox/sandboxStatusStyles";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 
 interface ProjectCardProps {
@@ -56,6 +64,7 @@ interface ProjectCardProps {
   members?: Array<Id<"users">>;
   projectLead?: Id<"users">;
   phase: ProjectPhase;
+  sandboxStatus?: SandboxStatus;
   isActive?: boolean;
   href?: string;
   onClick?: () => void;
@@ -74,6 +83,7 @@ export function ProjectCard({
   members,
   projectLead,
   phase,
+  sandboxStatus,
   isActive,
   href,
   onClick,
@@ -132,10 +142,25 @@ export function ProjectCard({
           }
         }}
       >
-        <div>
-          <h3 className="line-clamp-1 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
+        <div className="flex min-w-0 items-start gap-1.5">
+          <h3 className="min-w-0 flex-1 line-clamp-1 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
             {title}
           </h3>
+          {sandboxStatus ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    "mt-1.5 size-2 shrink-0 rounded-full",
+                    SANDBOX_STATUS_STYLES[sandboxStatus].dot,
+                  )}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                {SANDBOX_STATUS_STYLES[sandboxStatus].label}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
         {previewText ? (
           <p

@@ -28,6 +28,9 @@ export function VideoPreview({ url }: { url: string }) {
         playsInline
         preload="metadata"
         slot="media"
+        onLoadedMetadata={(event) => {
+          event.currentTarget.playbackRate = 3;
+        }}
       />
       <VideoPlayerControlBar>
         <VideoPlayerPlayButton />

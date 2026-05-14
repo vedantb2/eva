@@ -113,6 +113,7 @@ export function CommentsSection({
       : undefined;
   const canRequestChanges = disabledReason === undefined;
   const effectiveRequestingChanges = canRequestChanges && requestingChanges;
+  const isMakeChangesGated = requestingChanges && !canRequestChanges;
 
   return (
     <div className="space-y-4">
@@ -131,18 +132,27 @@ export function CommentsSection({
                 : "Add a comment..."
             }
           />
-          <Button
-            size="icon"
-            className="rounded-full absolute right-2 bottom-2 h-8 w-8"
-            disabled={!commentText.trim()}
-            onClick={
-              effectiveRequestingChanges
-                ? handleSubmitRequestChanges
-                : handleAddComment
-            }
-          >
-            <IconArrowUp size={16} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="absolute right-2 bottom-2">
+                <Button
+                  size="icon"
+                  className="rounded-full h-8 w-8"
+                  disabled={!commentText.trim() || isMakeChangesGated}
+                  onClick={
+                    effectiveRequestingChanges
+                      ? handleSubmitRequestChanges
+                      : handleAddComment
+                  }
+                >
+                  <IconArrowUp size={16} />
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {isMakeChangesGated && disabledReason !== undefined && (
+              <TooltipContent>{disabledReason}</TooltipContent>
+            )}
+          </Tooltip>
         </div>
         <Tooltip>
           <TooltipTrigger asChild>

@@ -16,15 +16,15 @@ import type { ComponentProps } from "react";
 import { cn } from "../utils/cn";
 
 const variables: Record<string, string> = {
-  "--media-primary-color": "var(--primary)",
-  "--media-secondary-color": "var(--background)",
-  "--media-text-color": "var(--foreground)",
-  "--media-background-color": "var(--background)",
-  "--media-control-hover-background": "var(--accent)",
+  "--media-primary-color": "rgb(255 255 255 / 0.95)",
+  "--media-secondary-color": "rgb(0 0 0 / 0.7)",
+  "--media-text-color": "rgb(255 255 255 / 0.95)",
+  "--media-background-color": "rgb(0 0 0 / 0.85)",
+  "--media-control-hover-background": "rgb(255 255 255 / 0.15)",
   "--media-font-family": "var(--font-sans)",
-  "--media-live-button-icon-color": "var(--muted-foreground)",
+  "--media-live-button-icon-color": "rgb(255 255 255 / 0.75)",
   "--media-live-button-indicator-color": "var(--destructive)",
-  "--media-range-track-background": "var(--border)",
+  "--media-range-track-background": "rgb(255 255 255 / 0.25)",
 };
 
 export type VideoPlayerProps = ComponentProps<typeof MediaController>;

@@ -83,7 +83,10 @@ export const setRunPrUrl = internalMutation({
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
     if (!run) return null;
-    await ctx.db.patch(args.runId, { prUrl: args.prUrl });
+    await ctx.db.patch(args.runId, {
+      prUrl: args.prUrl,
+      prError: undefined,
+    });
     return null;
   },
 });

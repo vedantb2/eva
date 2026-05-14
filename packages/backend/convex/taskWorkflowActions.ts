@@ -27,6 +27,14 @@ import {
 // Re-export URL builders for backwards compatibility
 export { buildEvaTaskUrl, buildEvaSessionUrl } from "./_taskWorkflow/urls";
 
+const PR_READY_WAIT_DELAYS_MS = [0, 1000, 2000, 4000, 8000, 12000, 16000];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 async function findOpenPullRequestForBranch(params: {
   installationId: number;
   repoOwner: string;
@@ -44,6 +52,40 @@ async function findOpenPullRequestForBranch(params: {
   const pr = pulls.data[0];
   if (!pr) return null;
   return { url: pr.html_url, number: pr.number, body: pr.body };
+}
+
+async function waitForPullRequestHead(params: {
+  octokit: Awaited<ReturnType<typeof getInstallationOctokit>>;
+  repoOwner: string;
+  repoName: string;
+  branchName: string;
+  baseBranch: string;
+}): Promise<void> {
+  let lastError = "";
+  for (const delayMs of PR_READY_WAIT_DELAYS_MS) {
+    if (delayMs > 0) {
+      await sleep(delayMs);
+    }
+    try {
+      const comparison =
+        await params.octokit.rest.repos.compareCommitsWithBasehead({
+          owner: params.repoOwner,
+          repo: params.repoName,
+          basehead: `${params.baseBranch}...${params.branchName}`,
+          per_page: 1,
+        });
+      if (comparison.data.ahead_by > 0) {
+        return;
+      }
+      lastError = `${params.branchName} is not ahead of ${params.baseBranch}`;
+    } catch (error) {
+      lastError =
+        error instanceof Error ? error.message : "GitHub compare failed";
+    }
+  }
+  throw new Error(
+    `GitHub did not report ${params.branchName} as ready for a pull request after branch push: ${lastError}`,
+  );
 }
 
 /** Manually creates the PR for a task branch — used when the workflow's auto
@@ -216,13 +258,22 @@ export const createPullRequest = internalAction({
       return existingPr.url;
     }
 
+    const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+    await waitForPullRequestHead({
+      octokit,
+      repoOwner: args.repoOwner,
+      repoName: args.repoName,
+      branchName: args.branchName,
+      baseBranch,
+    });
+
     const pr = await octokit.rest.pulls.create({
       owner: args.repoOwner,
       repo: args.repoName,
       title: `Eva: ${args.title}`,
       body: args.body,
       head: args.branchName,
-      base: args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH,
+      base: baseBranch,
       draft: args.draft ?? false,
     });
 

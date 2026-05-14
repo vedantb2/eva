@@ -1,5 +1,10 @@
 # Changelog
 
+## Stabilize quick-task auto PR creation - 2026-05-14
+
+- **Summary**: Quick-task publishing now waits for GitHub to report the pushed task branch as ahead of the base branch before creating the pull request. This removes the timing window where the workflow pushed successfully but GitHub's PR API still could not see a PR-ready head, forcing users to click "Create PR" manually later.
+- **Reason**: Auto PR creation depends on GitHub's branch comparison state after a fresh push. Waiting on the compare endpoint keeps publishing deterministic while preserving the existing manual recovery path.
+
 ## Add chat-in-sandbox for projects and quick tasks - 2026-05-13
 
 - **What**: "View Sandbox" on a project or quick task now opens a two-pane layout — chat on the left, sandbox tabs (preview/terminal/logs) on the right — matching the standalone sessions experience. Each project has one persistent chat, each task has one persistent chat. Chat runs against the parent's existing sandbox; no new provisioning. Standalone sessions are unchanged.

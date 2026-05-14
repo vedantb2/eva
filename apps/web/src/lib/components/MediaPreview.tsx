@@ -10,6 +10,7 @@ import {
   VideoPlayer,
   VideoPlayerContent,
   VideoPlayerControlBar,
+  VideoPlayerFullscreenButton,
   VideoPlayerMuteButton,
   VideoPlayerPlayButton,
   VideoPlayerPlaybackRateButton,
@@ -29,7 +30,7 @@ export function VideoPreview({ url }: { url: string }) {
         preload="metadata"
         slot="media"
         onLoadedMetadata={(event) => {
-          event.currentTarget.playbackRate = 3;
+          event.currentTarget.playbackRate = 5;
         }}
       />
       <VideoPlayerControlBar>
@@ -41,6 +42,7 @@ export function VideoPreview({ url }: { url: string }) {
         <VideoPlayerPlaybackRateButton rates={[1, 3, 5, 8]} />
         <VideoPlayerMuteButton />
         <VideoPlayerVolumeRange />
+        <VideoPlayerFullscreenButton />
       </VideoPlayerControlBar>
     </VideoPlayer>
   );

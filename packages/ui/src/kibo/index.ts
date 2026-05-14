@@ -114,6 +114,7 @@ export {
   VideoPlayerSeekForwardButton,
   VideoPlayerMuteButton,
   VideoPlayerPlaybackRateButton,
+  VideoPlayerFullscreenButton,
   VideoPlayerContent,
   type VideoPlayerProps,
   type VideoPlayerControlBarProps,
@@ -125,6 +126,7 @@ export {
   type VideoPlayerSeekForwardButtonProps,
   type VideoPlayerMuteButtonProps,
   type VideoPlayerPlaybackRateButtonProps,
+  type VideoPlayerFullscreenButtonProps,
   type VideoPlayerContentProps,
 } from "./video-player";
 

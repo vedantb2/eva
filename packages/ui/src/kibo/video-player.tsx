@@ -3,6 +3,7 @@
 import {
   MediaControlBar,
   MediaController,
+  MediaFullscreenButton,
   MediaMuteButton,
   MediaPlayButton,
   MediaPlaybackRateButton,
@@ -19,6 +20,8 @@ import { cn } from "../utils/cn";
 // so individual controls stay transparent and hover applies a subtle light
 // overlay on top — that reads as a "dimmer highlight" rather than going
 // transparent against the chat bubble behind.
+// Tooltip background is set explicitly because the default falls through
+// to --media-secondary-color, which is transparent here.
 const variables: Record<string, string> = {
   "--media-primary-color": "rgb(255 255 255 / 0.96)",
   "--media-secondary-color": "transparent",
@@ -31,6 +34,12 @@ const variables: Record<string, string> = {
   "--media-live-button-indicator-color": "rgb(244 63 94)",
   "--media-range-track-background": "rgb(255 255 255 / 0.22)",
   "--media-range-thumb-background": "rgb(255 255 255 / 0.95)",
+  "--media-tooltip-background-color": "rgb(24 24 27 / 0.98)",
+  "--media-tooltip-arrow-color": "rgb(24 24 27 / 0.98)",
+  "--media-tooltip-filter":
+    "drop-shadow(0 6px 16px rgb(0 0 0 / 0.55)) drop-shadow(0 1px 2px rgb(0 0 0 / 0.4))",
+  "--media-tooltip-distance": "10px",
+  "--media-tooltip-border-radius": "6px",
 };
 
 export type VideoPlayerProps = ComponentProps<typeof MediaController>;
@@ -157,6 +166,20 @@ export const VideoPlayerPlaybackRateButton = ({
   ...props
 }: VideoPlayerPlaybackRateButtonProps) => (
   <MediaPlaybackRateButton
+    className={cn("p-2 rounded-md", className)}
+    {...props}
+  />
+);
+
+export type VideoPlayerFullscreenButtonProps = ComponentProps<
+  typeof MediaFullscreenButton
+>;
+
+export const VideoPlayerFullscreenButton = ({
+  className,
+  ...props
+}: VideoPlayerFullscreenButtonProps) => (
+  <MediaFullscreenButton
     className={cn("p-2 rounded-md", className)}
     {...props}
   />

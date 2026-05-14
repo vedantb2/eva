@@ -214,26 +214,6 @@ export const sessionExecuteWorkflow = workflow.define({
           deploymentProjectName: data.deploymentProjectName,
         },
       );
-
-      // Create draft PR after successful execution (skips if PR already exists)
-      try {
-        await step.runAction(internal.github.createDraftSessionPr, {
-          sessionId: args.sessionId,
-        });
-      } catch (error) {
-        const errorDetail =
-          error instanceof Error ? error.message : String(error);
-        console.error(
-          `[sessionWorkflow] createDraftSessionPr failed sessionId=${args.sessionId}: ${errorDetail}`,
-        );
-        await step.runMutation(internal.messages.addInternal, {
-          parentId: args.sessionId,
-          role: "assistant",
-          content: "Failed to create draft PR",
-          isSystemAlert: true,
-          errorDetail,
-        });
-      }
     }
   },
 });

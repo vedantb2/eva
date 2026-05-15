@@ -1,5 +1,10 @@
 # Changelog
 
+## Wire personalisation into sandbox chat responses - 2026-05-15
+
+- **Summary**: Quick-task and project sandbox chat now include the sender's personalisation preset and custom instructions when building the chat prompt, so response style follows the user's selected communication preference without changing how autonomous task runs implement code.
+- **Reason**: Personalisation is a response-formatting concern for conversational chat. Keeping it out of the main task execution prompt avoids altering implementation behavior while making sandbox chat consistent with user expectations.
+
 ## Stabilize quick-task auto PR creation - 2026-05-14
 
 - **Summary**: Quick-task publishing now waits for GitHub to report the pushed task branch as ahead of the base branch before creating the pull request. This removes the timing window where the workflow pushed successfully but GitHub's PR API still could not see a PR-ready head, forcing users to click "Create PR" manually later.

@@ -20,6 +20,7 @@ import {
   TASK_CHAT_STREAM_PREFIX,
 } from "./workflowWatchdog";
 import { buildAgentTaskChatPrompt } from "./_agentTasks/chatPrompt";
+import { buildCustomInstructionsBlock } from "./prompts";
 
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
 
@@ -325,6 +326,12 @@ export const getChatData = internalQuery({
     const repo = await ctx.db.get(task.repoId);
     if (!repo) throw new Error("Repository not found");
 
+    const user = await ctx.db.get(args.userId);
+    const customInstructionsBlock = buildCustomInstructionsBlock(
+      user?.role ?? undefined,
+      user?.customInstructions ?? undefined,
+    );
+
     const prompt = buildAgentTaskChatPrompt({
       repoOwner: repo.owner,
       repoName: repo.name,
@@ -336,6 +343,7 @@ export const getChatData = internalQuery({
       message: args.message,
       responseLength: args.responseLength,
       rootDirectory: repo.rootDirectory ?? "",
+      customInstructionsBlock,
       systemPrompt: repo.systemPrompt,
     });
 

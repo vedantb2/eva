@@ -21,6 +21,7 @@ import {
 } from "./workflowWatchdog";
 import { buildProjectChatPrompt } from "./_projects/chatPrompt";
 import { getProjectGeneratedSpec } from "./_projects/helpers";
+import { buildCustomInstructionsBlock } from "./prompts";
 
 // Tools available to chat — full read/write but Eva never commits/pushes
 // from chat (see prompt). Mirrors session edit mode but without branch ops.
@@ -317,6 +318,11 @@ export const getChatData = internalQuery({
     if (!repo) throw new Error("Repository not found");
 
     const generatedSpec = await getProjectGeneratedSpec(ctx.db, args.projectId);
+    const user = await ctx.db.get(args.userId);
+    const customInstructionsBlock = buildCustomInstructionsBlock(
+      user?.role ?? undefined,
+      user?.customInstructions ?? undefined,
+    );
 
     const prompt = buildProjectChatPrompt({
       repoOwner: repo.owner,
@@ -328,6 +334,7 @@ export const getChatData = internalQuery({
       message: args.message,
       responseLength: args.responseLength,
       rootDirectory: repo.rootDirectory ?? "",
+      customInstructionsBlock,
       systemPrompt: repo.systemPrompt,
     });
 

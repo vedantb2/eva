@@ -14,7 +14,7 @@ import {
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
 import { Spinner } from "@conductor/ui";
 import { IconFileOff } from "@tabler/icons-react";
-import { getTotalInputTokens, parseResultEvent } from "./logs/_utils";
+import { parseResultEvent } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
 import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
@@ -63,6 +63,8 @@ export function LogsClient() {
     totalCost,
     totalInput,
     totalOutput,
+    totalCacheRead,
+    totalCacheWrite,
     totalDuration,
     grouped,
     availableTypes,
@@ -72,6 +74,8 @@ export function LogsClient() {
         totalCost: 0,
         totalInput: 0,
         totalOutput: 0,
+        totalCacheRead: 0,
+        totalCacheWrite: 0,
         totalDuration: 0,
         grouped: [],
         availableTypes: [],
@@ -80,6 +84,8 @@ export function LogsClient() {
     let cost = 0;
     let input = 0;
     let output = 0;
+    let cacheRead = 0;
+    let cacheWrite = 0;
     let duration = 0;
     const groups = new Map<
       string,
@@ -89,8 +95,10 @@ export function LogsClient() {
     for (const log of filteredLogs) {
       const parsed = parseResultEvent(log.rawResultEvent);
       cost += parsed.costUsd;
-      input += getTotalInputTokens(parsed);
+      input += parsed.inputTokens;
       output += parsed.outputTokens;
+      cacheRead += parsed.cacheReadTokens;
+      cacheWrite += parsed.cacheCreationTokens;
       duration += parsed.durationMs;
       const existing = groups.get(log.entityType);
       if (existing) {
@@ -112,6 +120,8 @@ export function LogsClient() {
       totalCost: cost,
       totalInput: input,
       totalOutput: output,
+      totalCacheRead: cacheRead,
+      totalCacheWrite: cacheWrite,
       totalDuration: duration,
       grouped: sorted,
       availableTypes: sorted.map((g) => g.type),
@@ -152,6 +162,8 @@ export function LogsClient() {
             totalDuration={totalDuration}
             totalInput={totalInput}
             totalOutput={totalOutput}
+            totalCacheRead={totalCacheRead}
+            totalCacheWrite={totalCacheWrite}
           />
           <div className="space-y-1">
             {grouped.map((group) => (

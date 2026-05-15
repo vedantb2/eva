@@ -1,9 +1,9 @@
 # Changelog
 
-## Fix logs token totals - 2026-05-15
+## Clarify logs token totals - 2026-05-15
 
-- **Summary**: Logs summary cards now use the same input-token total shown by each row, including cached input reads and writes. Opencode log capture now treats input/cache-read as snapshots, accumulates output/cache-write across tool-call steps, and includes reasoning tokens in output-side totals.
-- **Reason**: The logs page mixed two token definitions and the opencode adapter over-counted repeated prompt snapshots while under-reporting generated reasoning tokens, making usage totals misleading.
+- **Summary**: Logs summary now separates pure input, output, cache read, and cache write usage into distinct cards beneath the cost and duration cards. Opencode log capture now treats input/cache-read as snapshots, accumulates output/cache-write across tool-call steps, and includes reasoning tokens in output-side totals.
+- **Reason**: Token usage is easier to audit when cached and non-cached input categories are visible separately, and the opencode adapter previously over-counted repeated prompt snapshots while under-reporting generated reasoning tokens.
 
 ## Wire personalisation into sandbox chat responses - 2026-05-15
 

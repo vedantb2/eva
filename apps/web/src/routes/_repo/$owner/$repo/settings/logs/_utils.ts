@@ -15,6 +15,7 @@ export {
   USD_TO_GBP,
   GBP_TO_USD,
   parseResultEvent,
+  getTotalInputTokens,
   formatCost,
   formatTokens,
   type ParsedResultEvent,

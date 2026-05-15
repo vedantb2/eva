@@ -78,6 +78,10 @@ export function parseResultEvent(raw: string | undefined): ParsedResultEvent {
   }
 }
 
+export function getTotalInputTokens(event: ParsedResultEvent): number {
+  return event.inputTokens + event.cacheReadTokens + event.cacheCreationTokens;
+}
+
 export function formatCost(cost: number): string {
   return `£${(cost * USD_TO_GBP).toFixed(2)}`;
 }

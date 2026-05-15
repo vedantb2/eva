@@ -15,6 +15,7 @@ import dayjs from "@conductor/shared/dates";
 import { formatDurationMsShort } from "@conductor/shared/duration";
 import {
   parseResultEvent,
+  getTotalInputTokens,
   formatCost,
   formatTokens,
   labelFor,
@@ -96,12 +97,8 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
                       {evt.model}
                     </Badge>
                     <span className="text-xs tabular-nums text-muted-foreground">
-                      {formatTokens(
-                        evt.inputTokens +
-                          evt.cacheReadTokens +
-                          evt.cacheCreationTokens,
-                      )}{" "}
-                      in / {formatTokens(evt.outputTokens)} out
+                      {formatTokens(getTotalInputTokens(evt))} in /{" "}
+                      {formatTokens(evt.outputTokens)} out
                     </span>
                     {evt.durationMs > 0 && (
                       <span className="text-xs tabular-nums text-muted-foreground">

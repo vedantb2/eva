@@ -2299,12 +2299,12 @@ function extractResultEvent(output) {
     let errorLine = "";
     let errorMessage = "";
     const textByMessageId = new Map();
-    // Opencode emits step_finish per model step; each carries part.cost
-    // (USD, pre-computed) and part.tokens with input/output/reasoning and
-    // cache.read/cache.write breakdowns. Sum across steps for the run total.
+    // Opencode emits step_finish per model step; input/cache.read are snapshots,
+    // while output/reasoning/cache.write are additive across tool-call steps.
     let totalCostUsd = 0;
     let inputTokens = 0;
     let outputTokens = 0;
+    let reasoningTokens = 0;
     let cacheReadTokens = 0;
     let cacheWriteTokens = 0;
     let stepModel = "";
@@ -2317,10 +2317,11 @@ function extractResultEvent(output) {
           if (typeof parsed.part.cost === "number") totalCostUsd += parsed.part.cost;
           const t = parsed.part.tokens;
           if (t && typeof t === "object") {
-            if (typeof t.input === "number") inputTokens += t.input;
+            if (typeof t.input === "number") inputTokens = t.input;
             if (typeof t.output === "number") outputTokens += t.output;
+            if (typeof t.reasoning === "number") reasoningTokens += t.reasoning;
             if (t.cache && typeof t.cache === "object") {
-              if (typeof t.cache.read === "number") cacheReadTokens += t.cache.read;
+              if (typeof t.cache.read === "number") cacheReadTokens = t.cache.read;
               if (typeof t.cache.write === "number") cacheWriteTokens += t.cache.write;
             }
           }
@@ -2374,7 +2375,7 @@ function extractResultEvent(output) {
           totalCostUsd,
           durationMs: attemptElapsedMs(),
           inputTokens,
-          outputTokens,
+          outputTokens: outputTokens + reasoningTokens,
           cacheReadInputTokens: cacheReadTokens,
           cacheCreationInputTokens: cacheWriteTokens,
           model: stepModel || normalizedOpencodeModel,

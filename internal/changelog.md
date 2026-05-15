@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix logs token totals - 2026-05-15
+
+- **Summary**: Logs summary cards now use the same input-token total shown by each row, including cached input reads and writes. Opencode log capture now treats input/cache-read as snapshots, accumulates output/cache-write across tool-call steps, and includes reasoning tokens in output-side totals.
+- **Reason**: The logs page mixed two token definitions and the opencode adapter over-counted repeated prompt snapshots while under-reporting generated reasoning tokens, making usage totals misleading.
+
 ## Wire personalisation into sandbox chat responses - 2026-05-15
 
 - **Summary**: Quick-task and project sandbox chat now include the sender's personalisation preset and custom instructions when building the chat prompt, so response style follows the user's selected communication preference without changing how autonomous task runs implement code.

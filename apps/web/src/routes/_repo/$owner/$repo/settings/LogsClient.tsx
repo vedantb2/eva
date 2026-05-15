@@ -14,7 +14,7 @@ import {
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
 import { Spinner } from "@conductor/ui";
 import { IconFileOff } from "@tabler/icons-react";
-import { parseResultEvent } from "./logs/_utils";
+import { getTotalInputTokens, parseResultEvent } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
 import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
@@ -89,7 +89,7 @@ export function LogsClient() {
     for (const log of filteredLogs) {
       const parsed = parseResultEvent(log.rawResultEvent);
       cost += parsed.costUsd;
-      input += parsed.inputTokens;
+      input += getTotalInputTokens(parsed);
       output += parsed.outputTokens;
       duration += parsed.durationMs;
       const existing = groups.get(log.entityType);

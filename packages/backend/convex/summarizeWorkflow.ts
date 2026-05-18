@@ -97,12 +97,12 @@ export const getSessionData = internalQuery({
 
     const conversation = messages.map((m) => m.content).join("\n\n");
 
-    const prompt = `Summarize what was accomplished in this coding session into 3-6 short bullet points. Focus on concrete outcomes: features built, bugs fixed, files changed, decisions made. Be direct and specific.
+    const prompt = `Summarize this coding session as 3–5 ultra-concise bullet points. One outcome per line; max ~12 words each. User-visible results only — no file paths, symbols, or implementation detail.
 
 Session log:
 ${conversation}
 
-Respond with ONLY a JSON array of strings, no other text. Example: ["Built login page with form validation", "Fixed auth token refresh bug"]`;
+Respond with ONLY a JSON array of strings, no other text. Example: ["Login form validates email", "Fixed sign-out token refresh"]`;
 
     return {
       sandboxId: session.sandboxId,

@@ -20,7 +20,7 @@ export function buildAutomationPrompt(
 5. Do NOT push. Eva publishes branch "${branchName}" after you finish successfully.
 
 ## Summary (REQUIRED):
-After committing, write a brief summary of the changes you made. This will be added to the PR description.
+After committing, output 3–5 bullet lines (plain text, each starting with "- "). Max ~12 words per line. Outcomes only — no code, file paths, or implementation detail. This will be added to the PR description.
 
 ## Rules:
 - Do NOT create .md plan files or run lint/dev commands (except the build step above)

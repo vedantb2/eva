@@ -34,7 +34,7 @@ const RESPONSE_LENGTHS: ReadonlyArray<{
   key: ResponseLength;
   label: string;
 }> = [
-  { key: "default", label: "Default" },
+  { key: "default", label: "Concise" },
   { key: "detailed", label: "Detailed" },
 ];
 

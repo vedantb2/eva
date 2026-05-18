@@ -39,9 +39,11 @@ export function getResponseLengthInstruction(
   responseLength: string,
   mode: PromptMode,
 ): string {
-  if (mode === "plan") return "";
-
-  if (responseLength === "detailed")
+  if (mode === "plan") {
+    return "\n\nResponse length: Concise. Explain what you changed in the plan and why.";
+  }
+  if (responseLength === "detailed") {
     return "\n\nResponse length: Explain what you did, why, and the business impact.";
-  return "\n\nResponse length: Brief summary of what you did and the outcome.";
+  }
+  return "\n\nResponse length: Hyper-concise — 1–3 short bullet lines max. Outcomes only; no process, paths, jargon, or code.";
 }

@@ -25,7 +25,6 @@ Create/update plan.md with: Overview, Goals, User Stories, Acceptance Criteria, 
 
 Rules:
 - ONLY write plan.md — no other files
-- Respond with 1-2 sentences on what changed
 - Non-technical: WHAT and WHY, not HOW
 - Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }

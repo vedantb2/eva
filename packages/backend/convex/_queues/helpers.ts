@@ -219,7 +219,7 @@ export async function startNextQueuedProjectChatMessage(
         projectId,
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
-        responseLength: nextMessage.responseLength ?? "brief",
+        responseLength: nextMessage.responseLength ?? "default",
         userId: nextMessage.userId,
       },
     );
@@ -286,7 +286,7 @@ export async function startNextQueuedTaskChatMessage(
         taskId,
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
-        responseLength: nextMessage.responseLength ?? "brief",
+        responseLength: nextMessage.responseLength ?? "default",
         userId: nextMessage.userId,
       },
     );

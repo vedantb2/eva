@@ -50,8 +50,26 @@ export const update = authMutation({
     if (args.title !== undefined) updates.title = args.title;
     if (args.description !== undefined) updates.description = args.description;
     if (args.repoId !== undefined) updates.repoId = args.repoId;
-    if (args.projectId !== undefined)
-      updates.projectId = args.projectId ?? undefined;
+    if (args.projectId !== undefined) {
+      const newProjectId = args.projectId ?? undefined;
+      updates.projectId = newProjectId;
+      // Position the task at the end when moving it into a different project
+      // by computing taskNumber as max(existing) + 1. Mirrors createQuickTask
+      // and assignToProject.
+      if (newProjectId && newProjectId !== task.projectId) {
+        const existingTasks = await ctx.db
+          .query("agentTasks")
+          .withIndex("by_project", (q) => q.eq("projectId", newProjectId))
+          .collect();
+        let maxTaskNumber = 0;
+        for (const t of existingTasks) {
+          if (t.taskNumber !== undefined && t.taskNumber > maxTaskNumber) {
+            maxTaskNumber = t.taskNumber;
+          }
+        }
+        updates.taskNumber = maxTaskNumber + 1;
+      }
+    }
     if (args.tags !== undefined) updates.tags = normalizeTaskTags(args.tags);
     if (args.taskNumber !== undefined) updates.taskNumber = args.taskNumber;
     if (args.assignedTo !== undefined)

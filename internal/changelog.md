@@ -1,5 +1,11 @@
 # Changelog
 
+## Separate sandbox navigation from sandbox lifecycle controls - 2026-05-18
+
+- **What**: On quick task and project parent pages, "Start Sandbox" button becomes "View Sandbox" button that navigates to `/sandbox` without starting the sandbox. Start and Stop controls now live on the `/sandbox` page itself. Parent page View Sandbox button shows active state via emerald tint, pulsing green dot, and " · Active" suffix.
+- **Why**: Clarifies the distinction between viewing the sandbox (navigation) and managing its lifecycle. Active indicator on parent ensures users remember to stop the sandbox when not in use. Chat remains available on `/sandbox` even when sandbox is inactive, so users can review conversation without starting.
+- **Frontend**: Updated `TaskFooter` to always show "View Sandbox" when `canStartSandbox`, with active-state styling. Removed `onStartSandbox` and `onStopSandbox` props. `ProjectDetailClient` parent surface simplified to single "View Sandbox" button; sandbox surface now shows Start button when inactive (with chat on left) and Stop button in header when active. `QuickTaskSandboxClient` mirrors the project pattern.
+
 ## Clarify logs token totals - 2026-05-15
 
 - **Summary**: Logs summary now separates pure input, output, cache read, and cache write usage into distinct cards beneath the cost and duration cards. Opencode log capture now treats input/cache-read as snapshots, accumulates output/cache-write across tool-call steps, and includes reasoning tokens in output-side totals.

@@ -20,7 +20,6 @@ import {
   IconMessagePlus,
   IconHammer,
   IconPlayerPlay,
-  IconPlayerStop,
   IconTerminal2,
   IconLoader2,
   IconChevronDown,
@@ -54,9 +53,7 @@ interface TaskFooterProps {
   canCreatePr: boolean;
   isCreatingPr: boolean;
   onCreatePr: () => void;
-  onStartSandbox: () => void;
   onViewSandbox: () => void;
-  onStopSandbox: () => void;
   onRunStartupCommands: () => void;
   onStartExecution: () => void;
   onResolveConfirm: () => void;
@@ -81,9 +78,7 @@ export function TaskFooter({
   canCreatePr,
   isCreatingPr,
   onCreatePr,
-  onStartSandbox,
   onViewSandbox,
-  onStopSandbox,
   onRunStartupCommands,
   onStartExecution,
   onResolveConfirm,
@@ -92,15 +87,7 @@ export function TaskFooter({
   const showRunButton =
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
-  const showStartSandbox =
-    canStartSandbox &&
-    !isSandboxActive &&
-    !isSandboxStarting &&
-    !isSandboxStopping;
-  const showViewSandbox =
-    canStartSandbox &&
-    (isSandboxActive || isSandboxStarting || isSandboxStopping);
-  const showStopSandbox = isSandboxActive && !isSandboxStopping;
+  const showViewSandbox = canStartSandbox;
   const showResolveConflicts =
     !hasActiveRun && (status === "code_review" || status === "business_review");
   const showMoreMenu =
@@ -109,9 +96,7 @@ export function TaskFooter({
     showResolveConflicts ||
     Boolean(latestDeployment?.deploymentStatus);
   const hasSecondaryContent =
-    showStartSandbox ||
     showViewSandbox ||
-    showStopSandbox ||
     showMoreMenu ||
     Boolean(latestPrUrl) ||
     (status !== "todo" && status !== "in_progress");
@@ -203,38 +188,34 @@ export function TaskFooter({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {showStartSandbox && (
-            <Button variant="outline" onClick={onStartSandbox}>
-              <IconPlayerPlay size={18} />
-              <span className="hidden sm:inline">Start Sandbox</span>
-            </Button>
-          )}
           {showViewSandbox && (
             <Button
               variant="outline"
               onClick={onViewSandbox}
               disabled={isSandboxStopping}
+              className={
+                isSandboxActive
+                  ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400"
+                  : undefined
+              }
             >
-              {isSandboxStarting && !isSandboxActive ? (
-                <IconLoader2 size={18} className="animate-spin" />
-              ) : isSandboxStopping ? (
+              {(isSandboxStarting && !isSandboxActive) || isSandboxStopping ? (
                 <IconLoader2 size={18} className="animate-spin" />
               ) : (
                 <IconTerminal2 size={18} />
               )}
+              {isSandboxActive && (
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              )}
               <span className="hidden sm:inline">
-                {isSandboxStopping ? "Stopping..." : "View Sandbox"}
+                {isSandboxStopping
+                  ? "Stopping..."
+                  : isSandboxStarting && !isSandboxActive
+                    ? "Starting..."
+                    : isSandboxActive
+                      ? "View Sandbox · Active"
+                      : "View Sandbox"}
               </span>
-            </Button>
-          )}
-          {showStopSandbox && (
-            <Button
-              variant="destructive"
-              onClick={onStopSandbox}
-              disabled={isSandboxStopping}
-            >
-              <IconPlayerStop size={18} />
-              <span className="hidden sm:inline">Stop Sandbox</span>
             </Button>
           )}
           {latestPrUrl && (

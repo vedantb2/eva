@@ -5,6 +5,9 @@ import {
   IconArrowLeft,
   IconChevronRight,
   IconLoader2,
+  IconPlayerPlay,
+  IconPlayerStop,
+  IconTerminal2,
 } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -50,11 +53,14 @@ export function QuickTaskSandboxClient({
   const {
     isLoading,
     task,
+    canStartSandbox,
     isSandboxActive,
     isSandboxStarting,
     isSandboxStopping,
     sandboxId,
     sandboxStartupActivity,
+    handleStartSandbox,
+    handleStopSandbox,
     handleToggleSandboxView,
   } = useTaskDetail(typedTaskId, routing);
 
@@ -66,6 +72,8 @@ export function QuickTaskSandboxClient({
     );
   }
 
+  const isSandboxInactive =
+    !isSandboxActive && !isSandboxStarting && !isSandboxStopping;
   const sandboxRightPanel =
     isSandboxActive && sandboxId && task?.repoId ? (
       <TaskSandboxPanel
@@ -81,6 +89,19 @@ export function QuickTaskSandboxClient({
           routing.quick.onSandboxTabChange(tab === "prd" ? "preview" : tab);
         }}
       />
+    ) : isSandboxInactive && canStartSandbox ? (
+      <div className="flex items-center justify-center h-full p-8">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <IconTerminal2 size={32} className="text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Sandbox is not running
+          </p>
+          <Button onClick={handleStartSandbox}>
+            <IconPlayerPlay size={16} />
+            Start Sandbox
+          </Button>
+        </div>
+      </div>
     ) : (
       <div className="flex items-center justify-center h-full">
         <div className="w-full max-w-md px-4">
@@ -129,6 +150,18 @@ export function QuickTaskSandboxClient({
               <IconLoader2 size={16} className="animate-spin" />
               <span className="hidden sm:inline">Stopping sandbox...</span>
             </div>
+          ) : null}
+          {isSandboxActive && !isSandboxStopping ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleStopSandbox}
+              disabled={isSandboxStopping}
+              className="rounded-full"
+            >
+              <IconPlayerStop size={16} />
+              <span className="hidden sm:inline">Stop Sandbox</span>
+            </Button>
           ) : null}
           <Button
             variant="outline"

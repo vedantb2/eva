@@ -124,11 +124,6 @@ export function ProjectDetailClient({
     navigate({ to: `${basePath}/projects/${projectId}` });
   };
 
-  const handleStartSandboxAndOpen = async () => {
-    await handleStartSandbox();
-    openProjectSandboxView();
-  };
-
   const handleStopBuild = async () => {
     if (!project) return;
     setIsStoppingBuild(true);
@@ -211,6 +206,8 @@ export function ProjectDetailClient({
 
   if (surface === "sandbox") {
     const tab = sandboxTab ?? "preview";
+    const isSandboxInactive =
+      !isSandboxActive && !isSandboxStarting && !isSandboxStopping;
     const sandboxPanel =
       isSandboxActive && projectSandboxId ? (
         <ProjectSandboxPanel
@@ -223,6 +220,19 @@ export function ProjectDetailClient({
           terminalPanes={project.terminalPanes}
           sandboxTab={tab}
         />
+      ) : isSandboxInactive && canStartSandbox ? (
+        <div className="flex items-center justify-center h-full p-8">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <IconTerminal2 size={32} className="text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Sandbox is not running
+            </p>
+            <Button onClick={handleStartSandbox}>
+              <IconPlayerPlay size={16} />
+              Start Sandbox
+            </Button>
+          </div>
+        </div>
       ) : (
         <div className="flex items-center justify-center h-full">
           <div className="w-full max-w-md px-4">
@@ -269,6 +279,18 @@ export function ProjectDetailClient({
                 <IconLoader2 size={16} className="animate-spin" />
                 <span className="hidden sm:inline">Stopping sandbox...</span>
               </div>
+            ) : null}
+            {isSandboxActive && !isSandboxStopping ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleStopSandbox}
+                disabled={isSandboxStopping}
+                className="rounded-full"
+              >
+                <IconPlayerStop size={16} />
+                <span className="hidden sm:inline">Stop Sandbox</span>
+              </Button>
             ) : null}
             <Button
               variant="outline"
@@ -413,50 +435,36 @@ export function ProjectDetailClient({
                 </Button>
               )}
               {canStartSandbox ? (
-                isSandboxActive || isSandboxStarting || isSandboxStopping ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full"
-                      onClick={openProjectSandboxView}
-                      disabled={isSandboxStopping}
-                    >
-                      {isSandboxStarting && !isSandboxActive ? (
-                        <IconLoader2 size={16} className="animate-spin" />
-                      ) : isSandboxStopping ? (
-                        <IconLoader2 size={16} className="animate-spin" />
-                      ) : (
-                        <IconTerminal2 size={16} />
-                      )}
-                      <span className="hidden sm:inline">
-                        {isSandboxStopping ? "Stopping..." : "View Sandbox"}
-                      </span>
-                    </Button>
-                    {isSandboxActive && !isSandboxStopping ? (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="rounded-full"
-                        onClick={handleStopSandbox}
-                        disabled={isSandboxStopping}
-                      >
-                        <IconPlayerStop size={16} />
-                        <span className="hidden sm:inline">Stop Sandbox</span>
-                      </Button>
-                    ) : null}
-                  </>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full"
-                    onClick={handleStartSandboxAndOpen}
-                  >
-                    <IconPlayerPlay size={16} />
-                    <span className="hidden sm:inline">Start Sandbox</span>
-                  </Button>
-                )
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openProjectSandboxView}
+                  disabled={isSandboxStopping}
+                  className={
+                    isSandboxActive
+                      ? "rounded-full border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400"
+                      : "rounded-full"
+                  }
+                >
+                  {(isSandboxStarting && !isSandboxActive) ||
+                  isSandboxStopping ? (
+                    <IconLoader2 size={16} className="animate-spin" />
+                  ) : (
+                    <IconTerminal2 size={16} />
+                  )}
+                  {isSandboxActive && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isSandboxStopping
+                      ? "Stopping..."
+                      : isSandboxStarting && !isSandboxActive
+                        ? "Starting..."
+                        : isSandboxActive
+                          ? "View Sandbox · Active"
+                          : "View Sandbox"}
+                  </span>
+                </Button>
               ) : null}
               {project.activeBuildWorkflowId ? (
                 <Button

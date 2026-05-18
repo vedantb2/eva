@@ -745,11 +745,12 @@ export const createTask = internalAction({
       v.union(v.literal("opus"), v.literal("sonnet"), v.literal("haiku")),
     ),
     baseBranch: v.optional(v.string()),
+    projectId: v.optional(v.string()),
   },
   returns: v.string(),
   handler: async (
     _ctx,
-    { clerkUserId, repoId, title, description, model, baseBranch },
+    { clerkUserId, repoId, title, description, model, baseBranch, projectId },
   ) => {
     const convexUrl = getConvexSiteUrl().replace(
       ".convex.site",
@@ -762,6 +763,7 @@ export const createTask = internalAction({
     };
     if (model) mutationArgs.model = model;
     if (baseBranch) mutationArgs.baseBranch = baseBranch;
+    if (projectId) mutationArgs.projectId = projectId;
 
     const taskId = await runMutationAsUser(
       convexUrl,

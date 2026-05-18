@@ -473,6 +473,12 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       .describe(
         'App name within a monorepo (e.g. "web", "mcp", "chrome-extension"). Matches against rootDirectory. Required when a repo has multiple apps.',
       ),
+    projectId: z
+      .string()
+      .optional()
+      .describe(
+        "Optional project ID (Convex ID from the projects table) to attach this task to. When provided, the task's number is automatically set to the next position in the project.",
+      ),
   };
 
   type TaskInput = {
@@ -482,6 +488,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
     model?: "opus" | "sonnet" | "haiku";
     baseBranch?: string;
     app?: string;
+    projectId?: string;
   };
 
   async function createTaskForRepo(
@@ -501,6 +508,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       description: input.description,
       model: input.model,
       baseBranch: input.baseBranch,
+      projectId: input.projectId,
     });
 
     return { taskId, repoFullName: `${repo.owner}/${repo.name}` };

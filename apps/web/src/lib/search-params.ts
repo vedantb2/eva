@@ -164,3 +164,9 @@ export function isTeamDetailTab(s: string): s is TeamDetailTab {
 export const logEntityTypesParser = parseAsArrayOf(parseAsString)
   .withDefault([])
   .withOptions(searchOptions);
+
+const logGroupByOptions = ["type", "project"] as const;
+export type LogGroupBy = (typeof logGroupByOptions)[number];
+export const logGroupByParser = parseAsStringLiteral(logGroupByOptions)
+  .withDefault("type")
+  .withOptions(searchOptions);

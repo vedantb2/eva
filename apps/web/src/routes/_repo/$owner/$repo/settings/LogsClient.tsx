@@ -10,7 +10,9 @@ import {
   timeRangeParser,
   logEntityTypesParser,
   searchParser,
+  logGroupByParser,
 } from "@/lib/search-params";
+import type { LogGroupBy } from "@/lib/search-params";
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
 import { Spinner } from "@conductor/ui";
 import { IconFileOff } from "@tabler/icons-react";
@@ -18,11 +20,57 @@ import { parseResultEvent } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
 import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
+import { ProjectLogGroup } from "./logs/_components/ProjectLogGroup";
+import type { FunctionReturnType } from "convex/server";
+
+type LogEntry = FunctionReturnType<typeof api.logs.listByRepo>[number];
+
+function groupByType(logs: LogEntry[]) {
+  const groups = new Map<string, { logs: LogEntry[]; total: number }>();
+  for (const log of logs) {
+    const parsed = parseResultEvent(log.rawResultEvent);
+    const existing = groups.get(log.entityType);
+    if (existing) {
+      existing.logs.push(log);
+      existing.total += parsed.costUsd;
+    } else {
+      groups.set(log.entityType, { logs: [log], total: parsed.costUsd });
+    }
+  }
+  return Array.from(groups.entries())
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([type, data]) => ({ type, ...data }));
+}
+
+const UNLINKED_KEY = "__unlinked__";
+
+function groupByProject(logs: LogEntry[]) {
+  const groups = new Map<
+    string,
+    { title: string; logs: LogEntry[]; total: number }
+  >();
+  for (const log of logs) {
+    const parsed = parseResultEvent(log.rawResultEvent);
+    const key = log.projectId ?? UNLINKED_KEY;
+    const title = log.projectTitle ?? "Other";
+    const existing = groups.get(key);
+    if (existing) {
+      existing.logs.push(log);
+      existing.total += parsed.costUsd;
+    } else {
+      groups.set(key, { title, logs: [log], total: parsed.costUsd });
+    }
+  }
+  return Array.from(groups.entries())
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([key, data]) => ({ key, ...data }));
+}
 
 export function LogsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
+  const [groupBy, setGroupBy] = useQueryState("groupBy", logGroupByParser);
   const [{ entityTypes }, setEntityParams] = useQueryStates({
     entityTypes: logEntityTypesParser,
   });
@@ -42,6 +90,13 @@ export function LogsClient() {
       void setEntityParams({ entityTypes: isAll ? [] : [...next] });
     },
     [visibleTypes, setEntityParams],
+  );
+
+  const handleGroupByChange = useCallback(
+    (value: LogGroupBy) => {
+      void setGroupBy(value);
+    },
+    [setGroupBy],
   );
 
   const startTime = useMemo(() => getStartTime(timeRange), [timeRange]);
@@ -66,7 +121,8 @@ export function LogsClient() {
     totalCacheRead,
     totalCacheWrite,
     totalDuration,
-    grouped,
+    typeGroups,
+    projectGroups,
     availableTypes,
   } = useMemo(() => {
     if (!filteredLogs)
@@ -77,7 +133,8 @@ export function LogsClient() {
         totalCacheRead: 0,
         totalCacheWrite: 0,
         totalDuration: 0,
-        grouped: [],
+        typeGroups: [],
+        projectGroups: [],
         availableTypes: [],
       };
 
@@ -87,10 +144,6 @@ export function LogsClient() {
     let cacheRead = 0;
     let cacheWrite = 0;
     let duration = 0;
-    const groups = new Map<
-      string,
-      { logs: typeof filteredLogs; total: number }
-    >();
 
     for (const log of filteredLogs) {
       const parsed = parseResultEvent(log.rawResultEvent);
@@ -100,21 +153,10 @@ export function LogsClient() {
       cacheRead += parsed.cacheReadTokens;
       cacheWrite += parsed.cacheCreationTokens;
       duration += parsed.durationMs;
-      const existing = groups.get(log.entityType);
-      if (existing) {
-        existing.logs.push(log);
-        existing.total += parsed.costUsd;
-      } else {
-        groups.set(log.entityType, {
-          logs: [log],
-          total: parsed.costUsd,
-        });
-      }
     }
 
-    const sorted = Array.from(groups.entries())
-      .sort((a, b) => b[1].total - a[1].total)
-      .map(([type, data]) => ({ type, ...data }));
+    const tGroups = groupByType(filteredLogs);
+    const pGroups = groupByProject(filteredLogs);
 
     return {
       totalCost: cost,
@@ -123,8 +165,9 @@ export function LogsClient() {
       totalCacheRead: cacheRead,
       totalCacheWrite: cacheWrite,
       totalDuration: duration,
-      grouped: sorted,
-      availableTypes: sorted.map((g) => g.type),
+      typeGroups: tGroups,
+      projectGroups: pGroups,
+      availableTypes: tGroups.map((g) => g.type),
     };
   }, [filteredLogs]);
 
@@ -141,6 +184,8 @@ export function LogsClient() {
           onTimeRangeChange={setTimeRange}
           searchQuery={searchQuery ?? ""}
           onSearchChange={setSearchQuery}
+          groupBy={groupBy}
+          onGroupByChange={handleGroupByChange}
         />
       }
     >
@@ -166,14 +211,23 @@ export function LogsClient() {
             totalCacheWrite={totalCacheWrite}
           />
           <div className="space-y-1">
-            {grouped.map((group) => (
-              <LogEntryGroup
-                key={group.type}
-                type={group.type}
-                logs={group.logs}
-                total={group.total}
-              />
-            ))}
+            {groupBy === "type"
+              ? typeGroups.map((group) => (
+                  <LogEntryGroup
+                    key={group.type}
+                    type={group.type}
+                    logs={group.logs}
+                    total={group.total}
+                  />
+                ))
+              : projectGroups.map((group) => (
+                  <ProjectLogGroup
+                    key={group.key}
+                    projectTitle={group.title}
+                    logs={group.logs}
+                    total={group.total}
+                  />
+                ))}
           </div>
         </div>
       )}

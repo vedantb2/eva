@@ -441,12 +441,17 @@ export const handleCompletion = authMutation({
       },
     );
 
+    const chatProject = task.projectId
+      ? await ctx.db.get(task.projectId)
+      : null;
     await recordCompletionLog(ctx, {
       entityType: "task-chat",
       entityId: String(args.taskId),
       entityTitle: task.title,
       repoId: task.repoId,
       rawResultEvent: args.rawResultEvent,
+      projectId: task.projectId ?? undefined,
+      projectTitle: chatProject?.title,
     });
 
     return null;

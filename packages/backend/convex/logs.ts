@@ -10,6 +10,8 @@ export const log = internalMutation({
     entityTitle: v.string(),
     rawResultEvent: v.optional(v.string()),
     repoId: v.id("githubRepos"),
+    projectId: v.optional(v.id("projects")),
+    projectTitle: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -19,6 +21,8 @@ export const log = internalMutation({
       entityTitle: args.entityTitle,
       rawResultEvent: args.rawResultEvent,
       repoId: args.repoId,
+      projectId: args.projectId,
+      projectTitle: args.projectTitle,
       createdAt: Date.now(),
     });
     return null;
@@ -38,6 +42,8 @@ export const getByEntityId = authQuery({
       entityId: v.string(),
       entityTitle: v.string(),
       rawResultEvent: v.optional(v.string()),
+      projectId: v.optional(v.id("projects")),
+      projectTitle: v.optional(v.string()),
       createdAt: v.number(),
     }),
   ),
@@ -60,6 +66,8 @@ export const getByEntityId = authQuery({
       entityId: entry.entityId,
       entityTitle: entry.entityTitle,
       rawResultEvent: entry.rawResultEvent,
+      projectId: entry.projectId,
+      projectTitle: entry.projectTitle,
       createdAt: entry.createdAt,
     }));
   },
@@ -79,6 +87,8 @@ export const listByRepo = authQuery({
       entityId: v.string(),
       entityTitle: v.string(),
       rawResultEvent: v.optional(v.string()),
+      projectId: v.optional(v.id("projects")),
+      projectTitle: v.optional(v.string()),
       createdAt: v.number(),
     }),
   ),
@@ -109,6 +119,8 @@ export const listByRepo = authQuery({
       entityId: entry.entityId,
       entityTitle: entry.entityTitle,
       rawResultEvent: entry.rawResultEvent,
+      projectId: entry.projectId,
+      projectTitle: entry.projectTitle,
       createdAt: entry.createdAt,
     }));
   },

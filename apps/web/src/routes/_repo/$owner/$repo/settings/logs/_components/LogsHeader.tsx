@@ -8,13 +8,18 @@ import {
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
 } from "@conductor/ui";
-import { IconFilter } from "@tabler/icons-react";
+import {
+  IconFilter,
+  IconLayoutKanban,
+  IconCategory,
+} from "@tabler/icons-react";
 import {
   TimeRangeFilter,
   type TimeRange,
 } from "@/lib/components/analytics/TimeRangeFilter";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { labelFor } from "../_utils";
+import type { LogGroupBy } from "@/lib/search-params";
 
 interface LogsHeaderProps {
   visibleTypes: Set<string>;
@@ -24,6 +29,8 @@ interface LogsHeaderProps {
   onTimeRangeChange: (value: TimeRange) => void;
   searchQuery: string;
   onSearchChange: (value: string | null) => void;
+  groupBy: LogGroupBy;
+  onGroupByChange: (value: LogGroupBy) => void;
 }
 
 export function LogsHeader({
@@ -34,6 +41,8 @@ export function LogsHeader({
   onTimeRangeChange,
   searchQuery,
   onSearchChange,
+  groupBy,
+  onGroupByChange,
 }: LogsHeaderProps) {
   const filterActive = visibleTypes.size > 0;
 
@@ -45,6 +54,21 @@ export function LogsHeader({
         placeholder="Search logs..."
         tooltipLabel="Search logs"
       />
+      <Button
+        variant="secondary"
+        size="sm"
+        className="motion-press"
+        onClick={() => onGroupByChange(groupBy === "type" ? "project" : "type")}
+      >
+        {groupBy === "type" ? (
+          <IconLayoutKanban size={14} />
+        ) : (
+          <IconCategory size={14} />
+        )}
+        <span className="hidden sm:inline">
+          {groupBy === "type" ? "By Project" : "By Type"}
+        </span>
+      </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="secondary" size="sm" className="motion-press">

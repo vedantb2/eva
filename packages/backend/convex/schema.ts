@@ -362,6 +362,8 @@ const schema = defineSchema({
     entityTitle: v.string(),
     rawResultEvent: v.optional(v.string()),
     repoId: v.id("githubRepos"),
+    projectId: v.optional(v.id("projects")),
+    projectTitle: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_repo", ["repoId"])

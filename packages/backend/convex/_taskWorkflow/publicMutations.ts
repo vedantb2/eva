@@ -139,12 +139,15 @@ export const handleCompletion = authMutation({
     }
 
     if (task.repoId) {
+      const project = task.projectId ? await ctx.db.get(task.projectId) : null;
       await recordCompletionLog(ctx, {
         entityType: "quickTask",
         entityId: String(args.taskId),
         entityTitle: task.title,
         repoId: task.repoId,
         rawResultEvent: args.rawResultEvent,
+        projectId: task.projectId ?? undefined,
+        projectTitle: project?.title,
       });
     }
 
@@ -205,12 +208,15 @@ export const handleAuditCompletion = authMutation({
 
     const task = await ctx.db.get(args.taskId);
     if (task?.repoId) {
+      const project = task.projectId ? await ctx.db.get(task.projectId) : null;
       await recordCompletionLog(ctx, {
         entityType: "taskAudit",
         entityId: String(args.taskId),
         entityTitle: `Audit: ${task.title}`,
         repoId: task.repoId,
         rawResultEvent: args.rawResultEvent,
+        projectId: task.projectId ?? undefined,
+        projectTitle: project?.title,
       });
     }
 

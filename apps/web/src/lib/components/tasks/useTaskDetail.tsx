@@ -96,6 +96,7 @@ export function useTaskDetail(
     auditCategories?.filter((c) => c.enabled).length ?? 0;
   const proofs = useQuery(api.taskProof.listByTask, { taskId });
   const sandboxEvents = useQuery(api.taskSandboxEvents.listByTask, { taskId });
+  const taskActivity = useQuery(api.taskActivity.listByTask, { taskId });
   const repoForTask = useQuery(
     api.githubRepos.get,
     task?.repoId ? { id: task.repoId } : "skip",
@@ -317,6 +318,7 @@ export function useTaskDetail(
     comments,
     proofs,
     sandboxEvents,
+    taskActivity,
     users,
     creatorUser,
     projects,

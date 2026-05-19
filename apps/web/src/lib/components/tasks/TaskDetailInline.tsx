@@ -74,6 +74,7 @@ export function TaskDetailInline({
     comments,
     proofs,
     sandboxEvents,
+    taskActivity,
     users,
     creatorUser,
     projects,
@@ -342,6 +343,8 @@ export function TaskDetailInline({
                       allAudits={allAudits}
                       comments={comments}
                       sandboxEvents={sandboxEvents}
+                      taskActivity={taskActivity}
+                      users={users}
                       streaming={streaming}
                       auditStreaming={auditStreaming}
                       activeRunElapsed={activeRunElapsed}

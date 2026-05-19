@@ -215,6 +215,13 @@ export async function deleteTaskRelatedData(
   for (const dep of dependents) {
     await ctx.db.delete(dep._id);
   }
+  const activityEvents = await ctx.db
+    .query("taskActivity")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+  for (const event of activityEvents) {
+    await ctx.db.delete(event._id);
+  }
   await ctx.db.delete(taskId);
 }
 

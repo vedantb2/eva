@@ -12,6 +12,7 @@ import dayjs from "@conductor/shared/dates";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
+import { TaskActivityItem } from "./TaskActivityItem";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 
 const RunTimelineItem = lazy(() =>
@@ -26,6 +27,9 @@ type SandboxEvents = FunctionReturnType<
   typeof api.taskSandboxEvents.listByTask
 >;
 type SandboxEvent = NonNullable<SandboxEvents>[number];
+type TaskActivity = FunctionReturnType<typeof api.taskActivity.listByTask>;
+type TaskActivityEvent = NonNullable<TaskActivity>[number];
+type Users = FunctionReturnType<typeof api.users.listAll>;
 
 type ActivityItem =
   | {
@@ -42,6 +46,11 @@ type ActivityItem =
       kind: "sandboxEvent";
       timestamp: number;
       event: SandboxEvent;
+    }
+  | {
+      kind: "taskActivity";
+      timestamp: number;
+      activity: TaskActivityEvent;
     };
 
 function sandboxEventLabel(event: SandboxEvent["event"]): string {
@@ -64,6 +73,8 @@ export function ActivityTimeline({
   allAudits,
   comments,
   sandboxEvents,
+  taskActivity,
+  users,
   streaming,
   auditStreaming,
   activeRunElapsed,
@@ -76,6 +87,8 @@ export function ActivityTimeline({
   allAudits: Audits | undefined;
   comments: Comments | undefined;
   sandboxEvents: SandboxEvents | undefined;
+  taskActivity: TaskActivity | undefined;
+  users: Users | undefined;
   streaming: Streaming | undefined;
   auditStreaming: Streaming | undefined;
   activeRunElapsed: number;
@@ -146,6 +159,11 @@ export function ActivityTimeline({
       timestamp: event.createdAt,
       event,
     })),
+    ...(taskActivity ?? []).map((activity) => ({
+      kind: "taskActivity" as const,
+      timestamp: activity.createdAt,
+      activity,
+    })),
   ].sort((a, b) => b.timestamp - a.timestamp);
 
   if (activityTimeline.length === 0) return null;
@@ -167,6 +185,15 @@ export function ActivityTimeline({
                 auditStreaming={auditStreaming}
                 auditElapsed={auditElapsed}
                 fixElapsed={fixElapsed}
+              />
+            );
+          }
+          if (item.kind === "taskActivity") {
+            return (
+              <TaskActivityItem
+                key={`activity-${item.activity._id}`}
+                event={item.activity}
+                users={users}
               />
             );
           }

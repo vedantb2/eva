@@ -221,3 +221,15 @@ export const taskSandboxEventValidator = v.union(
   v.literal("stop_failed"),
   v.literal("failed"),
 );
+
+export const taskActivityFieldValidator = v.union(
+  v.literal("status"),
+  v.literal("assignee"),
+  v.literal("project"),
+  v.literal("priority"),
+  v.literal("title"),
+  v.literal("description"),
+  v.literal("tags"),
+  v.literal("model"),
+  v.literal("baseBranch"),
+);

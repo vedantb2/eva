@@ -17,6 +17,7 @@ import {
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { logTaskActivity } from "../taskActivity";
 
 /** Extracts the PR number from a GitHub PR URL. */
 function extractPrNumber(prUrl: string): number | null {
@@ -82,6 +83,105 @@ export const update = authMutation({
       updates.screenshotsVideosEnabled =
         args.screenshotsVideosEnabled ?? undefined;
     await ctx.db.patch(args.id, updates);
+
+    if (args.title !== undefined && args.title !== task.title) {
+      await logTaskActivity(
+        ctx,
+        args.id,
+        ctx.userId,
+        "title",
+        task.title,
+        args.title,
+      );
+    }
+    if (
+      args.description !== undefined &&
+      args.description !== task.description
+    ) {
+      await logTaskActivity(
+        ctx,
+        args.id,
+        ctx.userId,
+        "description",
+        task.description ?? undefined,
+        args.description,
+      );
+    }
+    if (
+      args.assignedTo !== undefined &&
+      (args.assignedTo ?? undefined) !== task.assignedTo
+    ) {
+      await logTaskActivity(
+        ctx,
+        args.id,
+        ctx.userId,
+        "assignee",
+        task.assignedTo,
+        args.assignedTo ?? undefined,
+      );
+    }
+    if (
+      args.projectId !== undefined &&
+      (args.projectId ?? undefined) !== task.projectId
+    ) {
+      await logTaskActivity(
+        ctx,
+        args.id,
+        ctx.userId,
+        "project",
+        task.projectId,
+        args.projectId ?? undefined,
+      );
+    }
+    if (
+      args.priority !== undefined &&
+      (args.priority ?? undefined) !== task.priority
+    ) {
+      await logTaskActivity(
+        ctx,
+        args.id,
+        ctx.userId,
+        "priority",
+        task.priority,
+        args.priority ?? undefined,
+      );
+    }
+    if (args.tags !== undefined) {
+      const oldTags = (task.tags ?? []).join(", ");
+      const normalized = normalizeTaskTags(args.tags) ?? [];
+      const newTags = normalized.join(", ");
+      if (oldTags !== newTags) {
+        await logTaskActivity(
+          ctx,
+          args.id,
+          ctx.userId,
+          "tags",
+          oldTags || undefined,
+          newTags || undefined,
+        );
+      }
+    }
+    if (args.model !== undefined && args.model !== task.model) {
+      await logTaskActivity(
+        ctx,
+        args.id,
+        ctx.userId,
+        "model",
+        task.model,
+        args.model,
+      );
+    }
+    if (args.baseBranch !== undefined && args.baseBranch !== task.baseBranch) {
+      await logTaskActivity(
+        ctx,
+        args.id,
+        ctx.userId,
+        "baseBranch",
+        task.baseBranch,
+        args.baseBranch,
+      );
+    }
+
     if (args.assignedTo !== undefined && args.assignedTo !== task.assignedTo) {
       if (args.assignedTo && args.assignedTo !== ctx.userId) {
         await createNotification(ctx, {
@@ -148,6 +248,17 @@ export const updateStatus = authMutation({
         scheduledFunctionId: undefined,
       }),
     });
+
+    if (previousStatus !== args.status) {
+      await logTaskActivity(
+        ctx,
+        args.id,
+        ctx.userId,
+        "status",
+        previousStatus,
+        args.status,
+      );
+    }
 
     // Sync the GitHub PR's draft state for quick tasks.
     //   entering code_review → mark PR ready for review

@@ -196,6 +196,7 @@ export const taskExecutionWorkflow = workflow.define({
         // back to success: true with a null prUrl and no error, hiding the
         // failure from the user. Commits are already pushed; the manual
         // "Create PR" button is the recovery path.
+        const isQuickTask = !args.projectId;
         console.log(
           `[task-workflow] run=${args.runId} entering PR step path=${args.isFirstTaskOnBranch ? "create" : "refresh"}`,
         );
@@ -204,7 +205,6 @@ export const taskExecutionWorkflow = workflow.define({
             // Quick tasks land in business_review on completion; the PR should
             // mirror that by opening as draft. The user promotes it to ready
             // when they move the task to code_review.
-            const isQuickTask = !args.projectId;
             completionPrUrl = await step.runAction(
               internal.taskWorkflowActions.createPullRequest,
               {
@@ -229,17 +229,49 @@ export const taskExecutionWorkflow = workflow.define({
               PR_STEP_RETRY,
             );
           } else {
-            completionPrUrl = await step.runAction(
-              internal.taskWorkflowActions.refreshPullRequestBody,
-              {
-                installationId: args.installationId,
-                repoOwner: data.repoOwner,
-                repoName: data.repoName,
-                branchName: data.branchName,
-                body: enrichedBody,
-              },
-              PR_STEP_RETRY,
-            );
+            // Subsequent runs: try to update the existing open PR body first.
+            // If the previous PR was merged/closed, fall back to creating a
+            // fresh PR so change-request runs still get a PR auto-created.
+            try {
+              completionPrUrl = await step.runAction(
+                internal.taskWorkflowActions.refreshPullRequestBody,
+                {
+                  installationId: args.installationId,
+                  repoOwner: data.repoOwner,
+                  repoName: data.repoName,
+                  branchName: data.branchName,
+                  body: enrichedBody,
+                },
+                PR_STEP_RETRY,
+              );
+            } catch {
+              console.log(
+                `[task-workflow] run=${args.runId} PR refresh failed (PR likely merged/closed), falling back to create`,
+              );
+              completionPrUrl = await step.runAction(
+                internal.taskWorkflowActions.createPullRequest,
+                {
+                  installationId: args.installationId,
+                  repoOwner: data.repoOwner,
+                  repoName: data.repoName,
+                  branchName: data.branchName,
+                  baseBranch: args.baseBranch,
+                  title: data.taskTitle,
+                  body: enrichedBody,
+                  labels: [
+                    "eva",
+                    isQuickTask ? "quick-task" : "project",
+                    ...(data.rootDirectory
+                      ? [data.rootDirectory.split("/").pop()].filter(
+                          (l): l is string => l !== undefined && l !== "",
+                        )
+                      : []),
+                  ],
+                  draft: isQuickTask,
+                },
+                PR_STEP_RETRY,
+              );
+            }
           }
         } catch (prError) {
           const action = args.isFirstTaskOnBranch ? "creation" : "refresh";

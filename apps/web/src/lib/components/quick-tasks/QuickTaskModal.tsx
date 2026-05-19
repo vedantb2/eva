@@ -151,7 +151,6 @@ export function QuickTaskModal({
     activeDraftId,
     repo._id,
     title,
-    description,
     baseBranch,
     selectedProjectId,
     resetForm,
@@ -273,7 +272,6 @@ export function QuickTaskModal({
                 placeholder="Add description..."
                 minHeight="min-h-[160px]"
                 className="text-sm [&_.tiptap]:px-0 [&_.tiptap]:py-2"
-                onBlur={(md) => setDescription(md)}
               />
             </Suspense>
           </div>

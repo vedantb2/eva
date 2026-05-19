@@ -33,6 +33,7 @@ function AutomationDetailRoute() {
 
   return (
     <AutomationClient
+      key={automation._id}
       automation={automation}
       repoOwner={owner}
       repoName={repo}

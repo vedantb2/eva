@@ -1,5 +1,10 @@
 # Changelog
 
+## Prevent quick-task auto PR skips - 2026-05-19
+
+- **Summary**: Successful quick-task runs now keep moving into auto PR creation even if deployment tracking scheduling fails or PR body enrichment cannot load optional proof/comment data.
+- **Reason**: Post-run side work was able to abort the workflow before the PR creation step, leaving successful runs with no PR URL and no PR error while the manual Create PR recovery still worked later.
+
 ## Guard stale schedules and PR base selection - 2026-05-19
 
 - **Summary**: Scheduled quick tasks and project builds now carry their intended timestamp into the scheduler callback, and the callback only runs when the stored schedule is still due and matches the firing schedule. Manual project PR creation now resolves its base branch from the project, then repo setting, then fallback, and retargets an existing open PR if needed.

@@ -155,31 +155,43 @@ export const taskExecutionWorkflow = workflow.define({
       }
 
       if (finalSuccess) {
-        await step.runMutation(
-          internal.taskWorkflow.scheduleDeploymentTracking,
-          {
-            runId: args.runId,
-            installationId: args.installationId,
-            repoOwner: data.repoOwner,
-            repoName: data.repoName,
-            repoId: args.repoId,
-            branchName: data.branchName,
-            deploymentProjectName: data.deploymentProjectName,
-          },
-        );
+        try {
+          await step.runMutation(
+            internal.taskWorkflow.scheduleDeploymentTracking,
+            {
+              runId: args.runId,
+              installationId: args.installationId,
+              repoOwner: data.repoOwner,
+              repoName: data.repoName,
+              repoId: args.repoId,
+              branchName: data.branchName,
+              deploymentProjectName: data.deploymentProjectName,
+            },
+          );
+        } catch (deploymentError) {
+          console.error(
+            `[task-workflow] run=${args.runId} deployment tracking scheduling failed: ${deploymentError instanceof Error ? deploymentError.message : String(deploymentError)}`,
+          );
+        }
       }
 
       if (finalSuccess) {
-        const enrichment = await step.runQuery(
-          internal.taskWorkflow.getPrEnrichmentData,
-          { taskId: args.taskId },
-        );
-
-        const prSections = buildTaskPrSections(
-          data.taskDescription,
-          enrichment.changeRequests,
-          enrichment.proofs,
-        );
+        let prSections = buildTaskPrSections(data.taskDescription, [], []);
+        try {
+          const enrichment = await step.runQuery(
+            internal.taskWorkflow.getPrEnrichmentData,
+            { taskId: args.taskId },
+          );
+          prSections = buildTaskPrSections(
+            data.taskDescription,
+            enrichment.changeRequests,
+            enrichment.proofs,
+          );
+        } catch (enrichmentError) {
+          console.error(
+            `[task-workflow] run=${args.runId} PR enrichment failed; creating PR with base body: ${enrichmentError instanceof Error ? enrichmentError.message : String(enrichmentError)}`,
+          );
+        }
 
         const evaUrl = buildEvaTaskUrl(
           data.repoOwner,

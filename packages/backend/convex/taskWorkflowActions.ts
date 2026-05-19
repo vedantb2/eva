@@ -522,6 +522,113 @@ export const convertPrToDraft = internalAction({
   },
 });
 
+/** Reopens a closed PR and syncs its draft state. `asReady` true → ready for
+ * review, false → draft. No-op if the PR is already merged (can't reopen). */
+export const reopenPullRequest = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prNumber: v.number(),
+    asReady: v.boolean(),
+  },
+  returns: v.boolean(),
+  handler: async (_ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      const { data: initial } = await octokit.rest.pulls.get({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: args.prNumber,
+      });
+      if (initial.merged) {
+        console.log(
+          `[github] PR #${args.prNumber} is merged — cannot reopen (${args.repoOwner}/${args.repoName})`,
+        );
+        return false;
+      }
+      let pr = initial;
+      if (pr.state === "closed") {
+        const { data: reopened } = await octokit.rest.pulls.update({
+          owner: args.repoOwner,
+          repo: args.repoName,
+          pull_number: args.prNumber,
+          state: "open",
+        });
+        pr = reopened;
+        console.log(
+          `[github] Reopened PR #${args.prNumber} (${args.repoOwner}/${args.repoName})`,
+        );
+      }
+      // GitHub preserves the previous draft state on reopen, so flip it if the
+      // target status doesn't match.
+      if (pr.draft && args.asReady) {
+        await octokit.graphql(
+          `mutation($id: ID!) {
+            markPullRequestReadyForReview(input: { pullRequestId: $id }) {
+              pullRequest { isDraft }
+            }
+          }`,
+          { id: pr.node_id },
+        );
+      } else if (!pr.draft && !args.asReady) {
+        await octokit.graphql(
+          `mutation($id: ID!) {
+            convertPullRequestToDraft(input: { pullRequestId: $id }) {
+              pullRequest { isDraft }
+            }
+          }`,
+          { id: pr.node_id },
+        );
+      }
+      return true;
+    } catch (error) {
+      console.error(
+        `[github] Failed to reopen PR: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  },
+});
+
+/** Closes an open PR on GitHub without merging. No-op if the PR is already
+ * closed or merged. */
+export const closePullRequest = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prNumber: v.number(),
+  },
+  returns: v.boolean(),
+  handler: async (_ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      const { data: pr } = await octokit.rest.pulls.get({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: args.prNumber,
+      });
+      if (pr.state === "closed" || pr.merged) return true;
+      await octokit.rest.pulls.update({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: args.prNumber,
+        state: "closed",
+      });
+      console.log(
+        `[github] Closed PR #${args.prNumber} (${args.repoOwner}/${args.repoName})`,
+      );
+      return true;
+    } catch (error) {
+      console.error(
+        `[github] Failed to close PR: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  },
+});
+
 /** Marks a draft PR as ready for review. Uses GraphQL because GitHub's REST
  * pulls.update endpoint silently ignores the draft field. */
 export const markPrReadyForReview = internalAction({

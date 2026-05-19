@@ -70,12 +70,59 @@ export const getByEntityId = authQuery({
   },
 });
 
-/** Lists log entries for a repo, optionally filtered by start time and entity types. */
+/** Gets all log entries that belong to a project. Covers project chats and
+ *  any project-scoped tasks (quickTask, task-chat, audits) tagged with this
+ *  projectId, so callers can aggregate the project's full usage. */
+export const getByProjectId = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    projectId: v.id("projects"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("logs"),
+      entityType: v.string(),
+      entityId: v.string(),
+      entityTitle: v.string(),
+      rawResultEvent: v.optional(v.string()),
+      projectId: v.optional(v.id("projects")),
+      createdAt: v.number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return [];
+    }
+    // Confirm the project lives in the repo the caller is asking about — the
+    // by_project index alone would otherwise leak logs across repos.
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.repoId !== args.repoId) {
+      return [];
+    }
+
+    const logs = await ctx.db
+      .query("logs")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .order("desc")
+      .collect();
+
+    return logs.map((entry) => ({
+      _id: entry._id,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      entityTitle: entry.entityTitle,
+      rawResultEvent: entry.rawResultEvent,
+      projectId: entry.projectId,
+      createdAt: entry.createdAt,
+    }));
+  },
+});
+
+/** Lists log entries for a repo, optionally filtered by start time. */
 export const listByRepo = authQuery({
   args: {
     repoId: v.id("githubRepos"),
     startTime: v.optional(v.number()),
-    entityTypes: v.optional(v.array(v.string())),
   },
   returns: v.array(
     v.object({
@@ -104,12 +151,7 @@ export const listByRepo = authQuery({
       .order("desc")
       .collect();
 
-    const filtered =
-      args.entityTypes !== undefined
-        ? all.filter((entry) => args.entityTypes?.includes(entry.entityType))
-        : all;
-
-    return filtered.map((entry) => ({
+    return all.map((entry) => ({
       _id: entry._id,
       entityType: entry.entityType,
       entityId: entry.entityId,

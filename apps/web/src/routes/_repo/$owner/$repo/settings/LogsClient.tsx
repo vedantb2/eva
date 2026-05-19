@@ -15,7 +15,7 @@ import {
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
 import { Spinner } from "@conductor/ui";
 import { IconFileOff } from "@tabler/icons-react";
-import { parseResultEvent } from "./logs/_utils";
+import { parseResultEvent, groupKeyFor } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
 import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
@@ -49,10 +49,12 @@ export function LogsClient() {
 
   const startTime = useMemo(() => getStartTime(timeRange), [timeRange]);
 
+  // Fetch every log in range — group-key filtering happens on the client so
+  // project-tagged entries can roll up into the "project" group regardless of
+  // their underlying entityType.
   const logs = useQuery(api.logs.listByRepo, {
     repoId: repo._id,
     startTime: startTime ?? undefined,
-    entityTypes: entityTypes.length > 0 ? entityTypes : undefined,
   });
 
   const projectLogs = useQuery(api.logs.listByProject, {
@@ -63,9 +65,16 @@ export function LogsClient() {
   const filteredLogs = useMemo(() => {
     if (!logs) return undefined;
     const query = (searchQuery ?? "").toLowerCase().trim();
-    if (!query) return logs;
-    return logs.filter((log) => log.entityTitle.toLowerCase().includes(query));
-  }, [logs, searchQuery]);
+    return logs.filter((log) => {
+      if (visibleTypes.size > 0 && !visibleTypes.has(groupKeyFor(log))) {
+        return false;
+      }
+      if (query && !log.entityTitle.toLowerCase().includes(query)) {
+        return false;
+      }
+      return true;
+    });
+  }, [logs, visibleTypes, searchQuery]);
 
   const {
     totalCost,
@@ -108,12 +117,13 @@ export function LogsClient() {
       cacheRead += parsed.cacheReadTokens;
       cacheWrite += parsed.cacheCreationTokens;
       duration += parsed.durationMs;
-      const existing = groups.get(log.entityType);
+      const key = groupKeyFor(log);
+      const existing = groups.get(key);
       if (existing) {
         existing.logs.push(log);
         existing.total += parsed.costUsd;
       } else {
-        groups.set(log.entityType, {
+        groups.set(key, {
           logs: [log],
           total: parsed.costUsd,
         });

@@ -29,7 +29,7 @@ import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandbo
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
-import { EntityContextUsage } from "@/lib/components/context-usage";
+import { ProjectContextUsage } from "@/lib/components/context-usage";
 
 import {
   IconGitPullRequest,
@@ -347,7 +347,10 @@ export function ProjectDetailClient({
           <div className="flex flex-col items-end gap-1">
             {prError && <p className="text-xs text-destructive">{prError}</p>}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <EntityContextUsage repoId={repo._id} entityId={projectId} />
+              <ProjectContextUsage
+                repoId={repo._id}
+                projectId={typedProjectId}
+              />
               {showMoreMenu && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

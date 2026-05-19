@@ -4,10 +4,16 @@ import { taskStatusValidator } from "../validators";
 import { authQuery, hasRepoAccess, hasTaskAccess } from "../functions";
 import { agentTaskValidator } from "./helpers";
 
-/** Lists all tasks for a project, sorted by task number. */
+/** Validator for a task document enriched with its latest run start time. */
+export const agentTaskWithLastRunValidator = v.object({
+  ...agentTaskValidator.fields,
+  lastRunStartedAt: v.optional(v.number()),
+});
+
+/** Lists all tasks for a project, enriched with latest run time. */
 export const listByProject = authQuery({
   args: { projectId: v.id("projects") },
-  returns: v.array(agentTaskValidator),
+  returns: v.array(agentTaskWithLastRunValidator),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
@@ -16,7 +22,23 @@ export const listByProject = authQuery({
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
-    return tasks.sort((a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0));
+    const sorted = tasks.sort(
+      (a, b) => (a.taskNumber ?? 0) - (b.taskNumber ?? 0),
+    );
+    const enriched = await Promise.all(
+      sorted.map(async (task) => {
+        const latestRun = await ctx.db
+          .query("agentRuns")
+          .withIndex("by_task", (q) => q.eq("taskId", task._id))
+          .order("desc")
+          .first();
+        return {
+          ...task,
+          lastRunStartedAt: latestRun?.startedAt,
+        };
+      }),
+    );
+    return enriched;
   },
 });
 
@@ -88,12 +110,6 @@ export const getActiveTasks = authQuery({
 
     return taskArrays.flat().sort((a, b) => b.updatedAt - a.updatedAt);
   },
-});
-
-/** Validator for a task document enriched with its latest run start time. */
-export const agentTaskWithLastRunValidator = v.object({
-  ...agentTaskValidator.fields,
-  lastRunStartedAt: v.optional(v.number()),
 });
 
 /** Returns all non-draft tasks for a repo, enriched with latest run time, sorted by creation date. */

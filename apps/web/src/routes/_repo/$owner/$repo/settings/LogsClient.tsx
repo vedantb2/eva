@@ -9,6 +9,7 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   timeRangeParser,
   logEntityTypesParser,
+  logGroupByParser,
   searchParser,
 } from "@/lib/search-params";
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
@@ -18,11 +19,13 @@ import { parseResultEvent } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
 import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
+import { ProjectLogGroup } from "./logs/_components/ProjectLogGroup";
 
 export function LogsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
+  const [groupBy, setGroupBy] = useQueryState("groupBy", logGroupByParser);
   const [{ entityTypes }, setEntityParams] = useQueryStates({
     entityTypes: logEntityTypesParser,
   });
@@ -66,6 +69,7 @@ export function LogsClient() {
     totalDuration,
     grouped,
     availableTypes,
+    projectGroups,
   } = useMemo(() => {
     if (!filteredLogs)
       return {
@@ -75,6 +79,7 @@ export function LogsClient() {
         totalDuration: 0,
         grouped: [],
         availableTypes: [],
+        projectGroups: [],
       };
 
     let cost = 0;
@@ -85,6 +90,10 @@ export function LogsClient() {
       string,
       { logs: typeof filteredLogs; total: number }
     >();
+    const projects = new Map<
+      string,
+      { title: string; logs: typeof filteredLogs; total: number }
+    >();
 
     for (const log of filteredLogs) {
       const parsed = parseResultEvent(log.rawResultEvent);
@@ -92,6 +101,7 @@ export function LogsClient() {
       input += parsed.inputTokens;
       output += parsed.outputTokens;
       duration += parsed.durationMs;
+
       const existing = groups.get(log.entityType);
       if (existing) {
         existing.logs.push(log);
@@ -102,11 +112,32 @@ export function LogsClient() {
           total: parsed.costUsd,
         });
       }
+
+      const projectKey = log.projectId ?? "_unassigned";
+      const projectEntry = projects.get(projectKey);
+      if (projectEntry) {
+        projectEntry.logs.push(log);
+        projectEntry.total += parsed.costUsd;
+      } else {
+        projects.set(projectKey, {
+          title: log.projectTitle ?? "Unassigned",
+          logs: [log],
+          total: parsed.costUsd,
+        });
+      }
     }
 
     const sorted = Array.from(groups.entries())
       .sort((a, b) => b[1].total - a[1].total)
       .map(([type, data]) => ({ type, ...data }));
+
+    const sortedProjects = Array.from(projects.entries())
+      .sort((a, b) => {
+        if (a[0] === "_unassigned") return 1;
+        if (b[0] === "_unassigned") return -1;
+        return b[1].total - a[1].total;
+      })
+      .map(([id, data]) => ({ id, ...data }));
 
     return {
       totalCost: cost,
@@ -115,6 +146,7 @@ export function LogsClient() {
       totalDuration: duration,
       grouped: sorted,
       availableTypes: sorted.map((g) => g.type),
+      projectGroups: sortedProjects,
     };
   }, [filteredLogs]);
 
@@ -131,6 +163,8 @@ export function LogsClient() {
           onTimeRangeChange={setTimeRange}
           searchQuery={searchQuery ?? ""}
           onSearchChange={setSearchQuery}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
         />
       }
     >
@@ -154,14 +188,26 @@ export function LogsClient() {
             totalOutput={totalOutput}
           />
           <div className="space-y-1">
-            {grouped.map((group) => (
-              <LogEntryGroup
-                key={group.type}
-                type={group.type}
-                logs={group.logs}
-                total={group.total}
-              />
-            ))}
+            {groupBy === "project"
+              ? projectGroups.map((group) => (
+                  <ProjectLogGroup
+                    key={group.id}
+                    projectId={
+                      group.id === "_unassigned" ? undefined : group.id
+                    }
+                    projectTitle={group.title}
+                    logs={group.logs}
+                    total={group.total}
+                  />
+                ))
+              : grouped.map((group) => (
+                  <LogEntryGroup
+                    key={group.type}
+                    type={group.type}
+                    logs={group.logs}
+                    total={group.total}
+                  />
+                ))}
           </div>
         </div>
       )}

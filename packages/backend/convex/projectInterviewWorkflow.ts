@@ -280,6 +280,7 @@ export const handleCompletion = authMutation({
       entityTitle: project.title,
       rawResultEvent: args.rawResultEvent,
       repoId: project.repoId,
+      projectId: args.projectId,
       createdAt: Date.now(),
     });
 
@@ -474,6 +475,7 @@ export const handleSpecCompletion = authMutation({
       entityTitle: project.title,
       rawResultEvent: args.rawResultEvent,
       repoId: project.repoId,
+      projectId: args.projectId,
       createdAt: Date.now(),
     });
 

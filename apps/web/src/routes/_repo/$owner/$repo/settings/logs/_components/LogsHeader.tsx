@@ -8,7 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
 } from "@conductor/ui";
-import { IconFilter } from "@tabler/icons-react";
+import { IconFilter, IconLayoutList, IconFolders } from "@tabler/icons-react";
 import {
   TimeRangeFilter,
   type TimeRange,
@@ -24,6 +24,8 @@ interface LogsHeaderProps {
   onTimeRangeChange: (value: TimeRange) => void;
   searchQuery: string;
   onSearchChange: (value: string | null) => void;
+  groupBy: "type" | "project";
+  onGroupByChange: (value: "type" | "project") => void;
 }
 
 export function LogsHeader({
@@ -34,6 +36,8 @@ export function LogsHeader({
   onTimeRangeChange,
   searchQuery,
   onSearchChange,
+  groupBy,
+  onGroupByChange,
 }: LogsHeaderProps) {
   const filterActive = visibleTypes.size > 0;
 
@@ -45,6 +49,21 @@ export function LogsHeader({
         placeholder="Search logs..."
         tooltipLabel="Search logs"
       />
+      <Button
+        variant="secondary"
+        size="sm"
+        className="motion-press"
+        onClick={() => onGroupByChange(groupBy === "type" ? "project" : "type")}
+      >
+        {groupBy === "project" ? (
+          <IconFolders size={14} />
+        ) : (
+          <IconLayoutList size={14} />
+        )}
+        <span className="hidden sm:inline">
+          {groupBy === "project" ? "By Project" : "By Type"}
+        </span>
+      </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="secondary" size="sm" className="motion-press">

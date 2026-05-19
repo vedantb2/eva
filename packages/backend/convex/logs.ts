@@ -10,6 +10,7 @@ export const log = internalMutation({
     entityTitle: v.string(),
     rawResultEvent: v.optional(v.string()),
     repoId: v.id("githubRepos"),
+    projectId: v.optional(v.id("projects")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -19,6 +20,7 @@ export const log = internalMutation({
       entityTitle: args.entityTitle,
       rawResultEvent: args.rawResultEvent,
       repoId: args.repoId,
+      projectId: args.projectId,
       createdAt: Date.now(),
     });
     return null;
@@ -38,6 +40,7 @@ export const getByEntityId = authQuery({
       entityId: v.string(),
       entityTitle: v.string(),
       rawResultEvent: v.optional(v.string()),
+      projectId: v.optional(v.id("projects")),
       createdAt: v.number(),
     }),
   ),
@@ -60,6 +63,7 @@ export const getByEntityId = authQuery({
       entityId: entry.entityId,
       entityTitle: entry.entityTitle,
       rawResultEvent: entry.rawResultEvent,
+      projectId: entry.projectId,
       createdAt: entry.createdAt,
     }));
   },
@@ -79,6 +83,8 @@ export const listByRepo = authQuery({
       entityId: v.string(),
       entityTitle: v.string(),
       rawResultEvent: v.optional(v.string()),
+      projectId: v.optional(v.id("projects")),
+      projectTitle: v.optional(v.string()),
       createdAt: v.number(),
     }),
   ),
@@ -103,13 +109,35 @@ export const listByRepo = authQuery({
         ? all.filter((entry) => args.entityTypes?.includes(entry.entityType))
         : all;
 
-    return filtered.map((entry) => ({
-      _id: entry._id,
-      entityType: entry.entityType,
-      entityId: entry.entityId,
-      entityTitle: entry.entityTitle,
-      rawResultEvent: entry.rawResultEvent,
-      createdAt: entry.createdAt,
-    }));
+    const projectCache = new Map<string, string | undefined>();
+
+    const entries = [];
+    for (const entry of filtered) {
+      let projectTitle: string | undefined;
+      if (entry.projectId) {
+        const cached = projectCache.get(String(entry.projectId));
+        if (cached !== undefined) {
+          projectTitle = cached;
+        } else {
+          const project = await ctx.db.get(entry.projectId);
+          const title = project?.title;
+          projectCache.set(String(entry.projectId), title ?? "");
+          projectTitle = title;
+        }
+      }
+
+      entries.push({
+        _id: entry._id,
+        entityType: entry.entityType,
+        entityId: entry.entityId,
+        entityTitle: entry.entityTitle,
+        rawResultEvent: entry.rawResultEvent,
+        projectId: entry.projectId,
+        projectTitle: projectTitle || undefined,
+        createdAt: entry.createdAt,
+      });
+    }
+
+    return entries;
   },
 });

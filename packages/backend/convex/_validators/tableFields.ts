@@ -10,6 +10,7 @@ import {
   runStatusValidator,
   sessionModeValidator,
   sessionStatusValidator,
+  taskActivityFieldValidator,
   taskSandboxEventValidator,
   taskSandboxStatusValidator,
   taskStatusValidator,
@@ -268,5 +269,14 @@ export const taskSandboxEventFields = {
   taskId: v.id("agentTasks"),
   event: taskSandboxEventValidator,
   errorDetail: v.optional(v.string()),
+  createdAt: v.number(),
+};
+
+export const taskActivityFields = {
+  taskId: v.id("agentTasks"),
+  field: taskActivityFieldValidator,
+  oldValue: v.optional(v.string()),
+  newValue: v.optional(v.string()),
+  userId: v.optional(v.id("users")),
   createdAt: v.number(),
 };

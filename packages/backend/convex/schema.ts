@@ -31,6 +31,7 @@ import {
   projectDetailsFields,
   queuedMessageFields,
   taskSandboxEventFields,
+  taskActivityFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -127,6 +128,7 @@ const schema = defineSchema({
   taskSandboxEvents: defineTable(taskSandboxEventFields).index("by_task", [
     "taskId",
   ]),
+  taskActivity: defineTable(taskActivityFields).index("by_task", ["taskId"]),
   messages: defineTable(messageFields).index("by_parent", ["parentId"]),
   queuedMessages: defineTable(queuedMessageFields).index(
     "by_parent_and_created",

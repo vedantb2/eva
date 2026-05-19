@@ -4,6 +4,7 @@ import type { Infer, Validator } from "convex/values";
 import type { WorkflowId } from "@convex-dev/workflow";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { workflow } from "../workflowManager";
+import { isUsageLimitError, parseUsageLimitResetTime } from "./recovery";
 
 export const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -126,6 +127,15 @@ export async function finalizeRunStatus(
   const run = await ctx.db.get(params.runId);
   if (!run || (run.status !== "queued" && run.status !== "running")) return;
 
+  const errorMessage = params.success
+    ? undefined
+    : (params.error ?? "Unknown error");
+  const isRateLimit = errorMessage ? isUsageLimitError(errorMessage) : false;
+  const limitResetAt =
+    isRateLimit && errorMessage
+      ? (parseUsageLimitResetTime(errorMessage) ?? undefined)
+      : undefined;
+
   await ctx.db.patch(params.runId, {
     status: params.success ? "success" : "error",
     finalizingAt: undefined,
@@ -137,9 +147,11 @@ export async function finalizeRunStatus(
       params.claudeResult,
     ),
     prUrl: params.prUrl ?? undefined,
-    error: params.success ? undefined : (params.error ?? "Unknown error"),
+    error: errorMessage,
     prError: params.prError ?? undefined,
     exitReason: params.exitReason ?? (params.success ? "completed" : "error"),
+    errorType: isRateLimit ? ("rate_limit" as const) : undefined,
+    limitResetAt,
   });
 }
 

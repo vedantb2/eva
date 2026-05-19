@@ -1,5 +1,10 @@
 # Changelog
 
+## Bound sandbox shell tools and safe typecheck output - 2026-05-19
+
+- **Summary**: Implementation-task prompts now give Claude a typecheck command that writes output to a log before tailing it, and sandbox AI runner launches cap shell tool silence at four minutes.
+- **Reason**: Long-running validation commands piped directly into `tail` could leave Claude inside a silent Bash tool until the watchdog killed the run for stale heartbeats.
+
 ## Prevent quick-task auto PR skips - 2026-05-19
 
 - **Summary**: Successful quick-task runs now keep moving into auto PR creation even if deployment tracking scheduling fails or PR body enrichment cannot load optional proof/comment data.

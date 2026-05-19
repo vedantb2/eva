@@ -9,6 +9,7 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   timeRangeParser,
   logEntityTypesParser,
+  logGroupByParser,
   searchParser,
 } from "@/lib/search-params";
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
@@ -18,11 +19,13 @@ import { parseResultEvent } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
 import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
+import { ProjectLogGroup } from "./logs/_components/ProjectLogGroup";
 
 export function LogsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
+  const [groupBy, setGroupBy] = useQueryState("groupBy", logGroupByParser);
   const [{ entityTypes }, setEntityParams] = useQueryStates({
     entityTypes: logEntityTypesParser,
   });
@@ -46,7 +49,7 @@ export function LogsClient() {
 
   const startTime = useMemo(() => getStartTime(timeRange), [timeRange]);
 
-  const logs = useQuery(api.logs.listByRepo, {
+  const logs = useQuery(api.logs.listByRepoWithProjects, {
     repoId: repo._id,
     startTime: startTime ?? undefined,
     entityTypes: entityTypes.length > 0 ? entityTypes : undefined,
@@ -56,7 +59,11 @@ export function LogsClient() {
     if (!logs) return undefined;
     const query = (searchQuery ?? "").toLowerCase().trim();
     if (!query) return logs;
-    return logs.filter((log) => log.entityTitle.toLowerCase().includes(query));
+    return logs.filter(
+      (log) =>
+        log.entityTitle.toLowerCase().includes(query) ||
+        (log.projectTitle ?? "").toLowerCase().includes(query),
+    );
   }, [logs, searchQuery]);
 
   const {
@@ -68,6 +75,7 @@ export function LogsClient() {
     totalDuration,
     grouped,
     availableTypes,
+    projectGroups,
   } = useMemo(() => {
     if (!filteredLogs)
       return {
@@ -79,6 +87,7 @@ export function LogsClient() {
         totalDuration: 0,
         grouped: [],
         availableTypes: [],
+        projectGroups: [],
       };
 
     let cost = 0;
@@ -91,6 +100,10 @@ export function LogsClient() {
       string,
       { logs: typeof filteredLogs; total: number }
     >();
+    const projects = new Map<
+      string,
+      { projectTitle: string; logs: typeof filteredLogs; total: number }
+    >();
 
     for (const log of filteredLogs) {
       const parsed = parseResultEvent(log.rawResultEvent);
@@ -100,6 +113,7 @@ export function LogsClient() {
       cacheRead += parsed.cacheReadTokens;
       cacheWrite += parsed.cacheCreationTokens;
       duration += parsed.durationMs;
+
       const existing = groups.get(log.entityType);
       if (existing) {
         existing.logs.push(log);
@@ -110,11 +124,33 @@ export function LogsClient() {
           total: parsed.costUsd,
         });
       }
+
+      const projectKey = log.projectId ?? "unassigned";
+      const existingProject = projects.get(projectKey);
+      if (existingProject) {
+        existingProject.logs.push(log);
+        existingProject.total += parsed.costUsd;
+      } else {
+        projects.set(projectKey, {
+          projectTitle: log.projectTitle ?? "Unassigned",
+          logs: [log],
+          total: parsed.costUsd,
+        });
+      }
     }
 
     const sorted = Array.from(groups.entries())
       .sort((a, b) => b[1].total - a[1].total)
       .map(([type, data]) => ({ type, ...data }));
+
+    const sortedProjects = Array.from(projects.entries())
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([key, data]) => ({
+        projectId: key === "unassigned" ? undefined : key,
+        projectTitle: data.projectTitle,
+        logs: data.logs,
+        total: data.total,
+      }));
 
     return {
       totalCost: cost,
@@ -125,6 +161,7 @@ export function LogsClient() {
       totalDuration: duration,
       grouped: sorted,
       availableTypes: sorted.map((g) => g.type),
+      projectGroups: sortedProjects,
     };
   }, [filteredLogs]);
 
@@ -141,6 +178,8 @@ export function LogsClient() {
           onTimeRangeChange={setTimeRange}
           searchQuery={searchQuery ?? ""}
           onSearchChange={setSearchQuery}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
         />
       }
     >
@@ -166,14 +205,24 @@ export function LogsClient() {
             totalCacheWrite={totalCacheWrite}
           />
           <div className="space-y-1">
-            {grouped.map((group) => (
-              <LogEntryGroup
-                key={group.type}
-                type={group.type}
-                logs={group.logs}
-                total={group.total}
-              />
-            ))}
+            {groupBy === "project"
+              ? projectGroups.map((group) => (
+                  <ProjectLogGroup
+                    key={group.projectId ?? "unassigned"}
+                    projectId={group.projectId}
+                    projectTitle={group.projectTitle}
+                    logs={group.logs}
+                    total={group.total}
+                  />
+                ))
+              : grouped.map((group) => (
+                  <LogEntryGroup
+                    key={group.type}
+                    type={group.type}
+                    logs={group.logs}
+                    total={group.total}
+                  />
+                ))}
           </div>
         </div>
       )}

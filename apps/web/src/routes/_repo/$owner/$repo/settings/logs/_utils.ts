@@ -7,6 +7,7 @@ import {
   IconFlask,
   IconTestPipe,
   IconPlayerPlay,
+  IconMessageCircle,
 } from "@tabler/icons-react";
 import type { ComponentType } from "react";
 
@@ -36,6 +37,8 @@ const ENTITY_TYPE_ICONS: Record<
   sessionAudit: IconTerminal2,
   taskAudit: IconChecklist,
   summarize: IconFileText,
+  "task-chat": IconMessageCircle,
+  "project-chat": IconMessageCircle,
 };
 
 export function iconFor(
@@ -56,6 +59,8 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   summarize: "Summaries",
   testGen: "Test Generation",
   automation: "Automations",
+  "task-chat": "Task Chats",
+  "project-chat": "Project Chats",
 };
 
 export function labelFor(entityType: string): string {

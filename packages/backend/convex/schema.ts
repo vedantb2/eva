@@ -362,12 +362,14 @@ const schema = defineSchema({
     entityTitle: v.string(),
     rawResultEvent: v.optional(v.string()),
     repoId: v.id("githubRepos"),
+    projectId: v.optional(v.id("projects")),
     createdAt: v.number(),
   })
     .index("by_repo", ["repoId"])
     .index("by_repo_and_created", ["repoId", "createdAt"])
     .index("by_entity_type", ["entityType"])
-    .index("by_repo_and_entity", ["repoId", "entityId"]),
+    .index("by_repo_and_entity", ["repoId", "entityId"])
+    .index("by_project", ["projectId"]),
 
   syncSettings: defineTable(syncSettingFields).index("by_owner_and_name", [
     "owner",

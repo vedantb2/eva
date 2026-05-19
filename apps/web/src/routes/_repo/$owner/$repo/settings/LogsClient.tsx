@@ -10,6 +10,7 @@ import {
   timeRangeParser,
   logEntityTypesParser,
   searchParser,
+  logViewParser,
 } from "@/lib/search-params";
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
 import { Spinner } from "@conductor/ui";
@@ -18,11 +19,13 @@ import { parseResultEvent } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
 import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
+import { ProjectSpendingGroup } from "./logs/_components/ProjectSpendingGroup";
 
 export function LogsClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
+  const [logView, setLogView] = useQueryState("view", logViewParser);
   const [{ entityTypes }, setEntityParams] = useQueryStates({
     entityTypes: logEntityTypesParser,
   });
@@ -50,6 +53,11 @@ export function LogsClient() {
     repoId: repo._id,
     startTime: startTime ?? undefined,
     entityTypes: entityTypes.length > 0 ? entityTypes : undefined,
+  });
+
+  const projectLogs = useQuery(api.logs.listByProject, {
+    repoId: repo._id,
+    startTime: startTime ?? undefined,
   });
 
   const filteredLogs = useMemo(() => {
@@ -128,6 +136,44 @@ export function LogsClient() {
     };
   }, [filteredLogs]);
 
+  const projectGroups = useMemo(() => {
+    if (!projectLogs) return undefined;
+    const query = (searchQuery ?? "").toLowerCase().trim();
+
+    return projectLogs
+      .map((group) => {
+        const filtered = query
+          ? group.logs.filter(
+              (log) =>
+                log.entityTitle.toLowerCase().includes(query) ||
+                group.projectTitle.toLowerCase().includes(query),
+            )
+          : group.logs;
+
+        let totalCostForProject = 0;
+        for (const log of filtered) {
+          totalCostForProject += parseResultEvent(log.rawResultEvent).costUsd;
+        }
+
+        return {
+          projectId: group.projectId,
+          projectTitle: group.projectTitle,
+          logs: filtered,
+          totalCost: totalCostForProject,
+        };
+      })
+      .filter((g) => g.logs.length > 0)
+      .sort((a, b) => b.totalCost - a.totalCost);
+  }, [projectLogs, searchQuery]);
+
+  const isProjectView = logView === "project";
+  const isLoading = isProjectView
+    ? projectGroups === undefined
+    : filteredLogs === undefined;
+  const isEmpty = isProjectView
+    ? projectGroups !== undefined && projectGroups.length === 0
+    : filteredLogs !== undefined && filteredLogs.length === 0;
+
   return (
     <PageWrapper
       title="Logs"
@@ -141,42 +187,92 @@ export function LogsClient() {
           onTimeRangeChange={setTimeRange}
           searchQuery={searchQuery ?? ""}
           onSearchChange={setSearchQuery}
+          logView={logView}
+          onLogViewChange={setLogView}
+          showTypeFilter={!isProjectView}
         />
       }
     >
-      {filteredLogs === undefined ? (
+      {isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Spinner size="lg" />
         </div>
-      ) : filteredLogs.length === 0 ? (
+      ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
           <div className="rounded-xl bg-secondary p-3">
             <IconFileOff size={24} />
           </div>
-          <p className="text-sm">No logs found for this time range</p>
+          <p className="text-sm">
+            {isProjectView
+              ? "No project spending found for this time range"
+              : "No logs found for this time range"}
+          </p>
         </div>
       ) : (
         <div className="space-y-5">
-          <LogsSummaryGrid
-            totalCost={totalCost}
-            totalDuration={totalDuration}
-            totalInput={totalInput}
-            totalOutput={totalOutput}
-            totalCacheRead={totalCacheRead}
-            totalCacheWrite={totalCacheWrite}
-          />
+          {!isProjectView && (
+            <LogsSummaryGrid
+              totalCost={totalCost}
+              totalDuration={totalDuration}
+              totalInput={totalInput}
+              totalOutput={totalOutput}
+              totalCacheRead={totalCacheRead}
+              totalCacheWrite={totalCacheWrite}
+            />
+          )}
+          {isProjectView && projectGroups && (
+            <ProjectSummaryCards groups={projectGroups} />
+          )}
           <div className="space-y-1">
-            {grouped.map((group) => (
-              <LogEntryGroup
-                key={group.type}
-                type={group.type}
-                logs={group.logs}
-                total={group.total}
-              />
-            ))}
+            {isProjectView
+              ? projectGroups?.map((group) => (
+                  <ProjectSpendingGroup
+                    key={group.projectId}
+                    projectTitle={group.projectTitle}
+                    logs={group.logs}
+                    totalCost={group.totalCost}
+                  />
+                ))
+              : grouped.map((group) => (
+                  <LogEntryGroup
+                    key={group.type}
+                    type={group.type}
+                    logs={group.logs}
+                    total={group.total}
+                  />
+                ))}
           </div>
         </div>
       )}
     </PageWrapper>
+  );
+}
+
+function ProjectSummaryCards({
+  groups,
+}: {
+  groups: Array<{ totalCost: number; logs: Array<unknown> }>;
+}) {
+  const totalCost = groups.reduce((sum, g) => sum + g.totalCost, 0);
+  const totalLogs = groups.reduce((sum, g) => sum + g.logs.length, 0);
+
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
+      <SummaryStatCard
+        label="Total Project Spending"
+        value={`£${(totalCost * 0.74).toFixed(2)}`}
+      />
+      <SummaryStatCard label="Projects" value={String(groups.length)} />
+      <SummaryStatCard label="Completions" value={String(totalLogs)} />
+    </div>
+  );
+}
+
+function SummaryStatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-muted/40 p-3 sm:p-4">
+      <p className="text-lg font-bold text-foreground sm:text-2xl">{value}</p>
+      <p className="text-xs text-muted-foreground sm:text-sm">{label}</p>
+    </div>
   );
 }

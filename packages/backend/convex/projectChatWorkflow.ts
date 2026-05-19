@@ -439,6 +439,7 @@ export const handleCompletion = authMutation({
       entityTitle: project.title,
       repoId: project.repoId,
       rawResultEvent: args.rawResultEvent,
+      projectId: args.projectId,
     });
 
     return null;

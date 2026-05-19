@@ -8,13 +8,15 @@ import {
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
 } from "@conductor/ui";
-import { IconFilter } from "@tabler/icons-react";
+import { IconFilter, IconList, IconLayoutKanban } from "@tabler/icons-react";
 import {
   TimeRangeFilter,
   type TimeRange,
 } from "@/lib/components/analytics/TimeRangeFilter";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { labelFor } from "../_utils";
+
+type LogView = "type" | "project";
 
 interface LogsHeaderProps {
   visibleTypes: Set<string>;
@@ -24,6 +26,9 @@ interface LogsHeaderProps {
   onTimeRangeChange: (value: TimeRange) => void;
   searchQuery: string;
   onSearchChange: (value: string | null) => void;
+  logView: LogView;
+  onLogViewChange: (value: LogView) => void;
+  showTypeFilter: boolean;
 }
 
 export function LogsHeader({
@@ -34,6 +39,9 @@ export function LogsHeader({
   onTimeRangeChange,
   searchQuery,
   onSearchChange,
+  logView,
+  onLogViewChange,
+  showTypeFilter,
 }: LogsHeaderProps) {
   const filterActive = visibleTypes.size > 0;
 
@@ -45,43 +53,72 @@ export function LogsHeader({
         placeholder="Search logs..."
         tooltipLabel="Search logs"
       />
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="sm" className="motion-press">
-            <IconFilter size={14} />
-            <span className="hidden sm:inline">
-              {filterActive
-                ? `${visibleTypes.size} of ${availableTypes.length} Types`
-                : "All Types"}
-            </span>
-            <span className="sm:hidden">
-              {filterActive
-                ? `${visibleTypes.size}/${availableTypes.length}`
-                : "All"}
-            </span>
-            {filterActive && (
-              <Badge
-                variant="default"
-                className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+
+      <div className="flex items-center rounded-md bg-muted/60 p-0.5">
+        <button
+          onClick={() => onLogViewChange("type")}
+          className={`motion-base rounded px-2 py-1 text-xs font-medium ${
+            logView === "type"
+              ? "bg-background text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <IconList size={14} className="inline-block" />
+          <span className="ml-1 hidden sm:inline">By Type</span>
+        </button>
+        <button
+          onClick={() => onLogViewChange("project")}
+          className={`motion-base rounded px-2 py-1 text-xs font-medium ${
+            logView === "project"
+              ? "bg-background text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <IconLayoutKanban size={14} className="inline-block" />
+          <span className="ml-1 hidden sm:inline">By Project</span>
+        </button>
+      </div>
+
+      {showTypeFilter && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary" size="sm" className="motion-press">
+              <IconFilter size={14} />
+              <span className="hidden sm:inline">
+                {filterActive
+                  ? `${visibleTypes.size} of ${availableTypes.length} Types`
+                  : "All Types"}
+              </span>
+              <span className="sm:hidden">
+                {filterActive
+                  ? `${visibleTypes.size}/${availableTypes.length}`
+                  : "All"}
+              </span>
+              {filterActive && (
+                <Badge
+                  variant="default"
+                  className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+                >
+                  {visibleTypes.size}
+                </Badge>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {availableTypes.map((type) => (
+              <DropdownMenuCheckboxItem
+                key={type}
+                checked={visibleTypes.size === 0 || visibleTypes.has(type)}
+                onCheckedChange={() => onTypeToggle(type, availableTypes)}
+                onSelect={(e) => e.preventDefault()}
               >
-                {visibleTypes.size}
-              </Badge>
-            )}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {availableTypes.map((type) => (
-            <DropdownMenuCheckboxItem
-              key={type}
-              checked={visibleTypes.size === 0 || visibleTypes.has(type)}
-              onCheckedChange={() => onTypeToggle(type, availableTypes)}
-              onSelect={(e) => e.preventDefault()}
-            >
-              {labelFor(type)}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+                {labelFor(type)}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
       <TimeRangeFilter value={timeRange} onChange={onTimeRangeChange} />
     </div>
   );

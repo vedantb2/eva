@@ -10,7 +10,7 @@ import {
   Spinner,
 } from "@conductor/ui";
 
-interface FixAllDialogProps {
+interface RunAllDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   ownedCount: number;
@@ -19,19 +19,19 @@ interface FixAllDialogProps {
   isLoading: boolean;
 }
 
-export function FixAllDialog({
+export function RunAllDialog({
   isOpen,
   onOpenChange,
   ownedCount,
   skippedCount,
   onConfirm,
   isLoading,
-}: FixAllDialogProps) {
+}: RunAllDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Fix All Tasks</DialogTitle>
+          <DialogTitle>Run All Tasks</DialogTitle>
         </DialogHeader>
         <div className="text-sm text-muted-foreground space-y-2">
           {ownedCount > 0 ? (
@@ -71,7 +71,7 @@ export function FixAllDialog({
             }}
           >
             {isLoading && <Spinner size="sm" />}
-            Fix All
+            Run All
           </Button>
         </DialogFooter>
       </DialogContent>

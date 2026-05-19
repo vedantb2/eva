@@ -29,7 +29,7 @@ import {
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTaskCard } from "./QuickTaskCard";
-import { FixAllDialog } from "./FixAllDialog";
+import { RunAllDialog } from "./RunAllDialog";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
@@ -83,7 +83,7 @@ export function QuickTasksListView({
     [errorTaskIds],
   );
 
-  const [isFixingAll, setIsFixingAll] = useState(false);
+  const [isRunningAll, setIsRunningAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Set<DisplayTaskStatus>>(
     () => new Set(TASK_STATUSES),
@@ -152,9 +152,9 @@ export function QuickTasksListView({
     [updateStatus, tasks],
   );
 
-  const handleFixAll = async () => {
+  const handleRunAll = async () => {
     if (ownedTodoTasks.length === 0) return;
-    setIsFixingAll(true);
+    setIsRunningAll(true);
     try {
       const results = await Promise.all(
         ownedTodoTasks.map(async (task) => {
@@ -170,13 +170,13 @@ export function QuickTasksListView({
       const failedCount = results.filter((started) => !started).length;
       if (failedCount > 0) {
         console.error(
-          `Fix All started ${ownedTodoTasks.length - failedCount} of ${ownedTodoTasks.length} tasks`,
+          `Run All started ${ownedTodoTasks.length - failedCount} of ${ownedTodoTasks.length} tasks`,
         );
       }
     } catch (err) {
-      console.error("Failed to fix all:", err);
+      console.error("Failed to run all:", err);
     } finally {
-      setIsFixingAll(false);
+      setIsRunningAll(false);
     }
   };
 
@@ -235,16 +235,16 @@ export function QuickTasksListView({
                           <Button
                             size="sm"
                             onClick={() => setIsConfirmOpen(true)}
-                            disabled={isFixingAll}
+                            disabled={isRunningAll}
                             className="mr-2 min-h-[36px]"
                           >
-                            {isFixingAll ? (
+                            {isRunningAll ? (
                               <Spinner size="sm" />
                             ) : (
                               <IconPlayerPlay size={14} />
                             )}
-                            <span className="hidden sm:inline">Fix All</span>
-                            <span className="sm:hidden">Fix</span>
+                            <span className="hidden sm:inline">Run All</span>
+                            <span className="sm:hidden">Run</span>
                           </Button>
                         )}
                       </div>
@@ -331,13 +331,13 @@ export function QuickTasksListView({
           )}
         </div>
       </ListProvider>
-      <FixAllDialog
+      <RunAllDialog
         isOpen={isConfirmOpen}
         onOpenChange={setIsConfirmOpen}
         ownedCount={ownedTodoTasks.length}
         skippedCount={skippedCount}
-        onConfirm={handleFixAll}
-        isLoading={isFixingAll}
+        onConfirm={handleRunAll}
+        isLoading={isRunningAll}
       />
     </>
   );

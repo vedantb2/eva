@@ -8,7 +8,7 @@ import type { FunctionReturnType } from "convex/server";
 import { useMemo, useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
-import { FixAllDialog } from "./FixAllDialog";
+import { RunAllDialog } from "./RunAllDialog";
 import { Button, Spinner } from "@conductor/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -47,7 +47,7 @@ export function QuickTasksKanbanBoard({
     () => new Set<DisplayTaskStatus>(statuses),
     [statuses],
   );
-  const [isFixingAll, setIsFixingAll] = useState(false);
+  const [isRunningAll, setIsRunningAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   // Respect the sort order applied by QuickTasksClient (e.g. by latest run).
@@ -91,9 +91,9 @@ export function QuickTasksKanbanBoard({
   const ownedTodoTasks = todoTasks.filter((t) => t.createdBy === currentUserId);
   const skippedCount = todoTasks.length - ownedTodoTasks.length;
 
-  const handleFixAll = async () => {
+  const handleRunAll = async () => {
     if (ownedTodoTasks.length === 0) return;
-    setIsFixingAll(true);
+    setIsRunningAll(true);
     try {
       const results = await Promise.all(
         ownedTodoTasks.map(async (task) => {
@@ -109,13 +109,13 @@ export function QuickTasksKanbanBoard({
       const failedCount = results.filter((started) => !started).length;
       if (failedCount > 0) {
         console.error(
-          `Fix All started ${ownedTodoTasks.length - failedCount} of ${ownedTodoTasks.length} tasks`,
+          `Run All started ${ownedTodoTasks.length - failedCount} of ${ownedTodoTasks.length} tasks`,
         );
       }
     } catch (err) {
-      console.error("Failed to fix all:", err);
+      console.error("Failed to run all:", err);
     } finally {
-      setIsFixingAll(false);
+      setIsRunningAll(false);
     }
   };
 
@@ -138,14 +138,14 @@ export function QuickTasksKanbanBoard({
             <Button
               size="sm"
               onClick={() => setIsConfirmOpen(true)}
-              disabled={isFixingAll}
+              disabled={isRunningAll}
             >
-              {isFixingAll ? (
+              {isRunningAll ? (
                 <Spinner size="sm" />
               ) : (
                 <IconPlayerPlay size={14} />
               )}
-              Fix All
+              Run All
             </Button>
           ) : null
         }
@@ -210,13 +210,13 @@ export function QuickTasksKanbanBoard({
           />
         )}
       />
-      <FixAllDialog
+      <RunAllDialog
         isOpen={isConfirmOpen}
         onOpenChange={setIsConfirmOpen}
         ownedCount={ownedTodoTasks.length}
         skippedCount={skippedCount}
-        onConfirm={handleFixAll}
-        isLoading={isFixingAll}
+        onConfirm={handleRunAll}
+        isLoading={isRunningAll}
       />
     </>
   );

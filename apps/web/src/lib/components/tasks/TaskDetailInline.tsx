@@ -14,7 +14,6 @@ import {
   IconTerminal2,
   IconPhoto,
   IconShieldCheck,
-  IconMessagePlus,
   IconLoader2,
   IconClock,
   IconPlayerStop,
@@ -32,7 +31,6 @@ import { TaskDescription } from "./_components/TaskDescription";
 import { ActivityTimeline } from "./_components/ActivityTimeline";
 import { ProofSection } from "./_components/ProofSection";
 import { AuditSection } from "./_components/AuditSection";
-import { CommentsSection } from "./_components/CommentsSection";
 import { StatusFieldsSection } from "./_components/StatusFieldsSection";
 import { TaskFooter } from "./_components/TaskFooter";
 import { StopConfirmDialog } from "./_components/StopConfirmDialog";
@@ -328,17 +326,10 @@ export function TaskDetailInline({
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                       )}
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="comments"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
-                    >
-                      <IconMessagePlus size={14} />
-                      <span className="hidden sm:inline">Comments</span>
-                      <span className="sm:hidden">Chat</span>
-                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="activity" className="mt-3 sm:mt-4">
                     <ActivityTimeline
+                      taskId={taskId}
                       runs={runs}
                       allAudits={allAudits}
                       comments={comments}
@@ -352,6 +343,14 @@ export function TaskDetailInline({
                       fixElapsed={fixElapsed}
                       isStopping={isStopping}
                       onStopConfirm={() => setShowStopConfirm(true)}
+                      hasActiveRun={hasActiveRun}
+                      hasRuns={hasRuns}
+                      isOwner={isOwner}
+                      requestingChanges={requestingChanges}
+                      setRequestingChanges={setRequestingChanges}
+                      executionError={executionError}
+                      setExecutionError={setExecutionError}
+                      onRequestChangesSubmitted={() => setActiveTab("activity")}
                     />
                   </TabsContent>
                   <TabsContent value="proof" className="mt-3 sm:mt-4">
@@ -367,20 +366,6 @@ export function TaskDetailInline({
                     <AuditSection
                       latestAudit={latestAudit}
                       pastAudits={pastAudits}
-                    />
-                  </TabsContent>
-                  <TabsContent value="comments" className="mt-3 sm:mt-4">
-                    <CommentsSection
-                      taskId={taskId}
-                      comments={comments}
-                      hasActiveRun={hasActiveRun}
-                      hasRuns={hasRuns}
-                      isOwner={isOwner}
-                      requestingChanges={requestingChanges}
-                      setRequestingChanges={setRequestingChanges}
-                      executionError={executionError}
-                      setExecutionError={setExecutionError}
-                      onRequestChangesSubmitted={() => setActiveTab("activity")}
                     />
                   </TabsContent>
                 </Tabs>
@@ -430,7 +415,6 @@ export function TaskDetailInline({
               onRequestChanges={() => {
                 setRequestingChanges(true);
                 if (executionError) setExecutionError(null);
-                setActiveTab("comments");
               }}
             />
           </div>

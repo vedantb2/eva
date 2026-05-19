@@ -38,73 +38,66 @@ function getMaxTokens(model: string): number {
   return MODEL_CONTEXT_WINDOWS[model] ?? 200000;
 }
 
-interface EntityContextUsageProps {
-  repoId: Id<"githubRepos">;
-  entityId: string;
+type AggregatableLog = { rawResultEvent: string | undefined };
+
+function aggregateUsage(logs: AggregatableLog[] | undefined) {
+  if (!logs || logs.length === 0) return null;
+
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let totalCacheReadTokens = 0;
+  let totalCacheCreationTokens = 0;
+  let totalCostUsd = 0;
+  let latestModel = "";
+
+  for (const log of logs) {
+    const parsed = parseResultEvent(log.rawResultEvent);
+    totalInputTokens += parsed.inputTokens;
+    totalOutputTokens += parsed.outputTokens;
+    totalCacheReadTokens += parsed.cacheReadTokens;
+    totalCacheCreationTokens += parsed.cacheCreationTokens;
+    totalCostUsd += parsed.costUsd;
+    if (parsed.model !== "-" && !latestModel) {
+      latestModel = parsed.model;
+    }
+  }
+
+  // Total tokens consumed counts every input-side token: pure input, cache
+  // reads (still occupy context), cache writes (written into prompt), plus output.
+  const totalUsedTokens =
+    totalInputTokens +
+    totalOutputTokens +
+    totalCacheReadTokens +
+    totalCacheCreationTokens;
+
+  return {
+    usedTokens: totalUsedTokens,
+    maxTokens: getMaxTokens(latestModel),
+    usage: {
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      cachedInputReadTokens: totalCacheReadTokens,
+      cachedInputWriteTokens: totalCacheCreationTokens,
+    },
+    costs: {
+      totalUSD: totalCostUsd,
+    },
+  };
 }
 
-export function EntityContextUsage({
-  repoId,
-  entityId,
-}: EntityContextUsageProps) {
-  const logs = useQuery(api.logs.getByEntityId, { repoId, entityId });
-
-  const aggregatedData = useMemo(() => {
-    if (!logs || logs.length === 0) return null;
-
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    let totalCacheReadTokens = 0;
-    let totalCacheCreationTokens = 0;
-    let totalCostUsd = 0;
-    let latestModel = "";
-
-    for (const log of logs) {
-      const parsed = parseResultEvent(log.rawResultEvent);
-      totalInputTokens += parsed.inputTokens;
-      totalOutputTokens += parsed.outputTokens;
-      totalCacheReadTokens += parsed.cacheReadTokens;
-      totalCacheCreationTokens += parsed.cacheCreationTokens;
-      totalCostUsd += parsed.costUsd;
-      if (parsed.model !== "-" && !latestModel) {
-        latestModel = parsed.model;
-      }
-    }
-
-    // Total tokens consumed counts every input-side token: pure input, cache
-    // reads (still occupy context), cache writes (written into prompt), plus output.
-    const totalUsedTokens =
-      totalInputTokens +
-      totalOutputTokens +
-      totalCacheReadTokens +
-      totalCacheCreationTokens;
-
-    return {
-      usedTokens: totalUsedTokens,
-      maxTokens: getMaxTokens(latestModel),
-      usage: {
-        inputTokens: totalInputTokens,
-        outputTokens: totalOutputTokens,
-        cachedInputReadTokens: totalCacheReadTokens,
-        cachedInputWriteTokens: totalCacheCreationTokens,
-      },
-      costs: {
-        totalUSD: totalCostUsd,
-      },
-    };
-  }, [logs]);
-
-  // Don't render if no logs or still loading
-  if (!aggregatedData) {
-    return null;
-  }
+function ContextUsageDisplay({
+  aggregated,
+}: {
+  aggregated: ReturnType<typeof aggregateUsage>;
+}) {
+  if (!aggregated) return null;
 
   return (
     <Context
-      usedTokens={aggregatedData.usedTokens}
-      maxTokens={aggregatedData.maxTokens}
-      usage={aggregatedData.usage}
-      costs={aggregatedData.costs}
+      usedTokens={aggregated.usedTokens}
+      maxTokens={aggregated.maxTokens}
+      usage={aggregated.usage}
+      costs={aggregated.costs}
     >
       <ContextTrigger />
       <ContextContent>
@@ -119,4 +112,34 @@ export function EntityContextUsage({
       </ContextContent>
     </Context>
   );
+}
+
+interface EntityContextUsageProps {
+  repoId: Id<"githubRepos">;
+  entityId: string;
+}
+
+export function EntityContextUsage({
+  repoId,
+  entityId,
+}: EntityContextUsageProps) {
+  const logs = useQuery(api.logs.getByEntityId, { repoId, entityId });
+  const aggregated = useMemo(() => aggregateUsage(logs), [logs]);
+  return <ContextUsageDisplay aggregated={aggregated} />;
+}
+
+interface ProjectContextUsageProps {
+  repoId: Id<"githubRepos">;
+  projectId: Id<"projects">;
+}
+
+// Aggregates usage across every log tagged with the projectId — project chats,
+// project tasks, audits, interviews — so the project header reflects total spend.
+export function ProjectContextUsage({
+  repoId,
+  projectId,
+}: ProjectContextUsageProps) {
+  const logs = useQuery(api.logs.getByProjectId, { repoId, projectId });
+  const aggregated = useMemo(() => aggregateUsage(logs), [logs]);
+  return <ContextUsageDisplay aggregated={aggregated} />;
 }

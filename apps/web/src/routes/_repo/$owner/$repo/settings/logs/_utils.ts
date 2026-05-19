@@ -49,6 +49,8 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   session: "Sessions",
   designSession: "Design Sessions",
   project: "Projects",
+  "project-chat": "Project Chats",
+  "task-chat": "Task Chats",
   doc: "Docs",
   evaluation: "Evaluations",
   sessionAudit: "Session Audits",
@@ -60,4 +62,16 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
 
 export function labelFor(entityType: string): string {
   return ENTITY_TYPE_LABELS[entityType] ?? entityType;
+}
+
+// Group key used by the "By Type" log view. Project-tagged entries (chats,
+// tasks, audits, interviews) collapse into a single "project" group so projects
+// are billed as one line instead of split across project-chat + quickTask etc.
+export const PROJECT_GROUP_KEY = "project";
+
+export function groupKeyFor(log: {
+  entityType: string;
+  projectId: string | undefined;
+}): string {
+  return log.projectId !== undefined ? PROJECT_GROUP_KEY : log.entityType;
 }

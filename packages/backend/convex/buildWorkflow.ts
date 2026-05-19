@@ -245,13 +245,26 @@ export const startBuild = authMutation({
  * Kicks off the build workflow if the project is still eligible.
  */
 export const executeScheduledBuild = internalMutation({
-  args: { projectId: v.id("projects") },
+  args: {
+    projectId: v.id("projects"),
+    scheduledAt: v.optional(v.number()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
+    const now = Date.now();
 
-    // Clear schedule fields regardless
+    if (project.scheduledBuildAt === undefined) return null;
+    if (project.scheduledBuildAt > now) return null;
+    if (
+      args.scheduledAt !== undefined &&
+      project.scheduledBuildAt !== args.scheduledAt
+    ) {
+      return null;
+    }
+
+    // Clear the due schedule before eligibility checks
     await ctx.db.patch(args.projectId, {
       scheduledBuildAt: undefined,
       scheduledBuildFunctionId: undefined,
@@ -300,7 +313,7 @@ export const scheduleBuild = authMutation({
     const functionId = await ctx.scheduler.runAt(
       args.scheduledAt,
       internal.buildWorkflow.executeScheduledBuild,
-      { projectId: args.projectId },
+      { projectId: args.projectId, scheduledAt: args.scheduledAt },
     );
     await ctx.db.patch(args.projectId, {
       scheduledBuildAt: args.scheduledAt,
@@ -419,7 +432,7 @@ export const updateScheduledBuild = authMutation({
     const functionId = await ctx.scheduler.runAt(
       args.scheduledAt,
       internal.buildWorkflow.executeScheduledBuild,
-      { projectId: args.projectId },
+      { projectId: args.projectId, scheduledAt: args.scheduledAt },
     );
     await ctx.db.patch(args.projectId, {
       scheduledBuildAt: args.scheduledAt,

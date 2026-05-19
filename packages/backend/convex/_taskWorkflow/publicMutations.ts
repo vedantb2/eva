@@ -145,6 +145,7 @@ export const handleCompletion = authMutation({
         entityTitle: task.title,
         repoId: task.repoId,
         rawResultEvent: args.rawResultEvent,
+        projectId: task.projectId,
       });
     }
 
@@ -211,6 +212,7 @@ export const handleAuditCompletion = authMutation({
         entityTitle: `Audit: ${task.title}`,
         repoId: task.repoId,
         rawResultEvent: args.rawResultEvent,
+        projectId: task.projectId,
       });
     }
 

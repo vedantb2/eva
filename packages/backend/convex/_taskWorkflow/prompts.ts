@@ -7,6 +7,10 @@ import { extractFailuresFromJson } from "./auditParser";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 
+function shellSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 /** Builds a user-facing notification message for a workflow run completion. */
 export function buildWorkflowRunNotificationMessage(params: {
   success: boolean;
@@ -59,6 +63,10 @@ export function buildImplementationPrompt(
   const commitMessage = changeRequests?.length
     ? `edit: ${editCommitTitle}`
     : `${commitScope}: ${task.title}`;
+  const typecheckDirectory = rootDirectory
+    ? `${WORKSPACE_DIR}/${rootDirectory}`
+    : WORKSPACE_DIR;
+  const typecheckCommand = `cd ${shellSingleQuote(typecheckDirectory)} && { status=0; timeout --kill-after=10s 120s npx tsc --noEmit --pretty false > /tmp/eva-tsc.log 2>&1 || status=$?; tail -50 /tmp/eva-tsc.log; exit "$status"; }`;
 
   const changeRequestSection =
     changeRequests && changeRequests.length > 0
@@ -108,7 +116,7 @@ ${changeRequestSection}
 ## Steps:
 1. Read the files you plan to modify before editing them — understand existing code first
 2. Implement changes by editing source code files
-3. Run \`timeout 120 npx tsc --noEmit\` to verify no type errors. If errors occur, read the error output carefully, fix every issue, and re-run. Repeat until it passes (max 3 attempts). Type checking MUST pass before you commit — type errors cause deployment failures. Do NOT run a full build command (\`pnpm build\`, \`npm run build\`) — it uses too much memory.
+3. Run \`${typecheckCommand}\` to verify no type errors. If errors occur, read the error output carefully, fix every issue, and re-run. Repeat until it passes (max 3 attempts). Type checking MUST pass before you commit — type errors cause deployment failures. Do NOT run a full build command (\`pnpm build\`, \`npm run build\`) — it uses too much memory.
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
 5. Do NOT push. The platform publishes branch "${branchName}" after you finish successfully.
 
@@ -123,6 +131,7 @@ ${proofOfCompletionSection}
 - Use lockfile for package manager.
 - Prefix shell commands with timeouts: \`timeout 180 npm install\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
+- Do NOT pipe long-running validation commands through \`tail\`; redirect output to a log file, wait for the command to exit, then tail the log.
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}${buildSystemPromptBlock(systemPrompt)}`;
 }
 

@@ -260,21 +260,33 @@ export const updateStatus = authMutation({
       );
     }
 
-    // Sync the GitHub PR's draft state for quick tasks.
+    // Sync the GitHub PR state for quick tasks. Project tasks share one PR
+    // across many tasks, so individual task status changes don't map cleanly
+    // to PR state — skip them.
     //   entering code_review → mark PR ready for review
-    //   leaving code_review  → convert PR back to draft
-    // Project tasks share one PR across many tasks, so individual task status
-    // changes don't map cleanly to PR state — skip them.
+    //   leaving code_review (not to done/cancelled) → convert PR back to draft
+    //   entering cancelled → close PR (mirrors the PR-closed → task-cancelled webhook)
+    //   leaving cancelled (not to done) → reopen PR; ready for code_review, draft otherwise
     const enteringCodeReview =
       args.status === "code_review" && previousStatus !== "code_review";
+    const enteringCancelled =
+      args.status === "cancelled" && previousStatus !== "cancelled";
+    const leavingCancelled =
+      previousStatus === "cancelled" &&
+      args.status !== "cancelled" &&
+      args.status !== "done";
     const leavingCodeReview =
       previousStatus === "code_review" &&
       args.status !== "code_review" &&
-      args.status !== "done";
+      args.status !== "done" &&
+      args.status !== "cancelled";
     if (
       !task.projectId &&
       task.repoId &&
-      (enteringCodeReview || leavingCodeReview)
+      (enteringCodeReview ||
+        leavingCodeReview ||
+        enteringCancelled ||
+        leavingCancelled)
     ) {
       const run = await ctx.db
         .query("agentRuns")
@@ -285,18 +297,37 @@ export const updateStatus = authMutation({
       const prNumber = prUrl ? extractPrNumber(prUrl) : null;
       const repo = prNumber ? await ctx.db.get(task.repoId) : null;
       if (prNumber && repo) {
-        await ctx.scheduler.runAfter(
-          0,
-          enteringCodeReview
-            ? internal.taskWorkflowActions.markPrReadyForReview
-            : internal.taskWorkflowActions.convertPrToDraft,
-          {
-            installationId: repo.installationId,
-            repoOwner: repo.owner,
-            repoName: repo.name,
-            prNumber,
-          },
-        );
+        const baseArgs = {
+          installationId: repo.installationId,
+          repoOwner: repo.owner,
+          repoName: repo.name,
+          prNumber,
+        };
+        if (enteringCancelled) {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.taskWorkflowActions.closePullRequest,
+            baseArgs,
+          );
+        } else if (leavingCancelled) {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.taskWorkflowActions.reopenPullRequest,
+            { ...baseArgs, asReady: args.status === "code_review" },
+          );
+        } else if (enteringCodeReview) {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.taskWorkflowActions.markPrReadyForReview,
+            baseArgs,
+          );
+        } else if (leavingCodeReview) {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.taskWorkflowActions.convertPrToDraft,
+            baseArgs,
+          );
+        }
       }
     }
 

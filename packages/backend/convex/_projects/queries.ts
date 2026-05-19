@@ -9,6 +9,7 @@ import {
   getProjectGeneratedSpec,
   buildProjectBranchName,
 } from "./helpers";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 /** Lists all projects for a repo. */
 export const list = authQuery({
@@ -119,7 +120,7 @@ export const getProjectPrCreationData = internalQuery({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
-    baseBranch: v.optional(v.string()),
+    baseBranch: v.string(),
     projectTitle: v.string(),
     projectDescription: v.optional(v.string()),
     rootDirectory: v.string(),
@@ -161,7 +162,10 @@ export const getProjectPrCreationData = internalQuery({
       repoOwner: repo.owner,
       repoName: repo.name,
       branchName,
-      baseBranch: project.baseBranch,
+      baseBranch:
+        project.baseBranch ??
+        repo.defaultBaseBranch ??
+        FALLBACK_GIT_BASE_BRANCH,
       projectTitle: project.title,
       projectDescription: project.description,
       rootDirectory: repo.rootDirectory ?? "",

@@ -193,6 +193,7 @@ export async function recordCompletionLog(
     entityTitle: string;
     repoId: Id<"githubRepos">;
     rawResultEvent: string | undefined;
+    projectId?: Id<"projects">;
   },
 ): Promise<void> {
   await ctx.db.insert("logs", {
@@ -201,6 +202,7 @@ export async function recordCompletionLog(
     entityTitle: params.entityTitle,
     rawResultEvent: params.rawResultEvent,
     repoId: params.repoId,
+    projectId: params.projectId,
     createdAt: Date.now(),
   });
 }

@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { getInstallationOctokit } from "./githubAuth";
 import {
@@ -29,10 +30,84 @@ export { buildEvaTaskUrl, buildEvaSessionUrl } from "./_taskWorkflow/urls";
 
 const PR_READY_WAIT_DELAYS_MS = [0, 1000, 2000, 4000, 8000, 12000, 16000];
 
+const taskPrProofValidator = v.object({
+  fileName: v.union(v.string(), v.null()),
+  message: v.union(v.string(), v.null()),
+  url: v.union(v.string(), v.null()),
+  contentType: v.union(v.string(), v.null()),
+});
+
+type TaskPrProof = {
+  fileName: string | null;
+  message: string | null;
+  url: string | null;
+  contentType: string | null;
+};
+
+type PullRequestCreateParams = {
+  installationId: number;
+  repoOwner: string;
+  repoName: string;
+  branchName: string;
+  baseBranch?: string;
+  title: string;
+  body: string;
+  labels: string[];
+  draft?: boolean;
+};
+
+type PullRequestRefreshParams = {
+  installationId: number;
+  repoOwner: string;
+  repoName: string;
+  branchName: string;
+  body: string;
+};
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function buildTaskPullRequestBody(params: {
+  repoOwner: string;
+  repoName: string;
+  taskId: Id<"agentTasks">;
+  projectId: Id<"projects"> | undefined;
+  taskDescription: string | undefined;
+  rootDirectory: string;
+  changeRequests: string[];
+  proofs: TaskPrProof[];
+}): string {
+  const sections = buildTaskPrSections(
+    params.taskDescription,
+    params.changeRequests,
+    params.proofs,
+  );
+  const evaUrl = buildEvaTaskUrl(
+    params.repoOwner,
+    params.repoName,
+    params.taskId,
+    params.projectId,
+    params.rootDirectory || undefined,
+  );
+  return buildPrBody(sections, evaUrl);
+}
+
+function buildTaskPullRequestLabels(params: {
+  rootDirectory: string;
+  isQuickTask: boolean;
+}): string[] {
+  return [
+    "eva",
+    params.isQuickTask ? "quick-task" : "project",
+    ...(params.rootDirectory
+      ? [params.rootDirectory.split("/").pop()].filter(
+          (label): label is string => label !== undefined && label !== "",
+        )
+      : []),
+  ];
 }
 
 async function findOpenPullRequestForBranch(params: {
@@ -52,6 +127,84 @@ async function findOpenPullRequestForBranch(params: {
   const pr = pulls.data[0];
   if (!pr) return null;
   return { url: pr.html_url, number: pr.number, body: pr.body };
+}
+
+async function createPullRequestWithGitHub(
+  args: PullRequestCreateParams,
+): Promise<string> {
+  const octokit = await getInstallationOctokit(args.installationId);
+  const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+  const existingPr = await findOpenPullRequestForBranch(args);
+  if (existingPr) {
+    await octokit.rest.pulls.update({
+      owner: args.repoOwner,
+      repo: args.repoName,
+      pull_number: existingPr.number,
+      title: `Eva: ${args.title}`,
+      body: args.body,
+      base: baseBranch,
+    });
+    return existingPr.url;
+  }
+
+  await waitForPullRequestHead({
+    octokit,
+    repoOwner: args.repoOwner,
+    repoName: args.repoName,
+    branchName: args.branchName,
+    baseBranch,
+  });
+
+  const pr = await octokit.rest.pulls.create({
+    owner: args.repoOwner,
+    repo: args.repoName,
+    title: `Eva: ${args.title}`,
+    body: args.body,
+    head: args.branchName,
+    base: baseBranch,
+    draft: args.draft ?? false,
+  });
+
+  if (args.labels.length > 0) {
+    try {
+      await octokit.rest.issues.addLabels({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        issue_number: pr.data.number,
+        labels: args.labels,
+      });
+    } catch (labelError) {
+      console.error(
+        `Failed to add labels to PR ${pr.data.html_url}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
+      );
+    }
+  }
+
+  return pr.data.html_url;
+}
+
+async function refreshPullRequestBodyWithGitHub(
+  args: PullRequestRefreshParams,
+): Promise<string> {
+  const octokit = await getInstallationOctokit(args.installationId);
+  const pr = await findOpenPullRequestForBranch(args);
+  if (!pr) {
+    throw new Error(
+      `No open pull request found for ${args.repoOwner}/${args.repoName}:${args.branchName}`,
+    );
+  }
+
+  const existingBody = pr.body ?? "";
+  const auditMatch = existingBody.match(AUDIT_SECTION_REGEX);
+  const newBody = auditMatch ? `${args.body}\n\n${auditMatch[0]}` : args.body;
+
+  await octokit.rest.pulls.update({
+    owner: args.repoOwner,
+    repo: args.repoName,
+    pull_number: pr.number,
+    body: newBody,
+  });
+  return pr.url;
 }
 
 async function waitForPullRequestHead(params: {
@@ -244,58 +397,87 @@ export const createPullRequest = internalAction({
     draft: v.optional(v.boolean()),
   },
   returns: v.string(),
-  handler: async (_ctx, args) => {
-    const octokit = await getInstallationOctokit(args.installationId);
-    const existingPr = await findOpenPullRequestForBranch(args);
-    if (existingPr) {
-      await octokit.rest.pulls.update({
-        owner: args.repoOwner,
-        repo: args.repoName,
-        pull_number: existingPr.number,
-        title: `Eva: ${args.title}`,
-        body: args.body,
-      });
-      return existingPr.url;
-    }
+  handler: async (_ctx, args): Promise<string> => {
+    return await createPullRequestWithGitHub(args);
+  },
+});
 
-    const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
-    await waitForPullRequestHead({
-      octokit,
+export const createTaskPullRequest = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    baseBranch: v.optional(v.string()),
+    title: v.string(),
+    taskId: v.id("agentTasks"),
+    projectId: v.optional(v.id("projects")),
+    taskDescription: v.optional(v.string()),
+    rootDirectory: v.string(),
+    changeRequests: v.array(v.string()),
+    proofs: v.array(taskPrProofValidator),
+    draft: v.optional(v.boolean()),
+  },
+  returns: v.string(),
+  handler: async (_ctx, args): Promise<string> => {
+    const isQuickTask = !args.projectId;
+    return await createPullRequestWithGitHub({
+      installationId: args.installationId,
       repoOwner: args.repoOwner,
       repoName: args.repoName,
       branchName: args.branchName,
-      baseBranch,
+      baseBranch: args.baseBranch,
+      title: args.title,
+      body: buildTaskPullRequestBody({
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        taskId: args.taskId,
+        projectId: args.projectId,
+        taskDescription: args.taskDescription,
+        rootDirectory: args.rootDirectory,
+        changeRequests: args.changeRequests,
+        proofs: args.proofs,
+      }),
+      labels: buildTaskPullRequestLabels({
+        rootDirectory: args.rootDirectory,
+        isQuickTask,
+      }),
+      draft: args.draft,
     });
+  },
+});
 
-    const pr = await octokit.rest.pulls.create({
-      owner: args.repoOwner,
-      repo: args.repoName,
-      title: `Eva: ${args.title}`,
-      body: args.body,
-      head: args.branchName,
-      base: baseBranch,
-      draft: args.draft ?? false,
+export const refreshTaskPullRequestBody = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+    taskId: v.id("agentTasks"),
+    projectId: v.optional(v.id("projects")),
+    taskDescription: v.optional(v.string()),
+    rootDirectory: v.string(),
+    changeRequests: v.array(v.string()),
+    proofs: v.array(taskPrProofValidator),
+  },
+  returns: v.string(),
+  handler: async (_ctx, args): Promise<string> => {
+    return await refreshPullRequestBodyWithGitHub({
+      installationId: args.installationId,
+      repoOwner: args.repoOwner,
+      repoName: args.repoName,
+      branchName: args.branchName,
+      body: buildTaskPullRequestBody({
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
+        taskId: args.taskId,
+        projectId: args.projectId,
+        taskDescription: args.taskDescription,
+        rootDirectory: args.rootDirectory,
+        changeRequests: args.changeRequests,
+        proofs: args.proofs,
+      }),
     });
-
-    // The PR exists on GitHub from here on. Label failures must NOT
-    // invalidate the URL - if we drop it, the app can't reconcile the PR
-    // when the merge webhook fires later, and the task status never updates.
-    if (args.labels.length > 0) {
-      try {
-        await octokit.rest.issues.addLabels({
-          owner: args.repoOwner,
-          repo: args.repoName,
-          issue_number: pr.data.number,
-          labels: args.labels,
-        });
-      } catch (labelError) {
-        console.error(
-          `Failed to add labels to PR ${pr.data.html_url}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
-        );
-      }
-    }
-
-    return pr.data.html_url;
   },
 });
 
@@ -334,6 +516,113 @@ export const convertPrToDraft = internalAction({
     } catch (error) {
       console.error(
         `[github] Failed to convert PR to draft: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  },
+});
+
+/** Reopens a closed PR and syncs its draft state. `asReady` true → ready for
+ * review, false → draft. No-op if the PR is already merged (can't reopen). */
+export const reopenPullRequest = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prNumber: v.number(),
+    asReady: v.boolean(),
+  },
+  returns: v.boolean(),
+  handler: async (_ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      const { data: initial } = await octokit.rest.pulls.get({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: args.prNumber,
+      });
+      if (initial.merged) {
+        console.log(
+          `[github] PR #${args.prNumber} is merged — cannot reopen (${args.repoOwner}/${args.repoName})`,
+        );
+        return false;
+      }
+      let pr = initial;
+      if (pr.state === "closed") {
+        const { data: reopened } = await octokit.rest.pulls.update({
+          owner: args.repoOwner,
+          repo: args.repoName,
+          pull_number: args.prNumber,
+          state: "open",
+        });
+        pr = reopened;
+        console.log(
+          `[github] Reopened PR #${args.prNumber} (${args.repoOwner}/${args.repoName})`,
+        );
+      }
+      // GitHub preserves the previous draft state on reopen, so flip it if the
+      // target status doesn't match.
+      if (pr.draft && args.asReady) {
+        await octokit.graphql(
+          `mutation($id: ID!) {
+            markPullRequestReadyForReview(input: { pullRequestId: $id }) {
+              pullRequest { isDraft }
+            }
+          }`,
+          { id: pr.node_id },
+        );
+      } else if (!pr.draft && !args.asReady) {
+        await octokit.graphql(
+          `mutation($id: ID!) {
+            convertPullRequestToDraft(input: { pullRequestId: $id }) {
+              pullRequest { isDraft }
+            }
+          }`,
+          { id: pr.node_id },
+        );
+      }
+      return true;
+    } catch (error) {
+      console.error(
+        `[github] Failed to reopen PR: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  },
+});
+
+/** Closes an open PR on GitHub without merging. No-op if the PR is already
+ * closed or merged. */
+export const closePullRequest = internalAction({
+  args: {
+    installationId: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    prNumber: v.number(),
+  },
+  returns: v.boolean(),
+  handler: async (_ctx, args) => {
+    try {
+      const octokit = await getInstallationOctokit(args.installationId);
+      const { data: pr } = await octokit.rest.pulls.get({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: args.prNumber,
+      });
+      if (pr.state === "closed" || pr.merged) return true;
+      await octokit.rest.pulls.update({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        pull_number: args.prNumber,
+        state: "closed",
+      });
+      console.log(
+        `[github] Closed PR #${args.prNumber} (${args.repoOwner}/${args.repoName})`,
+      );
+      return true;
+    } catch (error) {
+      console.error(
+        `[github] Failed to close PR: ${error instanceof Error ? error.message : String(error)}`,
       );
       return false;
     }
@@ -436,26 +725,7 @@ export const refreshPullRequestBody = internalAction({
   },
   returns: v.string(),
   handler: async (_ctx, args) => {
-    const octokit = await getInstallationOctokit(args.installationId);
-    const pr = await findOpenPullRequestForBranch(args);
-    if (!pr) {
-      throw new Error(
-        `No open pull request found for ${args.repoOwner}/${args.repoName}:${args.branchName}`,
-      );
-    }
-
-    // Preserve existing audit section if present
-    const existingBody = pr.body ?? "";
-    const auditMatch = existingBody.match(AUDIT_SECTION_REGEX);
-    const newBody = auditMatch ? `${args.body}\n\n${auditMatch[0]}` : args.body;
-
-    await octokit.rest.pulls.update({
-      owner: args.repoOwner,
-      repo: args.repoName,
-      pull_number: pr.number,
-      body: newBody,
-    });
-    return pr.url;
+    return await refreshPullRequestBodyWithGitHub(args);
   },
 });
 

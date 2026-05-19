@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { FunctionReturnType } from "convex/server";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import {
@@ -8,8 +9,6 @@ import {
 } from "../validators";
 import { taskCompleteEvent, auditCompleteEvent } from "./events";
 import { buildAuditPrompt } from "./prompts";
-import { buildPrBody, buildTaskPrSections } from "../prBody";
-import { buildEvaTaskUrl } from "./urls";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
@@ -17,6 +16,10 @@ import { prepareSandboxSteps } from "../_daytona/prepareSandboxSteps";
 const PR_STEP_RETRY = {
   retry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 },
 };
+
+type PrEnrichmentData = FunctionReturnType<
+  typeof internal.taskWorkflow.getPrEnrichmentData
+>;
 
 /** Main durable workflow that orchestrates sandbox setup, task execution, audit, PR creation, and cleanup. */
 export const taskExecutionWorkflow = workflow.define({
@@ -155,58 +158,59 @@ export const taskExecutionWorkflow = workflow.define({
       }
 
       if (finalSuccess) {
-        await step.runMutation(
-          internal.taskWorkflow.scheduleDeploymentTracking,
-          {
-            runId: args.runId,
-            installationId: args.installationId,
-            repoOwner: data.repoOwner,
-            repoName: data.repoName,
-            repoId: args.repoId,
-            branchName: data.branchName,
-            deploymentProjectName: data.deploymentProjectName,
-          },
-        );
+        try {
+          await step.runMutation(
+            internal.taskWorkflow.scheduleDeploymentTracking,
+            {
+              runId: args.runId,
+              installationId: args.installationId,
+              repoOwner: data.repoOwner,
+              repoName: data.repoName,
+              repoId: args.repoId,
+              branchName: data.branchName,
+              deploymentProjectName: data.deploymentProjectName,
+            },
+          );
+        } catch (deploymentError) {
+          console.error(
+            `[task-workflow] run=${args.runId} deployment tracking scheduling failed: ${deploymentError instanceof Error ? deploymentError.message : String(deploymentError)}`,
+          );
+        }
       }
 
       if (finalSuccess) {
-        const enrichment = await step.runQuery(
-          internal.taskWorkflow.getPrEnrichmentData,
-          { taskId: args.taskId },
-        );
-
-        const prSections = buildTaskPrSections(
-          data.taskDescription,
-          enrichment.changeRequests,
-          enrichment.proofs,
-        );
-
-        const evaUrl = buildEvaTaskUrl(
-          data.repoOwner,
-          data.repoName,
-          args.taskId,
-          args.projectId,
-          data.rootDirectory || undefined,
-        );
-        const enrichedBody = buildPrBody(prSections, evaUrl);
-
-        // Wrap PR creation/refresh in try/catch so a GitHub failure (closed PR
-        // already exists, base branch missing, transient API error after retries)
-        // does not bubble to the outer catch — which would silently flip the run
-        // back to success: true with a null prUrl and no error, hiding the
-        // failure from the user. Commits are already pushed; the manual
-        // "Create PR" button is the recovery path.
-        console.log(
-          `[task-workflow] run=${args.runId} entering PR step path=${args.isFirstTaskOnBranch ? "create" : "refresh"}`,
-        );
+        const isQuickTask = !args.projectId;
         try {
+          let changeRequests: PrEnrichmentData["changeRequests"] = [];
+          let proofs: PrEnrichmentData["proofs"] = [];
+          try {
+            const enrichment = await step.runQuery(
+              internal.taskWorkflow.getPrEnrichmentData,
+              { taskId: args.taskId },
+            );
+            changeRequests = enrichment.changeRequests;
+            proofs = enrichment.proofs;
+          } catch (enrichmentError) {
+            console.error(
+              `[task-workflow] run=${args.runId} PR enrichment failed; creating PR with base body: ${enrichmentError instanceof Error ? enrichmentError.message : String(enrichmentError)}`,
+            );
+          }
+
+          // Wrap PR creation/refresh in try/catch so a GitHub failure (closed PR
+          // already exists, base branch missing, transient API error after retries)
+          // does not bubble to the outer catch — which would silently flip the run
+          // back to success: true with a null prUrl and no error, hiding the
+          // failure from the user. Commits are already pushed; the manual
+          // "Create PR" button is the recovery path.
+          console.log(
+            `[task-workflow] run=${args.runId} entering PR step path=${args.isFirstTaskOnBranch ? "create" : "refresh"}`,
+          );
           if (args.isFirstTaskOnBranch) {
             // Quick tasks land in business_review on completion; the PR should
             // mirror that by opening as draft. The user promotes it to ready
             // when they move the task to code_review.
-            const isQuickTask = !args.projectId;
             completionPrUrl = await step.runAction(
-              internal.taskWorkflowActions.createPullRequest,
+              internal.taskWorkflowActions.createTaskPullRequest,
               {
                 installationId: args.installationId,
                 repoOwner: data.repoOwner,
@@ -214,32 +218,61 @@ export const taskExecutionWorkflow = workflow.define({
                 branchName: data.branchName,
                 baseBranch: args.baseBranch,
                 title: data.taskTitle,
-                body: enrichedBody,
-                labels: [
-                  "eva",
-                  isQuickTask ? "quick-task" : "project",
-                  ...(data.rootDirectory
-                    ? [data.rootDirectory.split("/").pop()].filter(
-                        (l): l is string => l !== undefined && l !== "",
-                      )
-                    : []),
-                ],
+                taskId: args.taskId,
+                projectId: args.projectId,
+                taskDescription: data.taskDescription,
+                rootDirectory: data.rootDirectory,
+                changeRequests,
+                proofs,
                 draft: isQuickTask,
               },
               PR_STEP_RETRY,
             );
           } else {
-            completionPrUrl = await step.runAction(
-              internal.taskWorkflowActions.refreshPullRequestBody,
-              {
-                installationId: args.installationId,
-                repoOwner: data.repoOwner,
-                repoName: data.repoName,
-                branchName: data.branchName,
-                body: enrichedBody,
-              },
-              PR_STEP_RETRY,
-            );
+            // Subsequent runs: try to update the existing open PR body first.
+            // If the previous PR was merged/closed, fall back to creating a
+            // fresh PR so change-request runs still get a PR auto-created.
+            try {
+              completionPrUrl = await step.runAction(
+                internal.taskWorkflowActions.refreshTaskPullRequestBody,
+                {
+                  installationId: args.installationId,
+                  repoOwner: data.repoOwner,
+                  repoName: data.repoName,
+                  branchName: data.branchName,
+                  taskId: args.taskId,
+                  projectId: args.projectId,
+                  taskDescription: data.taskDescription,
+                  rootDirectory: data.rootDirectory,
+                  changeRequests,
+                  proofs,
+                },
+                PR_STEP_RETRY,
+              );
+            } catch {
+              console.log(
+                `[task-workflow] run=${args.runId} PR refresh failed (PR likely merged/closed), falling back to create`,
+              );
+              completionPrUrl = await step.runAction(
+                internal.taskWorkflowActions.createTaskPullRequest,
+                {
+                  installationId: args.installationId,
+                  repoOwner: data.repoOwner,
+                  repoName: data.repoName,
+                  branchName: data.branchName,
+                  baseBranch: args.baseBranch,
+                  title: data.taskTitle,
+                  taskId: args.taskId,
+                  projectId: args.projectId,
+                  taskDescription: data.taskDescription,
+                  rootDirectory: data.rootDirectory,
+                  changeRequests,
+                  proofs,
+                  draft: isQuickTask,
+                },
+                PR_STEP_RETRY,
+              );
+            }
           }
         } catch (prError) {
           const action = args.isFirstTaskOnBranch ? "creation" : "refresh";

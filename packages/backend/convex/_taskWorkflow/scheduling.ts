@@ -57,13 +57,13 @@ export const maybeScheduleQuickTaskRetry = internalMutation({
     if (hasOtherActiveRun) return null;
 
     const delayMs = args.delayMs ?? buildQuickTaskRetryDelayMs();
+    const scheduledAt = Date.now() + delayMs;
     const functionId = await ctx.scheduler.runAfter(
       delayMs,
       internal.taskWorkflow.executeScheduledTask,
-      { taskId: args.taskId },
+      { taskId: args.taskId, scheduledAt },
     );
 
-    const scheduledAt = Date.now() + delayMs;
     await ctx.db.patch(args.taskId, {
       scheduledAt,
       scheduledFunctionId: functionId,
@@ -82,11 +82,15 @@ export const maybeScheduleQuickTaskRetry = internalMutation({
 
 /** Executes a previously scheduled task retry by creating a new run and starting the workflow. */
 export const executeScheduledTask = internalMutation({
-  args: { taskId: v.id("agentTasks") },
+  args: {
+    taskId: v.id("agentTasks"),
+    scheduledAt: v.optional(v.number()),
+  },
   returns: v.union(v.id("agentRuns"), v.null()),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
+    const now = Date.now();
 
     const clearSchedule: {
       scheduledAt: undefined;
@@ -95,6 +99,15 @@ export const executeScheduledTask = internalMutation({
       scheduledAt: undefined,
       scheduledFunctionId: undefined,
     };
+
+    if (task.scheduledAt === undefined) return null;
+    if (task.scheduledAt > now) return null;
+    if (
+      args.scheduledAt !== undefined &&
+      task.scheduledAt !== args.scheduledAt
+    ) {
+      return null;
+    }
 
     if (task.status !== "todo" || !task.repoId || !task.createdBy) {
       await ctx.db.patch(args.taskId, clearSchedule);
@@ -122,10 +135,9 @@ export const executeScheduledTask = internalMutation({
       taskId: args.taskId,
       status: "queued",
       logs: [],
-      startedAt: Date.now(),
+      startedAt: now,
     });
 
-    const now = Date.now();
     await ctx.db.patch(args.taskId, {
       ...clearSchedule,
       status: "in_progress",

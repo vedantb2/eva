@@ -3,7 +3,7 @@
 ## Prevent quick-task auto PR skips - 2026-05-19
 
 - **Summary**: Successful quick-task runs now keep moving into auto PR creation even if deployment tracking scheduling fails or PR body enrichment cannot load optional proof/comment data.
-- **Reason**: Post-run side work was able to abort the workflow before the PR creation step, leaving successful runs with no PR URL and no PR error while the manual Create PR recovery still worked later.
+- **Reason**: Post-run side work and synchronous PR body/link preparation were able to abort the workflow before the PR creation step, leaving successful runs with no PR URL and no PR error while the manual Create PR recovery still worked later.
 
 ## Guard stale schedules and PR base selection - 2026-05-19
 

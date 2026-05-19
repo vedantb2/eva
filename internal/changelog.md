@@ -1,5 +1,10 @@
 # Changelog
 
+## Guard stale schedules and PR base selection - 2026-05-19
+
+- **Summary**: Scheduled quick tasks and project builds now carry their intended timestamp into the scheduler callback, and the callback only runs when the stored schedule is still due and matches the firing schedule. Manual project PR creation now resolves its base branch from the project, then repo setting, then fallback, and retargets an existing open PR if needed.
+- **Reason**: Cancelling a scheduled function can race with execution, so callbacks must validate current persisted intent before starting work. Manual PR recovery also needs the same base-branch resolution as normal project builds to avoid falling back to `staging`.
+
 ## Separate sandbox navigation from sandbox lifecycle controls - 2026-05-18
 
 - **What**: On quick task and project parent pages, "Start Sandbox" button becomes "View Sandbox" button that navigates to `/sandbox` without starting the sandbox. Start and Stop controls now live on the `/sandbox` page itself. Parent page View Sandbox button shows active state via emerald tint, pulsing green dot, and " · Active" suffix.

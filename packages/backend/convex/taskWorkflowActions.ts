@@ -246,6 +246,7 @@ export const createPullRequest = internalAction({
   returns: v.string(),
   handler: async (_ctx, args) => {
     const octokit = await getInstallationOctokit(args.installationId);
+    const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
     const existingPr = await findOpenPullRequestForBranch(args);
     if (existingPr) {
       await octokit.rest.pulls.update({
@@ -254,11 +255,11 @@ export const createPullRequest = internalAction({
         pull_number: existingPr.number,
         title: `Eva: ${args.title}`,
         body: args.body,
+        base: baseBranch,
       });
       return existingPr.url;
     }
 
-    const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
     await waitForPullRequestHead({
       octokit,
       repoOwner: args.repoOwner,

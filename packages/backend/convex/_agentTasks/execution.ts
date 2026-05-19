@@ -185,7 +185,7 @@ export const scheduleExecution = authMutation({
     const functionId = await ctx.scheduler.runAt(
       args.scheduledAt,
       internal.taskWorkflow.executeScheduledTask,
-      { taskId: args.id },
+      { taskId: args.id, scheduledAt: args.scheduledAt },
     );
     await ctx.db.patch(args.id, {
       scheduledAt: args.scheduledAt,
@@ -248,7 +248,7 @@ export const updateScheduledExecution = authMutation({
     const functionId = await ctx.scheduler.runAt(
       args.scheduledAt,
       internal.taskWorkflow.executeScheduledTask,
-      { taskId: args.id },
+      { taskId: args.id, scheduledAt: args.scheduledAt },
     );
     await ctx.db.patch(args.id, {
       scheduledAt: args.scheduledAt,

@@ -49,6 +49,8 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   session: "Sessions",
   designSession: "Design Sessions",
   project: "Projects",
+  "project-chat": "Project Chats",
+  "task-chat": "Task Chats",
   doc: "Docs",
   evaluation: "Evaluations",
   sessionAudit: "Session Audits",

@@ -88,16 +88,15 @@ Do NOT mention proof capture in your response or commit message.
 - Look at the files you modified — map them to the routes/pages they render.
 - Always navigate to the SPECIFIC page that demonstrates your change, never just screenshot the homepage or a random page.
 
-### Steps:
+### Steps (default: video):
 1. Run \`agent-browser set viewport 1920 1080\`
 2. Start dev server in background, wait for ready
 3. Navigate to the page that shows your change: \`agent-browser open http://localhost:3000/<relevant-route>\`
 4. Wait minimum 5 seconds after each navigation for the page to fully render before capturing or navigating further.
-5. For multi-step changes: \`agent-browser record start recordings/proof.webm\`, then navigate through EACH affected page in sequence (open each route, wait 5s for load, scroll to show changes), then \`agent-browser record stop\`
-6. For extremely simple changes: \`agent-browser screenshot --annotate\` and save to screenshots/ in repo root
-7. Always prefer recording a video walkthrough of the change, screenshot only if the change is very minor or hard to capture in video (e.g. a small text change). If in doubt, record a video.
-8. **Verify proof quality**: Review the screenshot/recording output. The capture must show the SPECIFIC UI element or behavior that changed — a generic page load is not sufficient. If the capture shows an error, loading spinner, or the old state, debug once and re-capture.
-9. Kill the dev server
+5. Record a video walkthrough: \`agent-browser record start recordings/proof.webm\`, navigate through each affected page in sequence (open each route, wait 5s for load, scroll to show changes), then \`agent-browser record stop\`
+6. Screenshot fallback only when video is impractical (e.g. a tiny copy tweak with no meaningful interaction to show): \`agent-browser screenshot --annotate\` and save to screenshots/ in repo root. If in doubt, record a video.
+7. **Verify proof quality**: Review the recording (or screenshot) output. The capture must show the SPECIFIC UI element or behavior that changed — a generic page load is not sufficient. If the capture shows an error, loading spinner, or the old state, debug once and re-capture.
+8. Kill the dev server
 If dev server fails or page errors, screenshot the error state with \`agent-browser screenshot --annotate\` anyway.`
     : "";
 

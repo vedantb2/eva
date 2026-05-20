@@ -40,14 +40,9 @@ export function getUserDisplayName(user: {
   return "Unnamed User";
 }
 
-export type TaskDetailTab = "activity" | "proof" | "audit" | "comments";
+export type TaskDetailTab = "activity" | "proof" | "audit";
 
-export const TASK_DETAIL_TABS = [
-  "activity",
-  "proof",
-  "audit",
-  "comments",
-] as const;
+export const TASK_DETAIL_TABS = ["activity", "proof", "audit"] as const;
 
 export function isTaskDetailTab(v: string): v is TaskDetailTab {
   return (TASK_DETAIL_TABS as readonly string[]).includes(v);

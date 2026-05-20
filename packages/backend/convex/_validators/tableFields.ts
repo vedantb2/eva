@@ -135,6 +135,8 @@ export const githubRepoFields = {
   parentRepoId: v.optional(v.id("githubRepos")),
   defaultBaseBranch: v.optional(v.string()),
   defaultModel: v.optional(aiModelValidator),
+  auditReviewModel: v.optional(aiModelValidator),
+  auditFixModel: v.optional(aiModelValidator),
   sessionsVncEnabled: v.optional(v.boolean()),
   sessionsVscodeEnabled: v.optional(v.boolean()),
   hidden: v.optional(v.boolean()),

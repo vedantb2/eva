@@ -1,5 +1,13 @@
 # Changelog
 
+## Add per-repo audit model selectors - 2026-05-20
+
+- **Summary**: Repository settings now include two new model controls: "Audit Review Model" (defaults to Haiku) and "Audit Fix Model" (defaults to Sonnet), replacing hardcoded model choices in the audit workflow.
+- **Reason**: Different repositories have different quality/cost trade-offs for audits — some need stronger review (Sonnet), others prefer cheaper batch fixes. Per-repo selectors let teams tune audit behaviour independently, and sibling repos in a monorepo inherit settings automatically.
+- **Schema**: Added `auditReviewModel` and `auditFixModel` optional fields to `githubRepos`. Mutation `updateConfig` now accepts these and propagates them to monorepo siblings.
+- **Backend**: All four audit launch sites (`launchAudit`, `launchAuditFix`, `launchSelectedAuditFixes`, `runSessionAudit`) now fetch the repo config and use `repo.auditReviewModel ?? "haiku"` or `repo.auditFixModel ?? "sonnet"` instead of hardcoded models.
+- **Frontend**: Settings page (`/settings/config`) now shows "Audit Review Model" and "Audit Fix Model" dropdowns below "Default Model", each wired to the updated `updateConfig` mutation.
+
 ## Extend timeout and surface progress for archived sandbox restores - 2026-05-20
 
 - **Summary**: Sandbox startup now detects archived state via `refreshData()` and extends timeout from 60s to 300s; UI emits "Restoring sandbox from cold storage (can take a few minutes)..." progress message while waiting for Daytona to rehydrate from object storage.

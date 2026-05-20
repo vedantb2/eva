@@ -160,6 +160,8 @@ export const updateConfig = authMutation({
     repoId: v.id("githubRepos"),
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(aiModelValidator),
+    auditReviewModel: v.optional(aiModelValidator),
+    auditFixModel: v.optional(aiModelValidator),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
     deploymentProjectName: v.optional(v.string()),
@@ -196,6 +198,10 @@ export const updateConfig = authMutation({
       sharedPatch.defaultBaseBranch = args.defaultBaseBranch;
     if (args.defaultModel !== undefined)
       sharedPatch.defaultModel = args.defaultModel;
+    if (args.auditReviewModel !== undefined)
+      sharedPatch.auditReviewModel = args.auditReviewModel;
+    if (args.auditFixModel !== undefined)
+      sharedPatch.auditFixModel = args.auditFixModel;
     if (args.sessionsVncEnabled !== undefined)
       sharedPatch.sessionsVncEnabled = args.sessionsVncEnabled;
     if (args.sessionsVscodeEnabled !== undefined)

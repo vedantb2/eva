@@ -64,6 +64,9 @@ export const launchAudit = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: args.repoId,
+    });
 
     await signAndLaunchScript(
       ctx,
@@ -75,7 +78,7 @@ export const launchAudit = internalAction({
       args.taskId,
       args.repoId,
       {
-        model: "haiku",
+        model: repo?.auditReviewModel ?? "haiku",
         extraEnvVars: {
           STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
           RUN_ID: String(args.runId),
@@ -105,6 +108,9 @@ export const launchAuditFix = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: args.repoId,
+    });
 
     await signAndLaunchScript(
       ctx,
@@ -116,7 +122,7 @@ export const launchAuditFix = internalAction({
       args.taskId,
       args.repoId,
       {
-        model: "sonnet",
+        model: repo?.auditFixModel ?? "sonnet",
         allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
         extraEnvVars: {
           STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
@@ -165,6 +171,9 @@ export const launchSelectedAuditFixes = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
+      const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+        id: args.repoId,
+      });
       let sandboxId = args.sandboxId;
 
       if (sandboxId) {
@@ -245,7 +254,7 @@ ${failureList}
         String(args.taskId),
         args.repoId,
         {
-          model: "sonnet",
+          model: repo?.auditFixModel ?? "sonnet",
           allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
           extraEnvVars: {
             STREAMING_ENTITY_ID: getTaskAuditStreamingEntityId(args.runId),
@@ -289,6 +298,9 @@ export const runSessionAudit = internalAction({
       }
 
       const sandbox = await getSandbox(ctx, session.repoId, args.sandboxId);
+      const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+        id: session.repoId,
+      });
 
       const categories = await ctx.runQuery(
         internal.auditCategories.listEnabledForContext,
@@ -313,7 +325,7 @@ export const runSessionAudit = internalAction({
         String(args.sessionId),
         session.repoId,
         {
-          model: "haiku",
+          model: repo?.auditReviewModel ?? "haiku",
           claudeSessionId: sessionClaudeUuid(args.sessionId),
           extraEnvVars: {
             CLAUDE_FIRST_EVENT_TIMEOUT_MS: AUDIT_FIRST_EVENT_TIMEOUT_MS,

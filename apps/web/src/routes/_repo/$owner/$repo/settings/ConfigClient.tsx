@@ -15,6 +15,10 @@ export function ConfigClient() {
   const { repo, repoId } = useRepo();
   const updateConfig = useMutation(api.githubRepos.updateConfig);
   const { options, model } = useAvailableAiModels(repoId, repo.defaultModel);
+  const { options: auditReviewOptions, model: auditReviewModel } =
+    useAvailableAiModels(repoId, repo.auditReviewModel ?? "haiku");
+  const { options: auditFixOptions, model: auditFixModel } =
+    useAvailableAiModels(repoId, repo.auditFixModel ?? "sonnet");
 
   return (
     <PageWrapper title="Config" comfortable>
@@ -58,6 +62,48 @@ export function ConfigClient() {
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
                 The default provider and model used when creating new tasks.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Audit Review Model
+              </label>
+              <ModelSelect
+                value={auditReviewModel}
+                options={auditReviewOptions}
+                onValueChange={(nextModel: AIModel) => {
+                  updateConfig({
+                    repoId,
+                    auditReviewModel: normalizeAIModel(nextModel),
+                  });
+                }}
+                className="h-8 text-xs"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Used to review task and session changes during an audit.
+                Defaults to Haiku for fast, cheap review.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Audit Fix Model
+              </label>
+              <ModelSelect
+                value={auditFixModel}
+                options={auditFixOptions}
+                onValueChange={(nextModel: AIModel) => {
+                  updateConfig({
+                    repoId,
+                    auditFixModel: normalizeAIModel(nextModel),
+                  });
+                }}
+                className="h-8 text-xs"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Used to fix issues found during an audit. Defaults to Sonnet for
+                stronger code generation.
               </p>
             </div>
 

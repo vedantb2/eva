@@ -90,6 +90,12 @@ export const taskExecutionWorkflow = workflow.define({
         createRetry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 },
       });
 
+      const proofCaptureInRun =
+        data.screenshotsVideosEnabled && args.mode !== "resolve_conflicts";
+      const runModel = proofCaptureInRun
+        ? (data.proofModel ?? args.model ?? DEFAULT_AI_MODEL)
+        : (args.model ?? DEFAULT_AI_MODEL);
+
       await step.runAction(internal.daytona.launchOnExistingSandbox, {
         sandboxId,
         entityId: String(args.taskId),
@@ -97,7 +103,7 @@ export const taskExecutionWorkflow = workflow.define({
         userId: args.userId,
         completionMutation: "taskWorkflow:handleCompletion",
         entityIdField: "taskId",
-        model: args.model ?? DEFAULT_AI_MODEL,
+        model: runModel,
         allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
         repoId: args.repoId,
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
-import { runModeValidator } from "../validators";
+import { aiModelValidator, runModeValidator } from "../validators";
 import { resolveTaskWorkflowBaseBranch } from "./resolveBaseBranch";
 import {
   buildImplementationPrompt,
@@ -29,6 +29,7 @@ export const getTaskData = internalQuery({
     deploymentProjectName: v.optional(v.string()),
     rootDirectory: v.string(),
     screenshotsVideosEnabled: v.boolean(),
+    proofModel: v.optional(aiModelValidator),
     auditCategories: v.array(
       v.object({ name: v.string(), description: v.string() }),
     ),
@@ -154,6 +155,7 @@ export const getTaskData = internalQuery({
       deploymentProjectName: repo.deploymentProjectName,
       rootDirectory,
       screenshotsVideosEnabled,
+      proofModel: repo.proofModel,
       auditCategories: enabledCategories,
     };
   },

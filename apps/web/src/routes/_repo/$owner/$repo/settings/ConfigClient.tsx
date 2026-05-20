@@ -19,6 +19,10 @@ export function ConfigClient() {
     useAvailableAiModels(repoId, repo.auditReviewModel ?? "haiku");
   const { options: auditFixOptions, model: auditFixModel } =
     useAvailableAiModels(repoId, repo.auditFixModel ?? "sonnet");
+  const { options: proofOptions, model: proofModel } = useAvailableAiModels(
+    repoId,
+    repo.proofModel ?? repo.defaultModel ?? "sonnet",
+  );
 
   return (
     <PageWrapper title="Config" comfortable>
@@ -107,7 +111,7 @@ export function ConfigClient() {
               </p>
             </div>
 
-            <div className="rounded-md bg-muted/40 p-3">
+            <div className="rounded-md bg-muted/40 p-3 space-y-4">
               <div className="flex items-start gap-3">
                 <Checkbox
                   checked={repo.screenshotsVideosEnabled ?? false}
@@ -126,6 +130,27 @@ export function ConfigClient() {
                     etc.
                   </p>
                 </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Proof Capture Model
+                </label>
+                <ModelSelect
+                  value={proofModel}
+                  options={proofOptions}
+                  onValueChange={(nextModel: AIModel) => {
+                    updateConfig({
+                      repoId,
+                      proofModel: normalizeAIModel(nextModel),
+                    });
+                  }}
+                  className="h-8 text-xs"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Used when proof capture is enabled. Defaults to the task model
+                  when unset.
+                </p>
               </div>
             </div>
 

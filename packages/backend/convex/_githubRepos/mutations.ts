@@ -162,6 +162,7 @@ export const updateConfig = authMutation({
     defaultModel: v.optional(aiModelValidator),
     auditReviewModel: v.optional(aiModelValidator),
     auditFixModel: v.optional(aiModelValidator),
+    proofModel: v.optional(aiModelValidator),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
     deploymentProjectName: v.optional(v.string()),
@@ -202,6 +203,7 @@ export const updateConfig = authMutation({
       sharedPatch.auditReviewModel = args.auditReviewModel;
     if (args.auditFixModel !== undefined)
       sharedPatch.auditFixModel = args.auditFixModel;
+    if (args.proofModel !== undefined) sharedPatch.proofModel = args.proofModel;
     if (args.sessionsVncEnabled !== undefined)
       sharedPatch.sessionsVncEnabled = args.sessionsVncEnabled;
     if (args.sessionsVscodeEnabled !== undefined)

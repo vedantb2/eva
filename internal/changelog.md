@@ -1,5 +1,13 @@
 # Changelog
 
+## Add per-repo proof capture model selector - 2026-05-20
+
+- **Summary**: Repository settings now include a "Proof Capture Model" control under Screenshots and Videos, letting teams pick which model runs when proof capture is enabled on a task.
+- **Reason**: Proof walkthroughs have different quality/cost trade-offs from implementation — some repos want a cheaper model for browser automation, others want stronger reasoning for complex UI flows. Per-repo selector mirrors the audit model pattern without changing behaviour when unset.
+- **Schema**: Added `proofModel` optional field to `githubRepos`. Mutation `updateConfig` accepts it and propagates to monorepo siblings.
+- **Backend**: Task execution workflow uses `repo.proofModel` when screenshots/videos are enabled (excluding conflict-resolution runs); falls back to the task model when unset.
+- **Frontend**: Settings → Config shows "Proof Capture Model" dropdown inside the Screenshots and Videos section.
+
 ## Add per-repo audit model selectors - 2026-05-20
 
 - **Summary**: Repository settings now include two new model controls: "Audit Review Model" (defaults to Haiku) and "Audit Fix Model" (defaults to Sonnet), replacing hardcoded model choices in the audit workflow.

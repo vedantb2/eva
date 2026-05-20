@@ -494,7 +494,15 @@ async function prepareSessionSandboxInternal(
           "reuseSessionSandbox.prepare",
           sandboxDetails,
           async () => {
-            await ensureSandboxRunning(sandbox);
+            await ensureSandboxRunning(sandbox, {
+              onRestoring: () =>
+                emitSessionProgress(
+                  ctx,
+                  args.sessionId,
+                  completedSteps,
+                  "Restoring sandbox from cold storage (can take a few minutes)...",
+                ),
+            });
             await checkoutSessionBranchWithRetry(
               sandbox,
               args.branchName,
@@ -1137,7 +1145,15 @@ async function prepareTaskPreviewSandboxInternal(
             "reuseTaskSandbox.prepare",
             sandboxDetails,
             async () => {
-              await ensureSandboxRunning(sandbox);
+              await ensureSandboxRunning(sandbox, {
+                onRestoring: () =>
+                  emitTaskProgress(
+                    ctx,
+                    args.taskId,
+                    completedSteps,
+                    "Restoring sandbox from cold storage (can take a few minutes)...",
+                  ),
+              });
               await checkoutSessionBranchWithRetry(
                 sandbox,
                 args.branchName,
@@ -1539,7 +1555,15 @@ async function prepareProjectPreviewSandboxInternal(
             "reuseProjectSandbox.prepare",
             sandboxDetails,
             async () => {
-              await ensureSandboxRunning(sandbox);
+              await ensureSandboxRunning(sandbox, {
+                onRestoring: () =>
+                  emitProjectProgress(
+                    ctx,
+                    args.projectId,
+                    completedSteps,
+                    "Restoring sandbox from cold storage (can take a few minutes)...",
+                  ),
+              });
               await checkoutSessionBranchWithRetry(
                 sandbox,
                 args.branchName,

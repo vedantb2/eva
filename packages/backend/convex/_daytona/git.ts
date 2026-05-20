@@ -1082,7 +1082,14 @@ async function tryResumeSandbox(
     try {
       if (onProgress) await onProgress("Resuming sandbox...");
       const sandbox = await daytona.get(existingSandboxId);
-      await ensureSandboxRunning(sandbox);
+      await ensureSandboxRunning(sandbox, {
+        onRestoring: onProgress
+          ? () =>
+              onProgress(
+                "Restoring sandbox from cold storage (can take a few minutes)...",
+              )
+          : undefined,
+      });
       if (syncStrategy.mode !== "none") {
         if (onProgress) await onProgress("Syncing repository...");
         await syncRepo(sandbox, installationId, owner, name, syncStrategy);

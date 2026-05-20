@@ -73,6 +73,10 @@ export function workspaceDirShell(): string {
 }
 export const DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS = 60;
 export const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
+// Daytona rehydrates an archived sandbox's filesystem from cold object storage,
+// which can take several minutes depending on size. The 60s default is fine for
+// a stopped→started fast resume, but trips a noisy timeout on archived thaws.
+export const ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS = 300;
 
 const EXEC_CLIENT_TIMEOUT_BUFFER_MS = 15_000;
 
@@ -150,11 +154,24 @@ export async function ensureDockerDaemon(sandbox: Sandbox): Promise<void> {
   }
 }
 
-/** Ensures a sandbox is running, starting it if the initial health check fails. */
+/**
+ * Ensures a sandbox is running, starting it if the initial health check fails.
+ *
+ * If the sandbox is archived (or already mid-thaw), `sandbox.start()` needs the
+ * extended `ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS` because Daytona has to
+ * rehydrate the filesystem from cold storage. The optional `onRestoring`
+ * callback fires once that state is detected so callers can surface a more
+ * useful progress label instead of the generic "Resuming sandbox...".
+ */
 export async function ensureSandboxRunning(
   sandbox: Sandbox,
-  timeoutSeconds = DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
+  options: {
+    timeoutSeconds?: number;
+    onRestoring?: () => Promise<void>;
+  } = {},
 ): Promise<void> {
+  const defaultTimeout =
+    options.timeoutSeconds ?? DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS;
   const startedAt = Date.now();
   try {
     console.log(
@@ -169,8 +186,24 @@ export async function ensureSandboxRunning(
     console.log(
       `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} not running, starting... (check took ${checkDuration}ms, error: ${e instanceof Error ? e.message : String(e)})`,
     );
+    let startTimeout = defaultTimeout;
+    try {
+      await sandbox.refreshData();
+      const state = sandbox.state;
+      if (state === "archived" || state === "restoring") {
+        startTimeout = ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS;
+        console.log(
+          `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} is ${state}, extending start timeout to ${startTimeout}s`,
+        );
+        if (options.onRestoring) await options.onRestoring();
+      }
+    } catch (refreshErr) {
+      console.log(
+        `[daytona] ensureSandboxRunning: refreshData failed (${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)}); using default ${defaultTimeout}s timeout`,
+      );
+    }
     const startStartedAt = Date.now();
-    await sandbox.start(timeoutSeconds);
+    await sandbox.start(startTimeout);
     console.log(
       `[daytona] ensureSandboxRunning: sandbox.start() completed in ${Date.now() - startStartedAt}ms`,
     );

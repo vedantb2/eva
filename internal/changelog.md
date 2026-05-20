@@ -1,5 +1,10 @@
 # Changelog
 
+## Extend timeout and surface progress for archived sandbox restores - 2026-05-20
+
+- **Summary**: Sandbox startup now detects archived state via `refreshData()` and extends timeout from 60s to 300s; UI emits "Restoring sandbox from cold storage (can take a few minutes)..." progress message while waiting for Daytona to rehydrate from object storage.
+- **Reason**: Starting an archived sandbox (cold storage) takes several minutes depending on size. The 60s default timeout was too short, causing spurious "Sandbox failed to become ready within the timeout period" failures on resumed tasks/projects. Extended timeout + user-facing message prevents confusion and false retries.
+
 ## Bound sandbox shell tools and safe typecheck output - 2026-05-19
 
 - **Summary**: Implementation-task prompts now give Claude a typecheck command that writes output to a log before tailing it, and sandbox AI runner launches cap shell tool silence at four minutes.

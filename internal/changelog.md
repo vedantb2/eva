@@ -1,5 +1,10 @@
 # Changelog
 
+## Default proof capture to video walkthrough - 2026-05-20
+
+- **Summary**: Task implementation proof prompt now defaults to recording a video walkthrough; screenshots are fallback only when video is impractical.
+- **Reason**: Video better demonstrates UI changes end-to-end. The backend already prefers recordings over screenshots when persisting proof — the prompt now matches that behavior.
+
 ## Always concise chat responses; @/ skill hint banner - 2026-05-20
 
 - **Summary**: Removed the Concise/Detailed response-length selector from sandbox chat. Eva now always uses hyper-concise replies (except PRD/plan mode, which stays concise plan-focused). Added a dismissible tip above the chat input: `@` for docs/PRDs, `/` for skills.

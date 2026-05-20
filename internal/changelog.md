@@ -59,6 +59,16 @@
 - **Backend**: `projectSandboxWorkflow` plumbed with `forceStartupCommands`; `daytona.startProjectPreviewSandbox` accepts force flag. New mutations `retryProjectStartupCommands` and `resolveProjectConflicts` in `_projects/sandbox.ts`.
 - **Frontend**: Updated `useProjectSandbox` to expose `handleRetryStartupCommands`. `ProjectDetailClient` wired both dropdown items with appropriate show conditions (retry: `canStartSandbox && !starting && !stopping`; resolve: `project.prUrl && !activeBuild && phase === "active"`).
 
+## Project "Make changes" queues to To Do for Build Project - 2026-05-20
+
+- **Why**: Immediate `startExecution` on every change request fought the one-task-at-a-time project sandbox rule, left sibling tasks stuck in Business Review, and raced with in-flight workflow completions. Reviewers want to stack feedback on multiple tasks, then run everything once via Build Project.
+- **Change**: Project tasks with "Make changes" now save the comment and move to To Do only (no instant Eva run). Build Project still runs `todo` tasks in `taskNumber` order; `getTaskData` feeds comments after the last successful run as change requests. Quick tasks still call `startExecution` immediately. Stale `completeRun` / build-event guards retained.
+
+## Fix project task status stuck in Business Review on repeat "Make changes" - 2026-05-20
+
+- **Why**: UI/backend mismatch and wrap-up race could reset status after a new run started; wrong `buildTaskDoneEvent` could advance the build for the wrong task.
+- **Change**: Wrap-up window still blocks submit while a run is closing out. `completeRun` skips stale status updates. Build workflow waits for matching `taskId` on `buildTaskDoneEvent`.
+
 ## Projects badge shows running tasks; "Make changes" checkbox defaults true - 2026-05-12
 
 - **Why**: Sidebar "Projects" badge only surfaced projects with active build workflows or sandboxes, leaving running agent tasks invisible at a glance. User review workflow defaulted "Make changes" checkbox to unchecked, requiring an extra click to request changes when most reviews prompt edits.

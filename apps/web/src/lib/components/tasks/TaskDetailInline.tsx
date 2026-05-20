@@ -81,6 +81,8 @@ export function TaskDetailInline({
     isOwner,
     isBlocked,
     hasActiveRun,
+    requestChangesBlockedReason,
+    isProjectTask,
     hasRuns,
     canEditTaskText,
     showProofSection,
@@ -344,6 +346,8 @@ export function TaskDetailInline({
                       isStopping={isStopping}
                       onStopConfirm={() => setShowStopConfirm(true)}
                       hasActiveRun={hasActiveRun}
+                      requestChangesBlockedReason={requestChangesBlockedReason}
+                      isProjectTask={isProjectTask}
                       hasRuns={hasRuns}
                       isOwner={isOwner}
                       requestingChanges={requestingChanges}

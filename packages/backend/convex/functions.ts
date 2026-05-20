@@ -154,6 +154,26 @@ export async function hasActiveRun(
   return running !== null;
 }
 
+/** True when a later-started run exists on the same task (stale workflow completion). */
+export async function isSupersededTaskRun(
+  db: GenericDatabaseReader<DataModel>,
+  taskId: Id<"agentTasks">,
+  runId: Id<"agentRuns">,
+): Promise<boolean> {
+  const run = await db.get(runId);
+  if (!run || run.taskId !== taskId) return true;
+  const runStartedAt = run.startedAt ?? run._creationTime;
+  const runs = await db
+    .query("agentRuns")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .collect();
+  return runs.some((other) => {
+    if (other._id === runId) return false;
+    const otherStartedAt = other.startedAt ?? other._creationTime;
+    return otherStartedAt > runStartedAt;
+  });
+}
+
 /** Determines if a PR should be created (no existing PR on project or any task run). */
 export async function isFirstTaskOnBranch(
   db: GenericDatabaseReader<DataModel>,

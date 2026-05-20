@@ -42,7 +42,10 @@ export const buildProjectWorkflow = workflow.define({
         installationId: args.installationId,
       });
 
-      const result = await step.awaitEvent(buildTaskDoneEvent);
+      let result = await step.awaitEvent(buildTaskDoneEvent);
+      while (result.taskId !== task._id) {
+        result = await step.awaitEvent(buildTaskDoneEvent);
+      }
 
       if (!result.success) {
         failedTaskId = task._id;

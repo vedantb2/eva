@@ -106,6 +106,7 @@ export function ActivityTimeline({
   isStopping,
   onStopConfirm,
   hasActiveRun,
+  requestChangesBlockedReason,
   hasRuns,
   isOwner,
   requestingChanges,
@@ -113,8 +114,10 @@ export function ActivityTimeline({
   executionError,
   setExecutionError,
   onRequestChangesSubmitted,
+  isProjectTask,
 }: {
   taskId: Id<"agentTasks">;
+  isProjectTask: boolean;
   runs: Runs | undefined;
   allAudits: Audits | undefined;
   comments: Comments | undefined;
@@ -129,6 +132,7 @@ export function ActivityTimeline({
   isStopping: boolean;
   onStopConfirm: () => void;
   hasActiveRun: boolean;
+  requestChangesBlockedReason: string | undefined;
   hasRuns: boolean;
   isOwner: boolean;
   requestingChanges: boolean;
@@ -149,6 +153,7 @@ export function ActivityTimeline({
   const createComment = useMutation(api.taskComments.create);
   const removeComment = useMutation(api.taskComments.remove);
   const startExecution = useMutation(api.agentTasks.startExecution);
+  const updateStatus = useMutation(api.agentTasks.updateStatus);
 
   const tokenizeAndReset = (raw: string): string => {
     const tokenized = mentionRef.current?.tokenize(raw) ?? raw;
@@ -171,11 +176,19 @@ export function ActivityTimeline({
     setCommentText("");
     try {
       await createComment({ taskId, content });
-      await startExecution({ id: taskId });
+      if (isProjectTask) {
+        await updateStatus({ id: taskId, status: "todo" });
+      } else {
+        await startExecution({ id: taskId });
+      }
       onRequestChangesSubmitted();
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Failed to start execution";
+        err instanceof Error
+          ? err.message
+          : isProjectTask
+            ? "Failed to queue changes"
+            : "Failed to start execution";
       setExecutionError(message);
     }
   };
@@ -193,11 +206,7 @@ export function ActivityTimeline({
     }
   };
 
-  const disabledReason: string | undefined = hasActiveRun
-    ? "Wait for the current run to finish"
-    : !hasRuns
-      ? "Run Eva on this task before requesting changes"
-      : undefined;
+  const disabledReason = requestChangesBlockedReason;
   const canRequestChanges = disabledReason === undefined;
   const effectiveRequestingChanges = canRequestChanges && requestingChanges;
   const isMakeChangesGated = requestingChanges && !canRequestChanges;
@@ -337,7 +346,9 @@ export function ActivityTimeline({
         </Tooltip>
         {effectiveRequestingChanges && !executionError && (
           <p className="text-xs text-muted-foreground">
-            Submitting will create a comment and re-run Eva with your changes
+            {isProjectTask
+              ? "Submitting will add your feedback and move this task to To Do. Use Build Project to run changes in order."
+              : "Submitting will create a comment and re-run Eva with your changes"}
           </p>
         )}
       </div>

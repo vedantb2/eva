@@ -48,6 +48,7 @@ export function useTaskDetail(
     (run) => run.status === "queued" || run.status === "running",
   );
   const hasRuns = (runs?.length ?? 0) > 0;
+  const isProjectTask = task?.projectId !== undefined;
   const activeRun = runs?.find((run) => run.status === "running");
   const activeRunElapsed = useElapsedSeconds(
     activeRun?.startedAt,
@@ -288,6 +289,15 @@ export function useTaskDetail(
   }, [routing]);
 
   const status = task?.status;
+  const isRunWrappingUp =
+    status === "in_progress" && hasActiveRun !== true && hasRuns;
+  const requestChangesBlockedReason: string | undefined = hasActiveRun
+    ? "Wait for the current run to finish"
+    : isRunWrappingUp
+      ? "Wait for the previous run to finish wrapping up"
+      : !hasRuns
+        ? "Run Eva on this task before requesting changes"
+        : undefined;
   const showProofSection = status !== undefined && status !== "todo";
   const canEditTaskText = status === "todo" && !hasActiveRun;
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
@@ -328,6 +338,8 @@ export function useTaskDetail(
     isOwner,
     isBlocked,
     hasActiveRun: Boolean(hasActiveRun),
+    isProjectTask,
+    requestChangesBlockedReason,
     hasRuns,
     canEditTaskText,
     showProofSection,

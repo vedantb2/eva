@@ -70,6 +70,14 @@ export const startExecution = authMutation({
       for (const pt of projectTasks) {
         if (pt._id === args.id) continue;
         if (await hasActiveRun(ctx.db, pt._id)) {
+          const awaitingReview =
+            task.status === "business_review" || task.status === "code_review";
+          if (awaitingReview) {
+            await ctx.db.patch(args.id, {
+              status: "todo",
+              updatedAt: Date.now(),
+            });
+          }
           throw new Error("Another task in this project is already running");
         }
       }

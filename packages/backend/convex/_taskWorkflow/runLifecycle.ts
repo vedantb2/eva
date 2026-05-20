@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import { createNotification } from "../notifications";
 import { runModeValidator } from "../validators";
 import type { Id } from "../_generated/dataModel";
+import { hasActiveRun, isSupersededTaskRun } from "../functions";
 import { RUN_TIMEOUT_MS } from "../workflowWatchdog";
 import { buildWorkflowRunNotificationMessage } from "./prompts";
 import { buildTaskDoneEvent } from "./events";
@@ -287,7 +288,10 @@ export const completeRun = internalMutation({
     }
 
     const task = await ctx.db.get(args.taskId);
-    if (task) {
+    const staleCompletion =
+      (await hasActiveRun(ctx.db, args.taskId)) ||
+      (await isSupersededTaskRun(ctx.db, args.taskId, args.runId));
+    if (task && !staleCompletion) {
       await ctx.db.patch(args.taskId, {
         status: args.success ? "business_review" : "todo",
         updatedAt: now,
@@ -372,7 +376,7 @@ export const completeRun = internalMutation({
       }
     }
 
-    if (project?.activeBuildWorkflowId) {
+    if (project?.activeBuildWorkflowId && !staleCompletion) {
       await sendCompletionEvent(
         ctx,
         buildTaskDoneEvent,

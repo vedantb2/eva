@@ -4,6 +4,7 @@ import { aiModelValidator, automationFields } from "../validators";
 import { authQuery, authMutation, hasRepoAccess } from "../functions";
 import { safeDeleteCron, safeReplaceCron } from "../cronManager";
 import type { Doc } from "../_generated/dataModel";
+import { resolveAutomationsRepoId } from "./helpers";
 
 /** Lists all automations for a given repository. */
 export const list = authQuery({
@@ -16,9 +17,16 @@ export const list = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return [];
+    }
+    const automationsRepoId = await resolveAutomationsRepoId(
+      ctx.db,
+      args.repoId,
+    );
     return await ctx.db
       .query("automations")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo", (q) => q.eq("repoId", automationsRepoId))
       .collect();
   },
 });
@@ -50,9 +58,13 @@ export const create = authMutation({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+    const automationsRepoId = await resolveAutomationsRepoId(
+      ctx.db,
+      args.repoId,
+    );
     const now = Date.now();
     return await ctx.db.insert("automations", {
-      repoId: args.repoId,
+      repoId: automationsRepoId,
       title: args.title,
       description: "",
       cronSchedule: "",

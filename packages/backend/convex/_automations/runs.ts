@@ -13,6 +13,7 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
 } from "../_taskWorkflow/helpers";
+import { resolveAutomationsRepoId } from "./helpers";
 
 /** Lists the most recent 50 runs for a given automation, newest first. */
 export const listRuns = authQuery({
@@ -60,9 +61,13 @@ export const countUnreadByRepo = authQuery({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       return 0;
     }
+    const automationsRepoId = await resolveAutomationsRepoId(
+      ctx.db,
+      args.repoId,
+    );
     const automations = await ctx.db
       .query("automations")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo", (q) => q.eq("repoId", automationsRepoId))
       .collect();
 
     let count = 0;

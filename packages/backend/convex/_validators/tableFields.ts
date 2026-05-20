@@ -157,6 +157,7 @@ export const githubRepoFields = {
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   systemPrompt: v.optional(v.string()),
+  sharedAutomationsEnabled: v.optional(v.boolean()),
 };
 
 export const projectFields = {

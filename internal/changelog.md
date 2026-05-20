@@ -1,5 +1,10 @@
 # Changelog
 
+## Shared monorepo automations toggle - 2026-05-20
+
+- **Summary**: Monorepos can enable "Shared automations" so one automation list applies to every app in the codebase. The toggle lives in the automations sidebar and syncs across sibling repo entries.
+- **Reason**: Duplicating the same scheduled automation per app is tedious and error-prone; repo-wide automations should run once from the monorepo root.
+
 ## Inherit project base branch for tasks - 2026-05-20
 
 - **Summary**: Tasks created inside a project now use the project's selected base branch (not the repo default). Project metadata bar shows the branch read-only; task creation modal inherits it with a tooltip when adding tasks to a project.

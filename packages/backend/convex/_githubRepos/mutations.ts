@@ -173,6 +173,7 @@ export const updateConfig = authMutation({
     startupCommands: v.optional(v.array(v.string())),
     backgroundCommands: v.optional(v.array(v.string())),
     systemPrompt: v.optional(v.string()),
+    sharedAutomationsEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -208,6 +209,8 @@ export const updateConfig = authMutation({
       sharedPatch.sessionsVncEnabled = args.sessionsVncEnabled;
     if (args.sessionsVscodeEnabled !== undefined)
       sharedPatch.sessionsVscodeEnabled = args.sessionsVscodeEnabled;
+    if (args.sharedAutomationsEnabled !== undefined)
+      sharedPatch.sharedAutomationsEnabled = args.sharedAutomationsEnabled;
 
     const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
     for (const siblingId of siblingIds) {

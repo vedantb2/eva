@@ -1,6 +1,7 @@
 import { internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { resolveAutomationsRepoId } from "../_automations/helpers";
 
 /** Checks whether a user has access to a repo (via ownership or team membership). */
 export const checkRepoAccessForUser = internalQuery({
@@ -117,9 +118,10 @@ export const queryTable = internalQuery({
     }
 
     if (table === "automations" && repoId) {
+      const automationsRepoId = await resolveAutomationsRepoId(ctx.db, repoId);
       const automations = await ctx.db
         .query("automations")
-        .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+        .withIndex("by_repo", (q) => q.eq("repoId", automationsRepoId))
         .take(limit);
       return automations;
     }

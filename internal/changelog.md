@@ -1,5 +1,10 @@
 # Changelog
 
+## Remove unused client apps - 2026-05-20
+
+- **Summary**: Deleted `apps/mobile`, `apps/desktop`, and `apps/teams-bot` plus their root npm scripts and lockfile entries. Docs now list only `apps/web` and `apps/chrome-extension`.
+- **Reason**: These apps were unmaintained side projects with no integration into the Conductor platform; keeping them inflated the monorepo and confused onboarding.
+
 ## Remove dead backend exports and legacy CI - 2026-05-20
 
 - **Summary**: Dropped unused Convex mutations/queries (`evaluationReports.create/get`, duplicate doc test-gen helpers, unused `messages` CRUD), removed orphan `userMigrations` schema table, deleted legacy E2B/Daytona snapshot GitHub workflows, and removed broken root npm scripts (`mcp:dev`, `mcp-v2:dev`, `turbo`).

@@ -66,14 +66,10 @@ Access your connected databases (Convex, Supabase) directly from Claude. Query, 
 
 ## Apps
 
-| App                     | Description                                               |
-| ----------------------- | --------------------------------------------------------- |
-| `apps/web`              | Main dashboard for managing repos, tasks, and sessions    |
-| `apps/desktop`          | Electron desktop client with local session persistence    |
-| `apps/mcp`              | MCP server for Claude to query connected Convex databases |
-| `apps/chrome-extension` | Browser extension for quick task execution                |
-| `apps/teams-bot`        | Microsoft Teams integration                               |
-| `apps/mobile`           | React Native mobile client                                |
+| App                     | Description                                            |
+| ----------------------- | ------------------------------------------------------ |
+| `apps/web`              | Main dashboard for managing repos, tasks, and sessions |
+| `apps/chrome-extension` | Browser extension for quick task execution             |
 
 ## Self-Hosting
 

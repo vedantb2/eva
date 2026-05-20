@@ -1,13 +1,6 @@
 {
   "private": true,
   "scripts": {
-    "start": "pnpm --filter eva start",
-    "android": "pnpm --filter eva android",
-    "build:dev": "pnpm --filter eva build:dev",
-    "build:preview": "pnpm --filter eva build:preview",
-    "build:prod": "pnpm --filter eva build:prod",
-    "update:dev": "pnpm --filter eva update:dev",
-    "update:preview": "pnpm --filter eva update:preview",
     "dev": "pnpm --filter @conductor/web dev",
     "convex": "pnpm --filter @conductor/backend dev",
     "convex:deploy": "pnpm --filter @conductor/backend run deploy",
@@ -16,9 +9,6 @@
     "ext:dev:once": "pnpm --filter eva-assist-extension dev:once",
     "ext:build": "pnpm --filter eva-assist-extension build",
     "ext:release": "npx tsx scripts/release-extension.ts",
-    "desktop:dev": "pnpm --filter conductor-desktop dev",
-    "desktop:build": "pnpm --filter conductor-desktop build",
-    "desktop:dist": "pnpm --filter conductor-desktop dist",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -31,10 +21,7 @@
       "convex-helpers": "0.1.114"
     },
     "onlyBuiltDependencies": [
-      "@swc/core",
-      "better-sqlite3",
-      "electron",
-      "node-pty"
+      "@swc/core"
     ],
     "packageExtensions": {
       "@convex-dev/prosemirror-sync": {

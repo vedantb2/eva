@@ -1,5 +1,9 @@
 # AI guidance changelog
 
+## 2026-05-20
+
+- Removed `apps/mobile`, `apps/desktop`, and `apps/teams-bot` from the monorepo; active clients are web and chrome-extension only.
+
 ## 2026-05-11
 
 - Repo Settings → Snapshots tabs are URL-backed (`…/snapshots/configuration|status|builds|config-files`); `/snapshots` redirects to `configuration`.

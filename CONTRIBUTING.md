@@ -7,10 +7,7 @@ Thanks for your interest in contributing to Eva. This guide will help you get st
 Eva is a monorepo managed with pnpm. The main apps and packages are:
 
 - **apps/web** — Vite + TanStack Router dashboard
-- **apps/desktop** — Electron desktop client
 - **apps/chrome-extension** — Browser extension
-- **apps/mcp** — MCP server
-- **apps/mobile** — React Native mobile app
 - **packages/backend** — Convex backend (serverless DB + functions)
 - **packages/ui** — Shared component library
 - **packages/shared** — Shared utilities and types

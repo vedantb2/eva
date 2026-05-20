@@ -16,6 +16,7 @@ import {
   IconBox,
   IconClipboardCheck,
   IconUser,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { cn } from "@conductor/ui";
 
@@ -38,6 +39,7 @@ export function SettingsSidebar({
       groupIcon: IconAdjustmentsHorizontal,
       items: [
         { name: "Config", href: `${baseUrl}/config`, icon: IconSettings2 },
+        { name: "Skills", href: `${baseUrl}/skills`, icon: IconSparkles },
         { name: "Monorepo", href: `${baseUrl}/monorepo`, icon: IconFolders },
       ],
     },

@@ -34,6 +34,7 @@ interface QueuedMessageItem {
 interface QueuedMessagesPanelProps {
   items: QueuedMessageItem[];
   label?: string;
+  renderContent?: (content: string) => React.ReactNode;
   onEdit?: (id: Id<"queuedMessages">, content: string) => Promise<void>;
   onDelete?: (id: Id<"queuedMessages">) => Promise<void>;
 }
@@ -41,6 +42,7 @@ interface QueuedMessagesPanelProps {
 export function QueuedMessagesPanel({
   items,
   label = "Queued",
+  renderContent,
   onEdit,
   onDelete,
 }: QueuedMessagesPanelProps) {
@@ -75,7 +77,11 @@ export function QueuedMessagesPanel({
                 <QueueItem key={item.id}>
                   <QueueItemIndicator />
                   <QueueItemContent className="truncate">
-                    <div className="truncate">{item.content}</div>
+                    {renderContent ? (
+                      renderContent(item.content)
+                    ) : (
+                      <div className="truncate">{item.content}</div>
+                    )}
                   </QueueItemContent>
                   <QueueItemActions>
                     {item.info ? (

@@ -166,6 +166,7 @@ export function ChatBody({
   formatQueuedInfo,
 }: ChatBodyProps) {
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
+  const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
   const mentionRef = useRef<MentionTextareaHandle>(null);
   const updateQueuedMessage = useMutation(api.queuedMessages.update);
   const deleteQueuedMessage = useMutation(api.queuedMessages.remove);
@@ -366,6 +367,14 @@ export function ChatBody({
           </AnimatePresence>
           <QueuedMessagesPanel
             items={queuedMessageItems}
+            renderContent={(content) => (
+              <MessageMentionText
+                text={content}
+                owner={repoOwner}
+                repo={repoName}
+                className="truncate text-xs"
+              />
+            )}
             onEdit={async (id, content) => {
               await updateQueuedMessage({ id, content });
             }}
@@ -380,6 +389,8 @@ export function ChatBody({
                 <MentionTextarea
                   ref={mentionRef}
                   docs={docs}
+                  skills={skills}
+                  skillsSettingsHref={`/${repoOwner}/${repoName}/settings/skills`}
                   placeholder={placeholder}
                 />
                 <PromptInputFooter>

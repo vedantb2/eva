@@ -11,6 +11,63 @@ export function buildMentionPattern(labels: string[]): RegExp {
   return new RegExp(`@(?:${sorted.map(escapeRegex).join("|")})`, "g");
 }
 
+/** Builds an alternation regex that matches `/<label>` for each known skill label. */
+export function buildSkillPattern(labels: string[]): RegExp {
+  const sorted = [...labels].sort((a, b) => b.length - a.length);
+  return new RegExp(`\\/(?:${sorted.map(escapeRegex).join("|")})`, "g");
+}
+
+export interface EditorChipSegment {
+  type: "text" | "mention" | "skill";
+  value: string;
+}
+
+function buildEditorChipPattern(
+  mentionLabels: string[],
+  skillLabels: string[],
+): RegExp | null {
+  const parts: string[] = [];
+  for (const label of [...mentionLabels].sort((a, b) => b.length - a.length)) {
+    parts.push(`@${escapeRegex(label)}`);
+  }
+  for (const label of [...skillLabels].sort((a, b) => b.length - a.length)) {
+    parts.push(`\\/${escapeRegex(label)}`);
+  }
+  if (parts.length === 0) return null;
+  return new RegExp(parts.join("|"), "g");
+}
+
+export function parseEditorChipSegments(
+  value: string,
+  mentionLabels: Iterable<string>,
+  skillLabels: Iterable<string>,
+): EditorChipSegment[] {
+  const mentionArray = [...mentionLabels];
+  const skillArray = [...skillLabels];
+  const pattern = buildEditorChipPattern(mentionArray, skillArray);
+  if (!pattern) return [{ type: "text", value }];
+
+  const segments: EditorChipSegment[] = [];
+  let lastIndex = 0;
+  for (const match of value.matchAll(pattern)) {
+    const start = match.index;
+    if (start === undefined) continue;
+    if (start > lastIndex) {
+      segments.push({ type: "text", value: value.slice(lastIndex, start) });
+    }
+    const token = match[0];
+    segments.push({
+      type: token.startsWith("/") ? "skill" : "mention",
+      value: token,
+    });
+    lastIndex = start + token.length;
+  }
+  if (lastIndex < value.length) {
+    segments.push({ type: "text", value: value.slice(lastIndex) });
+  }
+  return segments;
+}
+
 export interface MentionSegment {
   type: "text" | "mention";
   value: string;
@@ -48,13 +105,27 @@ export function renderMentionHtml(
   labels: Iterable<string>,
   chipClassName: string,
 ): string {
-  const segments = parseSegments(value, labels);
+  return renderEditorChipHtml(value, labels, [], chipClassName, chipClassName);
+}
+
+export function renderEditorChipHtml(
+  value: string,
+  mentionLabels: Iterable<string>,
+  skillLabels: Iterable<string>,
+  mentionChipClassName: string,
+  skillChipClassName: string,
+): string {
+  const segments = parseEditorChipSegments(value, mentionLabels, skillLabels);
   return segments
-    .map((s) =>
-      s.type === "mention"
-        ? `​<span data-mention="true" contenteditable="false" class="${escapeHtml(chipClassName)}">${escapeHtml(s.value)}</span>​`
-        : escapeHtml(s.value).replace(/\n/g, "<br>"),
-    )
+    .map((segment) => {
+      if (segment.type === "mention") {
+        return `​<span data-mention="true" contenteditable="false" class="${escapeHtml(mentionChipClassName)}">${escapeHtml(segment.value)}</span>​`;
+      }
+      if (segment.type === "skill") {
+        return `​<span data-skill="true" contenteditable="false" class="${escapeHtml(skillChipClassName)}">${escapeHtml(segment.value)}</span>​`;
+      }
+      return escapeHtml(segment.value).replace(/\n/g, "<br>");
+    })
     .join("");
 }
 

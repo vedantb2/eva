@@ -16,7 +16,7 @@ import {
   clearStreamingActivity,
 } from "../_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
-import { resolveDocMentions } from "../_mentions/resolveDocMentions";
+import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
 import { buildPlanPrompt, buildEditPrompt } from "./prompts";
 
@@ -321,7 +321,7 @@ export const getSessionData = internalQuery({
 
     const branchName = session.branchName || `eva/session-${args.sessionId}`;
 
-    const { resolvedMessage, prefixBlock } = await resolveDocMentions(
+    const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
       ctx,
       args.message,
       session.repoId,

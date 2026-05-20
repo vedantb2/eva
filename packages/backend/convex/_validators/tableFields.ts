@@ -123,6 +123,13 @@ export const syncSettingFields = {
   enabled: v.boolean(),
 };
 
+export const repoSkillFields = {
+  repoId: v.id("githubRepos"),
+  title: v.string(),
+  prompt: v.string(),
+  createdAt: v.number(),
+};
+
 export const githubRepoFields = {
   owner: v.string(),
   name: v.string(),

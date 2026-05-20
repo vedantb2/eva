@@ -32,6 +32,7 @@ import {
   queuedMessageFields,
   taskSandboxEventFields,
   taskActivityFields,
+  repoSkillFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -229,6 +230,7 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_repo_and_enabled", ["repoId", "enabled"]),
+  repoSkills: defineTable(repoSkillFields).index("by_repo", ["repoId"]),
   audits: defineTable({
     entityId: v.union(v.id("agentTasks"), v.id("sessions")),
     runId: v.optional(v.id("agentRuns")),

@@ -1,5 +1,13 @@
 # Changelog
 
+## Add repo skills slash menu for sandbox chat - 2026-05-20
+
+- **Summary**: New Settings → Skills page (title + prompt per skill). Session, task sandbox, and project sandbox chat support `/` to pick a skill — user sees a `/Title` chip; the prompt is injected server-side at execution, like `@` doc mentions.
+- **Reason**: Teams repeat the same instructions in chat. Skills centralize prompts in repo settings while keeping sent messages readable and hiding long prompt text from the UI.
+- **Schema**: Added `repoSkills` table with `repoId`, `title`, `prompt`, `createdAt`.
+- **Backend**: CRUD via `repoSkills.ts`; `resolveSkillMentions` + `resolveMessageTokens` wired into session, task, and project chat workflows.
+- **Frontend**: Extended `MentionEditor` for `/` trigger; `MentionText` renders skill tokens as chips; settings page at `/settings/skills`.
+
 ## Fix Cursor post-text stall killing in-progress edits - 2026-05-20
 
 - **Summary**: Cursor task runs no longer hit the 45s "stalled after first text" watchdog mid-edit; timeout kills no longer count as success when stream-json already contains a result line.

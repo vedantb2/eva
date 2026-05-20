@@ -11,15 +11,19 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { formatMentionToken } from "./mentionToken";
+import { formatSkillToken } from "./skillToken";
 import {
   buildMentionPattern,
+  buildSkillPattern,
   extractEditableText,
   normalizeMentionText,
   placeCursorAtEnd,
-  renderMentionHtml,
+  renderEditorChipHtml,
 } from "./mentionEditorUtils";
 
 const DEFAULT_CHIP_CLASS = "rounded bg-muted px-1 font-medium text-foreground";
+const DEFAULT_SKILL_CHIP_CLASS =
+  "rounded-md bg-muted/60 px-1 font-medium text-foreground";
 
 const DEFAULT_EDITOR_CLASS =
   "relative block w-full whitespace-pre-wrap break-words bg-transparent text-sm outline-none data-[empty]:before:pointer-events-none data-[empty]:before:select-none data-[empty]:before:absolute data-[empty]:before:text-muted-foreground/90 data-[empty]:before:content-[attr(data-placeholder)]";
@@ -39,17 +43,17 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   value: string;
   onValueChange: (value: string) => void;
   items: TItem[];
+  slashItems?: MentionItem[];
   placeholder?: string;
   className?: string;
   chipClassName?: string;
-  /** If provided, Enter triggers this; Shift+Enter still inserts a newline. Otherwise Enter inserts a newline. */
+  skillChipClassName?: string;
   onEnterSubmit?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
-  /** Custom popup row content for each item. Defaults to `@{label}`. */
   renderItem?: (item: TItem, isSelected: boolean) => ReactNode;
-  /** Custom filter for the popup; defaults to case-insensitive substring on `label`. */
+  renderSlashItem?: (item: MentionItem, isSelected: boolean) => ReactNode;
   filterItem?: (item: TItem, query: string) => boolean;
+  emptySlashContent?: ReactNode;
   maxItems?: number;
-  /** Optional `data-slot` attribute, useful when nesting inside `InputGroup`. */
   dataSlot?: string;
   ariaLabel?: string;
   ref?: Ref<MentionEditorHandle>;
@@ -59,20 +63,75 @@ interface TriggerState {
   isOpen: boolean;
   query: string;
   startIndex: number;
+  kind: "mention" | "slash";
 }
 
 const CLOSED_TRIGGER: TriggerState = {
   isOpen: false,
   query: "",
   startIndex: 0,
+  kind: "mention",
 };
 
 function defaultRenderItem(item: MentionItem): ReactNode {
   return <span className="block w-full truncate">@{item.label}</span>;
 }
 
+function defaultRenderSlashItem(item: MentionItem): ReactNode {
+  return <span className="block w-full truncate">/{item.label}</span>;
+}
+
 function defaultFilter(item: MentionItem, query: string): boolean {
   return item.label.toLowerCase().includes(query.toLowerCase());
+}
+
+function isValidTrigger(value: string, triggerIndex: number): boolean {
+  const textAfter = value.slice(triggerIndex + 1);
+  if (textAfter.includes("\n") || /\s/.test(textAfter)) {
+    return false;
+  }
+  const charBefore = triggerIndex > 0 ? value[triggerIndex - 1] : "";
+  return (
+    triggerIndex === 0 || (charBefore !== undefined && /\s/.test(charBefore))
+  );
+}
+
+function findActiveTrigger(
+  value: string,
+  hasMentions: boolean,
+  hasSlash: boolean,
+): TriggerState | null {
+  const candidates: Array<{
+    kind: "mention" | "slash";
+    index: number;
+  }> = [];
+
+  if (hasMentions) {
+    const atIndex = value.lastIndexOf("@");
+    if (atIndex !== -1 && isValidTrigger(value, atIndex)) {
+      candidates.push({ kind: "mention", index: atIndex });
+    }
+  }
+
+  if (hasSlash) {
+    const slashIndex = value.lastIndexOf("/");
+    if (slashIndex !== -1 && isValidTrigger(value, slashIndex)) {
+      candidates.push({ kind: "slash", index: slashIndex });
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
+  const active = candidates.reduce((best, candidate) =>
+    candidate.index >= best.index ? candidate : best,
+  );
+
+  return {
+    isOpen: true,
+    query: value.slice(active.index + 1),
+    startIndex: active.index,
+    kind: active.kind,
+  };
 }
 
 export function MentionEditor<TItem extends MentionItem = MentionItem>({
@@ -80,12 +139,16 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   value,
   onValueChange,
   items,
+  slashItems = [],
   placeholder,
   className,
   chipClassName = DEFAULT_CHIP_CLASS,
+  skillChipClassName = DEFAULT_SKILL_CHIP_CLASS,
   onEnterSubmit,
   renderItem = defaultRenderItem,
+  renderSlashItem = defaultRenderSlashItem,
   filterItem = defaultFilter,
+  emptySlashContent,
   maxItems = 8,
   dataSlot,
   ariaLabel,
@@ -97,55 +160,84 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   const [mentionMap, setMentionMap] = useState<Map<string, TItem["id"]>>(
     () => new Map(),
   );
+  const [skillMap, setSkillMap] = useState<Map<string, string>>(
+    () => new Map(),
+  );
   const [isComposing, setIsComposing] = useState(false);
 
-  // Auto-reset the mention map after the value clears (e.g. post-submit).
   useEffect(() => {
-    if (value === "" && mentionMap.size > 0) {
+    if (value === "" && (mentionMap.size > 0 || skillMap.size > 0)) {
       setMentionMap(new Map());
+      setSkillMap(new Map());
     }
-  }, [value, mentionMap.size]);
+  }, [value, mentionMap.size, skillMap.size]);
 
-  // Reconcile DOM with external value. During typing, onInput already pushed
-  // the text upward, so DOM === value here and we skip — preserving the caret.
   useEffect(() => {
     const el = editorRef.current;
     if (!el) return;
     if (normalizeMentionText(extractEditableText(el)) !== value) {
-      el.innerHTML = renderMentionHtml(value, mentionMap.keys(), chipClassName);
+      el.innerHTML = renderEditorChipHtml(
+        value,
+        mentionMap.keys(),
+        skillMap.keys(),
+        chipClassName,
+        skillChipClassName,
+      );
       placeCursorAtEnd(el);
     }
-  }, [value, mentionMap, chipClassName]);
+  }, [value, mentionMap, skillMap, chipClassName, skillChipClassName]);
 
   useImperativeHandle(
     ref,
     () => ({
       tokenize: (text: string) => {
-        if (mentionMap.size === 0) return text;
-        const pattern = buildMentionPattern([...mentionMap.keys()]);
-        return text.replace(pattern, (m) => {
-          const label = m.slice(1);
-          const id = mentionMap.get(label);
-          return id ? formatMentionToken(label, id) : m;
-        });
+        let result = text;
+        if (mentionMap.size > 0) {
+          const pattern = buildMentionPattern([...mentionMap.keys()]);
+          result = result.replace(pattern, (match) => {
+            const label = match.slice(1);
+            const id = mentionMap.get(label);
+            return id ? formatMentionToken(label, id) : match;
+          });
+        }
+        if (skillMap.size > 0) {
+          const pattern = buildSkillPattern([...skillMap.keys()]);
+          result = result.replace(pattern, (match) => {
+            const label = match.slice(1);
+            const id = skillMap.get(label);
+            return id ? formatSkillToken(label, id) : match;
+          });
+        }
+        return result;
       },
-      reset: () => setMentionMap(new Map()),
+      reset: () => {
+        setMentionMap(new Map());
+        setSkillMap(new Map());
+      },
       focus: () => editorRef.current?.focus(),
     }),
-    [mentionMap],
+    [mentionMap, skillMap],
   );
 
-  const filteredItems = items
+  const activeSlashItems = slashItems
+    .filter((item) => filterItem(item as TItem, trigger.query))
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .slice(0, maxItems);
+
+  const activeMentionItems = items
     .filter((item) => filterItem(item, trigger.query))
     .sort((a, b) => a.label.localeCompare(b.label))
     .slice(0, maxItems);
+
+  const popupItems =
+    trigger.kind === "slash" ? activeSlashItems : activeMentionItems;
 
   const closeTrigger = useCallback(() => {
     setTrigger((prev) => (prev.isOpen ? CLOSED_TRIGGER : prev));
     setSelectedIndex(0);
   }, []);
 
-  const insertItem = useCallback(
+  const insertMentionItem = useCallback(
     (item: TItem) => {
       const visible = `@${item.label}`;
       const before = value.slice(0, trigger.startIndex);
@@ -169,35 +261,61 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     ],
   );
 
-  // Detect "@" trigger.
-  useEffect(() => {
-    const lastAtIndex = value.lastIndexOf("@");
-    if (lastAtIndex === -1) {
-      setTrigger((prev) => (prev.isOpen ? CLOSED_TRIGGER : prev));
-      return;
-    }
-    const textAfterAt = value.slice(lastAtIndex + 1);
-    if (textAfterAt.includes("\n") || /\s/.test(textAfterAt)) {
-      setTrigger((prev) => (prev.isOpen ? CLOSED_TRIGGER : prev));
-      return;
-    }
-    const charBeforeAt = lastAtIndex > 0 ? value[lastAtIndex - 1] : "";
-    const isStartOfWord =
-      lastAtIndex === 0 ||
-      (charBeforeAt !== undefined && /\s/.test(charBeforeAt));
-    if (!isStartOfWord) {
-      setTrigger((prev) => (prev.isOpen ? CLOSED_TRIGGER : prev));
-      return;
-    }
-    setTrigger({
-      isOpen: true,
-      query: textAfterAt,
-      startIndex: lastAtIndex,
-    });
-    setSelectedIndex(0);
-  }, [value]);
+  const insertSlashItem = useCallback(
+    (item: MentionItem) => {
+      const visible = `/${item.label}`;
+      const before = value.slice(0, trigger.startIndex);
+      const after = value.slice(trigger.startIndex + trigger.query.length + 1);
+      const newValue = before + visible + " " + after;
+      setSkillMap((prev) => {
+        const next = new Map(prev);
+        next.set(item.label, item.id);
+        return next;
+      });
+      onValueChange(newValue);
+      closeTrigger();
+      requestAnimationFrame(() => editorRef.current?.focus());
+    },
+    [
+      onValueChange,
+      trigger.startIndex,
+      trigger.query.length,
+      closeTrigger,
+      value,
+    ],
+  );
 
-  // Position popup above the editor.
+  const insertActiveItem = useCallback(() => {
+    if (trigger.kind === "slash") {
+      const item = activeSlashItems[selectedIndex];
+      if (item) insertSlashItem(item);
+      return;
+    }
+    const item = activeMentionItems[selectedIndex];
+    if (item) insertMentionItem(item);
+  }, [
+    trigger.kind,
+    activeSlashItems,
+    activeMentionItems,
+    selectedIndex,
+    insertSlashItem,
+    insertMentionItem,
+  ]);
+
+  useEffect(() => {
+    const next = findActiveTrigger(
+      value,
+      items.length > 0,
+      slashItems.length > 0 || emptySlashContent !== undefined,
+    );
+    if (!next) {
+      setTrigger((prev) => (prev.isOpen ? CLOSED_TRIGGER : prev));
+      return;
+    }
+    setTrigger(next);
+    setSelectedIndex(0);
+  }, [value, items.length, slashItems.length, emptySlashContent]);
+
   useEffect(() => {
     if (!trigger.isOpen) return;
     const update = () => {
@@ -226,34 +344,40 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (trigger.isOpen && filteredItems.length > 0) {
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setSelectedIndex((prev) =>
-            prev >= filteredItems.length - 1 ? 0 : prev + 1,
-          );
-          return;
-        }
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setSelectedIndex((prev) =>
-            prev <= 0 ? filteredItems.length - 1 : prev - 1,
-          );
-          return;
-        }
-        if (e.key === "Enter") {
-          if (isComposing || e.nativeEvent.isComposing) return;
-          e.preventDefault();
-          e.stopPropagation();
-          const item = filteredItems[selectedIndex];
-          if (item) insertItem(item);
-          return;
-        }
-        if (e.key === "Tab") {
-          e.preventDefault();
-          const item = filteredItems[selectedIndex];
-          if (item) insertItem(item);
-          return;
+      const showEmptySlash =
+        trigger.isOpen &&
+        trigger.kind === "slash" &&
+        popupItems.length === 0 &&
+        emptySlashContent !== undefined;
+
+      if (trigger.isOpen && (popupItems.length > 0 || showEmptySlash)) {
+        if (popupItems.length > 0) {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setSelectedIndex((prev) =>
+              prev >= popupItems.length - 1 ? 0 : prev + 1,
+            );
+            return;
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setSelectedIndex((prev) =>
+              prev <= 0 ? popupItems.length - 1 : prev - 1,
+            );
+            return;
+          }
+          if (e.key === "Enter") {
+            if (isComposing || e.nativeEvent.isComposing) return;
+            e.preventDefault();
+            e.stopPropagation();
+            insertActiveItem();
+            return;
+          }
+          if (e.key === "Tab") {
+            e.preventDefault();
+            insertActiveItem();
+            return;
+          }
         }
         if (e.key === "Escape") {
           e.preventDefault();
@@ -271,9 +395,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     },
     [
       trigger.isOpen,
-      filteredItems,
-      selectedIndex,
-      insertItem,
+      trigger.kind,
+      popupItems.length,
+      emptySlashContent,
+      insertActiveItem,
       closeTrigger,
       isComposing,
       onEnterSubmit,
@@ -301,28 +426,35 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     [handleInput],
   );
 
-  // Browsers (notably Firefox) auto-insert a <br> into an empty contentEditable.
-  // Treat a lone newline as visually empty so the placeholder remains visible.
   const isEmpty = value === "" || value === "\n";
 
-  const popup =
-    trigger.isOpen && filteredItems.length > 0 ? (
-      <div
-        className="fixed z-50 overflow-hidden rounded-md bg-popover py-1 text-popover-foreground shadow-md"
-        style={{
-          left: position.left,
-          top: position.top - 8,
-          width: position.width,
-          transform: "translateY(-100%)",
-        }}
-      >
-        {filteredItems.map((item, index) => (
+  const showPopup =
+    trigger.isOpen &&
+    (popupItems.length > 0 ||
+      (trigger.kind === "slash" && emptySlashContent !== undefined));
+
+  const popup = showPopup ? (
+    <div
+      className="fixed z-50 overflow-hidden rounded-md bg-popover py-1 text-popover-foreground shadow-md"
+      style={{
+        left: position.left,
+        top: position.top - 8,
+        width: position.width,
+        transform: "translateY(-100%)",
+      }}
+    >
+      {popupItems.length > 0 ? (
+        popupItems.map((item, index) => (
           <button
             key={item.id}
             type="button"
             onMouseDown={(e) => {
               e.preventDefault();
-              insertItem(item);
+              if (trigger.kind === "slash") {
+                insertSlashItem(item);
+              } else {
+                insertMentionItem(item as TItem);
+              }
             }}
             className={
               "flex w-full items-baseline px-3 py-1.5 text-left text-sm " +
@@ -331,11 +463,18 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
                 : "hover:bg-accent hover:text-accent-foreground")
             }
           >
-            {renderItem(item, index === selectedIndex)}
+            {trigger.kind === "slash"
+              ? renderSlashItem(item, index === selectedIndex)
+              : renderItem(item as TItem, index === selectedIndex)}
           </button>
-        ))}
-      </div>
-    ) : null;
+        ))
+      ) : (
+        <div className="px-3 py-2 text-xs text-muted-foreground">
+          {emptySlashContent}
+        </div>
+      )}
+    </div>
+  ) : null;
 
   return (
     <>

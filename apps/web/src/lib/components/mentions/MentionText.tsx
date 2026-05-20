@@ -1,7 +1,13 @@
 import { Fragment, type ReactNode } from "react";
 import { MENTION_TOKEN_REGEX } from "./mentionToken";
+import { SKILL_TOKEN_REGEX } from "./skillToken";
 
 export interface MentionMatch {
+  label: string;
+  id: string;
+}
+
+export interface SkillMatch {
   label: string;
   id: string;
 }
@@ -9,8 +15,8 @@ export interface MentionMatch {
 interface MentionTextProps {
   text: string;
   className?: string;
-  /** How to render each `@[label](id)` token. Defaults to a styled chip. */
   renderMention?: (match: MentionMatch, key: number) => ReactNode;
+  renderSkill?: (match: SkillMatch, key: number) => ReactNode;
 }
 
 interface PlainSegment {
@@ -23,25 +29,48 @@ interface MentionSegmentMatch {
   match: MentionMatch;
 }
 
-type Segment = PlainSegment | MentionSegmentMatch;
+interface SkillSegmentMatch {
+  kind: "skill";
+  match: SkillMatch;
+}
+
+type Segment = PlainSegment | MentionSegmentMatch | SkillSegmentMatch;
 
 function parseSegments(text: string): Segment[] {
+  const combined = new RegExp(
+    `${MENTION_TOKEN_REGEX.source}|${SKILL_TOKEN_REGEX.source}`,
+    "g",
+  );
+
   const segments: Segment[] = [];
   let cursor = 0;
-  const regex = new RegExp(MENTION_TOKEN_REGEX);
 
-  for (const m of text.matchAll(regex)) {
-    const start = m.index;
+  for (const match of text.matchAll(combined)) {
+    const start = match.index;
     if (start === undefined) continue;
     if (start > cursor) {
       segments.push({ kind: "text", value: text.slice(cursor, start) });
     }
-    segments.push({ kind: "mention", match: { label: m[1], id: m[2] } });
-    cursor = start + m[0].length;
+
+    if (match[0].startsWith("@")) {
+      segments.push({
+        kind: "mention",
+        match: { label: match[1], id: match[2] },
+      });
+    } else {
+      segments.push({
+        kind: "skill",
+        match: { label: match[3], id: match[4] },
+      });
+    }
+
+    cursor = start + match[0].length;
   }
+
   if (cursor < text.length) {
     segments.push({ kind: "text", value: text.slice(cursor) });
   }
+
   return segments;
 }
 
@@ -51,10 +80,20 @@ const defaultRenderMention = (match: MentionMatch, key: number): ReactNode => (
   </span>
 );
 
+const defaultRenderSkill = (match: SkillMatch, key: number): ReactNode => (
+  <span
+    key={key}
+    className="rounded-md bg-muted/60 px-1 font-medium text-foreground"
+  >
+    /{match.label}
+  </span>
+);
+
 export function MentionText({
   text,
   className,
   renderMention = defaultRenderMention,
+  renderSkill = defaultRenderSkill,
 }: MentionTextProps) {
   const segments = parseSegments(text);
 
@@ -68,7 +107,10 @@ export function MentionText({
         if (segment.kind === "text") {
           return <Fragment key={i}>{segment.value}</Fragment>;
         }
-        return renderMention(segment.match, i);
+        if (segment.kind === "mention") {
+          return renderMention(segment.match, i);
+        }
+        return renderSkill(segment.match, i);
       })}
     </p>
   );

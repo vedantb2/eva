@@ -36,10 +36,18 @@ export function MessageMentionText({
               },
             })
           }
-          className="bg-muted text-foreground rounded px-1 font-medium hover:bg-muted/80 transition-colors"
+          className="rounded bg-muted px-1 font-medium text-foreground transition-colors hover:bg-muted/80"
         >
           @{match.label}
         </button>
+      )}
+      renderSkill={(match, key) => (
+        <span
+          key={key}
+          className="rounded-md bg-muted/60 px-1 font-medium text-foreground"
+        >
+          /{match.label}
+        </span>
       )}
     />
   );

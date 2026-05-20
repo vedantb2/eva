@@ -22,6 +22,7 @@ import {
 import { buildProjectChatPrompt } from "./_projects/chatPrompt";
 import { getProjectGeneratedSpec } from "./_projects/helpers";
 import { buildCustomInstructionsBlock } from "./prompts";
+import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 
 // Tools available to chat — full read/write but Eva never commits/pushes
 // from chat (see prompt). Mirrors session edit mode but without branch ops.
@@ -324,19 +325,28 @@ export const getChatData = internalQuery({
       user?.customInstructions ?? undefined,
     );
 
-    const prompt = buildProjectChatPrompt({
+    const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
+      ctx,
+      args.message,
+      project.repoId,
+    );
+
+    let prompt = buildProjectChatPrompt({
       repoOwner: repo.owner,
       repoName: repo.name,
       title: project.title,
       description: project.description,
       branchName: project.branchName,
       generatedSpec,
-      message: args.message,
+      message: resolvedMessage,
       responseLength: args.responseLength,
       rootDirectory: repo.rootDirectory ?? "",
       customInstructionsBlock,
       systemPrompt: repo.systemPrompt,
     });
+    if (prefixBlock) {
+      prompt = `${prefixBlock}\n\n${prompt}`;
+    }
 
     return {
       sandboxId: project.sandboxId,

@@ -21,6 +21,7 @@ import {
 } from "./workflowWatchdog";
 import { buildAgentTaskChatPrompt } from "./_agentTasks/chatPrompt";
 import { buildCustomInstructionsBlock } from "./prompts";
+import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
 
@@ -332,7 +333,13 @@ export const getChatData = internalQuery({
       user?.customInstructions ?? undefined,
     );
 
-    const prompt = buildAgentTaskChatPrompt({
+    const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
+      ctx,
+      args.message,
+      task.repoId,
+    );
+
+    let prompt = buildAgentTaskChatPrompt({
       repoOwner: repo.owner,
       repoName: repo.name,
       title: task.title,
@@ -340,12 +347,15 @@ export const getChatData = internalQuery({
       tags: task.tags,
       taskNumber: task.taskNumber,
       status: task.status,
-      message: args.message,
+      message: resolvedMessage,
       responseLength: args.responseLength,
       rootDirectory: repo.rootDirectory ?? "",
       customInstructionsBlock,
       systemPrompt: repo.systemPrompt,
     });
+    if (prefixBlock) {
+      prompt = `${prefixBlock}\n\n${prompt}`;
+    }
 
     return {
       sandboxId: task.sandboxId,

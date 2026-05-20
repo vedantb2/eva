@@ -37,6 +37,7 @@ import { Route as RepoOwnerRepoDocsIndexRouteImport } from './routes/_repo/$owne
 import { Route as RepoOwnerRepoDesignsIndexRouteImport } from './routes/_repo/$owner/$repo/designs/index'
 import { Route as RepoOwnerRepoAutomationsIndexRouteImport } from './routes/_repo/$owner/$repo/automations/index'
 import { Route as RepoOwnerRepoSettingsThemeRouteImport } from './routes/_repo/$owner/$repo/settings/theme'
+import { Route as RepoOwnerRepoSettingsSkillsRouteImport } from './routes/_repo/$owner/$repo/settings/skills'
 import { Route as RepoOwnerRepoSettingsPersonalisationRouteImport } from './routes/_repo/$owner/$repo/settings/personalisation'
 import { Route as RepoOwnerRepoSettingsMonorepoRouteImport } from './routes/_repo/$owner/$repo/settings/monorepo'
 import { Route as RepoOwnerRepoSettingsMcpConfigRouteImport } from './routes/_repo/$owner/$repo/settings/mcp-config'
@@ -217,6 +218,12 @@ const RepoOwnerRepoSettingsThemeRoute =
   RepoOwnerRepoSettingsThemeRouteImport.update({
     id: '/settings/theme',
     path: '/settings/theme',
+    getParentRoute: () => RepoOwnerRepoRoute,
+  } as any)
+const RepoOwnerRepoSettingsSkillsRoute =
+  RepoOwnerRepoSettingsSkillsRouteImport.update({
+    id: '/settings/skills',
+    path: '/settings/skills',
     getParentRoute: () => RepoOwnerRepoRoute,
   } as any)
 const RepoOwnerRepoSettingsPersonalisationRoute =
@@ -450,6 +457,7 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/settings/mcp-config': typeof RepoOwnerRepoSettingsMcpConfigRoute
   '/$owner/$repo/settings/monorepo': typeof RepoOwnerRepoSettingsMonorepoRoute
   '/$owner/$repo/settings/personalisation': typeof RepoOwnerRepoSettingsPersonalisationRoute
+  '/$owner/$repo/settings/skills': typeof RepoOwnerRepoSettingsSkillsRoute
   '/$owner/$repo/settings/theme': typeof RepoOwnerRepoSettingsThemeRoute
   '/$owner/$repo/automations/': typeof RepoOwnerRepoAutomationsIndexRoute
   '/$owner/$repo/designs/': typeof RepoOwnerRepoDesignsIndexRoute
@@ -503,6 +511,7 @@ export interface FileRoutesByTo {
   '/$owner/$repo/settings/mcp-config': typeof RepoOwnerRepoSettingsMcpConfigRoute
   '/$owner/$repo/settings/monorepo': typeof RepoOwnerRepoSettingsMonorepoRoute
   '/$owner/$repo/settings/personalisation': typeof RepoOwnerRepoSettingsPersonalisationRoute
+  '/$owner/$repo/settings/skills': typeof RepoOwnerRepoSettingsSkillsRoute
   '/$owner/$repo/settings/theme': typeof RepoOwnerRepoSettingsThemeRoute
   '/$owner/$repo/automations': typeof RepoOwnerRepoAutomationsIndexRoute
   '/$owner/$repo/designs': typeof RepoOwnerRepoDesignsIndexRoute
@@ -566,6 +575,7 @@ export interface FileRoutesById {
   '/_repo/$owner/$repo/settings/mcp-config': typeof RepoOwnerRepoSettingsMcpConfigRoute
   '/_repo/$owner/$repo/settings/monorepo': typeof RepoOwnerRepoSettingsMonorepoRoute
   '/_repo/$owner/$repo/settings/personalisation': typeof RepoOwnerRepoSettingsPersonalisationRoute
+  '/_repo/$owner/$repo/settings/skills': typeof RepoOwnerRepoSettingsSkillsRoute
   '/_repo/$owner/$repo/settings/theme': typeof RepoOwnerRepoSettingsThemeRoute
   '/_repo/$owner/$repo/automations/': typeof RepoOwnerRepoAutomationsIndexRoute
   '/_repo/$owner/$repo/designs/': typeof RepoOwnerRepoDesignsIndexRoute
@@ -629,6 +639,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/settings/mcp-config'
     | '/$owner/$repo/settings/monorepo'
     | '/$owner/$repo/settings/personalisation'
+    | '/$owner/$repo/settings/skills'
     | '/$owner/$repo/settings/theme'
     | '/$owner/$repo/automations/'
     | '/$owner/$repo/designs/'
@@ -682,6 +693,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/settings/mcp-config'
     | '/$owner/$repo/settings/monorepo'
     | '/$owner/$repo/settings/personalisation'
+    | '/$owner/$repo/settings/skills'
     | '/$owner/$repo/settings/theme'
     | '/$owner/$repo/automations'
     | '/$owner/$repo/designs'
@@ -744,6 +756,7 @@ export interface FileRouteTypes {
     | '/_repo/$owner/$repo/settings/mcp-config'
     | '/_repo/$owner/$repo/settings/monorepo'
     | '/_repo/$owner/$repo/settings/personalisation'
+    | '/_repo/$owner/$repo/settings/skills'
     | '/_repo/$owner/$repo/settings/theme'
     | '/_repo/$owner/$repo/automations/'
     | '/_repo/$owner/$repo/designs/'
@@ -977,6 +990,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/theme'
       fullPath: '/$owner/$repo/settings/theme'
       preLoaderRoute: typeof RepoOwnerRepoSettingsThemeRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/settings/skills': {
+      id: '/_repo/$owner/$repo/settings/skills'
+      path: '/settings/skills'
+      fullPath: '/$owner/$repo/settings/skills'
+      preLoaderRoute: typeof RepoOwnerRepoSettingsSkillsRouteImport
       parentRoute: typeof RepoOwnerRepoRoute
     }
     '/_repo/$owner/$repo/settings/personalisation': {
@@ -1402,6 +1422,7 @@ interface RepoOwnerRepoRouteChildren {
   RepoOwnerRepoSettingsMcpConfigRoute: typeof RepoOwnerRepoSettingsMcpConfigRoute
   RepoOwnerRepoSettingsMonorepoRoute: typeof RepoOwnerRepoSettingsMonorepoRoute
   RepoOwnerRepoSettingsPersonalisationRoute: typeof RepoOwnerRepoSettingsPersonalisationRoute
+  RepoOwnerRepoSettingsSkillsRoute: typeof RepoOwnerRepoSettingsSkillsRoute
   RepoOwnerRepoSettingsThemeRoute: typeof RepoOwnerRepoSettingsThemeRoute
   RepoOwnerRepoAutomationsIndexRoute: typeof RepoOwnerRepoAutomationsIndexRoute
   RepoOwnerRepoDesignsIndexRoute: typeof RepoOwnerRepoDesignsIndexRoute
@@ -1440,6 +1461,7 @@ const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
   RepoOwnerRepoSettingsMonorepoRoute: RepoOwnerRepoSettingsMonorepoRoute,
   RepoOwnerRepoSettingsPersonalisationRoute:
     RepoOwnerRepoSettingsPersonalisationRoute,
+  RepoOwnerRepoSettingsSkillsRoute: RepoOwnerRepoSettingsSkillsRoute,
   RepoOwnerRepoSettingsThemeRoute: RepoOwnerRepoSettingsThemeRoute,
   RepoOwnerRepoAutomationsIndexRoute: RepoOwnerRepoAutomationsIndexRoute,
   RepoOwnerRepoDesignsIndexRoute: RepoOwnerRepoDesignsIndexRoute,

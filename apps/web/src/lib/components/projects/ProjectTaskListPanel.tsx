@@ -157,6 +157,17 @@ export function ProjectTaskListPanel({
     for (const task of tasks) {
       groups[task.status].push(task);
     }
+    // Sort non-todo groups by latest run date (descending), falling back to createdAt
+    const sortByLastRun = (a: Task, b: Task) => {
+      const aTime = a.lastRunStartedAt ?? a.createdAt;
+      const bTime = b.lastRunStartedAt ?? b.createdAt;
+      return bTime - aTime;
+    };
+    for (const status of Object.keys(groups) as TaskStatus[]) {
+      if (status !== "todo") {
+        groups[status].sort(sortByLastRun);
+      }
+    }
     return groups;
   }, [tasks]);
 

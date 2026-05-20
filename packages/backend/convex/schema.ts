@@ -55,17 +55,6 @@ const schema = defineSchema({
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),
 
-  userMigrations: defineTable({
-    clerkUserId: v.string(),
-    userId: v.id("users"),
-    email: v.string(),
-    migratedAt: v.number(),
-    migrationStatus: v.union(v.literal("started"), v.literal("completed")),
-  })
-    .index("by_clerk_user_id", ["clerkUserId"])
-    .index("by_user_id", ["userId"])
-    .index("by_email", ["email"]),
-
   projects: defineTable(projectFields)
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])

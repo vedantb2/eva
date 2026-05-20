@@ -9,7 +9,6 @@
     "update:dev": "pnpm --filter eva update:dev",
     "update:preview": "pnpm --filter eva update:preview",
     "dev": "pnpm --filter @conductor/web dev",
-    "turbo": "pnpm --filter conductor turbo",
     "convex": "pnpm --filter @conductor/backend dev",
     "convex:deploy": "pnpm --filter @conductor/backend run deploy",
     "convex:all": "pnpm --filter @conductor/backend run dev:all",
@@ -20,8 +19,6 @@
     "desktop:dev": "pnpm --filter conductor-desktop dev",
     "desktop:build": "pnpm --filter conductor-desktop build",
     "desktop:dist": "pnpm --filter conductor-desktop dist",
-    "mcp:dev": "pnpm --filter conductor-mcp dev",
-    "mcp-v2:dev": "pnpm --filter conductor-mcp-v2 dev",
     "prepare": "husky"
   },
   "lint-staged": {

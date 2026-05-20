@@ -1,5 +1,10 @@
 # Changelog
 
+## Remove dead backend exports and legacy CI - 2026-05-20
+
+- **Summary**: Dropped unused Convex mutations/queries (`evaluationReports.create/get`, duplicate doc test-gen helpers, unused `messages` CRUD), removed orphan `userMigrations` schema table, deleted legacy E2B/Daytona snapshot GitHub workflows, and removed broken root npm scripts (`mcp:dev`, `mcp-v2:dev`, `turbo`).
+- **Reason**: Workflows and clients had moved to direct DB writes or dedicated modules; keeping dead API surface and schema tables adds maintenance noise without callers.
+
 ## Per-automation monorepo sharing - 2026-05-20
 
 - **Summary**: Each automation has a "Share across apps" toggle in Settings (monorepos only). Shared automations appear in every app's sidebar and run from the monorepo root; app-specific ones stay scoped to that app.

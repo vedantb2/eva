@@ -25,6 +25,7 @@ import type * as _automationWorkflow_findings from "../_automationWorkflow/findi
 import type * as _automationWorkflow_prompts from "../_automationWorkflow/prompts.js";
 import type * as _automations_crud from "../_automations/crud.js";
 import type * as _automations_findings from "../_automations/findings.js";
+import type * as _automations_helpers from "../_automations/helpers.js";
 import type * as _automations_runs from "../_automations/runs.js";
 import type * as _automations_triggers from "../_automations/triggers.js";
 import type * as _daytona_audit from "../_daytona/audit.js";
@@ -228,6 +229,7 @@ declare const fullApi: ApiFromModules<{
   "_automationWorkflow/prompts": typeof _automationWorkflow_prompts;
   "_automations/crud": typeof _automations_crud;
   "_automations/findings": typeof _automations_findings;
+  "_automations/helpers": typeof _automations_helpers;
   "_automations/runs": typeof _automations_runs;
   "_automations/triggers": typeof _automations_triggers;
   "_daytona/audit": typeof _daytona_audit;

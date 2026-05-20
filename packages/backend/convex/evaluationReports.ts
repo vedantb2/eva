@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import { authQuery, hasRepoAccess } from "./functions";
 import {
   evaluationStatusValidator,
   evalResultValidator,
@@ -36,40 +36,5 @@ export const listByDoc = authQuery({
       .withIndex("by_doc", (q) => q.eq("docId", args.docId))
       .collect();
     return reports.sort((a, b) => b.createdAt - a.createdAt);
-  },
-});
-
-/** Retrieves a single evaluation report by ID. */
-export const get = authQuery({
-  args: { id: v.id("evaluationReports") },
-  returns: v.union(reportValidator, v.null()),
-  handler: async (ctx, args) => {
-    const report = await ctx.db.get(args.id);
-    if (!report) return null;
-    if (!(await hasRepoAccess(ctx.db, report.repoId, ctx.userId))) return null;
-    return report;
-  },
-});
-
-/** Creates a new pending evaluation report for a document. */
-export const create = authMutation({
-  args: {
-    repoId: v.id("githubRepos"),
-    docId: v.id("docs"),
-  },
-  returns: v.id("evaluationReports"),
-  handler: async (ctx, args) => {
-    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-    const now = Date.now();
-    return await ctx.db.insert("evaluationReports", {
-      repoId: args.repoId,
-      docId: args.docId,
-      status: "pending",
-      results: [],
-      createdAt: now,
-      updatedAt: now,
-    });
   },
 });

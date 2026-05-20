@@ -1,4 +1,3 @@
-import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { Timeline } from "convex-timeline";
@@ -193,56 +192,6 @@ export const remove = authMutation({
   },
 });
 
-/** Marks a doc as having test generation in progress. */
-export const startTestGen = authMutation({
-  args: { id: v.id("docs") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const doc = await ctx.db.get(args.id);
-    if (!doc) {
-      throw new Error("Doc not found");
-    }
-    await ctx.db.patch(args.id, {
-      testGenStatus: "running",
-      testPrUrl: undefined,
-    });
-    return null;
-  },
-});
-
-/** Marks test generation as completed and saves the PR URL. */
-export const completeTestGen = authMutation({
-  args: { id: v.id("docs"), prUrl: v.string() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const doc = await ctx.db.get(args.id);
-    if (!doc) {
-      throw new Error("Doc not found");
-    }
-    await ctx.db.patch(args.id, {
-      testGenStatus: "completed",
-      testPrUrl: args.prUrl,
-    });
-    return null;
-  },
-});
-
-/** Marks test generation as failed with an error status. */
-export const failTestGen = authMutation({
-  args: { id: v.id("docs") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const doc = await ctx.db.get(args.id);
-    if (!doc) {
-      throw new Error("Doc not found");
-    }
-    await ctx.db.patch(args.id, {
-      testGenStatus: "error",
-    });
-    return null;
-  },
-});
-
 /** Saves a new version snapshot to the doc's timeline for undo/redo support. */
 export const saveVersion = authMutation({
   args: { id: v.id("docs"), content: v.string() },
@@ -343,27 +292,6 @@ export const addInterviewMessage = authMutation({
   },
 });
 
-/** Updates the content or activity log of the last interview message (for streaming). */
-export const updateLastInterviewMessage = authMutation({
-  args: {
-    id: v.id("docs"),
-    content: v.optional(v.string()),
-    activityLog: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const doc = await ctx.db.get(args.id);
-    if (!doc) throw new Error("Doc not found");
-    const history = [...(doc.interviewHistory ?? [])];
-    const last = history[history.length - 1];
-    if (!last) return null;
-    if (args.content !== undefined) last.content = args.content;
-    if (args.activityLog !== undefined) last.activityLog = args.activityLog;
-    await ctx.db.patch(args.id, { interviewHistory: history });
-    return null;
-  },
-});
-
 /** Clears a doc's interview history and associated sandbox. */
 export const clearInterview = authMutation({
   args: { id: v.id("docs") },
@@ -375,18 +303,6 @@ export const clearInterview = authMutation({
       interviewHistory: undefined,
       sandboxId: undefined,
     });
-    return null;
-  },
-});
-
-/** Associates a sandbox ID with a doc for live interview execution. */
-export const updateDocSandbox = authMutation({
-  args: { id: v.id("docs"), sandboxId: v.string() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const doc = await ctx.db.get(args.id);
-    if (!doc) throw new Error("Doc not found");
-    await ctx.db.patch(args.id, { sandboxId: args.sandboxId });
     return null;
   },
 });

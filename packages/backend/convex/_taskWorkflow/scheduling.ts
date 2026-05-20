@@ -5,7 +5,7 @@ import { workflow } from "../workflowManager";
 import { hasActiveRun, isFirstTaskOnBranch } from "../functions";
 import { isDaytonaNetworkIssue, buildQuickTaskRetryDelayMs } from "./recovery";
 import { buildProjectBranchName } from "../_projects/helpers";
-import { resolveTaskWorkflowBaseBranch } from "./resolveBaseBranch";
+import { resolveTaskWorkflowBaseBranchForTask } from "./resolveBaseBranch";
 
 /** Schedules an automatic retry for a failed quick task if the failure looks transient. */
 export const maybeScheduleQuickTaskRetry = internalMutation({
@@ -153,6 +153,12 @@ export const executeScheduledTask = internalMutation({
         : buildProjectBranchName(task.projectId);
     }
 
+    const baseBranch = await resolveTaskWorkflowBaseBranchForTask(
+      ctx.db,
+      task,
+      repo,
+    );
+
     const workflowId = await workflow.start(
       ctx,
       internal.taskWorkflow.taskExecutionWorkflow,
@@ -163,7 +169,7 @@ export const executeScheduledTask = internalMutation({
         installationId: repo.installationId,
         projectId: task.projectId,
         branchName,
-        baseBranch: resolveTaskWorkflowBaseBranch(task, repo),
+        baseBranch,
         isFirstTaskOnBranch: firstOnBranch,
         model: task.model,
         userId: task.createdBy,

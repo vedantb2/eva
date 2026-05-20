@@ -116,7 +116,7 @@ export const startExecution = authMutation({
               ? (project.branchName ??
                 buildProjectBranchName(task.projectId, project.branchVersion))
               : undefined,
-          baseBranch: resolveTaskWorkflowBaseBranch(task, repo),
+          baseBranch: resolveTaskWorkflowBaseBranch(task, repo, project),
           isFirstTaskOnBranch: firstOnBranch,
           model: task.model ?? repo.defaultModel,
           userId: ctx.userId,
@@ -156,7 +156,11 @@ export const startExecution = authMutation({
           ? (project.branchName ??
             buildProjectBranchName(task.projectId, project.branchVersion))
           : undefined,
-      baseBranch: resolveTaskWorkflowBaseBranch(task, repo),
+      baseBranch: resolveTaskWorkflowBaseBranch(
+        task,
+        repo,
+        project ?? undefined,
+      ),
       isFirstTaskOnBranch: firstOnBranch,
       model: task.model ?? repo.defaultModel,
     };

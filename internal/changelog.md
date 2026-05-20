@@ -1,5 +1,10 @@
 # Changelog
 
+## Inherit project base branch for tasks - 2026-05-20
+
+- **Summary**: Tasks created inside a project now use the project's selected base branch (not the repo default). Project metadata bar shows the branch read-only; task creation modal inherits it with a tooltip when adding tasks to a project.
+- **Reason**: Branch choice at project creation was ignored for child tasks, so Eva branched from the wrong base. Surfacing the branch on the project makes the shared setting visible.
+
 ## Move Request Changes into task footer More menu - 2026-05-20
 
 - **Summary**: Task footer no longer shows a standalone Request Changes button; it lives under More alongside Resolve Conflicts, Create PR, etc.

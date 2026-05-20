@@ -19,6 +19,9 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
 } from "@conductor/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
@@ -41,6 +44,7 @@ import {
   IconTag,
   IconCheck,
   IconX,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
@@ -116,6 +120,14 @@ export function QuickTaskModal({
   const [model, setModel] = useState<AIModel>(defaultModel);
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
+  const effectiveProjectId = projectId ?? selectedProjectId;
+  const effectiveProject = useQuery(
+    api.projects.get,
+    effectiveProjectId ? { id: effectiveProjectId } : "skip",
+  );
+  const branchLockedToProject = effectiveProjectId !== undefined;
+  const displayBaseBranch = effectiveProject?.baseBranch ?? defaultBranch;
+
   const getDescription = () => editorRef.current?.getMarkdown() ?? description;
 
   const resetForm = useCallback(() => {
@@ -140,7 +152,7 @@ export function QuickTaskModal({
         repoId: repo._id,
         title: title.trim() || undefined,
         description: desc || undefined,
-        baseBranch,
+        baseBranch: branchLockedToProject ? undefined : baseBranch,
         projectId: selectedProjectId,
       });
     }
@@ -152,15 +164,17 @@ export function QuickTaskModal({
     repo._id,
     title,
     baseBranch,
+    branchLockedToProject,
     selectedProjectId,
     resetForm,
     onClose,
   ]);
 
   const handleSubmit = async () => {
-    if (!title.trim() || !baseBranch || !repo) return;
+    if (!title.trim() || !displayBaseBranch || !repo) return;
 
     const desc = getDescription().trim();
+    const taskBaseBranch = branchLockedToProject ? undefined : baseBranch;
     setIsLoading(true);
     try {
       if (activeDraftId) {
@@ -168,7 +182,7 @@ export function QuickTaskModal({
           id: activeDraftId,
           title: title.trim(),
           description: desc || undefined,
-          baseBranch,
+          baseBranch: taskBaseBranch,
           model,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
           assignedTo,
@@ -179,7 +193,7 @@ export function QuickTaskModal({
           repoId: repo._id,
           title: title.trim(),
           description: desc || undefined,
-          baseBranch,
+          baseBranch: taskBaseBranch,
           model,
           projectId: selectedProjectId,
           tags: selectedTags.length > 0 ? selectedTags : undefined,
@@ -225,7 +239,7 @@ export function QuickTaskModal({
     setTagSearch("");
   };
 
-  const canSubmit = !isLoading && !!title.trim() && !!baseBranch;
+  const canSubmit = !isLoading && !!title.trim() && !!displayBaseBranch;
 
   useHotkey(
     "Mod+Enter",
@@ -300,25 +314,46 @@ export function QuickTaskModal({
               onCreateProject={() => setIsCreatingProject(true)}
             />
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-                >
-                  <IconGitBranch size={14} />
-                  <span className="text-foreground">{baseBranch}</span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-56 p-2">
-                <BranchSelect
-                  value={baseBranch}
-                  onValueChange={setBaseBranch}
-                  placeholder="Select a base branch"
-                  className="h-8 w-full"
-                />
-              </PopoverContent>
-            </Popover>
+            {branchLockedToProject ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground"
+                  >
+                    <IconGitBranch size={14} />
+                    <span className="text-foreground">{displayBaseBranch}</span>
+                    <IconInfoCircle
+                      size={12}
+                      className="cursor-help text-muted-foreground"
+                    />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Inherited from the project&apos;s base branch
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                  >
+                    <IconGitBranch size={14} />
+                    <span className="text-foreground">{baseBranch}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-56 p-2">
+                  <BranchSelect
+                    value={baseBranch}
+                    onValueChange={setBaseBranch}
+                    placeholder="Select a base branch"
+                    className="h-8 w-full"
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
 
             <div className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs">
               <ModelSelect

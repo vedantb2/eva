@@ -5,7 +5,7 @@ import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
 import type { Id } from "../_generated/dataModel";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
-import { resolveTaskWorkflowBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
+import { resolveTaskWorkflowBaseBranchForTask } from "../_taskWorkflow/resolveBaseBranch";
 
 /** Creates agent tasks from selected automation findings and optionally auto-starts them. */
 export const createTasksFromFindings = authMutation({
@@ -123,7 +123,11 @@ export const autoStartTask = internalMutation({
           taskId: args.taskId,
           repoId: task.repoId,
           installationId: repo.installationId,
-          baseBranch: resolveTaskWorkflowBaseBranch(task, repo),
+          baseBranch: await resolveTaskWorkflowBaseBranchForTask(
+            ctx.db,
+            task,
+            repo,
+          ),
           isFirstTaskOnBranch: true,
           model: task.model ?? repo.defaultModel,
           userId: args.userId,

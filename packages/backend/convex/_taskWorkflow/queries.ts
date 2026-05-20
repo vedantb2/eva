@@ -1,7 +1,10 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { aiModelValidator, runModeValidator } from "../validators";
-import { resolveTaskWorkflowBaseBranch } from "./resolveBaseBranch";
+import {
+  resolveTaskWorkflowBaseBranch,
+  resolveTaskWorkflowBaseBranchForTask,
+} from "./resolveBaseBranch";
 import {
   buildImplementationPrompt,
   buildConflictResolutionPrompt,
@@ -43,8 +46,9 @@ export const getTaskData = internalQuery({
 
     let projectSandboxId: string | undefined;
     let projectContext: { title: string; description?: string } | undefined;
+    let project = null;
     if (args.projectId) {
-      const project = await ctx.db.get(args.projectId);
+      project = await ctx.db.get(args.projectId);
       if (project) {
         projectSandboxId = project.sandboxId;
         projectContext = {
@@ -106,7 +110,7 @@ export const getTaskData = internalQuery({
       args.mode === "resolve_conflicts"
         ? buildConflictResolutionPrompt(
             branchName,
-            resolveTaskWorkflowBaseBranch(task, repo),
+            resolveTaskWorkflowBaseBranch(task, repo, project ?? undefined),
             rootDirectory,
             repo.owner,
             repo.name,
@@ -248,7 +252,11 @@ export const getTaskPrCreationData = internalQuery({
       repoOwner: repo.owner,
       repoName: repo.name,
       branchName: `eva/task-${args.taskId}`,
-      baseBranch: resolveTaskWorkflowBaseBranch(task, repo),
+      baseBranch: await resolveTaskWorkflowBaseBranchForTask(
+        ctx.db,
+        task,
+        repo,
+      ),
       taskTitle: task.title,
       taskDescription: task.description,
       rootDirectory: repo.rootDirectory ?? "",

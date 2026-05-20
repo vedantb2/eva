@@ -12,6 +12,7 @@ import {
   normalizeTaskTags,
   buildTaskNotificationMessage,
 } from "./helpers";
+import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 
 /** Lists all draft tasks for the current user in a given repo, sorted by most recently updated. */
 export const listDrafts = authQuery({
@@ -44,6 +45,10 @@ export const saveDraft = authMutation({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repo not found");
+    const project = args.projectId ? await ctx.db.get(args.projectId) : null;
+
     const now = Date.now();
 
     if (args.id) {
@@ -71,7 +76,7 @@ export const saveDraft = authMutation({
       createdAt: now,
       updatedAt: now,
       createdBy: ctx.userId,
-      baseBranch: args.baseBranch,
+      baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       projectId: args.projectId,
     });
   },
@@ -95,10 +100,13 @@ export const activateDraft = authMutation({
     if (!task || task.createdBy !== ctx.userId || task.status !== "draft")
       throw new Error("Draft not found");
 
+    const repo = task.repoId ? await ctx.db.get(task.repoId) : null;
+    const project = task.projectId ? await ctx.db.get(task.projectId) : null;
+
     await ctx.db.patch(args.id, {
       title: args.title,
       description: args.description,
-      baseBranch: args.baseBranch ?? "staging",
+      baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       model: args.model,
       status: "todo",
       updatedAt: Date.now(),

@@ -29,6 +29,10 @@ export const startDevelopment = authMutation({
     }
     const spec = parseSpec(generatedSpec);
     const branchName = buildProjectBranchName(args.projectId);
+    const projectBaseBranch =
+      project.baseBranch ??
+      (await ctx.db.get(project.repoId))?.defaultBaseBranch ??
+      FALLBACK_GIT_BASE_BRANCH;
     const taskIdMap = new Map<number, Id<"agentTasks">>();
     const now = Date.now();
     for (let i = 0; i < spec.tasks.length; i++) {
@@ -44,6 +48,7 @@ export const startDevelopment = authMutation({
         createdAt: now,
         updatedAt: now,
         createdBy: ctx.userId,
+        baseBranch: projectBaseBranch,
       });
       taskIdMap.set(taskNumber, taskId);
     }

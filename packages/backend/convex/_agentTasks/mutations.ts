@@ -16,6 +16,7 @@ import {
 } from "../functions";
 import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
 import { buildProjectBranchName } from "../_projects/helpers";
+import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { logTaskActivity } from "../taskActivity";
 
@@ -414,6 +415,7 @@ export const createQuickTask = authMutation({
       }
       taskNumber = maxTaskNumber + 1;
     }
+    const project = args.projectId ? await ctx.db.get(args.projectId) : null;
     const taskId = await ctx.db.insert("agentTasks", {
       title: args.title,
       description: args.description,
@@ -422,8 +424,7 @@ export const createQuickTask = authMutation({
       createdAt: now,
       updatedAt: now,
       createdBy: ctx.userId,
-      baseBranch:
-        args.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
+      baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       model: args.model ?? repo.defaultModel,
       projectId: args.projectId,
       taskNumber,

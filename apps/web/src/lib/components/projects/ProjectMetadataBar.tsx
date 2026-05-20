@@ -20,6 +20,9 @@ import {
   PopoverTrigger,
   PopoverContent,
   Calendar,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
 } from "@conductor/ui";
 import {
   IconUsers,
@@ -27,8 +30,12 @@ import {
   IconUser,
   IconCalendarEvent,
   IconCalendarDue,
+  IconGitBranch,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 
@@ -40,6 +47,7 @@ interface ProjectMetadataBarProps {
 }
 
 export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
+  const { repo } = useRepo();
   const project = useQuery(api.projects.get, { id: projectId });
   const users = useQuery(api.users.listAll);
   const updateProject = useMutation(api.projects.update);
@@ -51,10 +59,25 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
 
   if (!project) return null;
 
+  const displayBaseBranch =
+    project.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+
   return (
     <div className="flex items-center gap-0.5 px-3 sm:px-4 py-1 overflow-x-auto scrollbar-none">
       <div className="flex items-center h-8 px-2 shrink-0">
         <ProjectPhaseBadge phase={project.phase} />
+      </div>
+      <div className="flex items-center h-8 shrink-0 gap-1.5 px-2 text-[13px] text-muted-foreground">
+        <IconGitBranch size={14} />
+        <span className="text-foreground">{displayBaseBranch}</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <IconInfoCircle size={12} className="cursor-help" />
+          </TooltipTrigger>
+          <TooltipContent>
+            Base branch for all tasks in this project
+          </TooltipContent>
+        </Tooltip>
       </div>
       <div className="flex items-center h-8 shrink-0">
         <PriorityPicker

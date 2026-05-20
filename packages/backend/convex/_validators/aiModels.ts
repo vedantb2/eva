@@ -35,6 +35,7 @@ export const aiModelValidator = v.union(
   v.literal("cursor:gpt-5.3-codex-high"),
   v.literal("cursor:gemini-3.1-pro"),
   v.literal("cursor:composer-2"),
+  v.literal("cursor:composer-2.5"),
 );
 
 export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
@@ -63,7 +64,8 @@ export type AIModel =
   | "cursor:gpt-5.4-high"
   | "cursor:gpt-5.3-codex-high"
   | "cursor:gemini-3.1-pro"
-  | "cursor:composer-2";
+  | "cursor:composer-2"
+  | "cursor:composer-2.5";
 export type PersistedAIModel = AIModel | LegacyClaudeModel;
 
 export interface AIModelOption {
@@ -222,6 +224,12 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     label: "Composer 2",
     requiresAuth: true,
   },
+  {
+    id: "cursor:composer-2.5",
+    provider: "cursor",
+    label: "Composer 2.5",
+    requiresAuth: true,
+  },
 ];
 
 export const CLAUDE_MODELS: ReadonlyArray<AIModel> = [
@@ -324,6 +332,8 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
       return "cursor:gemini-3.1-pro";
     case "cursor:composer-2":
       return "cursor:composer-2";
+    case "cursor:composer-2.5":
+      return "cursor:composer-2.5";
     case "sonnet":
     case "claude:sonnet":
     default:

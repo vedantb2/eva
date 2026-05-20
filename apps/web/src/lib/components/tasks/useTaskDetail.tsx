@@ -10,7 +10,11 @@ import { useEffect, useState, useCallback } from "react";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
 
-const PREVIEW_SANDBOX_ALLOWED_STATUSES = ["code_review", "business_review"];
+const PREVIEW_SANDBOX_ALLOWED_STATUSES = [
+  "code_review",
+  "business_review",
+  "done",
+];
 
 export type QuickTaskDetailRouting = {
   detailTab: TaskDetailTab;

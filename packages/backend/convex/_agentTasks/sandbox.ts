@@ -5,7 +5,11 @@ import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
 import { resolveTaskWorkflowBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 
-const PREVIEW_ALLOWED_STATUSES = ["code_review", "business_review"] as const;
+const PREVIEW_ALLOWED_STATUSES = [
+  "code_review",
+  "business_review",
+  "done",
+] as const;
 
 /** Starts a preview sandbox for a task, checking out the task branch and running startup commands. */
 export const startTaskSandbox = authMutation({
@@ -26,7 +30,7 @@ export const startTaskSandbox = authMutation({
       )
     ) {
       throw new Error(
-        `Task must be in code_review or business_review status to start sandbox. Current status: ${task.status}`,
+        `Task must be in code_review, business_review or done status to start sandbox. Current status: ${task.status}`,
       );
     }
 
@@ -83,9 +87,13 @@ export const retryStartupCommands = authMutation({
 
     if (!task.repoId) throw new Error("Task has no associated repository");
 
-    if (task.status !== "code_review" && task.status !== "business_review") {
+    if (
+      task.status !== "code_review" &&
+      task.status !== "business_review" &&
+      task.status !== "done"
+    ) {
       throw new Error(
-        `Task must be in code_review or business_review status to run startup commands. Current status: ${task.status}`,
+        `Task must be in code_review, business_review or done status to run startup commands. Current status: ${task.status}`,
       );
     }
 

@@ -90,16 +90,16 @@ export function TaskFooter({
   const showViewSandbox = canStartSandbox;
   const showResolveConflicts =
     !hasActiveRun && (status === "code_review" || status === "business_review");
+  const showRequestChanges =
+    status !== "todo" && status !== "in_progress" && status !== undefined;
   const showMoreMenu =
     canStartSandbox ||
     canCreatePr ||
     showResolveConflicts ||
+    showRequestChanges ||
     Boolean(latestDeployment?.deploymentStatus);
   const hasSecondaryContent =
-    showViewSandbox ||
-    showMoreMenu ||
-    Boolean(latestPrUrl) ||
-    (status !== "todo" && status !== "in_progress");
+    showViewSandbox || showMoreMenu || Boolean(latestPrUrl);
 
   return (
     <div className="space-y-2 w-full">
@@ -185,6 +185,12 @@ export function TaskFooter({
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {showRequestChanges && (
+                  <DropdownMenuItem onClick={onRequestChanges}>
+                    <IconMessagePlus size={14} />
+                    Request Changes
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -224,12 +230,6 @@ export function TaskFooter({
                 <IconGitPullRequest size={18} />
                 <span className="hidden sm:inline">View PR</span>
               </a>
-            </Button>
-          )}
-          {status !== "todo" && status !== "in_progress" && (
-            <Button variant="secondary" onClick={onRequestChanges}>
-              <IconMessagePlus size={18} />
-              <span className="hidden sm:inline">Request Changes</span>
             </Button>
           )}
         </div>

@@ -1,5 +1,10 @@
 # Changelog
 
+## Move Request Changes into task footer More menu - 2026-05-20
+
+- **Summary**: Task footer no longer shows a standalone Request Changes button; it lives under More alongside Resolve Conflicts, Create PR, etc.
+- **Reason**: Request Changes is a review-state action, not a primary footer action. Moving it reduces footer clutter while keeping the flow available.
+
 ## Default proof capture to video walkthrough - 2026-05-20
 
 - **Summary**: Task implementation proof prompt now defaults to recording a video walkthrough; screenshots are fallback only when video is impractical.

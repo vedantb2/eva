@@ -2612,6 +2612,12 @@ function handleRealtimeStreamLine(line) {
       }
       return;
     }
+    // Cursor often streams planning text before long tool runs with little stdout.
+    // Reset the post-text stall clock whenever tool work starts or finishes.
+    if (parsed.type === "tool_call") {
+      firstTextBlockAt = 0;
+      return;
+    }
     if (parsed.type === "result" && !resultEventSeen) {
       resultEventSeen = true;
       syncCursorStateToPersist();
@@ -3088,6 +3094,7 @@ async function runCliAttempt(options) {
         return;
       }
       if (
+        PROVIDER !== "cursor" &&
         firstTextBlockAt > 0 &&
         !resultEventSeen &&
         Date.now() - firstTextBlockAt > POST_TEXT_STALL_TIMEOUT_MS
@@ -3367,10 +3374,19 @@ try {
 
   await setFinalizingState();
 
+  const attemptEndedDueToTimeout =
+    finalTimedOutAfterFirstText ||
+    finalTimedOutForNoOutput ||
+    finalTimedOutForMaxRuntime ||
+    finalTimedOutForFirstEvent ||
+    finalTimedOutForFirstAssistant ||
+    finalTimedOutForZombie ||
+    Boolean(finalToolStallErrorMessage);
+
   let errorValue = null;
   if (finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;
-  } else if (finalCode !== 0) {
+  } else if (finalCode !== 0 || attemptEndedDueToTimeout) {
     errorValue = appendDiagnosticTail(
       buildErrorMessage(
         finalCode,
@@ -3390,6 +3406,9 @@ try {
   const activityLog = JSON.stringify(accumulatedSteps);
 
   let completionSuccess = finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
+  if (attemptEndedDueToTimeout) {
+    completionSuccess = false;
+  }
   if (completionSuccess && REQUIRE_TASK_COMMIT) {
     if (!hasNewTaskCommitSince(taskCommitBaselineHead)) {
       completionSuccess = false;

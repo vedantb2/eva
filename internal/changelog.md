@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix Cursor post-text stall killing in-progress edits - 2026-05-20
+
+- **Summary**: Cursor task runs no longer hit the 45s "stalled after first text" watchdog mid-edit; timeout kills no longer count as success when stream-json already contains a result line.
+- **Reason**: Cursor streams planning prose before long tool work with little stdout. The Claude-oriented post-text stall fired during edits, then a partial result event could still pass the commit gate — producing a confusing double error.
+
 ## Fail task runs without commits; label Cursor tools clearly - 2026-05-20
 
 - **Summary**: Quick-task and project task agent runs now fail when the CLI reports success but the sandbox branch has no new git commit. Cursor stream-json tool steps now show read/edit/write/shell/MCP instead of generic "Used tool".

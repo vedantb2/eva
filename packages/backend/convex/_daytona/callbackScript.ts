@@ -15,6 +15,7 @@ const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 const TASK_PROOF_CAPTURE_ENABLED =
   process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
+const REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 const PROVIDER = process.env.AI_PROVIDER || "claude";
 const MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
@@ -338,24 +339,51 @@ function opencodeToolToStep(part) {
   }
 }
 
+/** Resolves Cursor stream-json tool_call payloads (*ToolCall keys or flat legacy shape). */
+function resolveCursorToolCall(toolCall) {
+  if (!toolCall || typeof toolCall !== "object") {
+    return { kind: "", args: {}, displayName: "" };
+  }
+  for (const key of Object.keys(toolCall)) {
+    if (!key.endsWith("ToolCall")) continue;
+    const payload = toolCall[key];
+    if (!payload || typeof payload !== "object") continue;
+    const args =
+      payload.args && typeof payload.args === "object"
+        ? payload.args
+        : payload.input && typeof payload.input === "object"
+          ? payload.input
+          : payload.parameters && typeof payload.parameters === "object"
+            ? payload.parameters
+            : payload;
+    return {
+      kind: key.slice(0, -"ToolCall".length).toLowerCase(),
+      args,
+      displayName: key,
+    };
+  }
+  const flatName =
+    typeof toolCall.name === "string"
+      ? toolCall.name
+      : typeof toolCall.tool === "string"
+        ? toolCall.tool
+        : typeof toolCall.type === "string"
+          ? toolCall.type
+          : "";
+  const flatArgs =
+    toolCall.args && typeof toolCall.args === "object"
+      ? toolCall.args
+      : toolCall.input && typeof toolCall.input === "object"
+        ? toolCall.input
+        : toolCall.parameters && typeof toolCall.parameters === "object"
+          ? toolCall.parameters
+          : {};
+  return { kind: flatName.toLowerCase(), args: flatArgs, displayName: flatName };
+}
+
 /** Converts a Cursor tool_call event payload into a UI progress step object. */
 function cursorToolToStep(toolCall) {
-  const readToolName = (call) => {
-    if (!call || typeof call !== "object") return "";
-    if (typeof call.name === "string" && call.name) return call.name;
-    if (typeof call.tool === "string" && call.tool) return call.tool;
-    if (typeof call.type === "string" && call.type) return call.type;
-    return "";
-  };
-  const readArgs = (call) => {
-    if (!call || typeof call !== "object") return {};
-    if (call.args && typeof call.args === "object") return call.args;
-    if (call.input && typeof call.input === "object") return call.input;
-    if (call.parameters && typeof call.parameters === "object") return call.parameters;
-    return {};
-  };
-  const tool = (readToolName(toolCall) || "tool").toLowerCase();
-  const args = readArgs(toolCall);
+  const { kind, args, displayName } = resolveCursorToolCall(toolCall);
   const pickString = (keys) => {
     for (const key of keys) {
       if (typeof args[key] === "string" && args[key].trim()) {
@@ -364,20 +392,38 @@ function cursorToolToStep(toolCall) {
     }
     return "";
   };
-  const rawPath = pickString(["path", "file_path", "filePath", "target_file", "targetFile"]);
+  const rawPath = pickString([
+    "path",
+    "file_path",
+    "filePath",
+    "target_file",
+    "targetFile",
+    "relativePath",
+    "relative_path",
+  ]);
   const path = rawPath ? shortenPath(String(rawPath)) : "";
   const command = pickString(["command", "cmd"]);
-  const query = pickString(["query", "pattern", "url"]);
+  const query = pickString(["query", "pattern", "url", "glob_pattern", "globPattern"]);
+  const tool = kind || displayName.toLowerCase();
   if (tool.includes("read")) {
     return { type: "read", label: "Reading file...", detail: path || undefined, status: "active" };
   }
   if (tool.includes("write") || tool.includes("create")) {
     return { type: "write", label: "Creating file...", detail: path || undefined, status: "active" };
   }
-  if (tool.includes("edit") || tool.includes("patch") || tool.includes("apply")) {
+  if (
+    tool.includes("edit") ||
+    tool.includes("patch") ||
+    tool.includes("apply") ||
+    tool.includes("replace") ||
+    tool.includes("strreplace")
+  ) {
     return { type: "edit", label: "Editing file...", detail: path || undefined, status: "active" };
   }
-  if (tool.includes("glob") || tool.includes("list") || tool.includes("ls")) {
+  if (tool.includes("delete") || tool.includes("remove")) {
+    return { type: "edit", label: "Deleting file...", detail: path || undefined, status: "active" };
+  }
+  if (tool.includes("glob") || tool.includes("list") || tool === "ls") {
     return { type: "search_files", label: "Searching files...", detail: query || path || undefined, status: "active" };
   }
   if (tool.includes("grep") || tool.includes("search")) {
@@ -388,10 +434,16 @@ function cursorToolToStep(toolCall) {
       status: "active",
     };
   }
-  if (tool.includes("bash") || tool.includes("shell") || tool.includes("exec") || tool.includes("command") || tool.includes("terminal")) {
+  if (
+    tool.includes("bash") ||
+    tool.includes("shell") ||
+    tool.includes("exec") ||
+    tool.includes("command") ||
+    tool.includes("terminal")
+  ) {
     return { type: "bash", label: "Running command...", detail: command ? command.slice(0, 300) : undefined, status: "active" };
   }
-  if (tool.includes("webfetch") || tool.includes("web_fetch") || tool.includes("fetch")) {
+  if (tool.includes("webfetch") || tool.includes("web_fetch") || (tool.includes("fetch") && !tool.includes("search"))) {
     return { type: "web_fetch", label: "Fetching URL...", detail: query || undefined, status: "active" };
   }
   if (tool.includes("websearch") || tool.includes("web_search")) {
@@ -400,7 +452,16 @@ function cursorToolToStep(toolCall) {
   if (tool.includes("todo")) {
     return { type: "tool", label: "Updating tasks...", status: "active" };
   }
-  return { type: "tool", label: "Using " + (readToolName(toolCall) || "tool") + "...", status: "active" };
+  if (tool.includes("mcp")) {
+    const server = pickString(["server", "serverName", "server_name", "toolName", "tool_name"]);
+    return {
+      type: "tool",
+      label: server ? "Using MCP " + server + "..." : "Using MCP tool...",
+      status: "active",
+    };
+  }
+  const fallbackName = displayName || kind || "tool";
+  return { type: "tool", label: "Using " + fallbackName + "...", status: "active" };
 }
 
 /** Converts a Claude tool call into a UI progress step object. */
@@ -1969,6 +2030,39 @@ function runTimedBashSync(script, label) {
   return true;
 }
 
+/** Returns the current git HEAD sha in the workspace, or empty when unavailable. */
+function readGitHeadSha() {
+  const result = spawnSync("git", ["-C", WORK_DIR, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+    timeout: CLAUDE_SYNC_TIMEOUT_MS,
+  });
+  if (result.status !== 0) {
+    return "";
+  }
+  return (result.stdout || "").trim();
+}
+
+/** True when the workspace has at least one commit after baselineHead. */
+function hasNewTaskCommitSince(baselineHead) {
+  if (!baselineHead) {
+    return false;
+  }
+  const currentHead = readGitHeadSha();
+  if (!currentHead || currentHead === baselineHead) {
+    return false;
+  }
+  const countResult = spawnSync(
+    "git",
+    ["-C", WORK_DIR, "rev-list", "--count", baselineHead + ".." + currentHead],
+    { encoding: "utf8", timeout: CLAUDE_SYNC_TIMEOUT_MS },
+  );
+  if (countResult.status !== 0) {
+    return true;
+  }
+  const count = Number((countResult.stdout || "").trim());
+  return Number.isFinite(count) && count > 0;
+}
+
 /** Restores persisted Claude session state and transcripts to the runtime directory. */
 function hydratePersistedClaudeState() {
   const startedAt = Date.now();
@@ -3236,6 +3330,13 @@ function syncProviderStateToPersist(reason) {
 }
 
 try {
+  const taskCommitBaselineHead = REQUIRE_TASK_COMMIT ? readGitHeadSha() : "";
+  if (REQUIRE_TASK_COMMIT) {
+    log(
+      "task commit gate enabled baselineHead=" +
+        (taskCommitBaselineHead || "unavailable"),
+    );
+  }
   const initialSessionMode = prepareProviderSessionState();
   const firstAttempt = await runProviderAttempt(initialSessionMode);
   await flushStreaming();
@@ -3288,7 +3389,22 @@ try {
   for (const step of accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(accumulatedSteps);
 
-  const completionSuccess = finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
+  let completionSuccess = finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
+  if (completionSuccess && REQUIRE_TASK_COMMIT) {
+    if (!hasNewTaskCommitSince(taskCommitBaselineHead)) {
+      completionSuccess = false;
+      const commitGateMessage =
+        "Agent finished without creating a new git commit. Edit the required files, run git add and git commit locally, then try again.";
+      errorValue = errorValue ? errorValue + "\\n\\n" + commitGateMessage : commitGateMessage;
+      log(
+        "completion: rejected — no new commit (baseline=" +
+          (taskCommitBaselineHead || "none") +
+          " current=" +
+          (readGitHeadSha() || "none") +
+          ")",
+      );
+    }
+  }
   log("completion: success=" + completionSuccess + " code=" + finalCode + " hasResult=" + Boolean(finalResultEvent) + " error=" + (errorValue ? errorValue.slice(0, 200) : "none") + " steps=" + accumulatedSteps.length);
 
   const completionArgs = {

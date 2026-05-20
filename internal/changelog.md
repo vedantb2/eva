@@ -1,5 +1,10 @@
 # Changelog
 
+## Fail task runs without commits; label Cursor tools clearly - 2026-05-20
+
+- **Summary**: Quick-task and project task agent runs now fail when the CLI reports success but the sandbox branch has no new git commit. Cursor stream-json tool steps now show read/edit/write/shell/MCP instead of generic "Used tool".
+- **Reason**: Cursor (and other providers) could exit cleanly after planning text only; Eva still marked the run successful and `git push` was a no-op, so GitHub showed no new commit while the UI looked done. Generic tool labels hid whether any edits ran.
+
 ## Add per-repo proof capture model selector - 2026-05-20
 
 - **Summary**: Repository settings now include a "Proof Capture Model" control under Screenshots and Videos, letting teams pick which model runs when proof capture is enabled on a task.

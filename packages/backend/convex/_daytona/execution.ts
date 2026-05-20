@@ -756,6 +756,7 @@ export const launchOnExistingSandbox = internalAction({
     runId: v.optional(v.string()),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
     taskProofCaptureEnabled: v.optional(v.boolean()),
+    requireTaskCommit: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -791,6 +792,9 @@ export const launchOnExistingSandbox = internalAction({
       extraEnvVars.TASK_PROOF_CAPTURE_ENABLED = args.taskProofCaptureEnabled
         ? "true"
         : "false";
+    }
+    if (args.requireTaskCommit === true) {
+      extraEnvVars.REQUIRE_TASK_COMMIT = "true";
     }
     extraEnvVars.CLAUDE_FIRST_EVENT_TIMEOUT_MS =
       QUICK_TASK_FIRST_EVENT_TIMEOUT_MS;

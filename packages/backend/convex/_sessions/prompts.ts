@@ -9,7 +9,6 @@ export function buildPlanPrompt(
   repo: { owner: string; name: string },
   existingPlan: string,
   message: string,
-  responseLength: string,
   rootDirectory: string,
   customInstructionsBlock: string,
   systemPrompt: string | undefined,
@@ -26,7 +25,7 @@ Create/update plan.md with: Overview, Goals, User Stories, Acceptance Criteria, 
 Rules:
 - ONLY write plan.md — no other files
 - Non-technical: WHAT and WHY, not HOW
-- Do NOT commit or push${getResponseLengthInstruction(responseLength, "plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Do NOT commit or push${getResponseLengthInstruction("plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 /** Builds an edit-mode prompt with full read+write access for answering questions and making code changes. */
@@ -35,7 +34,6 @@ export function buildEditPrompt(
   branchName: string,
   planContent: string,
   message: string,
-  responseLength: string,
   rootDirectory: string,
   customInstructionsBlock: string,
   systemPrompt: string | undefined,
@@ -63,5 +61,5 @@ Rules:
 - Never commit images/video. Minimal, focused changes. Use lockfile.
 - Respond with the business outcome, no code/paths/jargon (e.g. "Added dark mode toggle.")
 - No commit hashes or process commentary
-- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction(responseLength, "edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always \`--annotate\`. Save to screenshots/ or recordings/.${getResponseLengthInstruction("edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }

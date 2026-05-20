@@ -12,7 +12,6 @@ import {
   type AIModel,
   type Id,
 } from "@conductor/backend";
-import type { ResponseLength } from "@conductor/ui";
 import {
   ChatBody,
   type ChatBodyQueuedMessage,
@@ -22,7 +21,6 @@ import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 interface StoredSettings {
   model: AIModel;
-  responseLength: ResponseLength;
 }
 
 function chatSettingsKey(parentId: string) {
@@ -56,7 +54,7 @@ export function ProjectSandboxChatPanel({
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [settings, setSettings] = useLocalStorage<StoredSettings>(
     chatSettingsKey(projectId),
-    { model: defaultModel, responseLength: "default" },
+    { model: defaultModel },
   );
   const model = normalizeAIModel(settings.model);
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
@@ -64,11 +62,6 @@ export function ProjectSandboxChatPanel({
   const setModel = useCallback(
     (next: AIModel) =>
       setSettings((prev) => ({ ...prev, model: normalizeAIModel(next) })),
-    [setSettings],
-  );
-  const setResponseLength = useCallback(
-    (next: ResponseLength) =>
-      setSettings((prev) => ({ ...prev, responseLength: next })),
     [setSettings],
   );
 
@@ -85,7 +78,6 @@ export function ProjectSandboxChatPanel({
           projectId,
           message: content,
           model,
-          responseLength: settings.responseLength,
         });
         return;
       }
@@ -94,18 +86,9 @@ export function ProjectSandboxChatPanel({
         projectId,
         message: content,
         model,
-        responseLength: settings.responseLength,
       });
     },
-    [
-      isExecuting,
-      enqueueMessage,
-      addMessage,
-      startExecute,
-      projectId,
-      model,
-      settings.responseLength,
-    ],
+    [isExecuting, enqueueMessage, addMessage, startExecute, projectId, model],
   );
 
   const handleCancel = useCallback(async () => {
@@ -115,9 +98,6 @@ export function ProjectSandboxChatPanel({
   const formatQueuedInfo = useCallback((msg: ChatBodyQueuedMessage) => {
     const parts = [
       msg.model ? findAIModelOption(msg.model).label : null,
-      msg.responseLength && msg.responseLength !== "default"
-        ? msg.responseLength
-        : null,
     ].filter((part): part is string => Boolean(part));
     return parts.length > 0 ? parts.join(" / ") : undefined;
   }, []);
@@ -148,8 +128,6 @@ export function ProjectSandboxChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
-        responseLength={settings.responseLength}
-        setResponseLength={setResponseLength}
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}

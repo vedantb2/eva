@@ -141,8 +141,9 @@ export function ChatPanel({
   const [completedAudits, setCompletedAudits] = useState(0);
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  const { mode, setMode, model, setModel, responseLength, setResponseLength } =
-    useSessionSettings(sessionId, { defaultModel });
+  const { mode, setMode, model, setModel } = useSessionSettings(sessionId, {
+    defaultModel,
+  });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
   const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
@@ -180,7 +181,6 @@ export function ChatPanel({
           message: content,
           mode,
           model,
-          responseLength,
         });
         return;
       }
@@ -191,7 +191,6 @@ export function ChatPanel({
           message: content,
           mode,
           model,
-          responseLength,
         });
       } catch (error) {
         const errorMessage =
@@ -212,7 +211,6 @@ export function ChatPanel({
       sessionId,
       mode,
       model,
-      responseLength,
     ],
   );
 
@@ -276,9 +274,6 @@ export function ChatPanel({
       const detailParts = [
         modeLabel,
         message.model ? findAIModelOption(message.model).label : null,
-        message.responseLength && message.responseLength !== "default"
-          ? message.responseLength
-          : null,
       ].filter((part): part is string => Boolean(part));
       return detailParts.length > 0 ? detailParts.join(" / ") : undefined;
     },
@@ -554,8 +549,6 @@ export function ChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
-        responseLength={responseLength}
-        setResponseLength={setResponseLength}
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}

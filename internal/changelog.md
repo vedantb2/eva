@@ -1,5 +1,10 @@
 # Changelog
 
+## Always concise chat responses; @/ skill hint banner - 2026-05-20
+
+- **Summary**: Removed the Concise/Detailed response-length selector from sandbox chat. Eva now always uses hyper-concise replies (except PRD/plan mode, which stays concise plan-focused). Added a dismissible tip above the chat input: `@` for docs/PRDs, `/` for skills.
+- **Reason**: Verbosity is better handled ad hoc via a `/verbose` skill than a global toggle most users never touch. The hint teaches @ and / without opening settings.
+
 ## Show doc/skill previews in chat @ and / menus - 2026-05-20
 
 - **Summary**: `@` doc and `/` skill autocomplete menus now show a truncated muted preview on the right — doc description (or content excerpt) and skill prompt — so users can pick the right item without opening settings.

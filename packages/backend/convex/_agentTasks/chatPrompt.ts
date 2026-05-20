@@ -13,7 +13,6 @@ interface BuildAgentTaskChatPromptArgs {
   taskNumber: number | undefined;
   status: string;
   message: string;
-  responseLength: string;
   rootDirectory: string;
   customInstructionsBlock: string;
   systemPrompt: string | undefined;
@@ -51,5 +50,5 @@ Rules:
 - If the user is asking a question, answer it — don't make unnecessary changes
 - Never commit, push, or open PRs
 - Never run build/lint/test/dev commands unless the user asks
-- Minimal, focused changes${getResponseLengthInstruction(args.responseLength, "edit")}${args.customInstructionsBlock}${buildSystemPromptBlock(args.systemPrompt)}${buildRootDirectoryInstruction(args.rootDirectory)}`;
+- Minimal, focused changes${getResponseLengthInstruction("edit")}${args.customInstructionsBlock}${buildSystemPromptBlock(args.systemPrompt)}${buildRootDirectoryInstruction(args.rootDirectory)}`;
 }

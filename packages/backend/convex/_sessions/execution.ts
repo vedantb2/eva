@@ -14,7 +14,6 @@ export const startExecute = authMutation({
     message: v.string(),
     mode: sessionModeValidator,
     model: aiModelValidator,
-    responseLength: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -40,7 +39,6 @@ export const startExecute = authMutation({
         message: args.message,
         mode: args.mode,
         model: args.model,
-        responseLength: args.responseLength,
         userId: ctx.userId,
         installationId: repo.installationId,
       },
@@ -59,7 +57,6 @@ export const enqueueMessage = authMutation({
     message: v.string(),
     mode: sessionModeValidator,
     model: aiModelValidator,
-    responseLength: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -78,7 +75,6 @@ export const enqueueMessage = authMutation({
       userId: ctx.userId,
       mode: args.mode,
       model: args.model,
-      responseLength: args.responseLength,
     });
     await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
     return null;

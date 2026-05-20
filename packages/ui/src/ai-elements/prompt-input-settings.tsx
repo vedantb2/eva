@@ -11,15 +11,8 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "../ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
-import { IconListDetails, IconDots } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
+import { IconDots } from "@tabler/icons-react";
 import { ProviderIcon } from "./provider-icon";
 
 export interface ModelOption<TModel extends string = string> {
@@ -27,16 +20,6 @@ export interface ModelOption<TModel extends string = string> {
   provider: string;
   label: string;
 }
-
-export type ResponseLength = "default" | "detailed";
-
-const RESPONSE_LENGTHS: ReadonlyArray<{
-  key: ResponseLength;
-  label: string;
-}> = [
-  { key: "default", label: "Concise" },
-  { key: "detailed", label: "Detailed" },
-];
 
 function getProviderLabel(provider: string): string {
   switch (provider) {
@@ -84,16 +67,10 @@ function getProviderModels<TModel extends string>(
   return options.filter((option) => option.provider === provider);
 }
 
-function isResponseLength(v: string): v is ResponseLength {
-  return RESPONSE_LENGTHS.some((option) => option.key === v);
-}
-
 export interface PromptInputSettingsProps<TModel extends string = string> {
   model: TModel;
   onModelChange: (model: TModel) => void;
   options: ReadonlyArray<ModelOption<TModel>>;
-  responseLength?: ResponseLength;
-  onResponseLengthChange?: (length: ResponseLength) => void;
   disabled?: boolean;
   icon?: ReactNode;
   className?: string;
@@ -103,8 +80,6 @@ export function PromptInputSettings<TModel extends string>({
   model,
   onModelChange,
   options,
-  responseLength,
-  onResponseLengthChange,
   disabled,
   icon,
   className,
@@ -192,30 +167,6 @@ export function PromptInputSettings<TModel extends string>({
             })}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        {onResponseLengthChange && responseLength !== undefined && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <IconListDetails size={14} />
-              Response length
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuRadioGroup
-                value={responseLength}
-                onValueChange={(v) => {
-                  if (isResponseLength(v)) {
-                    onResponseLengthChange(v);
-                  }
-                }}
-              >
-                {RESPONSE_LENGTHS.map((option) => (
-                  <DropdownMenuRadioItem key={option.key} value={option.key}>
-                    {option.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -311,48 +262,5 @@ export function ModelSelect<TModel extends string>({
         })}
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-export interface ResponseLengthSelectProps {
-  value: ResponseLength;
-  onValueChange: (length: ResponseLength) => void;
-  disabled?: boolean;
-  className?: string;
-}
-
-export function ResponseLengthSelect({
-  value,
-  onValueChange,
-  disabled,
-  className,
-}: ResponseLengthSelectProps) {
-  return (
-    <Select
-      value={value}
-      onValueChange={(v) => {
-        if (isResponseLength(v)) {
-          onValueChange(v);
-        }
-      }}
-      disabled={disabled}
-    >
-      <SelectTrigger
-        className={cn(
-          "h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-xs font-medium text-muted-foreground shadow-none hover:bg-accent hover:text-foreground",
-          className,
-        )}
-      >
-        <IconListDetails size={14} className="shrink-0" />
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {RESPONSE_LENGTHS.map((option) => (
-          <SelectItem key={option.key} value={option.key}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }

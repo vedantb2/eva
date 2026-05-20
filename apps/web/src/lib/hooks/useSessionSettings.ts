@@ -2,7 +2,6 @@
 
 import { useCallback } from "react";
 import { useLocalStorage } from "usehooks-ts";
-import type { ResponseLength } from "@conductor/ui";
 import {
   DEFAULT_AI_MODEL,
   normalizeAIModel,
@@ -21,13 +20,11 @@ function normalizeMode(mode: string): SessionMode {
 
 interface StoredSettings {
   model: AIModel;
-  responseLength: ResponseLength;
   mode: SessionMode;
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
   model: DEFAULT_AI_MODEL,
-  responseLength: "default",
   mode: "edit",
 };
 
@@ -62,19 +59,10 @@ export function useSessionSettings(
     [setSettings],
   );
 
-  const setResponseLength = useCallback(
-    (responseLength: ResponseLength) => {
-      setSettings((prev) => ({ ...prev, responseLength }));
-    },
-    [setSettings],
-  );
-
   return {
     model: normalizeAIModel(settings.model),
     mode: normalizeMode(settings.mode),
-    responseLength: settings.responseLength,
     setModel,
     setMode,
-    setResponseLength,
   };
 }

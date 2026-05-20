@@ -80,7 +80,6 @@ export const sessionExecuteWorkflow = workflow.define({
     message: v.string(),
     mode: sessionModeArgValidator,
     model: aiModelValidator,
-    responseLength: v.string(),
     userId: v.id("users"),
     installationId: v.number(),
   },
@@ -95,7 +94,6 @@ export const sessionExecuteWorkflow = workflow.define({
       message: args.message,
       mode: args.mode,
       model: args.model,
-      responseLength: args.responseLength,
       userId: args.userId,
     });
 
@@ -285,7 +283,6 @@ export const getSessionData = internalQuery({
     message: v.string(),
     mode: sessionModeArgValidator,
     model: aiModelValidator,
-    responseLength: v.string(),
     userId: v.id("users"),
   },
   returns: v.object({
@@ -333,7 +330,6 @@ export const getSessionData = internalQuery({
         { owner: repo.owner, name: repo.name },
         session.planContent || "",
         resolvedMessage,
-        args.responseLength,
         rootDirectory,
         customInstructionsBlock,
         repo.systemPrompt,
@@ -344,7 +340,6 @@ export const getSessionData = internalQuery({
         branchName,
         session.planContent || "",
         resolvedMessage,
-        args.responseLength,
         rootDirectory,
         customInstructionsBlock,
         repo.systemPrompt,

@@ -14,16 +14,15 @@ import {
   PromptInputSpeech,
   PromptInputSubmit,
   ModelSelect,
-  ResponseLengthSelect,
   usePromptInputController,
   type PromptInputMessage,
   type ModelOption,
-  type ResponseLength,
 } from "@conductor/ui";
 import {
   IconPlayerStop,
   IconCode,
   IconClipboardList,
+  IconX,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -118,8 +117,6 @@ interface ChatBodyProps {
   model: AIModel;
   setModel: (model: AIModel) => void;
   modelOptions: ReadonlyArray<ModelOption<AIModel>>;
-  responseLength: ResponseLength;
-  setResponseLength: (rl: ResponseLength) => void;
   /** Called with the tokenized content. Caller decides whether to send or enqueue. */
   onSend: (content: string) => Promise<void>;
   onCancel: () => Promise<void>;
@@ -129,7 +126,7 @@ interface ChatBodyProps {
   beforeQueuedContent?: React.ReactNode;
   /** Optional slot inserted between the queued messages panel and the input (session PRD plan view). */
   preInputContent?: React.ReactNode;
-  /** Optional slot inserted before the response length selector (session mode dropdown). */
+  /** Optional slot inserted before the model selector (session mode dropdown). */
   toolsBefore?: React.ReactNode;
   /** Replaces the default empty-state component when there are zero messages. */
   emptyStateOverride?: React.ReactNode;
@@ -154,8 +151,6 @@ export function ChatBody({
   model,
   setModel,
   modelOptions,
-  responseLength,
-  setResponseLength,
   onSend,
   onCancel,
   preConversationContent,
@@ -175,6 +170,7 @@ export function ChatBody({
 
   const lastMessage = messages[messages.length - 1];
 
+  const [hintDismissed, setHintDismissed] = useState(false);
   const [questionDismissed, setQuestionDismissed] = useState(false);
   const pendingQuestionRaw =
     streamingPendingQuestion ?? lastMessage?.pendingQuestion;
@@ -383,6 +379,24 @@ export function ChatBody({
             }}
           />
           {preInputContent}
+          {!hintDismissed ? (
+            <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+              <span className="min-w-0 flex-1">
+                <span className="font-medium text-foreground/80">@</span> to
+                mention a doc or PRD ·{" "}
+                <span className="font-medium text-foreground/80">/</span> to
+                insert a skill
+              </span>
+              <button
+                type="button"
+                className="shrink-0 rounded p-0.5 hover:bg-accent hover:text-foreground"
+                aria-label="Dismiss tip"
+                onClick={() => setHintDismissed(true)}
+              >
+                <IconX className="size-3" />
+              </button>
+            </div>
+          ) : null}
           <div>
             <PromptInputProvider>
               <PromptInput onSubmit={handlePromptSubmit}>
@@ -394,13 +408,7 @@ export function ChatBody({
                   placeholder={placeholder}
                 />
                 <PromptInputFooter>
-                  <PromptInputTools>
-                    {toolsBefore}
-                    <ResponseLengthSelect
-                      value={responseLength}
-                      onValueChange={setResponseLength}
-                    />
-                  </PromptInputTools>
+                  <PromptInputTools>{toolsBefore}</PromptInputTools>
                   <div className="flex min-w-0 items-center gap-1">
                     <ModelSelect
                       value={model}

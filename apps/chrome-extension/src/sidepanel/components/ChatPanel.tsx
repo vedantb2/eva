@@ -35,7 +35,6 @@ import {
   PromptInputSettings,
   ActivitySteps,
   Spinner,
-  type ResponseLength,
   type PromptInputMessage,
 } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
@@ -92,8 +91,6 @@ export function ChatPanel({
   >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [model, setModel] = useState<AIModel>("claude:sonnet");
-  const [responseLength, setResponseLength] =
-    useState<ResponseLength>("default");
   const [activeTool, setActiveTool] = useState<"select" | "annotate" | null>(
     null,
   );
@@ -210,7 +207,6 @@ export function ChatPanel({
         message: fullMessage,
         mode: "ask",
         model,
-        responseLength,
       });
     } catch (error) {
       await appendMessage({
@@ -615,8 +611,6 @@ export function ChatPanel({
                   model={model}
                   onModelChange={setModel}
                   options={availableModelOptions}
-                  responseLength={responseLength}
-                  onResponseLengthChange={setResponseLength}
                   disabled={isInputDisabled}
                 />
               </PromptInputTools>

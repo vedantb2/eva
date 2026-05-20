@@ -33,7 +33,7 @@ export async function startNextQueuedSessionMessage(
 
   await ctx.db.delete(nextMessage._id);
 
-  if (!nextMessage.mode || !nextMessage.model || !nextMessage.responseLength) {
+  if (!nextMessage.mode || !nextMessage.model) {
     await ctx.db.insert("messages", {
       parentId: sessionId,
       role: "assistant",
@@ -75,7 +75,6 @@ export async function startNextQueuedSessionMessage(
         message: nextMessage.content,
         mode: nextMessage.mode,
         model: nextMessage.model,
-        responseLength: nextMessage.responseLength,
         userId: nextMessage.userId,
         installationId: repo.installationId,
       },
@@ -219,7 +218,6 @@ export async function startNextQueuedProjectChatMessage(
         projectId,
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
-        responseLength: nextMessage.responseLength ?? "default",
         userId: nextMessage.userId,
       },
     );
@@ -286,7 +284,6 @@ export async function startNextQueuedTaskChatMessage(
         taskId,
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
-        responseLength: nextMessage.responseLength ?? "default",
         userId: nextMessage.userId,
       },
     );

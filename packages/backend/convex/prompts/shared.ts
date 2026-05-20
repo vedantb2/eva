@@ -34,16 +34,10 @@ export function buildRootDirectoryInstruction(rootDirectory: string): string {
 
 type PromptMode = "edit" | "plan";
 
-/** Returns the response length instruction string based on mode and verbosity preference. */
-export function getResponseLengthInstruction(
-  responseLength: string,
-  mode: PromptMode,
-): string {
+/** Returns the response length instruction string based on chat mode. */
+export function getResponseLengthInstruction(mode: PromptMode): string {
   if (mode === "plan") {
     return "\n\nResponse length: Concise. Explain what you changed in the plan and why.";
-  }
-  if (responseLength === "detailed") {
-    return "\n\nResponse length: Explain what you did, why, and the business impact.";
   }
   return "\n\nResponse length: Hyper-concise — 1–3 short bullet lines max. Outcomes only; no process, paths, jargon, or code.";
 }

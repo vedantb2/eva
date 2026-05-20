@@ -68,7 +68,6 @@ export const startExecute = authMutation({
     projectId: v.id("projects"),
     message: v.string(),
     model: aiModelValidator,
-    responseLength: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -85,7 +84,6 @@ export const startExecute = authMutation({
         projectId: args.projectId,
         message: args.message,
         model: args.model,
-        responseLength: args.responseLength,
         userId: ctx.userId,
       },
     );
@@ -102,7 +100,6 @@ export const enqueueMessage = authMutation({
     projectId: v.id("projects"),
     message: v.string(),
     model: aiModelValidator,
-    responseLength: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -121,7 +118,6 @@ export const enqueueMessage = authMutation({
       createdAt: Date.now(),
       userId: ctx.userId,
       model: args.model,
-      responseLength: args.responseLength,
     });
     await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
     return null;
@@ -193,7 +189,6 @@ export const projectChatExecuteWorkflow = workflow.define({
     projectId: v.id("projects"),
     message: v.string(),
     model: aiModelValidator,
-    responseLength: v.string(),
     userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
@@ -208,7 +203,6 @@ export const projectChatExecuteWorkflow = workflow.define({
       projectId: args.projectId,
       message: args.message,
       model: args.model,
-      responseLength: args.responseLength,
       userId: args.userId,
     });
 
@@ -299,7 +293,6 @@ export const getChatData = internalQuery({
     projectId: v.id("projects"),
     message: v.string(),
     model: aiModelValidator,
-    responseLength: v.string(),
     userId: v.id("users"),
   },
   returns: v.object({
@@ -339,7 +332,6 @@ export const getChatData = internalQuery({
       branchName: project.branchName,
       generatedSpec,
       message: resolvedMessage,
-      responseLength: args.responseLength,
       rootDirectory: repo.rootDirectory ?? "",
       customInstructionsBlock,
       systemPrompt: repo.systemPrompt,

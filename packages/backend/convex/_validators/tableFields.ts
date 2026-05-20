@@ -157,7 +157,6 @@ export const githubRepoFields = {
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   systemPrompt: v.optional(v.string()),
-  sharedAutomationsEnabled: v.optional(v.boolean()),
 };
 
 export const projectFields = {
@@ -214,6 +213,7 @@ export const automationFields = {
   enabled: v.boolean(),
   readOnly: v.optional(v.boolean()),
   actionsEnabled: v.optional(v.boolean()),
+  shared: v.optional(v.boolean()),
   cronJobId: v.optional(v.string()),
   createdBy: v.id("users"),
   createdAt: v.number(),

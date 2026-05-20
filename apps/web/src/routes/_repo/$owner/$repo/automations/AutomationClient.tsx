@@ -22,6 +22,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { AutomationDeleteDialog } from "./_components/AutomationDeleteDialog";
 import { LatestRun, RunHistory } from "./_components/RunAccordion";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 type Automation = Doc<"automations">;
 
@@ -132,6 +133,13 @@ function SettingsForm({
   repoOwner: string;
   repoName: string;
 }) {
+  const { repo, repoId } = useRepo();
+  const siblingApps = useQuery(api.githubRepos.listSiblingApps, {
+    repoId,
+  });
+  const isMonorepo =
+    repo.parentRepoId !== undefined || (siblingApps?.length ?? 0) > 0;
+
   const navigate = useNavigate();
   const updateAutomation = useMutation(api.automations.update);
   const removeAutomation = useMutation(api.automations.remove);
@@ -145,6 +153,7 @@ function SettingsForm({
   const [actionsEnabled, setActionsEnabled] = useState(
     automation.actionsEnabled === true,
   );
+  const [shared, setShared] = useState(automation.shared === true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -172,13 +181,19 @@ function SettingsForm({
     cronSchedule !== automation.cronSchedule ||
     model !== normalizeAIModel(automation.model) ||
     readOnly !== (automation.readOnly === true) ||
-    actionsEnabled !== (automation.actionsEnabled === true);
+    actionsEnabled !== (automation.actionsEnabled === true) ||
+    shared !== (automation.shared === true);
+
+  const sharedChanged = shared !== (automation.shared === true);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
       await updateAutomation({
         id: automation._id,
+        ...(isMonorepo && sharedChanged
+          ? { contextRepoId: repoId, shared }
+          : {}),
         title,
         description,
         cronSchedule,
@@ -223,6 +238,34 @@ function SettingsForm({
           </p>
         </div>
       </div>
+
+      {isMonorepo && (
+        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium">Share across apps</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Show and run this automation from every app in the monorepo
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShared(!shared)}
+              className={cn(
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                shared ? "bg-emerald-500" : "bg-muted-foreground/30",
+              )}
+            >
+              <span
+                className={cn(
+                  "pointer-events-none block h-5 w-5 rounded-full bg-white transition-transform",
+                  shared ? "translate-x-5" : "translate-x-0",
+                )}
+              />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
         <div className="flex items-center justify-between">

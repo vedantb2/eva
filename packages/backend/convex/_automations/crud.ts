@@ -4,7 +4,7 @@ import { aiModelValidator, automationFields } from "../validators";
 import { authQuery, authMutation, hasRepoAccess } from "../functions";
 import { safeDeleteCron, safeReplaceCron } from "../cronManager";
 import type { Doc } from "../_generated/dataModel";
-import { resolveAutomationsRepoId } from "./helpers";
+import { listAutomationsForRepo, resolveAutomationRepoId } from "./helpers";
 
 /** Lists all automations for a given repository. */
 export const list = authQuery({
@@ -20,14 +20,7 @@ export const list = authQuery({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       return [];
     }
-    const automationsRepoId = await resolveAutomationsRepoId(
-      ctx.db,
-      args.repoId,
-    );
-    return await ctx.db
-      .query("automations")
-      .withIndex("by_repo", (q) => q.eq("repoId", automationsRepoId))
-      .collect();
+    return await listAutomationsForRepo(ctx.db, args.repoId);
   },
 });
 
@@ -58,13 +51,9 @@ export const create = authMutation({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    const automationsRepoId = await resolveAutomationsRepoId(
-      ctx.db,
-      args.repoId,
-    );
     const now = Date.now();
     return await ctx.db.insert("automations", {
-      repoId: automationsRepoId,
+      repoId: args.repoId,
       title: args.title,
       description: "",
       cronSchedule: "",
@@ -80,6 +69,7 @@ export const create = authMutation({
 export const update = authMutation({
   args: {
     id: v.id("automations"),
+    contextRepoId: v.optional(v.id("githubRepos")),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     cronSchedule: v.optional(v.string()),
@@ -87,6 +77,7 @@ export const update = authMutation({
     enabled: v.optional(v.boolean()),
     readOnly: v.optional(v.boolean()),
     actionsEnabled: v.optional(v.boolean()),
+    shared: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -105,6 +96,21 @@ export const update = authMutation({
     if (args.readOnly !== undefined) patch.readOnly = args.readOnly;
     if (args.actionsEnabled !== undefined)
       patch.actionsEnabled = args.actionsEnabled;
+
+    if (args.shared !== undefined) {
+      if (args.contextRepoId === undefined) {
+        throw new Error("contextRepoId is required when updating shared");
+      }
+      if (!(await hasRepoAccess(ctx.db, args.contextRepoId, ctx.userId))) {
+        throw new Error("Not authorized");
+      }
+      patch.shared = args.shared;
+      patch.repoId = await resolveAutomationRepoId(
+        ctx.db,
+        args.contextRepoId,
+        args.shared,
+      );
+    }
 
     const newSchedule = args.cronSchedule ?? automation.cronSchedule;
     const newEnabled =

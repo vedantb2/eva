@@ -22,7 +22,6 @@ import { IconPlayerPlay, IconPlus } from "@tabler/icons-react";
 import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
-import { useRepo } from "@/lib/contexts/RepoContext";
 
 interface AutomationsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -37,16 +36,9 @@ export function AutomationsSidebar({
   pathname,
   onNavigate,
 }: AutomationsSidebarProps) {
-  const { repo } = useRepo();
   const navigate = useNavigate();
-  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
   const automations = useQuery(api.automations.list, { repoId });
   const createAutomation = useMutation(api.automations.create);
-  const updateConfig = useMutation(api.githubRepos.updateConfig);
-
-  const isMonorepo =
-    repo.parentRepoId !== undefined || (siblingApps?.length ?? 0) > 0;
-  const sharedAutomationsEnabled = repo.sharedAutomationsEnabled === true;
 
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -77,45 +69,6 @@ export function AutomationsSidebar({
 
   return (
     <>
-      {isMonorepo && (
-        <div className="mx-2 mb-1 rounded-md bg-muted/40 px-3 py-2.5">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-sidebar-foreground">
-                Shared automations
-              </p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Use one automation list for every app in this monorepo.
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={sharedAutomationsEnabled}
-              onClick={() =>
-                updateConfig({
-                  repoId,
-                  sharedAutomationsEnabled: !sharedAutomationsEnabled,
-                })
-              }
-              className={cn(
-                "relative mt-0.5 inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-                sharedAutomationsEnabled
-                  ? "bg-emerald-500"
-                  : "bg-muted-foreground/30",
-              )}
-            >
-              <span
-                className={cn(
-                  "pointer-events-none block h-4 w-4 rounded-full bg-white transition-transform",
-                  sharedAutomationsEnabled ? "translate-x-4" : "translate-x-0",
-                )}
-              />
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="flex items-center gap-1.5 p-2">
         <SearchInput
           placeholder="Search automations..."

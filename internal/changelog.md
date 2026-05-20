@@ -1,9 +1,9 @@
 # Changelog
 
-## Shared monorepo automations toggle - 2026-05-20
+## Per-automation monorepo sharing - 2026-05-20
 
-- **Summary**: Monorepos can enable "Shared automations" so one automation list applies to every app in the codebase. The toggle lives in the automations sidebar and syncs across sibling repo entries.
-- **Reason**: Duplicating the same scheduled automation per app is tedious and error-prone; repo-wide automations should run once from the monorepo root.
+- **Summary**: Each automation has a "Share across apps" toggle in Settings (monorepos only). Shared automations appear in every app's sidebar and run from the monorepo root; app-specific ones stay scoped to that app.
+- **Reason**: Some automations apply repo-wide while others target a single app — sharing should be per automation, not a global repo switch.
 
 ## Inherit project base branch for tasks - 2026-05-20
 

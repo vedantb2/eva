@@ -7,7 +7,11 @@ import type { Id } from "../_generated/dataModel";
 import { RUN_TIMEOUT_MS } from "../workflowWatchdog";
 import { buildWorkflowRunNotificationMessage } from "./prompts";
 import { buildTaskDoneEvent } from "./events";
-import { STALE_CHECK_DELAY_MS } from "./recovery";
+import {
+  STALE_CHECK_DELAY_MS,
+  isUsageLimitError,
+  parseUsageLimitResetTime,
+} from "./recovery";
 import {
   clearStreamingActivity,
   getTaskRunStreamingEntityId,
@@ -328,6 +332,43 @@ export const completeRun = internalMutation({
             prUrl: args.prUrl,
           }),
         });
+      }
+    }
+
+    // Auto-schedule retry on usage-limit errors
+    if (!args.success && args.error && isUsageLimitError(args.error)) {
+      const resetAt = parseUsageLimitResetTime(args.error);
+      if (resetAt && resetAt > Date.now()) {
+        if (task?.projectId) {
+          // Project task: schedule the build to retry at the reset time
+          const proj = await ctx.db.get(task.projectId);
+          if (proj && !proj.scheduledBuildFunctionId) {
+            const functionId = await ctx.scheduler.runAt(
+              resetAt,
+              internal.buildWorkflow.executeScheduledBuild,
+              { projectId: task.projectId, scheduledAt: resetAt },
+            );
+            await ctx.db.patch(task.projectId, {
+              scheduledBuildAt: resetAt,
+              scheduledBuildFunctionId: functionId,
+            });
+          }
+        } else if (task && !task.scheduledFunctionId) {
+          // Quick task: schedule the task to retry at the reset time
+          const functionId = await ctx.scheduler.runAt(
+            resetAt,
+            internal.taskWorkflow.executeScheduledTask,
+            { taskId: args.taskId, scheduledAt: resetAt },
+          );
+          await ctx.db.patch(args.taskId, {
+            scheduledAt: resetAt,
+            scheduledFunctionId: functionId,
+            updatedAt: Date.now(),
+          });
+          await ctx.db.patch(args.runId, {
+            exitReason: "auto_retry_scheduled",
+          });
+        }
       }
     }
 

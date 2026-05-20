@@ -1,5 +1,10 @@
 # Changelog
 
+## Show doc/skill previews in chat @ and / menus - 2026-05-20
+
+- **Summary**: `@` doc and `/` skill autocomplete menus now show a truncated muted preview on the right — doc description (or content excerpt) and skill prompt — so users can pick the right item without opening settings.
+- **Reason**: Title-only rows made it hard to distinguish similar docs or skills at a glance.
+
 ## Add repo skills slash menu for sandbox chat - 2026-05-20
 
 - **Summary**: New Settings → Skills page (title + prompt per skill). Session, task sandbox, and project sandbox chat support `/` to pick a skill — user sees a `/Title` chip; the prompt is injected server-side at execution, like `@` doc mentions.

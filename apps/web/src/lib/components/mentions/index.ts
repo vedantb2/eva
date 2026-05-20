@@ -3,6 +3,7 @@ export type {
   MentionEditorHandle,
   MentionEditorProps,
   MentionItem,
+  SlashItem,
 } from "./MentionEditor";
 export { MentionText } from "./MentionText";
 export type { MentionMatch, SkillMatch } from "./MentionText";

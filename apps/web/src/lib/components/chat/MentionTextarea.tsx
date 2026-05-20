@@ -8,13 +8,24 @@ import {
   MentionEditor,
   type MentionEditorHandle,
   type MentionItem,
+  type SlashItem,
 } from "@/lib/components/mentions";
 
 export type MentionTextareaHandle = MentionEditorHandle;
 
+function docDescriptionPreview(doc: {
+  description?: string;
+  content: string;
+}): string | undefined {
+  const description = doc.description?.trim();
+  if (description) return description;
+  const content = doc.content.trim();
+  return content || undefined;
+}
+
 interface MentionTextareaProps {
   docs: Array<Doc<"docs">>;
-  skills?: Array<{ _id: Id<"repoSkills">; title: string }>;
+  skills?: Array<{ _id: Id<"repoSkills">; title: string; prompt: string }>;
   skillsSettingsHref?: string;
   placeholder?: string;
 }
@@ -29,14 +40,16 @@ export const MentionTextarea = forwardRef<
   const controller = usePromptInputController();
   const value = controller.textInput.value;
 
-  const items: MentionItem<Doc<"docs">["_id"]>[] = docs.map((d) => ({
-    id: d._id,
-    label: d.title,
+  const items: MentionItem<Doc<"docs">["_id"]>[] = docs.map((doc) => ({
+    id: doc._id,
+    label: doc.title,
+    description: docDescriptionPreview(doc),
   }));
 
-  const slashItems: MentionItem[] = skills.map((skill) => ({
+  const slashItems: SlashItem[] = skills.map((skill) => ({
     id: skill._id,
     label: skill.title,
+    prompt: skill.prompt,
   }));
 
   return (

@@ -31,6 +31,13 @@ const DEFAULT_EDITOR_CLASS =
 export interface MentionItem<TId extends string = string> {
   id: TId;
   label: string;
+  description?: string;
+}
+
+export interface SlashItem<
+  TId extends string = string,
+> extends MentionItem<TId> {
+  prompt?: string;
 }
 
 export interface MentionEditorHandle {
@@ -43,14 +50,15 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   value: string;
   onValueChange: (value: string) => void;
   items: TItem[];
-  slashItems?: MentionItem[];
+  slashItems?: SlashItem[];
   placeholder?: string;
   className?: string;
   chipClassName?: string;
   skillChipClassName?: string;
   onEnterSubmit?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   renderItem?: (item: TItem, isSelected: boolean) => ReactNode;
-  renderSlashItem?: (item: MentionItem, isSelected: boolean) => ReactNode;
+  renderSlashItem?: (item: SlashItem, isSelected: boolean) => ReactNode;
+  filterSlashItem?: (item: SlashItem, query: string) => boolean;
   filterItem?: (item: TItem, query: string) => boolean;
   emptySlashContent?: ReactNode;
   maxItems?: number;
@@ -73,16 +81,63 @@ const CLOSED_TRIGGER: TriggerState = {
   kind: "mention",
 };
 
-function defaultRenderItem(item: MentionItem): ReactNode {
-  return <span className="block w-full truncate">@{item.label}</span>;
+function previewOneLine(text: string, maxLength = 72): string {
+  const singleLine = text.replace(/\s+/g, " ").trim();
+  if (singleLine.length <= maxLength) return singleLine;
+  return `${singleLine.slice(0, maxLength - 1)}…`;
 }
 
-function defaultRenderSlashItem(item: MentionItem): ReactNode {
-  return <span className="block w-full truncate">/{item.label}</span>;
+function renderMenuItemRow(
+  prefix: string,
+  label: string,
+  detail: string | null,
+  isSelected: boolean,
+): ReactNode {
+  return (
+    <span className="flex min-w-0 w-full items-center gap-2">
+      <span className="shrink-0">
+        {prefix}
+        {label}
+      </span>
+      {detail ? (
+        <span
+          className={
+            "min-w-0 flex-1 truncate text-xs " +
+            (isSelected ? "text-accent-foreground/60" : "text-muted-foreground")
+          }
+        >
+          {detail}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function defaultRenderItem(item: MentionItem, isSelected: boolean): ReactNode {
+  const detail = item.description ? previewOneLine(item.description) : null;
+  return renderMenuItemRow("@", item.label, detail, isSelected);
+}
+
+function defaultRenderSlashItem(
+  item: SlashItem,
+  isSelected: boolean,
+): ReactNode {
+  const detail = item.prompt ? previewOneLine(item.prompt) : null;
+  return renderMenuItemRow("/", item.label, detail, isSelected);
+}
+
+function defaultFilterSlashItem(item: SlashItem, query: string): boolean {
+  const q = query.toLowerCase();
+  if (item.label.toLowerCase().includes(q)) return true;
+  if (item.prompt?.toLowerCase().includes(q)) return true;
+  return false;
 }
 
 function defaultFilter(item: MentionItem, query: string): boolean {
-  return item.label.toLowerCase().includes(query.toLowerCase());
+  const q = query.toLowerCase();
+  if (item.label.toLowerCase().includes(q)) return true;
+  if (item.description?.toLowerCase().includes(q)) return true;
+  return false;
 }
 
 function isValidTrigger(value: string, triggerIndex: number): boolean {
@@ -148,6 +203,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   renderItem = defaultRenderItem,
   renderSlashItem = defaultRenderSlashItem,
   filterItem = defaultFilter,
+  filterSlashItem = defaultFilterSlashItem,
   emptySlashContent,
   maxItems = 8,
   dataSlot,
@@ -220,7 +276,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   );
 
   const activeSlashItems = slashItems
-    .filter((item) => filterItem(item as TItem, trigger.query))
+    .filter((item) => filterSlashItem(item, trigger.query))
     .sort((a, b) => a.label.localeCompare(b.label))
     .slice(0, maxItems);
 
@@ -262,7 +318,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   );
 
   const insertSlashItem = useCallback(
-    (item: MentionItem) => {
+    (item: SlashItem) => {
       const visible = `/${item.label}`;
       const before = value.slice(0, trigger.startIndex);
       const after = value.slice(trigger.startIndex + trigger.query.length + 1);
@@ -457,7 +513,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
               }
             }}
             className={
-              "flex w-full items-baseline px-3 py-1.5 text-left text-sm " +
+              "flex w-full min-w-0 items-center px-3 py-1.5 text-left text-sm " +
               (index === selectedIndex
                 ? "bg-accent text-accent-foreground"
                 : "hover:bg-accent hover:text-accent-foreground")

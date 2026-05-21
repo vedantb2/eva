@@ -2,9 +2,10 @@
 
 ## Claude MCP connector favicon on convex.site - 2026-05-21
 
-- **Why**: Claude custom connectors do not render MCP `serverInfo.icons` (SVG or data URI). They fetch connector art via Google faviconV2 from the MCP server origin (`*.convex.site`), which had no favicon — so settings showed a blank/generic icon.
-- **Change**: Serve a 128×128 PNG rasterized from `icon.svg` at `/`, `/favicon.ico`, and `/favicon.png` on Convex HTTP. MCP metadata now uses the same PNG data URI. `scripts/generate-mcp-icon.mjs` rasterizes via `@resvg/resvg-js-cli` (Google favicon pipeline rejects SVG).
-- **Reason**: Match the workaround used by other MCP servers until Claude reads `serverInfo.icons` natively.
+- **Why**: Claude custom connectors do not render MCP `serverInfo.icons` (SVG or data URI). They fetch connector art via Google faviconV2 from the MCP server hostname (`*.convex.site`), which had no favicon — so settings showed a blank/generic icon.
+- **Root cause (regional Convex)**: Claude/Google reduce `good-mule-506.eu-west-1.convex.site` to `eu-west-1.convex.site` for favicon lookup. That hostname does not resolve, so gstatic returns a 726-byte placeholder even when `/favicon.ico` returns 200 on the full deployment URL.
+- **Change**: Serve raster PNG at `/`, `/favicon.ico`, `/favicon.png`, and `/robots.txt` on Convex HTTP; add `logo_uri` to OAuth metadata; copy PNG favicons to `apps/web/public/`; document Convex custom domain as the fix for connector icons. Regenerate via `node scripts/generate-mcp-icon.mjs`.
+- **Reason**: Match the workaround used by other MCP servers until Claude reads `serverInfo.icons` natively; custom domain avoids hostname stripping on regional Convex URLs.
 
 ## New Eva logo (SVG, faceted two-tone) - 2026-05-21
 

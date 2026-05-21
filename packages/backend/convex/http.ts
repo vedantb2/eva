@@ -582,6 +582,7 @@ import {
   siteRoot,
   faviconIco,
   faviconPng,
+  robotsTxt,
 } from "./mcp/native";
 
 // OAuth metadata endpoints
@@ -659,6 +660,12 @@ http.route({
   path: "/favicon.png",
   method: "GET",
   handler: faviconPng,
+});
+
+http.route({
+  path: "/robots.txt",
+  method: "GET",
+  handler: robotsTxt,
 });
 
 export default http;

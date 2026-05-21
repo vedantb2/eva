@@ -1,7 +1,12 @@
 import { httpAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { z } from "zod";
-import { mcpFaviconResponse, mcpSiteRootResponse } from "./icon";
+import {
+  mcpFaviconIcoResponse,
+  mcpFaviconPngResponse,
+  mcpRobotsTxtResponse,
+  mcpSiteRootResponse,
+} from "./icon";
 
 function getWebAppUrl(): string {
   const url = process.env.WEB_APP_URL;
@@ -15,11 +20,13 @@ function getWebAppUrl(): string {
 
 export const oauthMetadata = httpAction(async (_ctx, request) => {
   const baseUrl = new URL(request.url).origin;
+  const webAppUrl = getWebAppUrl();
   return Response.json({
     issuer: baseUrl,
     authorization_endpoint: `${baseUrl}/mcp/oauth/authorize`,
     token_endpoint: `${baseUrl}/mcp/oauth/token`,
     registration_endpoint: `${baseUrl}/mcp/oauth/register`,
+    logo_uri: `${webAppUrl}/favicon.png`,
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
@@ -370,6 +377,8 @@ export const health = httpAction(async () => {
 
 export const siteRoot = httpAction(async () => mcpSiteRootResponse());
 
-export const faviconIco = httpAction(async () => mcpFaviconResponse());
+export const faviconIco = httpAction(async () => mcpFaviconIcoResponse());
 
-export const faviconPng = httpAction(async () => mcpFaviconResponse());
+export const faviconPng = httpAction(async () => mcpFaviconPngResponse());
+
+export const robotsTxt = httpAction(async () => mcpRobotsTxtResponse());

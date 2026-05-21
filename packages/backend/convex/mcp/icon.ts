@@ -50,31 +50,54 @@ const MCP_ICON_PNG_BASE64 =
 export const MCP_ICON_DATA_URI = `data:${MCP_ICON_MIME_TYPE};base64,${MCP_ICON_PNG_BASE64}`;
 
 /** Decodes the embedded PNG bytes for /favicon.ico and /favicon.png HTTP routes. */
-export function decodeMcpIconPng(): Uint8Array {
+export function decodeMcpIconPng(): ArrayBuffer {
   const binary = atob(MCP_ICON_PNG_BASE64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes;
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  );
 }
 
-export function mcpFaviconResponse(): Response {
+function faviconResponse(contentType: string): Response {
   return new Response(decodeMcpIconPng(), {
     headers: {
-      "Content-Type": "image/png",
+      "Content-Type": contentType,
       "Cache-Control": "public, max-age=86400",
     },
   });
 }
 
+export function mcpFaviconPngResponse(): Response {
+  return faviconResponse("image/png");
+}
+
+export function mcpFaviconIcoResponse(): Response {
+  return faviconResponse("image/x-icon");
+}
+
 export function mcpSiteRootResponse(): Response {
   return new Response(
-    `<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="icon" href="/favicon.png" type="image/png" sizes="128x128"><link rel="icon" href="/favicon.ico" type="image/png"><title>Eva MCP</title></head><body></body></html>`,
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="icon" href="/favicon.png" type="image/png" sizes="128x128"><link rel="icon" href="/favicon.ico" type="image/x-icon"><title>Eva MCP</title></head><body></body></html>`,
     {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "public, max-age=3600",
+      },
+    },
+  );
+}
+
+export function mcpRobotsTxtResponse(): Response {
+  return new Response(
+    "User-agent: *\nAllow: /\n",
+    {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "public, max-age=86400",
       },
     },
   );

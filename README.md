@@ -220,6 +220,27 @@ Open `http://localhost:5173`
 
 Eva supports Convex and Supabase MCP connections. To add these, add your Convex URL and Supabase URL to the repo or team environment variables in the dashboard.
 
+### Claude custom connector URL and icon
+
+Claude does **not** read MCP `serverInfo.icons` for custom connectors ([anthropics/claude-ai-mcp#152](https://github.com/anthropics/claude-ai-mcp/issues/152)). It loads connector art via Google faviconV2 from the MCP server hostname.
+
+**Regional Convex URLs break this.** A deployment like `https://good-mule-506.eu-west-1.convex.site/mcp` is reduced to `http://eu-west-1.convex.site` for favicon lookup — a hostname that does not exist — so the connector icon stays blank even when `/favicon.ico` works on the full deployment URL.
+
+**Fix: use a Convex custom domain** (Pro plan) for MCP, e.g. `https://mcp.example.com/mcp`:
+
+1. Convex dashboard → Deployment → Custom Domains → add `mcp.example.com`
+2. Set the DNS records Convex shows (CNAME)
+3. In Claude, connect to `https://mcp.example.com/mcp` (not `*.convex.site`)
+4. Ensure `WEB_APP_URL` in Convex env matches your web app (e.g. `https://eva.example.com`) for OAuth redirects and `logo_uri`
+
+After deploy, verify `https://mcp.example.com/favicon.png` returns 200. Google faviconV2 may take hours to refresh; disconnect/reconnect the connector after that.
+
+Regenerate favicon assets from `apps/web/public/icon.svg`:
+
+```bash
+node scripts/generate-mcp-icon.mjs
+```
+
 ## Sandbox Snapshots
 
 Eva runs agents inside Daytona sandboxes that boot from pre-built snapshots. Snapshots include the OS, dependencies, tooling, and your repo code so sandboxes start fast.

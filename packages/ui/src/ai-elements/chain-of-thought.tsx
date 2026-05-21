@@ -88,7 +88,7 @@ export const ChainOfThoughtHeader = memo(
         >
           {icon ?? (
             <img
-              src="/icon.png"
+              src="/icon.svg"
               alt="Eva"
               width={16}
               height={16}

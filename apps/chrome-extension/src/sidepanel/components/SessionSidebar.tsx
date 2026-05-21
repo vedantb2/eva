@@ -108,7 +108,7 @@ export function SessionSidebar({
         <div className="flex items-center justify-between h-14 px-4 shrink-0">
           <div className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5">
             <img
-              src={chrome.runtime.getURL("icons/icon.png")}
+              src={chrome.runtime.getURL("icons/icon.svg")}
               alt="Eva"
               width={30}
               height={30}

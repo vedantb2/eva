@@ -1,5 +1,9 @@
 # AI guidance changelog
 
+## 2026-05-21
+
+- Finished migrating remaining `icon.png` references to `icon.svg` in shared UI (`packages/ui`), chrome extension sidepanel, and MCP server metadata (SVG data URI + `scripts/generate-mcp-icon.mjs`). Chrome extension manifest still uses PNG for toolbar icons (MV3 requirement).
+
 ## 2026-05-20
 
 - Automation settings model picker now uses the current repo’s env vars and repo default model, and provider submenus work inside scrollable settings (same as Config/tasks).

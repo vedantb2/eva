@@ -391,7 +391,7 @@ export function ChatPanel({
 
               const evaIcon = (
                 <img
-                  src="/icons/icon.png"
+                  src="/icons/icon.svg"
                   alt="Eva"
                   className="w-4 h-4 rounded-full"
                 />
@@ -527,7 +527,7 @@ export function ChatPanel({
                   {(() => {
                     const loadingEvaIcon = (
                       <img
-                        src="/icons/icon.png"
+                        src="/icons/icon.svg"
                         alt="Eva"
                         className="w-4 h-4 rounded-full"
                       />

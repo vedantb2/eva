@@ -235,7 +235,7 @@ function useSpinnerVerb(active: boolean): string {
 function EvaThinkingIcon({ className }: { className?: string }) {
   return (
     <img
-      src="/icon.png"
+      src="/icon.svg"
       alt="Eva"
       width={16}
       height={16}

@@ -5,11 +5,21 @@ import type { Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import { internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
-import { exec, requireEnv } from "./helpers";
+import {
+  exec,
+  LEGACY_WORKSPACE_DIR,
+  requireEnv,
+  WORKSPACE_DIR,
+} from "./helpers";
 
 const HELPER_SCRIPT_PATH = "/home/eva/.local/bin/git-credential-conductor";
 const HELPER_CONFIG_DIR = "/home/eva/.config/conductor";
 const HELPER_CONFIG_PATH = `${HELPER_CONFIG_DIR}/git-credentials.env`;
+
+// Repositories that may have a URL-embedded GitHub token in `.git/config` from
+// either a legacy clone or a baked snapshot. We scrub each on every helper
+// install so git uses our credential helper instead of stale URL credentials.
+const KNOWN_REPO_DIRS = [WORKSPACE_DIR, LEGACY_WORKSPACE_DIR];
 
 // Bash credential helper. Git invokes it with `get` and supplies the host/proto
 // on stdin (which we discard — we only auth one installation). We POST the
@@ -118,6 +128,18 @@ export async function ensureGitCredentialHelper(
     HELPER_CONFIG_PATH,
   );
 
+  // Legacy snapshots and pre-helper clones embed the installation token in
+  // `remote.origin.url` (e.g. `https://x-access-token:ghs_xxx@github.com/...`).
+  // Git uses URL-embedded credentials in preference to a credential helper, so
+  // any in-sandbox `git pull` would keep failing with the expired baked token.
+  // Strip embedded creds from any known repo's `.git/config` so the helper is
+  // consulted instead. The sed pattern matches `user:password@github.com` and
+  // rewrites it to bare `github.com`, regardless of token value.
+  const repoCleanupSteps = KNOWN_REPO_DIRS.flatMap((dir) => [
+    `if [ -f ${dir}/.git/config ]; then sed -i -E 's|(https?://)[^@/[:space:]]+:[^@/[:space:]]+@github\\.com/|\\1github.com/|g' ${dir}/.git/config; fi`,
+    `if [ -d ${dir}/.git ]; then git -C ${dir} config --unset-all http.https://github.com/.extraheader 2>/dev/null || true; fi`,
+  ]);
+
   await exec(
     sandbox,
     [
@@ -132,6 +154,7 @@ export async function ensureGitCredentialHelper(
       `git config --global credential.helper ''`,
       `git config --global --add credential.helper ${HELPER_SCRIPT_PATH}`,
       `git config --global credential.https://github.com.helper ${HELPER_SCRIPT_PATH}`,
+      ...repoCleanupSteps,
     ].join(" && "),
     20,
   );

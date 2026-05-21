@@ -151,9 +151,14 @@ export async function ensureGitCredentialHelper(
       `rm -f /tmp/git-cred-cache`,
       // Wipe any inherited URL-embedded token / extraheader before switching to the helper.
       `git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true`,
-      `git config --global credential.helper ''`,
+      // Reset credential.helper to exactly `''` + our helper. `--unset-all`
+      // first so re-runs don't error with "credential.helper has multiple
+      // values" — git's plain `config` refuses to overwrite a multi-valued
+      // key, which is the state we leave behind after one install.
+      `git config --global --unset-all credential.helper 2>/dev/null || true`,
+      `git config --global --add credential.helper ''`,
       `git config --global --add credential.helper ${HELPER_SCRIPT_PATH}`,
-      `git config --global credential.https://github.com.helper ${HELPER_SCRIPT_PATH}`,
+      `git config --global --replace-all credential.https://github.com.helper ${HELPER_SCRIPT_PATH}`,
       ...repoCleanupSteps,
     ].join(" && "),
     20,

@@ -11,6 +11,7 @@ import {
   resolveSandboxContext,
   getSandbox,
   ensureSandboxRunning,
+  ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
   sleep,
   errorMessage,
   signAndLaunchScript,
@@ -55,7 +56,9 @@ export const validateSandbox = internalAction({
     try {
       const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
       // Start the sandbox if it's stopped (fast resume ~3-5s)
-      await ensureSandboxRunning(sandbox);
+      await ensureSandboxRunning(sandbox, {
+        timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+      });
       return { healthy: true };
     } catch (e) {
       console.error("Sandbox validation failed:", e);

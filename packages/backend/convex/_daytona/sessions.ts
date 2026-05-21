@@ -9,6 +9,7 @@ import {
   exec,
   resolveSandboxContext,
   ensureSandboxRunning,
+  ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
   errorMessage,
   sleep,
   workspaceDirShell,
@@ -495,12 +496,13 @@ async function prepareSessionSandboxInternal(
           sandboxDetails,
           async () => {
             await ensureSandboxRunning(sandbox, {
+              timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
               onRestoring: () =>
                 emitSessionProgress(
                   ctx,
                   args.sessionId,
                   completedSteps,
-                  "Restoring sandbox from cold storage (can take a few minutes)...",
+                  "Restoring sandbox from cold storage (can take up to 10 minutes)...",
                 ),
             });
             await checkoutSessionBranchWithRetry(
@@ -1146,12 +1148,13 @@ async function prepareTaskPreviewSandboxInternal(
             sandboxDetails,
             async () => {
               await ensureSandboxRunning(sandbox, {
+                timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
                 onRestoring: () =>
                   emitTaskProgress(
                     ctx,
                     args.taskId,
                     completedSteps,
-                    "Restoring sandbox from cold storage (can take a few minutes)...",
+                    "Restoring sandbox from cold storage (can take up to 10 minutes)...",
                   ),
               });
               await checkoutSessionBranchWithRetry(
@@ -1556,12 +1559,13 @@ async function prepareProjectPreviewSandboxInternal(
             sandboxDetails,
             async () => {
               await ensureSandboxRunning(sandbox, {
+                timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
                 onRestoring: () =>
                   emitProjectProgress(
                     ctx,
                     args.projectId,
                     completedSteps,
-                    "Restoring sandbox from cold storage (can take a few minutes)...",
+                    "Restoring sandbox from cold storage (can take up to 10 minutes)...",
                   ),
               });
               await checkoutSessionBranchWithRetry(

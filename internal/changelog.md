@@ -1,5 +1,10 @@
 # Changelog
 
+## Extend archived sandbox thaw timeout to 10 minutes - 2026-05-20
+
+- **Summary**: Raised `ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS` from 300s to 600s. Session/task/project reuse paths and sandbox validation now pass this budget so cold-storage restores are less likely to fail mid-thaw.
+- **Reason**: Resuming archived sandboxes can exceed 5 minutes on larger filesystems; failures surfaced as `reuseSessionSandbox.prepare failed after 301.0s`.
+
 ## Audit fix prompt uses typecheck and platform push - 2026-05-20
 
 - **Summary**: Audit fix agent prompt now uses `buildAuditFixPrompt` with `npx tsc --noEmit` instead of full build; Eva pushes the branch after success instead of instructing the agent to `git push`. Project tasks use the correct project branch name.

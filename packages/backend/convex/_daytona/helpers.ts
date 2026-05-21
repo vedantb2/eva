@@ -76,7 +76,7 @@ export const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
 // Daytona rehydrates an archived sandbox's filesystem from cold object storage,
 // which can take several minutes depending on size. The 60s default is fine for
 // a stopped→started fast resume, but trips a noisy timeout on archived thaws.
-export const ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS = 300;
+export const ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS = 600;
 
 const EXEC_CLIENT_TIMEOUT_BUFFER_MS = 15_000;
 
@@ -191,7 +191,10 @@ export async function ensureSandboxRunning(
       await sandbox.refreshData();
       const state = sandbox.state;
       if (state === "archived" || state === "restoring") {
-        startTimeout = ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS;
+        startTimeout = Math.max(
+          startTimeout,
+          ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+        );
         console.log(
           `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} is ${state}, extending start timeout to ${startTimeout}s`,
         );

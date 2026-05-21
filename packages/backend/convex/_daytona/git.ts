@@ -15,6 +15,7 @@ import {
   WORKSPACE_DIR,
   SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS,
   DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
+  ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
   DAYTONA_CREATE_TIMEOUT_MS,
   ensureDockerDaemon,
   ensureSandboxRunning,
@@ -1083,10 +1084,11 @@ async function tryResumeSandbox(
       if (onProgress) await onProgress("Resuming sandbox...");
       const sandbox = await daytona.get(existingSandboxId);
       await ensureSandboxRunning(sandbox, {
+        timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
         onRestoring: onProgress
           ? () =>
               onProgress(
-                "Restoring sandbox from cold storage (can take a few minutes)...",
+                "Restoring sandbox from cold storage (can take up to 10 minutes)...",
               )
           : undefined,
       });

@@ -88,7 +88,7 @@ export function PromptInputSettings<TModel extends string>({
   const providerOptions = getProviderOptions(options);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
@@ -191,7 +191,7 @@ export function ModelSelect<TModel extends string>({
   const providerOptions = getProviderOptions(options);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
           className={cn(

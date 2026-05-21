@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix automation model provider picker - 2026-05-20
+
+- **Summary**: Automation settings now resolve available providers from the current repo (matching Config/tasks), default unset models to the repo default, and use non-modal dropdown menus so provider submenus open inside scrollable settings pages.
+- **Reason**: Provider list was keyed off `automation.repoId` and always fell back to Sonnet when no per-automation model was saved, so only Claude models appeared and nested provider menus could not be opened in the settings tab.
+
 ## Harden GitHub authentication with per-sandbox credential helper - 2026-05-21
 
 - **Summary**: Replaced URL-embedded GitHub App installation tokens with a per-sandbox bearer secret + HTTP callback. Git operations now mint fresh tokens on demand via a bash credential helper, eliminating tokens from `.git/config`, process args, and reflogs. Self-heals on resume by rotating secrets and re-uploading the helper.

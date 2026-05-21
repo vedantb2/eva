@@ -146,9 +146,8 @@ function SettingsForm({
   const [title, setTitle] = useState(automation.title);
   const [description, setDescription] = useState(automation.description);
   const [cronSchedule, setCronSchedule] = useState(automation.cronSchedule);
-  const [model, setModel] = useState<AIModel>(
-    normalizeAIModel(automation.model),
-  );
+  const savedModel = normalizeAIModel(automation.model ?? repo.defaultModel);
+  const [model, setModel] = useState<AIModel>(savedModel);
   const [readOnly, setReadOnly] = useState(automation.readOnly === true);
   const [actionsEnabled, setActionsEnabled] = useState(
     automation.actionsEnabled === true,
@@ -157,10 +156,7 @@ function SettingsForm({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const { options: modelOptions } = useAvailableAiModels(
-    automation.repoId,
-    model,
-  );
+  const { options: modelOptions } = useAvailableAiModels(repoId, model);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -179,7 +175,7 @@ function SettingsForm({
     title !== automation.title ||
     description !== automation.description ||
     cronSchedule !== automation.cronSchedule ||
-    model !== normalizeAIModel(automation.model) ||
+    model !== savedModel ||
     readOnly !== (automation.readOnly === true) ||
     actionsEnabled !== (automation.actionsEnabled === true) ||
     shared !== (automation.shared === true);

@@ -1,5 +1,21 @@
 import { buildRootDirectoryInstruction } from "../prompts/shared";
 
+const WORKSPACE_DIR = "/tmp/repo";
+
+function shellSingleQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function buildTypecheckCommand(rootDirectory: string): string {
+  const typecheckDirectory = rootDirectory
+    ? `${WORKSPACE_DIR}/${rootDirectory}`
+    : WORKSPACE_DIR;
+  return `cd ${shellSingleQuote(typecheckDirectory)} && { status=0; timeout --kill-after=10s 120s npx tsc --noEmit --pretty false > /tmp/eva-tsc.log 2>&1 || status=$?; tail -50 /tmp/eva-tsc.log; exit "$status"; }`;
+}
+
+const SHELL_TIMEOUT_RULE =
+  "- Shell tools are killed after 240s — never use `timeout` above 180";
+
 /** Builds a write-mode prompt for automations that edit code and commit locally. */
 export function buildAutomationPrompt(
   title: string,
@@ -7,6 +23,7 @@ export function buildAutomationPrompt(
   branchName: string,
   rootDirectory: string,
 ): string {
+  const typecheckCommand = buildTypecheckCommand(rootDirectory);
   return `You are in IMPLEMENTATION MODE. DIRECTLY edit source code files.
 
 ## Automation: ${title}
@@ -15,7 +32,7 @@ export function buildAutomationPrompt(
 ## Steps:
 1. Read the files you plan to modify before editing them — understand existing code first
 2. Implement changes by editing source code files
-3. Run the build command to verify no build errors. If errors, fix and re-run (max 3 attempts — if still failing, commit what you have and report the error)
+3. Run \`${typecheckCommand}\` to verify no type errors. If errors occur, read the output, fix every issue, and re-run (max 3 attempts). Do NOT run a full build (\`pnpm build\`, \`npm run build\`, \`vite build\`) — it exceeds sandbox memory and time limits.
 4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "automation: ${title.replace(/"/g, '\\"')}"
 5. Do NOT push. Eva publishes branch "${branchName}" after you finish successfully.
 
@@ -23,14 +40,15 @@ export function buildAutomationPrompt(
 After committing, output 3–5 bullet lines (plain text, each starting with "- "). Max ~12 words per line. Outcomes only — no code, file paths, or implementation detail. This will be added to the PR description.
 
 ## Rules:
-- Do NOT create .md plan files or run lint/dev commands (except the build step above)
+- Do NOT create .md plan files or run lint/test/dev servers (except typecheck in step 3)
 - Do NOT use agent-browser, take screenshots, or record videos
 - Do NOT run audits
 - Do NOT run git push or gh pr commands
 - Use lockfile for package manager.
-- Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 60 npm run build\`, \`timeout 60 npm test\`, \`timeout 30 gh ...\`
+- Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
-- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`
+${SHELL_TIMEOUT_RULE}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 /** Builds a read-only prompt for automations that analyze the codebase without modifying files. */
@@ -46,7 +64,7 @@ export function buildReadOnlyPrompt(
 
 ## Steps:
 1. Read and analyze the codebase to answer the prompt
-2. You may run read-only commands (e.g. grep, find, cat, ls, git log, git diff, npm test, npm run build) to gather information
+2. You may run read-only commands (e.g. grep, find, cat, ls, git log, git diff, npm test) to gather information
 3. Write a detailed report/analysis as your final output
 
 ## Report (REQUIRED):
@@ -57,8 +75,9 @@ Provide a clear, structured report answering the prompt. This is the only output
 - Do NOT run git add, git commit, git push, or any git commands that modify state
 - Do NOT use agent-browser, take screenshots, or record videos
 - Do NOT run audits
-- Prefix shell commands with timeouts: \`timeout 60 npm run build\`, \`timeout 60 npm test\`
-- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+- Prefix shell commands with timeouts: \`timeout 60 npm test\`
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`
+${SHELL_TIMEOUT_RULE}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 /** Builds a read-only prompt that produces structured JSON findings for actionable follow-up. */
@@ -74,7 +93,7 @@ export function buildActionableReportPrompt(
 
 ## Steps:
 1. Read and analyze the codebase to answer the prompt
-2. You may run read-only commands (e.g. grep, find, cat, ls, git log, git diff, npm test, npm run build) to gather information
+2. You may run read-only commands (e.g. grep, find, cat, ls, git log, git diff, npm test) to gather information
 3. Identify discrete, actionable findings
 4. Output your findings as structured JSON (see format below)
 
@@ -109,6 +128,7 @@ You may include narrative text before the JSON block for context, but the JSON b
 - Do NOT run git add, git commit, git push, or any git commands that modify state
 - Do NOT use agent-browser, take screenshots, or record videos
 - Do NOT run audits
-- Prefix shell commands with timeouts: \`timeout 60 npm run build\`, \`timeout 60 npm test\`
-- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+- Prefix shell commands with timeouts: \`timeout 60 npm test\`
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`
+${SHELL_TIMEOUT_RULE}${buildRootDirectoryInstruction(rootDirectory)}`;
 }

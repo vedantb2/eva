@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix automation build stall at 240s shell limit - 2026-05-20
+
+- **Summary**: Implementation automations now verify changes with `npx tsc --noEmit` (120s cap) instead of `npm run build`, matching quick tasks. Prompts state the 240s sandbox shell-tool kill limit and forbid full builds.
+- **Reason**: Agents ran 5-minute production builds (`timeout 300 npm run build`) that exceeded `CLAUDE_SHELL_TOOL_TIMEOUT_MS` (240s), producing "Tool stalled while Running command" with no useful output.
+
 ## Remove unused client apps - 2026-05-20
 
 - **Summary**: Deleted `apps/mobile`, `apps/desktop`, and `apps/teams-bot` plus their root npm scripts and lockfile entries. Docs now list only `apps/web` and `apps/chrome-extension`.

@@ -20,7 +20,22 @@ export function HiddenReposSheet({
   onOpenChange,
 }: HiddenReposSheetProps) {
   const allRepos = useQuery(api.githubRepos.list, { includeHidden: true });
-  const toggleHidden = useMutation(api.githubRepos.toggleHidden);
+  const toggleHidden = useMutation(
+    api.githubRepos.toggleHidden,
+  ).withOptimisticUpdate((localStore, args) => {
+    const withHidden = localStore.getQuery(api.githubRepos.list, {
+      includeHidden: true,
+    });
+    if (withHidden !== undefined) {
+      localStore.setQuery(
+        api.githubRepos.list,
+        { includeHidden: true },
+        withHidden.map((r) =>
+          r._id === args.repoId ? { ...r, hidden: args.hidden } : r,
+        ),
+      );
+    }
+  });
 
   const hiddenRepos = allRepos?.filter((r) => r.hidden === true) ?? [];
 

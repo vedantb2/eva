@@ -18,8 +18,36 @@ const PRESET_KEYS = ["business", "dev", "designer"] as const;
 
 export function PersonalisationClient() {
   const personalisation = useQuery(api.auth.getPersonalisation);
-  const setCustomInstructions = useMutation(api.auth.setCustomInstructions);
-  const setRole = useMutation(api.auth.setRole);
+  const setCustomInstructions = useMutation(
+    api.auth.setCustomInstructions,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.auth.getPersonalisation, {});
+    if (current) {
+      localStore.setQuery(
+        api.auth.getPersonalisation,
+        {},
+        {
+          ...current,
+          customInstructions: args.customInstructions,
+        },
+      );
+    }
+  });
+  const setRole = useMutation(api.auth.setRole).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.auth.getPersonalisation, {});
+      if (current) {
+        localStore.setQuery(
+          api.auth.getPersonalisation,
+          {},
+          {
+            ...current,
+            role: args.role,
+          },
+        );
+      }
+    },
+  );
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const savedValue = personalisation?.customInstructions ?? "";

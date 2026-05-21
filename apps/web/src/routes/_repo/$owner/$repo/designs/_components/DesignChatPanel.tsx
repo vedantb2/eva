@@ -93,8 +93,36 @@ export function DesignChatPanel({
   const executeMessage = useMutation(api.designSessions.executeMessage);
   const enqueueMessage = useMutation(api.designSessions.enqueueMessage);
   const cancelExecution = useMutation(api.designSessions.cancelExecution);
-  const updateQueuedMessage = useMutation(api.queuedMessages.update);
-  const deleteQueuedMessage = useMutation(api.queuedMessages.remove);
+  const updateQueuedMessage = useMutation(
+    api.queuedMessages.update,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.queuedMessages.listByParent, {
+      parentId: designSessionId,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.queuedMessages.listByParent,
+        { parentId: designSessionId },
+        current.map((m) =>
+          m._id === args.id ? { ...m, content: args.content } : m,
+        ),
+      );
+    }
+  });
+  const deleteQueuedMessage = useMutation(
+    api.queuedMessages.remove,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.queuedMessages.listByParent, {
+      parentId: designSessionId,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.queuedMessages.listByParent,
+        { parentId: designSessionId },
+        current.filter((m) => m._id !== args.id),
+      );
+    }
+  });
   const { repo } = useRepo();
 
   const mentionRef = useRef<MentionTextareaHandle>(null);

@@ -4,6 +4,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useState } from "react";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +29,21 @@ export function DeleteTasksModal({
   selectedTaskIds,
   onSuccess,
 }: DeleteTasksModalProps) {
-  const removeTask = useMutation(api.agentTasks.remove);
+  const { repoId } = useRepo();
+  const removeTask = useMutation(api.agentTasks.remove).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.agentTasks.getAllTasks, {
+        repoId,
+      });
+      if (current !== undefined) {
+        localStore.setQuery(
+          api.agentTasks.getAllTasks,
+          { repoId },
+          current.filter((task) => task._id !== args.id),
+        );
+      }
+    },
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   const count = selectedTaskIds.size;

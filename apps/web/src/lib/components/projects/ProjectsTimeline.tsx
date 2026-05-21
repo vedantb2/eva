@@ -25,6 +25,7 @@ import {
   phaseConfig,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
+import { useRepo } from "@/lib/contexts/RepoContext";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -58,7 +59,35 @@ export function ProjectsTimeline({
   basePath,
 }: ProjectsTimelineProps) {
   const navigate = useNavigate();
-  const updateProject = useMutation(api.projects.update);
+  const { repo } = useRepo();
+  const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const currentList = localStore.getQuery(api.projects.list, {
+        repoId: repo._id,
+      });
+      if (currentList !== undefined) {
+        const { id: _id, priority, projectLead, ...safeFields } = args;
+        localStore.setQuery(
+          api.projects.list,
+          { repoId: repo._id },
+          currentList.map((p) =>
+            p._id === args.id
+              ? {
+                  ...p,
+                  ...safeFields,
+                  ...(priority !== undefined
+                    ? { priority: priority ?? undefined }
+                    : {}),
+                  ...(projectLead !== undefined
+                    ? { projectLead: projectLead ?? undefined }
+                    : {}),
+                }
+              : p,
+          ),
+        );
+      }
+    },
+  );
 
   const { features, unscheduledCount, projectIdMap, phaseMap } = useMemo(() => {
     const scheduled: GanttFeature[] = [];

@@ -36,8 +36,58 @@ export function TeamReposTab({
   allRepos,
   isOwner,
 }: TeamReposTabProps) {
-  const assignRepo = useMutation(api.githubRepos.assignToTeam);
-  const removeRepo = useMutation(api.githubRepos.removeFromTeam);
+  const assignRepo = useMutation(
+    api.githubRepos.assignToTeam,
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentTeamRepos = localStore.getQuery(api.githubRepos.listByTeam, {
+      teamId: args.teamId,
+    });
+    const currentAllRepos = localStore.getQuery(api.githubRepos.list, {
+      includeHidden: true,
+    });
+    const assignedRepo = currentAllRepos?.find((r) => r._id === args.repoId);
+    if (currentTeamRepos !== undefined && assignedRepo) {
+      localStore.setQuery(api.githubRepos.listByTeam, { teamId: args.teamId }, [
+        ...currentTeamRepos,
+        { ...assignedRepo, teamId: args.teamId },
+      ]);
+    }
+    if (currentAllRepos !== undefined) {
+      localStore.setQuery(
+        api.githubRepos.list,
+        { includeHidden: true },
+        currentAllRepos.map((r) =>
+          r._id === args.repoId ? { ...r, teamId: args.teamId } : r,
+        ),
+      );
+    }
+  });
+  const removeRepo = useMutation(
+    api.githubRepos.removeFromTeam,
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentTeamRepos = localStore.getQuery(api.githubRepos.listByTeam, {
+      teamId: args.teamId,
+    });
+    if (currentTeamRepos !== undefined) {
+      localStore.setQuery(
+        api.githubRepos.listByTeam,
+        { teamId: args.teamId },
+        currentTeamRepos.filter((repo) => repo._id !== args.repoId),
+      );
+    }
+    const currentAllRepos = localStore.getQuery(api.githubRepos.list, {
+      includeHidden: true,
+    });
+    if (currentAllRepos !== undefined) {
+      localStore.setQuery(
+        api.githubRepos.list,
+        { includeHidden: true },
+        currentAllRepos.map((r) =>
+          r._id === args.repoId ? { ...r, teamId: undefined } : r,
+        ),
+      );
+    }
+  });
 
   const [dialog, setDialog] = useState({
     open: false,

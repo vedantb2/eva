@@ -24,7 +24,26 @@ type ToastEntry = {
 
 export function NotificationToastStream() {
   const notifications = useQuery(api.notifications.list);
-  const markAsRead = useMutation(api.notifications.markAsRead);
+  const markAsRead = useMutation(
+    api.notifications.markAsRead,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.notifications.list, {});
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.notifications.list,
+        {},
+        current.map((n) => (n._id === args.id ? { ...n, read: true } : n)),
+      );
+    }
+    const count = localStore.getQuery(api.notifications.countUnread, {});
+    if (count !== undefined) {
+      localStore.setQuery(
+        api.notifications.countUnread,
+        {},
+        Math.max(0, count - 1),
+      );
+    }
+  });
   const navigate = useNavigate();
   const seenNotificationIdsRef = useRef<Set<Id<"notifications">> | null>(null);
   const [toasts, setToasts] = useState<ToastEntry[]>([]);

@@ -30,7 +30,28 @@ export function ProjectTabs({
   repoId,
 }: ProjectTabsProps) {
   const [pendingSpec, setPendingSpec] = useState<string | null>(null);
-  const updateProject = useMutation(api.projects.update);
+  const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.projects.get, { id: projectId });
+      if (current !== undefined && current !== null) {
+        const { id: _id, priority, projectLead, ...safeFields } = args;
+        localStore.setQuery(
+          api.projects.get,
+          { id: projectId },
+          {
+            ...current,
+            ...safeFields,
+            ...(priority !== undefined
+              ? { priority: priority ?? undefined }
+              : {}),
+            ...(projectLead !== undefined
+              ? { projectLead: projectLead ?? undefined }
+              : {}),
+          },
+        );
+      }
+    },
+  );
   const clearMessagesDb = useMutation(api.projects.clearMessages);
   const addMessageDb = useMutation(api.projects.addMessage);
   const startProjectInterview = useMutation(

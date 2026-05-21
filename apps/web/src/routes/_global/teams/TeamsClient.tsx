@@ -25,7 +25,18 @@ import { TeamDeleteDialog } from "./_components/TeamDeleteDialog";
 export function TeamsClient() {
   const teams = useQuery(api.teams.list) ?? [];
   const createTeam = useMutation(api.teams.create);
-  const deleteTeam = useMutation(api.teams.remove);
+  const deleteTeam = useMutation(api.teams.remove).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.teams.list, {});
+      if (current !== undefined) {
+        localStore.setQuery(
+          api.teams.list,
+          {},
+          current.filter((team) => team._id !== args.id),
+        );
+      }
+    },
+  );
 
   const [deleteTarget, setDeleteTarget] = useState<{
     id: Id<"teams">;

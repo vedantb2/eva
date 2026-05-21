@@ -38,8 +38,44 @@ export const Route = createFileRoute("/_global/settings/sync")({
 function SyncSettingsRoute() {
   const syncSettings = useQuery(api.syncSettings.list);
   const dbRepos = useQuery(api.githubRepos.list, { includeHidden: true });
-  const setSyncSetting = useMutation(api.syncSettings.set);
-  const bulkSetSyncSettings = useMutation(api.syncSettings.bulkSet);
+  const setSyncSetting = useMutation(api.syncSettings.set).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.syncSettings.list, {});
+      if (current !== undefined) {
+        const idx = current.findIndex(
+          (s) => s.owner === args.owner && s.name === args.name,
+        );
+        if (idx >= 0) {
+          localStore.setQuery(
+            api.syncSettings.list,
+            {},
+            current.map((s, i) =>
+              i === idx ? { ...s, enabled: args.enabled } : s,
+            ),
+          );
+        }
+      }
+    },
+  );
+  const bulkSetSyncSettings = useMutation(
+    api.syncSettings.bulkSet,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.syncSettings.list, {});
+    if (current !== undefined) {
+      const updates = new Map(
+        args.repos.map((r) => [`${args.owner}/${r.name}`, r.enabled]),
+      );
+      localStore.setQuery(
+        api.syncSettings.list,
+        {},
+        current.map((s) => {
+          const key = `${s.owner}/${s.name}`;
+          const newEnabled = updates.get(key);
+          return newEnabled !== undefined ? { ...s, enabled: newEnabled } : s;
+        }),
+      );
+    }
+  });
   const listAvailableRepos = useAction(api.github.listAllAvailableRepos);
 
   const [fetching, setFetching] = useState(false);

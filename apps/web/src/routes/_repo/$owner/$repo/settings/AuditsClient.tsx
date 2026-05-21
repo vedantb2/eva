@@ -17,8 +17,36 @@ type Category = FunctionReturnType<
 export function AuditsClient() {
   const { repo, repoId } = useRepo();
   const categories = useQuery(api.auditCategories.listByRepo, { repoId });
-  const toggleEnabled = useMutation(api.auditCategories.toggleEnabled);
-  const removeCategory = useMutation(api.auditCategories.remove);
+  const toggleEnabled = useMutation(
+    api.auditCategories.toggleEnabled,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.auditCategories.listByRepo, {
+      repoId,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.auditCategories.listByRepo,
+        { repoId },
+        current.map((c) =>
+          c._id === args.id ? { ...c, enabled: args.enabled } : c,
+        ),
+      );
+    }
+  });
+  const removeCategory = useMutation(
+    api.auditCategories.remove,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.auditCategories.listByRepo, {
+      repoId,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.auditCategories.listByRepo,
+        { repoId },
+        current.filter((c) => c._id !== args.id),
+      );
+    }
+  });
 
   if (!categories) return null;
 

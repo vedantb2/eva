@@ -154,7 +154,18 @@ function SettingsForm({
 
   const navigate = useNavigate();
   const updateAutomation = useMutation(api.automations.update);
-  const removeAutomation = useMutation(api.automations.remove);
+  const removeAutomation = useMutation(
+    api.automations.remove,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.automations.list, { repoId });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.automations.list,
+        { repoId },
+        current.filter((a) => a._id !== args.id),
+      );
+    }
+  });
   const [title, setTitle] = useState(automation.title);
   const [description, setDescription] = useState(automation.description);
   const [cronSchedule, setCronSchedule] = useState(automation.cronSchedule);

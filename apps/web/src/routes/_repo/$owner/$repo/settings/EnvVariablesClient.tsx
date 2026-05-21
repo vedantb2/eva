@@ -11,10 +11,34 @@ export function EnvVariablesClient() {
   const vars = useQuery(api.repoEnvVars.list, { repoId });
   const upsertVar = useAction(api.repoEnvVarsActions.upsertVar);
   const revealValue = useAction(api.repoEnvVarsActions.revealValue);
-  const removeVar = useMutation(api.repoEnvVars.removeVar);
+  const removeVar = useMutation(api.repoEnvVars.removeVar).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.repoEnvVars.list, { repoId });
+      if (current !== undefined) {
+        localStore.setQuery(
+          api.repoEnvVars.list,
+          { repoId },
+          current.filter((v) => v.key !== args.key),
+        );
+      }
+    },
+  );
   const toggleSandboxExclude = useMutation(
     api.repoEnvVars.toggleSandboxExclude,
-  );
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.repoEnvVars.list, { repoId });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.repoEnvVars.list,
+        { repoId },
+        current.map((v) =>
+          v.key === args.key
+            ? { ...v, sandboxExclude: args.sandboxExclude }
+            : v,
+        ),
+      );
+    }
+  });
 
   return (
     <EnvVarsTable

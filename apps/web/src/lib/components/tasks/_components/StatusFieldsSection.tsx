@@ -97,8 +97,82 @@ export function StatusFieldsSection({
   hasActiveRun,
   allTags,
 }: StatusFieldsSectionProps) {
-  const updateTask = useMutation(api.agentTasks.update);
-  const updateStatus = useMutation(api.agentTasks.updateStatus);
+  const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
+    (localStore, args) => {
+      if (!task?.repoId) return;
+      const {
+        id: _id,
+        repoId: _repoId,
+        priority,
+        projectId,
+        assignedTo,
+        screenshotsVideosEnabled,
+        ...safeFields
+      } = args;
+      const nullSafe = {
+        ...safeFields,
+        ...(priority !== undefined ? { priority: priority ?? undefined } : {}),
+        ...(projectId !== undefined
+          ? { projectId: projectId ?? undefined }
+          : {}),
+        ...(assignedTo !== undefined
+          ? { assignedTo: assignedTo ?? undefined }
+          : {}),
+        ...(screenshotsVideosEnabled !== undefined
+          ? { screenshotsVideosEnabled: screenshotsVideosEnabled ?? undefined }
+          : {}),
+      };
+      const list = localStore.getQuery(api.agentTasks.getAllTasks, {
+        repoId: task.repoId,
+      });
+      if (list !== undefined) {
+        localStore.setQuery(
+          api.agentTasks.getAllTasks,
+          { repoId: task.repoId },
+          list.map((t) => (t._id === args.id ? { ...t, ...nullSafe } : t)),
+        );
+      }
+      const cached = localStore.getQuery(api.agentTasks.get, { id: args.id });
+      if (cached) {
+        localStore.setQuery(
+          api.agentTasks.get,
+          { id: args.id },
+          {
+            ...cached,
+            ...nullSafe,
+          },
+        );
+      }
+    },
+  );
+  const updateStatus = useMutation(
+    api.agentTasks.updateStatus,
+  ).withOptimisticUpdate((localStore, args) => {
+    if (!task?.repoId) return;
+    const list = localStore.getQuery(api.agentTasks.getAllTasks, {
+      repoId: task.repoId,
+    });
+    if (list !== undefined) {
+      localStore.setQuery(
+        api.agentTasks.getAllTasks,
+        { repoId: task.repoId },
+        list.map((t) =>
+          t._id === args.id ? { ...t, status: args.status } : t,
+        ),
+      );
+    }
+    const cached = localStore.getQuery(api.agentTasks.get, { id: args.id });
+    if (cached) {
+      localStore.setQuery(
+        api.agentTasks.get,
+        { id: args.id },
+        {
+          ...cached,
+          status: args.status,
+        },
+      );
+    }
+  });
   const { repo } = useRepo();
   const [tagDraft, setTagDraft] = useState("");
   const [isCreatingProject, setIsCreatingProject] = useState(false);

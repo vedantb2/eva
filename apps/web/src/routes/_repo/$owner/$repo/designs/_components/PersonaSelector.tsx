@@ -64,8 +64,32 @@ export function ManagePersonasModal({
 }) {
   const personas = useQuery(api.designPersonas.list, { repoId });
   const createPersona = useMutation(api.designPersonas.create);
-  const updatePersona = useMutation(api.designPersonas.update);
-  const removePersona = useMutation(api.designPersonas.remove);
+  const updatePersona = useMutation(
+    api.designPersonas.update,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.designPersonas.list, { repoId });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.designPersonas.list,
+        { repoId },
+        current.map((p) =>
+          p._id === args.id ? { ...p, ...args, _id: p._id } : p,
+        ),
+      );
+    }
+  });
+  const removePersona = useMutation(
+    api.designPersonas.remove,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.designPersonas.list, { repoId });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.designPersonas.list,
+        { repoId },
+        current.filter((p) => p._id !== args.id),
+      );
+    }
+  });
 
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<Id<"designPersonas"> | null>(null);

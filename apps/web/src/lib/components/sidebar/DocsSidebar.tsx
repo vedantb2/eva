@@ -46,7 +46,18 @@ export function DocsSidebar({
   const navigate = useNavigate();
   const docs = useQuery(api.docs.list, { repoId });
   const createDoc = useMutation(api.docs.create);
-  const removeDoc = useMutation(api.docs.remove);
+  const removeDoc = useMutation(api.docs.remove).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.docs.list, { repoId });
+      if (current !== undefined) {
+        localStore.setQuery(
+          api.docs.list,
+          { repoId },
+          current.filter((d) => d._id !== args.id),
+        );
+      }
+    },
+  );
   const startPrdParse = useMutation(api.docPrdWorkflow.startPrdParse);
 
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);

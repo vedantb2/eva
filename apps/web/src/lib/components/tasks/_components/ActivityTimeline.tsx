@@ -151,7 +151,20 @@ export function ActivityTimeline({
   const mentionRef = useRef<CommentMentionInputHandle>(null);
 
   const createComment = useMutation(api.taskComments.create);
-  const removeComment = useMutation(api.taskComments.remove);
+  const removeComment = useMutation(
+    api.taskComments.remove,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.taskComments.listByTask, {
+      taskId,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.taskComments.listByTask,
+        { taskId },
+        current.filter((c) => c._id !== args.id),
+      );
+    }
+  });
   const startExecution = useMutation(api.agentTasks.startExecution);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
 

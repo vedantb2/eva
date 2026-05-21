@@ -157,12 +157,39 @@ export function ProjectsTableView({
   projects,
   onOpenProject,
 }: ProjectsTableViewProps) {
-  const { basePath } = useRepo();
+  const { basePath, repo } = useRepo();
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "created", desc: true },
   ]);
-  const updateProject = useMutation(api.projects.update);
+  const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const currentList = localStore.getQuery(api.projects.list, {
+        repoId: repo._id,
+      });
+      if (currentList !== undefined) {
+        const { id: _id, priority, projectLead, ...safeFields } = args;
+        localStore.setQuery(
+          api.projects.list,
+          { repoId: repo._id },
+          currentList.map((p) =>
+            p._id === args.id
+              ? {
+                  ...p,
+                  ...safeFields,
+                  ...(priority !== undefined
+                    ? { priority: priority ?? undefined }
+                    : {}),
+                  ...(projectLead !== undefined
+                    ? { projectLead: projectLead ?? undefined }
+                    : {}),
+                }
+              : p,
+          ),
+        );
+      }
+    },
+  );
 
   const scrollRef = useCallback((node: HTMLDivElement | null) => {
     setScrollParent(node);

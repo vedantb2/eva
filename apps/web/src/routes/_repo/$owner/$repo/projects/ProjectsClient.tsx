@@ -78,7 +78,20 @@ const SORT_FIELD_LABELS: Record<SortField, string> = {
 export function ProjectsClient() {
   const { repo, basePath, owner, name } = useRepo();
   const projects = useQuery(api.projects.list, { repoId: repo._id });
-  const deleteProject = useMutation(api.projects.deleteCascade);
+  const deleteProject = useMutation(
+    api.projects.deleteCascade,
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentList = localStore.getQuery(api.projects.list, {
+      repoId: repo._id,
+    });
+    if (currentList !== undefined) {
+      localStore.setQuery(
+        api.projects.list,
+        { repoId: repo._id },
+        currentList.filter((p) => p._id !== args.id),
+      );
+    }
+  });
   const navigate = useNavigate();
   const [isCreating, setIsCreating] = useState(false);
   const [{ q, view, phases, sortField, sortDir }, setParams] =

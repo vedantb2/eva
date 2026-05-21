@@ -19,7 +19,44 @@ export function TaskHeader({
 }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
-  const updateTask = useMutation(api.agentTasks.update);
+  const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const cached = localStore.getQuery(api.agentTasks.get, { id: taskId });
+      if (cached) {
+        const {
+          id: _id,
+          priority,
+          projectId,
+          assignedTo,
+          screenshotsVideosEnabled,
+          ...safeFields
+        } = args;
+        localStore.setQuery(
+          api.agentTasks.get,
+          { id: taskId },
+          {
+            ...cached,
+            ...safeFields,
+            ...(priority !== undefined
+              ? { priority: priority ?? undefined }
+              : {}),
+            ...(projectId !== undefined
+              ? { projectId: projectId ?? undefined }
+              : {}),
+            ...(assignedTo !== undefined
+              ? { assignedTo: assignedTo ?? undefined }
+              : {}),
+            ...(screenshotsVideosEnabled !== undefined
+              ? {
+                  screenshotsVideosEnabled:
+                    screenshotsVideosEnabled ?? undefined,
+                }
+              : {}),
+          },
+        );
+      }
+    },
+  );
 
   return (
     <div className="flex items-center gap-2">

@@ -8,8 +8,25 @@ import { Input } from "@conductor/ui";
 import { parseCommandLines } from "./_utils";
 
 export function AppClient() {
-  const { repo, repoId } = useRepo();
-  const updateConfig = useMutation(api.githubRepos.updateConfig);
+  const { repo, repoId, owner, name } = useRepo();
+  const appName = repo.rootDirectory?.split("/").pop();
+  const updateConfig = useMutation(
+    api.githubRepos.updateConfig,
+  ).withOptimisticUpdate((localStore, args) => {
+    const queryArgs = { owner, name, appName };
+    const current = localStore.getQuery(
+      api.githubRepos.getByOwnerAndName,
+      queryArgs,
+    );
+    if (current !== undefined && current !== null) {
+      const { repoId: _id, devPort, ...safeFields } = args;
+      localStore.setQuery(api.githubRepos.getByOwnerAndName, queryArgs, {
+        ...current,
+        ...safeFields,
+        ...(devPort !== undefined ? { devPort: devPort ?? undefined } : {}),
+      });
+    }
+  });
 
   const startupCommands = repo.startupCommands?.join("\n") ?? "";
   const backgroundCommands = repo.backgroundCommands?.join("\n") ?? "";

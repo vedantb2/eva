@@ -24,10 +24,38 @@ export function TeamEnvVarsClient() {
 
   const upsertTeamVar = useAction(api.teamEnvVarsActions.upsertVar);
   const revealTeamValue = useAction(api.teamEnvVarsActions.revealValue);
-  const removeTeamVar = useMutation(api.teamEnvVars.removeVar);
+  const removeTeamVar = useMutation(
+    api.teamEnvVars.removeVar,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.teamEnvVars.list, {
+      teamId: args.teamId,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.teamEnvVars.list,
+        { teamId: args.teamId },
+        current.filter((v) => v.key !== args.key),
+      );
+    }
+  });
   const toggleSandboxExclude = useMutation(
     api.teamEnvVars.toggleSandboxExclude,
-  );
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.teamEnvVars.list, {
+      teamId: args.teamId,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.teamEnvVars.list,
+        { teamId: args.teamId },
+        current.map((v) =>
+          v.key === args.key
+            ? { ...v, sandboxExclude: args.sandboxExclude }
+            : v,
+        ),
+      );
+    }
+  });
 
   if (!repo.teamId || !team) {
     return (

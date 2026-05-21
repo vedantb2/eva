@@ -34,7 +34,22 @@ export function MonorepoClient() {
   const { repo } = useRepo();
   const detectApps = useAction(api.github.detectMonorepoApps);
   const createRepo = useMutation(api.githubRepos.create);
-  const toggleHidden = useMutation(api.githubRepos.toggleHidden);
+  const toggleHidden = useMutation(
+    api.githubRepos.toggleHidden,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.githubRepos.list, {
+      includeHidden: true,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.githubRepos.list,
+        { includeHidden: true },
+        current.map((r) =>
+          r._id === args.repoId ? { ...r, hidden: args.hidden } : r,
+        ),
+      );
+    }
+  });
   const allRepos = useQuery(api.githubRepos.list, { includeHidden: true });
 
   const [detected, setDetected] = useState<ReadonlyArray<DetectedApp>>([]);

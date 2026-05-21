@@ -67,7 +67,20 @@ export function QuickTasksListView({
   const groupedCodebases = useQuery(api.githubRepos.listGroupedByCodebase);
   const users = useQuery(api.users.listAll);
   const projectsList = useQuery(api.projects.list, { repoId });
-  const updateStatus = useMutation(api.agentTasks.updateStatus);
+  const updateStatus = useMutation(
+    api.agentTasks.updateStatus,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.agentTasks.getAllTasks, { repoId });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.agentTasks.getAllTasks,
+        { repoId },
+        current.map((task) =>
+          task._id === args.id ? { ...task, status: args.status } : task,
+        ),
+      );
+    }
+  });
   const startExecution = useMutation(api.agentTasks.startExecution);
 
   const taskIds = useMemo(

@@ -12,8 +12,25 @@ import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 export function ConfigClient() {
-  const { repo, repoId } = useRepo();
-  const updateConfig = useMutation(api.githubRepos.updateConfig);
+  const { repo, repoId, owner, name } = useRepo();
+  const appName = repo.rootDirectory?.split("/").pop();
+  const updateConfig = useMutation(
+    api.githubRepos.updateConfig,
+  ).withOptimisticUpdate((localStore, args) => {
+    const queryArgs = { owner, name, appName };
+    const current = localStore.getQuery(
+      api.githubRepos.getByOwnerAndName,
+      queryArgs,
+    );
+    if (current !== undefined && current !== null) {
+      const { repoId: _id, devPort, ...safeFields } = args;
+      localStore.setQuery(api.githubRepos.getByOwnerAndName, queryArgs, {
+        ...current,
+        ...safeFields,
+        ...(devPort !== undefined ? { devPort: devPort ?? undefined } : {}),
+      });
+    }
+  });
   const { options, model } = useAvailableAiModels(repoId, repo.defaultModel);
   const { options: auditReviewOptions, model: auditReviewModel } =
     useAvailableAiModels(repoId, repo.auditReviewModel ?? "haiku");
@@ -198,8 +215,25 @@ function extractHostname(raw: string): string {
 }
 
 function DomainsSection() {
-  const { repo, repoId } = useRepo();
-  const updateConfig = useMutation(api.githubRepos.updateConfig);
+  const { repo, repoId, owner, name } = useRepo();
+  const appName = repo.rootDirectory?.split("/").pop();
+  const updateConfig = useMutation(
+    api.githubRepos.updateConfig,
+  ).withOptimisticUpdate((localStore, args) => {
+    const queryArgs = { owner, name, appName };
+    const current = localStore.getQuery(
+      api.githubRepos.getByOwnerAndName,
+      queryArgs,
+    );
+    if (current !== undefined && current !== null) {
+      const { repoId: _id, devPort, ...safeFields } = args;
+      localStore.setQuery(api.githubRepos.getByOwnerAndName, queryArgs, {
+        ...current,
+        ...safeFields,
+        ...(devPort !== undefined ? { devPort: devPort ?? undefined } : {}),
+      });
+    }
+  });
   const [newDomain, setNewDomain] = useState("");
 
   const domains = repo.domains ?? [];

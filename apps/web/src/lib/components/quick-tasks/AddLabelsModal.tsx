@@ -4,6 +4,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useState } from "react";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +36,25 @@ export function AddLabelsModal({
   selectedTasks,
   onSuccess,
 }: AddLabelsModalProps) {
-  const updateTask = useMutation(api.agentTasks.update);
+  const { repoId } = useRepo();
+  const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.agentTasks.getAllTasks, {
+        repoId,
+      });
+      if (current !== undefined) {
+        localStore.setQuery(
+          api.agentTasks.getAllTasks,
+          { repoId },
+          current.map((task) =>
+            task._id === args.id
+              ? { ...task, tags: args.tags ?? task.tags }
+              : task,
+          ),
+        );
+      }
+    },
+  );
   const [labelsInput, setLabelsInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 

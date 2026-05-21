@@ -27,10 +27,71 @@ export function DesignSessionsSidebar({
     repoId,
   });
   const createSession = useMutation(api.designSessions.create);
-  const archiveSession = useMutation(api.designSessions.archive);
-  const unarchiveSession = useMutation(api.designSessions.unarchive);
+  const archiveSession = useMutation(
+    api.designSessions.archive,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.designSessions.list, { repoId });
+    if (current !== undefined) {
+      const session = current.find((s) => s._id === args.id);
+      localStore.setQuery(
+        api.designSessions.list,
+        { repoId },
+        current.filter((s) => s._id !== args.id),
+      );
+      if (session) {
+        const archived = localStore.getQuery(api.designSessions.listArchived, {
+          repoId,
+        });
+        if (archived !== undefined) {
+          localStore.setQuery(api.designSessions.listArchived, { repoId }, [
+            { ...session, archived: true },
+            ...archived,
+          ]);
+        }
+      }
+    }
+  });
+  const unarchiveSession = useMutation(
+    api.designSessions.unarchive,
+  ).withOptimisticUpdate((localStore, args) => {
+    const archived = localStore.getQuery(api.designSessions.listArchived, {
+      repoId,
+    });
+    if (archived !== undefined) {
+      const session = archived.find((s) => s._id === args.id);
+      localStore.setQuery(
+        api.designSessions.listArchived,
+        { repoId },
+        archived.filter((s) => s._id !== args.id),
+      );
+      if (session) {
+        const current = localStore.getQuery(api.designSessions.list, {
+          repoId,
+        });
+        if (current !== undefined) {
+          localStore.setQuery(api.designSessions.list, { repoId }, [
+            { ...session, archived: false },
+            ...current,
+          ]);
+        }
+      }
+    }
+  });
 
-  const updateSession = useMutation(api.designSessions.update);
+  const updateSession = useMutation(
+    api.designSessions.update,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.designSessions.list, { repoId });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.designSessions.list,
+        { repoId },
+        current.map((s) =>
+          s._id === args.id ? { ...s, ...args, _id: s._id } : s,
+        ),
+      );
+    }
+  });
 
   return (
     <SessionListSidebar

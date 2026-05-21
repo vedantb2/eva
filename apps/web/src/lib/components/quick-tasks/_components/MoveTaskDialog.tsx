@@ -4,6 +4,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useMutation } from "convex/react";
 import { useState } from "react";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 interface MoveTaskDialogProps {
@@ -21,7 +22,24 @@ export function MoveTaskDialog({
   taskId,
   taskTitle,
 }: MoveTaskDialogProps) {
-  const updateTask = useMutation(api.agentTasks.update);
+  const { repoId } = useRepo();
+  const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
+    (localStore, args) => {
+      // Moving to a different repo — remove from the current repo's list
+      if (args.repoId) {
+        const current = localStore.getQuery(api.agentTasks.getAllTasks, {
+          repoId,
+        });
+        if (current !== undefined) {
+          localStore.setQuery(
+            api.agentTasks.getAllTasks,
+            { repoId },
+            current.filter((task) => task._id !== args.id),
+          );
+        }
+      }
+    },
+  );
   const [isMoving, setIsMoving] = useState(false);
 
   const handleMove = async () => {

@@ -10,8 +10,38 @@ import { useCallback, useState } from "react";
 type Skill = FunctionReturnType<typeof api.repoSkills.listByRepo>[number];
 
 export function SkillRow({ skill }: { skill: Skill }) {
-  const updateSkill = useMutation(api.repoSkills.update);
-  const removeSkill = useMutation(api.repoSkills.remove);
+  const updateSkill = useMutation(api.repoSkills.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.repoSkills.listByRepo, {
+        repoId: skill.repoId,
+      });
+      if (current !== undefined) {
+        localStore.setQuery(
+          api.repoSkills.listByRepo,
+          { repoId: skill.repoId },
+          current.map((s) =>
+            s._id === args.id
+              ? { ...s, title: args.title, prompt: args.prompt }
+              : s,
+          ),
+        );
+      }
+    },
+  );
+  const removeSkill = useMutation(api.repoSkills.remove).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.repoSkills.listByRepo, {
+        repoId: skill.repoId,
+      });
+      if (current !== undefined) {
+        localStore.setQuery(
+          api.repoSkills.listByRepo,
+          { repoId: skill.repoId },
+          current.filter((s) => s._id !== args.id),
+        );
+      }
+    },
+  );
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(skill.title);
   const [prompt, setPrompt] = useState(skill.prompt);

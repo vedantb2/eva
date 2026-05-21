@@ -25,11 +25,70 @@ export function SessionsSidebar({
   const sessions = useQuery(api.sessions.list, { repoId });
   const archivedSessions = useQuery(api.sessions.listArchived, { repoId });
   const createSession = useMutation(api.sessions.create);
-  const archiveSession = useMutation(api.sessions.archive);
-  const unarchiveSession = useMutation(api.sessions.unarchive);
+  const archiveSession = useMutation(api.sessions.archive).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.sessions.list, { repoId });
+      if (current !== undefined) {
+        const session = current.find((s) => s._id === args.id);
+        localStore.setQuery(
+          api.sessions.list,
+          { repoId },
+          current.filter((s) => s._id !== args.id),
+        );
+        if (session) {
+          const archived = localStore.getQuery(api.sessions.listArchived, {
+            repoId,
+          });
+          if (archived !== undefined) {
+            localStore.setQuery(api.sessions.listArchived, { repoId }, [
+              { ...session, archived: true },
+              ...archived,
+            ]);
+          }
+        }
+      }
+    },
+  );
+  const unarchiveSession = useMutation(
+    api.sessions.unarchive,
+  ).withOptimisticUpdate((localStore, args) => {
+    const archived = localStore.getQuery(api.sessions.listArchived, {
+      repoId,
+    });
+    if (archived !== undefined) {
+      const session = archived.find((s) => s._id === args.id);
+      localStore.setQuery(
+        api.sessions.listArchived,
+        { repoId },
+        archived.filter((s) => s._id !== args.id),
+      );
+      if (session) {
+        const current = localStore.getQuery(api.sessions.list, { repoId });
+        if (current !== undefined) {
+          localStore.setQuery(api.sessions.list, { repoId }, [
+            { ...session, archived: false },
+            ...current,
+          ]);
+        }
+      }
+    }
+  });
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
 
-  const updateSession = useMutation(api.sessions.update);
+  const updateSession = useMutation(api.sessions.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.sessions.list, { repoId });
+      if (current !== undefined) {
+        localStore.setQuery(
+          api.sessions.list,
+          { repoId },
+          current.map((s) =>
+            s._id === args.id ? { ...s, ...args, _id: s._id } : s,
+          ),
+        );
+      }
+    },
+  );
 
   return (
     <SessionListSidebar

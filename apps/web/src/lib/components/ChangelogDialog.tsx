@@ -23,7 +23,21 @@ const changelogPlugins = { cjk, math, mermaid };
 
 export function ChangelogDialog() {
   const changelog = useQuery(api.changelog.getLatestChangelog);
-  const dismiss = useMutation(api.changelog.dismissChangelog);
+  const dismiss = useMutation(
+    api.changelog.dismissChangelog,
+  ).withOptimisticUpdate((localStore) => {
+    const current = localStore.getQuery(api.changelog.getLatestChangelog, {});
+    if (current) {
+      localStore.setQuery(
+        api.changelog.getLatestChangelog,
+        {},
+        {
+          ...current,
+          show: false,
+        },
+      );
+    }
+  });
 
   if (!changelog || !changelog.show) return null;
 

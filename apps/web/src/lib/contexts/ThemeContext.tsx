@@ -436,9 +436,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, setTheme: setNextTheme } = useThemeMode();
   const [mounted, setMounted] = useState(false);
   const syncedTheme = useQuery(api.auth.getTheme);
-  const setThemeMutation = useMutation(api.auth.setTheme);
+  const setThemeMutation = useMutation(api.auth.setTheme).withOptimisticUpdate(
+    (localStore, args) => {
+      localStore.setQuery(api.auth.getTheme, {}, args.theme);
+    },
+  );
   const syncedCustomTheme = useQuery(api.auth.getCustomTheme);
-  const setCustomThemeMutation = useMutation(api.auth.setCustomTheme);
+  const setCustomThemeMutation = useMutation(
+    api.auth.setCustomTheme,
+  ).withOptimisticUpdate((localStore, args) => {
+    localStore.setQuery(api.auth.getCustomTheme, {}, args.customTheme);
+  });
 
   useEffect(() => {
     setMounted(true);

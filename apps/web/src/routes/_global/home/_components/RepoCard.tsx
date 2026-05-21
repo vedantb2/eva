@@ -30,7 +30,18 @@ export function RepoCard({
   index: number;
   onManageApps: () => void;
 }) {
-  const toggleHidden = useMutation(api.githubRepos.toggleHidden);
+  const toggleHidden = useMutation(
+    api.githubRepos.toggleHidden,
+  ).withOptimisticUpdate((localStore, args) => {
+    const visible = localStore.getQuery(api.githubRepos.list, {});
+    if (visible !== undefined && args.hidden) {
+      localStore.setQuery(
+        api.githubRepos.list,
+        {},
+        visible.filter((r) => r._id !== args.repoId),
+      );
+    }
+  });
   return (
     <motion.div
       key={repo._id}

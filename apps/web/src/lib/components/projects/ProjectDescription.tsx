@@ -15,7 +15,28 @@ export function ProjectDescription({
   projectId: Id<"projects">;
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const updateProject = useMutation(api.projects.update);
+  const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.projects.get, { id: projectId });
+      if (current !== undefined && current !== null) {
+        const { id: _id, priority, projectLead, ...safeFields } = args;
+        localStore.setQuery(
+          api.projects.get,
+          { id: projectId },
+          {
+            ...current,
+            ...safeFields,
+            ...(priority !== undefined
+              ? { priority: priority ?? undefined }
+              : {}),
+            ...(projectLead !== undefined
+              ? { projectLead: projectLead ?? undefined }
+              : {}),
+          },
+        );
+      }
+    },
+  );
 
   const desc = description ?? "";
 

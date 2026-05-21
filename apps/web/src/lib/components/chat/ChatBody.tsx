@@ -163,8 +163,40 @@ export function ChatBody({
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
   const mentionRef = useRef<MentionTextareaHandle>(null);
-  const updateQueuedMessage = useMutation(api.queuedMessages.update);
-  const deleteQueuedMessage = useMutation(api.queuedMessages.remove);
+  const updateQueuedMessage = useMutation(
+    api.queuedMessages.update,
+  ).withOptimisticUpdate((localStore, args) => {
+    const msg = queuedMessages.find((m) => m._id === args.id);
+    if (!msg) return;
+    const current = localStore.getQuery(api.queuedMessages.listByParent, {
+      parentId: msg.parentId,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.queuedMessages.listByParent,
+        { parentId: msg.parentId },
+        current.map((m) =>
+          m._id === args.id ? { ...m, content: args.content } : m,
+        ),
+      );
+    }
+  });
+  const deleteQueuedMessage = useMutation(
+    api.queuedMessages.remove,
+  ).withOptimisticUpdate((localStore, args) => {
+    const msg = queuedMessages.find((m) => m._id === args.id);
+    if (!msg) return;
+    const current = localStore.getQuery(api.queuedMessages.listByParent, {
+      parentId: msg.parentId,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.queuedMessages.listByParent,
+        { parentId: msg.parentId },
+        current.filter((m) => m._id !== args.id),
+      );
+    }
+  });
 
   const evaIcon = <EvaIcon />;
 

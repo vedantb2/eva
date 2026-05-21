@@ -33,7 +33,28 @@ export function ProjectPlanTab({
 }: ProjectPlanTabProps) {
   const navigate = useNavigate();
   const startDevelopment = useMutation(api.projects.startDevelopment);
-  const updateProject = useMutation(api.projects.update);
+  const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.projects.get, { id: projectId });
+      if (current !== undefined && current !== null) {
+        const { id: _id, priority, projectLead, ...safeFields } = args;
+        localStore.setQuery(
+          api.projects.get,
+          { id: projectId },
+          {
+            ...current,
+            ...safeFields,
+            ...(priority !== undefined
+              ? { priority: priority ?? undefined }
+              : {}),
+            ...(projectLead !== undefined
+              ? { projectLead: projectLead ?? undefined }
+              : {}),
+          },
+        );
+      }
+    },
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [rejectReason, setRejectReason] = useState("");

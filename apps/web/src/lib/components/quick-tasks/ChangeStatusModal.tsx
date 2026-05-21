@@ -4,6 +4,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useState } from "react";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   Dialog,
   DialogContent,
@@ -40,7 +41,21 @@ export function ChangeStatusModal({
   selectedTaskIds,
   onSuccess,
 }: ChangeStatusModalProps) {
-  const updateStatus = useMutation(api.agentTasks.updateStatus);
+  const { repoId } = useRepo();
+  const updateStatus = useMutation(
+    api.agentTasks.updateStatus,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.agentTasks.getAllTasks, { repoId });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.agentTasks.getAllTasks,
+        { repoId },
+        current.map((task) =>
+          task._id === args.id ? { ...task, status: args.status } : task,
+        ),
+      );
+    }
+  });
   const [selectedStatus, setSelectedStatus] = useState<TaskStatus | "">("");
   const [isLoading, setIsLoading] = useState(false);
 

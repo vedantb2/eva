@@ -66,8 +66,39 @@ export function InboxClient() {
   const navigate = useNavigate();
   const notifications = useQuery(api.notifications.list);
   const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
-  const markAsRead = useMutation(api.notifications.markAsRead);
-  const markAllAsRead = useMutation(api.notifications.markAllAsRead);
+  const markAsRead = useMutation(
+    api.notifications.markAsRead,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.notifications.list, {});
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.notifications.list,
+        {},
+        current.map((n) => (n._id === args.id ? { ...n, read: true } : n)),
+      );
+    }
+    const count = localStore.getQuery(api.notifications.countUnread, {});
+    if (count !== undefined) {
+      localStore.setQuery(
+        api.notifications.countUnread,
+        {},
+        Math.max(0, count - 1),
+      );
+    }
+  });
+  const markAllAsRead = useMutation(
+    api.notifications.markAllAsRead,
+  ).withOptimisticUpdate((localStore) => {
+    const current = localStore.getQuery(api.notifications.list, {});
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.notifications.list,
+        {},
+        current.map((n) => ({ ...n, read: true })),
+      );
+    }
+    localStore.setQuery(api.notifications.countUnread, {}, 0);
+  });
   const [filter, setFilter] = useQueryState("filter", inboxFilterParser);
 
   const filtered = useMemo(() => {

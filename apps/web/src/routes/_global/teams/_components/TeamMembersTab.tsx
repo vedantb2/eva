@@ -39,8 +39,38 @@ export function TeamMembersTab({
 }: TeamMembersTabProps) {
   const currentUserId = useQuery(api.auth.me);
   const addMember = useMutation(api.teamMembers.add);
-  const removeMember = useMutation(api.teamMembers.remove);
-  const updateRole = useMutation(api.teamMembers.updateRole);
+  const removeMember = useMutation(api.teamMembers.remove).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.teamMembers.list, {
+        teamId: args.teamId,
+      });
+      if (current !== undefined) {
+        localStore.setQuery(
+          api.teamMembers.list,
+          { teamId: args.teamId },
+          current.filter((member) => member.userId !== args.userId),
+        );
+      }
+    },
+  );
+  const updateRole = useMutation(
+    api.teamMembers.updateRole,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.teamMembers.list, {
+      teamId: args.teamId,
+    });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.teamMembers.list,
+        { teamId: args.teamId },
+        current.map((member) =>
+          member.userId === args.userId
+            ? { ...member, role: args.role }
+            : member,
+        ),
+      );
+    }
+  });
 
   const [dialog, setDialog] = useState({
     open: false,

@@ -4,6 +4,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useMutation } from "convex/react";
 import { useState } from "react";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 interface DeleteTaskDialogProps {
@@ -19,7 +20,19 @@ export function DeleteTaskDialog({
   taskId,
   taskTitle,
 }: DeleteTaskDialogProps) {
-  const deleteTask = useMutation(api.agentTasks.deleteCascade);
+  const { repoId } = useRepo();
+  const deleteTask = useMutation(
+    api.agentTasks.deleteCascade,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.agentTasks.getAllTasks, { repoId });
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.agentTasks.getAllTasks,
+        { repoId },
+        current.filter((task) => task._id !== args.id),
+      );
+    }
+  });
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {

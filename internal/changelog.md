@@ -1,5 +1,10 @@
 # Changelog
 
+## Add optimistic updates to all UI-facing Convex mutations - 2026-05-21
+
+- **Summary**: Wrapped ~50+ UI-facing mutations in `apps/web/` with `.withOptimisticUpdate()` callbacks that patch the Convex client-side query cache before the server roundtrip completes. Covers toggles (enabled/disabled flags), updates (field edits, priority, assignee changes), removals (delete buttons), archive/unarchive, and status transitions. Fixed TypeScript type mismatches by destructuring nullable fields from mutation args (which use `v.union(type, v.null())`) and spreading them with `?? undefined` guards to match cached query types (which use `v.optional(type)` → `Type | undefined`).
+- **Reason**: Users see instant feedback on mutations (no latency waiting for server response), improving perceived performance. Query caches stay in sync automatically — no `useEffect` refetch hacks or local state duplication.
+
 ## Claude MCP connector favicon on convex.site - 2026-05-21
 
 - **Why**: Claude custom connectors do not render MCP `serverInfo.icons` (SVG or data URI). They fetch connector art via Google faviconV2 from the MCP server hostname (`*.convex.site`), which had no favicon — so settings showed a blank/generic icon.

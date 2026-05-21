@@ -3,6 +3,7 @@ import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { auditSeverityValidator } from "../validators";
 import { authMutation, hasTaskAccess } from "../functions";
+import { resolveTaskBranchName } from "../_taskWorkflow/helpers";
 
 const auditFailureValidator = v.object({
   section: v.string(),
@@ -51,7 +52,7 @@ export const runSelectedFixes = authMutation({
 
     await ctx.db.patch(args.auditId, { fixStatus: "fixing" });
 
-    const branchName = `eva/task-${String(taskId)}`;
+    const branchName = await resolveTaskBranchName(ctx.db, task);
 
     await ctx.scheduler.runAfter(0, internal.daytona.launchSelectedAuditFixes, {
       auditId: args.auditId,

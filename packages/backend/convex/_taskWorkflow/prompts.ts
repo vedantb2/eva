@@ -7,8 +7,18 @@ import { extractFailuresFromJson } from "./auditParser";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 
+const SHELL_TIMEOUT_RULE =
+  "- Shell tools are killed after 240s — never use `timeout` above 180";
+
 function shellSingleQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function buildTypecheckCommand(rootDirectory: string): string {
+  const typecheckDirectory = rootDirectory
+    ? `${WORKSPACE_DIR}/${rootDirectory}`
+    : WORKSPACE_DIR;
+  return `cd ${shellSingleQuote(typecheckDirectory)} && { status=0; timeout --kill-after=10s 120s npx tsc --noEmit --pretty false > /tmp/eva-tsc.log 2>&1 || status=$?; tail -50 /tmp/eva-tsc.log; exit "$status"; }`;
 }
 
 /** Builds a user-facing notification message for a workflow run completion. */
@@ -63,10 +73,7 @@ export function buildImplementationPrompt(
   const commitMessage = changeRequests?.length
     ? `edit: ${editCommitTitle}`
     : `${commitScope}: ${task.title}`;
-  const typecheckDirectory = rootDirectory
-    ? `${WORKSPACE_DIR}/${rootDirectory}`
-    : WORKSPACE_DIR;
-  const typecheckCommand = `cd ${shellSingleQuote(typecheckDirectory)} && { status=0; timeout --kill-after=10s 120s npx tsc --noEmit --pretty false > /tmp/eva-tsc.log 2>&1 || status=$?; tail -50 /tmp/eva-tsc.log; exit "$status"; }`;
+  const typecheckCommand = buildTypecheckCommand(rootDirectory);
 
   const changeRequestSection =
     changeRequests && changeRequests.length > 0
@@ -125,7 +132,7 @@ ${proofOfCompletionSection}
 
 ## Rules:
 - Do NOT create .md plan files or run lint/test/dev commands (except typecheck in step 3, and the dev server for proof when proof capture is enabled)
-- Do NOT commit or push if the build command fails. Fix the errors first. A failed build = failed deployment.
+- Do NOT commit or push if typecheck fails. Fix the errors first.
 - Do NOT run git push or gh pr commands. Eva handles publishing and PR creation after your successful completion.
 - Use lockfile for package manager.
 - Prefix shell commands with timeouts: \`timeout 180 npm install\`, \`timeout 30 gh ...\`
@@ -165,6 +172,7 @@ type AuditFailure = {
   section: string;
   requirement: string;
   detail: string;
+  severity?: "critical" | "high" | "medium" | "low";
 };
 
 /** Parses raw audit result text and extracts the list of failed audit items. */
@@ -187,11 +195,13 @@ export function buildAuditFixPrompt(
   failures: AuditFailure[],
   branchName: string,
   rootDirectory: string,
-  repoOwner: string,
-  repoName: string,
 ): string {
+  const typecheckCommand = buildTypecheckCommand(rootDirectory);
   const failureList = failures
-    .map((f, i) => `${i + 1}. [${f.section}] ${f.requirement}: ${f.detail}`)
+    .map((f, i) => {
+      const severityPrefix = f.severity ? `[${f.severity.toUpperCase()}] ` : "";
+      return `${i + 1}. ${severityPrefix}[${f.section}] ${f.requirement}: ${f.detail}`;
+    })
     .join("\n");
 
   return `You are fixing audit failures found in a post-implementation code audit. Fix ALL of the following issues to get all audit scores to 100%.
@@ -203,16 +213,19 @@ ${failureList}
 1. Read the CLAUDE.md file to understand the codebase
 2. Read the relevant files to understand context around each failure
 3. Fix each issue listed above with minimal, focused changes
-4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${failures.length} issue${failures.length === 1 ? "" : "s"}"
-5. Do NOT push. The platform publishes branch "${branchName}" after you finish successfully.
+4. Run \`${typecheckCommand}\` to verify no type errors. If errors occur, read the output, fix every issue, and re-run (max 3 attempts). Do NOT run a full build (\`pnpm build\`, \`npm run build\`, \`vite build\`) — it exceeds sandbox memory and time limits.
+5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${failures.length} issue${failures.length === 1 ? "" : "s"}"
+6. Do NOT push. Eva publishes branch "${branchName}" after you finish successfully.
 
 ## Rules:
 - Only fix the specific issues listed above — do NOT refactor or change unrelated code
 - Keep changes minimal and focused
-- Do NOT run git push or gh pr commands. Eva handles publishing and PR creation after your successful completion.
+- Do NOT run git push or gh pr commands. Eva handles publishing after your successful completion.
 - Use lockfile for package manager.
-- Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
-- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${buildRootDirectoryInstruction(rootDirectory)}`;
+- Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 30 gh ...\`
+- For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
+- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`
+${SHELL_TIMEOUT_RULE}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 type AuditCategory = {

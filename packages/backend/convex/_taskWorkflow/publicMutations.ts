@@ -241,11 +241,27 @@ export const handleAuditFixCompletion = authMutation({
 
     if (!audit || audit.fixStatus !== "fixing") return null;
 
-    const fixStatus = args.success ? "fix_completed" : "fix_error";
-    await ctx.db.patch(audit._id, {
-      fixStatus,
-      fixCompletedAt: Date.now(),
-    });
+    if (!args.success) {
+      await ctx.db.patch(audit._id, {
+        fixStatus: "fix_error",
+        fixCompletedAt: Date.now(),
+      });
+    } else if (args.runId) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.taskWorkflow.publishAuditFixBranch,
+        {
+          auditId: audit._id,
+          taskId: args.taskId,
+          runId: args.runId,
+        },
+      );
+    } else {
+      await ctx.db.patch(audit._id, {
+        fixStatus: "fix_error",
+        fixCompletedAt: Date.now(),
+      });
+    }
 
     if (args.runId && args.activityLog) {
       const runId = args.runId;

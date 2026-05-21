@@ -1,9 +1,16 @@
 import { v } from "convex/values";
-import { internalMutation } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  internalAction,
+} from "../_generated/server";
+import { internal } from "../_generated/api";
 import {
   clearStreamingActivity,
   extractJsonBlock,
   getTaskAuditStreamingEntityId,
+  resolveTaskBranchName,
+  resolveTaskSandboxIdForRun,
   upsertActivityLog,
   upsertStreamingActivity,
 } from "./helpers";
@@ -135,6 +142,100 @@ export const setFixStatus = internalMutation({
     if (audit.runId && args.activityLog) {
       await upsertActivityLog(ctx, audit.runId, args.activityLog, "fix");
     }
+    return null;
+  },
+});
+
+export const getAuditFixPushData = internalQuery({
+  args: {
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      sandboxId: v.string(),
+      installationId: v.number(),
+      repoOwner: v.string(),
+      repoName: v.string(),
+      repoId: v.id("githubRepos"),
+      branchName: v.string(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task?.repoId) return null;
+
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.taskId !== args.taskId) return null;
+
+    const repo = await ctx.db.get(task.repoId);
+    if (!repo) return null;
+
+    const sandboxId = await resolveTaskSandboxIdForRun(ctx.db, task, run);
+    if (!sandboxId) return null;
+
+    return {
+      sandboxId,
+      installationId: repo.installationId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      repoId: task.repoId,
+      branchName: await resolveTaskBranchName(ctx.db, task),
+    };
+  },
+});
+
+export const publishAuditFixBranch = internalAction({
+  args: {
+    auditId: v.id("audits"),
+    taskId: v.id("agentTasks"),
+    runId: v.id("agentRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const pushData = await ctx.runQuery(
+      internal.taskWorkflow.getAuditFixPushData,
+      {
+        taskId: args.taskId,
+        runId: args.runId,
+      },
+    );
+
+    if (!pushData) {
+      console.error(
+        `[audit-fix] publish skipped — missing push data taskId=${String(args.taskId)} runId=${String(args.runId)}`,
+      );
+      await ctx.runMutation(internal.taskWorkflow.setFixStatus, {
+        auditId: args.auditId,
+        fixStatus: "fix_error",
+      });
+      return null;
+    }
+
+    try {
+      await ctx.runAction(internal.daytona.pushSandboxBranch, {
+        sandboxId: pushData.sandboxId,
+        installationId: pushData.installationId,
+        repoOwner: pushData.repoOwner,
+        repoName: pushData.repoName,
+        repoId: pushData.repoId,
+        branchName: pushData.branchName,
+      });
+      await ctx.runMutation(internal.taskWorkflow.setFixStatus, {
+        auditId: args.auditId,
+        fixStatus: "fix_completed",
+      });
+    } catch (error) {
+      console.error(
+        `[audit-fix] pushSandboxBranch failed auditId=${String(args.auditId)}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      await ctx.runMutation(internal.taskWorkflow.setFixStatus, {
+        auditId: args.auditId,
+        fixStatus: "fix_error",
+      });
+    }
+
     return null;
   },
 });

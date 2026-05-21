@@ -1,5 +1,10 @@
 # Changelog
 
+## Audit fix prompt uses typecheck and platform push - 2026-05-20
+
+- **Summary**: Audit fix agent prompt now uses `buildAuditFixPrompt` with `npx tsc --noEmit` instead of full build; Eva pushes the branch after success instead of instructing the agent to `git push`. Project tasks use the correct project branch name.
+- **Reason**: Full builds stall in the 240s sandbox shell limit; agent-side push bypassed the same publish path as tasks and automations.
+
 ## Per-run branch names for automations - 2026-05-20
 
 - **Summary**: Each automation run now pushes to `eva/automation-{automationId}-{runId}` instead of reusing one branch per automation, so every successful run opens its own PR from the base branch.

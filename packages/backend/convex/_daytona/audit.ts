@@ -6,6 +6,7 @@ import { internal } from "../_generated/api";
 import { getSandbox, errorMessage, signAndLaunchScript } from "./helpers";
 import { sessionClaudeUuid } from "./volumes";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
+import { buildAuditFixPrompt } from "../_taskWorkflow/prompts";
 
 const AUDIT_FIRST_EVENT_TIMEOUT_MS = "30000";
 const AUDIT_POST_TEXT_STALL_TIMEOUT_MS = "30000";
@@ -208,36 +209,11 @@ export const launchSelectedAuditFixes = internalAction({
         });
       }
 
-      const failureList = args.selectedFailures
-        .map(
-          (f, i) =>
-            `${i + 1}. [${f.severity.toUpperCase()}] [${f.section}] ${f.requirement}: ${f.detail}`,
-        )
-        .join("\n");
-
-      const rootDirInstruction = args.rootDirectory
-        ? `\n- Root directory: \`${args.rootDirectory}\` — cd there before doing anything`
-        : "";
-
-      const prompt = `You are fixing audit failures found in a post-implementation code audit. Fix ALL of the following issues to get all audit scores to 100%.
-
-## Failed Audit Items:
-${failureList}
-
-## Instructions:
-1. Read the CLAUDE.md file to understand the codebase
-2. Read the relevant files to understand context around each failure
-3. Fix each issue listed above with minimal, focused changes
-4. Run the build command (e.g. npm run build / pnpm build) to verify there are no build errors. If there are errors, fix them and re-run the build until it passes cleanly.
-5. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "audit: fix ${args.selectedFailures.length} issue${args.selectedFailures.length === 1 ? "" : "s"}"
-6. Run: git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${args.repoOwner}/${args.repoName}.git" && git push -u origin ${args.branchName}
-
-## Rules:
-- Only fix the specific issues listed above — do NOT refactor or change unrelated code
-- Keep changes minimal and focused
-- Use lockfile for package manager. GITHUB_TOKEN is set.
-- Prefix shell commands with \`timeout <seconds>\` (e.g. \`timeout 30 npm install\`)
-- NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`${rootDirInstruction}`;
+      const prompt = buildAuditFixPrompt(
+        args.selectedFailures,
+        args.branchName,
+        args.rootDirectory,
+      );
 
       if (!sandboxId) {
         throw new Error("Failed to create or resume sandbox for audit fix");

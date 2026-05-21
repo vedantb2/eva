@@ -1,12 +1,40 @@
 import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { GenericDatabaseReader } from "convex/server";
+import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import type { Infer, Validator } from "convex/values";
 import type { WorkflowId } from "@convex-dev/workflow";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { workflow } from "../workflowManager";
+import { buildProjectBranchName } from "../_projects/helpers";
 import { isUsageLimitError, parseUsageLimitResetTime } from "./recovery";
 
 export const llmJson = new LlmJson({ attemptCorrection: true });
+
+export async function resolveTaskBranchName(
+  db: GenericDatabaseReader<DataModel>,
+  task: Doc<"agentTasks">,
+): Promise<string> {
+  if (task.projectId) {
+    const project = await db.get(task.projectId);
+    return (
+      project?.branchName ??
+      buildProjectBranchName(task.projectId, project?.branchVersion)
+    );
+  }
+  return `eva/task-${String(task._id)}`;
+}
+
+export async function resolveTaskSandboxIdForRun(
+  db: GenericDatabaseReader<DataModel>,
+  task: Doc<"agentTasks">,
+  run: Doc<"agentRuns">,
+): Promise<string | undefined> {
+  if (task.projectId) {
+    const project = await db.get(task.projectId);
+    return project?.sandboxId ?? run.sandboxId;
+  }
+  return run.sandboxId ?? task.sandboxId;
+}
 
 /** Returns the streaming entity ID used for a task run's activity stream. */
 export function getTaskRunStreamingEntityId(runId: Id<"agentRuns">): string {

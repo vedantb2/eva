@@ -19,6 +19,8 @@ export {
   createAudit,
   saveAuditResult,
   setFixStatus,
+  getAuditFixPushData,
+  publishAuditFixBranch,
 } from "./_taskWorkflow/audit";
 
 export { checkStaleRuns, handleStaleRun } from "./_taskWorkflow/watchdog";

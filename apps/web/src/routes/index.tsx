@@ -37,7 +37,7 @@ function LandingPage() {
       <div className="flex flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-4">
           <img
-            src="/icon.png"
+            src="/icon.svg"
             alt="Eva"
             width={80}
             height={80}

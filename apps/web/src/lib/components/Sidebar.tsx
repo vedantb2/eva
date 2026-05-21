@@ -365,7 +365,7 @@ export function Sidebar() {
             className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
           >
             <img
-              src="/icon.png"
+              src="/icon.svg"
               alt="Eva"
               width={22}
               height={22}
@@ -501,7 +501,7 @@ export function Sidebar() {
                           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
                         >
                           <img
-                            src="/icon.png"
+                            src="/icon.svg"
                             alt="Eva"
                             width={20}
                             height={20}

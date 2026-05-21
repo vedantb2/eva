@@ -74,7 +74,7 @@ export function RepoHomeClient() {
             <div>
               <div className="flex items-center gap-2 w-max">
                 <img
-                  src="/icon.png"
+                  src="/icon.svg"
                   alt="Eva"
                   width={30}
                   height={30}

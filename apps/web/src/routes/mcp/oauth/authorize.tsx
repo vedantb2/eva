@@ -134,7 +134,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <img
-          src="/icon.png"
+          src="/icon.svg"
           alt="Eva"
           width={56}
           height={56}

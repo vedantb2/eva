@@ -1,5 +1,10 @@
 # Changelog
 
+## New Eva logo (SVG, faceted two-tone) - 2026-05-21
+
+- **Summary**: Added `apps/web/public/icon.svg` — a four-point sparkle with elongated horizontal arms, top half solid violet `#8B3FB8` and bottom half solid azure `#3B7DD8`, on a white rounded-square background. Switched the favicon, apple-touch-icon, PWA manifest icons, and every in-app `<img src="/icon.png">` reference (`EvaIcon`, `Sidebar`, `ChatMessage`, `RepoHomeClient`, sign-in route, MCP OAuth Shell) to the new SVG.
+- **Reason**: Move to a vector mark that stays sharp at any size, unify the icon across browser tab, install prompts, and in-app surfaces, and align Eva's brand with the faceted polyhedron family (eprocurement, costmodel) rather than the flat-gradient family.
+
 ## Automation tabs are now URL-driven - 2026-05-21
 
 - **Summary**: Split `automations/$id.tsx` into an `$id/` directory with `route.tsx` (Outlet), `index.tsx` (redirect to default), and `$automationTab.tsx`. Latest, Run History, and Settings are now `/latest`, `/run-history`, and `/settings` path segments. `AutomationClient` takes an `activeTab` prop and drives tab switches through `useNavigate`.

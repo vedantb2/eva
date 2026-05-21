@@ -35,7 +35,7 @@ export function ChatMessage({
 
   const evaIcon = (
     <img
-      src="/icon.png"
+      src="/icon.svg"
       alt="Eva"
       width={20}
       height={20}

@@ -1,7 +1,7 @@
 export function EvaIcon({ size = 20 }: { size?: number }) {
   return (
     <img
-      src="/icon.png"
+      src="/icon.svg"
       alt="Eva"
       width={size}
       height={size}

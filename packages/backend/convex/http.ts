@@ -579,6 +579,9 @@ import {
   token,
   mcpHandler,
   health,
+  siteRoot,
+  faviconIco,
+  faviconPng,
 } from "./mcp/native";
 
 // OAuth metadata endpoints
@@ -637,6 +640,25 @@ http.route({
   path: "/health",
   method: "GET",
   handler: health,
+});
+
+// Claude connector favicon discovery (Google faviconV2 crawls convex.site origin)
+http.route({
+  path: "/",
+  method: "GET",
+  handler: siteRoot,
+});
+
+http.route({
+  path: "/favicon.ico",
+  method: "GET",
+  handler: faviconIco,
+});
+
+http.route({
+  path: "/favicon.png",
+  method: "GET",
+  handler: faviconPng,
 });
 
 export default http;

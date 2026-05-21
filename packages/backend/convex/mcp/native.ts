@@ -1,6 +1,7 @@
 import { httpAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { z } from "zod";
+import { mcpFaviconResponse, mcpSiteRootResponse } from "./icon";
 
 function getWebAppUrl(): string {
   const url = process.env.WEB_APP_URL;
@@ -362,3 +363,13 @@ export const mcpHandler = httpAction(async (ctx, request) => {
 export const health = httpAction(async () => {
   return Response.json({ status: "ok" });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Site identity (Claude connector icon via Google favicon service)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const siteRoot = httpAction(async () => mcpSiteRootResponse());
+
+export const faviconIco = httpAction(async () => mcpFaviconResponse());
+
+export const faviconPng = httpAction(async () => mcpFaviconResponse());

@@ -1,5 +1,11 @@
 # Changelog
 
+## Claude MCP connector favicon on convex.site - 2026-05-21
+
+- **Why**: Claude custom connectors do not render MCP `serverInfo.icons` (SVG or data URI). They fetch connector art via Google faviconV2 from the MCP server origin (`*.convex.site`), which had no favicon — so settings showed a blank/generic icon.
+- **Change**: Serve a 128×128 PNG rasterized from `icon.svg` at `/`, `/favicon.ico`, and `/favicon.png` on Convex HTTP. MCP metadata now uses the same PNG data URI. `scripts/generate-mcp-icon.mjs` rasterizes via `@resvg/resvg-js-cli` (Google favicon pipeline rejects SVG).
+- **Reason**: Match the workaround used by other MCP servers until Claude reads `serverInfo.icons` natively.
+
 ## New Eva logo (SVG, faceted two-tone) - 2026-05-21
 
 - **Summary**: Added `apps/web/public/icon.svg` — a four-point sparkle with elongated horizontal arms, top half solid violet `#8B3FB8` and bottom half solid azure `#3B7DD8`, on a white rounded-square background. Switched the favicon, apple-touch-icon, PWA manifest icons, and every in-app `<img src="/icon.png">` reference (`EvaIcon`, `Sidebar`, `ChatMessage`, `RepoHomeClient`, sign-in route, MCP OAuth Shell) to the new SVG.

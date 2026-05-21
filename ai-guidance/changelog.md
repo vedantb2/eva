@@ -2,7 +2,8 @@
 
 ## 2026-05-21
 
-- Finished migrating remaining `icon.png` references to `icon.svg` in shared UI (`packages/ui`), chrome extension sidepanel, and MCP server metadata (SVG data URI + `scripts/generate-mcp-icon.mjs`). Chrome extension manifest still uses PNG for toolbar icons (MV3 requirement).
+- Finished migrating remaining `icon.png` references to `icon.svg` in shared UI (`packages/ui`), chrome extension sidepanel, and MCP server metadata. Chrome extension manifest still uses PNG for toolbar icons (MV3 requirement).
+- Claude custom connectors ignore MCP `serverInfo.icons` and use Google faviconV2 on the `convex.site` origin instead. Serve raster PNG at `/favicon.ico`, `/favicon.png`, and `/` on Convex HTTP; regenerate via `node scripts/generate-mcp-icon.mjs` (uses `@resvg/resvg-js-cli`).
 
 ## 2026-05-20
 

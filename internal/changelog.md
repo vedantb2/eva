@@ -1,5 +1,10 @@
 # Changelog
 
+## Skip sandbox-config re-copy after startup commands ran - 2026-05-20
+
+- **Summary**: `copySandboxConfigFilesToWorkspace` now no-ops when `/tmp/.startup-commands-done` exists, so large config blobs (e.g. SQL dumps, Convex backup zips) are not copied back to the repo root on every Start Sandbox resume.
+- **Reason**: Startup commands run once and move/delete root copies, but config restore ran every resume — duplicating multi-GB files until the sandbox disk filled (`No space left on device`).
+
 ## Treat post-result CLI zombie as cleanup, not failure - 2026-05-20
 
 - **Summary**: Sandbox callback no longer fails a run when the CLI enters zombie state after a successful stream-json `result` event. Cleanup termination may still exit non-zero, but success is preserved when the result was already received.

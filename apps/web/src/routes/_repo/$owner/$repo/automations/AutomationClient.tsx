@@ -9,7 +9,6 @@ import {
   Button,
   Input,
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
   Textarea,
@@ -23,6 +22,7 @@ import { AutomationDeleteDialog } from "./_components/AutomationDeleteDialog";
 import { LatestRun, RunHistory } from "./_components/RunAccordion";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { isAutomationTab, type AutomationTab } from "@/lib/search-params";
 
 type Automation = Doc<"automations">;
 
@@ -30,13 +30,17 @@ interface AutomationClientProps {
   automation: Automation;
   repoOwner: string;
   repoName: string;
+  activeTab: AutomationTab;
 }
 
 export function AutomationClient({
   automation,
   repoOwner,
   repoName,
+  activeTab,
 }: AutomationClientProps) {
+  const navigate = useNavigate();
+  const { basePath } = useRepo();
   const updateAutomation = useMutation(api.automations.update);
   const runNow = useMutation(api.automations.runNow);
   const runs = useQuery(api.automations.listRuns, {
@@ -86,40 +90,48 @@ export function AutomationClient({
         </Button>
       }
     >
-      <Tabs defaultValue="latest" className="space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => {
+          if (isAutomationTab(v)) {
+            navigate({ to: `${basePath}/automations/${automation._id}/${v}` });
+          }
+        }}
+        className="space-y-4"
+      >
         <TabsList>
           <TabsTrigger value="latest">Latest</TabsTrigger>
-          <TabsTrigger value="history">Run History</TabsTrigger>
+          <TabsTrigger value="run-history">Run History</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="latest">
-          <LatestRun
-            run={runs?.[0]}
-            loading={runs === undefined}
-            actionsEnabled={automation.actionsEnabled === true}
-            repoOwner={repoOwner}
-            repoName={repoName}
-          />
-        </TabsContent>
-
-        <TabsContent value="history">
-          <RunHistory
-            runs={runs?.slice(1)}
-            actionsEnabled={automation.actionsEnabled === true}
-            repoOwner={repoOwner}
-            repoName={repoName}
-          />
-        </TabsContent>
-
-        <TabsContent value="settings">
-          <SettingsForm
-            automation={automation}
-            repoOwner={repoOwner}
-            repoName={repoName}
-          />
-        </TabsContent>
       </Tabs>
+
+      {activeTab === "latest" && (
+        <LatestRun
+          run={runs?.[0]}
+          loading={runs === undefined}
+          actionsEnabled={automation.actionsEnabled === true}
+          repoOwner={repoOwner}
+          repoName={repoName}
+        />
+      )}
+
+      {activeTab === "run-history" && (
+        <RunHistory
+          runs={runs?.slice(1)}
+          actionsEnabled={automation.actionsEnabled === true}
+          repoOwner={repoOwner}
+          repoName={repoName}
+        />
+      )}
+
+      {activeTab === "settings" && (
+        <SettingsForm
+          automation={automation}
+          repoOwner={repoOwner}
+          repoName={repoName}
+        />
+      )}
     </PageWrapper>
   );
 }

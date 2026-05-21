@@ -131,6 +131,15 @@ export function isDocViewerTab(s: string): s is DocViewerTab {
 
 export const DOC_VIEWER_DEFAULT_TAB: DocViewerTab = "content";
 
+const automationTabs = ["latest", "run-history", "settings"] as const;
+export type AutomationTab = (typeof automationTabs)[number];
+
+export function isAutomationTab(s: string): s is AutomationTab {
+  return (automationTabs as readonly string[]).includes(s);
+}
+
+export const AUTOMATION_DEFAULT_TAB: AutomationTab = "latest";
+
 const inboxFilters = ["all", "unread"] as const;
 export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")

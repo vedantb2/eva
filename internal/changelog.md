@@ -1,5 +1,10 @@
 # Changelog
 
+## Automation tabs are now URL-driven - 2026-05-21
+
+- **Summary**: Split `automations/$id.tsx` into an `$id/` directory with `route.tsx` (Outlet), `index.tsx` (redirect to default), and `$automationTab.tsx`. Latest, Run History, and Settings are now `/latest`, `/run-history`, and `/settings` path segments. `AutomationClient` takes an `activeTab` prop and drives tab switches through `useNavigate`.
+- **Reason**: Tabs used Radix `defaultValue` only, so refresh always landed on Latest and links could not deep-link to a specific tab — violating the project rule that primary tabs should be path segments with an index redirect to the default.
+
 ## Fix automation model provider picker - 2026-05-20
 
 - **Summary**: Automation settings now resolve available providers from the current repo (matching Config/tasks), default unset models to the repo default, and use non-modal dropdown menus so provider submenus open inside scrollable settings pages.

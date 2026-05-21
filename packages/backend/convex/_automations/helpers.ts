@@ -2,6 +2,13 @@ import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { resolveCanonicalRepoId } from "../_githubRepos/helpers";
 
+export function buildAutomationRunBranchName(
+  automationId: Id<"automations">,
+  runId: Id<"automationRuns">,
+): string {
+  return `eva/automation-${String(automationId)}-${String(runId)}`;
+}
+
 /** Lists automations visible for a repo: app-specific plus shared monorepo automations. */
 export async function listAutomationsForRepo(
   db: GenericDatabaseReader<DataModel>,

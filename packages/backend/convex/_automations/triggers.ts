@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import { DEFAULT_AI_MODEL, normalizeAIModel } from "../validators";
 import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
+import { buildAutomationRunBranchName } from "./helpers";
 
 /** Called by the cron scheduler to trigger an automation run if eligible. */
 export const triggerAutomation = internalMutation({
@@ -40,7 +41,7 @@ export const triggerAutomation = internalMutation({
       acknowledged: false,
     });
 
-    const branchName = `eva/automation-${String(args.automationId)}`;
+    const branchName = buildAutomationRunBranchName(args.automationId, runId);
 
     const workflowId = await workflow.start(
       ctx,
@@ -112,7 +113,7 @@ export const runNow = authMutation({
       acknowledged: false,
     });
 
-    const branchName = `eva/automation-${String(args.automationId)}`;
+    const branchName = buildAutomationRunBranchName(args.automationId, runId);
 
     const workflowId = await workflow.start(
       ctx,

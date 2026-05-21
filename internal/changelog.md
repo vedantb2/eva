@@ -1,5 +1,10 @@
 # Changelog
 
+## Per-run branch names for automations - 2026-05-20
+
+- **Summary**: Each automation run now pushes to `eva/automation-{automationId}-{runId}` instead of reusing one branch per automation, so every successful run opens its own PR from the base branch.
+- **Reason**: Daily or repeated runs were updating a single rolling PR; per-run branches match the expected one-PR-per-run workflow.
+
 ## Require git commit for write-mode automations - 2026-05-20
 
 - **Summary**: Write-mode automations now set `requireTaskCommit: true` when launching the agent, matching task workflows. Success without a new local commit is rejected before push/PR.

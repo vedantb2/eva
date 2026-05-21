@@ -2,6 +2,7 @@
 
 ## 2026-05-20
 
+- Automation runs use per-run branch names (`eva/automation-{automationId}-{runId}`) so each run opens a fresh PR instead of updating one shared branch.
 - Write-mode automations require a new git commit before success (same gate as tasks), preventing PR failures when the branch is not ahead of the base.
 - Removed `apps/mobile`, `apps/desktop`, and `apps/teams-bot` from the monorepo; active clients are web and chrome-extension only.
 

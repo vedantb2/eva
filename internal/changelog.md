@@ -1,5 +1,10 @@
 # Changelog
 
+## Treat post-result CLI zombie as cleanup, not failure - 2026-05-20
+
+- **Summary**: Sandbox callback no longer fails a run when the CLI enters zombie state after a successful stream-json `result` event. Cleanup termination may still exit non-zero, but success is preserved when the result was already received.
+- **Reason**: Session runs were marked failed with "CLI process entered zombie state" even though stdout contained `"type":"result","subtype":"success"` — a false positive from grandchild stdio keeping the bash wrapper open after Claude finished.
+
 ## Extend archived sandbox thaw timeout to 10 minutes - 2026-05-20
 
 - **Summary**: Raised `ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS` from 300s to 600s. Session/task/project reuse paths and sandbox validation now pass this budget so cold-storage restores are less likely to fail mid-thaw.

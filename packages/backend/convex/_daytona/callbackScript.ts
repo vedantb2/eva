@@ -3036,6 +3036,16 @@ async function runCliAttempt(options) {
       // keep child.on("close") from firing; catching the Z state here prevents us from
       // waiting the full NO_OUTPUT_TIMEOUT_MS for a process that's already dead.
       if (isChildZombie(child.pid)) {
+        if (resultEventSeen) {
+          log(
+            options.processLabel +
+              " detected zombie state for pid=" +
+              String(child.pid) +
+              " after result event; terminating for cleanup",
+          );
+          terminateAttemptProcess(child);
+          return;
+        }
         timedOutForZombie = true;
         log(
           options.processLabel +
@@ -3383,10 +3393,13 @@ try {
     finalTimedOutForZombie ||
     Boolean(finalToolStallErrorMessage);
 
+  const runSucceededWithResult =
+    finalResultEvent !== undefined && !finalResultEvent.isError;
+
   let errorValue = null;
   if (finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;
-  } else if (finalCode !== 0 || attemptEndedDueToTimeout) {
+  } else if ((!runSucceededWithResult && finalCode !== 0) || attemptEndedDueToTimeout) {
     errorValue = appendDiagnosticTail(
       buildErrorMessage(
         finalCode,

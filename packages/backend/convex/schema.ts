@@ -33,6 +33,7 @@ import {
   taskSandboxEventFields,
   taskActivityFields,
   repoSkillFields,
+  sandboxGitCredentialsFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -385,6 +386,10 @@ const schema = defineSchema({
     redirectUris: v.array(v.string()),
     registeredAt: v.number(),
   }).index("by_clientId", ["clientId"]),
+
+  sandboxGitCredentials: defineTable(sandboxGitCredentialsFields)
+    .index("by_sandbox_id", ["sandboxId"])
+    .index("by_secret", ["secret"]),
 });
 
 export default schema;

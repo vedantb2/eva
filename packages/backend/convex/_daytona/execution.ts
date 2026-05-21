@@ -392,6 +392,7 @@ export const prepareSandbox = internalAction({
       try {
         if (args.ephemeral) {
           const prepared = await createSandboxAndPrepareRepo(
+            ctx,
             daytona,
             args.installationId,
             args.repoOwner,
@@ -408,6 +409,7 @@ export const prepareSandbox = internalAction({
           deleteSandboxOnFailure = true;
         } else {
           const prepared = await getOrCreateSandbox(
+            ctx,
             daytona,
             args.existingSandboxId,
             args.installationId,
@@ -450,6 +452,11 @@ export const prepareSandbox = internalAction({
           try {
             await sandbox.delete();
           } catch {}
+          // Best-effort cleanup of the credential-helper row. No-op if absent.
+          await ctx.runMutation(
+            internal.sandboxGitCredentials.deleteBySandboxId,
+            { sandboxId: sandbox.id },
+          );
         }
 
         const message = errorMessage(error, "Sandbox setup failed");
@@ -568,6 +575,7 @@ export const createOrResumeSandbox = internalAction({
       try {
         if (args.ephemeral) {
           const prepared = await createSandboxAndPrepareRepo(
+            ctx,
             daytona,
             args.installationId,
             args.repoOwner,
@@ -584,6 +592,7 @@ export const createOrResumeSandbox = internalAction({
           deleteSandboxOnFailure = true;
         } else {
           const prepared = await getOrCreateSandbox(
+            ctx,
             daytona,
             args.existingSandboxId,
             args.installationId,
@@ -616,6 +625,11 @@ export const createOrResumeSandbox = internalAction({
           try {
             await sandbox.delete();
           } catch {}
+          // Best-effort cleanup of the credential-helper row. No-op if absent.
+          await ctx.runMutation(
+            internal.sandboxGitCredentials.deleteBySandboxId,
+            { sandboxId: sandbox.id },
+          );
         }
 
         const message = errorMessage(error, "Sandbox setup failed");
@@ -674,14 +688,11 @@ export const fetchBaseBranch = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await fetchOrigin(
-      sandbox,
-      args.installationId,
-      args.repoOwner,
-      args.repoName,
-      args.baseBranch,
-      { prune: false, timeoutSeconds: 120, retryAttempts: 2 },
-    );
+    await fetchOrigin(sandbox, args.repoOwner, args.repoName, args.baseBranch, {
+      prune: false,
+      timeoutSeconds: 120,
+      retryAttempts: 2,
+    });
     return null;
   },
 });
@@ -732,7 +743,6 @@ export const pushSandboxBranch = internalAction({
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
     await pushBranchToOrigin(
       sandbox,
-      args.installationId,
       args.repoOwner,
       args.repoName,
       args.branchName,

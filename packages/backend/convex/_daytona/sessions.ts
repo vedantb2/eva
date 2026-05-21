@@ -23,6 +23,7 @@ import {
   copySandboxConfigFilesToWorkspace,
   SESSION_LIFECYCLE,
 } from "./git";
+import { ensureGitCredentialHelper } from "./gitCredentials";
 import { ensureSessionPersistenceVolumes } from "./volumes";
 import { detectPackageManager, startSessionServices } from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
@@ -141,7 +142,6 @@ async function checkoutSessionBranchWithRetry(
 /** Syncs remote refs for session restore, falling back to base branch if session branch is missing. */
 async function syncSessionRefsForRestore(
   sandbox: Sandbox,
-  installationId: number,
   repoOwner: string,
   repoName: string,
   branchName: string,
@@ -151,7 +151,6 @@ async function syncSessionRefsForRestore(
   try {
     fetchedSessionBranches = await fetchBranchRefs(
       sandbox,
-      installationId,
       repoOwner,
       repoName,
       [branchName],
@@ -190,7 +189,6 @@ async function syncSessionRefsForRestore(
 /** Fetches both base and design branch refs for initial design session setup. */
 async function syncDesignRefsForSetup(
   sandbox: Sandbox,
-  installationId: number,
   repoOwner: string,
   repoName: string,
   branchName: string,
@@ -198,7 +196,6 @@ async function syncDesignRefsForSetup(
 ): Promise<void> {
   const fetchedBranches = await fetchBranchRefs(
     sandbox,
-    installationId,
     repoOwner,
     repoName,
     [baseBranch, branchName],
@@ -505,6 +502,10 @@ async function prepareSessionSandboxInternal(
                   "Restoring sandbox from cold storage (can take up to 10 minutes)...",
                 ),
             });
+            // Self-heal: rotate the per-sandbox secret + reinstall the helper
+            // every resume so in-sandbox `git pull` and any subsequent fetch
+            // authenticate without relying on a stale URL-embedded token.
+            await ensureGitCredentialHelper(ctx, sandbox, args.installationId);
             await checkoutSessionBranchWithRetry(
               sandbox,
               args.branchName,
@@ -640,6 +641,7 @@ async function prepareSessionSandboxInternal(
     `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
     () =>
       createSandboxAndPrepareRepo(
+        ctx,
         daytona,
         args.installationId,
         args.repoOwner,
@@ -673,7 +675,6 @@ async function prepareSessionSandboxInternal(
     () =>
       syncSessionRefsForRestore(
         sandbox,
-        args.installationId,
         args.repoOwner,
         args.repoName,
         args.branchName,
@@ -979,9 +980,12 @@ export const startDesignSandbox = internalAction({
         args.existingSandboxId,
         async (sandbox) => {
           await exec(sandbox, "echo 1", 5);
+          // Self-heal: rotate the per-sandbox secret + reinstall the helper
+          // before any git network op so resumed sandboxes pick up the new
+          // credential flow without carrying a stale URL-embedded token.
+          await ensureGitCredentialHelper(ctx, sandbox, args.installationId);
           await syncDesignRefsForSetup(
             sandbox,
-            args.installationId,
             args.repoOwner,
             args.repoName,
             args.branchName,
@@ -1010,6 +1014,7 @@ export const startDesignSandbox = internalAction({
       if (reused) return null;
 
       const prepared = await createSandboxAndPrepareRepo(
+        ctx,
         daytona,
         args.installationId,
         args.repoOwner,
@@ -1025,7 +1030,6 @@ export const startDesignSandbox = internalAction({
       const sandbox = prepared.sandbox;
       await syncDesignRefsForSetup(
         sandbox,
-        args.installationId,
         args.repoOwner,
         args.repoName,
         args.branchName,
@@ -1157,6 +1161,14 @@ async function prepareTaskPreviewSandboxInternal(
                     "Restoring sandbox from cold storage (can take up to 10 minutes)...",
                   ),
               });
+              // Self-heal: rotate the per-sandbox secret + reinstall the
+              // helper every resume so in-sandbox `git pull` and any
+              // subsequent fetch authenticate without a stale URL token.
+              await ensureGitCredentialHelper(
+                ctx,
+                sandbox,
+                args.installationId,
+              );
               await checkoutSessionBranchWithRetry(
                 sandbox,
                 args.branchName,
@@ -1310,6 +1322,7 @@ async function prepareTaskPreviewSandboxInternal(
     `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
     () =>
       createSandboxAndPrepareRepo(
+        ctx,
         daytona,
         args.installationId,
         args.repoOwner,
@@ -1343,7 +1356,6 @@ async function prepareTaskPreviewSandboxInternal(
     () =>
       syncSessionRefsForRestore(
         sandbox,
-        args.installationId,
         args.repoOwner,
         args.repoName,
         args.branchName,
@@ -1568,6 +1580,14 @@ async function prepareProjectPreviewSandboxInternal(
                     "Restoring sandbox from cold storage (can take up to 10 minutes)...",
                   ),
               });
+              // Self-heal: rotate the per-sandbox secret + reinstall the
+              // helper every resume so in-sandbox `git pull` and any
+              // subsequent fetch authenticate without a stale URL token.
+              await ensureGitCredentialHelper(
+                ctx,
+                sandbox,
+                args.installationId,
+              );
               await checkoutSessionBranchWithRetry(
                 sandbox,
                 args.branchName,
@@ -1717,6 +1737,7 @@ async function prepareProjectPreviewSandboxInternal(
     `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
     () =>
       createSandboxAndPrepareRepo(
+        ctx,
         daytona,
         args.installationId,
         args.repoOwner,
@@ -1750,7 +1771,6 @@ async function prepareProjectPreviewSandboxInternal(
     () =>
       syncSessionRefsForRestore(
         sandbox,
-        args.installationId,
         args.repoOwner,
         args.repoName,
         args.branchName,

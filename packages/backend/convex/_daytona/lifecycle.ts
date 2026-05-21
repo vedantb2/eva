@@ -226,6 +226,10 @@ export const deleteSandbox = internalAction({
     } catch {
       // Sandbox may already be deleted or expired
     }
+    // Best-effort cleanup of the credential-helper row. No-op if absent.
+    await ctx.runMutation(internal.sandboxGitCredentials.deleteBySandboxId, {
+      sandboxId: args.sandboxId,
+    });
     return null;
   },
 });

@@ -1,5 +1,11 @@
 # Changelog
 
+## Harden GitHub authentication with per-sandbox credential helper - 2026-05-21
+
+- **Summary**: Replaced URL-embedded GitHub App installation tokens with a per-sandbox bearer secret + HTTP callback. Git operations now mint fresh tokens on demand via a bash credential helper, eliminating tokens from `.git/config`, process args, and reflogs. Self-heals on resume by rotating secrets and re-uploading the helper.
+- **Reason**: Installation tokens (60-min TTL) leaked in git configuration and command-line args; `git pull` in paused sandboxes failed after 1 hour. New architecture supports day-long (or longer) sandbox pauses without credential expiry, and bounds token age to the 50-minute helper cache TTL.
+- **Migration**: Existing sandboxes auto-migrate on next resume — no backfill or downtime required.
+
 ## Skip sandbox-config re-copy after startup commands ran - 2026-05-20
 
 - **Summary**: `copySandboxConfigFilesToWorkspace` now no-ops when `/tmp/.startup-commands-done` exists, so large config blobs (e.g. SQL dumps, Convex backup zips) are not copied back to the repo root on every Start Sandbox resume.

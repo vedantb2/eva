@@ -1,0 +1,138 @@
+"use node";
+
+import { randomBytes } from "crypto";
+import type { Sandbox } from "@daytonaio/sdk";
+import type { GenericActionCtx } from "convex/server";
+import { internal } from "../_generated/api";
+import type { DataModel } from "../_generated/dataModel";
+import { exec, requireEnv } from "./helpers";
+
+const HELPER_SCRIPT_PATH = "/home/eva/.local/bin/git-credential-conductor";
+const HELPER_CONFIG_DIR = "/home/eva/.config/conductor";
+const HELPER_CONFIG_PATH = `${HELPER_CONFIG_DIR}/git-credentials.env`;
+
+// Bash credential helper. Git invokes it with `get` and supplies the host/proto
+// on stdin (which we discard — we only auth one installation). We POST the
+// per-sandbox bearer secret to the conductor backend, which mints a fresh
+// installation token. A short file cache trims duplicate mints during a single
+// git operation (clone/fetch/push fan out into several helper invocations).
+const HELPER_SCRIPT = `#!/usr/bin/env bash
+set -u
+
+if [ "\${1:-}" != "get" ]; then
+  cat >/dev/null 2>&1 || true
+  exit 0
+fi
+
+cat >/dev/null 2>&1 || true
+
+CONFIG_FILE="${HELPER_CONFIG_PATH}"
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "git-credential-conductor: missing $CONFIG_FILE" >&2
+  exit 1
+fi
+
+# shellcheck disable=SC1090
+. "$CONFIG_FILE"
+
+if [ -z "\${CONDUCTOR_SANDBOX_SECRET:-}" ] || [ -z "\${CONVEX_SITE_URL:-}" ]; then
+  echo "git-credential-conductor: incomplete config in $CONFIG_FILE" >&2
+  exit 1
+fi
+
+CACHE_FILE="/tmp/git-cred-cache"
+CACHE_TTL_SECONDS=3000
+
+if [ -f "$CACHE_FILE" ]; then
+  CACHE_TS=$(head -n1 "$CACHE_FILE" 2>/dev/null || printf 0)
+  NOW=$(date +%s)
+  AGE=$((NOW - CACHE_TS))
+  if [ "$AGE" -ge 0 ] && [ "$AGE" -lt "$CACHE_TTL_SECONDS" ]; then
+    CACHED_TOKEN=$(tail -n +2 "$CACHE_FILE")
+    if [ -n "$CACHED_TOKEN" ]; then
+      printf 'username=x-access-token\\npassword=%s\\n' "$CACHED_TOKEN"
+      exit 0
+    fi
+  fi
+fi
+
+RESPONSE=$(curl -fsSL -X POST \\
+  -H "Authorization: Bearer $CONDUCTOR_SANDBOX_SECRET" \\
+  -H "Content-Type: application/json" \\
+  --data '{}' \\
+  "$CONVEX_SITE_URL/api/git-credentials") || {
+    echo "git-credential-conductor: token fetch failed" >&2
+    exit 1
+  }
+
+TOKEN=$(printf '%s' "$RESPONSE" | jq -r '.token // empty')
+if [ -z "$TOKEN" ]; then
+  echo "git-credential-conductor: empty token in response" >&2
+  exit 1
+fi
+
+umask 077
+printf '%s\\n%s\\n' "$(date +%s)" "$TOKEN" > "$CACHE_FILE"
+
+printf 'username=x-access-token\\npassword=%s\\n' "$TOKEN"
+`;
+
+/** Resolves the public Convex site URL used by the in-sandbox credential helper. */
+function resolveConvexSiteUrl(): string {
+  const configured = process.env.CONVEX_SITE_URL;
+  if (configured) return configured;
+  const cloudUrl = requireEnv("CONVEX_CLOUD_URL");
+  return cloudUrl.replace(".convex.cloud", ".convex.site");
+}
+
+/**
+ * Installs the conductor git credential helper inside the sandbox and binds it
+ * to a fresh per-sandbox bearer secret stored in `sandboxGitCredentials`. After
+ * this runs, the sandbox can run `git fetch`/`git push` against
+ * `https://github.com/...` without any token in the URL — the helper mints a
+ * fresh installation token on demand via the conductor backend.
+ *
+ * Idempotent: re-running rotates the secret and re-writes the helper script.
+ */
+export async function ensureGitCredentialHelper(
+  ctx: GenericActionCtx<DataModel>,
+  sandbox: Sandbox,
+  installationId: number,
+): Promise<void> {
+  const secret = randomBytes(32).toString("hex");
+  await ctx.runMutation(internal.sandboxGitCredentials.upsertForSandbox, {
+    sandboxId: sandbox.id,
+    installationId,
+    secret,
+  });
+
+  const siteUrl = resolveConvexSiteUrl();
+  const envFileContent = `CONDUCTOR_SANDBOX_SECRET=${secret}\nCONVEX_SITE_URL=${siteUrl}\n`;
+
+  await sandbox.fs.uploadFile(
+    Buffer.from(HELPER_SCRIPT, "utf-8"),
+    HELPER_SCRIPT_PATH,
+  );
+  await sandbox.fs.uploadFile(
+    Buffer.from(envFileContent, "utf-8"),
+    HELPER_CONFIG_PATH,
+  );
+
+  await exec(
+    sandbox,
+    [
+      `mkdir -p ${HELPER_CONFIG_DIR}`,
+      `chmod 700 ${HELPER_CONFIG_DIR}`,
+      `chmod 600 ${HELPER_CONFIG_PATH}`,
+      `chmod 755 ${HELPER_SCRIPT_PATH}`,
+      // Stale cache from a prior secret/token must not be reused under the new secret.
+      `rm -f /tmp/git-cred-cache`,
+      // Wipe any inherited URL-embedded token / extraheader before switching to the helper.
+      `git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true`,
+      `git config --global credential.helper ''`,
+      `git config --global --add credential.helper ${HELPER_SCRIPT_PATH}`,
+      `git config --global credential.https://github.com.helper ${HELPER_SCRIPT_PATH}`,
+    ].join(" && "),
+    20,
+  );
+}

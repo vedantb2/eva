@@ -161,6 +161,39 @@ http.route({
   }),
 });
 
+/** Extracts the bearer secret from an Authorization header, or null if absent/malformed. */
+function extractBearerSecret(request: Request): string | null {
+  const auth = request.headers.get("Authorization");
+  if (!auth) return null;
+  const prefix = "Bearer ";
+  if (!auth.startsWith(prefix)) return null;
+  const secret = auth.slice(prefix.length).trim();
+  return secret.length > 0 ? secret : null;
+}
+
+http.route({
+  path: "/api/git-credentials",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const secret = extractBearerSecret(request);
+    if (!secret) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const installationId: number | null = await ctx.runQuery(
+      internal.sandboxGitCredentials.lookupInstallationBySecret,
+      { secret },
+    );
+    if (installationId === null) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const token: string = await ctx.runAction(
+      internal.githubAuth.mintInstallationToken,
+      { installationId },
+    );
+    return Response.json({ username: "x-access-token", token });
+  }),
+});
+
 http.route({
   path: "/.well-known/openid-configuration",
   method: "GET",

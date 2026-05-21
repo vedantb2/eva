@@ -2,6 +2,8 @@
 
 import { Octokit } from "octokit";
 import { createAppAuth } from "@octokit/auth-app";
+import { v } from "convex/values";
+import { internalAction } from "./_generated/server";
 
 /** Normalizes a PEM private key string by fixing line breaks and formatting. */
 export function normalizePemKey(raw: string): string {
@@ -95,3 +97,12 @@ export function getAppOctokit(): Octokit {
     auth: creds,
   });
 }
+
+/** Internal action wrapper so HTTP actions can mint an installation token via ctx.runAction. */
+export const mintInstallationToken = internalAction({
+  args: { installationId: v.number() },
+  returns: v.string(),
+  handler: async (_ctx, args) => {
+    return await getInstallationToken(args.installationId);
+  },
+});

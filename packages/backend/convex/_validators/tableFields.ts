@@ -291,3 +291,14 @@ export const taskActivityFields = {
   userId: v.optional(v.id("users")),
   createdAt: v.number(),
 };
+
+// Per-sandbox bearer secret the in-sandbox git credential helper presents to
+// /api/git-credentials to receive a freshly minted GitHub App installation
+// token. One row per Daytona sandbox; rotated every time the helper is
+// reinstalled.
+export const sandboxGitCredentialsFields = {
+  sandboxId: v.string(),
+  installationId: v.number(),
+  secret: v.string(),
+  createdAt: v.number(),
+};

@@ -6,9 +6,12 @@ import type {
   Sandbox,
   VolumeMount,
 } from "@daytonaio/sdk";
+import type { GenericActionCtx } from "convex/server";
 import { quote } from "shell-quote";
 import { formatDurationMsShort } from "@conductor/shared/duration";
-import { buildGitHubRepoUrl, getInstallationToken } from "../githubAuth";
+import { getInstallationToken } from "../githubAuth";
+import { internal } from "../_generated/api";
+import type { DataModel } from "../_generated/dataModel";
 import {
   exec,
   LEGACY_WORKSPACE_DIR,
@@ -24,6 +27,9 @@ import {
   workspaceDirShell,
 } from "./helpers";
 import { detectPackageManager } from "./devServer";
+import { ensureGitCredentialHelper } from "./gitCredentials";
+
+type ActionCtx = GenericActionCtx<DataModel>;
 
 export type SandboxLifecycle = {
   autoStopInterval: number;
@@ -365,13 +371,20 @@ export async function createSandbox(
   });
 }
 
+/** Returns the bare HTTPS remote URL for a GitHub repo (no embedded token). */
+function bareGitHubRepoUrl(owner: string, name: string): string {
+  return `https://github.com/${owner}/${name}.git`;
+}
+
 /**
  * Fetches refs from the GitHub remote origin, optionally pruning stale refs.
  * Always fetches full history (no --depth) — shallow clones cause issues with rebasing, blame, and merges.
+ *
+ * Auth comes from the conductor git credential helper installed at sandbox
+ * bootstrap; the remote URL no longer carries a token.
  */
 export async function fetchOrigin(
   sandbox: Sandbox,
-  installationId: number,
   owner: string,
   name: string,
   ref?: string,
@@ -385,8 +398,7 @@ export async function fetchOrigin(
     opts?.prune === false ? "false" : "true"
   }`;
   await runLoggedGitStep("fetchOrigin", details, async () => {
-    const githubToken = await getInstallationToken(installationId);
-    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const repoUrl = bareGitHubRepoUrl(owner, name);
     const workspaceDir = workspaceDirShell();
     const pruneArg = opts?.prune === false ? "" : " --prune";
     const refArg = ref ? ` ${quote([ref])}` : "";
@@ -408,10 +420,12 @@ export async function fetchOrigin(
 /**
  * Fetches specific branch refs from origin, falling back to individual fetches on missing refs.
  * Always fetches full history (no --depth) — shallow clones cause issues with rebasing, blame, and merges.
+ *
+ * Auth comes from the conductor git credential helper installed at sandbox
+ * bootstrap; the remote URL no longer carries a token.
  */
 export async function fetchBranchRefs(
   sandbox: Sandbox,
-  installationId: number,
   owner: string,
   name: string,
   branchNames: string[],
@@ -427,8 +441,7 @@ export async function fetchBranchRefs(
     if (normalized.length === 0) {
       return [];
     }
-    const githubToken = await getInstallationToken(installationId);
-    const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
+    const repoUrl = bareGitHubRepoUrl(owner, name);
     const pruneArg = opts?.prune === false ? "" : " --prune";
     const timeoutSeconds = opts?.timeoutSeconds ?? 240;
     const workspaceDir = workspaceDirShell();
@@ -484,7 +497,6 @@ export async function fetchBranchRefs(
 /** Syncs the sandbox repo with the remote using the given strategy. */
 export async function syncRepo(
   sandbox: Sandbox,
-  installationId: number,
   owner: string,
   name: string,
   strategy: RepoSyncStrategy,
@@ -498,23 +510,16 @@ export async function syncRepo(
       return;
     }
     if (strategy.mode === "all") {
-      await fetchOrigin(sandbox, installationId, owner, name, undefined, {
+      await fetchOrigin(sandbox, owner, name, undefined, {
         prune: true,
         timeoutSeconds: 180,
       });
       return;
     }
-    await fetchBranchRefs(
-      sandbox,
-      installationId,
-      owner,
-      name,
-      strategy.branchNames,
-      {
-        prune: false,
-        timeoutSeconds: 120,
-      },
-    );
+    await fetchBranchRefs(sandbox, owner, name, strategy.branchNames, {
+      prune: false,
+      timeoutSeconds: 120,
+    });
   });
 }
 
@@ -744,8 +749,15 @@ async function installDependencies(
   }
 }
 
-/** Clones a GitHub repo into the sandbox and optionally installs dependencies. */
+/**
+ * Clones a GitHub repo into the sandbox and optionally installs dependencies.
+ *
+ * The conductor git credential helper is installed before the clone so the SDK
+ * call can use a bare HTTPS URL — no token in the URL, no token in process
+ * args.
+ */
 export async function cloneAndSetupRepo(
+  ctx: ActionCtx,
   sandbox: Sandbox,
   installationId: number,
   owner: string,
@@ -808,6 +820,13 @@ export async function cloneAndSetupRepo(
         });
       }
     }
+
+    // Install the credential helper after the clone so subsequent fetches /
+    // pushes (here and from inside the sandbox) auth without URL tokens. The
+    // initial SDK clone still uses an explicit token because the helper
+    // can't be wired up before the .git directory exists.
+    await ensureGitCredentialHelper(ctx, sandbox, installationId);
+
     if (!shouldInstallDeps) {
       return;
     }
@@ -847,10 +866,14 @@ export async function setupBranch(
   });
 }
 
-/** Pushes the current branch to origin with retry logic. */
+/**
+ * Pushes the current branch to origin with retry logic.
+ *
+ * Auth comes from the conductor git credential helper installed at sandbox
+ * bootstrap; the remote URL no longer carries a token.
+ */
 export async function pushBranchToOrigin(
   sandbox: Sandbox,
-  installationId: number,
   owner: string,
   name: string,
   branchName: string,
@@ -863,12 +886,11 @@ export async function pushBranchToOrigin(
   await runLoggedGitStep("pushBranchToOrigin", details, async () => {
     const workspaceDir = workspaceDirShell();
     const quotedBranch = quote([branchName]);
+    const repoUrl = bareGitHubRepoUrl(owner, name);
     await retryGitNetworkOperation(
       "pushBranchToOrigin",
       details,
       async () => {
-        const githubToken = await getInstallationToken(installationId);
-        const repoUrl = buildGitHubRepoUrl(owner, name, githubToken);
         await execGitCommand(
           sandbox,
           `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedBranch}`,
@@ -893,6 +915,7 @@ function isSnapshotUnusableError(err: unknown): boolean {
 
 /** Creates a sandbox and prepares the repo by cloning or syncing from a snapshot. */
 export async function createSandboxAndPrepareRepo(
+  ctx: ActionCtx,
   daytona: Daytona,
   installationId: number,
   owner: string,
@@ -948,15 +971,20 @@ export async function createSandboxAndPrepareRepo(
         }
         if (effectiveSnapshot) {
           await normalizeSnapshotWorktree(sandbox);
+          // The snapshot was baked with a stale token in its git config /
+          // remotes. Install the credential helper before any git network op
+          // so syncRepo (and later in-sandbox `git pull`) authenticate cleanly.
+          await ensureGitCredentialHelper(ctx, sandbox, installationId);
           if (syncStrategy.mode !== "none") {
             if (onProgress) await onProgress("Syncing repository...");
-            await syncRepo(sandbox, installationId, owner, name, syncStrategy);
+            await syncRepo(sandbox, owner, name, syncStrategy);
           }
           await copySandboxConfigFilesToWorkspace(sandbox);
           return { sandbox, usedSnapshot: true };
         }
         if (lifecycle.ephemeral && syncStrategy.mode === "none") {
           await cloneAndSetupRepo(
+            ctx,
             sandbox,
             installationId,
             owner,
@@ -967,6 +995,7 @@ export async function createSandboxAndPrepareRepo(
           return { sandbox, usedSnapshot: false };
         }
         await cloneAndSetupRepo(
+          ctx,
           sandbox,
           installationId,
           owner,
@@ -976,7 +1005,7 @@ export async function createSandboxAndPrepareRepo(
         );
         if (syncStrategy.mode !== "none") {
           if (onProgress) await onProgress("Syncing repository...");
-          await syncRepo(sandbox, installationId, owner, name, syncStrategy);
+          await syncRepo(sandbox, owner, name, syncStrategy);
         }
         return { sandbox, usedSnapshot: false };
       },
@@ -986,6 +1015,10 @@ export async function createSandboxAndPrepareRepo(
       try {
         await sandbox.delete();
       } catch {}
+      // Best-effort cleanup of the credential-helper row. No-op if absent.
+      await ctx.runMutation(internal.sandboxGitCredentials.deleteBySandboxId, {
+        sandboxId: sandbox.id,
+      });
     }
     throw error;
   }
@@ -993,6 +1026,7 @@ export async function createSandboxAndPrepareRepo(
 
 /** Resumes an existing sandbox or creates a new one with repo setup. */
 export async function getOrCreateSandbox(
+  ctx: ActionCtx,
   daytona: Daytona,
   existingSandboxId: string | undefined,
   installationId: number,
@@ -1009,6 +1043,7 @@ export async function getOrCreateSandbox(
   return await runLoggedGitStep("getOrCreateSandbox", details, async () => {
     if (existingSandboxId) {
       const resumed = await tryResumeSandbox(
+        ctx,
         daytona,
         existingSandboxId,
         installationId,
@@ -1020,6 +1055,7 @@ export async function getOrCreateSandbox(
       if (resumed) return { sandbox: resumed, isNew: false };
     }
     const { sandbox } = await createSandboxAndPrepareRepo(
+      ctx,
       daytona,
       installationId,
       owner,
@@ -1069,6 +1105,7 @@ function isSandboxMissingError(err: unknown): boolean {
  * abandon a recoverable sandbox.
  */
 async function tryResumeSandbox(
+  ctx: ActionCtx,
   daytona: Daytona,
   existingSandboxId: string,
   installationId: number,
@@ -1092,9 +1129,13 @@ async function tryResumeSandbox(
               )
           : undefined,
       });
+      // Self-heal: rotate the per-sandbox secret and (re)install the helper on
+      // every resume so the in-sandbox `git pull` works without a stale token
+      // and so sandboxes that pre-date this change pick up the helper.
+      await ensureGitCredentialHelper(ctx, sandbox, installationId);
       if (syncStrategy.mode !== "none") {
         if (onProgress) await onProgress("Syncing repository...");
-        await syncRepo(sandbox, installationId, owner, name, syncStrategy);
+        await syncRepo(sandbox, owner, name, syncStrategy);
       }
       return sandbox;
     } catch (err) {

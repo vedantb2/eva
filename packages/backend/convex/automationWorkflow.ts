@@ -100,6 +100,7 @@ export const automationExecutionWorkflow = workflow.define({
         repoId: args.repoId,
         streamingEntityId,
         runId: String(args.runId),
+        requireTaskCommit: !isReadOnly,
       });
 
       const result = await step.awaitEvent(taskCompleteEvent);

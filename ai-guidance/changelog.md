@@ -2,6 +2,7 @@
 
 ## 2026-05-20
 
+- Write-mode automations require a new git commit before success (same gate as tasks), preventing PR failures when the branch is not ahead of the base.
 - Removed `apps/mobile`, `apps/desktop`, and `apps/teams-bot` from the monorepo; active clients are web and chrome-extension only.
 
 ## 2026-05-11

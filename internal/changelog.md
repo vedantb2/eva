@@ -1,5 +1,10 @@
 # Changelog
 
+## Require git commit for write-mode automations - 2026-05-20
+
+- **Summary**: Write-mode automations now set `requireTaskCommit: true` when launching the agent, matching task workflows. Success without a new local commit is rejected before push/PR.
+- **Reason**: Agents could report success without committing; push left `eva/automation-{id}` at the same SHA as `staging`, so GitHub refused PR creation with "not ahead of staging".
+
 ## Fix automation build stall at 240s shell limit - 2026-05-20
 
 - **Summary**: Implementation automations now verify changes with `npx tsc --noEmit` (120s cap) instead of `npm run build`, matching quick tasks. Prompts state the 240s sandbox shell-tool kill limit and forbid full builds.

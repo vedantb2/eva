@@ -4,7 +4,6 @@ import {
   FIRST_EVENT_TIMEOUT_MS,
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_CHECK_INTERVAL_MS,
-  NO_OUTPUT_TIMEOUT_MS,
   PROVIDER,
   SCRIPT_STARTED_AT,
   WORK_DIR,
@@ -97,16 +96,10 @@ export function evaluateAttemptHealth(
     return result;
   }
 
-  if (S.inFlightToolUses > 0) {
+  if (S.inFlightToolUses > 0 || S.resultEventSeen) {
     return result;
   }
 
-  if (Date.now() - input.lastStdoutAt <= NO_OUTPUT_TIMEOUT_MS) {
-    return result;
-  }
-
-  result.timedOutForNoOutput = true;
-  result.shouldTerminate = true;
   return result;
 }
 

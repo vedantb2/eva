@@ -282,8 +282,6 @@ export const getPreviewUrl = action({
 });
 
 const MAX_SETUP_ELAPSED_MS = 8 * 60 * 1000;
-const QUICK_TASK_FIRST_EVENT_TIMEOUT_MS = "45000";
-const QUICK_TASK_NO_OUTPUT_TIMEOUT_MS = "45000";
 const QUICK_TASK_MAX_TOTAL_RUNTIME_MS = "5400000";
 
 /** Checks if a sandbox setup error is transient and worth retrying. */
@@ -808,9 +806,6 @@ export const launchOnExistingSandbox = internalAction({
     if (args.requireTaskCommit === true) {
       extraEnvVars.REQUIRE_TASK_COMMIT = "true";
     }
-    extraEnvVars.CLAUDE_FIRST_EVENT_TIMEOUT_MS =
-      QUICK_TASK_FIRST_EVENT_TIMEOUT_MS;
-    extraEnvVars.CLAUDE_NO_OUTPUT_TIMEOUT_MS = QUICK_TASK_NO_OUTPUT_TIMEOUT_MS;
     extraEnvVars.CLAUDE_MAX_TOTAL_RUNTIME_MS = QUICK_TASK_MAX_TOTAL_RUNTIME_MS;
 
     const normalizedModel = normalizeAIModel(args.model);

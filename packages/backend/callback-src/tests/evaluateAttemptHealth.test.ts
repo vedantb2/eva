@@ -38,7 +38,7 @@ test("evaluateAttemptHealth allows silence while tool in flight without stall", 
   resetStateForTests();
 });
 
-test("evaluateAttemptHealth detects no-output timeout when idle", () => {
+test("evaluateAttemptHealth allows long stdout silence while idle", () => {
   resetStateForTests();
   const result = evaluateAttemptHealth({
     childPid: 1234,
@@ -48,6 +48,7 @@ test("evaluateAttemptHealth detects no-output timeout when idle", () => {
     processLabel: "test",
     toolStallErrorMessage: "",
   });
-  assert.equal(result.timedOutForNoOutput, true);
-  assert.equal(result.shouldTerminate, true);
+  assert.equal(result.timedOutForNoOutput, false);
+  assert.equal(result.shouldTerminate, false);
+  resetStateForTests();
 });

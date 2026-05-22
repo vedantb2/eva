@@ -4,16 +4,16 @@ Environment variables control watchdog and HTTP behavior for the sandbox callbac
 
 ## CLI stdout / lifecycle
 
-| Variable                                  | Default | Purpose                                                                |
-| ----------------------------------------- | ------- | ---------------------------------------------------------------------- |
-| `CLAUDE_NO_OUTPUT_TIMEOUT_MS`             | 60000   | Kill CLI when stdout is silent this long (unless a tool is in flight). |
-| `CLAUDE_FIRST_EVENT_TIMEOUT_MS`           | 90000   | Kill if no parseable stream-json line before this.                     |
-| `CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS` | 120000  | After Claude `system/init`, kill if no assistant event.                |
-| `CLAUDE_MAX_TOTAL_RUNTIME_MS`             | 5400000 | Absolute callback+CLI runtime cap (~90 min).                           |
+| Variable                                  | Default  | Purpose                                                  |
+| ----------------------------------------- | -------- | -------------------------------------------------------- |
+| `CLAUDE_NO_OUTPUT_TIMEOUT_MS`             | (unused) | Legacy env; idle stdout silence no longer kills the CLI. |
+| `CLAUDE_FIRST_EVENT_TIMEOUT_MS`           | 90000    | Kill if no parseable stream-json line before this.       |
+| `CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS` | 120000   | After Claude `system/init`, kill if no assistant event.  |
+| `CLAUDE_MAX_TOTAL_RUNTIME_MS`             | 5400000  | Absolute callback+CLI runtime cap (~90 min).             |
 
 Watchdog interval: `NO_OUTPUT_CHECK_INTERVAL_MS` = 5000 (fixed in `config.ts`).
 
-While a tool is in flight, no-output and idle checks are skipped — only max runtime, zombie detection, and first-event/assistant guards apply. There is no per-tool stall kill.
+While a tool is in flight, idle checks are skipped — only max runtime, zombie detection, and first-event/assistant guards apply. There is no per-tool stall kill and no idle stdout kill.
 
 ## Convex HTTP
 
@@ -48,7 +48,6 @@ Quick tasks and automations use **both** the sandbox callback (this script) and,
 | ---------------------------- | --------------------------- | ----------------------------------- | -------------------------------- |
 | Callback `MAX_TOTAL_RUNTIME` | sandbox script              | 90m (`CLAUDE_MAX_TOTAL_RUNTIME_MS`) | Hard CLI lifetime cap            |
 | Daytona sandbox autostop     | Daytona                     | 90m (ephemeral + session)           | Sandbox inactivity stop          |
-| Callback no-output           | sandbox script              | 45s when no tool in flight          | CLI died silently                |
 | Convex `checkStaleRuns`      | `_taskWorkflow/watchdog.ts` | 5m / 25m tool-active                | Heartbeat staleness (tasks only) |
 | `handleStaleRun`             | workflow                    | 2h                                  | Absolute backstop (tasks only)   |
 

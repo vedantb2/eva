@@ -2766,14 +2766,9 @@ function evaluateAttemptHealth(input) {
     result.shouldTerminate = true;
     return result;
   }
-  if (callbackState.inFlightToolUses > 0) {
+  if (callbackState.inFlightToolUses > 0 || callbackState.resultEventSeen) {
     return result;
   }
-  if (Date.now() - input.lastStdoutAt <= NO_OUTPUT_TIMEOUT_MS) {
-    return result;
-  }
-  result.timedOutForNoOutput = true;
-  result.shouldTerminate = true;
   return result;
 }
 function resetAttemptState() {
@@ -3084,7 +3079,7 @@ try {
   let errorValue = null;
   if (finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;
-  } else if (!runSucceededWithResult && finalCode !== 0 || attemptEndedDueToTimeout) {
+  } else if (!runSucceededWithResult && finalCode !== 0 || attemptEndedDueToTimeout && !runSucceededWithResult) {
     errorValue = appendDiagnosticTail(
       buildErrorMessage(
         finalCode,
@@ -3102,7 +3097,7 @@ try {
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(callbackState.accumulatedSteps);
   let completionSuccess = finalResultEvent ? !finalResultEvent.isError : finalCode === 0;
-  if (attemptEndedDueToTimeout) {
+  if (attemptEndedDueToTimeout && !runSucceededWithResult) {
     completionSuccess = false;
   }
   if (completionSuccess && REQUIRE_TASK_COMMIT) {

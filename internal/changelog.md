@@ -1,5 +1,10 @@
 # Changelog
 
+## Remove idle stdout kill on quick tasks - 2026-05-22
+
+- **Summary**: Removed the callback no-stdout watchdog (including the 45s quick-task override). Long silent stretches between Claude turns no longer fail runs; completion treats a stream-json success result as success even if a legacy timeout flag was set.
+- **Reason**: Project tasks were marked failed with "terminated after no stdout for 45000ms" while stdout already contained a completed result — same false-failure class as the removed post-first-text stall.
+
 ## Sync repo skills from GitHub metadata - 2026-05-22
 
 - **Summary**: Repo skills now sync display metadata from `.agents/skills/*/SKILL.md` on the configured base branch. Slash skills stay visible in chat, but Eva strips them back to `/skill-name` and no longer injects stored prompt text.

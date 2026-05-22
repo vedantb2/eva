@@ -216,7 +216,7 @@ try {
     errorValue = finalResultEvent.result;
   } else if (
     (!runSucceededWithResult && finalCode !== 0) ||
-    attemptEndedDueToTimeout
+    (attemptEndedDueToTimeout && !runSucceededWithResult)
   ) {
     errorValue = appendDiagnosticTail(
       buildErrorMessage(
@@ -239,7 +239,7 @@ try {
   let completionSuccess = finalResultEvent
     ? !finalResultEvent.isError
     : finalCode === 0;
-  if (attemptEndedDueToTimeout) {
+  if (attemptEndedDueToTimeout && !runSucceededWithResult) {
     completionSuccess = false;
   }
   if (completionSuccess && REQUIRE_TASK_COMMIT) {

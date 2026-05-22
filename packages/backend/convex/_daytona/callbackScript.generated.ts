@@ -1,7 +1,12 @@
 "use node";
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
-import { existsSync as existsSync6, mkdirSync as mkdirSync7, readdirSync as readdirSync2, unlinkSync } from "fs";
+import {
+  existsSync as existsSync6,
+  mkdirSync as mkdirSync7,
+  readdirSync as readdirSync2,
+  unlinkSync
+} from "fs";
 
 // callback-src/config.ts
 import { existsSync } from "fs";
@@ -402,7 +407,10 @@ try {
 } catch {
 }
 function shiftLastProcessed(trimAmount) {
-  callbackState.lastProcessed = Math.max(0, callbackState.lastProcessed - trimAmount);
+  callbackState.lastProcessed = Math.max(
+    0,
+    callbackState.lastProcessed - trimAmount
+  );
 }
 function appendRawOutputChunk(text) {
   callbackState.rawOutput += text;
@@ -713,10 +721,7 @@ function resolveClaudeSessionMode() {
     return { mode: "resume", sessionId: persistedState.resumeSessionId };
   }
   if (existsSync3(
-    buildClaudeTranscriptPath(
-      CLAUDE_LOCAL_PROJECT_DIR,
-      configuredSessionId
-    )
+    buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, configuredSessionId)
   )) {
     return { mode: "resume", sessionId: configuredSessionId };
   }
@@ -875,7 +880,11 @@ function resolveCursorToolCall(toolCall) {
   }
   const flatName = typeof toolCall.name === "string" ? toolCall.name : typeof toolCall.tool === "string" ? toolCall.tool : typeof toolCall.type === "string" ? toolCall.type : "";
   const flatArgs = toolCall.args && typeof toolCall.args === "object" && !Array.isArray(toolCall.args) ? toolCall.args : toolCall.input && typeof toolCall.input === "object" && !Array.isArray(toolCall.input) ? toolCall.input : toolCall.parameters && typeof toolCall.parameters === "object" && !Array.isArray(toolCall.parameters) ? toolCall.parameters : {};
-  return { kind: flatName.toLowerCase(), args: flatArgs, displayName: flatName };
+  return {
+    kind: flatName.toLowerCase(),
+    args: flatArgs,
+    displayName: flatName
+  };
 }
 function cursorToolToStep(toolCall) {
   const { kind, args, displayName } = resolveCursorToolCall(toolCall);
@@ -1498,7 +1507,11 @@ function hydratePersistedCodexState() {
       "hydratePersistedCodexState(auth)"
     );
   }
-  writeCodexFileIfConfigured("auth.json", CODEX_AUTH_JSON, CODEX_AUTH_JSON_BASE64);
+  writeCodexFileIfConfigured(
+    "auth.json",
+    CODEX_AUTH_JSON,
+    CODEX_AUTH_JSON_BASE64
+  );
   mkdirSync4(CODEX_RUNTIME_HOME_DIR, { recursive: true });
   writeFileSync4(
     CODEX_RUNTIME_HOME_DIR + "/config.toml",
@@ -1506,7 +1519,10 @@ function hydratePersistedCodexState() {
   );
 }
 function prepareCodexSessionState() {
-  updateThinkingStep("Preparing Codex session...", "Hydrating saved session...");
+  updateThinkingStep(
+    "Preparing Codex session...",
+    "Hydrating saved session..."
+  );
   hydratePersistedCodexState();
   const persistedState = readCodexSessionState();
   updateThinkingStep(
@@ -1652,14 +1668,23 @@ function hydratePersistedCursorState() {
           }
         }
       }
-      writeFileSync5(cursorDir + "/mcp.json", JSON.stringify(cursorMcp, null, 2));
+      writeFileSync5(
+        cursorDir + "/mcp.json",
+        JSON.stringify(cursorMcp, null, 2)
+      );
     } catch (error) {
-      console.error("Failed to translate MCP config for Cursor:", String(error));
+      console.error(
+        "Failed to translate MCP config for Cursor:",
+        String(error)
+      );
     }
   }
 }
 function prepareCursorSessionState() {
-  updateThinkingStep("Preparing Cursor session...", "Hydrating saved session...");
+  updateThinkingStep(
+    "Preparing Cursor session...",
+    "Hydrating saved session..."
+  );
   hydratePersistedCursorState();
   const persistedState = readCursorSessionState();
   updateThinkingStep(
@@ -2018,7 +2043,10 @@ function noteToolStarted(step) {
     callbackState.activeToolTimeoutMs = timeoutMs;
     return;
   }
-  callbackState.activeToolTimeoutMs = Math.min(callbackState.activeToolTimeoutMs || timeoutMs, timeoutMs);
+  callbackState.activeToolTimeoutMs = Math.min(
+    callbackState.activeToolTimeoutMs || timeoutMs,
+    timeoutMs
+  );
 }
 function noteToolCompleted() {
   if (callbackState.inFlightToolUses > 0) {
@@ -2401,7 +2429,8 @@ function extractResultEvent(output) {
             if (typeof t.output === "number") outputTokens += t.output;
             if (typeof t.reasoning === "number") reasoningTokens += t.reasoning;
             if (t.cache && typeof t.cache === "object" && !Array.isArray(t.cache)) {
-              if (typeof t.cache.read === "number") cacheReadTokens = t.cache.read;
+              if (typeof t.cache.read === "number")
+                cacheReadTokens = t.cache.read;
               if (typeof t.cache.write === "number")
                 cacheWriteTokens += t.cache.write;
             }
@@ -2612,7 +2641,12 @@ async function persistTaskProofIfNeeded(videoStorageId, imageStorageId, lastFile
     const mediaArgs = { parentId: ENTITY_ID ?? "" };
     if (videoStorageId) mediaArgs.videoStorageId = videoStorageId;
     if (imageStorageId) mediaArgs.imageStorageId = imageStorageId;
-    await callConvexWithRetry("action", "screenshots:attachMedia", mediaArgs, 3);
+    await callConvexWithRetry(
+      "action",
+      "screenshots:attachMedia",
+      mediaArgs,
+      3
+    );
     return;
   }
   if (ENTITY_ID_FIELD === "taskId") {
@@ -2810,10 +2844,14 @@ async function runCliAttempt(options) {
     options.onStart();
   }
   return await new Promise((resolve, reject) => {
-    const child = spawn("bash", ["-c", "cd " + WORK_DIR + " && " + options.cmd], {
-      env: options.env,
-      stdio: ["pipe", "pipe", "pipe"]
-    });
+    const child = spawn(
+      "bash",
+      ["-c", "cd " + WORK_DIR + " && " + options.cmd],
+      {
+        env: options.env,
+        stdio: ["pipe", "pipe", "pipe"]
+      }
+    );
     callbackState.activeAttemptChild = child;
     log(
       options.processLabel + " process spawned after " + String(elapsedAttemptMs()) + "ms pid=" + String(child.pid || "unknown")
@@ -3073,7 +3111,9 @@ try {
   let finalTimedOutForFirstAssistant = Boolean(
     firstAttempt.timedOutForFirstAssistant
   );
-  let finalTimedOutAfterFirstText = Boolean(firstAttempt.timedOutAfterFirstText);
+  let finalTimedOutAfterFirstText = Boolean(
+    firstAttempt.timedOutAfterFirstText
+  );
   let finalTimedOutForZombie = Boolean(firstAttempt.timedOutForZombie);
   const finalToolStallErrorMessage = firstAttempt.toolStallErrorMessage || "";
   let finalResultEvent = extractResultEvent(firstAttempt.output);
@@ -3238,11 +3278,7 @@ try {
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
   try {
-    await callConvexWithRetry(
-      "mutation",
-      COMPLETION_MUTATION ?? "",
-      errorArgs
-    );
+    await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {
   }
   process.exit(1);

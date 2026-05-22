@@ -1,5 +1,10 @@
 # Changelog
 
+## Extend quick-task runtime and tool-active watchdog - 2026-05-22
+
+- **Summary**: Quick-task sandbox runs now use a 50-minute total CLI cap (was 20 minutes). The heartbeat watchdog allows 25 minutes of silence while a tool step is active (was 15 minutes), so long builds/typechecks are less likely to die mid-command.
+- **Reason**: Quick tasks were killed during `pnpm build` or other long shell steps before the 2-hour workflow backstop; the 20-minute callback cap and 15-minute tool-active threshold were tighter than needed once the 240s shell cap was removed.
+
 ## Remove sandbox 240s shell tool cap - 2026-05-22
 
 - **Summary**: Stopped passing `CLAUDE_SHELL_TOOL_TIMEOUT_MS=240000` into sandbox runners. Shell tools now use the callback default (~49 min) until the external heartbeat watchdog kills the run. Removed the matching "240s shell kill" line from task and automation prompts.

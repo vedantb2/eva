@@ -285,7 +285,7 @@ const MAX_SETUP_ELAPSED_MS = 8 * 60 * 1000;
 const QUICK_TASK_FIRST_EVENT_TIMEOUT_MS = "45000";
 const QUICK_TASK_POST_TEXT_STALL_TIMEOUT_MS = "45000";
 const QUICK_TASK_NO_OUTPUT_TIMEOUT_MS = "45000";
-const QUICK_TASK_MAX_TOTAL_RUNTIME_MS = "1200000";
+const QUICK_TASK_MAX_TOTAL_RUNTIME_MS = "3000000";
 
 /** Checks if a sandbox setup error is transient and worth retrying. */
 function isSandboxSetupRetryable(message: string): boolean {

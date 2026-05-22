@@ -2,7 +2,8 @@
 
 ## 2026-05-22
 
-- Removed the sandbox `CLAUDE_SHELL_TOOL_TIMEOUT_MS=240000` cap; shell tools fall back to the callback default (~49 min) until the heartbeat watchdog kills the run. Task and automation prompts no longer mention a 240s shell kill limit.
+- Quick tasks: raised sandbox CLI max runtime from 20 to 50 minutes and tool-active heartbeat watchdog from 15 to 25 minutes so long builds are less likely to be killed mid-command.
+- Removed the sandbox `CLAUDE_SHELL_TOOL_TIMEOUT_MS=240000` cap; shell tools fall back to the callback default until the heartbeat watchdog kills the run. Task and automation prompts no longer mention a 240s shell kill limit.
 
 ## 2026-05-21
 

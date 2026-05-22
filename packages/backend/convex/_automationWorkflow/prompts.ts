@@ -13,9 +13,6 @@ function buildTypecheckCommand(rootDirectory: string): string {
   return `cd ${shellSingleQuote(typecheckDirectory)} && { status=0; timeout --kill-after=10s 120s npx tsc --noEmit --pretty false > /tmp/eva-tsc.log 2>&1 || status=$?; tail -50 /tmp/eva-tsc.log; exit "$status"; }`;
 }
 
-const SHELL_TIMEOUT_RULE =
-  "- Shell tools are killed after 240s — never use `timeout` above 180";
-
 /** Builds a write-mode prompt for automations that edit code and commit locally. */
 export function buildAutomationPrompt(
   title: string,
@@ -48,7 +45,7 @@ After committing, output 3–5 bullet lines (plain text, each starting with "- "
 - Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`
-${SHELL_TIMEOUT_RULE}${buildRootDirectoryInstruction(rootDirectory)}`;
+${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 /** Builds a read-only prompt for automations that analyze the codebase without modifying files. */
@@ -77,7 +74,7 @@ Provide a clear, structured report answering the prompt. This is the only output
 - Do NOT run audits
 - Prefix shell commands with timeouts: \`timeout 60 npm test\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`
-${SHELL_TIMEOUT_RULE}${buildRootDirectoryInstruction(rootDirectory)}`;
+${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 /** Builds a read-only prompt that produces structured JSON findings for actionable follow-up. */
@@ -130,5 +127,5 @@ You may include narrative text before the JSON block for context, but the JSON b
 - Do NOT run audits
 - Prefix shell commands with timeouts: \`timeout 60 npm test\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`
-${SHELL_TIMEOUT_RULE}${buildRootDirectoryInstruction(rootDirectory)}`;
+${buildRootDirectoryInstruction(rootDirectory)}`;
 }

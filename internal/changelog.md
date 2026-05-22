@@ -1,5 +1,10 @@
 # Changelog
 
+## Remove sandbox 240s shell tool cap - 2026-05-22
+
+- **Summary**: Stopped passing `CLAUDE_SHELL_TOOL_TIMEOUT_MS=240000` into sandbox runners. Shell tools now use the callback default (~49 min) until the external heartbeat watchdog kills the run. Removed the matching "240s shell kill" line from task and automation prompts.
+- **Reason**: The 4-minute cap was killing automations after a successful commit when agents ran longer validation; watchdog failure is acceptable and matches prior behaviour.
+
 ## Add optimistic updates to all UI-facing Convex mutations - 2026-05-21
 
 - **Summary**: Wrapped ~50+ UI-facing mutations in `apps/web/` with `.withOptimisticUpdate()` callbacks that patch the Convex client-side query cache before the server roundtrip completes. Covers toggles (enabled/disabled flags), updates (field edits, priority, assignee changes), removals (delete buttons), archive/unarchive, and status transitions. Fixed TypeScript type mismatches by destructuring nullable fields from mutation args (which use `v.union(type, v.null())`) and spreading them with `?? undefined` guards to match cached query types (which use `v.optional(type)` → `Type | undefined`).

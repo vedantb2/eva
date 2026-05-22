@@ -1,5 +1,9 @@
 # AI guidance changelog
 
+## 2026-05-22
+
+- Removed the sandbox `CLAUDE_SHELL_TOOL_TIMEOUT_MS=240000` cap; shell tools fall back to the callback default (~49 min) until the heartbeat watchdog kills the run. Task and automation prompts no longer mention a 240s shell kill limit.
+
 ## 2026-05-21
 
 - Finished migrating remaining `icon.png` references to `icon.svg` in shared UI (`packages/ui`), chrome extension sidepanel, and MCP server metadata. Chrome extension manifest still uses PNG for toolbar icons (MV3 requirement).

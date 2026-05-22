@@ -7,9 +7,6 @@ import { extractFailuresFromJson } from "./auditParser";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 
-const SHELL_TIMEOUT_RULE =
-  "- Shell tools are killed after 240s — never use `timeout` above 180";
-
 function shellSingleQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
@@ -225,7 +222,7 @@ ${failureList}
 - Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 30 gh ...\`
 - For gh: \`GH_PROMPT_DISABLED=1 timeout 30 gh ...\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`
-${SHELL_TIMEOUT_RULE}${buildRootDirectoryInstruction(rootDirectory)}`;
+${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 type AuditCategory = {

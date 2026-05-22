@@ -31,7 +31,6 @@ const CURSOR_INSTALL_TIMEOUT_SECONDS = 300;
 const CURSOR_FALLBACK_BIN_PATH = "/home/eva/.local/bin/cursor-agent";
 const CALLBACK_READY_TIMEOUT_SECONDS = 75;
 const CALLBACK_READY_POLL_ATTEMPTS = 60;
-const SANDBOX_SHELL_TOOL_TIMEOUT_MS = "240000";
 
 /** Computes a scoped streaming HMAC if the deployment encryption key is available. */
 function computeStreamingHmac(entityId: string): string | null {
@@ -159,7 +158,6 @@ export async function launchScript(
     `AI_PROVIDER=${quote([provider])}`,
     `AI_MODEL=${quote([normalizedModel])}`,
     `CLAUDE_MODEL=${quote([normalizedModel])}`,
-    `CLAUDE_SHELL_TOOL_TIMEOUT_MS=${quote([SANDBOX_SHELL_TOOL_TIMEOUT_MS])}`,
     `ALLOWED_TOOLS=${quote([opts.allowedTools ?? "Read,Glob,Grep,Skill"])}`,
     `SYSTEM_PROMPT=${quote([opts.systemPrompt ?? ""])}`,
     `CODEX_RUNTIME_HOME_DIR=${quote([CODEX_RUNTIME_HOME_DIR])}`,

@@ -1,49 +1,15 @@
 "use node";
 
-import { createPrivateKey } from "crypto";
 import { Octokit } from "octokit";
 import { createAppAuth } from "@octokit/auth-app";
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
+import {
+  ensurePkcs8PrivateKey,
+  normalizePemKey,
+} from "./githubPrivateKeyFormat";
 
-/** Normalizes a PEM private key string by fixing line breaks and formatting. */
-export function normalizePemKey(raw: string): string {
-  const cleaned = raw.replace(/\\n/g, "\n").replace(/\\+$/gm, "").trim();
-  if (cleaned.includes("\n")) return cleaned;
-
-  const base64 = cleaned
-    .replace(/-----BEGIN [A-Z ]+-----/, "")
-    .replace(/-----END [A-Z ]+-----/, "")
-    .replace(/\s/g, "");
-
-  const isRsa = cleaned.includes("RSA PRIVATE KEY");
-  const header = isRsa
-    ? "-----BEGIN RSA PRIVATE KEY-----"
-    : "-----BEGIN PRIVATE KEY-----";
-  const footer = isRsa
-    ? "-----END RSA PRIVATE KEY-----"
-    : "-----END PRIVATE KEY-----";
-  const lines: string[] = [header];
-  for (let i = 0; i < base64.length; i += 64) {
-    lines.push(base64.slice(i, i + 64));
-  }
-  lines.push(footer);
-  return lines.join("\n");
-}
-
-/** GitHub App JWT signing requires PKCS#8; convert legacy PKCS#1 RSA keys. */
-export function ensurePkcs8PrivateKey(pem: string): string {
-  if (!pem.includes("RSA PRIVATE KEY")) {
-    return pem;
-  }
-  const key = createPrivateKey({
-    key: pem,
-    format: "pem",
-    type: "pkcs1",
-  });
-  const exported = key.export({ format: "pem", type: "pkcs8" });
-  return typeof exported === "string" ? exported : exported.toString("utf8");
-}
+export { normalizePemKey } from "./githubPrivateKeyFormat";
 
 /** Builds an authenticated GitHub clone URL using an access token. */
 export function buildGitHubRepoUrl(

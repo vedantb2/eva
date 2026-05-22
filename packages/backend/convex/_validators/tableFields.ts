@@ -126,7 +126,13 @@ export const syncSettingFields = {
 export const repoSkillFields = {
   repoId: v.id("githubRepos"),
   title: v.string(),
-  prompt: v.string(),
+  description: v.optional(v.string()),
+  sourcePath: v.optional(v.string()),
+  sourceSha: v.optional(v.string()),
+  available: v.optional(v.boolean()),
+  lastSyncedAt: v.optional(v.number()),
+  unavailableSince: v.optional(v.number()),
+  prompt: v.optional(v.string()),
   createdAt: v.number(),
 };
 

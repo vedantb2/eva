@@ -416,8 +416,8 @@ export function ChatBody({
               <span className="min-w-0 flex-1">
                 <span className="font-medium text-foreground/80">@</span> to
                 mention a doc or PRD ·{" "}
-                <span className="font-medium text-foreground/80">/</span> to
-                insert a skill
+                <span className="font-medium text-foreground/80">/</span> for
+                skills
               </span>
               <button
                 type="button"

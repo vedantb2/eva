@@ -220,7 +220,9 @@ const schema = defineSchema({
   })
     .index("by_repo", ["repoId"])
     .index("by_repo_and_enabled", ["repoId", "enabled"]),
-  repoSkills: defineTable(repoSkillFields).index("by_repo", ["repoId"]),
+  repoSkills: defineTable(repoSkillFields)
+    .index("by_repo", ["repoId"])
+    .index("by_repo_and_source_path", ["repoId", "sourcePath"]),
   audits: defineTable({
     entityId: v.union(v.id("agentTasks"), v.id("sessions")),
     runId: v.optional(v.id("agentRuns")),

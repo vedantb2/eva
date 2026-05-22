@@ -1,5 +1,10 @@
 # Changelog
 
+## Sync repo skills from GitHub metadata - 2026-05-22
+
+- **Summary**: Repo skills now sync display metadata from `.agents/skills/*/SKILL.md` on the configured base branch. Slash skills stay visible in chat, but Eva strips them back to `/skill-name` and no longer injects stored prompt text.
+- **Reason**: Skills should be owned by the codebase and invoked by the agent harness, not duplicated as editable prompt snippets inside Eva.
+
 ## Raise callback max runtime to 90m; remove per-tool stall kills - 2026-05-22
 
 - **Summary**: Callback CLI cap is now 90 minutes (matches Daytona sandbox autostop). Ephemeral sandboxes (automations/quick tasks) also use 90m autostop. Removed per-tool stall limits entirely — long bash/typecheck runs are only bounded by max runtime and idle no-output when no tools are in flight.

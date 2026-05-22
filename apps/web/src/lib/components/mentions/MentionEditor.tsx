@@ -36,9 +36,7 @@ export interface MentionItem<TId extends string = string> {
 
 export interface SlashItem<
   TId extends string = string,
-> extends MentionItem<TId> {
-  prompt?: string;
-}
+> extends MentionItem<TId> {}
 
 export interface MentionEditorHandle {
   tokenize: (text: string) => string;
@@ -122,14 +120,14 @@ function defaultRenderSlashItem(
   item: SlashItem,
   isSelected: boolean,
 ): ReactNode {
-  const detail = item.prompt ? previewOneLine(item.prompt) : null;
+  const detail = item.description ? previewOneLine(item.description) : null;
   return renderMenuItemRow("/", item.label, detail, isSelected);
 }
 
 function defaultFilterSlashItem(item: SlashItem, query: string): boolean {
   const q = query.toLowerCase();
   if (item.label.toLowerCase().includes(q)) return true;
-  if (item.prompt?.toLowerCase().includes(q)) return true;
+  if (item.description?.toLowerCase().includes(q)) return true;
   return false;
 }
 

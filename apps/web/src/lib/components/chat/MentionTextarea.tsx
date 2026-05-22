@@ -25,7 +25,12 @@ function docDescriptionPreview(doc: {
 
 interface MentionTextareaProps {
   docs: Array<Doc<"docs">>;
-  skills?: Array<{ _id: Id<"repoSkills">; title: string; prompt: string }>;
+  skills?: Array<{
+    _id: Id<"repoSkills">;
+    title: string;
+    description: string;
+    available: boolean;
+  }>;
   skillsSettingsHref?: string;
   placeholder?: string;
 }
@@ -46,11 +51,13 @@ export const MentionTextarea = forwardRef<
     description: docDescriptionPreview(doc),
   }));
 
-  const slashItems: SlashItem[] = skills.map((skill) => ({
-    id: skill._id,
-    label: skill.title,
-    prompt: skill.prompt,
-  }));
+  const slashItems: SlashItem[] = skills
+    .filter((skill) => skill.available)
+    .map((skill) => ({
+      id: skill._id,
+      label: skill.title,
+      description: skill.description,
+    }));
 
   return (
     <MentionEditor
@@ -68,16 +75,16 @@ export const MentionTextarea = forwardRef<
       emptySlashContent={
         skillsSettingsHref ? (
           <span>
-            No skills configured.{" "}
+            No available skills.{" "}
             <Link
               to={skillsSettingsHref}
               className="text-foreground underline underline-offset-2"
             >
-              Add skills in Settings
+              Sync skills in Settings
             </Link>
           </span>
         ) : (
-          "No skills configured."
+          "No available skills."
         )
       }
       onEnterSubmit={(e) => {

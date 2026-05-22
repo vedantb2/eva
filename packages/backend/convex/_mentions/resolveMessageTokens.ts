@@ -8,7 +8,7 @@ export interface ResolvedMessageTokensResult {
   prefixBlock: string;
 }
 
-/** Resolves doc `@` mentions and skill `/` tokens for chat execution prompts. */
+/** Resolves doc `@` mentions and strips visual skill `/` tokens for chat execution prompts. */
 export async function resolveMessageTokens(
   ctx: QueryCtx,
   message: string,
@@ -16,8 +16,6 @@ export async function resolveMessageTokens(
 ): Promise<ResolvedMessageTokensResult> {
   const { resolvedMessage: afterDocs, prefixBlock: docBlock } =
     await resolveDocMentions(ctx, message, repoId);
-  const { resolvedMessage, prefixBlock: skillBlock } =
-    await resolveSkillMentions(ctx, afterDocs, repoId);
-  const prefixBlock = [docBlock, skillBlock].filter(Boolean).join("\n\n");
-  return { resolvedMessage, prefixBlock };
+  const { resolvedMessage } = resolveSkillMentions(afterDocs);
+  return { resolvedMessage, prefixBlock: docBlock };
 }

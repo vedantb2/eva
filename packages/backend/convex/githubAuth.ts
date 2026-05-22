@@ -1,5 +1,6 @@
 "use node";
 
+import { createPrivateKey } from "crypto";
 import { Octokit } from "octokit";
 import { createAppAuth } from "@octokit/auth-app";
 import { v } from "convex/values";
@@ -30,6 +31,20 @@ export function normalizePemKey(raw: string): string {
   return lines.join("\n");
 }
 
+/** GitHub App JWT signing requires PKCS#8; convert legacy PKCS#1 RSA keys. */
+export function ensurePkcs8PrivateKey(pem: string): string {
+  if (!pem.includes("RSA PRIVATE KEY")) {
+    return pem;
+  }
+  const key = createPrivateKey({
+    key: pem,
+    format: "pem",
+    type: "pkcs1",
+  });
+  const exported = key.export({ format: "pem", type: "pkcs8" });
+  return typeof exported === "string" ? exported : exported.toString("utf8");
+}
+
 /** Builds an authenticated GitHub clone URL using an access token. */
 export function buildGitHubRepoUrl(
   owner: string,
@@ -57,7 +72,7 @@ export function getGitHubCredentials() {
   }
   return {
     appId,
-    privateKey: normalizePemKey(rawKey),
+    privateKey: ensurePkcs8PrivateKey(normalizePemKey(rawKey)),
     clientId: clientId ?? "",
     clientSecret: clientSecret ?? "",
   };

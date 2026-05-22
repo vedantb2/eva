@@ -10,6 +10,9 @@
     "dev:personal": "cross-env CONVEX_DEPLOYMENT=dev:elegant-snail-639 npx convex dev",
     "dev:evalucom": "cross-env CONVEX_DEPLOYMENT=dev:good-mule-506 npx convex dev",
     "dev:all": "concurrently -n personal,evalucom -c blue,green \"pnpm dev:personal\" \"pnpm dev:evalucom\"",
+    "build:callback": "node scripts/build-callback-script.mjs",
+    "test:callback": "node --import tsx --test callback-src/tests/createSessionStore.test.ts callback-src/tests/evaluateAttemptHealth.test.ts callback-src/tests/canonical.test.ts",
+    "predeploy": "node scripts/build-callback-script.mjs",
     "deploy": "npx convex deploy"
   },
   "author": "",
@@ -41,6 +44,8 @@
     "@typescript/native-preview": "7.0.0-dev.20260424.1",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }
 }

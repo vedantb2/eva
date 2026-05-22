@@ -547,6 +547,12 @@ importers:
       cross-env:
         specifier: ^7.0.3
         version: 7.0.3
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+      tsx:
+        specifier: ^4.19.4
+        version: 4.21.0
       typescript:
         specifier: ^5.8.3
         version: 5.9.3

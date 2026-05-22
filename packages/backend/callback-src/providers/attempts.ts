@@ -1,0 +1,153 @@
+import {
+  CLAUDE_RUNTIME_CONFIG_DIR,
+  CODEX_RUNTIME_HOME_DIR,
+  CURSOR_RUNTIME_HOME_DIR,
+  PROVIDER,
+  SCRIPT_STARTED_AT,
+  claudeBaseCmd,
+  codexExecBaseCmd,
+  codexPromptCmd,
+  cursorExecBaseCmd,
+  opencodeExecBaseCmd,
+  opencodePromptCmd,
+} from "../config.js";
+import { buildClaudeStartupStep } from "../session/claudeSession.js";
+import { prepareClaudeSessionState } from "../session/claudeSession.js";
+import { prepareCodexSessionState } from "../session/codexSession.js";
+import { prepareOpencodeSessionState } from "../session/opencodeSession.js";
+import { prepareCursorSessionState } from "../session/cursorSession.js";
+import { syncClaudeStateToPersist } from "../session/claudeSession.js";
+import { syncCodexStateToPersist } from "../session/codexSession.js";
+import { syncOpencodeStateToPersist } from "../session/opencodeSession.js";
+import { syncCursorStateToPersist } from "../session/cursorSession.js";
+import { codexAdapter } from "./codex.js";
+import { runCliAttempt } from "../runtime/cliAttempt.js";
+import { callbackState as S } from "../runtime/state.js";
+import { log } from "../utils.js";
+import type { SessionMode } from "../types.js";
+
+export function prepareProviderSessionState(): SessionMode {
+  if (PROVIDER === "codex") return prepareCodexSessionState();
+  if (PROVIDER === "opencode") return prepareOpencodeSessionState();
+  if (PROVIDER === "cursor") return prepareCursorSessionState();
+  return prepareClaudeSessionState();
+}
+
+export function syncProviderStateToPersist(reason: string): void {
+  if (PROVIDER === "codex") {
+    syncCodexStateToPersist();
+    return;
+  }
+  if (PROVIDER === "opencode") {
+    syncOpencodeStateToPersist();
+    return;
+  }
+  if (PROVIDER === "cursor") {
+    syncCursorStateToPersist();
+    return;
+  }
+  syncClaudeStateToPersist(reason);
+}
+
+export async function runClaudeAttempt(sessionMode: SessionMode) {
+  const sessionArg =
+    sessionMode.mode === "session" && sessionMode.sessionId
+      ? " --session-id " + JSON.stringify(sessionMode.sessionId)
+      : sessionMode.mode === "resume" && sessionMode.sessionId
+        ? " --resume " + JSON.stringify(sessionMode.sessionId)
+        : "";
+  const cmd = claudeBaseCmd + sessionArg;
+  const startupStep = buildClaudeStartupStep();
+  return await runCliAttempt({
+    cmd,
+    env: { ...process.env, CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR },
+    processLabel: "claude",
+    attemptLabel: "runClaudeAttempt",
+    startupStep,
+    onStart: () => {
+      log(
+        "runClaudeAttempt started (mode=" +
+          sessionMode.mode +
+          ", sessionArg=" +
+          (sessionArg || "none") +
+          ")",
+      );
+      log(
+        "spawning claude after " +
+          String(S.activeAttemptStartedAt - SCRIPT_STARTED_AT) +
+          "ms since callback start",
+      );
+    },
+  });
+}
+
+export async function runCodexAttempt(sessionMode: SessionMode) {
+  const sessionArg =
+    sessionMode.mode === "resume" && sessionMode.sessionId
+      ? " resume " + JSON.stringify(sessionMode.sessionId)
+      : "";
+  const cmd = codexPromptCmd + " | " + codexExecBaseCmd + sessionArg + " -";
+  return await runCliAttempt({
+    cmd,
+    env: { ...process.env, CODEX_HOME: CODEX_RUNTIME_HOME_DIR },
+    processLabel: "codex",
+    attemptLabel: "runCodexAttempt",
+    startupStep: {
+      label: "Starting Codex CLI...",
+      detail:
+        sessionMode.mode === "resume"
+          ? "Restoring saved context..."
+          : "Launching Codex process...",
+    },
+    onStdoutText: codexAdapter.onStdoutText,
+  });
+}
+
+export async function runOpencodeAttempt(sessionMode: SessionMode) {
+  const sessionArg =
+    sessionMode.mode === "resume" && sessionMode.sessionId
+      ? " -s " + JSON.stringify(sessionMode.sessionId)
+      : "";
+  const cmd = opencodePromptCmd + " | " + opencodeExecBaseCmd + sessionArg;
+  return await runCliAttempt({
+    cmd,
+    env: { ...process.env },
+    processLabel: "opencode",
+    attemptLabel: "runOpencodeAttempt",
+    startupStep: {
+      label: "Starting Opencode CLI...",
+      detail:
+        sessionMode.mode === "resume"
+          ? "Restoring saved context..."
+          : "Launching Opencode process...",
+    },
+  });
+}
+
+export async function runCursorAttempt(sessionMode: SessionMode) {
+  const sessionArg =
+    sessionMode.mode === "resume" && sessionMode.sessionId
+      ? " --resume " + JSON.stringify(sessionMode.sessionId)
+      : "";
+  const cmd = cursorExecBaseCmd + sessionArg;
+  return await runCliAttempt({
+    cmd,
+    env: { ...process.env, HOME: CURSOR_RUNTIME_HOME_DIR },
+    processLabel: "cursor",
+    attemptLabel: "runCursorAttempt",
+    startupStep: {
+      label: "Starting Cursor CLI...",
+      detail:
+        sessionMode.mode === "resume"
+          ? "Restoring saved context..."
+          : "Launching Cursor process...",
+    },
+  });
+}
+
+export async function runProviderAttempt(sessionMode: SessionMode) {
+  if (PROVIDER === "codex") return await runCodexAttempt(sessionMode);
+  if (PROVIDER === "opencode") return await runOpencodeAttempt(sessionMode);
+  if (PROVIDER === "cursor") return await runCursorAttempt(sessionMode);
+  return await runClaudeAttempt(sessionMode);
+}

@@ -1,0 +1,143 @@
+import {
+  codexItemToStep,
+  getCodexAgentMessageText,
+  getCodexThreadId,
+} from "../parse/toolSteps.js";
+import {
+  syncCodexStateToPersist,
+  writeCodexSessionState,
+} from "../session/codexSession.js";
+import { callbackState as S } from "../runtime/state.js";
+import type { CanonicalEvent, JsonObject, StreamLineResult } from "../types.js";
+import { tryParseJson } from "../utils.js";
+import type { ProviderAdapter } from "./types.js";
+
+export function codexParseLine(event: JsonObject): CanonicalEvent[] {
+  const events: CanonicalEvent[] = [];
+  const threadId = getCodexThreadId(event);
+  if (event.type === "thread.started" && threadId) {
+    events.push({ kind: "set_codex_thread", threadId });
+    events.push({
+      kind: "update_thinking",
+      label: "Starting Codex CLI...",
+      detail: "Restoring saved context...",
+    });
+    return events;
+  }
+  if (event.type === "turn.started") {
+    events.push({
+      kind: "update_thinking",
+      label: "Starting Codex CLI...",
+      detail: "Codex is reasoning...",
+    });
+    return events;
+  }
+  if (
+    event.type === "item.started" &&
+    event.item &&
+    typeof event.item === "object" &&
+    !Array.isArray(event.item) &&
+    typeof event.item.type === "string" &&
+    event.item.type !== "agent_message"
+  ) {
+    const step = codexItemToStep(event.item);
+    const trackingId =
+      step.type !== "thinking" && typeof event.item.id === "string"
+        ? event.item.id
+        : undefined;
+    events.push(
+      trackingId
+        ? { kind: "push_step", step, trackingId }
+        : { kind: "push_step", step },
+    );
+    return events;
+  }
+  if (
+    event.type === "item.completed" &&
+    event.item &&
+    typeof event.item === "object" &&
+    !Array.isArray(event.item) &&
+    event.item.type === "agent_message"
+  ) {
+    const messageText = getCodexAgentMessageText(event.item);
+    if (messageText) {
+      events.push({ kind: "append_text", text: messageText });
+    }
+    return events;
+  }
+  if (
+    (event.type === "item.completed" || event.type === "item.failed") &&
+    event.item &&
+    typeof event.item === "object" &&
+    !Array.isArray(event.item) &&
+    typeof event.item.type === "string" &&
+    event.item.type !== "agent_message"
+  ) {
+    if (typeof event.item.id === "string") {
+      events.push({ kind: "complete_tool", trackingId: event.item.id });
+    } else {
+      events.push({ kind: "mark_last_complete" });
+    }
+    return events;
+  }
+  if (event.type === "turn.completed") {
+    events.push({
+      kind: "push_step",
+      step: {
+        type: "thinking",
+        label: "Finalizing response...",
+        status: "active",
+      },
+    });
+    return events;
+  }
+  return events;
+}
+
+function inspectCodexStdout(text: string): void {
+  for (const line of text.split("\n")) {
+    const clean = line.trim();
+    if (!clean) continue;
+    try {
+      const parsed = tryParseJson(clean);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        !Array.isArray(parsed) &&
+        parsed.type === "item.completed" &&
+        parsed.item &&
+        typeof parsed.item === "object" &&
+        !Array.isArray(parsed.item) &&
+        parsed.item.type === "agent_message" &&
+        getCodexAgentMessageText(parsed.item) &&
+        S.firstTextBlockAt === 0
+      ) {
+        S.firstTextBlockAt = Date.now();
+      }
+    } catch {
+      /* ignore non-json lines */
+    }
+  }
+}
+
+function onStreamLine(parsed: JsonObject): StreamLineResult {
+  const threadId = getCodexThreadId(parsed);
+  if (parsed.type === "thread.started" && threadId) {
+    S.activeCodexThreadId = threadId;
+    writeCodexSessionState();
+    return {};
+  }
+  if (parsed.type === "turn.completed" && !S.resultEventSeen) {
+    S.resultEventSeen = true;
+    syncCodexStateToPersist();
+  }
+  return {};
+}
+
+export const codexAdapter: ProviderAdapter = {
+  parseLine: codexParseLine,
+  onStreamLine(_line: string, parsed: JsonObject): StreamLineResult {
+    return onStreamLine(parsed);
+  },
+  onStdoutText: inspectCodexStdout,
+};

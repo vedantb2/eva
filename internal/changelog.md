@@ -1,5 +1,10 @@
 # Changelog
 
+## Modular callback script (TypeScript) - 2026-05-22
+
+- **Summary**: Split the ~3500-line sandbox callback monolith into typed modules under `packages/backend/callback-src/`, unified Convex HTTP calls via `callConvexWithRetry`, extracted `evaluateAttemptHealth` from the CLI watchdog interval, and added esbuild bundling to regenerate `convex/_daytona/callbackScript.generated.ts`.
+- **Reason**: The inline template literal was unmaintainable; modular source with node:test coverage and a build step preserves behavior while making provider/session/parse logic reviewable.
+
 ## Extend quick-task runtime and tool-active watchdog - 2026-05-22
 
 - **Summary**: Quick-task sandbox runs now use a 50-minute total CLI cap (was 20 minutes). The heartbeat watchdog allows 25 minutes of silence while a tool step is active (was 15 minutes), so long builds/typechecks are less likely to die mid-command.

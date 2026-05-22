@@ -5,7 +5,6 @@ import {
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_CHECK_INTERVAL_MS,
   NO_OUTPUT_TIMEOUT_MS,
-  POST_TEXT_STALL_TIMEOUT_MS,
   PROVIDER,
   SCRIPT_STARTED_AT,
   WORK_DIR,
@@ -111,22 +110,6 @@ export function evaluateAttemptHealth(
       }
       result.shouldTerminate = true;
     }
-    return result;
-  }
-
-  if (
-    PROVIDER !== "cursor" &&
-    S.firstTextBlockAt > 0 &&
-    !S.resultEventSeen &&
-    Date.now() - S.firstTextBlockAt > POST_TEXT_STALL_TIMEOUT_MS
-  ) {
-    result.timedOutAfterFirstText = true;
-    result.logMessage =
-      input.processLabel +
-      " stalled after first text for " +
-      String(Date.now() - S.firstTextBlockAt) +
-      "ms; terminating process";
-    result.shouldTerminate = true;
     return result;
   }
 

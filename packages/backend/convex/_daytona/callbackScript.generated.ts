@@ -2839,12 +2839,6 @@ function evaluateAttemptHealth(input) {
     }
     return result;
   }
-  if (PROVIDER !== "cursor" && callbackState.firstTextBlockAt > 0 && !callbackState.resultEventSeen && Date.now() - callbackState.firstTextBlockAt > POST_TEXT_STALL_TIMEOUT_MS) {
-    result.timedOutAfterFirstText = true;
-    result.logMessage = input.processLabel + " stalled after first text for " + String(Date.now() - callbackState.firstTextBlockAt) + "ms; terminating process";
-    result.shouldTerminate = true;
-    return result;
-  }
   if (Date.now() - input.lastStdoutAt <= NO_OUTPUT_TIMEOUT_MS) {
     return result;
   }

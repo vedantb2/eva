@@ -9,7 +9,6 @@ Environment variables control watchdog and HTTP behavior for the sandbox callbac
 | `CLAUDE_NO_OUTPUT_TIMEOUT_MS`             | 60000                 | Kill CLI when stdout is silent this long (unless a tool is in flight). |
 | `CLAUDE_FIRST_EVENT_TIMEOUT_MS`           | 90000                 | Kill if no parseable stream-json line before this.                     |
 | `CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS` | 120000                | After Claude `system/init`, kill if no assistant event.                |
-| `CLAUDE_POST_TEXT_STALL_TIMEOUT_MS`       | 90000                 | After first text block (non-Cursor), kill on prolonged silence.        |
 | `CLAUDE_MAX_TOTAL_RUNTIME_MS`             | 3000000               | Absolute callback+CLI runtime cap (~50 min).                           |
 | `CLAUDE_NON_SHELL_TOOL_TIMEOUT_MS`        | 300000                | Per-tool stall limit for read/search/edit tools.                       |
 | `CLAUDE_SHELL_TOOL_TIMEOUT_MS`            | max(60000, MAX−60000) | Per-tool stall limit for bash/subtask.                                 |

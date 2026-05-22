@@ -1,5 +1,10 @@
 # Changelog
 
+## Remove post-first-text CLI stall kill - 2026-05-22
+
+- **Summary**: Dropped the callback watchdog that terminated Claude after silence following the first text block (`CLAUDE_POST_TEXT_STALL_TIMEOUT_MS`, 45s on quick tasks). Long tool runs after planning text no longer trigger a false failure when the agent is still working.
+- **Reason**: Automations completed successfully (result event in stdout) but were marked failed with "stalled after first text block for 45000ms" during long bash/typecheck phases.
+
 ## Fix parallel tool stall killing long bash commands - 2026-05-22
 
 - **Summary**: Tool stall detection now tracks each in-flight tool with its own deadline instead of applying the shortest timeout across parallel tools. Claude `tool_use_id` is wired through so bash/read/grep completions clear the right tracker.

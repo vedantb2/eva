@@ -151,9 +151,8 @@ export function resetAttemptState(): void {
   S.heartbeatFailureStreakStartedAt = 0;
   S.inFlightToolUses = 0;
   S.codexToolItemIds.clear();
-  S.activeToolStartedAt = 0;
-  S.activeToolLabel = "";
-  S.activeToolTimeoutMs = 0;
+  S.activeToolStalls.clear();
+  S.anonymousToolSeq = 0;
 }
 
 export async function runCliAttempt(

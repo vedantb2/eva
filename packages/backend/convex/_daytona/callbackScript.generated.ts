@@ -383,9 +383,8 @@ var callbackState = {
   heartbeatFailureStreakStartedAt: 0,
   inFlightToolUses: 0,
   codexToolItemIds: /* @__PURE__ */ new Set(),
-  activeToolStartedAt: 0,
-  activeToolLabel: "",
-  activeToolTimeoutMs: 0,
+  activeToolStalls: /* @__PURE__ */ new Map(),
+  anonymousToolSeq: 0,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -1050,6 +1049,7 @@ function toolCallToStep(name, input) {
         status: "active"
       };
     case "Bash":
+    case "bash":
       return {
         type: "bash",
         label: "Running command...",
@@ -1275,8 +1275,25 @@ function codexItemToStep(item) {
 function claudeParseLine(event) {
   const events = [];
   if (event.type === "tool_result") {
-    events.push({ kind: "complete_tool" });
+    const toolUseId = typeof event.tool_use_id === "string" && event.tool_use_id.trim() ? event.tool_use_id.trim() : void 0;
+    events.push({ kind: "complete_tool", trackingId: toolUseId });
     return events;
+  }
+  if (event.type === "user") {
+    const message2 = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
+    const content2 = message2 && Array.isArray(message2.content) ? message2.content : [];
+    for (const block of content2) {
+      if (!block || typeof block !== "object" || Array.isArray(block)) continue;
+      if (block.type === "tool_result" && typeof block.tool_use_id === "string" && block.tool_use_id.trim()) {
+        events.push({
+          kind: "complete_tool",
+          trackingId: block.tool_use_id.trim()
+        });
+      }
+    }
+    if (events.length > 0) {
+      return events;
+    }
   }
   if (event.type !== "assistant") return events;
   if (callbackState.waitingForFirstAssistantEvent) {
@@ -1290,7 +1307,10 @@ function claudeParseLine(event) {
     if (block.type === "tool_use" && typeof block.name === "string") {
       const input = block.input && typeof block.input === "object" && !Array.isArray(block.input) ? block.input : {};
       const step = toolCallToStep(block.name, input);
-      events.push({ kind: "push_step", step });
+      const trackingId = typeof block.id === "string" && block.id.trim() ? block.id.trim() : void 0;
+      events.push(
+        trackingId ? { kind: "push_step", step, trackingId } : { kind: "push_step", step }
+      );
       if (block.name === "AskUserQuestion" && block.input) {
         events.push({
           kind: "set_pending_question",
@@ -1981,7 +2001,7 @@ function applyCanonicalEvents(events) {
         callbackState.accumulatedSteps.push(ev.step);
         callbackState.lastStepType = ev.step.type === "thinking" ? "thinking" : "tool";
         if (ev.step.type !== "thinking") {
-          noteToolStarted(ev.step);
+          registerActiveToolStall(ev.step, ev.trackingId);
           if (ev.trackingId) callbackState.codexToolItemIds.add(ev.trackingId);
           callbackState.inFlightToolUses++;
         }
@@ -1989,13 +2009,17 @@ function applyCanonicalEvents(events) {
       case "complete_tool":
         markLastComplete();
         if (ev.trackingId !== void 0) {
-          if (callbackState.codexToolItemIds.delete(ev.trackingId) && callbackState.inFlightToolUses > 0) {
+          const removedCodex = callbackState.codexToolItemIds.delete(ev.trackingId);
+          const removedStall = removeActiveToolStall(ev.trackingId);
+          if ((removedCodex || removedStall) && callbackState.inFlightToolUses > 0) {
             callbackState.inFlightToolUses--;
-            noteToolCompleted();
           }
         } else if (callbackState.inFlightToolUses > 0) {
+          removeActiveToolStall(void 0);
           callbackState.inFlightToolUses--;
-          noteToolCompleted();
+        }
+        if (callbackState.inFlightToolUses === 0) {
+          callbackState.activeToolStalls.clear();
         }
         break;
       case "mark_last_complete":
@@ -2035,37 +2059,45 @@ function toolTimeoutMsForStep(step) {
   }
   return NON_SHELL_TOOL_TIMEOUT_MS;
 }
-function noteToolStarted(step) {
-  const timeoutMs = toolTimeoutMsForStep(step);
-  if (callbackState.inFlightToolUses === 0 || callbackState.activeToolStartedAt === 0) {
-    callbackState.activeToolStartedAt = Date.now();
-    callbackState.activeToolLabel = step.label || step.type || "tool";
-    callbackState.activeToolTimeoutMs = timeoutMs;
-    return;
-  }
-  callbackState.activeToolTimeoutMs = Math.min(
-    callbackState.activeToolTimeoutMs || timeoutMs,
-    timeoutMs
-  );
+function registerActiveToolStall(step, trackingId) {
+  const id = trackingId && trackingId.trim() ? trackingId.trim() : "tool-" + String(++callbackState.anonymousToolSeq);
+  callbackState.activeToolStalls.set(id, {
+    startedAt: Date.now(),
+    timeoutMs: toolTimeoutMsForStep(step),
+    label: step.label || step.type || "tool"
+  });
+  return id;
 }
-function noteToolCompleted() {
-  if (callbackState.inFlightToolUses > 0) {
-    return;
+function removeActiveToolStall(trackingId) {
+  if (trackingId && callbackState.activeToolStalls.delete(trackingId)) {
+    return true;
   }
-  callbackState.activeToolStartedAt = 0;
-  callbackState.activeToolLabel = "";
-  callbackState.activeToolTimeoutMs = 0;
+  if (!trackingId && callbackState.activeToolStalls.size > 0) {
+    let oldestId = "";
+    let oldestAt = Number.POSITIVE_INFINITY;
+    for (const [id, tool] of callbackState.activeToolStalls) {
+      if (tool.startedAt < oldestAt) {
+        oldestAt = tool.startedAt;
+        oldestId = id;
+      }
+    }
+    if (oldestId) {
+      return callbackState.activeToolStalls.delete(oldestId);
+    }
+  }
+  return false;
 }
 function activeToolStallMessage() {
-  if (callbackState.inFlightToolUses <= 0 || callbackState.activeToolStartedAt === 0) {
+  if (callbackState.inFlightToolUses <= 0 || callbackState.activeToolStalls.size === 0) {
     return "";
   }
-  const timeoutMs = callbackState.activeToolTimeoutMs || NON_SHELL_TOOL_TIMEOUT_MS;
-  const activeMs = Date.now() - callbackState.activeToolStartedAt;
-  if (activeMs <= timeoutMs) {
-    return "";
+  for (const tool of callbackState.activeToolStalls.values()) {
+    const activeMs = Date.now() - tool.startedAt;
+    if (activeMs > tool.timeoutMs) {
+      return "Tool stalled while " + tool.label + " for " + activeMs + "ms (limit " + tool.timeoutMs + "ms)";
+    }
   }
-  return "Tool stalled while " + (callbackState.activeToolLabel || "using tool") + " for " + activeMs + "ms (limit " + timeoutMs + "ms)";
+  return "";
 }
 function appendStreamedContent(text) {
   const nextText = String(text);
@@ -2832,9 +2864,8 @@ function resetAttemptState() {
   callbackState.heartbeatFailureStreakStartedAt = 0;
   callbackState.inFlightToolUses = 0;
   callbackState.codexToolItemIds.clear();
-  callbackState.activeToolStartedAt = 0;
-  callbackState.activeToolLabel = "";
-  callbackState.activeToolTimeoutMs = 0;
+  callbackState.activeToolStalls.clear();
+  callbackState.anonymousToolSeq = 0;
 }
 async function runCliAttempt(options) {
   resetAttemptState();

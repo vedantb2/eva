@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix parallel tool stall killing long bash commands - 2026-05-22
+
+- **Summary**: Tool stall detection now tracks each in-flight tool with its own deadline instead of applying the shortest timeout across parallel tools. Claude `tool_use_id` is wired through so bash/read/grep completions clear the right tracker.
+- **Reason**: Automations failed at 300s with "Running command..." while Claude had finished — a long bash shared one timer with a parallel read/grep, so the 5-minute non-shell cap killed the run even though shell allowance is ~49 minutes.
+
 ## Modular callback script (TypeScript) - 2026-05-22
 
 - **Summary**: Split the ~3500-line sandbox callback monolith into typed modules under `packages/backend/callback-src/`, unified Convex HTTP calls via `callConvexWithRetry`, extracted `evaluateAttemptHealth` from the CLI watchdog interval, and added esbuild bundling to regenerate `convex/_daytona/callbackScript.generated.ts`.

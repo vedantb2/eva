@@ -16,6 +16,12 @@ export type ProgressStep = {
   status: "active" | "complete";
 };
 
+export type ActiveToolStall = {
+  startedAt: number;
+  timeoutMs: number;
+  label: string;
+};
+
 export type SessionMode = {
   mode: "none" | "session" | "resume";
   sessionId: string | null;

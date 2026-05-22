@@ -12,8 +12,38 @@ import type { ProviderAdapter } from "./types.js";
 export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
   const events: CanonicalEvent[] = [];
   if (event.type === "tool_result") {
-    events.push({ kind: "complete_tool" });
+    const toolUseId =
+      typeof event.tool_use_id === "string" && event.tool_use_id.trim()
+        ? event.tool_use_id.trim()
+        : undefined;
+    events.push({ kind: "complete_tool", trackingId: toolUseId });
     return events;
+  }
+  if (event.type === "user") {
+    const message =
+      event.message &&
+      typeof event.message === "object" &&
+      !Array.isArray(event.message)
+        ? event.message
+        : null;
+    const content =
+      message && Array.isArray(message.content) ? message.content : [];
+    for (const block of content) {
+      if (!block || typeof block !== "object" || Array.isArray(block)) continue;
+      if (
+        block.type === "tool_result" &&
+        typeof block.tool_use_id === "string" &&
+        block.tool_use_id.trim()
+      ) {
+        events.push({
+          kind: "complete_tool",
+          trackingId: block.tool_use_id.trim(),
+        });
+      }
+    }
+    if (events.length > 0) {
+      return events;
+    }
   }
   if (event.type !== "assistant") return events;
 
@@ -39,7 +69,15 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
           ? block.input
           : {};
       const step = toolCallToStep(block.name, input);
-      events.push({ kind: "push_step", step });
+      const trackingId =
+        typeof block.id === "string" && block.id.trim()
+          ? block.id.trim()
+          : undefined;
+      events.push(
+        trackingId
+          ? { kind: "push_step", step, trackingId }
+          : { kind: "push_step", step },
+      );
       if (block.name === "AskUserQuestion" && block.input) {
         events.push({
           kind: "set_pending_question",

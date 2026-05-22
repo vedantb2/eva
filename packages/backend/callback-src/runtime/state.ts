@@ -1,6 +1,6 @@
 import type { ChildProcess } from "child_process";
 import type { WriteStream } from "fs";
-import type { JsonValue, ProgressStep } from "../types.js";
+import type { ActiveToolStall, JsonValue, ProgressStep } from "../types.js";
 
 function parsePriorStep(value: JsonValue): ProgressStep | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -55,9 +55,8 @@ type CallbackState = {
   heartbeatFailureStreakStartedAt: number;
   inFlightToolUses: number;
   codexToolItemIds: Set<string>;
-  activeToolStartedAt: number;
-  activeToolLabel: string;
-  activeToolTimeoutMs: number;
+  activeToolStalls: Map<string, ActiveToolStall>;
+  anonymousToolSeq: number;
   doneFileWritten: boolean;
   flushInProgress: boolean;
   pingInProgress: boolean;
@@ -100,9 +99,8 @@ export const callbackState: CallbackState = {
   heartbeatFailureStreakStartedAt: 0,
   inFlightToolUses: 0,
   codexToolItemIds: new Set<string>(),
-  activeToolStartedAt: 0,
-  activeToolLabel: "",
-  activeToolTimeoutMs: 0,
+  activeToolStalls: new Map<string, ActiveToolStall>(),
+  anonymousToolSeq: 0,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -163,6 +161,8 @@ export function resetStateForTests(): void {
   callbackState.pendingQuestionData = "";
   callbackState.fatalHeartbeatErrorMessage = "";
   callbackState.inFlightToolUses = 0;
+  callbackState.activeToolStalls.clear();
+  callbackState.anonymousToolSeq = 0;
   callbackState.firstTextBlockAt = 0;
   callbackState.waitingForFirstAssistantEvent = false;
   callbackState.claudeInitAt = 0;

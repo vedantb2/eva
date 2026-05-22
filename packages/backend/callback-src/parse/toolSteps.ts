@@ -354,6 +354,7 @@ export function toolCallToStep(name: string, input: JsonObject): ProgressStep {
         status: "active",
       };
     case "Bash":
+    case "bash":
       return {
         type: "bash",
         label: "Running command...",

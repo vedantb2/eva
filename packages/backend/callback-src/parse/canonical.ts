@@ -78,7 +78,7 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         S.accumulatedSteps.push(ev.step);
         S.lastStepType = ev.step.type === "thinking" ? "thinking" : "tool";
         if (ev.step.type !== "thinking") {
-          noteToolStarted(ev.step);
+          registerActiveToolStall(ev.step, ev.trackingId);
           if (ev.trackingId) S.codexToolItemIds.add(ev.trackingId);
           S.inFlightToolUses++;
         }
@@ -86,16 +86,17 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
       case "complete_tool":
         markLastComplete();
         if (ev.trackingId !== undefined) {
-          if (
-            S.codexToolItemIds.delete(ev.trackingId) &&
-            S.inFlightToolUses > 0
-          ) {
+          const removedCodex = S.codexToolItemIds.delete(ev.trackingId);
+          const removedStall = removeActiveToolStall(ev.trackingId);
+          if ((removedCodex || removedStall) && S.inFlightToolUses > 0) {
             S.inFlightToolUses--;
-            noteToolCompleted();
           }
         } else if (S.inFlightToolUses > 0) {
+          removeActiveToolStall(undefined);
           S.inFlightToolUses--;
-          noteToolCompleted();
+        }
+        if (S.inFlightToolUses === 0) {
+          S.activeToolStalls.clear();
         }
         break;
       case "mark_last_complete":
@@ -140,50 +141,62 @@ export function toolTimeoutMsForStep(step: ProgressStep): number {
   return NON_SHELL_TOOL_TIMEOUT_MS;
 }
 
-/** Records the oldest active tool so stuck searches/reads do not pause watchdogs forever. */
-export function noteToolStarted(step: ProgressStep): void {
-  const timeoutMs = toolTimeoutMsForStep(step);
-  if (S.inFlightToolUses === 0 || S.activeToolStartedAt === 0) {
-    S.activeToolStartedAt = Date.now();
-    S.activeToolLabel = step.label || step.type || "tool";
-    S.activeToolTimeoutMs = timeoutMs;
-    return;
-  }
-  S.activeToolTimeoutMs = Math.min(
-    S.activeToolTimeoutMs || timeoutMs,
-    timeoutMs,
-  );
+function registerActiveToolStall(
+  step: ProgressStep,
+  trackingId?: string,
+): string {
+  const id =
+    trackingId && trackingId.trim()
+      ? trackingId.trim()
+      : "tool-" + String(++S.anonymousToolSeq);
+  S.activeToolStalls.set(id, {
+    startedAt: Date.now(),
+    timeoutMs: toolTimeoutMsForStep(step),
+    label: step.label || step.type || "tool",
+  });
+  return id;
 }
 
-/** Clears active tool stall tracking once all tool calls have resolved. */
-export function noteToolCompleted(): void {
-  if (S.inFlightToolUses > 0) {
-    return;
+function removeActiveToolStall(trackingId?: string): boolean {
+  if (trackingId && S.activeToolStalls.delete(trackingId)) {
+    return true;
   }
-  S.activeToolStartedAt = 0;
-  S.activeToolLabel = "";
-  S.activeToolTimeoutMs = 0;
+  if (!trackingId && S.activeToolStalls.size > 0) {
+    let oldestId = "";
+    let oldestAt = Number.POSITIVE_INFINITY;
+    for (const [id, tool] of S.activeToolStalls) {
+      if (tool.startedAt < oldestAt) {
+        oldestAt = tool.startedAt;
+        oldestId = id;
+      }
+    }
+    if (oldestId) {
+      return S.activeToolStalls.delete(oldestId);
+    }
+  }
+  return false;
 }
 
 /** Builds a terminal error when a tool has been active too long. */
 export function activeToolStallMessage(): string {
-  if (S.inFlightToolUses <= 0 || S.activeToolStartedAt === 0) {
+  if (S.inFlightToolUses <= 0 || S.activeToolStalls.size === 0) {
     return "";
   }
-  const timeoutMs = S.activeToolTimeoutMs || NON_SHELL_TOOL_TIMEOUT_MS;
-  const activeMs = Date.now() - S.activeToolStartedAt;
-  if (activeMs <= timeoutMs) {
-    return "";
+  for (const tool of S.activeToolStalls.values()) {
+    const activeMs = Date.now() - tool.startedAt;
+    if (activeMs > tool.timeoutMs) {
+      return (
+        "Tool stalled while " +
+        tool.label +
+        " for " +
+        activeMs +
+        "ms (limit " +
+        tool.timeoutMs +
+        "ms)"
+      );
+    }
   }
-  return (
-    "Tool stalled while " +
-    (S.activeToolLabel || "using tool") +
-    " for " +
-    activeMs +
-    "ms (limit " +
-    timeoutMs +
-    "ms)"
-  );
+  return "";
 }
 
 /** Appends new text to the current streamed content buffer. */

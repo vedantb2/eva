@@ -16,6 +16,8 @@ Environment variables control watchdog and HTTP behavior for the sandbox callbac
 
 Watchdog interval: `NO_OUTPUT_CHECK_INTERVAL_MS` = 5000 (fixed in `config.ts`).
 
+Parallel tools: each in-flight tool has its own stall deadline (bash ~MAX−60s, read/grep 5m). A long bash is not capped by a shorter parallel read/grep timer.
+
 ## Convex HTTP
 
 | Variable                                   | Default | Purpose                                                |

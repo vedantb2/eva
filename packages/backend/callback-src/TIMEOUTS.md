@@ -4,18 +4,16 @@ Environment variables control watchdog and HTTP behavior for the sandbox callbac
 
 ## CLI stdout / lifecycle
 
-| Variable                                  | Default               | Purpose                                                                |
-| ----------------------------------------- | --------------------- | ---------------------------------------------------------------------- |
-| `CLAUDE_NO_OUTPUT_TIMEOUT_MS`             | 60000                 | Kill CLI when stdout is silent this long (unless a tool is in flight). |
-| `CLAUDE_FIRST_EVENT_TIMEOUT_MS`           | 90000                 | Kill if no parseable stream-json line before this.                     |
-| `CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS` | 120000                | After Claude `system/init`, kill if no assistant event.                |
-| `CLAUDE_MAX_TOTAL_RUNTIME_MS`             | 3000000               | Absolute callback+CLI runtime cap (~50 min).                           |
-| `CLAUDE_NON_SHELL_TOOL_TIMEOUT_MS`        | 300000                | Per-tool stall limit for read/search/edit tools.                       |
-| `CLAUDE_SHELL_TOOL_TIMEOUT_MS`            | max(60000, MAX−60000) | Per-tool stall limit for bash/subtask.                                 |
+| Variable                                  | Default | Purpose                                                                |
+| ----------------------------------------- | ------- | ---------------------------------------------------------------------- |
+| `CLAUDE_NO_OUTPUT_TIMEOUT_MS`             | 60000   | Kill CLI when stdout is silent this long (unless a tool is in flight). |
+| `CLAUDE_FIRST_EVENT_TIMEOUT_MS`           | 90000   | Kill if no parseable stream-json line before this.                     |
+| `CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS` | 120000  | After Claude `system/init`, kill if no assistant event.                |
+| `CLAUDE_MAX_TOTAL_RUNTIME_MS`             | 5400000 | Absolute callback+CLI runtime cap (~90 min).                           |
 
 Watchdog interval: `NO_OUTPUT_CHECK_INTERVAL_MS` = 5000 (fixed in `config.ts`).
 
-Parallel tools: each in-flight tool has its own stall deadline (bash ~MAX−60s, read/grep 5m). A long bash is not capped by a shorter parallel read/grep timer.
+While a tool is in flight, no-output and idle checks are skipped — only max runtime, zombie detection, and first-event/assistant guards apply. There is no per-tool stall kill.
 
 ## Convex HTTP
 
@@ -44,13 +42,13 @@ Raw stdout is also appended to `/tmp/run-design.raw.jsonl`. Completion marker: `
 
 ## Overlap with Convex workflow watchdog
 
-Quick tasks and automations use **both** the sandbox callback (this script) and, for tasks only, Convex heartbeat watchdogs. Tune these layers together — tightening one without the other can cause double-kills (e.g. 240s shell cap + 5m heartbeat).
+Quick tasks and automations use **both** the sandbox callback (this script) and, for tasks only, Convex heartbeat watchdogs.
 
 | Layer                        | Owner                       | Quick-task values                   | Purpose                          |
 | ---------------------------- | --------------------------- | ----------------------------------- | -------------------------------- |
-| Callback `MAX_TOTAL_RUNTIME` | sandbox script              | 50m (`CLAUDE_MAX_TOTAL_RUNTIME_MS`) | Hard CLI lifetime cap            |
-| Callback tool stall          | sandbox script              | ~MAX−60s (shell), 5m (non-shell)    | Kill stuck bash/grep/read        |
-| Callback no-output           | sandbox script              | 60s when no tool in flight          | CLI died silently                |
+| Callback `MAX_TOTAL_RUNTIME` | sandbox script              | 90m (`CLAUDE_MAX_TOTAL_RUNTIME_MS`) | Hard CLI lifetime cap            |
+| Daytona sandbox autostop     | Daytona                     | 90m (ephemeral + session)           | Sandbox inactivity stop          |
+| Callback no-output           | sandbox script              | 45s when no tool in flight          | CLI died silently                |
 | Convex `checkStaleRuns`      | `_taskWorkflow/watchdog.ts` | 5m / 25m tool-active                | Heartbeat staleness (tasks only) |
 | `handleStaleRun`             | workflow                    | 2h                                  | Absolute backstop (tasks only)   |
 

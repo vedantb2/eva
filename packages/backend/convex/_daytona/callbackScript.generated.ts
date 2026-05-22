@@ -40,13 +40,7 @@ var FIRST_ASSISTANT_EVENT_TIMEOUT_MS = Number(
 );
 var NO_OUTPUT_CHECK_INTERVAL_MS = 5e3;
 var MAX_TOTAL_RUNTIME_MS = Number(
-  process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000"
-);
-var NON_SHELL_TOOL_TIMEOUT_MS = Number(
-  process.env.CLAUDE_NON_SHELL_TOOL_TIMEOUT_MS || "300000"
-);
-var SHELL_TOOL_TIMEOUT_MS = Number(
-  process.env.CLAUDE_SHELL_TOOL_TIMEOUT_MS || String(Math.max(6e4, MAX_TOTAL_RUNTIME_MS - 6e4))
+  process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "5400000"
 );
 var SCRIPT_STARTED_AT = Date.now();
 var CALLBACK_HTTP_TIMEOUT_MS = Number(
@@ -383,8 +377,6 @@ var callbackState = {
   heartbeatFailureStreakStartedAt: 0,
   inFlightToolUses: 0,
   codexToolItemIds: /* @__PURE__ */ new Set(),
-  activeToolStalls: /* @__PURE__ */ new Map(),
-  anonymousToolSeq: 0,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -2001,7 +1993,6 @@ function applyCanonicalEvents(events) {
         callbackState.accumulatedSteps.push(ev.step);
         callbackState.lastStepType = ev.step.type === "thinking" ? "thinking" : "tool";
         if (ev.step.type !== "thinking") {
-          registerActiveToolStall(ev.step, ev.trackingId);
           if (ev.trackingId) callbackState.codexToolItemIds.add(ev.trackingId);
           callbackState.inFlightToolUses++;
         }
@@ -2009,17 +2000,10 @@ function applyCanonicalEvents(events) {
       case "complete_tool":
         markLastComplete();
         if (ev.trackingId !== void 0) {
-          const removedCodex = callbackState.codexToolItemIds.delete(ev.trackingId);
-          const removedStall = removeActiveToolStall(ev.trackingId);
-          if ((removedCodex || removedStall) && callbackState.inFlightToolUses > 0) {
-            callbackState.inFlightToolUses--;
-          }
-        } else if (callbackState.inFlightToolUses > 0) {
-          removeActiveToolStall(void 0);
-          callbackState.inFlightToolUses--;
+          callbackState.codexToolItemIds.delete(ev.trackingId);
         }
-        if (callbackState.inFlightToolUses === 0) {
-          callbackState.activeToolStalls.clear();
+        if (callbackState.inFlightToolUses > 0) {
+          callbackState.inFlightToolUses--;
         }
         break;
       case "mark_last_complete":
@@ -2052,52 +2036,6 @@ function parseStreamEvent(line) {
   } catch {
     return false;
   }
-}
-function toolTimeoutMsForStep(step) {
-  if (step.type === "bash" || step.type === "subtask") {
-    return SHELL_TOOL_TIMEOUT_MS;
-  }
-  return NON_SHELL_TOOL_TIMEOUT_MS;
-}
-function registerActiveToolStall(step, trackingId) {
-  const id = trackingId && trackingId.trim() ? trackingId.trim() : "tool-" + String(++callbackState.anonymousToolSeq);
-  callbackState.activeToolStalls.set(id, {
-    startedAt: Date.now(),
-    timeoutMs: toolTimeoutMsForStep(step),
-    label: step.label || step.type || "tool"
-  });
-  return id;
-}
-function removeActiveToolStall(trackingId) {
-  if (trackingId && callbackState.activeToolStalls.delete(trackingId)) {
-    return true;
-  }
-  if (!trackingId && callbackState.activeToolStalls.size > 0) {
-    let oldestId = "";
-    let oldestAt = Number.POSITIVE_INFINITY;
-    for (const [id, tool] of callbackState.activeToolStalls) {
-      if (tool.startedAt < oldestAt) {
-        oldestAt = tool.startedAt;
-        oldestId = id;
-      }
-    }
-    if (oldestId) {
-      return callbackState.activeToolStalls.delete(oldestId);
-    }
-  }
-  return false;
-}
-function activeToolStallMessage() {
-  if (callbackState.inFlightToolUses <= 0 || callbackState.activeToolStalls.size === 0) {
-    return "";
-  }
-  for (const tool of callbackState.activeToolStalls.values()) {
-    const activeMs = Date.now() - tool.startedAt;
-    if (activeMs > tool.timeoutMs) {
-      return "Tool stalled while " + tool.label + " for " + activeMs + "ms (limit " + tool.timeoutMs + "ms)";
-    }
-  }
-  return "";
 }
 function appendStreamedContent(text) {
   const nextText = String(text);
@@ -2829,14 +2767,6 @@ function evaluateAttemptHealth(input) {
     return result;
   }
   if (callbackState.inFlightToolUses > 0) {
-    const stallMessage = activeToolStallMessage();
-    if (stallMessage) {
-      if (!result.toolStallErrorMessage) {
-        result.toolStallErrorMessage = stallMessage;
-        result.logMessage = input.processLabel + " " + stallMessage + "; terminating process";
-      }
-      result.shouldTerminate = true;
-    }
     return result;
   }
   if (Date.now() - input.lastStdoutAt <= NO_OUTPUT_TIMEOUT_MS) {
@@ -2858,8 +2788,6 @@ function resetAttemptState() {
   callbackState.heartbeatFailureStreakStartedAt = 0;
   callbackState.inFlightToolUses = 0;
   callbackState.codexToolItemIds.clear();
-  callbackState.activeToolStalls.clear();
-  callbackState.anonymousToolSeq = 0;
 }
 async function runCliAttempt(options) {
   resetAttemptState();

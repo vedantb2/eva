@@ -1,5 +1,10 @@
 # Changelog
 
+## Raise callback max runtime to 90m; remove per-tool stall kills - 2026-05-22
+
+- **Summary**: Callback CLI cap is now 90 minutes (matches Daytona sandbox autostop). Ephemeral sandboxes (automations/quick tasks) also use 90m autostop. Removed per-tool stall limits entirely — long bash/typecheck runs are only bounded by max runtime and idle no-output when no tools are in flight.
+- **Reason**: Per-tool caps (5m non-shell, shared timers) caused repeated false failures on automations that completed successfully; max runtime + zombie + no-output is enough.
+
 ## Remove post-first-text CLI stall kill - 2026-05-22
 
 - **Summary**: Dropped the callback watchdog that terminated Claude after silence following the first text block (`CLAUDE_POST_TEXT_STALL_TIMEOUT_MS`, 45s on quick tasks). Long tool runs after planning text no longer trigger a false failure when the agent is still working.

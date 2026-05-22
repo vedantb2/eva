@@ -50,7 +50,7 @@ const SESSION_LIFECYCLE: SandboxLifecycle = {
 };
 
 const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
-  autoStopInterval: 60,
+  autoStopInterval: 90,
   ephemeral: true,
 };
 

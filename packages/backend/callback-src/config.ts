@@ -36,14 +36,7 @@ export const FIRST_ASSISTANT_EVENT_TIMEOUT_MS = Number(
 );
 export const NO_OUTPUT_CHECK_INTERVAL_MS = 5000;
 export const MAX_TOTAL_RUNTIME_MS = Number(
-  process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "3000000",
-);
-export const NON_SHELL_TOOL_TIMEOUT_MS = Number(
-  process.env.CLAUDE_NON_SHELL_TOOL_TIMEOUT_MS || "300000",
-);
-export const SHELL_TOOL_TIMEOUT_MS = Number(
-  process.env.CLAUDE_SHELL_TOOL_TIMEOUT_MS ||
-    String(Math.max(60000, MAX_TOTAL_RUNTIME_MS - 60000)),
+  process.env.CLAUDE_MAX_TOTAL_RUNTIME_MS || "5400000",
 );
 export const SCRIPT_STARTED_AT = Date.now();
 export const CALLBACK_HTTP_TIMEOUT_MS = Number(

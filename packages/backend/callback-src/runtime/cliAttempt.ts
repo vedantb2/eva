@@ -9,10 +9,7 @@ import {
   SCRIPT_STARTED_AT,
   WORK_DIR,
 } from "../config.js";
-import {
-  activeToolStallMessage,
-  updateThinkingStep,
-} from "../parse/canonical.js";
+import { updateThinkingStep } from "../parse/canonical.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import { elapsedAttemptMs, log } from "../utils.js";
 import {
@@ -101,15 +98,6 @@ export function evaluateAttemptHealth(
   }
 
   if (S.inFlightToolUses > 0) {
-    const stallMessage = activeToolStallMessage();
-    if (stallMessage) {
-      if (!result.toolStallErrorMessage) {
-        result.toolStallErrorMessage = stallMessage;
-        result.logMessage =
-          input.processLabel + " " + stallMessage + "; terminating process";
-      }
-      result.shouldTerminate = true;
-    }
     return result;
   }
 
@@ -134,8 +122,6 @@ export function resetAttemptState(): void {
   S.heartbeatFailureStreakStartedAt = 0;
   S.inFlightToolUses = 0;
   S.codexToolItemIds.clear();
-  S.activeToolStalls.clear();
-  S.anonymousToolSeq = 0;
 }
 
 export async function runCliAttempt(

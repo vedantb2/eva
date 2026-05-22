@@ -50,3 +50,22 @@ test("parseToCanonical cursor assistant text appends", () => {
   );
   assert.ok(events.some((e) => e.kind === "append_text"));
 });
+
+test("tool_result clears in-flight tool by tool_use_id", () => {
+  resetStateForTests();
+  applyCanonicalEvents([
+    {
+      kind: "push_step",
+      trackingId: "toolu_abc",
+      step: {
+        type: "bash",
+        label: "Running command...",
+        status: "active",
+      },
+    },
+  ]);
+  assert.equal(S.inFlightToolUses, 1);
+  applyCanonicalEvents([{ kind: "complete_tool", trackingId: "toolu_abc" }]);
+  assert.equal(S.inFlightToolUses, 0);
+  resetStateForTests();
+});

@@ -1,9 +1,4 @@
-import {
-  completedLabels,
-  NON_SHELL_TOOL_TIMEOUT_MS,
-  PROVIDER,
-  SHELL_TOOL_TIMEOUT_MS,
-} from "../config.js";
+import { completedLabels, PROVIDER } from "../config.js";
 import { claudeParseLine } from "../providers/claude.js";
 import { codexParseLine } from "../providers/codex.js";
 import { cursorParseLine } from "../providers/cursor.js";
@@ -78,7 +73,6 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         S.accumulatedSteps.push(ev.step);
         S.lastStepType = ev.step.type === "thinking" ? "thinking" : "tool";
         if (ev.step.type !== "thinking") {
-          registerActiveToolStall(ev.step, ev.trackingId);
           if (ev.trackingId) S.codexToolItemIds.add(ev.trackingId);
           S.inFlightToolUses++;
         }
@@ -86,17 +80,10 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
       case "complete_tool":
         markLastComplete();
         if (ev.trackingId !== undefined) {
-          const removedCodex = S.codexToolItemIds.delete(ev.trackingId);
-          const removedStall = removeActiveToolStall(ev.trackingId);
-          if ((removedCodex || removedStall) && S.inFlightToolUses > 0) {
-            S.inFlightToolUses--;
-          }
-        } else if (S.inFlightToolUses > 0) {
-          removeActiveToolStall(undefined);
-          S.inFlightToolUses--;
+          S.codexToolItemIds.delete(ev.trackingId);
         }
-        if (S.inFlightToolUses === 0) {
-          S.activeToolStalls.clear();
+        if (S.inFlightToolUses > 0) {
+          S.inFlightToolUses--;
         }
         break;
       case "mark_last_complete":
@@ -131,72 +118,6 @@ export function parseStreamEvent(line: string): boolean {
   } catch {
     return false;
   }
-}
-
-/** Returns the maximum silence window for a started tool step. */
-export function toolTimeoutMsForStep(step: ProgressStep): number {
-  if (step.type === "bash" || step.type === "subtask") {
-    return SHELL_TOOL_TIMEOUT_MS;
-  }
-  return NON_SHELL_TOOL_TIMEOUT_MS;
-}
-
-function registerActiveToolStall(
-  step: ProgressStep,
-  trackingId?: string,
-): string {
-  const id =
-    trackingId && trackingId.trim()
-      ? trackingId.trim()
-      : "tool-" + String(++S.anonymousToolSeq);
-  S.activeToolStalls.set(id, {
-    startedAt: Date.now(),
-    timeoutMs: toolTimeoutMsForStep(step),
-    label: step.label || step.type || "tool",
-  });
-  return id;
-}
-
-function removeActiveToolStall(trackingId?: string): boolean {
-  if (trackingId && S.activeToolStalls.delete(trackingId)) {
-    return true;
-  }
-  if (!trackingId && S.activeToolStalls.size > 0) {
-    let oldestId = "";
-    let oldestAt = Number.POSITIVE_INFINITY;
-    for (const [id, tool] of S.activeToolStalls) {
-      if (tool.startedAt < oldestAt) {
-        oldestAt = tool.startedAt;
-        oldestId = id;
-      }
-    }
-    if (oldestId) {
-      return S.activeToolStalls.delete(oldestId);
-    }
-  }
-  return false;
-}
-
-/** Builds a terminal error when a tool has been active too long. */
-export function activeToolStallMessage(): string {
-  if (S.inFlightToolUses <= 0 || S.activeToolStalls.size === 0) {
-    return "";
-  }
-  for (const tool of S.activeToolStalls.values()) {
-    const activeMs = Date.now() - tool.startedAt;
-    if (activeMs > tool.timeoutMs) {
-      return (
-        "Tool stalled while " +
-        tool.label +
-        " for " +
-        activeMs +
-        "ms (limit " +
-        tool.timeoutMs +
-        "ms)"
-      );
-    }
-  }
-  return "";
 }
 
 /** Appends new text to the current streamed content buffer. */

@@ -11,7 +11,7 @@
     "dev:evalucom": "cross-env CONVEX_DEPLOYMENT=dev:good-mule-506 npx convex dev",
     "dev:all": "concurrently -n personal,evalucom -c blue,green \"pnpm dev:personal\" \"pnpm dev:evalucom\"",
     "build:callback": "node scripts/build-callback-script.mjs",
-    "test:callback": "node --import tsx --test callback-src/tests/createSessionStore.test.ts callback-src/tests/evaluateAttemptHealth.test.ts callback-src/tests/canonical.test.ts callback-src/tests/toolStall.test.ts",
+    "test:callback": "node --import tsx --test callback-src/tests/createSessionStore.test.ts callback-src/tests/evaluateAttemptHealth.test.ts callback-src/tests/canonical.test.ts",
     "predeploy": "node scripts/build-callback-script.mjs",
     "deploy": "npx convex deploy"
   },

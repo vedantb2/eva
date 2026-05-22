@@ -161,7 +161,12 @@ function parseSkillMarkdown(
 }
 
 function decodeGitHubContent(content: string): string {
-  return Buffer.from(content.replace(/\n/g, ""), "base64").toString("utf8");
+  const binary = atob(content.replace(/\n/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder("utf-8").decode(bytes);
 }
 
 async function fetchSkillDirectories(

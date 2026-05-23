@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
+import { api, PERSONALISATION_PRESETS } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import dayjs from "@conductor/shared/dates";
 import { UserInitials } from "@conductor/shared";
@@ -15,15 +16,16 @@ import { MENTION_CHIP_CLASS } from "./mentionChipStyles";
 
 const ONLINE_THRESHOLD_MS = 120_000;
 
-interface UserProfileFields {
-  firstName?: string | null;
-  lastName?: string | null;
-  fullName?: string | null;
-  email?: string | null;
-  lastSeenAt?: number | null;
+type UserProfile = NonNullable<FunctionReturnType<typeof api.users.get>>;
+
+function getRoleLabel(role: UserProfile["role"]): string | null {
+  if (role === "business" || role === "dev" || role === "designer") {
+    return PERSONALISATION_PRESETS[role].label;
+  }
+  return null;
 }
 
-function getDisplayName(user: UserProfileFields): string {
+function getDisplayName(user: UserProfile): string {
   const fromParts = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
   if (fromParts) return fromParts;
   if (user.fullName?.trim()) return user.fullName.trim();
@@ -64,6 +66,7 @@ function UserProfileHoverCardBody({ userId }: { userId: string }) {
   }
 
   const name = getDisplayName(user);
+  const roleLabel = getRoleLabel(user.role);
   const presence = getPresence(user.lastSeenAt);
 
   return (
@@ -75,6 +78,9 @@ function UserProfileHoverCardBody({ userId }: { userId: string }) {
         <p className="truncate text-sm font-semibold tracking-tight text-foreground">
           {name}
         </p>
+        {roleLabel ? (
+          <p className="truncate text-xs text-muted-foreground">{roleLabel}</p>
+        ) : null}
         {user.email ? (
           <p className="truncate text-xs text-muted-foreground">{user.email}</p>
         ) : null}

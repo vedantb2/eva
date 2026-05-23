@@ -1,7 +1,8 @@
 "use client";
 
 import { forwardRef, useCallback, useMemo } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
+import { DynamicLink } from "@/lib/components/DynamicLink";
 import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
@@ -115,12 +116,12 @@ export const DescriptionMentionEditor = forwardRef<
       emptySlashContent={
         <span>
           No available skills.{" "}
-          <Link
+          <DynamicLink
             to={`${basePath}/settings/skills`}
             className="text-foreground underline underline-offset-2"
           >
             Sync skills in Settings
-          </Link>
+          </DynamicLink>
         </span>
       }
       onBlur={onBlur}

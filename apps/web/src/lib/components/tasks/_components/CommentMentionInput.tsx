@@ -5,6 +5,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { UserInitials } from "@conductor/shared";
 import { cn } from "@conductor/ui";
 import {
   MentionEditor,
@@ -51,6 +52,7 @@ export const CommentMentionInput = forwardRef<
       value={value}
       onValueChange={onValueChange}
       items={items}
+      mentionPopupTitle="People"
       placeholder={placeholder}
       ariaLabel={placeholder ?? "Comment input"}
       className={cn(
@@ -58,13 +60,16 @@ export const CommentMentionInput = forwardRef<
         className,
       )}
       renderItem={(item) => (
-        <div className="flex w-full items-baseline gap-2">
-          <span className="truncate">@{item.label}</span>
-          {item.email && item.email !== item.label && (
-            <span className="truncate text-xs text-muted-foreground">
-              {item.email}
-            </span>
-          )}
+        <div className="flex w-full min-w-0 items-center gap-2">
+          <UserInitials userId={item.id} size="sm" hideLastSeen />
+          <div className="flex min-w-0 flex-1 items-baseline gap-2">
+            <span className="truncate">{item.label}</span>
+            {item.email && item.email !== item.label ? (
+              <span className="truncate text-xs text-muted-foreground">
+                {item.email}
+              </span>
+            ) : null}
+          </div>
         </div>
       )}
     />

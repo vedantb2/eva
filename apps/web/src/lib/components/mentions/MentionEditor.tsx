@@ -56,6 +56,7 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   filterSlashItem?: (item: SlashItem, query: string) => boolean;
   filterItem?: (item: TItem, query: string) => boolean;
   emptySlashContent?: ReactNode;
+  mentionPopupTitle?: string;
   maxItems?: number;
   dataSlot?: string;
   ariaLabel?: string;
@@ -201,6 +202,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   filterItem = defaultFilter,
   filterSlashItem = defaultFilterSlashItem,
   emptySlashContent,
+  mentionPopupTitle = "Docs",
   maxItems = 8,
   dataSlot,
   ariaLabel,
@@ -487,7 +489,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     (popupItems.length > 0 ||
       (trigger.kind === "slash" && emptySlashContent !== undefined));
 
-  const popupTitle = trigger.kind === "slash" ? "Skills" : "Docs";
+  const popupTitle = trigger.kind === "slash" ? "Skills" : mentionPopupTitle;
 
   const popup = showPopup ? (
     <div

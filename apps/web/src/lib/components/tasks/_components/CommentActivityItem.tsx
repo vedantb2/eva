@@ -14,6 +14,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@conductor/ui";
 import {
   IconDots,
@@ -173,16 +176,21 @@ export function CommentActivityItem({
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           {!isEditing ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              onClick={onReply}
-              aria-label="Reply"
-            >
-              <IconMessageReply size={14} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={onReply}
+                  aria-label="Reply"
+                >
+                  <IconMessageReply size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Reply</TooltipContent>
+            </Tooltip>
           ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

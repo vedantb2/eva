@@ -1,5 +1,10 @@
 # Changelog
 
+## Threaded comment replies on task activity - 2026-05-23
+
+- **Summary**: Task comments support unlimited reply depth with nested UI, inline reply composer (reply icon + menu next to each comment), soft-delete with placeholder text, and `comment_reply` notifications deduped per user alongside assignee and mention alerts; only top-level comments appear in the mixed activity timeline.
+- **Reason**: Users needed Linear-style threads to discuss work in context without every reply becoming a separate timeline event.
+
 ## Task detail activity polish - 2026-05-23
 
 - **Summary**: Comment headers group author name with a muted relative time; creator and comment avatars show online presence; Activity/Proof/Audit tabs no longer show a stray scrollbar; the comment composer uses one consistent, slightly shorter height for both add-comment and make-changes modes.

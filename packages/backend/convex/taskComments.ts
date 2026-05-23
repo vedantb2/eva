@@ -4,14 +4,15 @@ import type { Id } from "./_generated/dataModel";
 import { createNotification } from "./notifications";
 import { authQuery, authMutation, hasTaskAccess } from "./functions";
 import { extractMentionedUserIds } from "./_mentions/extractMentionedUserIds";
+import { taskCommentFields } from "./validators";
+
+export const DELETED_COMMENT_PLACEHOLDER =
+  "This comment has been deleted by the author";
 
 const taskCommentValidator = v.object({
   _id: v.id("taskComments"),
   _creationTime: v.number(),
-  taskId: v.id("agentTasks"),
-  content: v.string(),
-  authorId: v.optional(v.id("users")),
-  createdAt: v.number(),
+  ...taskCommentFields,
 });
 
 /** Builds a truncated notification message for a new task comment. */
@@ -51,20 +52,62 @@ export const create = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     content: v.string(),
+    parentId: v.optional(v.id("taskComments")),
   },
   returns: v.id("taskComments"),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
-    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
       throw new Error("Task not found");
+    }
+
+    if (args.parentId) {
+      const parent = await ctx.db.get(args.parentId);
+      if (!parent || parent.taskId !== args.taskId) {
+        throw new Error("Parent comment not found");
+      }
+    }
+
     const commentId = await ctx.db.insert("taskComments", {
       taskId: args.taskId,
       content: args.content,
       authorId: ctx.userId,
+      parentId: args.parentId,
       createdAt: Date.now(),
     });
+
     const notifiedUserIds = new Set<string>([ctx.userId]);
-    if (task.assignedTo && task.assignedTo !== ctx.userId) {
+    const author = await ctx.db.get(ctx.userId);
+    const authorName = author?.fullName?.trim() || "Someone";
+
+    if (args.parentId) {
+      const parent = await ctx.db.get(args.parentId);
+      if (
+        parent?.authorId &&
+        parent.authorId !== ctx.userId &&
+        !notifiedUserIds.has(parent.authorId)
+      ) {
+        await createNotification(ctx, {
+          userId: parent.authorId,
+          type: "comment_reply",
+          title: `${authorName} replied to your comment`,
+          repoId: task.repoId,
+          projectId: task.projectId,
+          taskId: args.taskId,
+          message: buildCommentNotificationMessage(
+            args.content,
+            task.projectId,
+          ),
+        });
+        notifiedUserIds.add(parent.authorId);
+      }
+    }
+
+    if (
+      task.assignedTo &&
+      task.assignedTo !== ctx.userId &&
+      !notifiedUserIds.has(task.assignedTo)
+    ) {
       await createNotification(ctx, {
         userId: task.assignedTo,
         type: "comment_added",
@@ -76,12 +119,11 @@ export const create = authMutation({
       });
       notifiedUserIds.add(task.assignedTo);
     }
+
     const mentionedUserIds = extractMentionedUserIds(ctx, args.content);
     if (mentionedUserIds.length > 0) {
       const repo = task.repoId ? await ctx.db.get(task.repoId) : null;
       const teamId = repo?.teamId;
-      const author = await ctx.db.get(ctx.userId);
-      const authorName = author?.fullName?.trim() || "Someone";
       const mentionTitle = `${authorName} mentioned you in a comment`;
       const mentionMessage = buildCommentNotificationMessage(
         args.content,
@@ -110,6 +152,7 @@ export const create = authMutation({
         notifiedUserIds.add(mentionedUserId);
       }
     }
+
     return commentId;
   },
 });
@@ -126,6 +169,9 @@ export const update = authMutation({
     if (!comment) {
       throw new Error("Comment not found");
     }
+    if (comment.deletedAt !== undefined) {
+      throw new Error("Cannot edit a deleted comment");
+    }
     if (comment.authorId !== ctx.userId) {
       throw new Error("Only the comment author can edit");
     }
@@ -138,7 +184,7 @@ export const update = authMutation({
   },
 });
 
-/** Deletes a task comment. */
+/** Soft-deletes a task comment; replies are kept. */
 export const remove = authMutation({
   args: { id: v.id("taskComments") },
   returns: v.null(),
@@ -148,9 +194,16 @@ export const remove = authMutation({
       throw new Error("Comment not found");
     }
     const task = await ctx.db.get(comment.taskId);
-    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId)))
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
       throw new Error("Comment not found");
-    await ctx.db.delete(args.id);
+    }
+    if (comment.deletedAt !== undefined) {
+      throw new Error("Comment already deleted");
+    }
+    await ctx.db.patch(args.id, {
+      deletedAt: Date.now(),
+      content: DELETED_COMMENT_PLACEHOLDER,
+    });
     return null;
   },
 });

@@ -142,6 +142,7 @@ import type * as fixEnvVars from "../fixEnvVars.js";
 import type * as functions from "../functions.js";
 import type * as github from "../github.js";
 import type * as githubAuth from "../githubAuth.js";
+import type * as githubPrivateKeyFormat from "../githubPrivateKeyFormat.js";
 import type * as githubRepos from "../githubRepos.js";
 import type * as githubWebhook from "../githubWebhook.js";
 import type * as http from "../http.js";
@@ -350,6 +351,7 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   github: typeof github;
   githubAuth: typeof githubAuth;
+  githubPrivateKeyFormat: typeof githubPrivateKeyFormat;
   githubRepos: typeof githubRepos;
   githubWebhook: typeof githubWebhook;
   http: typeof http;

@@ -15,7 +15,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@conductor/ui";
-import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
+import {
+  IconDots,
+  IconMessageReply,
+  IconPencil,
+  IconTrash,
+} from "@tabler/icons-react";
 import { mentionTokensToEditableText } from "@/lib/components/mentions/mentionToken";
 import { UserMentionText } from "@/lib/components/mentions";
 import { getUserDisplayName } from "./task-detail-constants";
@@ -23,14 +28,20 @@ import {
   CommentMentionInput,
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
+import {
+  DELETED_COMMENT_PLACEHOLDER,
+  isCommentDeleted,
+  type TaskComment,
+} from "../_utils/commentThread";
 
-type Comment = FunctionReturnType<typeof api.taskComments.listByTask>[number];
 type Users = FunctionReturnType<typeof api.users.listAll>;
 
 interface CommentActivityItemProps {
-  comment: Comment;
+  comment: TaskComment;
   taskId: Id<"agentTasks">;
   users: Users | undefined;
+  depth: number;
+  onReply: () => void;
   onDeleteRequest: (commentId: Id<"taskComments">) => void;
 }
 
@@ -79,6 +90,8 @@ export function CommentActivityItem({
   comment,
   taskId,
   users,
+  depth,
+  onReply,
   onDeleteRequest,
 }: CommentActivityItemProps) {
   const currentUserId = useQuery(api.auth.me);
@@ -103,8 +116,12 @@ export function CommentActivityItem({
     );
   });
 
+  const isDeleted = isCommentDeleted(comment);
   const isAuthor =
     comment.authorId !== undefined && comment.authorId === currentUserId;
+
+  const surfaceClass =
+    depth === 0 ? "rounded-lg bg-muted/40 p-3" : "rounded-lg bg-muted/30 p-3";
 
   const startEditing = () => {
     setEditText(mentionTokensToEditableText(comment.content));
@@ -135,7 +152,7 @@ export function CommentActivityItem({
   };
 
   return (
-    <div className="space-y-2 rounded-lg bg-muted/40 p-3">
+    <div className={`space-y-2 ${surfaceClass}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {comment.authorId ? (
@@ -154,7 +171,19 @@ export function CommentActivityItem({
             </span>
           </div>
         </div>
-        <div className="flex shrink-0 items-center">
+        <div className="flex shrink-0 items-center gap-0.5">
+          {!isEditing ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={onReply}
+              aria-label="Reply"
+            >
+              <IconMessageReply size={14} />
+            </Button>
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -168,7 +197,11 @@ export function CommentActivityItem({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {isAuthor ? (
+              <DropdownMenuItem onClick={onReply}>
+                <IconMessageReply size={14} />
+                Reply
+              </DropdownMenuItem>
+              {isAuthor && !isDeleted ? (
                 <DropdownMenuItem onClick={startEditing}>
                   <IconPencil size={14} />
                   Edit
@@ -214,6 +247,10 @@ export function CommentActivityItem({
             </Button>
           </div>
         </div>
+      ) : isDeleted ? (
+        <p className="text-sm italic text-muted-foreground">
+          {DELETED_COMMENT_PLACEHOLDER}
+        </p>
       ) : (
         <UserMentionText text={comment.content} />
       )}

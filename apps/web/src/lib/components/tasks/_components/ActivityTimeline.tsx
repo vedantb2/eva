@@ -29,7 +29,12 @@ import {
 } from "./CommentMentionInput";
 import { UserMentionText } from "@/lib/components/mentions";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
-import { CommentActivityItem } from "./CommentActivityItem";
+import { CommentThread } from "./CommentThread";
+import {
+  buildRepliesByParentId,
+  DELETED_COMMENT_PLACEHOLDER,
+  getTopLevelComments,
+} from "../_utils/commentThread";
 
 const RunTimelineItem = lazy(() =>
   import("./RunTimelineItem").then((m) => ({ default: m.RunTimelineItem })),
@@ -147,6 +152,9 @@ export function ActivityTimeline({
   const [commentText, setCommentText] = useState("");
   const [deletingCommentId, setDeletingCommentId] =
     useState<Id<"taskComments"> | null>(null);
+  const [replyingToId, setReplyingToId] = useState<Id<"taskComments"> | null>(
+    null,
+  );
   const [isDeletingComment, setIsDeletingComment] = useState(false);
   const mentionRef = useRef<CommentMentionInputHandle>(null);
 
@@ -161,7 +169,15 @@ export function ActivityTimeline({
       localStore.setQuery(
         api.taskComments.listByTask,
         { taskId },
-        current.filter((c) => c._id !== args.id),
+        current.map((entry) =>
+          entry._id === args.id
+            ? {
+                ...entry,
+                deletedAt: Date.now(),
+                content: DELETED_COMMENT_PLACEHOLDER,
+              }
+            : entry,
+        ),
       );
     }
   });
@@ -230,22 +246,19 @@ export function ActivityTimeline({
   );
   const firstRunId = sortedRuns.length > 0 ? sortedRuns[0]._id : null;
 
-  const filteredComments = comments?.filter((c) => c.authorId);
+  const userComments = comments?.filter((c) => c.authorId) ?? [];
+  const topLevelComments = getTopLevelComments(userComments);
+  const repliesByParentId = buildRepliesByParentId(userComments);
 
-  const runCommentMap = new Map<
-    string,
-    NonNullable<typeof filteredComments>[number]
-  >();
-  if (filteredComments && runs) {
-    const sortedComments = [...filteredComments].sort(
+  const runCommentMap = new Map<string, (typeof topLevelComments)[number]>();
+  if (topLevelComments.length > 0 && runs) {
+    const sortedComments = [...topLevelComments].sort(
       (a, b) => a.createdAt - b.createdAt,
     );
     for (const run of sortedRuns) {
       if (run._id === firstRunId) continue;
       const runTime = run._creationTime;
-      let matchedComment:
-        | NonNullable<typeof filteredComments>[number]
-        | undefined;
+      let matchedComment: (typeof topLevelComments)[number] | undefined;
       for (const comment of sortedComments) {
         if (comment.createdAt <= runTime) {
           matchedComment = comment;
@@ -287,7 +300,7 @@ export function ActivityTimeline({
       timestamp: activity.createdAt,
       activity,
     })),
-    ...(filteredComments ?? []).map((comment) => ({
+    ...topLevelComments.map((comment) => ({
       kind: "comment" as const,
       timestamp: comment.createdAt,
       comment,
@@ -409,11 +422,14 @@ export function ActivityTimeline({
             if (item.kind === "comment") {
               const comment = item.comment;
               return (
-                <CommentActivityItem
+                <CommentThread
                   key={`comment-${comment._id}`}
                   comment={comment}
                   taskId={taskId}
                   users={users}
+                  repliesByParentId={repliesByParentId}
+                  replyingToId={replyingToId}
+                  onReplyingToChange={setReplyingToId}
                   onDeleteRequest={setDeletingCommentId}
                 />
               );

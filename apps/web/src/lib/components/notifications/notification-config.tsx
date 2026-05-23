@@ -9,6 +9,7 @@ import {
   IconInfoCircle,
   IconUserPlus,
   IconMessage,
+  IconMessageReply,
   IconAt,
   IconPlayerPlay,
 } from "@tabler/icons-react";
@@ -62,6 +63,13 @@ export const typeConfig: Record<
   comment_added: {
     icon: IconMessage,
     label: "Comment",
+    badgeVariant: "default",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
+  },
+  comment_reply: {
+    icon: IconMessageReply,
+    label: "Reply",
     badgeVariant: "default",
     iconBg: "bg-primary/10",
     iconColor: "text-primary",

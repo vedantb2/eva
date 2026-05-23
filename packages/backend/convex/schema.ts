@@ -32,6 +32,7 @@ import {
   queuedMessageFields,
   taskSandboxEventFields,
   taskActivityFields,
+  taskCommentFields,
   repoSkillFields,
   sandboxGitCredentialsFields,
 } from "./validators";
@@ -93,12 +94,7 @@ const schema = defineSchema({
     .index("by_team", ["teamId"])
     .index("by_connected_by", ["connectedBy"]),
 
-  taskComments: defineTable({
-    taskId: v.id("agentTasks"),
-    content: v.string(),
-    authorId: v.optional(v.id("users")),
-    createdAt: v.number(),
-  }).index("by_task", ["taskId"]),
+  taskComments: defineTable(taskCommentFields).index("by_task", ["taskId"]),
 
   taskProof: defineTable({
     taskId: v.id("agentTasks"),

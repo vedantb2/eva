@@ -298,6 +298,15 @@ export const taskActivityFields = {
   createdAt: v.number(),
 };
 
+export const taskCommentFields = {
+  taskId: v.id("agentTasks"),
+  content: v.string(),
+  authorId: v.optional(v.id("users")),
+  parentId: v.optional(v.id("taskComments")),
+  deletedAt: v.optional(v.number()),
+  createdAt: v.number(),
+};
+
 // Per-sandbox bearer secret the in-sandbox git credential helper presents to
 // /api/git-credentials to receive a freshly minted GitHub App installation
 // token. One row per Daytona sandbox; rotated every time the helper is

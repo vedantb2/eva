@@ -53,6 +53,7 @@ export const CommentMentionInput = forwardRef<
       onValueChange={onValueChange}
       items={items}
       mentionPopupTitle="People"
+      mentionChipHoverCard
       placeholder={placeholder}
       ariaLabel={placeholder ?? "Comment input"}
       className={cn(

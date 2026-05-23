@@ -1,7 +1,8 @@
 "use client";
 
-import { forwardRef, useMemo } from "react";
-import { Link } from "@tanstack/react-router";
+import { forwardRef, useCallback, useMemo } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Doc } from "@conductor/backend";
@@ -52,7 +53,24 @@ export const DescriptionMentionEditor = forwardRef<
   ref,
 ) {
   const { repo, basePath } = useRepo();
+  const navigate = useNavigate();
   const docs = useQuery(api.docs.list, { repoId: repo._id }) ?? [];
+
+  const handleMentionChipClick = useCallback(
+    (id: Doc<"docs">["_id"]) => {
+      navigate({
+        to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
+      });
+    },
+    [navigate, basePath],
+  );
+
+  const handleSkillChipClick = useCallback(
+    (_skillId: string) => {
+      navigate({ to: `${basePath}/settings/skills` });
+    },
+    [navigate, basePath],
+  );
   const skills =
     useQuery(api.repoSkills.listByRepo, { repoId: repo._id }) ?? [];
 
@@ -85,6 +103,8 @@ export const DescriptionMentionEditor = forwardRef<
       onValueChange={onValueChange}
       items={items}
       slashItems={slashItems}
+      onMentionChipClick={handleMentionChipClick}
+      onSkillChipClick={handleSkillChipClick}
       placeholder={placeholder}
       ariaLabel={ariaLabel ?? placeholder ?? "Description"}
       className={cn(

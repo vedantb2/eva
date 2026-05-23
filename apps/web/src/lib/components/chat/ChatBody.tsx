@@ -431,6 +431,7 @@ export function ChatBody({
               <PromptInput onSubmit={handlePromptSubmit}>
                 <MentionTextarea
                   ref={mentionRef}
+                  repoBasePath={repoBasePath}
                   docs={docs}
                   skills={skills}
                   skillsSettingsHref={`${repoBasePath}/settings/skills`}

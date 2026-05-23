@@ -1,3 +1,5 @@
+import { EDITOR_CHIP_CLICKABLE_CLASS } from "./mentionChipStyles";
+
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -105,24 +107,79 @@ export function renderMentionHtml(
   labels: Iterable<string>,
   chipClassName: string,
 ): string {
-  return renderEditorChipHtml(value, labels, [], chipClassName, chipClassName);
+  const mentionMap = new Map<string, string>();
+  for (const label of labels) {
+    mentionMap.set(label, label);
+  }
+  return renderEditorChipHtml(
+    value,
+    mentionMap,
+    new Map(),
+    chipClassName,
+    chipClassName,
+    false,
+  );
+}
+
+function chipLabelFromToken(token: string): string {
+  return token.startsWith("@") || token.startsWith("/")
+    ? token.slice(1)
+    : token;
+}
+
+function renderEditorChipSpan(
+  segment: EditorChipSegment,
+  chipClassName: string,
+  label: string,
+  hasResolvableId: boolean,
+  clickable: boolean,
+  dataKind: "mention" | "skill",
+): string {
+  const isClickable = clickable && hasResolvableId;
+  const className = isClickable
+    ? `${chipClassName} ${EDITOR_CHIP_CLICKABLE_CLASS}`
+    : chipClassName;
+  const labelAttr =
+    dataKind === "mention" ? "data-mention-label" : "data-skill-label";
+  return `​<span data-${dataKind}="true" ${labelAttr}="${escapeHtml(label)}" contenteditable="false" class="${escapeHtml(className)}">${escapeHtml(segment.value)}</span>​`;
 }
 
 export function renderEditorChipHtml(
   value: string,
-  mentionLabels: Iterable<string>,
-  skillLabels: Iterable<string>,
+  mentionLabelToId: ReadonlyMap<string, string>,
+  skillLabelToId: ReadonlyMap<string, string>,
   mentionChipClassName: string,
   skillChipClassName: string,
+  chipsClickable: boolean,
 ): string {
-  const segments = parseEditorChipSegments(value, mentionLabels, skillLabels);
+  const segments = parseEditorChipSegments(
+    value,
+    mentionLabelToId.keys(),
+    skillLabelToId.keys(),
+  );
   return segments
     .map((segment) => {
       if (segment.type === "mention") {
-        return `​<span data-mention="true" contenteditable="false" class="${escapeHtml(mentionChipClassName)}">${escapeHtml(segment.value)}</span>​`;
+        const label = chipLabelFromToken(segment.value);
+        return renderEditorChipSpan(
+          segment,
+          mentionChipClassName,
+          label,
+          mentionLabelToId.has(label),
+          chipsClickable,
+          "mention",
+        );
       }
       if (segment.type === "skill") {
-        return `​<span data-skill="true" contenteditable="false" class="${escapeHtml(skillChipClassName)}">${escapeHtml(segment.value)}</span>​`;
+        const label = chipLabelFromToken(segment.value);
+        return renderEditorChipSpan(
+          segment,
+          skillChipClassName,
+          label,
+          skillLabelToId.has(label),
+          chipsClickable,
+          "skill",
+        );
       }
       return escapeHtml(segment.value).replace(/\n/g, "<br>");
     })

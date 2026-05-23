@@ -365,6 +365,7 @@ export function DesignChatPanel({
               <PromptInput onSubmit={handlePromptSubmit}>
                 <MentionTextarea
                   ref={mentionRef}
+                  repoBasePath={basePath}
                   docs={docs}
                   placeholder={
                     !isSandboxActive

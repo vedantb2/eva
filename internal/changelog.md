@@ -1,5 +1,10 @@
 # Changelog
 
+## Interactive mention chips in editors - 2026-05-23
+
+- **Summary**: `@` doc and `/` skill pills in session chat and task description inputs navigate to the doc viewer or skills settings when clicked; `@` people pills in comment inputs show the profile hover card while composing, matching rendered comments; the comment `@` picker is labeled People and lists avatars beside names.
+- **Reason**: Editor mention chips were visual-only—users expect the same navigation and people previews as in sent messages when drafting comments and descriptions.
+
 ## Mentions in task descriptions and richer chat chips - 2026-05-23
 
 - **Summary**: Task and quick-task descriptions support `@` docs and `/` skills with the same picker as session chat, and Eva injects referenced doc content when a task runs; `@` and `/` chips in messages link to the correct doc or skills page (including monorepo app routes); mention pickers label sections Docs and Skills; Make changes mode highlights the activity composer with a primary border and the timeline has more spacing between items.

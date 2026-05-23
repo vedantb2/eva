@@ -1,7 +1,8 @@
 "use client";
 
-import { forwardRef } from "react";
-import { Link } from "@tanstack/react-router";
+import { forwardRef, useCallback } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import { usePromptInputController } from "@conductor/ui";
 import type { Doc, Id } from "@conductor/backend";
 import {
@@ -24,6 +25,8 @@ function docDescriptionPreview(doc: {
 }
 
 interface MentionTextareaProps {
+  /** Repo route prefix, e.g. `/owner/repo` or `/owner/repo--app`. */
+  repoBasePath: string;
   docs: Array<Doc<"docs">>;
   skills?: Array<{
     _id: Id<"repoSkills">;
@@ -39,11 +42,28 @@ export const MentionTextarea = forwardRef<
   MentionTextareaHandle,
   MentionTextareaProps
 >(function MentionTextarea(
-  { docs, skills = [], skillsSettingsHref, placeholder },
+  { repoBasePath, docs, skills = [], skillsSettingsHref, placeholder },
   ref,
 ) {
+  const navigate = useNavigate();
   const controller = usePromptInputController();
   const value = controller.textInput.value;
+
+  const handleMentionChipClick = useCallback(
+    (id: Doc<"docs">["_id"]) => {
+      navigate({
+        to: `${repoBasePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
+      });
+    },
+    [navigate, repoBasePath],
+  );
+
+  const handleSkillChipClick = useCallback(
+    (_skillId: string) => {
+      navigate({ to: `${repoBasePath}/settings/skills` });
+    },
+    [navigate, repoBasePath],
+  );
 
   const items: MentionItem<Doc<"docs">["_id"]>[] = docs.map((doc) => ({
     id: doc._id,
@@ -66,6 +86,8 @@ export const MentionTextarea = forwardRef<
       onValueChange={controller.textInput.setInput}
       items={items}
       slashItems={slashItems}
+      onMentionChipClick={handleMentionChipClick}
+      onSkillChipClick={handleSkillChipClick}
       placeholder={placeholder}
       ariaLabel={placeholder ?? "Message input"}
       dataSlot="input-group-control"

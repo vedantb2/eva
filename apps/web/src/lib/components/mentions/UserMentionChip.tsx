@@ -47,7 +47,7 @@ function getPresence(lastSeenAt?: number | null): {
   return { label: `Active ${dayjs(lastSeenAt).fromNow()}`, online: false };
 }
 
-function UserProfileHoverCardBody({ userId }: { userId: string }) {
+export function UserProfileHoverCardBody({ userId }: { userId: string }) {
   const user = useQuery(
     api.users.get,
     isUsersTableId(userId) ? { id: userId } : "skip",

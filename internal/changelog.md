@@ -1,5 +1,10 @@
 # Changelog
 
+## Task activity comments and themed mention chips - 2026-05-23
+
+- **Summary**: Session and task inputs render `@` doc and `/` skill references as theme-accent pills; task comment `@user` tokens show a profile hover card; activity comments display author name, right-aligned time, and a menu to edit or delete (with confirmation); authors can edit their own comments; the Eva “make changes” field is taller and that mode defaults off.
+- **Reason**: Mentions and comments were hard to scan and act on—users wanted theme-aware chips, Linear-style people previews, clearer comment attribution, and less friction when adding a note vs requesting Eva work.
+
 ## Remove idle stdout kill on quick tasks - 2026-05-22
 
 - **Summary**: Removed the callback no-stdout watchdog (including the 45s quick-task override). Long silent stretches between Claude turns no longer fail runs; completion treats a stream-json success result as success even if a legacy timeout flag was set.

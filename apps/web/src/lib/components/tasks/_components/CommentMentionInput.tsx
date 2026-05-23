@@ -5,6 +5,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { cn } from "@conductor/ui";
 import {
   MentionEditor,
   type MentionEditorHandle,
@@ -17,6 +18,7 @@ interface CommentMentionInputProps {
   value: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
+  className?: string;
 }
 
 interface UserMentionItem extends MentionItem<Id<"users">> {
@@ -26,7 +28,10 @@ interface UserMentionItem extends MentionItem<Id<"users">> {
 export const CommentMentionInput = forwardRef<
   CommentMentionInputHandle,
   CommentMentionInputProps
->(function CommentMentionInput({ value, onValueChange, placeholder }, ref) {
+>(function CommentMentionInput(
+  { value, onValueChange, placeholder, className },
+  ref,
+) {
   const { repo } = useRepo();
   const members = useQuery(
     api.teamMembers.list,
@@ -48,7 +53,10 @@ export const CommentMentionInput = forwardRef<
       items={items}
       placeholder={placeholder}
       ariaLabel={placeholder ?? "Comment input"}
-      className="min-h-16 max-h-40 overflow-y-auto rounded-md border border-input px-3 py-2 pr-12 focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        "min-h-16 max-h-40 overflow-y-auto rounded-md border border-input px-3 py-2 pr-12 focus-visible:ring-2 focus-visible:ring-ring",
+        className,
+      )}
       renderItem={(item) => (
         <div className="flex w-full items-baseline gap-2">
           <span className="truncate">@{item.label}</span>

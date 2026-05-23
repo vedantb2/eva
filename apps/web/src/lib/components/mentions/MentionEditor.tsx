@@ -21,6 +21,12 @@ import {
   renderEditorChipHtml,
 } from "./mentionEditorUtils";
 import { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
+import { MentionPickerPopup } from "./MentionPickerPopup";
+import {
+  computeMentionPopupPlacement,
+  getSelectionAnchorRect,
+  type MentionPopupPlacement,
+} from "./mentionPopupPosition";
 import { UserProfileHoverCardBody } from "./UserMentionChip";
 
 const DEFAULT_EDITOR_CLASS =
@@ -93,31 +99,25 @@ function renderMenuItemRow(
   prefix: string,
   label: string,
   detail: string | null,
-  isSelected: boolean,
 ): ReactNode {
   return (
-    <span className="flex min-w-0 w-full items-center gap-2">
-      <span className="shrink-0">
-        {prefix}
-        {label}
+    <span className="flex min-w-0 w-full items-center gap-1.5">
+      <span className="shrink-0 text-muted-foreground">{prefix}</span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
+        <span className="truncate">{label}</span>
+        {detail ? (
+          <span className="truncate text-xs text-muted-foreground">
+            {detail}
+          </span>
+        ) : null}
       </span>
-      {detail ? (
-        <span
-          className={
-            "min-w-0 flex-1 truncate text-xs " +
-            (isSelected ? "text-accent-foreground/60" : "text-muted-foreground")
-          }
-        >
-          {detail}
-        </span>
-      ) : null}
     </span>
   );
 }
 
 function defaultRenderItem(item: MentionItem, isSelected: boolean): ReactNode {
   const detail = item.description ? previewOneLine(item.description) : null;
-  return renderMenuItemRow("@", item.label, detail, isSelected);
+  return renderMenuItemRow("@", item.label, detail);
 }
 
 function defaultRenderSlashItem(
@@ -125,7 +125,7 @@ function defaultRenderSlashItem(
   isSelected: boolean,
 ): ReactNode {
   const detail = item.description ? previewOneLine(item.description) : null;
-  return renderMenuItemRow("/", item.label, detail, isSelected);
+  return renderMenuItemRow("/", item.label, detail);
 }
 
 function defaultFilterSlashItem(item: SlashItem, query: string): boolean {
@@ -221,7 +221,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   const editorRef = useRef<HTMLDivElement>(null);
   const [trigger, setTrigger] = useState<TriggerState>(CLOSED_TRIGGER);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [popupPlacement, setPopupPlacement] =
+    useState<MentionPopupPlacement | null>(null);
   const [mentionMap, setMentionMap] = useState<Map<string, TItem["id"]>>(
     () => new Map(),
   );
@@ -430,12 +431,17 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   }, [value, items.length, slashItems.length, emptySlashContent]);
 
   useEffect(() => {
-    if (!trigger.isOpen) return;
+    if (!trigger.isOpen) {
+      setPopupPlacement(null);
+      return;
+    }
     const update = () => {
-      const el = editorRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      setPosition({ top: rect.top, left: rect.left, width: rect.width });
+      requestAnimationFrame(() => {
+        const el = editorRef.current;
+        if (!el) return;
+        const anchor = getSelectionAnchorRect(el);
+        setPopupPlacement(computeMentionPopupPlacement(anchor));
+      });
     };
     update();
     window.addEventListener("scroll", update, true);
@@ -444,7 +450,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       window.removeEventListener("scroll", update, true);
       window.removeEventListener("resize", update);
     };
-  }, [trigger.isOpen]);
+  }, [trigger.isOpen, trigger.query, trigger.startIndex, value]);
 
   const handleInput = useCallback(() => {
     const el = editorRef.current;
@@ -649,53 +655,28 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
 
   const popupTitle = trigger.kind === "slash" ? "Skills" : mentionPopupTitle;
 
-  const popup = showPopup ? (
-    <div
-      className="fixed z-50 overflow-hidden rounded-md bg-popover text-popover-foreground shadow-md"
-      style={{
-        left: position.left,
-        top: position.top - 8,
-        width: position.width,
-        transform: "translateY(-100%)",
-      }}
-    >
-      <p className="px-3 pt-2 pb-1 text-[11px] font-semibold text-muted-foreground">
-        {popupTitle}
-      </p>
-      {popupItems.length > 0 ? (
-        <div className="max-h-56 overflow-y-auto py-1">
-          {popupItems.map((item, index) => (
-            <button
-              key={item.id}
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                if (trigger.kind === "slash") {
-                  insertSlashItem(item);
-                } else {
-                  insertMentionItem(item as TItem);
-                }
-              }}
-              className={
-                "flex w-full min-w-0 items-center px-3 py-1.5 text-left text-sm " +
-                (index === selectedIndex
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent hover:text-accent-foreground")
-              }
-            >
-              {trigger.kind === "slash"
-                ? renderSlashItem(item, index === selectedIndex)
-                : renderItem(item as TItem, index === selectedIndex)}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="px-3 pb-2 text-xs text-muted-foreground">
-          {emptySlashContent}
-        </div>
-      )}
-    </div>
-  ) : null;
+  const pickerPopup =
+    showPopup && popupPlacement ? (
+      <MentionPickerPopup
+        title={popupTitle}
+        placement={popupPlacement}
+        items={popupItems}
+        selectedIndex={selectedIndex}
+        renderItem={(item, isSelected) =>
+          trigger.kind === "slash"
+            ? renderSlashItem(item, isSelected)
+            : renderItem(item as TItem, isSelected)
+        }
+        onSelectItem={(item) => {
+          if (trigger.kind === "slash") {
+            insertSlashItem(item);
+          } else {
+            insertMentionItem(item as TItem);
+          }
+        }}
+        emptyContent={emptySlashContent}
+      />
+    ) : null;
 
   const mentionHoverCard =
     mentionChipHoverCard &&
@@ -748,8 +729,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         onCompositionStart={() => setIsComposing(true)}
         onCompositionEnd={() => setIsComposing(false)}
       />
-      {popup && typeof document !== "undefined"
-        ? createPortal(popup, document.body)
+      {pickerPopup && typeof document !== "undefined"
+        ? createPortal(pickerPopup, document.body)
         : null}
       {mentionHoverCard}
     </>

@@ -1,5 +1,10 @@
 # Changelog
 
+## Cursor-style @ and / mention picker - 2026-05-23
+
+- **Summary**: `@`, `/`, and comment `@` pickers are a compact panel anchored to the caret (not full input width), flip above or below based on viewport space, use a light primary tint for the active row, truncate titles on the right with description/email on a second line, and scroll with the app’s styled scrollbar.
+- **Reason**: The old full-width popover above the field felt unlike familiar autocomplete UIs and wasted space; anchoring and flipping matches how users expect mention menus to behave while drafting.
+
 ## Interactive mention chips in editors - 2026-05-23
 
 - **Summary**: `@` doc and `/` skill pills in session chat and task description inputs navigate to the doc viewer or skills settings when clicked; `@` people pills in comment inputs show the profile hover card while composing, matching rendered comments; the comment `@` picker is labeled People and lists avatars beside names.

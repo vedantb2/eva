@@ -63,7 +63,7 @@ export const CommentMentionInput = forwardRef<
       renderItem={(item) => (
         <div className="flex w-full min-w-0 items-center gap-2">
           <UserInitials userId={item.id} size="sm" hideLastSeen />
-          <div className="flex min-w-0 flex-1 items-baseline gap-2">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
             <span className="truncate">{item.label}</span>
             {item.email && item.email !== item.label ? (
               <span className="truncate text-xs text-muted-foreground">

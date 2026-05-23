@@ -17,8 +17,7 @@ import {
   TooltipContent,
 } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
-import { UserInitials } from "@conductor/shared";
-import { IconTrash, IconArrowUp, IconLoader2 } from "@tabler/icons-react";
+import { IconArrowUp, IconLoader2 } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -28,8 +27,9 @@ import {
   CommentMentionInput,
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
-import { MentionText } from "@/lib/components/mentions";
+import { UserMentionText } from "@/lib/components/mentions";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
+import { CommentActivityItem } from "./CommentActivityItem";
 
 const RunTimelineItem = lazy(() =>
   import("./RunTimelineItem").then((m) => ({ default: m.RunTimelineItem })),
@@ -310,6 +310,9 @@ export function ActivityTimeline({
                 ? "Describe the changes you'd like Eva to make..."
                 : "Add a comment..."
             }
+            className={
+              effectiveRequestingChanges ? "min-h-28 max-h-52" : undefined
+            }
           />
           <Tooltip>
             <TooltipTrigger asChild>
@@ -408,34 +411,13 @@ export function ActivityTimeline({
             if (item.kind === "comment") {
               const comment = item.comment;
               return (
-                <div
+                <CommentActivityItem
                   key={`comment-${comment._id}`}
-                  className="rounded-lg bg-muted/40 p-3 space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {comment.authorId && (
-                        <UserInitials
-                          userId={comment.authorId}
-                          hideLastSeen
-                          size="sm"
-                        />
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        {dayjs(comment.createdAt).fromNow()}
-                      </span>
-                    </div>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      className="h-6 w-6 text-muted-foreground hover:text-destructive relative after:absolute after:inset-[-8px]"
-                      onClick={() => setDeletingCommentId(comment._id)}
-                    >
-                      <IconTrash size={12} />
-                    </Button>
-                  </div>
-                  <MentionText text={comment.content} />
-                </div>
+                  comment={comment}
+                  taskId={taskId}
+                  users={users}
+                  onDeleteRequest={setDeletingCommentId}
+                />
               );
             }
             const run = item.run;
@@ -475,9 +457,7 @@ export function ActivityTimeline({
               <span className="text-xs text-muted-foreground">
                 {dayjs(viewingComment.createdAt).fromNow()}
               </span>
-              <p className="text-sm text-foreground whitespace-pre-wrap">
-                {viewingComment.content}
-              </p>
+              <UserMentionText text={viewingComment.content} />
             </div>
           )}
         </DialogContent>

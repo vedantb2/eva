@@ -23,6 +23,7 @@ export const get = authQuery({
       firstName: v.optional(v.string()),
       lastName: v.optional(v.string()),
       fullName: v.optional(v.string()),
+      email: v.optional(v.string()),
       lastSeenAt: v.optional(v.number()),
       lastSeenPath: v.optional(v.string()),
     }),
@@ -35,6 +36,7 @@ export const get = authQuery({
       firstName: user.firstName,
       lastName: user.lastName,
       fullName: user.fullName,
+      email: user.email,
       lastSeenAt: user.lastSeenAt,
       lastSeenPath: user.lastSeenPath,
     };

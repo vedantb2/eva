@@ -27,15 +27,19 @@ export function getUserDisplayName(user: {
   fullName?: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  email?: string | null;
 }): string {
-  if (user.fullName) {
-    return user.fullName;
+  if (user.fullName?.trim()) {
+    return user.fullName.trim();
   }
   const parts = [user.firstName, user.lastName].filter(
     (p): p is string => typeof p === "string" && p.length > 0,
   );
   if (parts.length > 0) {
     return parts.join(" ");
+  }
+  if (user.email?.trim()) {
+    return user.email.trim();
   }
   return "Unnamed User";
 }

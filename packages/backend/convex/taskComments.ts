@@ -114,6 +114,30 @@ export const create = authMutation({
   },
 });
 
+/** Updates a task comment. Only the original author may edit. */
+export const update = authMutation({
+  args: {
+    id: v.id("taskComments"),
+    content: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const comment = await ctx.db.get(args.id);
+    if (!comment) {
+      throw new Error("Comment not found");
+    }
+    if (comment.authorId !== ctx.userId) {
+      throw new Error("Only the comment author can edit");
+    }
+    const task = await ctx.db.get(comment.taskId);
+    if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
+      throw new Error("Comment not found");
+    }
+    await ctx.db.patch(args.id, { content: args.content });
+    return null;
+  },
+});
+
 /** Deletes a task comment. */
 export const remove = authMutation({
   args: { id: v.id("taskComments") },

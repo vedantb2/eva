@@ -1,10 +1,10 @@
 [] get rid of edit/prd mode, merge into one, plan/prd should always output in plan.md to be viewable in the prd tab add to system prompt
-[] ask zs if extension is being used or not
-[] ask kg for eva account with lph permissions
+[ ] ask zs if extension is being used or not
+[x] ask kg for eva account with lph permissions
 [] add emails for daily notifications, tell user to mark as read otherwise emails will keep confirming
 [] add cycle demo
 [x] move the view sandbox to the footer
-[x] tell zuza im gonna remove vercel logo from quick task card
+[x] tell zs im gonna remove vercel logo from quick task card
 [x] add mentions inside comments in quick task and send notifications to mentioned users
 
 [] add askuserquestion tool, replace input with it when required so user is forced to reply, add cancel/other options
@@ -16,7 +16,7 @@
 [x] Break repo swjtcher and add org switcher
 [x] Move this to a modal in ext which shows current repo selected
 [x] Design sessions id tabs like chrome tabs
-[] Add response style on user profile page
+[x] Add response style on user profile page
 [] add team roles and description of roles, then if eva has a question she knows who to ask the question to, and this can be done through the teams bot then. e.g. if its a design question -> check team members -> check designers -> message designer on teams with question
 [x] get chrome extension updated with new features
 [x] fix chrome ext issues/errors/warnings
@@ -25,8 +25,8 @@
 [] improve extension toolbar
 
 [] auto open chrome in vnc
-[] fix agent browser connecting to chrome
-[] add planning / think before execution
+[x] fix agent browser connecting to chrome
+[x] add planning / think before execution
 [] add human readable id's for the sessions etc
 [] add num of design options in design input
 [] add checkpoint in messages so you can rewind

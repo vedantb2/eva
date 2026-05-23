@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
 import { MENTION_TOKEN_REGEX } from "./mentionToken";
 import { SKILL_TOKEN_REGEX } from "./skillToken";
 
@@ -75,16 +76,13 @@ function parseSegments(text: string): Segment[] {
 }
 
 const defaultRenderMention = (match: MentionMatch, key: number): ReactNode => (
-  <span key={key} className="rounded bg-muted px-1 font-medium text-foreground">
+  <span key={key} className={MENTION_CHIP_CLASS}>
     @{match.label}
   </span>
 );
 
 const defaultRenderSkill = (match: SkillMatch, key: number): ReactNode => (
-  <span
-    key={key}
-    className="rounded-md bg-muted/60 px-1 font-medium text-foreground"
-  >
+  <span key={key} className={SKILL_CHIP_CLASS}>
     /{match.label}
   </span>
 );

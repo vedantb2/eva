@@ -1,5 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
-import { MentionText } from "@/lib/components/mentions";
+import {
+  MentionText,
+  MENTION_CHIP_CLASS,
+  SKILL_CHIP_CLASS,
+} from "@/lib/components/mentions";
 import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 
 interface MessageMentionTextProps {
@@ -36,16 +40,13 @@ export function MessageMentionText({
               },
             })
           }
-          className="rounded bg-muted px-1 font-medium text-foreground transition-colors hover:bg-muted/80"
+          className={`${MENTION_CHIP_CLASS} transition-[background-color] hover:bg-primary/20`}
         >
           @{match.label}
         </button>
       )}
       renderSkill={(match, key) => (
-        <span
-          key={key}
-          className="rounded-md bg-muted/60 px-1 font-medium text-foreground"
-        >
+        <span key={key} className={SKILL_CHIP_CLASS}>
           /{match.label}
         </span>
       )}

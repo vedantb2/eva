@@ -69,8 +69,6 @@ export const MentionTextarea = forwardRef<
       placeholder={placeholder}
       ariaLabel={placeholder ?? "Message input"}
       dataSlot="input-group-control"
-      chipClassName="rounded-md bg-muted/60 px-1 font-bold"
-      skillChipClassName="rounded-md bg-muted/60 px-1 font-bold"
       className="min-h-16 max-h-40 self-stretch overflow-y-auto px-3.5 py-3 text-left focus-visible:outline-none"
       emptySlashContent={
         skillsSettingsHref ? (

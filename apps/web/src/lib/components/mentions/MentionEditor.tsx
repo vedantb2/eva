@@ -20,10 +20,7 @@ import {
   placeCursorAtEnd,
   renderEditorChipHtml,
 } from "./mentionEditorUtils";
-
-const DEFAULT_CHIP_CLASS = "rounded bg-muted px-1 font-medium text-foreground";
-const DEFAULT_SKILL_CHIP_CLASS =
-  "rounded-md bg-muted/60 px-1 font-medium text-foreground";
+import { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
 
 const DEFAULT_EDITOR_CLASS =
   "relative block w-full whitespace-pre-wrap break-words bg-transparent text-sm outline-none data-[empty]:before:pointer-events-none data-[empty]:before:select-none data-[empty]:before:absolute data-[empty]:before:text-muted-foreground/90 data-[empty]:before:content-[attr(data-placeholder)]";
@@ -195,8 +192,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   slashItems = [],
   placeholder,
   className,
-  chipClassName = DEFAULT_CHIP_CLASS,
-  skillChipClassName = DEFAULT_SKILL_CHIP_CLASS,
+  chipClassName = MENTION_CHIP_CLASS,
+  skillChipClassName = SKILL_CHIP_CLASS,
   onEnterSubmit,
   renderItem = defaultRenderItem,
   renderSlashItem = defaultRenderSlashItem,

@@ -11,9 +11,6 @@ import {
   TabsContent,
 } from "@conductor/ui";
 import {
-  IconTerminal2,
-  IconPhoto,
-  IconShieldCheck,
   IconLoader2,
   IconClock,
   IconPlayerStop,
@@ -299,32 +296,29 @@ export function TaskDetailInline({
                       value="activity"
                       className={TASK_DETAIL_TAB_TRIGGER_CLASS}
                     >
-                      <IconTerminal2 size={14} />
                       <span className="hidden sm:inline">Activity</span>
                       <span className="sm:hidden">Runs</span>
-                      {isActivityBusy && (
+                      {isActivityBusy ? (
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      )}
+                      ) : null}
                     </TabsTrigger>
                     <TabsTrigger
                       value="proof"
                       className={TASK_DETAIL_TAB_TRIGGER_CLASS}
                     >
-                      <IconPhoto size={14} />
                       Proof
-                      {isProofBusy && (
+                      {isProofBusy ? (
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      )}
+                      ) : null}
                     </TabsTrigger>
                     <TabsTrigger
                       value="audit"
                       className={TASK_DETAIL_TAB_TRIGGER_CLASS}
                     >
-                      <IconShieldCheck size={14} />
                       Audit
-                      {isAuditBusy && (
+                      {isAuditBusy ? (
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      )}
+                      ) : null}
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="activity" className="mt-3 sm:mt-4">

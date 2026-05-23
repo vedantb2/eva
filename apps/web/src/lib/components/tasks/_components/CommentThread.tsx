@@ -74,14 +74,14 @@ export function CommentThread({
           </div>
         ) : null}
         {replies.length > 0 ? (
-          <div className="space-y-2 px-3 pb-3">{childThreads}</div>
+          <div className="space-y-3 px-3 pb-3">{childThreads}</div>
         ) : null}
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 pl-4">
+    <div className="space-y-3 pl-4">
       <CommentActivityItem
         comment={comment}
         taskId={taskId}

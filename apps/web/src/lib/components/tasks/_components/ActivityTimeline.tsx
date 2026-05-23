@@ -309,7 +309,7 @@ export function ActivityTimeline({
 
   return (
     <div className="pt-4">
-      <div className="space-y-3 mb-4">
+      <div className="space-y-3 mb-6">
         <div className="relative">
           <CommentMentionInput
             ref={mentionRef}
@@ -381,7 +381,7 @@ export function ActivityTimeline({
       </div>
 
       {activityTimeline.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-4">
           {activityTimeline.map((item, index) => {
             if (item.kind === "audit") {
               const audit = item.audit;

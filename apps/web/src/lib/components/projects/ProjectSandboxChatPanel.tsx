@@ -36,7 +36,7 @@ export function ProjectSandboxChatPanel({
   projectId,
   isSandboxActive,
 }: ProjectSandboxChatPanelProps) {
-  const { repo } = useRepo();
+  const { repo, basePath } = useRepo();
   const project = useQuery(api.projects.get, { id: projectId });
   const messages = useQuery(api.messages.listByParent, { parentId: projectId });
   const queuedMessages = useQuery(api.queuedMessages.listByParent, {
@@ -106,8 +106,7 @@ export function ProjectSandboxChatPanel({
     <div className="flex h-full min-h-0 flex-col w-full">
       <ChatBody
         repoId={repo._id}
-        repoOwner={repo.owner}
-        repoName={repo.name}
+        repoBasePath={basePath}
         messages={messages ?? []}
         queuedMessages={queuedMessages ?? []}
         streamingActivity={streaming?.currentActivity}

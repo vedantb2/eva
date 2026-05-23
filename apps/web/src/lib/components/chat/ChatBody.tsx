@@ -102,8 +102,8 @@ function parsePendingQuestion(
 
 interface ChatBodyProps {
   repoId: Id<"githubRepos">;
-  repoOwner: string;
-  repoName: string;
+  /** Repo route prefix, e.g. `/owner/repo` or `/owner/repo--app`. */
+  repoBasePath: string;
   messages: ChatBodyMessage[];
   queuedMessages: ChatBodyQueuedMessage[];
   streamingActivity?: string;
@@ -136,8 +136,7 @@ interface ChatBodyProps {
 
 export function ChatBody({
   repoId,
-  repoOwner,
-  repoName,
+  repoBasePath,
   messages,
   queuedMessages,
   streamingActivity,
@@ -339,8 +338,7 @@ export function ChatBody({
                             ) : (
                               <MessageMentionText
                                 text={message.content}
-                                owner={repoOwner}
-                                repo={repoName}
+                                repoBasePath={repoBasePath}
                               />
                             )}
                           </>
@@ -398,8 +396,7 @@ export function ChatBody({
             renderContent={(content) => (
               <MessageMentionText
                 text={content}
-                owner={repoOwner}
-                repo={repoName}
+                repoBasePath={repoBasePath}
                 className="truncate text-xs"
               />
             )}
@@ -436,7 +433,7 @@ export function ChatBody({
                   ref={mentionRef}
                   docs={docs}
                   skills={skills}
-                  skillsSettingsHref={`/${repoOwner}/${repoName}/settings/skills`}
+                  skillsSettingsHref={`${repoBasePath}/settings/skills`}
                   placeholder={placeholder}
                 />
                 <PromptInputFooter>

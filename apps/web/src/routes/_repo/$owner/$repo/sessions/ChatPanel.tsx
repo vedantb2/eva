@@ -130,7 +130,7 @@ export function ChatPanel({
   sandboxCollapsed,
   onToggleSandbox,
 }: ChatPanelProps) {
-  const { repo } = useRepo();
+  const { repo, basePath } = useRepo();
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -529,8 +529,7 @@ export function ChatPanel({
     >
       <ChatBody
         repoId={repo._id}
-        repoOwner={repo.owner}
-        repoName={repo.name}
+        repoBasePath={basePath}
         messages={messages}
         queuedMessages={queuedMessages}
         streamingActivity={streamingActivity}

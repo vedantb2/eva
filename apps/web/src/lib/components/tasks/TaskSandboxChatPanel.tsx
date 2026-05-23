@@ -36,7 +36,7 @@ export function TaskSandboxChatPanel({
   taskId,
   isSandboxActive,
 }: TaskSandboxChatPanelProps) {
-  const { repo } = useRepo();
+  const { repo, basePath } = useRepo();
   const task = useQuery(api.agentTasks.get, { id: taskId });
   const messages = useQuery(api.messages.listByParent, { parentId: taskId });
   const queuedMessages = useQuery(api.queuedMessages.listByParent, {
@@ -108,8 +108,7 @@ export function TaskSandboxChatPanel({
     <div className="flex h-full min-h-0 flex-col w-full">
       <ChatBody
         repoId={repo._id}
-        repoOwner={repo.owner}
-        repoName={repo.name}
+        repoBasePath={basePath}
         messages={messages ?? []}
         queuedMessages={queuedMessages ?? []}
         streamingActivity={streaming?.currentActivity}

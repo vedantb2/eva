@@ -1,5 +1,10 @@
 # Changelog
 
+## Mentions in task descriptions and richer chat chips - 2026-05-23
+
+- **Summary**: Task and quick-task descriptions support `@` docs and `/` skills with the same picker as session chat, and Eva injects referenced doc content when a task runs; `@` and `/` chips in messages link to the correct doc or skills page (including monorepo app routes); mention pickers label sections Docs and Skills; Make changes mode highlights the activity composer with a primary border and the timeline has more spacing between items.
+- **Reason**: Users needed to attach repo context when defining work, not only in session messages—mention chips should be actionable and task descriptions should feed Eva the same way as chat.
+
 ## Task and project detail tab polish - 2026-05-23
 
 - **Summary**: Activity / Proof / Audit tabs are compact segmented controls with a clear primary active state, theme-driven corner radius, and content-width layout instead of a full-width bar; the edit-project description field is taller for longer copy.

@@ -1,11 +1,16 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { cn } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { MarkdownEditor } from "./MarkdownEditor";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import {
+  DescriptionMentionEditor,
+  type DescriptionMentionEditorHandle,
+} from "./DescriptionMentionEditor";
 
 export function TaskDescription({
   description,
@@ -18,7 +23,11 @@ export function TaskDescription({
   taskId: Id<"agentTasks">;
   inline: boolean;
 }) {
+  const { basePath } = useRepo();
   const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(description ?? "");
+  const mentionRef = useRef<DescriptionMentionEditorHandle>(null);
+
   const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
     (localStore, args) => {
       const cached = localStore.getQuery(api.agentTasks.get, { id: taskId });
@@ -60,22 +69,27 @@ export function TaskDescription({
 
   const desc = description ?? "";
 
-  const handleSave = useCallback(
-    (markdown: string) => {
-      const trimmed = markdown.trim();
-      if (canEditTaskText && trimmed !== desc) {
-        updateTask({ id: taskId, description: trimmed });
-      }
-      setIsEditing(false);
-    },
-    [canEditTaskText, desc, taskId, updateTask],
-  );
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue(desc);
+    }
+  }, [desc, isEditing]);
+
+  const handleSave = useCallback(() => {
+    const tokenized = mentionRef.current?.tokenize(editValue) ?? editValue;
+    const trimmed = tokenized.trim();
+    if (canEditTaskText && trimmed !== desc) {
+      updateTask({ id: taskId, description: trimmed });
+    }
+    setIsEditing(false);
+  }, [canEditTaskText, desc, editValue, taskId, updateTask]);
 
   const handleClick = useCallback(() => {
     if (!isEditing && canEditTaskText) {
+      setEditValue(desc);
       setIsEditing(true);
     }
-  }, [isEditing, canEditTaskText]);
+  }, [isEditing, canEditTaskText, desc]);
 
   return (
     <div
@@ -91,15 +105,27 @@ export function TaskDescription({
         !isEditing && canEditTaskText && "cursor-pointer hover:bg-muted/50",
       )}
     >
-      <MarkdownEditor
-        content={desc}
-        editable={isEditing}
-        placeholder={
-          canEditTaskText ? "Click to add description..." : undefined
-        }
-        onBlur={handleSave}
-        className="text-sm text-muted-foreground"
-      />
+      {isEditing ? (
+        <DescriptionMentionEditor
+          ref={mentionRef}
+          value={editValue}
+          onValueChange={setEditValue}
+          onBlur={handleSave}
+          placeholder="Add description..."
+          minHeight="min-h-[160px]"
+          className="border-0 px-0 py-0 shadow-none focus-visible:ring-0"
+        />
+      ) : desc ? (
+        <MessageMentionText
+          text={desc}
+          repoBasePath={basePath}
+          className="text-sm text-muted-foreground"
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground/60">
+          {canEditTaskText ? "Click to add description..." : "No description"}
+        </p>
+      )}
     </div>
   );
 }

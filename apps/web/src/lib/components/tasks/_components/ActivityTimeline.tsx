@@ -15,6 +15,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
+  cn,
 } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
 import { IconArrowUp, IconLoader2 } from "@tabler/icons-react";
@@ -323,7 +324,11 @@ export function ActivityTimeline({
                 ? "Describe the changes you'd like Eva to make..."
                 : "Add a comment..."
             }
-            className="min-h-24 max-h-44"
+            className={cn(
+              "min-h-24 max-h-44 transition-[border-color,box-shadow]",
+              requestingChanges &&
+                "border-primary focus-visible:ring-primary/40",
+            )}
           />
           <Tooltip>
             <TooltipTrigger asChild>

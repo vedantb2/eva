@@ -9,6 +9,7 @@ import {
   buildImplementationPrompt,
   buildConflictResolutionPrompt,
 } from "./prompts";
+import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 
 /** Fetches task, repo, and audit config to build the prompt and sandbox parameters for a run. */
 export const getTaskData = internalQuery({
@@ -44,6 +45,22 @@ export const getTaskData = internalQuery({
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
 
+    const resolveDescriptionForPrompt = async (
+      text: string | undefined,
+    ): Promise<string | undefined> => {
+      const trimmed = text?.trim();
+      if (!trimmed) return undefined;
+      const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
+        ctx,
+        trimmed,
+        args.repoId,
+      );
+      if (prefixBlock) {
+        return `${prefixBlock}\n\n${resolvedMessage}`;
+      }
+      return resolvedMessage;
+    };
+
     let projectSandboxId: string | undefined;
     let projectContext: { title: string; description?: string } | undefined;
     let project = null;
@@ -53,10 +70,16 @@ export const getTaskData = internalQuery({
         projectSandboxId = project.sandboxId;
         projectContext = {
           title: project.title,
-          description: project.description ?? undefined,
+          description: await resolveDescriptionForPrompt(
+            project.description ?? undefined,
+          ),
         };
       }
     }
+
+    const resolvedTaskDescription = await resolveDescriptionForPrompt(
+      task.description ?? undefined,
+    );
 
     // Non-project (quick) tasks persist their sandbox on the task itself so
     // change-request / resolve_conflicts runs reuse the same paused filesystem.
@@ -117,7 +140,11 @@ export const getTaskData = internalQuery({
             repo.systemPrompt,
           )
         : buildImplementationPrompt(
-            task,
+            {
+              title: task.title,
+              description: resolvedTaskDescription,
+              taskNumber: task.taskNumber,
+            },
             branchName,
             !args.projectId,
             rootDirectory,
@@ -152,7 +179,7 @@ export const getTaskData = internalQuery({
       repoName: repo.name,
       branchName,
       taskTitle: task.title,
-      taskDescription: task.description,
+      taskDescription: resolvedTaskDescription ?? task.description,
       projectSandboxId,
       taskSandboxId,
       keepTaskSandboxActiveAfterRun,

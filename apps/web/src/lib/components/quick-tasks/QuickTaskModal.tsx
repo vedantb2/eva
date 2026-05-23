@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +47,10 @@ import {
   IconInfoCircle,
 } from "@tabler/icons-react";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
+import {
+  DescriptionMentionEditor,
+  type DescriptionMentionEditorHandle,
+} from "@/lib/components/tasks/_components/DescriptionMentionEditor";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
 import {
@@ -57,12 +60,6 @@ import {
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { AssigneeSelector } from "./_components/AssigneeSelector";
 import { ProjectPicker } from "./_components/ProjectPicker";
-
-const MarkdownEditor = lazy(() =>
-  import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
-    default: m.MarkdownEditor,
-  })),
-);
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
@@ -109,7 +106,7 @@ export function QuickTaskModal({
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
-  const editorRef = useRef<MarkdownEditorHandle>(null);
+  const editorRef = useRef<DescriptionMentionEditorHandle>(null);
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const saveDraft = useMutation(api.agentTasks.saveDraft);
@@ -128,7 +125,10 @@ export function QuickTaskModal({
   const branchLockedToProject = effectiveProjectId !== undefined;
   const displayBaseBranch = effectiveProject?.baseBranch ?? defaultBranch;
 
-  const getDescription = () => editorRef.current?.getMarkdown() ?? description;
+  const getDescription = () => {
+    const tokenized = editorRef.current?.tokenize(description) ?? description;
+    return tokenized.trim();
+  };
 
   const resetForm = useCallback(() => {
     setTitle("");
@@ -272,22 +272,14 @@ export function QuickTaskModal({
           </div>
 
           <div className="px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
-            <Suspense
-              fallback={
-                <div className="p-3">
-                  <Spinner size="sm" />
-                </div>
-              }
-            >
-              <MarkdownEditor
-                ref={editorRef}
-                content={description}
-                editable
-                placeholder="Add description..."
-                minHeight="min-h-[160px]"
-                className="text-sm [&_.tiptap]:px-0 [&_.tiptap]:py-2"
-              />
-            </Suspense>
+            <DescriptionMentionEditor
+              ref={editorRef}
+              value={description}
+              onValueChange={setDescription}
+              placeholder="Add description... @ for docs, / for skills"
+              minHeight="min-h-[160px]"
+              className="border-0 px-0 py-2 shadow-none focus-visible:ring-0"
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">

@@ -123,7 +123,7 @@ export function DesignChatPanel({
       );
     }
   });
-  const { repo } = useRepo();
+  const { repo, basePath } = useRepo();
 
   const mentionRef = useRef<MentionTextareaHandle>(null);
   const [isSending, setIsSending] = useState(false);
@@ -315,8 +315,7 @@ export function DesignChatPanel({
                               <>
                                 <MessageMentionText
                                   text={message.content}
-                                  owner={repo.owner}
-                                  repo={repo.name}
+                                  repoBasePath={basePath}
                                 />
                                 <div className="flex items-center justify-between gap-3">
                                   {message.personaId && (

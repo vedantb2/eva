@@ -59,6 +59,7 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   maxItems?: number;
   dataSlot?: string;
   ariaLabel?: string;
+  onBlur?: () => void;
   ref?: Ref<MentionEditorHandle>;
 }
 
@@ -203,6 +204,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   maxItems = 8,
   dataSlot,
   ariaLabel,
+  onBlur,
 }: MentionEditorProps<TItem>) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [trigger, setTrigger] = useState<TriggerState>(CLOSED_TRIGGER);
@@ -458,7 +460,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
 
   const handleBlur = useCallback(() => {
     if (trigger.isOpen) closeTrigger();
-  }, [trigger.isOpen, closeTrigger]);
+    onBlur?.();
+  }, [trigger.isOpen, closeTrigger, onBlur]);
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLDivElement>) => {
@@ -484,9 +487,11 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     (popupItems.length > 0 ||
       (trigger.kind === "slash" && emptySlashContent !== undefined));
 
+  const popupTitle = trigger.kind === "slash" ? "Skills" : "Docs";
+
   const popup = showPopup ? (
     <div
-      className="fixed z-50 overflow-hidden rounded-md bg-popover py-1 text-popover-foreground shadow-md"
+      className="fixed z-50 overflow-hidden rounded-md bg-popover text-popover-foreground shadow-md"
       style={{
         left: position.left,
         top: position.top - 8,
@@ -494,33 +499,38 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         transform: "translateY(-100%)",
       }}
     >
+      <p className="px-3 pt-2 pb-1 text-[11px] font-semibold text-muted-foreground">
+        {popupTitle}
+      </p>
       {popupItems.length > 0 ? (
-        popupItems.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              if (trigger.kind === "slash") {
-                insertSlashItem(item);
-              } else {
-                insertMentionItem(item as TItem);
+        <div className="max-h-56 overflow-y-auto py-1">
+          {popupItems.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                if (trigger.kind === "slash") {
+                  insertSlashItem(item);
+                } else {
+                  insertMentionItem(item as TItem);
+                }
+              }}
+              className={
+                "flex w-full min-w-0 items-center px-3 py-1.5 text-left text-sm " +
+                (index === selectedIndex
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-accent hover:text-accent-foreground")
               }
-            }}
-            className={
-              "flex w-full min-w-0 items-center px-3 py-1.5 text-left text-sm " +
-              (index === selectedIndex
-                ? "bg-accent text-accent-foreground"
-                : "hover:bg-accent hover:text-accent-foreground")
-            }
-          >
-            {trigger.kind === "slash"
-              ? renderSlashItem(item, index === selectedIndex)
-              : renderItem(item as TItem, index === selectedIndex)}
-          </button>
-        ))
+            >
+              {trigger.kind === "slash"
+                ? renderSlashItem(item, index === selectedIndex)
+                : renderItem(item as TItem, index === selectedIndex)}
+            </button>
+          ))}
+        </div>
       ) : (
-        <div className="px-3 py-2 text-xs text-muted-foreground">
+        <div className="px-3 pb-2 text-xs text-muted-foreground">
           {emptySlashContent}
         </div>
       )}

@@ -265,11 +265,7 @@ export function TaskDetailInline({
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
                         {creatorUser ? (
                           <>
-                            <UserInitials
-                              user={creatorUser}
-                              size="sm"
-                              hideLastSeen
-                            />
+                            <UserInitials userId={creatorUser._id} size="sm" />
                             <span>{getUserDisplayName(creatorUser)}</span>
                             <span>·</span>
                           </>
@@ -296,10 +292,10 @@ export function TaskDetailInline({
                     }
                   }}
                 >
-                  <TabsList className="w-full justify-start overflow-x-auto sticky top-0 z-10 bg-background">
+                  <TabsList className="sticky top-0 z-10 h-auto w-full justify-start bg-background">
                     <TabsTrigger
                       value="activity"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
+                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
                     >
                       <IconTerminal2 size={14} />
                       <span className="hidden sm:inline">Activity</span>
@@ -310,7 +306,7 @@ export function TaskDetailInline({
                     </TabsTrigger>
                     <TabsTrigger
                       value="proof"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
+                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
                     >
                       <IconPhoto size={14} />
                       Proof
@@ -320,7 +316,7 @@ export function TaskDetailInline({
                     </TabsTrigger>
                     <TabsTrigger
                       value="audit"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm min-h-[36px]"
+                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
                     >
                       <IconShieldCheck size={14} />
                       Audit

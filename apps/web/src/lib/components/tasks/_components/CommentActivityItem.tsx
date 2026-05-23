@@ -139,20 +139,22 @@ export function CommentActivityItem({
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {comment.authorId ? (
-            <UserInitials userId={comment.authorId} hideLastSeen size="sm" />
+            <UserInitials userId={comment.authorId} size="sm" />
           ) : null}
-          {comment.authorId ? (
-            <CommentAuthorName authorId={comment.authorId} users={users} />
-          ) : (
-            <span className="truncate text-sm font-medium text-foreground">
-              Unknown
+          <div className="flex min-w-0 items-baseline gap-1.5">
+            {comment.authorId ? (
+              <CommentAuthorName authorId={comment.authorId} users={users} />
+            ) : (
+              <span className="truncate text-sm font-medium text-foreground">
+                Unknown
+              </span>
+            )}
+            <span className="shrink-0 text-[11px] text-muted-foreground/60 tabular-nums">
+              {dayjs(comment.createdAt).fromNow()}
             </span>
-          )}
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {dayjs(comment.createdAt).fromNow()}
-          </span>
+        <div className="flex shrink-0 items-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

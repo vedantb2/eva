@@ -310,9 +310,7 @@ export function ActivityTimeline({
                 ? "Describe the changes you'd like Eva to make..."
                 : "Add a comment..."
             }
-            className={
-              effectiveRequestingChanges ? "min-h-28 max-h-52" : undefined
-            }
+            className="min-h-24 max-h-44"
           />
           <Tooltip>
             <TooltipTrigger asChild>

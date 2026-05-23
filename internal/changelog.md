@@ -1,5 +1,10 @@
 # Changelog
 
+## Task detail activity polish - 2026-05-23
+
+- **Summary**: Comment headers group author name with a muted relative time; creator and comment avatars show online presence; Activity/Proof/Audit tabs no longer show a stray scrollbar; the comment composer uses one consistent, slightly shorter height for both add-comment and make-changes modes.
+- **Reason**: Follow-up UX gaps after the comment redesign made attribution, presence, and the activity tab chrome feel unfinished.
+
 ## Task activity comments and themed mention chips - 2026-05-23
 
 - **Summary**: Session and task inputs render `@` doc and `/` skill references as theme-accent pills; task comment `@user` tokens show a profile hover card; activity comments display author name, right-aligned time, and a menu to edit or delete (with confirmation); authors can edit their own comments; the Eva “make changes” field is taller and that mode defaults off.

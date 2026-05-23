@@ -234,7 +234,8 @@ export function ProjectCard({
               placeholder="Description"
               value={editDescription}
               onChange={(event) => setEditDescription(event.target.value)}
-              rows={3}
+              rows={6}
+              className="min-h-[160px] resize-y"
             />
             <DialogFooter>
               <Button

@@ -1,5 +1,10 @@
 # Changelog
 
+## Task and project detail tab polish - 2026-05-23
+
+- **Summary**: Activity / Proof / Audit tabs are compact segmented controls with a clear primary active state, theme-driven corner radius, and content-width layout instead of a full-width bar; the edit-project description field is taller for longer copy.
+- **Reason**: Full-width tabs were hard to scan and low-contrast active states blended into the page; project descriptions need more room when editing from the card menu.
+
 ## Threaded comment replies on task activity - 2026-05-23
 
 - **Summary**: Task comments support unlimited reply depth with nested UI, inline reply composer (reply icon + menu next to each comment), soft-delete with placeholder text, and `comment_reply` notifications deduped per user alongside assignee and mention alerts; only top-level comments appear in the mixed activity timeline.

@@ -25,6 +25,8 @@ import { useTaskDetail } from "./useTaskDetail";
 import {
   isTaskDetailTab,
   getUserDisplayName,
+  TASK_DETAIL_TAB_LIST_CLASS,
+  TASK_DETAIL_TAB_TRIGGER_CLASS,
 } from "./_components/task-detail-constants";
 import { TaskHeader } from "./_components/TaskHeader";
 import { TaskDescription } from "./_components/TaskDescription";
@@ -292,10 +294,10 @@ export function TaskDetailInline({
                     }
                   }}
                 >
-                  <TabsList className="sticky top-0 z-10 h-auto w-full justify-start bg-background">
+                  <TabsList className={TASK_DETAIL_TAB_LIST_CLASS}>
                     <TabsTrigger
                       value="activity"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                      className={TASK_DETAIL_TAB_TRIGGER_CLASS}
                     >
                       <IconTerminal2 size={14} />
                       <span className="hidden sm:inline">Activity</span>
@@ -306,7 +308,7 @@ export function TaskDetailInline({
                     </TabsTrigger>
                     <TabsTrigger
                       value="proof"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                      className={TASK_DETAIL_TAB_TRIGGER_CLASS}
                     >
                       <IconPhoto size={14} />
                       Proof
@@ -316,7 +318,7 @@ export function TaskDetailInline({
                     </TabsTrigger>
                     <TabsTrigger
                       value="audit"
-                      className="gap-1 sm:gap-1.5 text-xs sm:text-sm"
+                      className={TASK_DETAIL_TAB_TRIGGER_CLASS}
                     >
                       <IconShieldCheck size={14} />
                       Audit

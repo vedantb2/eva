@@ -51,3 +51,14 @@ export const TASK_DETAIL_TABS = ["activity", "proof", "audit"] as const;
 export function isTaskDetailTab(v: string): v is TaskDetailTab {
   return (TASK_DETAIL_TABS as readonly string[]).includes(v);
 }
+
+/**
+ * Compact tabs for Activity / Proof / Audit on task detail.
+ * Radius comes from the shared Tabs primitives (`rounded-lg` → `--radius`).
+ * Active pill uses primary so it stays visible when background and card match.
+ */
+export const TASK_DETAIL_TAB_LIST_CLASS =
+  "sticky top-0 z-10 h-auto w-fit gap-0.5 border-0 bg-secondary p-1 shadow-none";
+
+export const TASK_DETAIL_TAB_TRIGGER_CLASS =
+  "gap-1 px-3 py-1.5 text-xs font-medium sm:gap-1.5 sm:text-sm transition-[color,background-color] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-secondary-foreground data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground";

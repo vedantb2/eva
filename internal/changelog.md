@@ -1,5 +1,10 @@
 # Changelog
 
+## Remove Claude MCP connector icon workaround - 2026-05-25
+
+- **Summary**: Dropped Convex HTTP favicon/site-identity routes, MCP `serverInfo.icons`, OAuth `logo_uri`, and the backend icon generator—Claude custom connectors do not render custom icons today (neither MCP metadata nor Google favicon lookup on the deployment hostname).
+- **Reason**: The backend workaround added maintenance surface (generated `icon.ts`, extra HTTP routes) without improving the connector UI in Claude.
+
 ## Task run watchdog heartbeat hardening - 2026-05-25
 
 - **Summary**: Lightweight touch-only streaming heartbeats (HMAC `/api/streaming/heartbeat` with `touchOnly`) keep `lastUpdatedAt` fresh during long silent tool runs without uploading full step JSON every 10s; touch upserts a minimal row if missing; callback flushes an extra touch when tools are in flight and recovers stuck ping locks; Daytona liveness accepts running agent CLI when callback PID bookkeeping is stale; watchdog better classifies grep/bash/work labels and avoids treating empty streaming as perpetual sandbox startup once a sandbox is attached.

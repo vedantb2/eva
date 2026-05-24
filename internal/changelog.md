@@ -1,5 +1,10 @@
 # Changelog
 
+## Strip Cursor commit attribution in git hooks - 2026-05-25
+
+- **Summary**: Added a `prepare-commit-msg` husky hook that removes `Co-authored-by: Cursor` and `Made-with: Cursor` trailers before commits land, plus an agent rule not to add them.
+- **Reason**: Cursor’s IDE agent injects co-author lines even when CLI attribution is disabled in `cli-config.json`, so repo-local stripping is the reliable fix.
+
 ## Remove Claude MCP connector icon workaround - 2026-05-25
 
 - **Summary**: Dropped Convex HTTP favicon/site-identity routes, MCP `serverInfo.icons`, OAuth `logo_uri`, and the backend icon generator—Claude custom connectors do not render custom icons today (neither MCP metadata nor Google favicon lookup on the deployment hostname).

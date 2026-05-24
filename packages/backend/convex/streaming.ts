@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+} from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
 
 /** Gets the current streaming activity state for an entity (task, session, etc.). */
@@ -96,6 +100,42 @@ export const internalGet = internalQuery({
       pendingQuestion: streaming.pendingQuestion,
     };
   },
+});
+
+async function touchStreamingEntity(
+  ctx: MutationCtx,
+  entityId: string,
+): Promise<boolean> {
+  const now = Date.now();
+  const existing = await ctx.db
+    .query("streamingActivity")
+    .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+    .first();
+  if (!existing) {
+    await ctx.db.insert("streamingActivity", {
+      entityId,
+      currentActivity: "[]",
+      currentContent: "",
+      lastUpdatedAt: now,
+    });
+    return true;
+  }
+  await ctx.db.patch(existing._id, { lastUpdatedAt: now });
+  return true;
+}
+
+/** Bumps lastUpdatedAt only — used for lightweight watchdog heartbeats (callback token). */
+export const touch = authMutation({
+  args: { entityId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => touchStreamingEntity(ctx, args.entityId),
+});
+
+/** Internal touch for HTTP heartbeat route and liveness probe refresh. */
+export const internalTouch = internalMutation({
+  args: { entityId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => touchStreamingEntity(ctx, args.entityId),
 });
 
 /** Updates or creates streaming activity state (internal use, no auth check). */

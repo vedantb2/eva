@@ -58,6 +58,7 @@ type CallbackState = {
   doneFileWritten: boolean;
   flushInProgress: boolean;
   pingInProgress: boolean;
+  pingStartedAt: number;
   callbackReady: boolean;
   streamingLoopsStopped: boolean;
   stderrOutput: string;
@@ -100,6 +101,7 @@ export const callbackState: CallbackState = {
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
+  pingStartedAt: 0,
   callbackReady: false,
   streamingLoopsStopped: false,
   stderrOutput: "",

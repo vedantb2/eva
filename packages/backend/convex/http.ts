@@ -72,8 +72,9 @@ http.route({
     const params = new URLSearchParams(body);
     const entityId = requiredFormValue(params, "entityId");
     const hmac = requiredFormValue(params, "hmac");
+    const touchOnly = params.get("touchOnly") === "1";
     const currentActivity = requiredFormValue(params, "currentActivity");
-    if (!entityId || !hmac || !currentActivity) {
+    if (!entityId || !hmac || (!touchOnly && !currentActivity)) {
       return new Response("Missing required heartbeat fields", {
         status: 400,
       });
@@ -89,12 +90,16 @@ http.route({
       return new Response("Invalid heartbeat signature", { status: 401 });
     }
 
-    await ctx.runMutation(internal.streaming.internalSet, {
-      entityId,
-      currentActivity,
-      currentContent: params.get("currentContent") ?? "",
-      pendingQuestion: params.get("pendingQuestion") ?? undefined,
-    });
+    if (touchOnly) {
+      await ctx.runMutation(internal.streaming.internalTouch, { entityId });
+    } else {
+      await ctx.runMutation(internal.streaming.internalSet, {
+        entityId,
+        currentActivity: currentActivity!,
+        currentContent: params.get("currentContent") ?? "",
+        pendingQuestion: params.get("pendingQuestion") ?? undefined,
+      });
+    }
 
     return Response.json({ ok: true });
   }),

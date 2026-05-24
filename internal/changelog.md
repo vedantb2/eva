@@ -1,5 +1,10 @@
 # Changelog
 
+## Task run watchdog heartbeat hardening - 2026-05-25
+
+- **Summary**: Lightweight touch-only streaming heartbeats (HMAC `/api/streaming/heartbeat` with `touchOnly`) keep `lastUpdatedAt` fresh during long silent tool runs without uploading full step JSON every 10s; touch upserts a minimal row if missing; callback flushes an extra touch when tools are in flight and recovers stuck ping locks; Daytona liveness accepts running agent CLI when callback PID bookkeeping is stale; watchdog better classifies grep/bash/work labels and avoids treating empty streaming as perpetual sandbox startup once a sandbox is attached.
+- **Reason**: Legitimate builds and searches were dying as `Run killed by watchdog: no heartbeat for …` because heartbeats stalled on large payloads, missing rows, or misclassified thresholds—not because the sandbox was idle.
+
 ## Cursor-style @ and / mention picker - 2026-05-23
 
 - **Summary**: `@`, `/`, and comment `@` pickers are a compact panel anchored to the caret (not full input width), flip above or below based on viewport space, use a light primary tint for the active row, truncate titles on the right with description/email on a second line, and scroll with the app’s styled scrollbar.

@@ -269,6 +269,30 @@ async function callConvexWithRetry(type, path, args, maxRetries = CALLBACK_HTTP_
     }
   }
 }
+async function callStreamingHeartbeatTouchOnce(entityId) {
+  if (CONVEX_SITE_URL && STREAMING_HMAC) {
+    const body = new URLSearchParams();
+    body.set("entityId", entityId);
+    body.set("hmac", STREAMING_HMAC);
+    body.set("touchOnly", "1");
+    const res = await fetchWithTimeout(
+      CONVEX_SITE_URL + "/api/streaming/heartbeat",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(
+        "Streaming heartbeat touch failed: " + res.status + " " + text
+      );
+    }
+    return res.text();
+  }
+  return await callConvex("mutation", "streaming:touch", { entityId });
+}
 async function callStreamingHeartbeatOnce(entityId, currentActivity, currentContent, pendingQuestion) {
   if (CONVEX_SITE_URL && STREAMING_HMAC) {
     const body = new URLSearchParams();
@@ -319,6 +343,23 @@ async function callStreamingHeartbeat(entityId, currentActivity, currentContent,
       const delayMs = buildRetryDelayMs(attempt);
       console.error(
         "streaming heartbeat attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
+        String(e)
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+async function callStreamingHeartbeatTouch(entityId) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await callStreamingHeartbeatTouchOnce(entityId);
+    } catch (e) {
+      attempt++;
+      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
+      const delayMs = buildRetryDelayMs(attempt);
+      console.error(
+        "streaming heartbeat touch attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
         String(e)
       );
       await new Promise((r) => setTimeout(r, delayMs));
@@ -380,6 +421,7 @@ var callbackState = {
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
+  pingStartedAt: 0,
   callbackReady: false,
   streamingLoopsStopped: false,
   stderrOutput: ""
@@ -2167,23 +2209,49 @@ async function flushStreaming() {
         return;
       }
       await sendStreamingHeartbeatUpdate(payload);
+    } else if (callbackState.inFlightToolUses > 0 && Date.now() - callbackState.lastStreamingSentAt > 15e3) {
+      const entityId = STREAMING_ENTITY_ID ?? "";
+      if (entityId) {
+        await callStreamingHeartbeatTouch(entityId);
+        callbackState.lastStreamingSentAt = Date.now();
+      }
     }
   } finally {
     callbackState.flushInProgress = false;
   }
 }
+var PING_STUCK_MS = 45e3;
 async function heartbeatPing() {
-  if (callbackState.pingInProgress) return;
+  if (callbackState.pingInProgress && callbackState.pingStartedAt > 0 && Date.now() - callbackState.pingStartedAt < PING_STUCK_MS) {
+    return;
+  }
+  if (callbackState.pingInProgress) {
+    console.warn(
+      "[streaming-heartbeat] pingInProgress stuck past timeout, resetting"
+    );
+    callbackState.pingInProgress = false;
+  }
   if (Date.now() - callbackState.lastStreamingSentAt < 1e4) return;
   callbackState.pingInProgress = true;
+  callbackState.pingStartedAt = Date.now();
   try {
     if (callbackState.waitingForFirstAssistantEvent) {
       const startupStep = buildClaudeStartupStep();
       updateThinkingStep(startupStep.label, startupStep.detail);
+      await sendStreamingHeartbeatUpdate(buildStreamingPayload());
+      return;
     }
-    await sendStreamingHeartbeatUpdate(buildStreamingPayload());
+    const entityId = STREAMING_ENTITY_ID ?? "";
+    if (!entityId) return;
+    await callStreamingHeartbeatTouch(entityId);
+    callbackState.lastStreamingSentAt = Date.now();
+    callbackState.consecutiveHeartbeatFailures = 0;
+    callbackState.heartbeatFailureStreakStartedAt = 0;
+  } catch (error) {
+    noteHeartbeatFailure(error instanceof Error ? error : String(error));
   } finally {
     callbackState.pingInProgress = false;
+    callbackState.pingStartedAt = 0;
   }
 }
 async function initialHeartbeat() {

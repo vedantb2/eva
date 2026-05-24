@@ -33,6 +33,22 @@ const SANDBOX_STARTUP_LABELS = new Set([
   "Retrying sandbox setup...",
 ]);
 
+/** Labels shown while the agent is doing real work (grep, bash, read, etc.). */
+const AGENT_WORK_LABELS = new Set([
+  "Running command...",
+  "Searching code...",
+  "Searching files...",
+  "Reading file...",
+  "Creating file...",
+  "Editing file...",
+  "Using Skill...",
+  "Fetching URL...",
+  "Searching web...",
+  "Running agent...",
+  "Updating tasks...",
+  "Reading tasks...",
+]);
+
 type StreamingStep = {
   label?: string;
   status?: string;
@@ -73,8 +89,18 @@ function getActiveStreamingLabels(
 /** Returns true if the current streaming activity indicates sandbox startup is still in progress. */
 function isSandboxStartupActivity(
   currentActivity: string | undefined,
+  opts: { hasSandbox: boolean; runStartedAt?: number },
 ): boolean {
   if (!currentActivity) {
+    // Empty activity with an attached sandbox is usually heartbeat drift, not
+    // startup — otherwise we apply the 15m startup threshold incorrectly.
+    if (
+      opts.hasSandbox &&
+      opts.runStartedAt !== undefined &&
+      Date.now() - opts.runStartedAt > 120_000
+    ) {
+      return false;
+    }
     return true;
   }
   const activeLabels = getActiveStreamingLabels(currentActivity);
@@ -82,6 +108,19 @@ function isSandboxStartupActivity(
     return true;
   }
   return currentActivity.includes('"Starting sandbox..."');
+}
+
+/** Fallback when step status is missing from JSON but label text is present. */
+function activityShowsAgentWork(currentActivity: string | undefined): boolean {
+  if (!currentActivity) {
+    return false;
+  }
+  for (const label of AGENT_WORK_LABELS) {
+    if (currentActivity.includes(`"label":"${label}"`)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Returns true if the current streaming activity indicates the run is finalizing. */
@@ -103,10 +142,16 @@ function isFinalizingActivity(currentActivity: string | undefined): boolean {
  */
 function hasActiveAgentToolStep(currentActivity: string | undefined): boolean {
   const activeLabels = getActiveStreamingLabels(currentActivity);
-  return activeLabels.some(
-    (label) =>
-      !SANDBOX_STARTUP_LABELS.has(label) && label !== "Finalizing response...",
-  );
+  if (
+    activeLabels.some(
+      (label) =>
+        !SANDBOX_STARTUP_LABELS.has(label) &&
+        label !== "Finalizing response...",
+    )
+  ) {
+    return true;
+  }
+  return activityShowsAgentWork(currentActivity);
 }
 
 /**
@@ -189,6 +234,7 @@ export const checkStaleRuns = internalMutation({
       .first();
     const startupStillInProgress = isSandboxStartupActivity(
       streaming?.currentActivity,
+      { hasSandbox: !!run.sandboxId, runStartedAt: run.startedAt },
     );
     const finishingInProgress =
       run.finalizingAt !== undefined ||

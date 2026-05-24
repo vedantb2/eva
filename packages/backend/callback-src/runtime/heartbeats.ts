@@ -8,7 +8,10 @@ import {
   SCRIPT_STARTED_AT,
   STREAMING_ENTITY_ID,
 } from "../config.js";
-import { callStreamingHeartbeat } from "../http/convexClient.js";
+import {
+  callStreamingHeartbeat,
+  callStreamingHeartbeatTouch,
+} from "../http/convexClient.js";
 import {
   markLastComplete,
   parseStreamEvent,
@@ -139,24 +142,60 @@ export async function flushStreaming(): Promise<void> {
         return;
       }
       await sendStreamingHeartbeatUpdate(payload);
+    } else if (
+      S.inFlightToolUses > 0 &&
+      Date.now() - S.lastStreamingSentAt > 15_000
+    ) {
+      const entityId = STREAMING_ENTITY_ID ?? "";
+      if (entityId) {
+        await callStreamingHeartbeatTouch(entityId);
+        S.lastStreamingSentAt = Date.now();
+      }
     }
   } finally {
     S.flushInProgress = false;
   }
 }
 
+const PING_STUCK_MS = 45_000;
+
 export async function heartbeatPing(): Promise<void> {
-  if (S.pingInProgress) return;
+  if (
+    S.pingInProgress &&
+    S.pingStartedAt > 0 &&
+    Date.now() - S.pingStartedAt < PING_STUCK_MS
+  ) {
+    return;
+  }
+  if (S.pingInProgress) {
+    console.warn(
+      "[streaming-heartbeat] pingInProgress stuck past timeout, resetting",
+    );
+    S.pingInProgress = false;
+  }
   if (Date.now() - S.lastStreamingSentAt < 10000) return;
   S.pingInProgress = true;
+  S.pingStartedAt = Date.now();
   try {
     if (S.waitingForFirstAssistantEvent) {
       const startupStep = buildClaudeStartupStep();
       updateThinkingStep(startupStep.label, startupStep.detail);
+      await sendStreamingHeartbeatUpdate(buildStreamingPayload());
+      return;
     }
-    await sendStreamingHeartbeatUpdate(buildStreamingPayload());
+    const entityId = STREAMING_ENTITY_ID ?? "";
+    if (!entityId) return;
+    // Touch-only ping: keep watchdog heartbeats alive during long silent tool
+    // runs (e.g. `pnpm tsc`) without POSTing the full accumulatedSteps JSON.
+    await callStreamingHeartbeatTouch(entityId);
+    S.lastStreamingSentAt = Date.now();
+    S.consecutiveHeartbeatFailures = 0;
+    S.heartbeatFailureStreakStartedAt = 0;
+  } catch (error) {
+    noteHeartbeatFailure(error instanceof Error ? error : String(error));
   } finally {
     S.pingInProgress = false;
+    S.pingStartedAt = 0;
   }
 }
 

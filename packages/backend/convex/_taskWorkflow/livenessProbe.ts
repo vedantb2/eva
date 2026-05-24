@@ -45,17 +45,7 @@ export const probeStaleRunLiveness = internalAction({
 
     if (liveness.alive) {
       const entityId = getTaskRunStreamingEntityId(args.runId);
-      const streaming = await ctx.runQuery(internal.streaming.internalGet, {
-        entityId,
-      });
-      if (streaming) {
-        await ctx.runMutation(internal.streaming.internalSet, {
-          entityId,
-          currentActivity: streaming.currentActivity,
-          currentContent: streaming.currentContent,
-          pendingQuestion: streaming.pendingQuestion,
-        });
-      }
+      await ctx.runMutation(internal.streaming.internalTouch, { entityId });
       // Re-check later and probe again if still stale.
       await ctx.scheduler.runAfter(
         STALE_RECHECK_MS,

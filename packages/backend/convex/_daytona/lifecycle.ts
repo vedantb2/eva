@@ -22,6 +22,9 @@ const CALLBACK_LIVENESS_COMMAND = [
   'state="$(ps -p "$pid" -o stat= 2>/dev/null | tr -d " ")"',
   'case "$state" in Z*) exit 1 ;; *) exit 0 ;; esac',
 ].join(" && ");
+/** Agent CLI still running even if callback PID bookkeeping is stale. */
+const AGENT_PROCESS_LIVENESS_COMMAND =
+  "pgrep -f 'claude-code|cursor-agent|codex run|opencode run|/\\.claude/' >/dev/null 2>&1";
 
 /** Warms the Daytona snapshot cache for a repo by creating and immediately deleting a sandbox, with retries. */
 export const warmSnapshotCache = internalAction({
@@ -167,6 +170,19 @@ export const verifySandboxLiveness = internalAction({
         pidAlive: true,
       };
     }
+
+    const agentAlive = await exec(sandbox, AGENT_PROCESS_LIVENESS_COMMAND, 5)
+      .then(() => true)
+      .catch(() => false);
+    if (agentAlive) {
+      return {
+        alive: true,
+        reason: "agent_process_running_callback_pid_stale",
+        sandboxState: state,
+        pidAlive: false,
+      };
+    }
+
     // Exec failing on a started sandbox most likely means the PID is dead
     // (test/kill returned non-zero). Treat as dead so the watchdog cleans up.
     return {

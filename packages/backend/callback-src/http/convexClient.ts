@@ -117,6 +117,35 @@ export async function callConvexWithRetry(
   }
 }
 
+/** Lightweight heartbeat that only bumps streamingActivity.lastUpdatedAt in Convex. */
+export async function callStreamingHeartbeatTouchOnce(
+  entityId: string,
+): Promise<string | JsonValue> {
+  if (CONVEX_SITE_URL && STREAMING_HMAC) {
+    const body = new URLSearchParams();
+    body.set("entityId", entityId);
+    body.set("hmac", STREAMING_HMAC);
+    body.set("touchOnly", "1");
+    const res = await fetchWithTimeout(
+      CONVEX_SITE_URL + "/api/streaming/heartbeat",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      },
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(
+        "Streaming heartbeat touch failed: " + res.status + " " + text,
+      );
+    }
+    return res.text();
+  }
+
+  return await callConvex("mutation", "streaming:touch", { entityId });
+}
+
 /** Sends one streaming heartbeat request through the scoped HMAC endpoint or legacy mutation fallback. */
 export async function callStreamingHeartbeatOnce(
   entityId: string,
@@ -181,6 +210,31 @@ export async function callStreamingHeartbeat(
       const delayMs = buildRetryDelayMs(attempt);
       console.error(
         "streaming heartbeat attempt " +
+          attempt +
+          " failed, retrying in " +
+          delayMs +
+          "ms:",
+        String(e),
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+
+/** Retries a lightweight touch heartbeat (no activity payload). */
+export async function callStreamingHeartbeatTouch(
+  entityId: string,
+): Promise<string | JsonValue> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await callStreamingHeartbeatTouchOnce(entityId);
+    } catch (e) {
+      attempt++;
+      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
+      const delayMs = buildRetryDelayMs(attempt);
+      console.error(
+        "streaming heartbeat touch attempt " +
           attempt +
           " failed, retrying in " +
           delayMs +

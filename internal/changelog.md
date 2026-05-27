@@ -1,5 +1,10 @@
 # Changelog
 
+## Resolve project task logs into Projects grouping - 2026-05-25
+
+- **Summary**: Logs queries now infer `projectId` from the linked agent task when older completion rows were stored without it, so project tasks roll up under Projects (By Type) and By Project instead of Quick Tasks.
+- **Reason**: Project tagging on logs shipped recently; historical task completions only had `entityType: quickTask` with no `projectId`, so the UI could not group them correctly.
+
 ## Store and view synced SKILL.md contents - 2026-05-25
 
 - **Summary**: GitHub skill sync now persists the full SKILL.md body on each repo skill; the settings Skills page adds a View contents dialog that lazy-loads stored markdown.

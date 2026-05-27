@@ -1,7 +1,23 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { authQuery, hasRepoAccess } from "./functions";
+import {
+  buildTaskProjectIdLookup,
+  resolveLogProjectId,
+} from "./_logs/resolveProjectId";
+
+function toLogDto(entry: Doc<"logs">, projectId: Id<"projects"> | undefined) {
+  return {
+    _id: entry._id,
+    entityType: entry.entityType,
+    entityId: entry.entityId,
+    entityTitle: entry.entityTitle,
+    rawResultEvent: entry.rawResultEvent,
+    projectId,
+    createdAt: entry.createdAt,
+  };
+}
 
 /** Inserts a new log entry for a repo entity (internal use only). */
 export const log = internalMutation({
@@ -100,21 +116,46 @@ export const getByProjectId = authQuery({
       return [];
     }
 
-    const logs = await ctx.db
+    const tagged = await ctx.db
       .query("logs")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .order("desc")
       .collect();
 
-    return logs.map((entry) => ({
-      _id: entry._id,
-      entityType: entry.entityType,
-      entityId: entry.entityId,
-      entityTitle: entry.entityTitle,
-      rawResultEvent: entry.rawResultEvent,
-      projectId: entry.projectId,
-      createdAt: entry.createdAt,
-    }));
+    const tasks = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    const seenIds = new Set(tagged.map((entry) => String(entry._id)));
+    const untagged: Doc<"logs">[] = [];
+
+    for (const task of tasks) {
+      const taskLogs = await ctx.db
+        .query("logs")
+        .withIndex("by_repo_and_entity", (q) =>
+          q.eq("repoId", args.repoId).eq("entityId", String(task._id)),
+        )
+        .collect();
+      for (const entry of taskLogs) {
+        if (entry.projectId !== undefined) continue;
+        const id = String(entry._id);
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+        untagged.push(entry);
+      }
+    }
+
+    const combined = [...tagged, ...untagged];
+    const projectByTaskId = await buildTaskProjectIdLookup(ctx, combined);
+
+    const resolved = combined.flatMap((entry) => {
+      const projectId = resolveLogProjectId(ctx, entry, projectByTaskId);
+      if (projectId !== args.projectId) return [];
+      return [toLogDto(entry, projectId)];
+    });
+
+    return resolved.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
@@ -151,15 +192,11 @@ export const listByRepo = authQuery({
       .order("desc")
       .collect();
 
-    return all.map((entry) => ({
-      _id: entry._id,
-      entityType: entry.entityType,
-      entityId: entry.entityId,
-      entityTitle: entry.entityTitle,
-      rawResultEvent: entry.rawResultEvent,
-      projectId: entry.projectId,
-      createdAt: entry.createdAt,
-    }));
+    const projectByTaskId = await buildTaskProjectIdLookup(ctx, all);
+
+    return all.map((entry) =>
+      toLogDto(entry, resolveLogProjectId(ctx, entry, projectByTaskId)),
+    );
   },
 });
 
@@ -202,10 +239,13 @@ export const listByProject = authQuery({
       .order("desc")
       .collect();
 
+    const projectByTaskId = await buildTaskProjectIdLookup(ctx, all);
+
     const projectIdSet = new Set<Id<"projects">>();
     for (const entry of all) {
-      if (entry.projectId !== undefined) {
-        projectIdSet.add(entry.projectId);
+      const projectId = resolveLogProjectId(ctx, entry, projectByTaskId);
+      if (projectId !== undefined) {
+        projectIdSet.add(projectId);
       }
     }
 
@@ -232,9 +272,14 @@ export const listByProject = authQuery({
     >();
 
     for (const entry of all) {
-      if (entry.projectId === undefined) continue;
-      const pidStr = String(entry.projectId);
-      if (!projectTitles.has(pidStr)) continue;
+      const projectId = resolveLogProjectId(ctx, entry, projectByTaskId);
+      if (projectId === undefined) continue;
+      const pidStr = String(projectId);
+      if (!projectTitles.has(pidStr)) {
+        const project = await ctx.db.get(projectId);
+        if (!project) continue;
+        projectTitles.set(pidStr, project.title);
+      }
       const logEntry: LogEntry = {
         _id: entry._id,
         entityType: entry.entityType,
@@ -248,7 +293,7 @@ export const listByProject = authQuery({
         existing.logs.push(logEntry);
       } else {
         groups.set(pidStr, {
-          projectId: entry.projectId,
+          projectId,
           logs: [logEntry],
         });
       }

@@ -81,8 +81,10 @@ function AuthorizedFlow({ search }: { search: McpOauthParams }) {
         target.searchParams.set("state", search.state);
         window.location.replace(target.toString());
       })
-      .catch(() => {
-        setError("Please try connecting Claude again.");
+      .catch((err) => {
+        const detail =
+          err instanceof Error ? err.message : "Authorization failed";
+        setError(detail);
       });
   }, [authorize, search, convexLoading, isAuthenticated]);
 
@@ -97,7 +99,7 @@ function AuthorizedFlow({ search }: { search: McpOauthParams }) {
     );
   }
 
-  return <Status>Connecting Claude to Eva…</Status>;
+  return <Status>Connecting to Eva…</Status>;
 }
 
 function SignInPrompt() {
@@ -106,7 +108,7 @@ function SignInPrompt() {
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       <p className="text-sm font-medium text-foreground">
-        Sign in to Eva to connect Claude
+        Sign in to Eva to connect your MCP client
       </p>
       <SignInButton
         forceRedirectUrl={currentUrl}

@@ -4,6 +4,7 @@ import {
   internalQuery,
   mutation,
 } from "../_generated/server";
+import { redirectUriMatchesRegistered } from "../_mcp/redirectUri";
 
 const CODE_TTL_MS = 5 * 60 * 1000;
 
@@ -37,10 +38,7 @@ export const authorize = mutation({
     if (!client) {
       throw new Error("Unknown client_id");
     }
-    if (
-      client.redirectUris.length > 0 &&
-      !client.redirectUris.includes(args.redirectUri)
-    ) {
+    if (!redirectUriMatchesRegistered(args.redirectUri, client.redirectUris)) {
       throw new Error("redirect_uri does not match registered URIs");
     }
 

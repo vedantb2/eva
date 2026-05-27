@@ -1,0 +1,50 @@
+const BLOCKED_PROTOCOLS = new Set(["javascript:", "data:"]);
+
+/** Whether a redirect URI is safe to accept during dynamic client registration. */
+export function isAllowedOAuthRedirectUri(uri: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(uri);
+  } catch {
+    return false;
+  }
+
+  if (BLOCKED_PROTOCOLS.has(parsed.protocol)) {
+    return false;
+  }
+
+  return true;
+}
+
+/** Canonical form for comparing redirect URIs during authorize / token exchange. */
+export function normalizeOAuthRedirectUri(uri: string): string {
+  return new URL(uri).toString();
+}
+
+export function redirectUriMatchesRegistered(
+  redirectUri: string,
+  registeredUris: string[],
+): boolean {
+  if (registeredUris.length === 0) {
+    return true;
+  }
+
+  let normalized: string;
+  try {
+    normalized = normalizeOAuthRedirectUri(redirectUri);
+  } catch {
+    return false;
+  }
+
+  for (const registered of registeredUris) {
+    try {
+      if (normalizeOAuthRedirectUri(registered) === normalized) {
+        return true;
+      }
+    } catch {
+      // Skip invalid stored URIs
+    }
+  }
+
+  return false;
+}

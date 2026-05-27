@@ -1,6 +1,7 @@
 import { httpAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { z } from "zod";
+import { isAllowedOAuthRedirectUri } from "../_mcp/redirectUri";
 
 function getWebAppUrl(): string {
   const url = process.env.WEB_APP_URL;
@@ -48,15 +49,8 @@ export const register = httpAction(async (ctx, request) => {
     const redirectUris: string[] = [];
     if (Array.isArray(rawUris)) {
       for (const uri of rawUris) {
-        if (typeof uri === "string") {
-          try {
-            const parsed = new URL(uri);
-            if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-              redirectUris.push(uri);
-            }
-          } catch {
-            // Skip invalid URIs
-          }
+        if (typeof uri === "string" && isAllowedOAuthRedirectUri(uri)) {
+          redirectUris.push(uri);
         }
       }
     }

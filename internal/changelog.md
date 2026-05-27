@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix Cursor MCP OAuth redirect URI registration - 2026-05-25
+
+- **Summary**: Dynamic OAuth client registration now keeps native redirect URIs like `cursor://…` instead of only `http(s)://`, so authorize no longer fails with redirect_uri mismatch when Cursor registers both a custom scheme and loopback HTTP.
+- **Reason**: Cursor MCP could not complete Eva OAuth; the authorize page failed after sign-in because the stored client only had loopback URIs.
+
 ## Resolve project task logs into Projects grouping - 2026-05-25
 
 - **Summary**: Logs queries now infer `projectId` from the linked agent task when older completion rows were stored without it, so project tasks roll up under Projects (By Type) and By Project instead of Quick Tasks.

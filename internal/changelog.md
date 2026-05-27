@@ -1,5 +1,10 @@
 # Changelog
 
+## Store and view synced SKILL.md contents - 2026-05-25
+
+- **Summary**: GitHub skill sync now persists the full SKILL.md body on each repo skill; the settings Skills page adds a View contents dialog that lazy-loads stored markdown.
+- **Reason**: Users needed to inspect harness skill instructions without leaving Eva or re-opening the repo on GitHub.
+
 ## Parse multiline SKILL.md description on GitHub skill sync - 2026-05-25
 
 - **Summary**: Repo skill sync now accepts YAML-style `description:` blocks (indented lines after `description:` without `|`/`>`), and skip warnings name the real failure (missing file, frontmatter, name, or description) instead of a generic “missing valid SKILL.md”.

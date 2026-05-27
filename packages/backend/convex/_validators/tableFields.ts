@@ -127,6 +127,8 @@ export const repoSkillFields = {
   repoId: v.id("githubRepos"),
   title: v.string(),
   description: v.optional(v.string()),
+  /** Full SKILL.md body from the last successful GitHub sync. */
+  content: v.optional(v.string()),
   sourcePath: v.optional(v.string()),
   sourceSha: v.optional(v.string()),
   available: v.optional(v.boolean()),

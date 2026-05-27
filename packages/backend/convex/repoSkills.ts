@@ -23,8 +23,15 @@ const repoSkillListItemValidator = v.object({
 const syncedSkillValidator = v.object({
   title: v.string(),
   description: v.string(),
+  content: v.string(),
   sourcePath: v.string(),
   sourceSha: v.string(),
+});
+
+const repoSkillContentValidator = v.object({
+  title: v.string(),
+  sourcePath: v.optional(v.string()),
+  content: v.string(),
 });
 
 /** Lists all skills for a repo (resolved to canonical repo for monorepos). */
@@ -59,6 +66,26 @@ export const listByRepo = authQuery({
         if (a.available !== b.available) return a.available ? -1 : 1;
         return a.title.localeCompare(b.title);
       });
+  },
+});
+
+/** Returns full SKILL.md content for the settings viewer (lazy-loaded). */
+export const getContentById = authQuery({
+  args: { skillId: v.id("repoSkills") },
+  returns: v.union(v.null(), repoSkillContentValidator),
+  handler: async (ctx, args) => {
+    const skill = await ctx.db.get(args.skillId);
+    if (!skill) return null;
+    if (!(await hasRepoAccess(ctx.db, skill.repoId, ctx.userId))) {
+      return null;
+    }
+    if (!skill.content) return null;
+
+    return {
+      title: skill.title,
+      sourcePath: skill.sourcePath,
+      content: skill.content,
+    };
   },
 });
 
@@ -125,6 +152,7 @@ export const applyGithubSync = internalMutation({
         await ctx.db.patch(existingSkill._id, {
           title: skill.title,
           description: skill.description,
+          content: skill.content,
           sourceSha: skill.sourceSha,
           available: true,
           lastSyncedAt: args.syncedAt,
@@ -136,6 +164,7 @@ export const applyGithubSync = internalMutation({
           repoId: args.repoId,
           title: skill.title,
           description: skill.description,
+          content: skill.content,
           sourcePath: skill.sourcePath,
           sourceSha: skill.sourceSha,
           available: true,

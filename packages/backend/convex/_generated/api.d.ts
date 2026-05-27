@@ -78,6 +78,7 @@ import type * as _projects_sandbox from "../_projects/sandbox.js";
 import type * as _pty_daytona from "../_pty/daytona.js";
 import type * as _pty_owners from "../_pty/owners.js";
 import type * as _queues_helpers from "../_queues/helpers.js";
+import type * as _repoSkills_skillMarkdown from "../_repoSkills/skillMarkdown.js";
 import type * as _repoSkills_sync from "../_repoSkills/sync.js";
 import type * as _repoSnapshots_builds from "../_repoSnapshots/builds.js";
 import type * as _repoSnapshots_config from "../_repoSnapshots/config.js";
@@ -286,6 +287,7 @@ declare const fullApi: ApiFromModules<{
   "_pty/daytona": typeof _pty_daytona;
   "_pty/owners": typeof _pty_owners;
   "_queues/helpers": typeof _queues_helpers;
+  "_repoSkills/skillMarkdown": typeof _repoSkills_skillMarkdown;
   "_repoSkills/sync": typeof _repoSkills_sync;
   "_repoSnapshots/builds": typeof _repoSnapshots_builds;
   "_repoSnapshots/config": typeof _repoSnapshots_config;

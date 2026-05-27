@@ -22,6 +22,7 @@ type SkillDirectory = {
 type SyncedSkill = {
   title: string;
   description: string;
+  content: string;
   sourcePath: string;
   sourceSha: string;
 };
@@ -153,10 +154,8 @@ async function fetchSkill(
       };
     }
 
-    const parsed = parseSkillMarkdown(
-      decodeGitHubContent(response.data.content),
-      directory.fallbackTitle,
-    );
+    const markdown = decodeGitHubContent(response.data.content);
+    const parsed = parseSkillMarkdown(markdown, directory.fallbackTitle);
     if (!parsed.ok) {
       return {
         ok: false,
@@ -169,6 +168,7 @@ async function fetchSkill(
       skill: {
         title: parsed.skill.title,
         description: parsed.skill.description,
+        content: markdown,
         sourcePath,
         sourceSha: response.data.sha,
       },

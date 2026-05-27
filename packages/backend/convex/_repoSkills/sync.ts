@@ -6,21 +6,22 @@ import { v } from "convex/values";
 import { action } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getInstallationOctokit } from "../githubAuth";
+import {
+  formatSkillSkipWarning,
+  parseSkillMarkdown,
+  SKILL_FILE_NAME,
+} from "./skillMarkdown";
 
 const SKILLS_ROOT_PATH = ".agents/skills";
-const SKILL_FILE_NAME = "SKILL.md";
 
 type SkillDirectory = {
   path: string;
   fallbackTitle: string;
 };
 
-type ParsedSkill = {
+type SyncedSkill = {
   title: string;
   description: string;
-};
-
-type SyncedSkill = ParsedSkill & {
   sourcePath: string;
   sourceSha: string;
 };
@@ -37,11 +38,6 @@ type SyncResult = {
   synced: number;
   available: number;
   stale: number;
-};
-
-type BlockParseResult = {
-  value: string;
-  nextIndex: number;
 };
 
 const getUserIdFromIdentityRef = makeFunctionReference<
@@ -69,95 +65,6 @@ const applyGithubSyncRef = makeFunctionReference<
 function isGithubNotFound(error: Error): boolean {
   const message = error.message.toLowerCase();
   return message.includes("not found") || message.includes("404");
-}
-
-function parseScalarValue(raw: string): string {
-  const value = raw.trim();
-  if (
-    ((value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))) &&
-    value.length >= 2
-  ) {
-    return value.slice(1, -1).trim();
-  }
-  return value;
-}
-
-function parseIndentedBlock(
-  lines: string[],
-  startIndex: number,
-): BlockParseResult {
-  const parts: string[] = [];
-  let nextIndex = startIndex;
-  while (nextIndex < lines.length) {
-    const line = lines[nextIndex] ?? "";
-    if (line.trim() === "") {
-      parts.push("");
-      nextIndex++;
-      continue;
-    }
-    if (!line.startsWith(" ") && !line.startsWith("\t")) {
-      break;
-    }
-    parts.push(line.trim());
-    nextIndex++;
-  }
-
-  return {
-    value: parts.join(" ").replace(/\s+/g, " ").trim(),
-    nextIndex,
-  };
-}
-
-function getFrontmatterLines(markdown: string): string[] | null {
-  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
-  if (lines[0]?.trim() !== "---") return null;
-
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i]?.trim() === "---") {
-      return lines.slice(1, i);
-    }
-  }
-
-  return null;
-}
-
-function parseSkillMarkdown(
-  markdown: string,
-  fallbackTitle: string,
-): ParsedSkill | null {
-  const frontmatterLines = getFrontmatterLines(markdown);
-  if (!frontmatterLines) return null;
-
-  let title = fallbackTitle;
-  let description = "";
-
-  for (let i = 0; i < frontmatterLines.length; i++) {
-    const line = frontmatterLines[i] ?? "";
-    if (line.startsWith("name:")) {
-      title = parseScalarValue(line.slice("name:".length));
-      continue;
-    }
-    if (line.startsWith("description:")) {
-      const rawDescription = line.slice("description:".length).trim();
-      if (rawDescription.startsWith(">") || rawDescription.startsWith("|")) {
-        const block = parseIndentedBlock(frontmatterLines, i + 1);
-        description = block.value;
-        i = block.nextIndex - 1;
-      } else {
-        description = parseScalarValue(rawDescription);
-      }
-    }
-  }
-
-  const trimmedTitle = title.trim();
-  const trimmedDescription = description.trim();
-  if (!trimmedTitle || !trimmedDescription) return null;
-
-  return {
-    title: trimmedTitle,
-    description: trimmedDescription,
-  };
 }
 
 function decodeGitHubContent(content: string): string {
@@ -208,7 +115,7 @@ async function fetchSkill(
   name: string,
   ref: string,
   directory: SkillDirectory,
-): Promise<SyncedSkill | null> {
+): Promise<{ ok: true; skill: SyncedSkill } | { ok: false; warning: string }> {
   const sourcePath = `${directory.path}/${SKILL_FILE_NAME}`;
   try {
     const response = await octokit.rest.repos.getContent({
@@ -218,33 +125,60 @@ async function fetchSkill(
       ref,
     });
 
-    if (Array.isArray(response.data)) return null;
-    if (response.data.type !== "file") return null;
+    if (Array.isArray(response.data)) {
+      return {
+        ok: false,
+        warning: formatSkillSkipWarning(directory.path, "missing_file"),
+      };
+    }
+    if (response.data.type !== "file") {
+      return {
+        ok: false,
+        warning: formatSkillSkipWarning(directory.path, "missing_file"),
+      };
+    }
     if (
       !("content" in response.data) ||
       typeof response.data.content !== "string"
     ) {
-      return null;
+      return {
+        ok: false,
+        warning: formatSkillSkipWarning(directory.path, "missing_file"),
+      };
     }
     if (!("sha" in response.data) || typeof response.data.sha !== "string") {
-      return null;
+      return {
+        ok: false,
+        warning: formatSkillSkipWarning(directory.path, "missing_file"),
+      };
     }
 
     const parsed = parseSkillMarkdown(
       decodeGitHubContent(response.data.content),
       directory.fallbackTitle,
     );
-    if (!parsed) return null;
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        warning: formatSkillSkipWarning(directory.path, parsed.reason),
+      };
+    }
 
     return {
-      title: parsed.title,
-      description: parsed.description,
-      sourcePath,
-      sourceSha: response.data.sha,
+      ok: true,
+      skill: {
+        title: parsed.skill.title,
+        description: parsed.skill.description,
+        sourcePath,
+        sourceSha: response.data.sha,
+      },
     };
   } catch (error) {
     if (error instanceof Error && isGithubNotFound(error)) {
-      return null;
+      return {
+        ok: false,
+        warning: formatSkillSkipWarning(directory.path, "missing_file"),
+      };
     }
     throw error;
   }
@@ -295,20 +229,19 @@ export const syncFromGithub = action({
     const skills: SyncedSkill[] = [];
     const seenTitles = new Set<string>();
     for (const directory of directories) {
-      const skill = await fetchSkill(
+      const fetchResult = await fetchSkill(
         octokit,
         target.owner,
         target.name,
         target.ref,
         directory,
       );
-      if (!skill) {
+      if (!fetchResult.ok) {
         skipped++;
-        warnings.push(
-          `Skipped ${directory.path}: missing valid ${SKILL_FILE_NAME}.`,
-        );
+        warnings.push(fetchResult.warning);
         continue;
       }
+      const skill = fetchResult.skill;
       if (seenTitles.has(skill.title)) {
         skipped++;
         warnings.push(

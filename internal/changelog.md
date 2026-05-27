@@ -1,5 +1,10 @@
 # Changelog
 
+## Parse multiline SKILL.md description on GitHub skill sync - 2026-05-25
+
+- **Summary**: Repo skill sync now accepts YAML-style `description:` blocks (indented lines after `description:` without `|`/`>`), and skip warnings name the real failure (missing file, frontmatter, name, or description) instead of a generic “missing valid SKILL.md”.
+- **Reason**: CarePulse skills on `staging` use common Cursor skill frontmatter; the old parser treated them as invalid even though `SKILL.md` existed alongside other reference files.
+
 ## Strip Cursor commit attribution in git hooks - 2026-05-25
 
 - **Summary**: Added a `prepare-commit-msg` husky hook that removes `Co-authored-by: Cursor` and `Made-with: Cursor` trailers before commits land, plus an agent rule not to add them.

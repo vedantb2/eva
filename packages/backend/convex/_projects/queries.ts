@@ -4,7 +4,8 @@ import { internalQuery } from "../_generated/server";
 import { taskSandboxStatusValidator } from "../_validators/enums";
 import {
   projectWithDetailsValidator,
-  projectSummaryValidator,
+  projectListItemValidator,
+  resolveProjectPlanningMode,
   getProjectConversation,
   getProjectGeneratedSpec,
   buildProjectBranchName,
@@ -14,14 +15,19 @@ import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 /** Lists all projects for a repo. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
-  returns: v.array(projectSummaryValidator),
+  returns: v.array(projectListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
       .collect();
-    return projects;
+    return await Promise.all(
+      projects.map(async (project) => ({
+        ...project,
+        planningMode: await resolveProjectPlanningMode(ctx.db, project),
+      })),
+    );
   },
 });
 

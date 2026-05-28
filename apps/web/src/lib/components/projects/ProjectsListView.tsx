@@ -122,6 +122,10 @@ export function ProjectsListView({
                                 members={project.members}
                                 projectLead={project.projectLead}
                                 phase={phase}
+                                planningMode={project.planningMode}
+                                isBuilding={
+                                  project.activeBuildWorkflowId !== undefined
+                                }
                                 sandboxStatus={
                                   project.reviewProjectSandboxStatus
                                 }

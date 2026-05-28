@@ -186,6 +186,10 @@ export const projectFields = {
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
   phase: phaseValidator,
+  /** How the project was created: AI interview/plan vs tasks-only container. */
+  planningMode: v.optional(
+    v.union(v.literal("interview"), v.literal("tasks_only")),
+  ),
   priority: v.optional(priorityValidator),
   rawInput: v.string(),
   projectLead: v.optional(v.id("users")),

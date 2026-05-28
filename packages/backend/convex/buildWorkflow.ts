@@ -2,7 +2,11 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
-import { authMutation, hasRepoAccess } from "./functions";
+import {
+  authMutation,
+  hasRepoAccess,
+  recomputeProjectPhase,
+} from "./functions";
 import { buildTaskDoneEvent } from "./taskWorkflow";
 import { trackProjectBuildWorkflow } from "./workflowWatchdog";
 import { buildProjectBranchName } from "./_projects/helpers";
@@ -196,6 +200,7 @@ export const completeBuild = internalMutation({
         ? `Build stopped: task ${args.failedTaskId} failed`
         : undefined,
     });
+    await recomputeProjectPhase(ctx, args.projectId);
     return null;
   },
 });
@@ -405,6 +410,7 @@ export const cancelBuild = authMutation({
       activeBuildWorkflowId: undefined,
       lastBuildError: "Build cancelled by user",
     });
+    await recomputeProjectPhase(ctx, args.projectId);
 
     return null;
   },

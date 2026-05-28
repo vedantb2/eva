@@ -38,6 +38,30 @@ const {
 /** Convex validator for a project summary (excludes conversation history and generated spec). */
 export const projectSummaryValidator = v.object(projectSummaryFields);
 
+export const projectPlanningModeValidator = v.union(
+  v.literal("interview"),
+  v.literal("tasks_only"),
+);
+
+/** List rows always include a resolved planning mode (stored or inferred). */
+export const projectListItemValidator = v.object({
+  ...projectSummaryFields,
+  planningMode: projectPlanningModeValidator,
+});
+
+/** Infers interview vs tasks-only for projects created before `planningMode` existed. */
+export async function resolveProjectPlanningMode(
+  db: GenericDatabaseReader<DataModel>,
+  project: Doc<"projects">,
+): Promise<"interview" | "tasks_only"> {
+  if (project.planningMode) return project.planningMode;
+  const details = await getProjectDetails(db, project._id);
+  if (!details) return "tasks_only";
+  if (details.generatedSpec) return "interview";
+  if (details.conversationHistory.length > 0) return "interview";
+  return "tasks_only";
+}
+
 /** Fetches the projectDetails document for a given project. */
 export async function getProjectDetails(
   db: GenericDatabaseReader<DataModel>,

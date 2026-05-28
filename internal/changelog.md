@@ -1,5 +1,11 @@
 # Changelog
 
+## Project card build state and planning source - 2026-05-28
+
+- Project `in_progress` phase now means an active build workflow is running, not merely queued or running tasks, so the board status matches what users see when they click Start build.
+- Project cards show the same spinning border animation as quick tasks while a build is active, making in-flight work obvious in kanban and list views.
+- Project cards show an Interview vs Tasks only badge so it is clear whether a project came from the AI planning flow or was created as a task container.
+
 ## Align project phases with quick-task review lifecycle - 2026-05-28
 
 - Project phases now follow `draft → finalized → in_progress → business_review → code_review → completed`, keeping `finalized` for spec-ready work and using `in_progress` only while agents are building.

@@ -15,6 +15,7 @@ import {
   startNextQueuedProjectChatMessage,
   startNextQueuedTaskChatMessage,
 } from "./_queues/helpers";
+import { recomputeProjectPhase } from "./functions";
 
 /** Streaming entityId prefix for project chat workflows. */
 export const PROJECT_CHAT_STREAM_PREFIX = "project-chat-";
@@ -156,6 +157,7 @@ export async function trackProjectBuildWorkflow(
     activeBuildWorkflowId: id,
     ...(options.clearLastBuildError ? { lastBuildError: undefined } : {}),
   });
+  await recomputeProjectPhase(ctx, projectId);
   await ctx.scheduler.runAfter(
     timeoutMs,
     internal.workflowWatchdog.handleStaleBuild,
@@ -454,6 +456,7 @@ export const handleStaleBuild = internalMutation({
     await ctx.db.patch(args.projectId, {
       activeBuildWorkflowId: undefined,
     });
+    await recomputeProjectPhase(ctx, args.projectId);
 
     return null;
   },

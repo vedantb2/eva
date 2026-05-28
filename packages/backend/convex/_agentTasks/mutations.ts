@@ -605,7 +605,8 @@ export const createBatchWithDependencies = authMutation({
         userId: ctx.userId,
         title: args.projectTitle,
         rawInput: args.projectTitle,
-        phase: "in_progress",
+        phase: "business_review",
+        planningMode: "tasks_only",
         baseBranch,
         projectStartDate: now,
       });

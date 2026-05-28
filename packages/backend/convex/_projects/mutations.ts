@@ -24,7 +24,7 @@ import { scheduleProjectPrSync } from "./prSync";
 /**
  * Creates a new project. Defaults to `draft` phase with an initial conversation
  * message for the AI interview/plan flow. When `skipPlanning` is true, the
- * project goes straight to `in_progress` as a plain tasks-only container —
+ * project goes straight to `business_review` as a plain tasks-only container —
  * no AI conversation, no generated spec, branch name set immediately.
  */
 export const create = authMutation({
@@ -49,7 +49,8 @@ export const create = authMutation({
       rawInput: args.rawInput,
       description: skipPlanning ? args.rawInput : undefined,
       baseBranch: args.baseBranch,
-      phase: skipPlanning ? "in_progress" : "draft",
+      phase: skipPlanning ? "business_review" : "draft",
+      planningMode: skipPlanning ? "tasks_only" : "interview",
       projectStartDate: Date.now(),
       priority: args.priority,
     });

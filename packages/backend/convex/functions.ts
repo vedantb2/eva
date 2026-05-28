@@ -76,20 +76,7 @@ export async function recomputeProjectPhase(
     return;
   }
 
-  const buildingStatuses = ["todo", "in_progress"] as const;
-  const buildingChecks = await Promise.all(
-    buildingStatuses.map((status) =>
-      db
-        .query("agentTasks")
-        .withIndex("by_project_and_status", (q) =>
-          q.eq("projectId", projectId).eq("status", status),
-        )
-        .first(),
-    ),
-  );
-  const anyBuilding = buildingChecks.some((t) => t !== null);
-
-  if (anyBuilding) {
+  if (project.activeBuildWorkflowId) {
     if (project.phase !== "in_progress") {
       const previousPhase = project.phase;
       await db.patch(projectId, { phase: "in_progress" });
@@ -164,7 +151,7 @@ export async function recomputeProjectPhase(
 
   if (!hasDone && !hasNonDone) return;
 
-  const allDone = hasDone !== null && !hasNonDone && !anyBuilding;
+  const allDone = hasDone !== null && !hasNonDone;
   if (allDone && project.phase !== "completed") {
     const previousPhase = project.phase;
     await db.patch(projectId, { phase: "completed" });

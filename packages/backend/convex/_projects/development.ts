@@ -9,7 +9,7 @@ import {
 } from "./helpers";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
-/** Converts a finalized project spec into tasks with dependencies and sets the project to in_progress. */
+/** Converts a finalized project spec into tasks with dependencies and sets the project to business_review. */
 export const startDevelopment = authMutation({
   args: {
     projectId: v.id("projects"),
@@ -68,7 +68,7 @@ export const startDevelopment = authMutation({
       }
     }
     await ctx.db.patch(args.projectId, {
-      phase: "in_progress",
+      phase: "business_review",
       branchName,
       description: spec.description,
     });
@@ -95,7 +95,8 @@ export const createFromTasks = authMutation({
       userId: ctx.userId,
       title: args.title,
       rawInput: args.title,
-      phase: "in_progress",
+      phase: "business_review",
+      planningMode: "tasks_only",
       baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
       projectStartDate: Date.now(),
     });

@@ -14,9 +14,12 @@ import {
   IconClipboard,
   IconCopy,
   IconExternalLink,
+  IconListCheck,
+  IconSparkles,
 } from "@tabler/icons-react";
 import {
   AvatarStack,
+  Badge,
   cn,
   ContextMenu,
   ContextMenuTrigger,
@@ -64,6 +67,8 @@ interface ProjectCardProps {
   members?: Array<Id<"users">>;
   projectLead?: Id<"users">;
   phase: ProjectPhase;
+  planningMode: "interview" | "tasks_only";
+  isBuilding?: boolean;
   sandboxStatus?: SandboxStatus;
   isActive?: boolean;
   href?: string;
@@ -83,6 +88,8 @@ export function ProjectCard({
   members,
   projectLead,
   phase,
+  planningMode,
+  isBuilding = false,
   sandboxStatus,
   isActive,
   href,
@@ -190,6 +197,28 @@ export function ProjectCard({
             {previewText}
           </p>
         ) : null}
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant="secondary"
+                className="gap-0.5 px-1.5 py-0 text-[10px] font-medium leading-4"
+              >
+                {planningMode === "interview" ? (
+                  <IconSparkles size={10} className="shrink-0" />
+                ) : (
+                  <IconListCheck size={10} className="shrink-0" />
+                )}
+                {planningMode === "interview" ? "Interview" : "Tasks only"}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              {planningMode === "interview"
+                ? "Created with AI interview and generated plan"
+                : "Created as a tasks-only container"}
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <ProjectProgressBar
           projectId={projectId}
           className="mt-4 h-1.5 bg-secondary/75"
@@ -255,9 +284,17 @@ export function ProjectCard({
     </div>
   );
 
+  const wrappedCard = isBuilding ? (
+    <div className="qt-in-progress-border rounded-[9px] p-px">
+      {cardContent}
+    </div>
+  ) : (
+    cardContent
+  );
+
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>{cardContent}</ContextMenuTrigger>
+      <ContextMenuTrigger asChild>{wrappedCard}</ContextMenuTrigger>
       <ContextMenuContent onClick={(e) => e.stopPropagation()}>
         <ContextMenuSub>
           <ContextMenuSubTrigger>

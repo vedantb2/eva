@@ -15,6 +15,9 @@ import {
   CommandList,
   CommandGroup,
   CommandItem,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
@@ -39,6 +42,22 @@ const MarkdownEditor = lazy(() =>
     default: m.MarkdownEditor,
   })),
 );
+
+function getSubmitDisabledReason(
+  isLoading: boolean,
+  title: string,
+  description: string,
+): string | undefined {
+  if (isLoading) return "Creating project…";
+  const missingTitle = !title.trim();
+  const missingDescription = !description.trim();
+  if (missingTitle && missingDescription) {
+    return "Enter a project title and description";
+  }
+  if (missingTitle) return "Enter a project title";
+  if (missingDescription) return "Enter a description";
+  return undefined;
+}
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -85,7 +104,12 @@ export function NewProjectModal({
     onClose();
   }, [resetForm, onClose]);
 
-  const canSubmit = !isLoading && !!title.trim() && !!getDescription().trim();
+  const canSubmit = !isLoading && !!title.trim() && !!description.trim();
+  const submitDisabledReason = getSubmitDisabledReason(
+    isLoading,
+    title,
+    description,
+  );
 
   const handleSubmit = async () => {
     const desc = getDescription().trim();
@@ -154,6 +178,7 @@ export function NewProjectModal({
             <MarkdownEditor
               ref={editorRef}
               content={description}
+              onChange={setDescription}
               editable
               placeholder="Describe what you want to build..."
               minHeight="min-h-[160px]"
@@ -251,11 +276,20 @@ export function NewProjectModal({
           <Button variant="secondary" onClick={handleClose}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
-            {isLoading && <Spinner size="sm" />}
-            Create Project
-            <kbd className="ml-1.5 text-xs opacity-60">⌘↵</kbd>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button onClick={handleSubmit} disabled={!canSubmit}>
+                  {isLoading && <Spinner size="sm" />}
+                  Create Project
+                  <kbd className="ml-1.5 text-xs opacity-60">⌘↵</kbd>
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {submitDisabledReason !== undefined && (
+              <TooltipContent>{submitDisabledReason}</TooltipContent>
+            )}
+          </Tooltip>
         </DialogFooter>
       </DialogContent>
     </Dialog>

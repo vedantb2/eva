@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   isAllowedOAuthRedirectUri,
   redirectUriMatchesRegistered,
-} from "../convex/_mcp/redirectUri.ts";
+} from "../convex/_mcp/redirectUri";
 
 describe("isAllowedOAuthRedirectUri", () => {
   it("allows https and loopback http", () => {

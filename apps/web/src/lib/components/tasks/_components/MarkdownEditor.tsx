@@ -37,13 +37,15 @@ interface MarkdownEditorProps {
   placeholder?: string;
   minHeight?: string;
   onBlur?: (markdown: string) => void;
+  /** Called when the document changes so parents can drive submit/button state. */
+  onChange?: (markdown: string) => void;
 }
 
 export const MarkdownEditor = forwardRef<
   MarkdownEditorHandle,
   MarkdownEditorProps
 >(function MarkdownEditor(
-  { content, editable, className, placeholder, minHeight, onBlur },
+  { content, editable, className, placeholder, minHeight, onBlur, onChange },
   ref,
 ) {
   const prevEditable = useRef(editable);
@@ -67,6 +69,9 @@ export const MarkdownEditor = forwardRef<
     },
     onBlur: ({ editor: e }) => {
       onBlur?.(e.getMarkdown());
+    },
+    onUpdate: ({ editor: e }) => {
+      onChange?.(e.getMarkdown());
     },
   });
 

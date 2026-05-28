@@ -41,6 +41,13 @@ ${TASK_PHILOSOPHY}
 
 Reference actual file paths and follow the project's existing patterns and conventions.
 
+## Plan Semantics
+- This plan will be shown to the user for approval before any tasks are created.
+- The order of the tasks array is the execution order Eva will use.
+- Task 1 should be the first thing an implementation agent can safely start.
+- Use dependencies for tasks that must wait for earlier tasks; dependency numbers must only reference earlier tasks in the array.
+- Do not reference future tasks as dependencies.
+
 ## Output Format
 You MUST output ONLY valid JSON with this exact structure:
 {

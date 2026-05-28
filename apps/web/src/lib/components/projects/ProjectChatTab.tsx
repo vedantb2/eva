@@ -13,6 +13,7 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
+import { ConfirmDialog } from "@/lib/components/quick-tasks/_components/ConfirmDialog";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 import {
@@ -85,6 +86,8 @@ export function ProjectChatTab({
   const startProjectSpec = useMutation(api.projectInterviewWorkflow.startSpec);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const prevMessagesLengthRef = useRef(initialMessages.length);
 
   const isLocked = projectPhase === "active" || projectPhase === "completed";
@@ -148,9 +151,15 @@ export function ProjectChatTab({
   };
 
   const handleClearChat = async () => {
-    await clearMessagesDb({ id: projectId });
-    setIsLoading(false);
-    onClear?.();
+    setIsClearing(true);
+    try {
+      await clearMessagesDb({ id: projectId });
+      setIsLoading(false);
+      onClear?.();
+      setConfirmClearOpen(false);
+    } finally {
+      setIsClearing(false);
+    }
   };
 
   const currentQuestion: ParsedQuestion | null = (() => {
@@ -299,23 +308,40 @@ export function ProjectChatTab({
             onAnswer={handleAnswer}
             isLoading={isLoading}
             questionNumber={questionCount}
+            trailingControls={
+              <>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  Answered: {questionCount}
+                </span>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setConfirmClearOpen(true)}
+                  disabled={
+                    isLoading || isLocked || initialMessages.length === 0
+                  }
+                >
+                  <IconTrash size={16} />
+                  Clear
+                </Button>
+              </>
+            }
           />
         )}
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">
-            Questions answered: {questionCount}
-          </span>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={handleClearChat}
-            disabled={isLoading || isLocked || initialMessages.length === 0}
-          >
-            <IconTrash size={16} />
-            Clear
-          </Button>
-        </div>
       </div>
+      <ConfirmDialog
+        open={confirmClearOpen}
+        onOpenChange={setConfirmClearOpen}
+        title="Clear interview transcript?"
+        description="This deletes the Q&A history for this project so you can restart the interview from scratch."
+        detail="The sandbox, generated spec, and any tasks are not affected."
+        confirmLabel="Clear transcript"
+        variant="destructive"
+        onConfirm={() => {
+          void handleClearChat();
+        }}
+        isLoading={isClearing}
+      />
     </div>
   );
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## Compact interview controls and confirm before clearing - 2026-05-28
+
+- **Summary**: The project interview now renders the "Answered: N" counter and the destructive Clear button inline on the submit row of `MultipleChoiceQuestion` (via a new `trailingControls` slot) instead of a separate footer row, and clicking Clear opens a confirmation dialog before wiping the conversation history.
+- **Reason**: The dedicated footer row took vertical space and the Clear button was a single click away from destroying interview progress with no undo. Inlining the controls keeps the form footprint tighter and the confirmation makes the destructive action explicit.
+
 ## Unify project interview sandbox lifecycle with preview path - 2026-05-28
 
 - **Summary**: Project interview and spec workflows now reuse the shared `startProjectPreviewSandbox` action instead of the generic task-style sandbox prep, so the sandbox id is persisted on the project and reused across answers, and `reviewProjectSandboxStatus` is set so the card/sidebar active indicator lights up while the interview runs. Each conversation message now also records `startedAt`/`finishedAt`, and the project interview chat shows the same live activity timer and duration label as quick tasks and sessions.

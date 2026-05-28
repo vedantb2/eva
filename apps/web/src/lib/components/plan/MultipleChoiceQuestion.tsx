@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button, Input, Card, CardContent, Badge } from "@conductor/ui";
 import {
   IconCheck,
@@ -29,6 +29,9 @@ interface MultipleChoiceQuestionProps {
   onAnswer: (answer: string) => void;
   isLoading?: boolean;
   questionNumber?: number;
+  // Optional controls appended to the submit row (e.g. a question counter and
+  // a Clear button) so callers can keep them on the same line as the action.
+  trailingControls?: ReactNode;
 }
 
 export function MultipleChoiceQuestion({
@@ -37,6 +40,7 @@ export function MultipleChoiceQuestion({
   questions,
   onAnswer,
   isLoading = false,
+  trailingControls,
 }: MultipleChoiceQuestionProps) {
   const resolvedQuestions: QuestionItem[] = questions
     ? questions
@@ -264,7 +268,7 @@ export function MultipleChoiceQuestion({
         </Card>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
         {isMultiStep && currentStep > 0 && (
           <Button
             variant="ghost"
@@ -289,6 +293,7 @@ export function MultipleChoiceQuestion({
             <IconArrowRight size={15} strokeWidth={2.5} className="ml-1" />
           )}
         </Button>
+        {trailingControls}
       </div>
     </div>
   );

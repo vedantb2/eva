@@ -1,5 +1,12 @@
 # Changelog
 
+## Stabilize Project Interview Sandboxes - 2026-05-28
+
+- Project interviews now persist newly created sandbox ids before long startup work, so retries and later answers reuse the same Daytona sandbox.
+- Duplicate interview/spec starts are ignored while a project workflow is active, preventing concurrent runs from spawning extra sandboxes.
+- Project chat now shows sandbox startup activity steps before Claude launches, matching quick task and session progress behavior.
+- Stuck interview repair now removes both empty and error assistant placeholders, making recovery from failed sandbox starts cleaner.
+
 ## Repair failed project interview cleanup - 2026-05-28
 
 - **Summary**: Project interview/spec workflows now clean up failed sandbox starts by clearing the active workflow and replacing empty assistant placeholders with an error state, plus a one-off repair exists for stuck draft projects.

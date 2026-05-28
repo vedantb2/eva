@@ -1753,6 +1753,10 @@ async function prepareProjectPreviewSandboxInternal(
   );
   const sandbox = prepared.sandbox;
   const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
+  await ctx.runMutation(internal.projects.projectSandboxAllocated, {
+    projectId: args.projectId,
+    sandboxId: sandbox.id,
+  });
   completedSteps.push({
     type: "tool",
     label: "Creating sandbox...",

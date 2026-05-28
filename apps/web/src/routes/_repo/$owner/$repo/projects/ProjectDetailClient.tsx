@@ -509,6 +509,7 @@ export function ProjectDetailClient({
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
             streamingActivity={streaming?.currentActivity}
+            sandboxStartupActivity={sandboxStartupActivity}
             basePath={basePath}
             repoId={repo._id}
           />

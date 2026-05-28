@@ -344,6 +344,7 @@ export const startInterview = authMutation({
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
+    if (project.activeWorkflowId) return null;
 
     const repo = await ctx.db.get(project.repoId);
     if (!repo) throw new Error("Repository not found");
@@ -379,6 +380,7 @@ export const startSpec = authMutation({
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
+    if (project.activeWorkflowId) return null;
 
     const repo = await ctx.db.get(project.repoId);
     if (!repo) throw new Error("Repository not found");

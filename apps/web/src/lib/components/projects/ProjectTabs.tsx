@@ -16,6 +16,7 @@ interface ProjectTabsProps {
   generatedSpec: string | undefined;
   conversationHistory: ConversationMessage[];
   streamingActivity?: string;
+  sandboxStartupActivity?: string;
   basePath: string;
   repoId: Id<"githubRepos">;
 }
@@ -28,6 +29,7 @@ export function ProjectTabs({
   generatedSpec,
   conversationHistory,
   streamingActivity,
+  sandboxStartupActivity,
   basePath,
   repoId,
 }: ProjectTabsProps) {
@@ -97,7 +99,7 @@ export function ProjectTabs({
         projectPhase={projectPhase}
         activeWorkflowId={activeWorkflowId}
         initialMessages={conversationHistory}
-        streamingActivity={streamingActivity}
+        streamingActivity={streamingActivity ?? sandboxStartupActivity}
         rawInput={rawInput}
         onSpecGenerated={handleSpecGenerated}
         onClear={handleClear}
@@ -114,6 +116,7 @@ export function ProjectTabs({
           projectPhase={projectPhase}
           activeWorkflowId={activeWorkflowId}
           initialMessages={conversationHistory}
+          streamingActivity={streamingActivity ?? sandboxStartupActivity}
           rawInput={rawInput}
           onSpecGenerated={handleSpecGenerated}
           onClear={handleClear}

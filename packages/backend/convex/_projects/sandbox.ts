@@ -374,6 +374,27 @@ export const projectSandboxStarting = internalMutation({
   },
 });
 
+/** Persists the sandbox id as soon as Daytona creates it, before long startup steps. */
+export const projectSandboxAllocated = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    sandboxId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return null;
+
+    await ctx.db.patch(args.projectId, {
+      sandboxId: args.sandboxId,
+      reviewProjectSandboxStatus: "starting",
+      lastSandboxActivity: Date.now(),
+    });
+
+    return null;
+  },
+});
+
 /** Records a project sandbox startup failure (internal use). */
 export const projectSandboxError = internalMutation({
   args: {

@@ -30,6 +30,7 @@ export {
   stopProjectSandbox,
   retryProjectStartupCommands,
   resolveProjectConflicts,
+  projectSandboxAllocated,
   projectSandboxStarting,
   projectSandboxReady,
   projectSandboxError,

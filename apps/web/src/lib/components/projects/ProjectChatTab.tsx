@@ -226,13 +226,12 @@ export function ProjectChatTab({
             if (m.role === "assistant") {
               if (!m.content) {
                 return (
-                  <ChatMessage
-                    key={`msg-${i}`}
-                    role="assistant"
-                    content={streamingActivity || "Starting..."}
-                    isStreaming
-                    startedAt={m.startedAt}
-                  />
+                  <div key={`msg-${i}`} className="px-1 py-2">
+                    <StreamingActivityDisplay
+                      activity={streamingActivity}
+                      startedAt={m.startedAt}
+                    />
+                  </div>
                 );
               }
               try {

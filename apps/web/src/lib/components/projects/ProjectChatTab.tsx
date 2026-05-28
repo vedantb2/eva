@@ -33,6 +33,7 @@ export interface ConversationMessage {
 interface ProjectChatTabProps {
   projectId: Id<"projects">;
   projectPhase: ProjectPhase;
+  activeWorkflowId?: string;
   initialMessages: ConversationMessage[];
   streamingActivity?: string;
   rawInput: string;
@@ -71,6 +72,7 @@ const isParsedQuestion = (v: unknown): v is ParsedQuestion =>
 export function ProjectChatTab({
   projectId,
   projectPhase,
+  activeWorkflowId,
   initialMessages,
   streamingActivity,
   rawInput,
@@ -92,6 +94,7 @@ export function ProjectChatTab({
 
   const isLocked = projectPhase === "active" || projectPhase === "completed";
   const hasStarted = initialMessages.length > 0 || isLoading;
+  const hasActiveWorkflow = activeWorkflowId !== undefined;
 
   const assistantMessages = initialMessages.filter(
     (m) => m.role === "assistant",
@@ -179,7 +182,14 @@ export function ProjectChatTab({
 
   const waitingForResponse =
     initialMessages.length > 0 &&
-    initialMessages[initialMessages.length - 1]?.role === "user";
+    initialMessages[initialMessages.length - 1]?.role === "user" &&
+    (isLoading || hasActiveWorkflow);
+  const canContinueInterview =
+    initialMessages.length > 0 &&
+    initialMessages[initialMessages.length - 1]?.role === "user" &&
+    !isLoading &&
+    !hasActiveWorkflow &&
+    !isLocked;
   const showQuestion = currentQuestion && !waitingForResponse;
 
   if (!hasStarted && !isLocked) {
@@ -296,6 +306,17 @@ export function ProjectChatTab({
                 </span>
               </div>
             )}
+          {canContinueInterview && (
+            <div className="flex flex-col gap-2 rounded-lg bg-muted/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-sm text-muted-foreground">
+                The last interview run stopped before Eva asked the next
+                question.
+              </span>
+              <Button size="sm" onClick={handleStartInterview}>
+                Continue interview
+              </Button>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </ConversationContent>
         <ConversationScrollButton />

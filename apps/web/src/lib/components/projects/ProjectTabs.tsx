@@ -11,6 +11,7 @@ import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 interface ProjectTabsProps {
   projectId: Id<"projects">;
   projectPhase: ProjectPhase;
+  activeWorkflowId?: string;
   rawInput: string;
   generatedSpec: string | undefined;
   conversationHistory: ConversationMessage[];
@@ -22,6 +23,7 @@ interface ProjectTabsProps {
 export function ProjectTabs({
   projectId,
   projectPhase,
+  activeWorkflowId,
   rawInput,
   generatedSpec,
   conversationHistory,
@@ -93,6 +95,7 @@ export function ProjectTabs({
       <ProjectChatTab
         projectId={projectId}
         projectPhase={projectPhase}
+        activeWorkflowId={activeWorkflowId}
         initialMessages={conversationHistory}
         streamingActivity={streamingActivity}
         rawInput={rawInput}
@@ -109,6 +112,7 @@ export function ProjectTabs({
         <ProjectChatTab
           projectId={projectId}
           projectPhase={projectPhase}
+          activeWorkflowId={activeWorkflowId}
           initialMessages={conversationHistory}
           rawInput={rawInput}
           onSpecGenerated={handleSpecGenerated}

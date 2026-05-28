@@ -504,6 +504,7 @@ export function ProjectDetailClient({
           <ProjectTabs
             projectId={typedProjectId}
             projectPhase={project.phase}
+            activeWorkflowId={project.activeWorkflowId}
             rawInput={project.rawInput}
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}

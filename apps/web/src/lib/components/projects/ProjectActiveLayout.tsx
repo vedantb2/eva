@@ -8,13 +8,11 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { ProjectProgressBar } from "./ProjectProgressBar";
-import { PlanContextPanel } from "./PlanContextPanel";
 import { ProjectDescription } from "./ProjectDescription";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { IconChecklist } from "@tabler/icons-react";
 import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
-import type { ConversationMessage } from "./ProjectChatTab";
 
 interface Project {
   _id: Id<"projects">;
@@ -24,16 +22,12 @@ interface Project {
   sandboxId?: string;
   phase: "draft" | "finalized" | "active" | "completed" | "cancelled";
   rawInput: string;
-  generatedSpec?: string;
-  conversationHistory: ConversationMessage[];
 }
 
 interface ProjectActiveLayoutProps {
   projectId: Id<"projects">;
   project: Project;
   basePath: string;
-  generatedSpec?: string;
-  conversationHistory: ConversationMessage[];
   selectedTaskId?: string;
   detailTab?: TaskDetailTab;
 }
@@ -42,8 +36,6 @@ export function ProjectActiveLayout({
   projectId,
   project,
   basePath,
-  generatedSpec,
-  conversationHistory,
   selectedTaskId: selectedTaskIdParam,
   detailTab,
 }: ProjectActiveLayoutProps) {
@@ -129,14 +121,6 @@ export function ProjectActiveLayout({
             onCreateTask={() => setCreateTaskOpen(true)}
           />
         </div>
-        {generatedSpec && (
-          <div className="pt-6 p-2 flex justify-center gap-2">
-            <PlanContextPanel
-              generatedSpec={generatedSpec}
-              conversationHistory={conversationHistory}
-            />
-          </div>
-        )}
         <ProjectProgressBar projectId={projectId} className="mx-3 mt-2 mb-3" />
       </div>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">

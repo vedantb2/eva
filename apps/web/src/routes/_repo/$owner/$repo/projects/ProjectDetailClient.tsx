@@ -16,6 +16,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DialogBody,
   Spinner,
 } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -45,6 +47,8 @@ import {
   IconBrandVercel,
   IconDots,
   IconRefresh,
+  IconFileText,
+  IconMessage,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useNavigate } from "@tanstack/react-router";
@@ -54,6 +58,9 @@ import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/Resolve
 import { StartupCommandsConfirmDialog } from "@/lib/components/tasks/_components/StartupCommandsConfirmDialog";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
+import { parseSpec } from "@/lib/utils/parseSpec";
+import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
+import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
 
 export function ProjectDetailClient({
   projectId,
@@ -81,6 +88,8 @@ export function ProjectDetailClient({
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [isResolvingConflicts, setIsResolvingConflicts] = useState(false);
   const [prError, setPrError] = useState<string | null>(null);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
   const startBuild = useMutation(api.buildWorkflow.startBuild);
   const cancelBuild = useMutation(api.buildWorkflow.cancelBuild);
   const resolveProjectConflicts = useMutation(
@@ -199,11 +208,21 @@ export function ProjectDetailClient({
     Boolean(project.prUrl) &&
     !project.activeBuildWorkflowId &&
     project.phase === "active";
+  const parsedSpec = (() => {
+    if (!project.generatedSpec) return null;
+    try {
+      return parseSpec(project.generatedSpec);
+    } catch {
+      return null;
+    }
+  })();
+  const hasPlanContext = Boolean(parsedSpec);
   const showMoreMenu =
     canCreatePr ||
     hasDeployedPreview ||
     showRetryStartupCommands ||
-    showResolveConflicts;
+    showResolveConflicts ||
+    hasPlanContext;
 
   if (surface === "sandbox") {
     const tab = sandboxTab ?? "preview";
@@ -419,6 +438,23 @@ export function ProjectDetailClient({
                         </TooltipContent>
                       </Tooltip>
                     )}
+                    {hasPlanContext && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setShowPlanModal(true)}
+                        >
+                          <IconFileText size={14} />
+                          View Plan
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setShowChatModal(true)}
+                        >
+                          <IconMessage size={14} />
+                          View Interview History
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
@@ -518,8 +554,6 @@ export function ProjectDetailClient({
             projectId={typedProjectId}
             project={project}
             basePath={basePath}
-            generatedSpec={project.generatedSpec}
-            conversationHistory={project.conversationHistory}
             selectedTaskId={selectedTaskId}
             detailTab={detailTab}
           />
@@ -592,6 +626,63 @@ export function ProjectDetailClient({
         onConfirm={handleRetryStartupCommands}
         isStarting={isRetryingStartupCommands}
       />
+
+      {parsedSpec && (
+        <Dialog open={showPlanModal} onOpenChange={setShowPlanModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Plan</DialogTitle>
+            </DialogHeader>
+            <DialogBody>
+              <div className="space-y-3">
+                <div>
+                  <h3 className="font-semibold text-lg">{parsedSpec.title}</h3>
+                  <p className="text-muted-foreground">
+                    {parsedSpec.description}
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <h4 className="font-medium">
+                    Tasks ({parsedSpec.tasks.length})
+                  </h4>
+                  {parsedSpec.tasks.map((task, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-2 p-2 bg-muted rounded"
+                    >
+                      <span className="text-muted-foreground font-mono">
+                        {i + 1}.
+                      </span>
+                      <span>{task.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </DialogBody>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      <Dialog open={showChatModal} onOpenChange={setShowChatModal}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader className="pb-4">
+            <DialogTitle>
+              <div className="flex items-center gap-2">
+                <IconMessage size={20} />
+                Interview History
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({project.conversationHistory.length} messages)
+                </span>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <div className="flex flex-col gap-3 py-2">
+              <ProjectChatMessageList messages={project.conversationHistory} />
+            </div>
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }

@@ -69,6 +69,71 @@ const isParsedQuestion = (v: unknown): v is ParsedQuestion =>
   Array.isArray(v.options) &&
   v.options.every(isValidOption);
 
+const isInterviewTransitionContent = (content: string): boolean => {
+  try {
+    const parsed: unknown = JSON.parse(content);
+    if (typeof parsed !== "object" || parsed === null) {
+      return false;
+    }
+    if ("interviewComplete" in parsed && parsed.interviewComplete === true) {
+      return true;
+    }
+    if ("ready" in parsed && parsed.ready === true) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+const isSpecContent = (content: string): boolean => {
+  try {
+    const parsed: unknown = JSON.parse(content);
+    if (typeof parsed !== "object" || parsed === null) {
+      return false;
+    }
+    return (
+      "title" in parsed &&
+      typeof parsed.title === "string" &&
+      "tasks" in parsed &&
+      Array.isArray(parsed.tasks)
+    );
+  } catch {
+    return false;
+  }
+};
+
+const mergePriorAssistantActivityLogs = (
+  messages: ConversationMessage[],
+  beforeIndex: number,
+): string | undefined => {
+  const parts: string[] = [];
+  for (let j = beforeIndex - 1; j >= 0; j--) {
+    const msg = messages[j];
+    if (msg.role === "user") {
+      break;
+    }
+    if (msg.activityLog) {
+      parts.unshift(msg.activityLog);
+    }
+    if (msg.content) {
+      try {
+        const parsed: unknown = JSON.parse(msg.content);
+        if (isParsedQuestion(parsed)) {
+          break;
+        }
+      } catch {
+        // ignore non-JSON assistant rows
+      }
+    }
+  }
+  if (parts.length === 0) {
+    return undefined;
+  }
+  return parts.join("\n\n");
+};
+
 export function ProjectChatTab({
   projectId,
   projectPhase,
@@ -96,32 +161,53 @@ export function ProjectChatTab({
   const hasStarted = initialMessages.length > 0 || isLoading;
   const hasActiveWorkflow = activeWorkflowId !== undefined;
 
-  const assistantMessages = initialMessages.filter(
-    (m) => m.role === "assistant",
+  const questionCount = initialMessages.filter((m) => {
+    if (m.role !== "assistant" || !m.content) {
+      return false;
+    }
+    try {
+      const parsed: unknown = JSON.parse(m.content);
+      return isParsedQuestion(parsed);
+    } catch {
+      return false;
+    }
+  }).length;
+
+  const hasSpecMessage = initialMessages.some(
+    (m) => m.role === "assistant" && m.content && isSpecContent(m.content),
   );
-  const questionCount = assistantMessages.length;
 
   useEffect(() => {
     const lastMessage = initialMessages[initialMessages.length - 1];
     if (lastMessage?.role === "assistant" && lastMessage.content) {
       setIsLoading(false);
-      try {
-        const parsed = JSON.parse(lastMessage.content);
-        if (parsed.title && parsed.tasks) {
-          onSpecGenerated?.(lastMessage.content);
-        } else if (parsed.ready === true) {
-          setIsLoading(true);
-          void startProjectSpec({
-            projectId,
-            featureDescription: rawInput,
-          });
-        }
-      } catch {
-        // Not a spec
+      if (isSpecContent(lastMessage.content)) {
+        onSpecGenerated?.(lastMessage.content);
+      } else if (
+        isInterviewTransitionContent(lastMessage.content) &&
+        projectPhase === "draft" &&
+        !hasSpecMessage &&
+        !hasActiveWorkflow
+      ) {
+        // Legacy rows that still have {"ready":true} before spec was chained server-side.
+        setIsLoading(true);
+        void startProjectSpec({
+          projectId,
+          featureDescription: rawInput,
+        });
       }
     }
     prevMessagesLengthRef.current = initialMessages.length;
-  }, [initialMessages, onSpecGenerated, projectId, rawInput, startProjectSpec]);
+  }, [
+    initialMessages,
+    onSpecGenerated,
+    projectId,
+    rawInput,
+    startProjectSpec,
+    projectPhase,
+    hasSpecMessage,
+    hasActiveWorkflow,
+  ]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -234,40 +320,82 @@ export function ProjectChatTab({
                   </div>
                 );
               }
-              try {
-                const parsed = JSON.parse(m.content);
-                if (parsed.question) {
-                  let logs = m.activityLog;
-                  const nextAssistant = initialMessages
-                    .slice(i + 1)
-                    .find((n) => n.role === "assistant" && n.content);
-                  if (nextAssistant) {
-                    try {
-                      const np = JSON.parse(nextAssistant.content);
-                      if (np.title && np.tasks && nextAssistant.activityLog) {
-                        logs = [logs, nextAssistant.activityLog]
-                          .filter(Boolean)
-                          .join("\n\n");
+              if (isInterviewTransitionContent(m.content)) {
+                const specFollows = initialMessages
+                  .slice(i + 1)
+                  .some(
+                    (n) => n.role === "assistant" && isSpecContent(n.content),
+                  );
+                if (specFollows) {
+                  return null;
+                }
+                if (!m.activityLog) {
+                  return null;
+                }
+                return (
+                  <div key={`msg-${i}`} className="px-1 py-2">
+                    <ActivityLogDisplay
+                      activityLog={m.activityLog}
+                      name="Eva"
+                      icon={
+                        <img
+                          src="/icon.svg"
+                          alt="Eva"
+                          width={20}
+                          height={20}
+                          className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
+                        />
                       }
-                    } catch {}
-                  }
+                      startedAt={m.startedAt}
+                      finishedAt={m.finishedAt}
+                    />
+                  </div>
+                );
+              }
+              try {
+                const parsed: unknown = JSON.parse(m.content);
+                if (isParsedQuestion(parsed)) {
                   return (
                     <ChatMessage
                       key={`msg-${i}`}
                       role="assistant"
                       content={parsed.question}
-                      logs={logs}
+                      logs={m.activityLog}
                       startedAt={m.startedAt}
                       finishedAt={m.finishedAt}
                     />
                   );
                 }
-                if (parsed.title && parsed.tasks) {
+                if (isSpecContent(m.content)) {
+                  const specParsed: unknown = JSON.parse(m.content);
+                  const title =
+                    typeof specParsed === "object" &&
+                    specParsed !== null &&
+                    "title" in specParsed &&
+                    typeof specParsed.title === "string"
+                      ? specParsed.title
+                      : "Untitled plan";
+                  const taskCount =
+                    typeof specParsed === "object" &&
+                    specParsed !== null &&
+                    "tasks" in specParsed &&
+                    Array.isArray(specParsed.tasks)
+                      ? specParsed.tasks.length
+                      : 0;
+                  const mergedLogs = [
+                    mergePriorAssistantActivityLogs(initialMessages, i),
+                    m.activityLog,
+                  ]
+                    .filter(Boolean)
+                    .join("\n\n");
                   return (
                     <ChatMessage
                       key={`msg-${i}`}
                       role="assistant"
-                      content={`Generated spec: ${parsed.title}`}
+                      content={`Plan ready: ${title} (${taskCount} ${taskCount === 1 ? "task" : "tasks"})`}
+                      logs={mergedLogs || undefined}
+                      startedAt={m.startedAt}
+                      finishedAt={m.finishedAt}
                     />
                   );
                 }

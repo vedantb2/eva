@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -24,6 +25,26 @@ const projectInterviewCompleteEvent = defineEvent({
   name: "projectInterviewComplete",
   validator: workflowCompleteValidator,
 });
+
+const interviewSaveOutcomeValidator = v.union(
+  v.literal("question"),
+  v.literal("ready"),
+  v.literal("error"),
+);
+
+/** Stored on the assistant row when the interview agent signals readiness. */
+const INTERVIEW_COMPLETE_CONTENT = JSON.stringify({ interviewComplete: true });
+
+function isInterviewReady(parsed: unknown): boolean {
+  if (typeof parsed !== "object" || parsed === null) {
+    return false;
+  }
+  if (!("ready" in parsed)) {
+    return false;
+  }
+  const ready = parsed.ready;
+  return ready === true;
+}
 
 interface PreviousAnswer {
   question: string;
@@ -144,14 +165,28 @@ export const projectInterviewWorkflow = workflow.define({
       // Step 4: Wait for callback
       const result = await step.awaitEvent(projectInterviewCompleteEvent);
 
-      // Step 5: Save the result
-      await step.runMutation(internal.projectInterviewWorkflow.saveResult, {
-        projectId: args.projectId,
-        success: result.success,
-        result: result.result,
-        error: result.error,
-        activityLog: result.activityLog,
-      });
+      // Step 5: Save the result; chain spec generation when the agent signals ready.
+      const outcome = await step.runMutation(
+        internal.projectInterviewWorkflow.saveResult,
+        {
+          projectId: args.projectId,
+          success: result.success,
+          result: result.result,
+          error: result.error,
+          activityLog: result.activityLog,
+        },
+      );
+      if (outcome === "ready") {
+        await step.runMutation(
+          internal.projectInterviewWorkflow.startSpecWorkflowInternal,
+          {
+            projectId: args.projectId,
+            featureDescription: args.featureDescription,
+            userId: args.userId,
+            installationId: args.installationId,
+          },
+        );
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Project interview failed";
@@ -236,12 +271,12 @@ export const saveResult = internalMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
   },
-  returns: v.null(),
+  returns: interviewSaveOutcomeValidator,
   handler: async (ctx, args) => {
     await clearStreamingActivity(ctx, String(args.projectId));
 
     const project = await ctx.db.get(args.projectId);
-    if (!project) return null;
+    if (!project) return "error";
 
     const conversation = await getProjectConversation(ctx.db, args.projectId);
 
@@ -257,7 +292,7 @@ export const saveResult = internalMutation({
         reviewProjectSandboxStatus: "closed",
         lastSandboxActivity: Date.now(),
       });
-      return null;
+      return "error";
     }
 
     const parsed = extractFirstJsonValue(args.result);
@@ -273,7 +308,21 @@ export const saveResult = internalMutation({
         reviewProjectSandboxStatus: "closed",
         lastSandboxActivity: Date.now(),
       });
-      return null;
+      return "error";
+    }
+
+    if (isInterviewReady(parsed)) {
+      const messages = updateLastConversationEntry(
+        conversation,
+        INTERVIEW_COMPLETE_CONTENT,
+        args.activityLog,
+      );
+      await setProjectConversation(ctx.db, args.projectId, messages);
+      await ctx.db.patch(args.projectId, {
+        activeWorkflowId: undefined,
+        lastSandboxActivity: Date.now(),
+      });
+      return "ready";
     }
 
     const messages = updateLastConversationEntry(
@@ -286,6 +335,35 @@ export const saveResult = internalMutation({
       activeWorkflowId: undefined,
       lastSandboxActivity: Date.now(),
     });
+    return "question";
+  },
+});
+
+/** Starts spec generation from a workflow step after interview completes (internal). */
+export const startSpecWorkflowInternal = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    featureDescription: v.string(),
+    userId: v.id("users"),
+    installationId: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.activeWorkflowId) return null;
+
+    const workflowId = await workflow.start(
+      ctx,
+      internal.projectInterviewWorkflow.projectSpecWorkflow,
+      {
+        projectId: args.projectId,
+        featureDescription: args.featureDescription,
+        userId: args.userId,
+        installationId: args.installationId,
+      },
+    );
+
+    await trackProjectWorkflow(ctx, args.projectId, workflowId);
     return null;
   },
 });

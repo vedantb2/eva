@@ -1,5 +1,6 @@
 import { internalMutation } from "../_generated/server";
 import { v } from "convex/values";
+import { recomputeProjectPhase } from "../functions";
 /** Maps legacy `active` project phase to the new lifecycle phases. */
 export const migrateProjectPhases = internalMutation({
   args: {},
@@ -48,5 +49,30 @@ export const migrateProjectPhases = internalMutation({
       `[migration] migrateProjectPhases: updated ${projectsUpdated} projects`,
     );
     return { projectsUpdated };
+  },
+});
+
+/** Recomputes phase for projects stuck in in_progress without an active build. */
+export const repairStuckProjectPhases = internalMutation({
+  args: {},
+  returns: v.object({ projectsRepaired: v.number() }),
+  handler: async (ctx) => {
+    let projectsRepaired = 0;
+    const projects = await ctx.db.query("projects").collect();
+
+    for (const project of projects) {
+      if (project.phase !== "in_progress") continue;
+      if (project.activeBuildWorkflowId !== undefined) continue;
+      await recomputeProjectPhase(ctx, project._id);
+      const updated = await ctx.db.get(project._id);
+      if (updated?.phase !== "in_progress") {
+        projectsRepaired++;
+      }
+    }
+
+    console.log(
+      `[migration] repairStuckProjectPhases: repaired ${projectsRepaired} projects`,
+    );
+    return { projectsRepaired };
   },
 });

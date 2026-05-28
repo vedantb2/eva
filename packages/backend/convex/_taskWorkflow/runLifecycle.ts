@@ -4,7 +4,11 @@ import { internal } from "../_generated/api";
 import { createNotification } from "../notifications";
 import { runModeValidator } from "../validators";
 import type { Id } from "../_generated/dataModel";
-import { hasActiveRun, isSupersededTaskRun } from "../functions";
+import {
+  hasActiveRun,
+  isSupersededTaskRun,
+  recomputeProjectPhase,
+} from "../functions";
 import { RUN_TIMEOUT_MS } from "../workflowWatchdog";
 import { buildWorkflowRunNotificationMessage } from "./prompts";
 import { buildTaskDoneEvent } from "./events";
@@ -296,6 +300,9 @@ export const completeRun = internalMutation({
         status: args.success ? "business_review" : "todo",
         updatedAt: now,
       });
+      if (task.projectId) {
+        await recomputeProjectPhase(ctx, task.projectId);
+      }
     }
 
     const project = args.projectId ? await ctx.db.get(args.projectId) : null;

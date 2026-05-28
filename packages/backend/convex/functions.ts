@@ -149,7 +149,23 @@ export async function recomputeProjectPhase(
     )
     .first();
 
-  if (!hasDone && !hasNonDone) return;
+  if (!hasDone && !hasNonDone) {
+    // Build-only phase: demote stale in_progress when no active build remains.
+    if (project.phase === "in_progress") {
+      const previousPhase = project.phase;
+      await db.patch(projectId, { phase: "business_review" });
+      const updated = await db.get(projectId);
+      if (updated) {
+        await scheduleProjectPrSync(
+          ctx,
+          updated,
+          previousPhase,
+          "business_review",
+        );
+      }
+    }
+    return;
+  }
 
   const allDone = hasDone !== null && !hasNonDone;
   if (allDone && project.phase !== "completed") {

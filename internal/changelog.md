@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix stale project in_progress phase - 2026-05-28
+
+- Project phase no longer stays `in_progress` after the build workflow ends: task completion now triggers `recomputeProjectPhase`, and recompute demotes stale `in_progress` when no `activeBuildWorkflowId` is set.
+- Added `repairStuckProjectPhases` migration to correct existing projects stuck in build phase without an active build.
+
 ## Project card build state and planning source - 2026-05-28
 
 - Project `in_progress` phase now means an active build workflow is running, not merely queued or running tasks, so the board status matches what users see when they click Start build.

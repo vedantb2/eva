@@ -9,7 +9,8 @@ export const migrateProjectPhases = internalMutation({
     const projects = await ctx.db.query("projects").collect();
 
     for (const project of projects) {
-      if (project.phase !== "active") continue;
+      const phaseValue: string = project.phase;
+      if (phaseValue !== "active") continue;
 
       const projectId = project._id;
       const hasBuilding = await ctx.db

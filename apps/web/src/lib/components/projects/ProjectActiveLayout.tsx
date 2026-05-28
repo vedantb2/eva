@@ -13,6 +13,7 @@ import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { IconChecklist } from "@tabler/icons-react";
 import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
+import type { ProjectPhase } from "./ProjectPhaseBadge";
 
 interface Project {
   _id: Id<"projects">;
@@ -20,14 +21,7 @@ interface Project {
   description?: string;
   branchName?: string;
   sandboxId?: string;
-  phase:
-    | "draft"
-    | "finalized"
-    | "in_progress"
-    | "business_review"
-    | "code_review"
-    | "completed"
-    | "cancelled";
+  phase: ProjectPhase;
   rawInput: string;
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@conductor/ui";
+import type { Doc } from "@conductor/backend";
 import {
   IconNotes,
   IconCheck,
@@ -11,14 +12,8 @@ import {
   IconCircleX,
 } from "@tabler/icons-react";
 
-export type ProjectPhase =
-  | "draft"
-  | "finalized"
-  | "in_progress"
-  | "business_review"
-  | "code_review"
-  | "completed"
-  | "cancelled";
+/** Single source of truth: matches Convex `projects.phase`. */
+export type ProjectPhase = Doc<"projects">["phase"];
 
 export const PROJECT_PHASES: ProjectPhase[] = [
   "draft",

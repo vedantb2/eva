@@ -71,8 +71,7 @@ export async function recomputeProjectPhase(
     project.phase !== "code_review" &&
     project.phase !== "completed" &&
     project.phase !== "finalized" &&
-    project.phase !== "cancelled" &&
-    project.phase !== "active"
+    project.phase !== "cancelled"
   ) {
     return;
   }

@@ -96,6 +96,43 @@ if (!Number.isInteger(proxyPort) || proxyPort <= 0 || proxyPort > 65535) {
   throw new Error("Invalid EVA_PREVIEW_PROXY_PORT");
 }
 
+// Convex's browser client opens a raw WebSocket and cannot attach the Daytona
+// preview token, so it can never follow the cross-origin auth redirect to a
+// separate 3210-<sandbox> preview origin. Instead the client points at this
+// same (already-authenticated) preview origin under /__convex, and the proxy
+// forwards those requests to the local Convex backend. /__convex-site maps to
+// the Convex HTTP-actions port the same way.
+const CONVEX_PORT = 3210;
+const CONVEX_SITE_PORT = 3211;
+const CONVEX_PREFIX = "/__convex";
+const CONVEX_SITE_PREFIX = "/__convex-site";
+
+// Returns the path with the prefix stripped (always leading-slashed), or null
+// when "url" is not the prefix or a "/", "?", "#" delimited sub-path of it.
+function matchPrefix(url, prefix) {
+  if (url === prefix) return "/";
+  if (!url.startsWith(prefix)) return null;
+  const next = url[prefix.length];
+  if (next !== "/" && next !== "?" && next !== "#") return null;
+  const rest = url.slice(prefix.length);
+  return next === "/" ? rest : "/" + rest;
+}
+
+// Maps an incoming request URL to an upstream port + stripped path. Anything
+// outside the Convex prefixes goes to the dev server and gets HTML injection.
+function resolveRoute(url) {
+  const u = url || "/";
+  const siteMatch = matchPrefix(u, CONVEX_SITE_PREFIX);
+  if (siteMatch !== null) {
+    return { port: CONVEX_SITE_PORT, path: siteMatch, injects: false };
+  }
+  const convexMatch = matchPrefix(u, CONVEX_PREFIX);
+  if (convexMatch !== null) {
+    return { port: CONVEX_PORT, path: convexMatch, injects: false };
+  }
+  return { port: targetPort, path: u, injects: true };
+}
+
 const injectedScript = "(" + function () {
   const flag = "__evaPreviewNavigationSync";
   if (window[flag]) return;
@@ -220,7 +257,7 @@ function responseHeaders(upstreamHeaders, injectsHtml) {
   return headers;
 }
 
-function requestHeaders(clientHeaders) {
+function requestHeaders(clientHeaders, routePort) {
   const headers = {};
   for (const name of Object.keys(clientHeaders)) {
     const lower = name.toLowerCase();
@@ -231,7 +268,7 @@ function requestHeaders(clientHeaders) {
     if (value === undefined) continue;
     headers[name] = value;
   }
-  headers.host = "127.0.0.1:" + String(targetPort);
+  headers.host = "127.0.0.1:" + String(routePort);
   headers["accept-encoding"] = "identity";
   return headers;
 }
@@ -244,19 +281,23 @@ const server = http.createServer(function handleRequest(clientReq, clientRes) {
     return;
   }
 
+  const route = resolveRoute(path);
+
   const upstreamReq = http.request(
     {
       hostname: "127.0.0.1",
-      port: targetPort,
-      path,
+      port: route.port,
+      path: route.path,
       method: clientReq.method,
-      headers: requestHeaders(clientReq.headers),
+      headers: requestHeaders(clientReq.headers, route.port),
     },
     function handleUpstream(upstreamRes) {
       const contentType = String(upstreamRes.headers["content-type"] || "");
       const contentEncoding = String(upstreamRes.headers["content-encoding"] || "");
       const injectsHtml =
-        contentType.toLowerCase().includes("text/html") && !contentEncoding;
+        route.injects &&
+        contentType.toLowerCase().includes("text/html") &&
+        !contentEncoding;
 
       clientRes.writeHead(
         upstreamRes.statusCode || 502,
@@ -290,16 +331,17 @@ const server = http.createServer(function handleRequest(clientReq, clientRes) {
 });
 
 server.on("upgrade", function handleUpgrade(req, socket, head) {
-  const upstream = net.connect(targetPort, "127.0.0.1", function handleConnect() {
+  const route = resolveRoute(req.url || "/");
+  const upstream = net.connect(route.port, "127.0.0.1", function handleConnect() {
     const lines = [
-      (req.method || "GET") + " " + (req.url || "/") + " HTTP/" + req.httpVersion,
+      (req.method || "GET") + " " + route.path + " HTTP/" + req.httpVersion,
     ];
 
     for (const name of Object.keys(req.headers)) {
       const value = req.headers[name];
       if (value === undefined) continue;
       if (name.toLowerCase() === "host") {
-        lines.push("host: 127.0.0.1:" + String(targetPort));
+        lines.push("host: 127.0.0.1:" + String(route.port));
         continue;
       }
       if (Array.isArray(value)) {

@@ -1,5 +1,10 @@
 # Changelog
 
+## Same-origin Convex routing in Daytona preview proxy - 2026-05-28
+
+- **Summary**: The in-sandbox preview proxy now routes `/__convex/*` to `127.0.0.1:3210` and `/__convex-site/*` to `127.0.0.1:3211` for both HTTP requests and WebSocket upgrades, so apps running inside a Daytona sandbox can point their Convex browser client at the already-authenticated app preview origin instead of a separate Convex port.
+- **Reason**: Daytona previews bake `NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3210` at build time, which is unreachable from the remote browser; pointing the client at a separate `3210-<sandbox>` preview origin failed because each per-port preview origin is auth-gated and a raw Convex WebSocket cannot follow the Auth0 redirect. Same-origin routing through the app's proxy keeps realtime working without exposing the sandbox publicly.
+
 ## Fix Cursor MCP OAuth redirect URI registration - 2026-05-25
 
 - **Summary**: Dynamic OAuth client registration now keeps native redirect URIs like `cursor://…` instead of only `http(s)://`, so authorize no longer fails with redirect_uri mismatch when Cursor registers both a custom scheme and loopback HTTP.

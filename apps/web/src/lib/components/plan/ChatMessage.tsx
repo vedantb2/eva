@@ -8,6 +8,7 @@ import {
   MessageResponse,
 } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
+import dayjs from "@conductor/shared/dates";
 import type { Id } from "@conductor/backend";
 import {
   StreamingActivityDisplay,
@@ -96,7 +97,14 @@ export function ChatMessage({
           )}
         </MessageContent>
         {isUser && (
-          <div className="mt-0.5 ml-auto">
+          <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
+            {startedAt !== undefined ? (
+              <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[11px] text-muted-foreground/60">
+                  {dayjs(startedAt).format("h:mm A")}
+                </span>
+              </div>
+            ) : null}
             {userId ? (
               <UserInitials userId={userId} hideLastSeen size="md" />
             ) : (

@@ -291,6 +291,7 @@ export function ProjectChatTab({
                 role="user"
                 content={m.content}
                 userId={m.userId}
+                startedAt={m.startedAt}
               />
             );
           })}

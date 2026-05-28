@@ -126,6 +126,7 @@ export const addMessage = authMutation({
         content: args.content,
         activityLog: args.activityLog,
         userId: ctx.userId,
+        startedAt: Date.now(),
       },
     ]);
     return null;

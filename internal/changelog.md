@@ -1,5 +1,13 @@
 # Changelog
 
+## Unify project interview chat and history modal design - 2026-05-28
+
+- Extracted message parsing and type guards into `projectChatMessage.utils.ts` for reuse across components.
+- Created `ProjectChatMessageList.tsx` component to render conversation messages with consistent styling, activity logs, and timestamps.
+- Refactored `ProjectChatTab.tsx` to use the new component, eliminating ~220 lines of duplicate rendering logic.
+- Refactored `PlanContextPanel.tsx` to use the shared component so the interview history modal displays with the exact same design as the project chat, including activity logs and timing information.
+- Updated `ProjectActiveLayout.tsx` to accept the full `ConversationMessage` type (with `activityLog`, `startedAt`, `finishedAt`) so the modal can render complete message metadata.
+
 ## Skip heavy startup for project interviews - 2026-05-28
 
 - Project interview and spec workflows now skip repo startup commands (convex import, env seeding) because agents only read the codebase, avoiding 10+ minute sandbox prep and workflow timeouts.

@@ -8,18 +8,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogBody,
-  Avatar,
-  AvatarFallback,
-  MessageResponse,
 } from "@conductor/ui";
 import { parseSpec } from "@/lib/utils/parseSpec";
-import {
-  IconFileText,
-  IconMessage,
-  IconUser,
-  IconRobot,
-} from "@tabler/icons-react";
+import { IconFileText, IconMessage } from "@tabler/icons-react";
 import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
+import { ProjectChatMessageList } from "./ProjectChatMessageList";
 
 interface PlanContextPanelProps {
   generatedSpec: string;
@@ -114,67 +107,8 @@ export function PlanContextPanel({
             </DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <div className="space-y-3 py-2">
-              {conversationHistory.map((msg, i) => {
-                let displayContent = msg.content;
-                try {
-                  const parsed = JSON.parse(msg.content);
-                  if (parsed.question) {
-                    displayContent = parsed.question;
-                  } else if (parsed.title) {
-                    displayContent = `Generated plan: ${parsed.title}`;
-                  }
-                } catch {
-                  // Keep original content
-                }
-                const isUser = msg.role === "user";
-                return (
-                  <div
-                    key={i}
-                    className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
-                  >
-                    {!isUser && (
-                      <div className="mb-1.5 flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>
-                            <IconRobot
-                              size={16}
-                              className="text-muted-foreground"
-                            />
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Eva
-                        </span>
-                      </div>
-                    )}
-                    <div
-                      className={`max-w-[80%] px-4 py-3 rounded-lg ${
-                        isUser
-                          ? "bg-primary text-primary-foreground rounded-br-none"
-                          : "bg-muted rounded-tl-none"
-                      }`}
-                    >
-                      {isUser ? (
-                        <p className="text-sm whitespace-pre-wrap">
-                          {displayContent}
-                        </p>
-                      ) : (
-                        <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                          {displayContent}
-                        </MessageResponse>
-                      )}
-                    </div>
-                    {isUser && (
-                      <Avatar className="mt-1.5 h-8 w-8">
-                        <AvatarFallback className="bg-accent">
-                          <IconUser size={16} className="text-primary" />
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="flex flex-col gap-3 py-2">
+              <ProjectChatMessageList messages={conversationHistory} />
             </div>
           </DialogBody>
         </DialogContent>

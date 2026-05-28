@@ -12,14 +12,16 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
-import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { ConfirmDialog } from "@/lib/components/quick-tasks/_components/ConfirmDialog";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
+import { ProjectChatMessageList } from "./ProjectChatMessageList";
 import {
-  StreamingActivityDisplay,
-  ActivityLogDisplay,
-} from "@/lib/components/StreamingActivityDisplay";
+  isInterviewTransitionContent,
+  isParsedQuestion,
+  isSpecContent,
+  type ParsedQuestion,
+} from "./projectChatMessage.utils";
 
 export interface ConversationMessage {
   role: "user" | "assistant";
@@ -41,98 +43,6 @@ interface ProjectChatTabProps {
   onClear?: () => void;
   repoId: Id<"githubRepos">;
 }
-
-interface OptionItem {
-  label: string;
-  description: string;
-}
-
-interface ParsedQuestion {
-  question: string;
-  options: OptionItem[];
-}
-
-const isValidOption = (o: unknown): o is OptionItem =>
-  typeof o === "object" &&
-  o !== null &&
-  "label" in o &&
-  typeof o.label === "string" &&
-  "description" in o &&
-  typeof o.description === "string";
-
-const isParsedQuestion = (v: unknown): v is ParsedQuestion =>
-  typeof v === "object" &&
-  v !== null &&
-  "question" in v &&
-  typeof v.question === "string" &&
-  "options" in v &&
-  Array.isArray(v.options) &&
-  v.options.every(isValidOption);
-
-const isInterviewTransitionContent = (content: string): boolean => {
-  try {
-    const parsed: unknown = JSON.parse(content);
-    if (typeof parsed !== "object" || parsed === null) {
-      return false;
-    }
-    if ("interviewComplete" in parsed && parsed.interviewComplete === true) {
-      return true;
-    }
-    if ("ready" in parsed && parsed.ready === true) {
-      return true;
-    }
-    return false;
-  } catch {
-    return false;
-  }
-};
-
-const isSpecContent = (content: string): boolean => {
-  try {
-    const parsed: unknown = JSON.parse(content);
-    if (typeof parsed !== "object" || parsed === null) {
-      return false;
-    }
-    return (
-      "title" in parsed &&
-      typeof parsed.title === "string" &&
-      "tasks" in parsed &&
-      Array.isArray(parsed.tasks)
-    );
-  } catch {
-    return false;
-  }
-};
-
-const mergePriorAssistantActivityLogs = (
-  messages: ConversationMessage[],
-  beforeIndex: number,
-): string | undefined => {
-  const parts: string[] = [];
-  for (let j = beforeIndex - 1; j >= 0; j--) {
-    const msg = messages[j];
-    if (msg.role === "user") {
-      break;
-    }
-    if (msg.activityLog) {
-      parts.unshift(msg.activityLog);
-    }
-    if (msg.content) {
-      try {
-        const parsed: unknown = JSON.parse(msg.content);
-        if (isParsedQuestion(parsed)) {
-          break;
-        }
-      } catch {
-        // ignore non-JSON assistant rows
-      }
-    }
-  }
-  if (parts.length === 0) {
-    return undefined;
-  }
-  return parts.join("\n\n");
-};
 
 export function ProjectChatTab({
   projectId,
@@ -308,121 +218,10 @@ export function ProjectChatTab({
     <div className="flex flex-col h-full">
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="gap-3 p-3 max-w-5xl mx-auto w-full">
-          {initialMessages.map((m, i) => {
-            if (m.role === "assistant") {
-              if (!m.content) {
-                return (
-                  <div key={`msg-${i}`} className="px-1 py-2">
-                    <StreamingActivityDisplay
-                      activity={streamingActivity}
-                      startedAt={m.startedAt}
-                    />
-                  </div>
-                );
-              }
-              if (isInterviewTransitionContent(m.content)) {
-                const specFollows = initialMessages
-                  .slice(i + 1)
-                  .some(
-                    (n) => n.role === "assistant" && isSpecContent(n.content),
-                  );
-                if (specFollows) {
-                  return null;
-                }
-                if (!m.activityLog) {
-                  return null;
-                }
-                return (
-                  <div key={`msg-${i}`} className="px-1 py-2">
-                    <ActivityLogDisplay
-                      activityLog={m.activityLog}
-                      name="Eva"
-                      icon={
-                        <img
-                          src="/icon.svg"
-                          alt="Eva"
-                          width={20}
-                          height={20}
-                          className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
-                        />
-                      }
-                      startedAt={m.startedAt}
-                      finishedAt={m.finishedAt}
-                    />
-                  </div>
-                );
-              }
-              try {
-                const parsed: unknown = JSON.parse(m.content);
-                if (isParsedQuestion(parsed)) {
-                  return (
-                    <ChatMessage
-                      key={`msg-${i}`}
-                      role="assistant"
-                      content={parsed.question}
-                      logs={m.activityLog}
-                      startedAt={m.startedAt}
-                      finishedAt={m.finishedAt}
-                    />
-                  );
-                }
-                if (isSpecContent(m.content)) {
-                  const specParsed: unknown = JSON.parse(m.content);
-                  const title =
-                    typeof specParsed === "object" &&
-                    specParsed !== null &&
-                    "title" in specParsed &&
-                    typeof specParsed.title === "string"
-                      ? specParsed.title
-                      : "Untitled plan";
-                  const taskCount =
-                    typeof specParsed === "object" &&
-                    specParsed !== null &&
-                    "tasks" in specParsed &&
-                    Array.isArray(specParsed.tasks)
-                      ? specParsed.tasks.length
-                      : 0;
-                  const mergedLogs = [
-                    mergePriorAssistantActivityLogs(initialMessages, i),
-                    m.activityLog,
-                  ]
-                    .filter(Boolean)
-                    .join("\n\n");
-                  return (
-                    <ChatMessage
-                      key={`msg-${i}`}
-                      role="assistant"
-                      content={`Plan ready: ${title} (${taskCount} ${taskCount === 1 ? "task" : "tasks"})`}
-                      logs={mergedLogs || undefined}
-                      startedAt={m.startedAt}
-                      finishedAt={m.finishedAt}
-                    />
-                  );
-                }
-              } catch {
-                // Not parseable JSON
-              }
-              return (
-                <ChatMessage
-                  key={`msg-${i}`}
-                  role="assistant"
-                  content={m.content}
-                  logs={m.activityLog}
-                  startedAt={m.startedAt}
-                  finishedAt={m.finishedAt}
-                />
-              );
-            }
-            return (
-              <ChatMessage
-                key={`msg-${i}`}
-                role="user"
-                content={m.content}
-                userId={m.userId}
-                startedAt={m.startedAt}
-              />
-            );
-          })}
+          <ProjectChatMessageList
+            messages={initialMessages}
+            streamingActivity={streamingActivity}
+          />
           {(isLoading || waitingForResponse) &&
             !initialMessages.some(
               (m) => m.role === "assistant" && !m.content,

@@ -14,6 +14,7 @@ import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { IconChecklist } from "@tabler/icons-react";
 import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
+import type { ConversationMessage } from "./ProjectChatTab";
 
 interface Project {
   _id: Id<"projects">;
@@ -24,10 +25,7 @@ interface Project {
   phase: "draft" | "finalized" | "active" | "completed" | "cancelled";
   rawInput: string;
   generatedSpec?: string;
-  conversationHistory: Array<{
-    role: "user" | "assistant";
-    content: string;
-  }>;
+  conversationHistory: ConversationMessage[];
 }
 
 interface ProjectActiveLayoutProps {
@@ -35,10 +33,7 @@ interface ProjectActiveLayoutProps {
   project: Project;
   basePath: string;
   generatedSpec?: string;
-  conversationHistory: Array<{
-    role: "user" | "assistant";
-    content: string;
-  }>;
+  conversationHistory: ConversationMessage[];
   selectedTaskId?: string;
   detailTab?: TaskDetailTab;
 }

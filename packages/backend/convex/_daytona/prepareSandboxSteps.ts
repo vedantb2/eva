@@ -23,6 +23,8 @@ type PrepareSandboxArgs = {
   sessionPersistenceId?: Id<"sessions"> | Id<"projects">;
   sessionPersistenceKind?: "sessions" | "projects";
   createRetry?: { maxAttempts: number; initialBackoffMs: number; base: number };
+  /** Skip repo startup commands (e.g. later tasks in a project build on the same sandbox). */
+  skipStartupCommands?: boolean;
 };
 
 const FETCH_STEP_RETRY = {
@@ -181,43 +183,56 @@ export async function prepareSandboxSteps(
     );
   }
 
-  // Step 4: Run startup commands if configured (non-fatal on failure).
-  // Only push the completed step when commands actually ran — on a resumed
-  // sandbox the marker file makes runStartupCommands a no-op, and showing
-  // "Running startup commands... complete" would be misleading.
-  await emitSteps(step, args.streamingEntityId, [
-    ...completedSteps,
-    { type: "tool", label: "Running startup commands...", status: "active" },
-  ]);
-  try {
-    const result = await step.runAction(
-      internal.daytona.runStartupCommands,
+  // Step 4: Run startup commands once per sandbox (marker file). Project builds
+  // reuse project.sandboxId across tasks — only the first task should pay this
+  // cost; interview sandboxes skip startup entirely so the first build task must
+  // run it, then later tasks skip via isFirstTaskOnBranch + marker check.
+  let shouldRunStartupCommands = !args.skipStartupCommands;
+  if (shouldRunStartupCommands) {
+    const markerExists = await step.runAction(
+      internal.daytona.startupCommandsMarkerExists,
       { sandboxId, repoId: args.repoId },
-      { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
     );
-    if (result.ran) {
-      completedSteps.push({
-        type: "tool",
-        label: "Running startup commands...",
-        status: "complete",
-      });
-      if (result.commandCount > 0) {
-        console.log(
-          `[prepareSandbox] Ran ${result.commandCount} startup command(s)`,
-        );
-        if (result.errors.length > 0) {
-          console.warn(
-            `[prepareSandbox] Startup command errors: ${result.errors.join("; ")}`,
+    if (markerExists) {
+      shouldRunStartupCommands = false;
+    }
+  }
+
+  if (shouldRunStartupCommands) {
+    await emitSteps(step, args.streamingEntityId, [
+      ...completedSteps,
+      { type: "tool", label: "Running startup commands...", status: "active" },
+    ]);
+    try {
+      const result = await step.runAction(
+        internal.daytona.runStartupCommands,
+        { sandboxId, repoId: args.repoId },
+        { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
+      );
+      if (result.ran) {
+        completedSteps.push({
+          type: "tool",
+          label: "Running startup commands...",
+          status: "complete",
+        });
+        if (result.commandCount > 0) {
+          console.log(
+            `[prepareSandbox] Ran ${result.commandCount} startup command(s)`,
           );
+          if (result.errors.length > 0) {
+            console.warn(
+              `[prepareSandbox] Startup command errors: ${result.errors.join("; ")}`,
+            );
+          }
         }
       }
+    } catch (e) {
+      // Non-fatal: log warning and continue
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(
+        `[prepareSandbox] Startup commands failed — continuing: ${msg}`,
+      );
     }
-  } catch (e) {
-    // Non-fatal: log warning and continue
-    const msg = e instanceof Error ? e.message : String(e);
-    console.warn(
-      `[prepareSandbox] Startup commands failed — continuing: ${msg}`,
-    );
   }
 
   // Step 5: Launch background commands (long-running daemons). Non-fatal.

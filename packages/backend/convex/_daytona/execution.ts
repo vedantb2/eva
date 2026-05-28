@@ -84,6 +84,24 @@ export const runSandboxCommand = internalAction({
   },
 });
 
+/** Returns whether startup commands have already completed on this sandbox. */
+export const startupCommandsMarkerExists = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args): Promise<boolean> => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    try {
+      await exec(sandbox, "test -f /tmp/.startup-commands-done", 5);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+});
+
 /** Runs startup commands on a sandbox if configured. Returns success status. */
 export const runStartupCommands = internalAction({
   args: {

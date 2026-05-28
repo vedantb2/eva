@@ -76,6 +76,10 @@ export const taskExecutionWorkflow = workflow.define({
       // `task.sandboxId` as a tombstone and breaking the reviewer preview.
       const reusableSandboxId =
         data.projectSandboxId ?? data.taskSandboxId ?? undefined;
+      const skipStartupCommands =
+        args.projectId !== undefined &&
+        reusableSandboxId !== undefined &&
+        !args.isFirstTaskOnBranch;
       sandboxId = await prepareSandboxSteps(step, {
         existingSandboxId: reusableSandboxId,
         installationId: args.installationId,
@@ -88,6 +92,9 @@ export const taskExecutionWorkflow = workflow.define({
         baseBranch: args.baseBranch,
         branchName: data.branchName,
         createRetry: { maxAttempts: 3, initialBackoffMs: 2000, base: 2 },
+        skipStartupCommands,
+        sessionPersistenceId: args.projectId,
+        sessionPersistenceKind: args.projectId ? "projects" : undefined,
       });
 
       const proofCaptureInRun =

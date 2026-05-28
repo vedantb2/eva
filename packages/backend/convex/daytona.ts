@@ -12,6 +12,7 @@ export {
 export {
   runSandboxCommand,
   runStartupCommands,
+  startupCommandsMarkerExists,
   runBackgroundCommands,
   getPreviewUrl,
   prepareSandbox,

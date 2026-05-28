@@ -69,6 +69,7 @@ import type * as _migrations_cleanup from "../_migrations/cleanup.js";
 import type * as _migrations_deleteRepos from "../_migrations/deleteRepos.js";
 import type * as _migrations_deploymentUrl from "../_migrations/deploymentUrl.js";
 import type * as _migrations_logProjectIds from "../_migrations/logProjectIds.js";
+import type * as _migrations_projectInterview from "../_migrations/projectInterview.js";
 import type * as _migrations_repoSkills from "../_migrations/repoSkills.js";
 import type * as _migrations_sessionModes from "../_migrations/sessionModes.js";
 import type * as _projects_chatPrompt from "../_projects/chatPrompt.js";
@@ -281,6 +282,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/deleteRepos": typeof _migrations_deleteRepos;
   "_migrations/deploymentUrl": typeof _migrations_deploymentUrl;
   "_migrations/logProjectIds": typeof _migrations_logProjectIds;
+  "_migrations/projectInterview": typeof _migrations_projectInterview;
   "_migrations/repoSkills": typeof _migrations_repoSkills;
   "_migrations/sessionModes": typeof _migrations_sessionModes;
   "_projects/chatPrompt": typeof _projects_chatPrompt;

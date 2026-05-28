@@ -111,44 +111,57 @@ export const projectInterviewWorkflow = workflow.define({
     // Use the shared project-preview lifecycle so the sandbox id is persisted
     // on the project (otherwise every answer would spawn a fresh sandbox) and
     // the card/sidebar "active" indicator lights up while the interview runs.
-    const { sandboxId } = await step.runAction(
-      internal.daytona.startProjectPreviewSandbox,
-      {
-        projectId: args.projectId,
-        existingSandboxId: projectData.sandboxId,
-        installationId: args.installationId,
-        repoOwner: projectData.repoOwner,
-        repoName: projectData.repoName,
-        branchName: projectData.branchName,
-        baseBranch: projectData.baseBranch,
+    try {
+      const { sandboxId } = await step.runAction(
+        internal.daytona.startProjectPreviewSandbox,
+        {
+          projectId: args.projectId,
+          existingSandboxId: projectData.sandboxId,
+          installationId: args.installationId,
+          repoOwner: projectData.repoOwner,
+          repoName: projectData.repoName,
+          branchName: projectData.branchName,
+          baseBranch: projectData.baseBranch,
+          repoId: projectData.repoId,
+        },
+      );
+
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId,
+        entityId: args.projectId,
+        prompt: fullPrompt,
+        userId: args.userId,
+        completionMutation: "projectInterviewWorkflow:handleCompletion",
+        entityIdField: "projectId",
+        model: "sonnet",
+        allowedTools: "Read,Glob,Grep",
         repoId: projectData.repoId,
-      },
-    );
+        sessionPersistenceId: args.projectId,
+      });
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
-      sandboxId,
-      entityId: args.projectId,
-      prompt: fullPrompt,
-      userId: args.userId,
-      completionMutation: "projectInterviewWorkflow:handleCompletion",
-      entityIdField: "projectId",
-      model: "sonnet",
-      allowedTools: "Read,Glob,Grep",
-      repoId: projectData.repoId,
-      sessionPersistenceId: args.projectId,
-    });
+      // Step 4: Wait for callback
+      const result = await step.awaitEvent(projectInterviewCompleteEvent);
 
-    // Step 4: Wait for callback
-    const result = await step.awaitEvent(projectInterviewCompleteEvent);
-
-    // Step 5: Save the result
-    await step.runMutation(internal.projectInterviewWorkflow.saveResult, {
-      projectId: args.projectId,
-      success: result.success,
-      result: result.result,
-      error: result.error,
-      activityLog: result.activityLog,
-    });
+      // Step 5: Save the result
+      await step.runMutation(internal.projectInterviewWorkflow.saveResult, {
+        projectId: args.projectId,
+        success: result.success,
+        result: result.result,
+        error: result.error,
+        activityLog: result.activityLog,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Project interview failed";
+      await step.runMutation(internal.projectInterviewWorkflow.saveResult, {
+        projectId: args.projectId,
+        success: false,
+        result: null,
+        error: message,
+        activityLog: message,
+      });
+      throw error;
+    }
   },
 });
 
@@ -416,41 +429,53 @@ Based on the interview conversation above, generate an implementation spec with 
 
 Output ONLY valid JSON.`;
 
-    const { sandboxId } = await step.runAction(
-      internal.daytona.startProjectPreviewSandbox,
-      {
-        projectId: args.projectId,
-        existingSandboxId: projectData.sandboxId,
-        installationId: args.installationId,
-        repoOwner: projectData.repoOwner,
-        repoName: projectData.repoName,
-        branchName: projectData.branchName,
-        baseBranch: projectData.baseBranch,
+    try {
+      const { sandboxId } = await step.runAction(
+        internal.daytona.startProjectPreviewSandbox,
+        {
+          projectId: args.projectId,
+          existingSandboxId: projectData.sandboxId,
+          installationId: args.installationId,
+          repoOwner: projectData.repoOwner,
+          repoName: projectData.repoName,
+          branchName: projectData.branchName,
+          baseBranch: projectData.baseBranch,
+          repoId: projectData.repoId,
+        },
+      );
+
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId,
+        entityId: args.projectId,
+        prompt,
+        userId: args.userId,
+        completionMutation: "projectInterviewWorkflow:handleSpecCompletion",
+        entityIdField: "projectId",
+        model: "sonnet",
+        allowedTools: "Read,Glob,Grep",
         repoId: projectData.repoId,
-      },
-    );
+        sessionPersistenceId: args.projectId,
+      });
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
-      sandboxId,
-      entityId: args.projectId,
-      prompt,
-      userId: args.userId,
-      completionMutation: "projectInterviewWorkflow:handleSpecCompletion",
-      entityIdField: "projectId",
-      model: "sonnet",
-      allowedTools: "Read,Glob,Grep",
-      repoId: projectData.repoId,
-      sessionPersistenceId: args.projectId,
-    });
+      const result = await step.awaitEvent(projectInterviewCompleteEvent);
 
-    const result = await step.awaitEvent(projectInterviewCompleteEvent);
-
-    await step.runMutation(internal.projectInterviewWorkflow.saveSpecResult, {
-      projectId: args.projectId,
-      success: result.success,
-      result: result.result,
-      activityLog: result.activityLog,
-    });
+      await step.runMutation(internal.projectInterviewWorkflow.saveSpecResult, {
+        projectId: args.projectId,
+        success: result.success,
+        result: result.result,
+        activityLog: result.activityLog,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Project spec failed";
+      await step.runMutation(internal.projectInterviewWorkflow.saveSpecResult, {
+        projectId: args.projectId,
+        success: false,
+        result: null,
+        activityLog: message,
+      });
+      throw error;
+    }
   },
 });
 

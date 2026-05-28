@@ -1,5 +1,10 @@
 # Changelog
 
+## Repair failed project interview cleanup - 2026-05-28
+
+- **Summary**: Project interview/spec workflows now clean up failed sandbox starts by clearing the active workflow and replacing empty assistant placeholders with an error state, plus a one-off repair exists for stuck draft projects.
+- **Reason**: A sandbox startup failure left a draft project with an active workflow id, closed sandbox status, and an empty assistant message, blocking the next interview step and making the page appear stuck.
+
 ## Compact interview controls and confirm before clearing - 2026-05-28
 
 - **Summary**: The project interview now renders the "Answered: N" counter and the destructive Clear button inline on the submit row of `MultipleChoiceQuestion` (via a new `trailingControls` slot) instead of a separate footer row, and clicking Clear opens a confirmation dialog before wiping the conversation history.

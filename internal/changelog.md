@@ -1,5 +1,10 @@
 # Changelog
 
+## Unify project interview sandbox lifecycle with preview path - 2026-05-28
+
+- **Summary**: Project interview and spec workflows now reuse the shared `startProjectPreviewSandbox` action instead of the generic task-style sandbox prep, so the sandbox id is persisted on the project and reused across answers, and `reviewProjectSandboxStatus` is set so the card/sidebar active indicator lights up while the interview runs. Each conversation message now also records `startedAt`/`finishedAt`, and the project interview chat shows the same live activity timer and duration label as quick tasks and sessions.
+- **Reason**: Each interview answer was spawning a brand-new sandbox because the project doc never persisted `sandboxId`, and the card/sidebar indicator key (`reviewProjectSandboxStatus`) was only written by the preview-Start lifecycle, so neither artifact ever lit up. The interview chat also lacked the activity timer that other agent chats use, because conversation messages didn't carry timestamps.
+
 ## Same-origin Convex routing in Daytona preview proxy - 2026-05-28
 
 - **Summary**: The in-sandbox preview proxy now routes `/__convex/*` to `127.0.0.1:3210` and `/__convex-site/*` to `127.0.0.1:3211` for both HTTP requests and WebSocket upgrades, so apps running inside a Daytona sandbox can point their Convex browser client at the already-authenticated app preview origin instead of a separate Convex port.

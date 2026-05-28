@@ -65,6 +65,11 @@ export const conversationMessageValidator = v.object({
   content: v.string(),
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
+  // Set when the assistant placeholder is inserted; cleared at completion.
+  // Used by the project interview UI to show a live timer on the activity
+  // accordion (matching tasks/sessions chat behaviour).
+  startedAt: v.optional(v.number()),
+  finishedAt: v.optional(v.number()),
 });
 
 export const automationFindingValidator = v.object({

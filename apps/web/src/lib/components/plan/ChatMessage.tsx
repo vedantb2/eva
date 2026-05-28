@@ -1,19 +1,18 @@
 "use client";
 
 import {
-  ActivitySteps,
   Avatar,
   AvatarFallback,
   Message as AIMessage,
   MessageContent,
   MessageResponse,
-  Reasoning,
-  CollapsibleContent,
-  ReasoningTrigger,
 } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
 import type { Id } from "@conductor/backend";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import {
+  StreamingActivityDisplay,
+  ActivityLogDisplay,
+} from "@/lib/components/StreamingActivityDisplay";
 import { motion } from "motion/react";
 
 interface ChatMessageProps {
@@ -22,6 +21,11 @@ interface ChatMessageProps {
   logs?: string;
   isStreaming?: boolean;
   userId?: Id<"users">;
+  // Stamped when the assistant placeholder was inserted (drives the live
+  // timer while streaming) and when the run completed (drives the static
+  // duration label on the collapsed activity accordion).
+  startedAt?: number;
+  finishedAt?: number;
 }
 
 export function ChatMessage({
@@ -30,6 +34,8 @@ export function ChatMessage({
   logs,
   isStreaming,
   userId,
+  startedAt,
+  finishedAt,
 }: ChatMessageProps) {
   const isUser = role === "user";
 
@@ -58,30 +64,12 @@ export function ChatMessage({
           }
         >
           {isStreaming ? (
-            (() => {
-              const steps = parseActivitySteps(content);
-              return steps ? (
-                <ActivitySteps
-                  steps={steps}
-                  isStreaming
-                  name="Eva"
-                  icon={evaIcon}
-                />
-              ) : (
-                <Reasoning isStreaming defaultOpen>
-                  <ReasoningTrigger
-                    getThinkingMessage={(streaming) =>
-                      streaming ? "Working..." : "Processing complete"
-                    }
-                  />
-                  <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                    <pre className="whitespace-pre-wrap font-mono text-xs">
-                      {content || "Starting..."}
-                    </pre>
-                  </CollapsibleContent>
-                </Reasoning>
-              );
-            })()
+            <StreamingActivityDisplay
+              activity={content}
+              name="Eva"
+              icon={evaIcon}
+              startedAt={startedAt}
+            />
           ) : (
             <>
               {isUser ? (
@@ -90,28 +78,15 @@ export function ChatMessage({
                 </p>
               ) : (
                 <>
-                  {logs &&
-                    (() => {
-                      const steps = parseActivitySteps(logs);
-                      return steps ? (
-                        <ActivitySteps
-                          steps={steps}
-                          name="Eva"
-                          icon={evaIcon}
-                        />
-                      ) : (
-                        <Reasoning defaultOpen={false}>
-                          <ReasoningTrigger
-                            getThinkingMessage={() => "View logs"}
-                          />
-                          <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-                            <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto">
-                              {logs}
-                            </pre>
-                          </CollapsibleContent>
-                        </Reasoning>
-                      );
-                    })()}
+                  {logs && (
+                    <ActivityLogDisplay
+                      activityLog={logs}
+                      name="Eva"
+                      icon={evaIcon}
+                      startedAt={startedAt}
+                      finishedAt={finishedAt}
+                    />
+                  )}
                   <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
                     {content}
                   </MessageResponse>

@@ -18,7 +18,7 @@ import {
   setProjectConversation,
   setProjectGeneratedSpec,
 } from "./_projects/helpers";
-import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 const projectInterviewCompleteEvent = defineEvent({
   name: "projectInterviewComplete",
@@ -56,12 +56,13 @@ OR
   return prompt;
 }
 
-/** Replaces the content and activity log of the last entry in a conversation history array. */
+/** Replaces the content and activity log of the last entry in a conversation history array, stamping finishedAt. */
 function updateLastConversationEntry<
   T extends {
     role: "user" | "assistant";
     content: string;
     activityLog?: string;
+    finishedAt?: number;
   },
 >(history: T[], content: string, activityLog: string | null | undefined): T[] {
   const updated = [...history];
@@ -69,6 +70,7 @@ function updateLastConversationEntry<
   if (last) {
     last.content = content;
     last.activityLog = activityLog || undefined;
+    last.finishedAt = Date.now();
   }
   return updated;
 }
@@ -106,17 +108,22 @@ export const projectInterviewWorkflow = workflow.define({
     );
     const fullPrompt = `${PROJECT_INTERVIEW_SYSTEM_PROMPT} ${questionPrompt}`;
 
-    const sandboxId = await prepareSandboxSteps(step, {
-      existingSandboxId: projectData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: projectData.repoOwner,
-      repoName: projectData.repoName,
-      repoId: projectData.repoId,
-      streamingEntityId: args.projectId,
-      sessionPersistenceId: args.projectId,
-      sessionPersistenceKind: "projects",
-      ephemeral: false,
-    });
+    // Use the shared project-preview lifecycle so the sandbox id is persisted
+    // on the project (otherwise every answer would spawn a fresh sandbox) and
+    // the card/sidebar "active" indicator lights up while the interview runs.
+    const { sandboxId } = await step.runAction(
+      internal.daytona.startProjectPreviewSandbox,
+      {
+        projectId: args.projectId,
+        existingSandboxId: projectData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: projectData.repoOwner,
+        repoName: projectData.repoName,
+        branchName: projectData.branchName,
+        baseBranch: projectData.baseBranch,
+        repoId: projectData.repoId,
+      },
+    );
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,
@@ -155,6 +162,8 @@ export const getProjectData = internalQuery({
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
+    branchName: v.string(),
+    baseBranch: v.string(),
   }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -163,11 +172,20 @@ export const getProjectData = internalQuery({
     const repo = await ctx.db.get(project.repoId);
     if (!repo) throw new Error("Repository not found");
 
+    // During interview/spec the project usually has no branch yet, so fall back
+    // to the repo's default branch — the sandbox just needs a valid checkout.
+    const branchName =
+      project.branchName ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+    const baseBranch =
+      project.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+
     return {
       sandboxId: project.sandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: project.repoId,
+      branchName,
+      baseBranch,
     };
   },
 });
@@ -183,7 +201,12 @@ export const addEmptyAssistant = internalMutation({
     const conversation = await getProjectConversation(ctx.db, args.projectId);
     await setProjectConversation(ctx.db, args.projectId, [
       ...conversation,
-      { role: "assistant", content: "", activityLog: "" },
+      {
+        role: "assistant",
+        content: "",
+        activityLog: "",
+        startedAt: Date.now(),
+      },
     ]);
     return null;
   },
@@ -393,17 +416,19 @@ Based on the interview conversation above, generate an implementation spec with 
 
 Output ONLY valid JSON.`;
 
-    const sandboxId = await prepareSandboxSteps(step, {
-      existingSandboxId: projectData.sandboxId,
-      installationId: args.installationId,
-      repoOwner: projectData.repoOwner,
-      repoName: projectData.repoName,
-      repoId: projectData.repoId,
-      streamingEntityId: args.projectId,
-      sessionPersistenceId: args.projectId,
-      sessionPersistenceKind: "projects",
-      ephemeral: false,
-    });
+    const { sandboxId } = await step.runAction(
+      internal.daytona.startProjectPreviewSandbox,
+      {
+        projectId: args.projectId,
+        existingSandboxId: projectData.sandboxId,
+        installationId: args.installationId,
+        repoOwner: projectData.repoOwner,
+        repoName: projectData.repoName,
+        branchName: projectData.branchName,
+        baseBranch: projectData.baseBranch,
+        repoId: projectData.repoId,
+      },
+    );
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId,

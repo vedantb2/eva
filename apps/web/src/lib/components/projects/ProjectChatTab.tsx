@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  ActivitySteps,
   Button,
   Spinner,
   Conversation,
@@ -16,13 +15,18 @@ import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQues
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
-import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
+import {
+  StreamingActivityDisplay,
+  ActivityLogDisplay,
+} from "@/lib/components/StreamingActivityDisplay";
 
 export interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
   activityLog?: string;
   userId?: Id<"users">;
+  startedAt?: number;
+  finishedAt?: number;
 }
 
 interface ProjectChatTabProps {
@@ -202,15 +206,13 @@ export function ProjectChatTab({
           {initialMessages.map((m, i) => {
             if (m.role === "assistant") {
               if (!m.content) {
-                const steps = parseActivitySteps(streamingActivity);
-                return steps ? (
-                  <ActivitySteps key={`msg-${i}`} steps={steps} isStreaming />
-                ) : (
+                return (
                   <ChatMessage
                     key={`msg-${i}`}
                     role="assistant"
                     content={streamingActivity || "Starting..."}
                     isStreaming
+                    startedAt={m.startedAt}
                   />
                 );
               }
@@ -237,6 +239,8 @@ export function ProjectChatTab({
                       role="assistant"
                       content={parsed.question}
                       logs={logs}
+                      startedAt={m.startedAt}
+                      finishedAt={m.finishedAt}
                     />
                   );
                 }
@@ -258,6 +262,8 @@ export function ProjectChatTab({
                   role="assistant"
                   content={m.content}
                   logs={m.activityLog}
+                  startedAt={m.startedAt}
+                  finishedAt={m.finishedAt}
                 />
               );
             }

@@ -357,6 +357,23 @@ export const projectSandboxReady = internalMutation({
   },
 });
 
+/** Marks a project preview sandbox as starting (internal use). */
+export const projectSandboxStarting = internalMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return null;
+
+    await ctx.db.patch(args.projectId, {
+      reviewProjectSandboxStatus: "starting",
+      lastSandboxActivity: Date.now(),
+    });
+
+    return null;
+  },
+});
+
 /** Records a project sandbox startup failure (internal use). */
 export const projectSandboxError = internalMutation({
   args: {

@@ -1898,7 +1898,13 @@ async function prepareProjectPreviewSandboxInternal(
   };
 }
 
-/** Starts a project preview sandbox end-to-end and notifies the project of readiness or error. */
+/**
+ * Starts a project preview sandbox end-to-end and notifies the project of
+ * readiness or error. Returns the sandbox id on success so callers (e.g. the
+ * interview/spec workflows) can launch agents on it without re-querying the
+ * project doc — `projectSandboxReady` has already persisted it as well, so the
+ * project card/sidebar indicator lights up.
+ */
 export const startProjectPreviewSandbox = internalAction({
   args: {
     projectId: v.id("projects"),
@@ -1911,12 +1917,15 @@ export const startProjectPreviewSandbox = internalAction({
     repoId: v.id("githubRepos"),
     forceStartupCommands: v.optional(v.boolean()),
   },
-  returns: v.null(),
+  returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
     const actionStartedAt = Date.now();
     const actionDetails = `projectId=${args.projectId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
     logSession(`startProjectPreviewSandbox invoked (${actionDetails})`);
     try {
+      await ctx.runMutation(internal.projects.projectSandboxStarting, {
+        projectId: args.projectId,
+      });
       const prepared = await prepareProjectPreviewSandboxInternal(ctx, {
         projectId: args.projectId,
         existingSandboxId: args.existingSandboxId,
@@ -1946,6 +1955,7 @@ export const startProjectPreviewSandbox = internalAction({
       logSession(
         `startProjectPreviewSandbox completed in ${formatDurationMsShort(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
+      return { sandboxId: prepared.sandbox.id };
     } catch (e) {
       console.error(
         `[daytona][sessions] startProjectPreviewSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
@@ -1955,8 +1965,8 @@ export const startProjectPreviewSandbox = internalAction({
         projectId: args.projectId,
         error: errorMessage(e, "Unknown error"),
       });
+      throw e;
     }
-    return null;
   },
 });
 

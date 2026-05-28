@@ -37,10 +37,20 @@ interface ProjectsTimelineProps {
 const phaseStatusMap: Record<ProjectPhase, GanttStatus> = {
   draft: { id: "draft", name: "Draft", color: "rgb(115 115 115 / 0.5)" },
   finalized: { id: "finalized", name: "Finalized", color: "rgb(59 130 246)" },
-  active: {
-    id: "active",
-    name: "Active",
+  in_progress: {
+    id: "in_progress",
+    name: "In Progress",
     color: "hsl(var(--status-progress-bar))",
+  },
+  business_review: {
+    id: "business_review",
+    name: "Business Review",
+    color: "hsl(var(--status-business-review-bar))",
+  },
+  code_review: {
+    id: "code_review",
+    name: "Code Review",
+    color: "hsl(var(--status-code-review-bar))",
   },
   completed: {
     id: "completed",

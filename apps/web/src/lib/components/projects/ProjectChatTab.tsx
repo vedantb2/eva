@@ -67,7 +67,11 @@ export function ProjectChatTab({
   const [isClearing, setIsClearing] = useState(false);
   const prevMessagesLengthRef = useRef(initialMessages.length);
 
-  const isLocked = projectPhase === "active" || projectPhase === "completed";
+  const isLocked =
+    projectPhase === "in_progress" ||
+    projectPhase === "business_review" ||
+    projectPhase === "code_review" ||
+    projectPhase === "completed";
   const hasStarted = initialMessages.length > 0 || isLoading;
   const hasActiveWorkflow = activeWorkflowId !== undefined;
 

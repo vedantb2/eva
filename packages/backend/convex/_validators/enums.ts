@@ -42,9 +42,13 @@ export const sessionStatusValidator = v.union(
 export const phaseValidator = v.union(
   v.literal("draft"),
   v.literal("finalized"),
-  v.literal("active"),
+  v.literal("in_progress"),
+  v.literal("business_review"),
+  v.literal("code_review"),
   v.literal("completed"),
   v.literal("cancelled"),
+  // Legacy — remove after migrateProjectPhases has run on all deployments.
+  v.literal("active"),
 );
 
 export const indexingStatusValidator = v.union(

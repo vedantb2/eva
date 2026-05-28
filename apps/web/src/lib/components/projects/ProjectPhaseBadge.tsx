@@ -5,6 +5,8 @@ import {
   IconNotes,
   IconCheck,
   IconClock,
+  IconClipboardCheck,
+  IconEye,
   IconCircleCheck,
   IconCircleX,
 } from "@tabler/icons-react";
@@ -12,14 +14,18 @@ import {
 export type ProjectPhase =
   | "draft"
   | "finalized"
-  | "active"
+  | "in_progress"
+  | "business_review"
+  | "code_review"
   | "completed"
   | "cancelled";
 
 export const PROJECT_PHASES: ProjectPhase[] = [
   "draft",
   "finalized",
-  "active",
+  "in_progress",
+  "business_review",
+  "code_review",
   "completed",
   "cancelled",
 ];
@@ -48,12 +54,26 @@ export const phaseConfig: Record<
     label: "Finalized",
     icon: IconCheck,
   },
-  active: {
+  in_progress: {
     bg: "bg-status-progress-bg",
     bar: "bg-status-progress-bar",
     text: "text-status-progress",
-    label: "Active",
+    label: "In Progress",
     icon: IconClock,
+  },
+  business_review: {
+    bg: "bg-status-business-review-bg",
+    bar: "bg-status-business-review-bar",
+    text: "text-status-business-review",
+    label: "Business Review",
+    icon: IconClipboardCheck,
+  },
+  code_review: {
+    bg: "bg-status-code-review-bg",
+    bar: "bg-status-code-review-bar",
+    text: "text-status-code-review",
+    label: "Code Review",
+    icon: IconEye,
   },
   completed: {
     bg: "bg-status-done-bg",

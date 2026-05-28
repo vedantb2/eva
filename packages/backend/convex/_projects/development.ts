@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { authMutation } from "../functions";
+import { authMutation, recomputeProjectPhase } from "../functions";
 import {
   parseSpec,
   getProjectGeneratedSpec,
@@ -9,7 +9,7 @@ import {
 } from "./helpers";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
-/** Converts a finalized project spec into tasks with dependencies and sets the project to active. */
+/** Converts a finalized project spec into tasks with dependencies and sets the project to in_progress. */
 export const startDevelopment = authMutation({
   args: {
     projectId: v.id("projects"),
@@ -68,7 +68,7 @@ export const startDevelopment = authMutation({
       }
     }
     await ctx.db.patch(args.projectId, {
-      phase: "active",
+      phase: "in_progress",
       branchName,
       description: spec.description,
     });
@@ -95,7 +95,7 @@ export const createFromTasks = authMutation({
       userId: ctx.userId,
       title: args.title,
       rawInput: args.title,
-      phase: "active",
+      phase: "in_progress",
       baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
       projectStartDate: Date.now(),
     });
@@ -114,6 +114,7 @@ export const createFromTasks = authMutation({
         });
       }
     }
+    await recomputeProjectPhase(ctx, projectId);
     return projectId;
   },
 });

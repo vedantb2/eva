@@ -193,7 +193,7 @@ export const taskExecutionWorkflow = workflow.define({
       }
 
       if (finalSuccess) {
-        const isQuickTask = !args.projectId;
+        const createPrAsDraft = true;
         try {
           let changeRequests: PrEnrichmentData["changeRequests"] = [];
           let proofs: PrEnrichmentData["proofs"] = [];
@@ -238,7 +238,7 @@ export const taskExecutionWorkflow = workflow.define({
                 rootDirectory: data.rootDirectory,
                 changeRequests,
                 proofs,
-                draft: isQuickTask,
+                draft: createPrAsDraft,
               },
               PR_STEP_RETRY,
             );
@@ -282,7 +282,7 @@ export const taskExecutionWorkflow = workflow.define({
                   rootDirectory: data.rootDirectory,
                   changeRequests,
                   proofs,
-                  draft: isQuickTask,
+                  draft: createPrAsDraft,
                 },
                 PR_STEP_RETRY,
               );

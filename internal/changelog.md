@@ -1,5 +1,11 @@
 # Changelog
 
+## Align project phases with quick-task review lifecycle - 2026-05-28
+
+- Project phases now follow `draft → finalized → in_progress → business_review → code_review → completed`, keeping `finalized` for spec-ready work and using `in_progress` only while agents are building.
+- Manual phase changes and task-driven `recomputeProjectPhase` sync the project PR with GitHub the same way as quick tasks: business review keeps the PR as draft, code review marks it ready for review.
+- Project PRs are created as drafts; inbound GitHub draft/ready webhooks update project phase when the PR is in a review state.
+
 ## Unify project interview chat and history modal design - 2026-05-28
 
 - Extracted message parsing and type guards into `projectChatMessage.utils.ts` for reuse across components.

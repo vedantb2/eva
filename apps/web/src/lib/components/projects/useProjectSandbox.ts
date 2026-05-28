@@ -6,7 +6,11 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 
-const PREVIEW_SANDBOX_ALLOWED_PHASES = ["active"];
+const PREVIEW_SANDBOX_ALLOWED_PHASES = [
+  "in_progress",
+  "business_review",
+  "code_review",
+];
 
 export function useProjectSandbox(
   projectId: Id<"projects">,

@@ -6,7 +6,11 @@ import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { buildProjectBranchName } from "./helpers";
 
-const PREVIEW_ALLOWED_PHASES = ["active"] as const;
+const PREVIEW_ALLOWED_PHASES = [
+  "in_progress",
+  "business_review",
+  "code_review",
+] as const;
 
 /** Starts a preview sandbox for a project, checking out the project branch and running startup commands. */
 export const startProjectSandbox = authMutation({
@@ -27,7 +31,7 @@ export const startProjectSandbox = authMutation({
       )
     ) {
       throw new Error(
-        `Project must be in active phase to start sandbox. Current phase: ${project.phase}`,
+        `Project must be in in_progress, business_review, or code_review to start sandbox. Current phase: ${project.phase}`,
       );
     }
 
@@ -81,9 +85,13 @@ export const retryProjectStartupCommands = authMutation({
       ctx.userId,
     );
 
-    if (project.phase !== "active") {
+    if (
+      !PREVIEW_ALLOWED_PHASES.includes(
+        project.phase as (typeof PREVIEW_ALLOWED_PHASES)[number],
+      )
+    ) {
       throw new Error(
-        `Project must be in active phase to run startup commands. Current phase: ${project.phase}`,
+        `Project must be in in_progress, business_review, or code_review to run startup commands. Current phase: ${project.phase}`,
       );
     }
 

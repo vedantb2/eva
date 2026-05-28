@@ -20,7 +20,14 @@ interface Project {
   description?: string;
   branchName?: string;
   sandboxId?: string;
-  phase: "draft" | "finalized" | "active" | "completed" | "cancelled";
+  phase:
+    | "draft"
+    | "finalized"
+    | "in_progress"
+    | "business_review"
+    | "code_review"
+    | "completed"
+    | "cancelled";
   rawInput: string;
 }
 

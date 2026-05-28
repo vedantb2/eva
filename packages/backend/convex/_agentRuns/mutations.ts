@@ -64,7 +64,7 @@ export const updateStatus = authMutation({
         updatedAt: Date.now(),
       });
       if (task.projectId) {
-        await recomputeProjectPhase(ctx.db, task.projectId);
+        await recomputeProjectPhase(ctx, task.projectId);
       }
     }
     return null;
@@ -155,7 +155,7 @@ export const complete = authMutation({
       updatedAt: now,
     });
     if (task.projectId) {
-      await recomputeProjectPhase(ctx.db, task.projectId);
+      await recomputeProjectPhase(ctx, task.projectId);
     }
     const scopeLabel = task.projectId ? "Task" : "Quick task";
     const statusText = args.success ? "completed" : "failed";

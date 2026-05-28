@@ -19,11 +19,12 @@ import {
   deleteProjectDetails,
   buildProjectBranchName,
 } from "./helpers";
+import { scheduleProjectPrSync } from "./prSync";
 
 /**
  * Creates a new project. Defaults to `draft` phase with an initial conversation
  * message for the AI interview/plan flow. When `skipPlanning` is true, the
- * project goes straight to `active` phase as a plain tasks-only container —
+ * project goes straight to `in_progress` as a plain tasks-only container —
  * no AI conversation, no generated spec, branch name set immediately.
  */
 export const create = authMutation({
@@ -48,7 +49,7 @@ export const create = authMutation({
       rawInput: args.rawInput,
       description: skipPlanning ? args.rawInput : undefined,
       baseBranch: args.baseBranch,
-      phase: skipPlanning ? "active" : "draft",
+      phase: skipPlanning ? "in_progress" : "draft",
       projectStartDate: Date.now(),
       priority: args.priority,
     });
@@ -87,8 +88,8 @@ export const update = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    const { id, generatedSpec, projectLead, priority, ...fields } = args;
+    const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    const { id, generatedSpec, projectLead, priority, phase, ...fields } = args;
     const updates: Record<string, string | number | Array<string> | undefined> =
       {};
     for (const [key, value] of Object.entries(fields)) {
@@ -97,8 +98,15 @@ export const update = authMutation({
     if (projectLead !== undefined)
       updates.projectLead = projectLead ?? undefined;
     if (priority !== undefined) updates.priority = priority ?? undefined;
+    if (phase !== undefined) updates.phase = phase;
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(args.id, updates);
+    }
+    if (phase !== undefined && phase !== project.phase) {
+      const updated = await ctx.db.get(args.id);
+      if (updated) {
+        await scheduleProjectPrSync(ctx, updated, project.phase, phase);
+      }
     }
     if (generatedSpec !== undefined) {
       await setProjectGeneratedSpec(ctx.db, args.id, generatedSpec);

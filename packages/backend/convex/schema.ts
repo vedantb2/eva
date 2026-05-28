@@ -60,7 +60,8 @@ const schema = defineSchema({
   projects: defineTable(projectFields)
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
-    .index("by_repo_and_phase", ["repoId", "phase"]),
+    .index("by_repo_and_phase", ["repoId", "phase"])
+    .index("by_pr_url", ["prUrl"]),
 
   projectDetails: defineTable(projectDetailsFields).index("by_project", [
     "projectId",

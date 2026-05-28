@@ -129,7 +129,7 @@ export const activateDraft = authMutation({
       });
     }
     if (task.projectId) {
-      await recomputeProjectPhase(ctx.db, task.projectId);
+      await recomputeProjectPhase(ctx, task.projectId);
     }
     return null;
   },

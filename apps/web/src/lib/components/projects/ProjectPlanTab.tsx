@@ -68,7 +68,11 @@ export function ProjectPlanTab({
     }
   })();
 
-  const isLocked = projectPhase === "active" || projectPhase === "completed";
+  const isLocked =
+    projectPhase === "in_progress" ||
+    projectPhase === "business_review" ||
+    projectPhase === "code_review" ||
+    projectPhase === "completed";
 
   const handleStartDevelopment = async () => {
     if (!generatedSpec) return;

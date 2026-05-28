@@ -139,7 +139,9 @@ export function ProjectsClient() {
     const initial: Record<ProjectPhase, typeof filteredSorted> = {
       draft: [],
       finalized: [],
-      active: [],
+      in_progress: [],
+      business_review: [],
+      code_review: [],
       completed: [],
       cancelled: [],
     };

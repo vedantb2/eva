@@ -410,6 +410,15 @@ http.route({
             merged: merged ?? undefined,
           },
         );
+        await ctx.scheduler.runAfter(
+          0,
+          internal.githubWebhook.handleProjectPrEvent,
+          {
+            prUrl,
+            action,
+            draft: draft ?? undefined,
+          },
+        );
       }
 
       // agentTasks/projects path stays as-is (close-only).

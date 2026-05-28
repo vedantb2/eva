@@ -361,7 +361,7 @@ export const updateStatus = authMutation({
       }
     }
     if (task.projectId) {
-      await recomputeProjectPhase(ctx.db, task.projectId);
+      await recomputeProjectPhase(ctx, task.projectId);
     }
     return null;
   },
@@ -605,7 +605,7 @@ export const createBatchWithDependencies = authMutation({
         userId: ctx.userId,
         title: args.projectTitle,
         rawInput: args.projectTitle,
-        phase: "active",
+        phase: "in_progress",
         baseBranch,
         projectStartDate: now,
       });

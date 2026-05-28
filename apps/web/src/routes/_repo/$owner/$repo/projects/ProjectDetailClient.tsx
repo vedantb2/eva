@@ -201,13 +201,13 @@ export function ProjectDetailClient({
   const canCreatePr =
     !project.prUrl &&
     !project.activeBuildWorkflowId &&
-    project.phase === "active";
+    (project.phase === "business_review" || project.phase === "in_progress");
   const showRetryStartupCommands =
     canStartSandbox && !isSandboxStarting && !isSandboxStopping;
   const showResolveConflicts =
     Boolean(project.prUrl) &&
     !project.activeBuildWorkflowId &&
-    project.phase === "active";
+    (project.phase === "business_review" || project.phase === "code_review");
   const parsedSpec = (() => {
     if (!project.generatedSpec) return null;
     try {

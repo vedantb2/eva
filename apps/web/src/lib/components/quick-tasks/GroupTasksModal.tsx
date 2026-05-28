@@ -229,14 +229,24 @@ export function GroupTasksModal({
           <TabsContent value="existing">
             <div className="pt-2 space-y-2 max-h-80 overflow-y-auto">
               {projects?.filter(
-                (p) => p.phase === "active" || p.phase === "completed",
+                (p) =>
+                  p.phase === "in_progress" ||
+                  p.phase === "business_review" ||
+                  p.phase === "code_review" ||
+                  p.phase === "completed",
               ).length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No active projects
                 </p>
               )}
               {projects
-                ?.filter((p) => p.phase === "active" || p.phase === "completed")
+                ?.filter(
+                  (p) =>
+                    p.phase === "in_progress" ||
+                    p.phase === "business_review" ||
+                    p.phase === "code_review" ||
+                    p.phase === "completed",
+                )
                 .map((project) => (
                   <button
                     key={project._id}

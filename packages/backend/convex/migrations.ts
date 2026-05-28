@@ -9,3 +9,4 @@ export { backfillDeploymentUrlScheme } from "./_migrations/deploymentUrl";
 export { migrateRepoSkillsToGithubMetadata } from "./_migrations/repoSkills";
 export { backfillLogProjectIds } from "./_migrations/logProjectIds";
 export { repairStuckProjectInterview } from "./_migrations/projectInterview";
+export { migrateProjectPhases } from "./_migrations/projectPhases";

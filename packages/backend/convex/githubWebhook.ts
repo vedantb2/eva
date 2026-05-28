@@ -4,6 +4,10 @@ import { internal } from "./_generated/api";
 import { createNotification } from "./notifications";
 import type { Doc, Id } from "./_generated/dataModel";
 import { buildProjectBranchName } from "./_projects/helpers";
+import {
+  deriveProjectPhaseFromPrEvent,
+  isProjectReviewPhase,
+} from "./_projects/prSync";
 
 const QUICK_TASK_BRANCH_PREFIX = "eva/task-";
 const PROJECT_BRANCH_PREFIX = "eva/project-";
@@ -71,6 +75,30 @@ function deriveSessionPrState(
   }
   return null;
 }
+
+/** Syncs a project's phase from GitHub draft/ready PR webhook events. */
+export const handleProjectPrEvent = internalMutation({
+  args: {
+    prUrl: v.string(),
+    action: v.string(),
+    draft: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const nextPhase = deriveProjectPhaseFromPrEvent(args.action, args.draft);
+    if (!nextPhase) return null;
+
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_pr_url", (q) => q.eq("prUrl", args.prUrl))
+      .first();
+    if (!project || !isProjectReviewPhase(project.phase)) return null;
+    if (project.phase === nextPhase) return null;
+
+    await ctx.db.patch(project._id, { phase: nextPhase });
+    return null;
+  },
+});
 
 /** Syncs a session's prState from a GitHub pull_request webhook event. */
 export const handleSessionPrEvent = internalMutation({

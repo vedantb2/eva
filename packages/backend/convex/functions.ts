@@ -21,6 +21,7 @@ import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getCurrentUserId } from "./auth";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
+import { scheduleProjectPrSync } from "./_projects/prSync";
 
 /** Checks if a user has access to a repo — either as the connector or via team membership. */
 export async function hasRepoAccess(
@@ -56,24 +57,29 @@ export async function hasTaskAccess(
   return false;
 }
 
-/** Recalculates a project's phase (active/completed) based on the statuses of its tasks. */
+/** Recalculates a project's delivery phase from child task statuses. */
 export async function recomputeProjectPhase(
-  db: GenericDatabaseWriter<DataModel>,
+  ctx: MutationCtx,
   projectId: Id<"projects">,
 ): Promise<void> {
+  const db = ctx.db;
   const project = await db.get(projectId);
   if (!project) return;
   if (
-    project.phase !== "active" &&
+    project.phase !== "in_progress" &&
+    project.phase !== "business_review" &&
+    project.phase !== "code_review" &&
     project.phase !== "completed" &&
     project.phase !== "finalized" &&
-    project.phase !== "cancelled"
-  )
+    project.phase !== "cancelled" &&
+    project.phase !== "active"
+  ) {
     return;
+  }
 
-  const activeStatuses = ["todo", "in_progress", "business_review"] as const;
-  const activeChecks = await Promise.all(
-    activeStatuses.map((status) =>
+  const buildingStatuses = ["todo", "in_progress"] as const;
+  const buildingChecks = await Promise.all(
+    buildingStatuses.map((status) =>
       db
         .query("agentTasks")
         .withIndex("by_project_and_status", (q) =>
@@ -82,16 +88,62 @@ export async function recomputeProjectPhase(
         .first(),
     ),
   );
-  const anyActive = activeChecks.some((t) => t !== null);
+  const anyBuilding = buildingChecks.some((t) => t !== null);
 
-  if (anyActive) {
-    if (project.phase !== "active") {
-      await db.patch(projectId, { phase: "active" });
+  if (anyBuilding) {
+    if (project.phase !== "in_progress") {
+      const previousPhase = project.phase;
+      await db.patch(projectId, { phase: "in_progress" });
+      const updated = await db.get(projectId);
+      if (updated) {
+        await scheduleProjectPrSync(ctx, updated, previousPhase, "in_progress");
+      }
     }
     return;
   }
 
-  const nonDoneStatuses = ["code_review", "draft", "cancelled"] as const;
+  const businessReviewTask = await db
+    .query("agentTasks")
+    .withIndex("by_project_and_status", (q) =>
+      q.eq("projectId", projectId).eq("status", "business_review"),
+    )
+    .first();
+  if (businessReviewTask) {
+    if (project.phase !== "business_review") {
+      const previousPhase = project.phase;
+      await db.patch(projectId, { phase: "business_review" });
+      const updated = await db.get(projectId);
+      if (updated) {
+        await scheduleProjectPrSync(
+          ctx,
+          updated,
+          previousPhase,
+          "business_review",
+        );
+      }
+    }
+    return;
+  }
+
+  const codeReviewTask = await db
+    .query("agentTasks")
+    .withIndex("by_project_and_status", (q) =>
+      q.eq("projectId", projectId).eq("status", "code_review"),
+    )
+    .first();
+  if (codeReviewTask) {
+    if (project.phase !== "code_review") {
+      const previousPhase = project.phase;
+      await db.patch(projectId, { phase: "code_review" });
+      const updated = await db.get(projectId);
+      if (updated) {
+        await scheduleProjectPrSync(ctx, updated, previousPhase, "code_review");
+      }
+    }
+    return;
+  }
+
+  const nonDoneStatuses = ["draft", "cancelled"] as const;
   const nonDoneChecks = await Promise.all(
     nonDoneStatuses.map((status) =>
       db
@@ -113,9 +165,14 @@ export async function recomputeProjectPhase(
 
   if (!hasDone && !hasNonDone) return;
 
-  const allDone = hasDone !== null && !hasNonDone && !anyActive;
+  const allDone = hasDone !== null && !hasNonDone && !anyBuilding;
   if (allDone && project.phase !== "completed") {
+    const previousPhase = project.phase;
     await db.patch(projectId, { phase: "completed" });
+    const updated = await db.get(projectId);
+    if (updated) {
+      await scheduleProjectPrSync(ctx, updated, previousPhase, "completed");
+    }
   }
 }
 

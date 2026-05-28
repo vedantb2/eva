@@ -1493,6 +1493,8 @@ type ProjectPreviewSandboxPreparationArgs = {
   baseBranch: string;
   repoId: Id<"githubRepos">;
   forceStartupCommands?: boolean;
+  /** Skip repo startup/background commands (e.g. project interview only reads files). */
+  skipStartupCommands?: boolean;
 };
 
 /** Core logic for preparing a project preview sandbox: reuses existing or creates new, syncs refs, and starts services. */
@@ -1634,51 +1636,53 @@ async function prepareProjectPreviewSandboxInternal(
             label: "Starting dev server...",
             status: "complete",
           });
-          await runLoggedSessionStep(
-            "reuseProjectSandbox.runStartupCommands",
-            sandboxDetails,
-            async () => {
-              const result = await ctx.runAction(
-                internal.daytona.runStartupCommands,
-                {
-                  sandboxId: sandbox.id,
-                  repoId: args.repoId,
-                  force: args.forceStartupCommands,
-                },
-              );
-              if (result.ran && result.commandCount > 0) {
-                logSession(
-                  `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+          if (!args.skipStartupCommands) {
+            await runLoggedSessionStep(
+              "reuseProjectSandbox.runStartupCommands",
+              sandboxDetails,
+              async () => {
+                const result = await ctx.runAction(
+                  internal.daytona.runStartupCommands,
+                  {
+                    sandboxId: sandbox.id,
+                    repoId: args.repoId,
+                    force: args.forceStartupCommands,
+                  },
                 );
-              }
-            },
-          );
-          await emitProjectProgress(
-            ctx,
-            args.projectId,
-            completedSteps,
-            "Launching background commands...",
-          );
-          await runLoggedSessionStep(
-            "reuseProjectSandbox.runBackgroundCommands",
-            sandboxDetails,
-            async () => {
-              const result = await ctx.runAction(
-                internal.daytona.runBackgroundCommands,
-                { sandboxId: sandbox.id, repoId: args.repoId },
-              );
-              if (result.ran && result.commandCount > 0) {
-                logSession(
-                  `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                if (result.ran && result.commandCount > 0) {
+                  logSession(
+                    `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                  );
+                }
+              },
+            );
+            await emitProjectProgress(
+              ctx,
+              args.projectId,
+              completedSteps,
+              "Launching background commands...",
+            );
+            await runLoggedSessionStep(
+              "reuseProjectSandbox.runBackgroundCommands",
+              sandboxDetails,
+              async () => {
+                const result = await ctx.runAction(
+                  internal.daytona.runBackgroundCommands,
+                  { sandboxId: sandbox.id, repoId: args.repoId },
                 );
-              }
-            },
-          );
-          completedSteps.push({
-            type: "tool",
-            label: "Launching background commands...",
-            status: "complete",
-          });
+                if (result.ran && result.commandCount > 0) {
+                  logSession(
+                    `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                  );
+                }
+              },
+            );
+            completedSteps.push({
+              type: "tool",
+              label: "Launching background commands...",
+              status: "complete",
+            });
+          }
           reusedResult = {
             sandbox,
             isNew: false,
@@ -1841,55 +1845,60 @@ async function prepareProjectPreviewSandboxInternal(
     status: "complete",
   });
 
-  await emitProjectProgress(
-    ctx,
-    args.projectId,
-    completedSteps,
-    "Running startup commands...",
-  );
-  await runLoggedSessionStep(
-    "newProjectSandbox.runStartupCommands",
-    sandboxDetails,
-    async () => {
-      const result = await ctx.runAction(internal.daytona.runStartupCommands, {
-        sandboxId: sandbox.id,
-        repoId: args.repoId,
-        force: args.forceStartupCommands,
-      });
-      if (result.ran && result.commandCount > 0) {
-        logSession(
-          `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+  if (!args.skipStartupCommands) {
+    await emitProjectProgress(
+      ctx,
+      args.projectId,
+      completedSteps,
+      "Running startup commands...",
+    );
+    await runLoggedSessionStep(
+      "newProjectSandbox.runStartupCommands",
+      sandboxDetails,
+      async () => {
+        const result = await ctx.runAction(
+          internal.daytona.runStartupCommands,
+          {
+            sandboxId: sandbox.id,
+            repoId: args.repoId,
+            force: args.forceStartupCommands,
+          },
         );
-      }
-    },
-  );
-  completedSteps.push({
-    type: "tool",
-    label: "Running startup commands...",
-    status: "complete",
-  });
+        if (result.ran && result.commandCount > 0) {
+          logSession(
+            `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+          );
+        }
+      },
+    );
+    completedSteps.push({
+      type: "tool",
+      label: "Running startup commands...",
+      status: "complete",
+    });
 
-  await emitProjectProgress(
-    ctx,
-    args.projectId,
-    completedSteps,
-    "Launching background commands...",
-  );
-  await runLoggedSessionStep(
-    "newProjectSandbox.runBackgroundCommands",
-    sandboxDetails,
-    async () => {
-      const result = await ctx.runAction(
-        internal.daytona.runBackgroundCommands,
-        { sandboxId: sandbox.id, repoId: args.repoId },
-      );
-      if (result.ran && result.commandCount > 0) {
-        logSession(
-          `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+    await emitProjectProgress(
+      ctx,
+      args.projectId,
+      completedSteps,
+      "Launching background commands...",
+    );
+    await runLoggedSessionStep(
+      "newProjectSandbox.runBackgroundCommands",
+      sandboxDetails,
+      async () => {
+        const result = await ctx.runAction(
+          internal.daytona.runBackgroundCommands,
+          { sandboxId: sandbox.id, repoId: args.repoId },
         );
-      }
-    },
-  );
+        if (result.ran && result.commandCount > 0) {
+          logSession(
+            `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+          );
+        }
+      },
+    );
+  }
 
   return {
     sandbox,
@@ -1920,6 +1929,7 @@ export const startProjectPreviewSandbox = internalAction({
     baseBranch: v.string(),
     repoId: v.id("githubRepos"),
     forceStartupCommands: v.optional(v.boolean()),
+    skipStartupCommands: v.optional(v.boolean()),
   },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args) => {
@@ -1940,6 +1950,7 @@ export const startProjectPreviewSandbox = internalAction({
         baseBranch: args.baseBranch,
         repoId: args.repoId,
         forceStartupCommands: args.forceStartupCommands,
+        skipStartupCommands: args.skipStartupCommands,
       });
       await runLoggedSessionStep(
         prepared.isNew

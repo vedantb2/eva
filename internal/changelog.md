@@ -1,5 +1,11 @@
 # Changelog
 
+## Skip heavy startup for project interviews - 2026-05-28
+
+- Project interview and spec workflows now skip repo startup commands (convex import, env seeding) because agents only read the codebase, avoiding 10+ minute sandbox prep and workflow timeouts.
+- Failed interview runs now reset `reviewProjectSandboxStatus` to closed so the UI does not stay stuck on "starting" after errors.
+- Stuck-interview repair clears sandbox startup streaming activity and can drop a broken `sandboxId` so the next Continue starts clean.
+
 ## Stabilize Project Interview Sandboxes - 2026-05-28
 
 - Project interviews now persist newly created sandbox ids before long startup work, so retries and later answers reuse the same Daytona sandbox.

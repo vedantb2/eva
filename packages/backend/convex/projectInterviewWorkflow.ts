@@ -123,6 +123,8 @@ export const projectInterviewWorkflow = workflow.define({
           branchName: projectData.branchName,
           baseBranch: projectData.baseBranch,
           repoId: projectData.repoId,
+          // Interview agents only read the repo; skip convex import / env setup.
+          skipStartupCommands: true,
         },
       );
 
@@ -252,6 +254,7 @@ export const saveResult = internalMutation({
       await setProjectConversation(ctx.db, args.projectId, messages);
       await ctx.db.patch(args.projectId, {
         activeWorkflowId: undefined,
+        reviewProjectSandboxStatus: "closed",
         lastSandboxActivity: Date.now(),
       });
       return null;
@@ -267,6 +270,7 @@ export const saveResult = internalMutation({
       await setProjectConversation(ctx.db, args.projectId, messages);
       await ctx.db.patch(args.projectId, {
         activeWorkflowId: undefined,
+        reviewProjectSandboxStatus: "closed",
         lastSandboxActivity: Date.now(),
       });
       return null;
@@ -443,6 +447,8 @@ Output ONLY valid JSON.`;
           branchName: projectData.branchName,
           baseBranch: projectData.baseBranch,
           repoId: projectData.repoId,
+          // Interview agents only read the repo; skip convex import / env setup.
+          skipStartupCommands: true,
         },
       );
 

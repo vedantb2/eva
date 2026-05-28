@@ -1,19 +1,26 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
+import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 
-/** Clears a project interview that got stuck after sandbox startup failed. */
+/** Clears a project interview stuck after sandbox or agent failure. */
 export const repairStuckProjectInterview = internalMutation({
   args: {
     projectId: v.id("projects"),
+    clearSandboxId: v.optional(v.boolean()),
   },
   returns: v.object({
     clearedWorkflow: v.boolean(),
     removedEmptyAssistant: v.boolean(),
+    resetSandboxStatus: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project) {
-      return { clearedWorkflow: false, removedEmptyAssistant: false };
+      return {
+        clearedWorkflow: false,
+        removedEmptyAssistant: false,
+        resetSandboxStatus: false,
+      };
     }
 
     let removedEmptyAssistant = false;
@@ -36,15 +43,25 @@ export const repairStuckProjectInterview = internalMutation({
       }
     }
 
-    const clearedWorkflow = project.activeWorkflowId !== undefined;
-    if (clearedWorkflow) {
-      await ctx.db.patch(args.projectId, {
-        activeWorkflowId: undefined,
-        reviewProjectSandboxStatus: "closed",
-        lastSandboxActivity: Date.now(),
-      });
-    }
+    await clearStreamingActivity(ctx, String(args.projectId));
+    await clearStreamingActivity(
+      ctx,
+      `project-sandbox-startup-${String(args.projectId)}`,
+    );
 
-    return { clearedWorkflow, removedEmptyAssistant };
+    const clearedWorkflow = project.activeWorkflowId !== undefined;
+    const resetSandboxStatus =
+      project.reviewProjectSandboxStatus !== "closed" ||
+      clearedWorkflow ||
+      args.clearSandboxId === true;
+
+    await ctx.db.patch(args.projectId, {
+      activeWorkflowId: undefined,
+      reviewProjectSandboxStatus: "closed",
+      lastSandboxActivity: Date.now(),
+      ...(args.clearSandboxId === true ? { sandboxId: undefined } : {}),
+    });
+
+    return { clearedWorkflow, removedEmptyAssistant, resetSandboxStatus };
   },
 });

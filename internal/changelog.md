@@ -7,6 +7,7 @@
 - Refactored `ProjectChatTab.tsx` to use the new component, eliminating ~220 lines of duplicate rendering logic.
 - Refactored `PlanContextPanel.tsx` to use the shared component so the interview history modal displays with the exact same design as the project chat, including activity logs and timing information.
 - Updated `ProjectActiveLayout.tsx` to accept the full `ConversationMessage` type (with `activityLog`, `startedAt`, `finishedAt`) so the modal can render complete message metadata.
+- Moved plan and interview history buttons into a dropdown menu ("View plan" and "View interview history" options) for a cleaner sidebar layout.
 
 ## Skip heavy startup for project interviews - 2026-05-28
 

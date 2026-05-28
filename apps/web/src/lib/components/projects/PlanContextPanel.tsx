@@ -8,9 +8,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogBody,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
 } from "@conductor/ui";
 import { parseSpec } from "@/lib/utils/parseSpec";
-import { IconFileText, IconMessage } from "@tabler/icons-react";
+import { IconFileText, IconMessage, IconDots } from "@tabler/icons-react";
 import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
 import { ProjectChatMessageList } from "./ProjectChatMessageList";
 
@@ -40,24 +44,23 @@ export function PlanContextPanel({
 
   return (
     <>
-      <div className="flex justify-between gap-1">
-        <Button
-          size="icon"
-          variant="ghost"
-          className="rounded-full"
-          onClick={() => setShowPlanModal(true)}
-        >
-          <IconFileText size={14} />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="rounded-full"
-          onClick={() => setShowChatModal(true)}
-        >
-          <IconMessage size={14} />
-        </Button>
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon" variant="ghost" className="rounded-full">
+            <IconDots size={14} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setShowPlanModal(true)}>
+            <IconFileText className="mr-2 h-4 w-4" />
+            View plan
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowChatModal(true)}>
+            <IconMessage className="mr-2 h-4 w-4" />
+            View interview history
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Dialog open={showPlanModal} onOpenChange={setShowPlanModal}>
         <DialogContent className="max-w-2xl">

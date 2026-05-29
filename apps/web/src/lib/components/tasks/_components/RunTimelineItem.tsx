@@ -79,6 +79,18 @@ export function RunTimelineItem({
           <AccordionTrigger className="flex-1 min-w-0">
             <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
               <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                <span className="text-xs text-muted-foreground truncate">
+                  {run.startedAt
+                    ? dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")
+                    : "Queued"}
+                </span>
+                {hasRunComment && runComment.authorId ? (
+                  <UserInitials
+                    userId={runComment.authorId}
+                    size="sm"
+                    hideLastSeen
+                  />
+                ) : null}
                 <Badge
                   variant={
                     run.status === "running"
@@ -114,11 +126,6 @@ export function RunTimelineItem({
                             ? "error"
                             : "queued"}
                 </Badge>
-                <span className="text-xs text-muted-foreground truncate">
-                  {run.startedAt
-                    ? dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")
-                    : "Queued"}
-                </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {isActiveRun && run.startedAt ? (

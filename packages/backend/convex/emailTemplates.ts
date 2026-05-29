@@ -25,6 +25,11 @@ const TEXT = "#111827";
 const MUTED = "#6b7280";
 const SURFACE = "#f3f4f6";
 
+// Inter first, with a system fallback stack for clients that ignore web fonts
+// (Gmail, Outlook desktop). Apple Mail / iOS Mail load Inter via the @import.
+const FONT_STACK =
+  "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
 /** Escapes the five HTML-significant characters so user content cannot break the markup. */
 function escapeHtml(value: string): string {
   return value
@@ -63,25 +68,32 @@ function buildLink(appUrl: string, href: string): string {
   return `${base}${path}`;
 }
 
-/** Wraps body content in a centred, responsive email shell with a heading and footer. */
+/** Wraps body content in a centred, responsive email shell with a logo header and footer. */
 export function wrapEmailLayout(opts: {
   title: string;
   bodyHtml: string;
+  /** Base URL of the web app, used to load the logo from its public assets. */
+  appUrl: string;
 }): string {
+  const logoUrl = `${opts.appUrl.replace(/\/+$/, "")}/icon.png`;
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${escapeHtml(opts.title)}</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    </style>
   </head>
-  <body style="margin:0;padding:0;background-color:${SURFACE};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${TEXT};">
+  <body style="margin:0;padding:0;background-color:${SURFACE};font-family:${FONT_STACK};color:${TEXT};">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${SURFACE};padding:24px 0;">
       <tr>
         <td align="center">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
             <tr>
               <td style="padding:28px 32px;">
+                <img src="${escapeHtml(logoUrl)}" width="44" height="44" alt="Eva" style="display:block;border-radius:12px;margin-bottom:20px;" />
                 ${opts.bodyHtml}
               </td>
             </tr>
@@ -142,7 +154,7 @@ export function buildNotificationDigestHtml(opts: DigestEmailOptions): string {
     <a href="${escapeHtml(opts.appUrl.replace(/\/+$/, ""))}" style="display:inline-block;margin-top:8px;padding:10px 18px;font-size:14px;font-weight:600;color:#ffffff;background-color:${BRAND};border-radius:8px;text-decoration:none;">Open the app</a>
   `;
 
-  return wrapEmailLayout({ title: heading, bodyHtml });
+  return wrapEmailLayout({ title: heading, bodyHtml, appUrl: opts.appUrl });
 }
 
 export interface ChangelogEmailOptions {
@@ -152,8 +164,6 @@ export interface ChangelogEmailOptions {
   /** Changelog body already converted from markdown to trusted HTML by the caller. */
   contentHtml: string;
   publishedAt: number;
-  /** Edition number, i.e. the count of successful changelog runs so far. */
-  runNumber: number;
 }
 
 /**
@@ -165,7 +175,7 @@ export function buildChangelogEmailHtml(opts: ChangelogEmailOptions): string {
   const greeting = opts.recipientName
     ? `Hi ${escapeHtml(opts.recipientName)},`
     : "Hi,";
-  const heading = `Eva Weekly Changelog #${opts.runNumber}`;
+  const heading = "What's new in Eva";
 
   const bodyHtml = `
     <p style="margin:0 0 4px;font-size:15px;line-height:22px;color:${TEXT};">${greeting}</p>
@@ -177,5 +187,5 @@ export function buildChangelogEmailHtml(opts: ChangelogEmailOptions): string {
     </p>
   `;
 
-  return wrapEmailLayout({ title: heading, bodyHtml });
+  return wrapEmailLayout({ title: heading, bodyHtml, appUrl: opts.appUrl });
 }

@@ -46,7 +46,6 @@ export const sendChangelogEmail = internalAction({
         appUrl,
         contentHtml,
         publishedAt: run.publishedAt,
-        runNumber: run.runNumber,
       });
       try {
         await sendEmail({

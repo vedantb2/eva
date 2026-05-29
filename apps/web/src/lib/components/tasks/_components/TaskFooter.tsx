@@ -61,6 +61,7 @@ interface TaskFooterProps {
   onStartExecution: () => void;
   onResolveConfirm: () => void;
   onRequestChanges: () => void;
+  variant?: "footer" | "header";
 }
 
 export function TaskFooter({
@@ -89,7 +90,12 @@ export function TaskFooter({
   onStartExecution,
   onResolveConfirm,
   onRequestChanges,
+  variant = "footer",
 }: TaskFooterProps) {
+  const isHeader = variant === "header";
+  const buttonSize = isHeader ? "sm" : "default";
+  const iconSize = isHeader ? 16 : 18;
+  const outlineButtonClass = isHeader ? "rounded-full" : undefined;
   const showRunButton =
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
@@ -108,19 +114,37 @@ export function TaskFooter({
     showViewSandbox || showMoreMenu || Boolean(latestPrUrl);
 
   return (
-    <div className="space-y-2 w-full">
-      {(executionError || latestPrError) && (
+    <div
+      className={
+        isHeader
+          ? "flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end"
+          : "space-y-2 w-full"
+      }
+    >
+      {!isHeader && (executionError || latestPrError) ? (
         <p className="text-xs text-destructive text-right">
           {executionError ?? latestPrError}
         </p>
-      )}
-      <div className="flex items-center gap-3 flex-wrap justify-end">
+      ) : null}
+      <div
+        className={
+          isHeader
+            ? "flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end"
+            : "flex items-center gap-3 flex-wrap justify-end"
+        }
+      >
+        {isHeader && (executionError || latestPrError) ? (
+          <p className="text-xs text-destructive max-w-[min(240px,40vw)] truncate">
+            {executionError ?? latestPrError}
+          </p>
+        ) : null}
         {showRunButton && (
           <SplitRunButton
             taskId={taskId}
             scheduledAt={task?.scheduledAt}
             isStarting={isStarting}
             onStartExecution={onStartExecution}
+            size={buttonSize}
           />
         )}
         {showRunButton && hasSecondaryContent && (
@@ -130,8 +154,12 @@ export function TaskFooter({
           {showMoreMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <IconDots size={18} />
+                <Button
+                  variant="outline"
+                  size={buttonSize}
+                  className={outlineButtonClass}
+                >
+                  <IconDots size={iconSize} />
                   <span className="hidden sm:inline">More</span>
                 </Button>
               </DropdownMenuTrigger>
@@ -216,18 +244,19 @@ export function TaskFooter({
           {showViewSandbox && (
             <Button
               variant="outline"
+              size={buttonSize}
               onClick={onViewSandbox}
               disabled={isSandboxStopping}
               className={
                 isSandboxViewActive || isSandboxActive
-                  ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400"
-                  : undefined
+                  ? `border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400 ${outlineButtonClass ?? ""}`
+                  : outlineButtonClass
               }
             >
               {(isSandboxStarting && !isSandboxActive) || isSandboxStopping ? (
-                <IconLoader2 size={18} className="animate-spin" />
+                <IconLoader2 size={iconSize} className="animate-spin" />
               ) : (
-                <IconTerminal2 size={18} />
+                <IconTerminal2 size={iconSize} />
               )}
               {isSandboxActive && !isSandboxViewActive && (
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -246,9 +275,14 @@ export function TaskFooter({
             </Button>
           )}
           {latestPrUrl && (
-            <Button asChild variant="outline">
+            <Button
+              asChild
+              variant="outline"
+              size={buttonSize}
+              className={outlineButtonClass}
+            >
               <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
-                <IconGitPullRequest size={18} />
+                <IconGitPullRequest size={iconSize} />
                 <span className="hidden sm:inline">View PR</span>
               </a>
             </Button>
@@ -267,14 +301,17 @@ function SplitRunButton({
   scheduledAt,
   isStarting,
   onStartExecution,
+  size,
 }: {
   taskId: Id<"agentTasks">;
   scheduledAt: number | undefined;
   isStarting: boolean;
   onStartExecution: () => void;
+  size: "default" | "sm";
 }) {
   const chevronRef = useRef<HTMLButtonElement>(null);
   const isScheduled = scheduledAt !== undefined;
+  const iconSize = size === "sm" ? 16 : 18;
 
   return (
     <div className="group/split flex items-center transition-[transform,background-color] duration-200 hover:-translate-y-[1px] active:scale-[0.96]">
@@ -282,6 +319,7 @@ function SplitRunButton({
         <TooltipTrigger asChild>
           <div>
             <Button
+              size={size}
               onClick={
                 isScheduled
                   ? () => chevronRef.current?.click()
@@ -291,11 +329,11 @@ function SplitRunButton({
               className={`rounded-r-none ${SPLIT_BUTTON_HALF}`}
             >
               {isStarting ? (
-                <IconLoader2 size={18} className="animate-spin" />
+                <IconLoader2 size={iconSize} className="animate-spin" />
               ) : isScheduled ? (
-                <IconCalendarClock size={18} />
+                <IconCalendarClock size={iconSize} />
               ) : (
-                <IconPlayerPlay size={18} />
+                <IconPlayerPlay size={iconSize} />
               )}
               {isScheduled
                 ? dayjs(scheduledAt).format("MMM D, h:mm A")
@@ -313,9 +351,10 @@ function SplitRunButton({
         trigger={
           <Button
             ref={chevronRef}
+            size={size}
             className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 ${SPLIT_BUTTON_HALF}`}
           >
-            <IconChevronDown size={16} />
+            <IconChevronDown size={14} />
           </Button>
         }
       />

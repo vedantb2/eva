@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import type { Id } from "@conductor/backend";
 import {
   Badge,
@@ -37,6 +38,7 @@ import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisp
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import type { SandboxTab, TaskRouteSandboxTab } from "@/lib/search-params";
 import type { UseTaskDetailRouting } from "./useTaskDetail";
+import { useQuickTaskHeaderActionsSlot } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 
 interface TaskDetailInlineProps {
   onClose: () => void;
@@ -52,6 +54,7 @@ export function TaskDetailInline({
 }: TaskDetailInlineProps) {
   const [embeddedSandboxTab, setEmbeddedSandboxTab] =
     useState<SandboxTab>("preview");
+  const quickTaskHeaderActionsSlot = useQuickTaskHeaderActionsSlot();
 
   const {
     isLoading,
@@ -362,46 +365,53 @@ export function TaskDetailInline({
     </div>
   );
 
+  const quickTaskHeaderActions =
+    isQuickTask && quickTaskHeaderActionsSlot?.slotElement ? (
+      <TaskFooter
+        variant="header"
+        taskId={taskId}
+        task={task}
+        status={status}
+        hasActiveRun={hasActiveRun}
+        latestPrUrl={latestPrUrl}
+        latestPrError={latestPrError}
+        latestDeployment={latestDeployment}
+        executionError={executionError}
+        isStarting={isStarting}
+        canStartSandbox={canStartSandbox}
+        isSandboxActive={isSandboxActive}
+        isSandboxStarting={isSandboxStarting}
+        isSandboxStopping={isSandboxStopping}
+        isRetryingStartupCommands={isRetryingStartupCommands}
+        canCreatePr={canCreatePr}
+        isCreatingPr={isCreatingPr}
+        onCreatePr={handleCreatePr}
+        onViewSandbox={handleToggleSandboxView}
+        isSandboxViewActive={isSandboxViewActive}
+        onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
+        onRunDevServer={() => setShowRunDevServerConfirm(true)}
+        isRunningDevServer={isRunningDevServer}
+        onStartExecution={handleStartExecution}
+        onResolveConfirm={() => setShowResolveConfirm(true)}
+        onRequestChanges={() => {
+          setRequestingChanges(true);
+          if (executionError) setExecutionError(null);
+        }}
+      />
+    ) : null;
+
   return (
     <>
+      {quickTaskHeaderActions && quickTaskHeaderActionsSlot?.slotElement
+        ? createPortal(
+            quickTaskHeaderActions,
+            quickTaskHeaderActionsSlot.slotElement,
+          )
+        : null}
       <div className="flex flex-col h-full overflow-hidden">
         <div className="flex-1 min-h-0 overflow-hidden">
           {isSandboxViewActive ? sandboxContent : detailContent}
         </div>
-        {isQuickTask ? (
-          <div className="flex shrink-0 items-center justify-end px-4 py-3 md:px-6">
-            <TaskFooter
-              taskId={taskId}
-              task={task}
-              status={status}
-              hasActiveRun={hasActiveRun}
-              latestPrUrl={latestPrUrl}
-              latestPrError={latestPrError}
-              latestDeployment={latestDeployment}
-              executionError={executionError}
-              isStarting={isStarting}
-              canStartSandbox={canStartSandbox}
-              isSandboxActive={isSandboxActive}
-              isSandboxStarting={isSandboxStarting}
-              isSandboxStopping={isSandboxStopping}
-              isRetryingStartupCommands={isRetryingStartupCommands}
-              canCreatePr={canCreatePr}
-              isCreatingPr={isCreatingPr}
-              onCreatePr={handleCreatePr}
-              onViewSandbox={handleToggleSandboxView}
-              isSandboxViewActive={isSandboxViewActive}
-              onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
-              onRunDevServer={() => setShowRunDevServerConfirm(true)}
-              isRunningDevServer={isRunningDevServer}
-              onStartExecution={handleStartExecution}
-              onResolveConfirm={() => setShowResolveConfirm(true)}
-              onRequestChanges={() => {
-                setRequestingChanges(true);
-                if (executionError) setExecutionError(null);
-              }}
-            />
-          </div>
-        ) : null}
       </div>
       <StopConfirmDialog
         open={showStopConfirm}

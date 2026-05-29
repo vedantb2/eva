@@ -1,5 +1,10 @@
 # Changelog
 
+## Quick task actions in page header - 2026-05-28
+
+- Run Eva, sandbox, PR, and More controls moved from the bottom footer into the quick task page header (after context usage, before prev/next) so the layout matches projects.
+- The task detail pane uses the full height below the header without a separate action bar.
+
 ## Sticky sandbox chrome on projects and quick tasks - 2026-05-28
 
 - Project header (title, metadata bar, context usage, build/PR/sandbox actions) stays visible when switching to sandbox; only the main pane swaps to chat + preview.

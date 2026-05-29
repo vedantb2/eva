@@ -214,137 +214,141 @@ export function TaskDetailInline({
   );
 
   const detailContent = (
-    <div className="px-4 md:px-6 pt-4 md:pt-5">
-      <div className="flex flex-col pb-4">
-        <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] min-h-0">
-          <div className="space-y-4 min-h-0 min-w-0 md:pr-6">
-            <div>
-              <TaskHeader
-                taskNumber={task?.taskNumber}
-                title={task?.title}
-                canEditTaskText={canEditTaskText}
-                taskId={taskId}
-              />
-              <div className="flex items-center gap-2 mt-2">
-                {task?.scheduledAt ? (
-                  <Badge
-                    variant="outline"
-                    className="gap-1 text-xs font-normal text-muted-foreground"
-                  >
-                    <IconClock size={11} />
-                    {status === "todo"
-                      ? "Scheduled for"
-                      : "Was scheduled for"}{" "}
-                    {dayjs(task.scheduledAt).format("DD/MM/YYYY HH:mm")}
-                  </Badge>
-                ) : null}
-                {task?.createdAt ? (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
-                    {creatorUser ? (
-                      <>
-                        <UserInitials userId={creatorUser._id} size="sm" />
-                        <span>{getUserDisplayName(creatorUser)}</span>
-                        <span>·</span>
-                      </>
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar px-4 pt-4 md:overflow-hidden md:px-6 md:pt-5">
+      <div className="flex min-h-0 flex-1 flex-col pb-4 md:overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[14fr_6fr] md:grid-rows-1 md:overflow-hidden">
+          <div className="min-h-0 min-w-0 md:flex md:flex-1 md:flex-col md:overflow-hidden md:pr-6">
+            <div className="min-h-0 md:flex-1 md:overflow-y-auto md:scrollbar">
+              <div className="space-y-4 pb-4">
+                <div>
+                  <TaskHeader
+                    taskNumber={task?.taskNumber}
+                    title={task?.title}
+                    canEditTaskText={canEditTaskText}
+                    taskId={taskId}
+                  />
+                  <div className="flex items-center gap-2 mt-2">
+                    {task?.scheduledAt ? (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 text-xs font-normal text-muted-foreground"
+                      >
+                        <IconClock size={11} />
+                        {status === "todo"
+                          ? "Scheduled for"
+                          : "Was scheduled for"}{" "}
+                        {dayjs(task.scheduledAt).format("DD/MM/YYYY HH:mm")}
+                      </Badge>
                     ) : null}
-                    <span>
-                      {dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")}
-                    </span>
+                    {task?.createdAt ? (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
+                        {creatorUser ? (
+                          <>
+                            <UserInitials userId={creatorUser._id} size="sm" />
+                            <span>{getUserDisplayName(creatorUser)}</span>
+                            <span>·</span>
+                          </>
+                        ) : null}
+                        <span>
+                          {dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                </div>
+                <TaskDescription
+                  description={task?.description}
+                  canEditTaskText={canEditTaskText}
+                  taskId={taskId}
+                  inline={true}
+                />
+
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(v) => {
+                    if (isTaskDetailTab(v)) {
+                      setActiveTab(v);
+                    }
+                  }}
+                >
+                  <TabsList className={TASK_DETAIL_TAB_LIST_CLASS}>
+                    <TabsTrigger
+                      value="activity"
+                      className={TASK_DETAIL_TAB_TRIGGER_CLASS}
+                    >
+                      <span className="hidden sm:inline">Activity</span>
+                      <span className="sm:hidden">Runs</span>
+                      {isActivityBusy ? (
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      ) : null}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="proof"
+                      className={TASK_DETAIL_TAB_TRIGGER_CLASS}
+                    >
+                      Proof
+                      {isProofBusy ? (
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      ) : null}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="audit"
+                      className={TASK_DETAIL_TAB_TRIGGER_CLASS}
+                    >
+                      Audit
+                      {isAuditBusy ? (
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      ) : null}
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="activity" className="mt-3 sm:mt-4">
+                    <ActivityTimeline
+                      taskId={taskId}
+                      runs={runs}
+                      allAudits={allAudits}
+                      comments={comments}
+                      sandboxEvents={sandboxEvents}
+                      taskActivity={taskActivity}
+                      users={users}
+                      streaming={streaming}
+                      auditStreaming={auditStreaming}
+                      activeRunElapsed={activeRunElapsed}
+                      auditElapsed={auditElapsed}
+                      fixElapsed={fixElapsed}
+                      isStopping={isStopping}
+                      onStopConfirm={() => setShowStopConfirm(true)}
+                      hasActiveRun={hasActiveRun}
+                      requestChangesBlockedReason={requestChangesBlockedReason}
+                      isProjectTask={isProjectTask}
+                      hasRuns={hasRuns}
+                      isOwner={isOwner}
+                      requestingChanges={requestingChanges}
+                      setRequestingChanges={setRequestingChanges}
+                      executionError={executionError}
+                      setExecutionError={setExecutionError}
+                      onRequestChangesSubmitted={() => setActiveTab("activity")}
+                    />
+                  </TabsContent>
+                  <TabsContent value="proof" className="mt-3 sm:mt-4">
+                    {showProofSection ? (
+                      <ProofSection
+                        proofs={proofs}
+                        status={status}
+                        isQuickTask={task?.projectId === undefined}
+                      />
+                    ) : null}
+                  </TabsContent>
+                  <TabsContent value="audit" className="mt-3 sm:mt-4">
+                    <AuditSection
+                      latestAudit={latestAudit}
+                      pastAudits={pastAudits}
+                    />
+                  </TabsContent>
+                </Tabs>
               </div>
             </div>
-            <TaskDescription
-              description={task?.description}
-              canEditTaskText={canEditTaskText}
-              taskId={taskId}
-              inline={true}
-            />
-
-            <Tabs
-              value={activeTab}
-              onValueChange={(v) => {
-                if (isTaskDetailTab(v)) {
-                  setActiveTab(v);
-                }
-              }}
-            >
-              <TabsList className={TASK_DETAIL_TAB_LIST_CLASS}>
-                <TabsTrigger
-                  value="activity"
-                  className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                >
-                  <span className="hidden sm:inline">Activity</span>
-                  <span className="sm:hidden">Runs</span>
-                  {isActivityBusy ? (
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  ) : null}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="proof"
-                  className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                >
-                  Proof
-                  {isProofBusy ? (
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  ) : null}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="audit"
-                  className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                >
-                  Audit
-                  {isAuditBusy ? (
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  ) : null}
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="activity" className="mt-3 sm:mt-4">
-                <ActivityTimeline
-                  taskId={taskId}
-                  runs={runs}
-                  allAudits={allAudits}
-                  comments={comments}
-                  sandboxEvents={sandboxEvents}
-                  taskActivity={taskActivity}
-                  users={users}
-                  streaming={streaming}
-                  auditStreaming={auditStreaming}
-                  activeRunElapsed={activeRunElapsed}
-                  auditElapsed={auditElapsed}
-                  fixElapsed={fixElapsed}
-                  isStopping={isStopping}
-                  onStopConfirm={() => setShowStopConfirm(true)}
-                  hasActiveRun={hasActiveRun}
-                  requestChangesBlockedReason={requestChangesBlockedReason}
-                  isProjectTask={isProjectTask}
-                  hasRuns={hasRuns}
-                  isOwner={isOwner}
-                  requestingChanges={requestingChanges}
-                  setRequestingChanges={setRequestingChanges}
-                  executionError={executionError}
-                  setExecutionError={setExecutionError}
-                  onRequestChangesSubmitted={() => setActiveTab("activity")}
-                />
-              </TabsContent>
-              <TabsContent value="proof" className="mt-3 sm:mt-4">
-                {showProofSection ? (
-                  <ProofSection
-                    proofs={proofs}
-                    status={status}
-                    isQuickTask={task?.projectId === undefined}
-                  />
-                ) : null}
-              </TabsContent>
-              <TabsContent value="audit" className="mt-3 sm:mt-4">
-                <AuditSection
-                  latestAudit={latestAudit}
-                  pastAudits={pastAudits}
-                />
-              </TabsContent>
-            </Tabs>
           </div>
-          <div className="md:pl-8 flex flex-col min-h-0 min-w-0 md:overflow-y-auto scrollbar">
+          <div className="mt-6 flex shrink-0 flex-col min-w-0 md:mt-0 md:pl-8 md:overflow-hidden">
             <StatusFieldsSection
               taskId={taskId}
               task={task}
@@ -415,7 +419,7 @@ export function TaskDetailInline({
             {sandboxContent}
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto scrollbar">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {detailContent}
           </div>
         )}

@@ -214,7 +214,7 @@ export function TaskDetailInline({
   );
 
   const detailContent = (
-    <div className="px-4 md:px-6 pt-4 md:pt-5 flex-1 min-h-0 overflow-y-auto scrollbar">
+    <div className="px-4 md:px-6 pt-4 md:pt-5">
       <div className="flex flex-col pb-4">
         <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] min-h-0">
           <div className="space-y-4 min-h-0 min-w-0 md:pr-6">
@@ -409,10 +409,16 @@ export function TaskDetailInline({
             quickTaskHeaderActionsSlot.slotElement,
           )
         : null}
-      <div className="flex flex-col h-full overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {isSandboxViewActive ? sandboxContent : detailContent}
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {isSandboxViewActive ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {sandboxContent}
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto scrollbar">
+            {detailContent}
+          </div>
+        )}
       </div>
       <StopConfirmDialog
         open={showStopConfirm}

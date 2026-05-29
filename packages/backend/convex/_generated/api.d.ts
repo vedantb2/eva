@@ -68,7 +68,6 @@ import type * as _mentions_resolveSkillMentions from "../_mentions/resolveSkillM
 import type * as _mentions_skillToken from "../_mentions/skillToken.js";
 import type * as _migrations_cleanup from "../_migrations/cleanup.js";
 import type * as _migrations_deleteRepos from "../_migrations/deleteRepos.js";
-import type * as _migrations_deleteUser from "../_migrations/deleteUser.js";
 import type * as _migrations_deploymentUrl from "../_migrations/deploymentUrl.js";
 import type * as _migrations_logProjectIds from "../_migrations/logProjectIds.js";
 import type * as _migrations_projectInterview from "../_migrations/projectInterview.js";
@@ -290,7 +289,6 @@ declare const fullApi: ApiFromModules<{
   "_mentions/skillToken": typeof _mentions_skillToken;
   "_migrations/cleanup": typeof _migrations_cleanup;
   "_migrations/deleteRepos": typeof _migrations_deleteRepos;
-  "_migrations/deleteUser": typeof _migrations_deleteUser;
   "_migrations/deploymentUrl": typeof _migrations_deploymentUrl;
   "_migrations/logProjectIds": typeof _migrations_logProjectIds;
   "_migrations/projectInterview": typeof _migrations_projectInterview;

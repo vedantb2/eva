@@ -25,7 +25,11 @@ import {
 } from "./git";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import { ensureSessionPersistenceVolumes } from "./volumes";
-import { detectPackageManager, startSessionServices } from "./devServer";
+import {
+  detectPackageManager,
+  resetDevTerminalForResume,
+  startSessionServices,
+} from "./devServer";
 import type { Daytona, Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import type { Doc } from "../_generated/dataModel";
@@ -529,6 +533,11 @@ async function prepareSessionSandboxInternal(
           "reuseSessionSandbox.startSessionServices",
           sandboxDetails,
           () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
+        );
+        await runLoggedSessionStep(
+          "reuseSessionSandbox.resetDevTerminal",
+          sandboxDetails,
+          () => resetDevTerminalForResume(sandbox, `session-${args.sessionId}`),
         );
         if (args.startDesktop) {
           await runLoggedSessionStep(
@@ -1210,6 +1219,11 @@ async function prepareTaskPreviewSandboxInternal(
             sandboxDetails,
             () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
           );
+          await runLoggedSessionStep(
+            "reuseTaskSandbox.resetDevTerminal",
+            sandboxDetails,
+            () => resetDevTerminalForResume(sandbox, `task-${args.taskId}`),
+          );
           completedSteps.push({
             type: "tool",
             label: "Starting dev server...",
@@ -1630,6 +1644,12 @@ async function prepareProjectPreviewSandboxInternal(
             "reuseProjectSandbox.startSessionServices",
             sandboxDetails,
             () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
+          );
+          await runLoggedSessionStep(
+            "reuseProjectSandbox.resetDevTerminal",
+            sandboxDetails,
+            () =>
+              resetDevTerminalForResume(sandbox, `project-${args.projectId}`),
           );
           completedSteps.push({
             type: "tool",

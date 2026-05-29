@@ -113,6 +113,7 @@ export function TaskDetailInline({
     handleResolveConflicts,
     // Sandbox preview
     canStartSandbox,
+    canViewSandbox,
     showSandbox,
     isSandboxActive,
     isSandboxStarting,
@@ -171,7 +172,7 @@ export function TaskDetailInline({
         activeTab={activeSandboxTab}
         onTabChange={handleSandboxTabChange}
       />
-    ) : isSandboxInactive && canStartSandbox ? (
+    ) : isSandboxInactive && canViewSandbox ? (
       <div className="flex h-full items-center justify-center p-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <p className="text-sm text-muted-foreground">
@@ -383,6 +384,7 @@ export function TaskDetailInline({
         executionError={executionError}
         isStarting={isStarting}
         canStartSandbox={canStartSandbox}
+        canViewSandbox={canViewSandbox}
         isSandboxActive={isSandboxActive}
         isSandboxStarting={isSandboxStarting}
         isSandboxStopping={isSandboxStopping}

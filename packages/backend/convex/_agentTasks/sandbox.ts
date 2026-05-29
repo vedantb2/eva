@@ -11,6 +11,24 @@ const PREVIEW_ALLOWED_STATUSES = [
   "done",
 ] as const;
 
+function assertPreviewSandboxAllowed(task: {
+  status: string;
+  sandboxId?: string;
+}): void {
+  if (task.sandboxId) {
+    return;
+  }
+  if (
+    !PREVIEW_ALLOWED_STATUSES.includes(
+      task.status as (typeof PREVIEW_ALLOWED_STATUSES)[number],
+    )
+  ) {
+    throw new Error(
+      `Task must be in code_review, business_review or done status to start sandbox. Current status: ${task.status}`,
+    );
+  }
+}
+
 /** Starts a preview sandbox for a task, checking out the task branch and running startup commands. */
 export const startTaskSandbox = authMutation({
   args: {
@@ -23,16 +41,7 @@ export const startTaskSandbox = authMutation({
 
     if (!task.repoId) throw new Error("Task has no associated repository");
 
-    // Validate task status
-    if (
-      !PREVIEW_ALLOWED_STATUSES.includes(
-        task.status as (typeof PREVIEW_ALLOWED_STATUSES)[number],
-      )
-    ) {
-      throw new Error(
-        `Task must be in code_review, business_review or done status to start sandbox. Current status: ${task.status}`,
-      );
-    }
+    assertPreviewSandboxAllowed(task);
 
     const repo = await ctx.db.get(task.repoId);
     if (!repo) throw new Error("Repository not found");
@@ -91,15 +100,7 @@ export const retryStartupCommands = authMutation({
 
     if (!task.repoId) throw new Error("Task has no associated repository");
 
-    if (
-      task.status !== "code_review" &&
-      task.status !== "business_review" &&
-      task.status !== "done"
-    ) {
-      throw new Error(
-        `Task must be in code_review, business_review or done status to run startup commands. Current status: ${task.status}`,
-      );
-    }
+    assertPreviewSandboxAllowed(task);
 
     if (
       task.reviewTaskSandboxStatus === "starting" ||

@@ -47,6 +47,7 @@ interface TaskFooterProps {
   executionError: string | null;
   isStarting: boolean;
   canStartSandbox: boolean;
+  canViewSandbox: boolean;
   isSandboxActive: boolean;
   isSandboxStarting: boolean;
   isSandboxStopping: boolean;
@@ -77,6 +78,7 @@ export function TaskFooter({
   executionError,
   isStarting,
   canStartSandbox,
+  canViewSandbox,
   isSandboxActive,
   isSandboxStarting,
   isSandboxStopping,
@@ -102,7 +104,7 @@ export function TaskFooter({
   const showRunButton =
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
-  const showViewSandbox = canStartSandbox;
+  const showViewSandbox = canViewSandbox;
   const showStopSandbox = isSandboxActive && !isSandboxStopping;
   const showResolveConflicts =
     !hasActiveRun && (status === "code_review" || status === "business_review");

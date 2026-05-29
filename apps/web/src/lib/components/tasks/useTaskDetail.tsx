@@ -220,6 +220,13 @@ export function useTaskDetail(
     task?.reviewTaskSandboxStatus === "starting";
   const isSandboxStoppingFromStatus =
     task?.reviewTaskSandboxStatus === "stopping";
+  const hasReviewSandbox = task?.sandboxId !== undefined;
+  const canViewSandbox =
+    canStartSandbox ||
+    hasReviewSandbox ||
+    isSandboxActive ||
+    isSandboxStartingFromStatus ||
+    isSandboxStoppingFromStatus;
   const sandboxStartupStreaming = useQuery(
     api.streaming.get,
     isSandboxStartingFromStatus
@@ -414,6 +421,7 @@ export function useTaskDetail(
     handleResolveConflicts,
 
     canStartSandbox,
+    canViewSandbox,
     showSandbox,
     isSandboxActive,
     isSandboxStarting: isSandboxStarting || isSandboxStartingFromStatus,

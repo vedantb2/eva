@@ -4,13 +4,11 @@ import { lazy, Suspense, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import {
   Button,
-  Checkbox,
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Label,
   Spinner,
   Tooltip,
   TooltipTrigger,
@@ -322,7 +320,7 @@ export function ActivityTimeline({
               ariaLabel="Request changes comment"
               minHeight="min-h-24"
               className={cn(
-                "max-h-44 overflow-y-auto pr-12 transition-[border-color,box-shadow]",
+                "max-h-44 overflow-y-auto pb-10 pr-12 transition-[border-color,box-shadow]",
                 requestingChanges &&
                   "border-primary focus-visible:ring-primary/40",
               )}
@@ -337,58 +335,78 @@ export function ActivityTimeline({
               }}
               placeholder="Add a comment..."
               className={cn(
-                "min-h-24 max-h-44 transition-[border-color,box-shadow]",
+                "min-h-24 max-h-44 pb-10 transition-[border-color,box-shadow]",
                 requestingChanges &&
                   "border-primary focus-visible:ring-primary/40",
               )}
             />
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="absolute right-2 bottom-2">
-                <Button
-                  size="icon"
-                  className="rounded-full h-8 w-8"
-                  disabled={!commentText.trim() || isMakeChangesGated}
-                  onClick={
-                    effectiveRequestingChanges
-                      ? handleSubmitRequestChanges
-                      : handleAddComment
-                  }
-                >
-                  <IconArrowUp size={16} />
-                </Button>
-              </span>
-            </TooltipTrigger>
-            {isMakeChangesGated && disabledReason !== undefined && (
-              <TooltipContent>{disabledReason}</TooltipContent>
-            )}
-          </Tooltip>
+          <div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-between">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="pointer-events-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={effectiveRequestingChanges}
+                    aria-label="Make changes"
+                    disabled={!canRequestChanges}
+                    onClick={() => {
+                      setRequestingChanges(!requestingChanges);
+                      if (executionError) setExecutionError(null);
+                    }}
+                    className={cn(
+                      "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      effectiveRequestingChanges ? "bg-primary" : "bg-muted",
+                      !canRequestChanges && "cursor-not-allowed opacity-50",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute top-0.5 size-5 rounded-full bg-background transition-transform",
+                        effectiveRequestingChanges ? "left-[18px]" : "left-0.5",
+                      )}
+                    />
+                  </button>
+                  <span
+                    className={cn(
+                      "text-xs select-none",
+                      canRequestChanges
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    Make changes
+                  </span>
+                </span>
+              </TooltipTrigger>
+              {disabledReason !== undefined && (
+                <TooltipContent>{disabledReason}</TooltipContent>
+              )}
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="pointer-events-auto">
+                  <Button
+                    size="icon"
+                    className="rounded-full h-8 w-8"
+                    disabled={!commentText.trim() || isMakeChangesGated}
+                    onClick={
+                      effectiveRequestingChanges
+                        ? handleSubmitRequestChanges
+                        : handleAddComment
+                    }
+                  >
+                    <IconArrowUp size={16} />
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {isMakeChangesGated && disabledReason !== undefined && (
+                <TooltipContent>{disabledReason}</TooltipContent>
+              )}
+            </Tooltip>
+          </div>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center gap-2 w-fit">
-              <Checkbox
-                id={`task-make-changes-${taskId}`}
-                checked={effectiveRequestingChanges}
-                disabled={!canRequestChanges}
-                onCheckedChange={(checked) => {
-                  setRequestingChanges(checked === true);
-                  if (executionError) setExecutionError(null);
-                }}
-              />
-              <Label
-                htmlFor={`task-make-changes-${taskId}`}
-                className={!canRequestChanges ? "text-muted-foreground" : ""}
-              >
-                Make changes
-              </Label>
-            </div>
-          </TooltipTrigger>
-          {disabledReason !== undefined && (
-            <TooltipContent>{disabledReason}</TooltipContent>
-          )}
-        </Tooltip>
         {effectiveRequestingChanges && !executionError && (
           <p className="text-xs text-muted-foreground">
             {isProjectTask

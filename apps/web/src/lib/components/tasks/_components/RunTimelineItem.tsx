@@ -168,18 +168,6 @@ export function RunTimelineItem({
         </div>
         <AccordionContent>
           <div className="space-y-2">
-            {runComment ? (
-              <div
-                className={`ml-2 space-y-2 border-l-2 border-muted-foreground/25 pl-3 ${RUN_ACCORDION_SCROLL_CLASS}`}
-              >
-                <RunInlineComment comment={runComment} users={users} />
-                {runCommentReplies.map((reply) => (
-                  <div key={reply._id} className="ml-2 pl-2">
-                    <RunInlineComment comment={reply} users={users} />
-                  </div>
-                ))}
-              </div>
-            ) : null}
             {run.status === "running" &&
               streaming?.currentActivity &&
               (() => {
@@ -244,6 +232,18 @@ export function RunTimelineItem({
                 </div>
               </div>
             )}
+            {runComment ? (
+              <div
+                className={`ml-2 space-y-2 border-l-2 border-muted-foreground/25 pl-3 ${RUN_ACCORDION_SCROLL_CLASS}`}
+              >
+                <RunInlineComment comment={runComment} users={users} />
+                {runCommentReplies.map((reply) => (
+                  <div key={reply._id} className="ml-2 pl-2">
+                    <RunInlineComment comment={reply} users={users} />
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </AccordionContent>
       </AccordionItem>

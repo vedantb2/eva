@@ -283,16 +283,18 @@ function RunInlineComment({
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center gap-1.5">
-        {comment.authorId ? (
-          <UserInitials userId={comment.authorId} size="sm" />
-        ) : null}
-        {author ? (
-          <span className="text-xs font-medium text-foreground">
-            {getUserDisplayName(author)}
-          </span>
-        ) : null}
-        <RelativeDateTime at={comment.createdAt} className="text-xs" />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          {comment.authorId ? (
+            <UserInitials userId={comment.authorId} size="sm" />
+          ) : null}
+          {author ? (
+            <span className="truncate text-xs font-medium text-foreground">
+              {getUserDisplayName(author)}
+            </span>
+          ) : null}
+        </div>
+        <RelativeDateTime at={comment.createdAt} className="shrink-0 text-xs" />
       </div>
       <div className="text-sm text-muted-foreground">
         <MessageMentionText text={comment.content} repoBasePath={basePath} />

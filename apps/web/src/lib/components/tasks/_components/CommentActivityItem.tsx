@@ -161,21 +161,15 @@ export function CommentActivityItem({
           {comment.authorId ? (
             <UserInitials userId={comment.authorId} size="sm" />
           ) : null}
-          <div className="flex min-w-0 items-baseline gap-1.5">
-            {comment.authorId ? (
-              <CommentAuthorName authorId={comment.authorId} users={users} />
-            ) : (
-              <span className="truncate text-sm font-medium text-foreground">
-                Unknown
-              </span>
-            )}
-            <RelativeDateTime
-              at={comment.createdAt}
-              className="shrink-0 text-[11px] text-muted-foreground/60"
-            />
-          </div>
+          {comment.authorId ? (
+            <CommentAuthorName authorId={comment.authorId} users={users} />
+          ) : (
+            <span className="truncate text-sm font-medium text-foreground">
+              Unknown
+            </span>
+          )}
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-1">
           {!isEditing ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -225,6 +219,10 @@ export function CommentActivityItem({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <RelativeDateTime
+            at={comment.createdAt}
+            className="shrink-0 pl-1 text-[11px] text-muted-foreground/60"
+          />
         </div>
       </div>
 

@@ -16,17 +16,17 @@ import {
   ActivitySteps,
   formatElapsed,
 } from "@conductor/ui";
-import {
-  IconMessagePlus,
-  IconLoader2,
-  IconPlayerStop,
-} from "@tabler/icons-react";
+import { IconLoader2, IconPlayerStop } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { UserInitials } from "@conductor/shared";
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@conductor/backend";
+import { UserMentionText } from "@/lib/components/mentions";
+import { getUserDisplayName } from "./task-detail-constants";
+import type { TaskComment } from "../_utils/commentThread";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { formatDuration } from "@conductor/shared/duration";
 import { RunActivityLog } from "../RunActivityLog";
-import type { FunctionReturnType } from "convex/server";
-import type { api } from "@conductor/backend";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -38,6 +38,7 @@ type Run = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
 >[number];
 type Streaming = FunctionReturnType<typeof api.streaming.get>;
+type Users = FunctionReturnType<typeof api.users.listAll>;
 
 export function RunTimelineItem({
   run,
@@ -47,8 +48,9 @@ export function RunTimelineItem({
   activeRunElapsed,
   isStopping,
   onStopConfirm,
-  hasComment,
-  onViewComment,
+  runComment,
+  runCommentReplies,
+  users,
 }: {
   run: Run;
   isActiveRun: boolean;
@@ -57,9 +59,11 @@ export function RunTimelineItem({
   activeRunElapsed: number;
   isStopping: boolean;
   onStopConfirm: () => void;
-  hasComment: boolean;
-  onViewComment: () => void;
+  runComment: TaskComment | undefined;
+  runCommentReplies: TaskComment[];
+  users: Users | undefined;
 }) {
+  const hasRunComment = runComment !== undefined;
   return (
     <Accordion
       type="multiple"
@@ -89,7 +93,7 @@ export function RunTimelineItem({
                         : run.status === "error"
                           ? "error"
                           : "queued"
-                    : hasComment
+                    : hasRunComment
                       ? run.status === "running"
                         ? "making changes"
                         : run.status === "success"
@@ -105,30 +109,6 @@ export function RunTimelineItem({
                             ? "error"
                             : "queued"}
                 </Badge>
-                {hasComment && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onViewComment();
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.stopPropagation();
-                            onViewComment();
-                          }
-                        }}
-                      >
-                        <IconMessagePlus size={14} />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>View user message</TooltipContent>
-                  </Tooltip>
-                )}
                 <span className="text-xs text-muted-foreground truncate">
                   {run.startedAt
                     ? dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")
@@ -184,6 +164,16 @@ export function RunTimelineItem({
         </div>
         <AccordionContent>
           <div className="space-y-2">
+            {runComment ? (
+              <div className="ml-2 space-y-2 border-l-2 border-muted-foreground/25 pl-3">
+                <RunInlineComment comment={runComment} users={users} />
+                {runCommentReplies.map((reply) => (
+                  <div key={reply._id} className="ml-2 pl-2">
+                    <RunInlineComment comment={reply} users={users} />
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {run.status === "running" &&
               streaming?.currentActivity &&
               (() => {
@@ -250,5 +240,38 @@ export function RunTimelineItem({
         </AccordionContent>
       </AccordionItem>
     </Accordion>
+  );
+}
+
+function RunInlineComment({
+  comment,
+  users,
+}: {
+  comment: TaskComment;
+  users: Users | undefined;
+}) {
+  const author = comment.authorId
+    ? users?.find((user) => user._id === comment.authorId)
+    : undefined;
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5">
+        {comment.authorId ? (
+          <UserInitials userId={comment.authorId} size="sm" />
+        ) : null}
+        {author ? (
+          <span className="text-xs font-medium text-foreground">
+            {getUserDisplayName(author)}
+          </span>
+        ) : null}
+        <span className="text-xs text-muted-foreground">
+          {dayjs(comment.createdAt).fromNow()}
+        </span>
+      </div>
+      <div className="text-sm text-muted-foreground">
+        <UserMentionText text={comment.content} />
+      </div>
+    </div>
   );
 }

@@ -17,7 +17,6 @@ import {
   TooltipContent,
   cn,
 } from "@conductor/ui";
-import dayjs from "@conductor/shared/dates";
 import { IconArrowUp, IconLoader2 } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
@@ -28,7 +27,6 @@ import {
   CommentMentionInput,
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
-import { UserMentionText } from "@/lib/components/mentions";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { CommentThread } from "./CommentThread";
 import {
@@ -147,9 +145,6 @@ export function ActivityTimeline({
   setExecutionError: (v: string | null) => void;
   onRequestChangesSubmitted: () => void;
 }) {
-  const [viewingCommentForRun, setViewingCommentForRun] = useState<
-    string | null
-  >(null);
   const [commentText, setCommentText] = useState("");
   const [deletingCommentId, setDeletingCommentId] =
     useState<Id<"taskComments"> | null>(null);
@@ -271,9 +266,9 @@ export function ActivityTimeline({
     }
   }
 
-  const viewingComment = viewingCommentForRun
-    ? runCommentMap.get(viewingCommentForRun)
-    : undefined;
+  const commentsShownWithRuns = new Set(
+    [...runCommentMap.values()].map((comment) => comment._id),
+  );
 
   const sortedRunsDesc = [...(runs ?? [])].sort(
     (a, b) =>
@@ -301,11 +296,13 @@ export function ActivityTimeline({
       timestamp: activity.createdAt,
       activity,
     })),
-    ...topLevelComments.map((comment) => ({
-      kind: "comment" as const,
-      timestamp: comment.createdAt,
-      comment,
-    })),
+    ...topLevelComments
+      .filter((comment) => !commentsShownWithRuns.has(comment._id))
+      .map((comment) => ({
+        kind: "comment" as const,
+        timestamp: comment.createdAt,
+        comment,
+      })),
   ].sort((a, b) => b.timestamp - a.timestamp);
 
   return (
@@ -442,6 +439,7 @@ export function ActivityTimeline({
             const run = item.run;
             const isActiveRun =
               run.status === "running" || run.status === "queued";
+            const runComment = runCommentMap.get(run._id);
             return (
               <Suspense key={run._id} fallback={<Spinner size="sm" />}>
                 <RunTimelineItem
@@ -452,35 +450,19 @@ export function ActivityTimeline({
                   activeRunElapsed={activeRunElapsed}
                   isStopping={isStopping}
                   onStopConfirm={onStopConfirm}
-                  hasComment={runCommentMap.has(run._id)}
-                  onViewComment={() => setViewingCommentForRun(run._id)}
+                  runComment={runComment}
+                  runCommentReplies={
+                    runComment
+                      ? (repliesByParentId.get(runComment._id) ?? [])
+                      : []
+                  }
+                  users={users}
                 />
               </Suspense>
             );
           })}
         </div>
       )}
-
-      <Dialog
-        open={viewingCommentForRun !== null}
-        onOpenChange={(v) => {
-          if (!v) setViewingCommentForRun(null);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>User Message</DialogTitle>
-          </DialogHeader>
-          {viewingComment && (
-            <div className="space-y-2">
-              <span className="text-xs text-muted-foreground">
-                {dayjs(viewingComment.createdAt).fromNow()}
-              </span>
-              <UserMentionText text={viewingComment.content} />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={deletingCommentId !== null}

@@ -34,6 +34,10 @@ import { mermaid } from "@streamdown/mermaid";
 
 const summaryPlugins = { cjk, math, mermaid };
 
+/** Matches scroll cap used for run logs inside the same accordion. */
+const RUN_ACCORDION_SCROLL_CLASS =
+  "max-h-60 overflow-y-auto overflow-x-hidden scrollbar";
+
 type Run = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
 >[number];
@@ -165,7 +169,9 @@ export function RunTimelineItem({
         <AccordionContent>
           <div className="space-y-2">
             {runComment ? (
-              <div className="ml-2 space-y-2 border-l-2 border-muted-foreground/25 pl-3">
+              <div
+                className={`ml-2 space-y-2 border-l-2 border-muted-foreground/25 pl-3 ${RUN_ACCORDION_SCROLL_CLASS}`}
+              >
                 <RunInlineComment comment={runComment} users={users} />
                 {runCommentReplies.map((reply) => (
                   <div key={reply._id} className="ml-2 pl-2">
@@ -215,7 +221,9 @@ export function RunTimelineItem({
             {run.logs.length > 0 && (
               <div className="mt-2">
                 <p className="text-xs text-muted-foreground mb-1">Logs</p>
-                <div className="bg-muted rounded p-2 max-h-60 overflow-y-auto scrollbar font-mono text-xs space-y-1">
+                <div
+                  className={`bg-muted rounded p-2 font-mono text-xs space-y-1 ${RUN_ACCORDION_SCROLL_CLASS}`}
+                >
                   {run.logs.map((log, i) => (
                     <div
                       key={i}

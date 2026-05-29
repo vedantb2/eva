@@ -80,11 +80,10 @@ export function RunTimelineItem({
           <AccordionTrigger className="flex-1 min-w-0">
             <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
               <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                <span className="text-xs text-muted-foreground truncate">
-                  {run.startedAt
-                    ? dayjs(run.startedAt).format("DD/MM/YYYY HH:mm")
-                    : "Queued"}
-                </span>
+                <RelativeDateTime
+                  at={run.startedAt}
+                  className="text-xs truncate"
+                />
                 {hasRunComment && runComment.authorId ? (
                   <UserInitials
                     userId={runComment.authorId}

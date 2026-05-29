@@ -1,5 +1,12 @@
 # Changelog
 
+## Full user deletion from the Convex dashboard - 2026-05-29
+
+- Added a `migrations.deleteUserAndAllData` function that purges a user and everything tied to them by user id, for clean offboarding and GDPR-style erasure.
+- Owned data (sessions, projects, design sessions, annotations, notifications, queued messages, personas, uploaded files, automations, personal team) is hard-deleted with its full child cascade, including storage blobs.
+- Shared content the user only contributed to (tasks, comments, messages, repo connections, project membership, doc history) keeps its row with the user link removed, so other users' data survives.
+- Runs as a paged step pipeline so large tables stay within Convex transaction limits, and deletes the user record last so a failed run can be safely re-triggered.
+
 ## Daily unread-notification email digest - 2026-05-29
 
 - Daily 08:00 UTC cron emails each user a summary of their unread notifications so people who don't log in still see what needs attention.

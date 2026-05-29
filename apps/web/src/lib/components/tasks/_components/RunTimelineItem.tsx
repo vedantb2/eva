@@ -70,6 +70,29 @@ export function RunTimelineItem({
   users: Users | undefined;
 }) {
   const hasRunComment = runComment !== undefined;
+  const requester =
+    hasRunComment && runComment.authorId
+      ? users?.find((user) => user._id === runComment.authorId)
+      : undefined;
+
+  const runDuration =
+    isActiveRun && run.startedAt ? (
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {formatElapsed(activeRunElapsed)}
+      </span>
+    ) : run.startedAt && run.finishedAt ? (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {formatDuration(run.startedAt, run.finishedAt)}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          Completed {formatExactDateTime(run.finishedAt)}
+        </TooltipContent>
+      </Tooltip>
+    ) : null;
+
   return (
     <Accordion
       type="multiple"
@@ -78,18 +101,19 @@ export function RunTimelineItem({
       <AccordionItem value={run._id} className="rounded-lg bg-muted/40 px-3">
         <div className="flex items-center gap-2">
           <AccordionTrigger className="flex-1 min-w-0">
-            <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
-              <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                <RelativeDateTime
-                  at={run.startedAt}
-                  className="text-xs truncate"
-                />
+            <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2 flex-wrap">
                 {hasRunComment && runComment.authorId ? (
                   <UserInitials
                     userId={runComment.authorId}
                     size="sm"
                     hideLastSeen
                   />
+                ) : null}
+                {requester ? (
+                  <span className="truncate text-xs font-medium text-foreground">
+                    {getUserDisplayName(requester)}
+                  </span>
                 ) : null}
                 <Badge
                   variant={
@@ -126,25 +150,12 @@ export function RunTimelineItem({
                             ? "error"
                             : "queued"}
                 </Badge>
+                {runDuration}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {isActiveRun && run.startedAt ? (
-                  <span className="text-xs text-muted-foreground">
-                    {formatElapsed(activeRunElapsed)}
-                  </span>
-                ) : run.startedAt && run.finishedAt ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDuration(run.startedAt, run.finishedAt)}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Completed {formatExactDateTime(run.finishedAt)}
-                    </TooltipContent>
-                  </Tooltip>
-                ) : null}
-              </div>
+              <RelativeDateTime
+                at={run.startedAt}
+                className="shrink-0 text-xs"
+              />
             </div>
           </AccordionTrigger>
           {isActiveRun && (

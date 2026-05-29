@@ -147,7 +147,7 @@ export function ChatPanel({
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
   const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
-  useHotkey("Shift+Tab", (e) => {
+  useHotkey("Mod+Shift+Tab", (e) => {
     e.preventDefault();
     const currentIndex = AVAILABLE_MODES.indexOf(mode);
     const nextIndex = (currentIndex + 1) % AVAILABLE_MODES.length;

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   IconWorld,
   IconDeviceDesktop,
@@ -6,6 +8,7 @@ import {
   IconClipboardList,
   IconPlus,
 } from "@tabler/icons-react";
+import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
 import {
   Tabs,
   TabsList,
@@ -67,6 +70,13 @@ export function SandboxTabBar({
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
     : allTabs;
+
+  useCycleSandboxTabHotkey({
+    activeTab,
+    onTabChange,
+    enabledTabs,
+    showPrdTab,
+  });
 
   return (
     <div className="relative flex items-end gap-1 px-2 pt-1.5 bg-secondary/50">

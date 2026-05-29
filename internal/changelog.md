@@ -1,5 +1,16 @@
 # Changelog
 
+## Sandbox tab keyboard shortcut - 2026-05-28
+
+- Shift+Tab cycles Preview, Computer, Editor, and Terminal (plus PRD on sessions) in every sandbox panel so you can switch views without clicking the tab bar.
+- Session edit/plan mode toggle moved to Mod+Shift+Tab so it no longer conflicts with sandbox tab cycling.
+
+## Unified user profile hover cards - 2026-05-28
+
+- User avatars and @mention chips now open the same glass profile card (aurora header, role badge, email, presence) so identity previews feel consistent across the app.
+- Profile card logic lives in shared `UserProfileHoverCardBody` and is wired into `UserInitials` on hover, reducing duplicate mention-only UI code.
+- Project and quick-task cards got tighter spacing and gentler press/hover motion so dense boards read cleaner next to the richer avatar affordance.
+
 ## Fix stale project in_progress phase - 2026-05-28
 
 - Project phase no longer stays `in_progress` after the build workflow ends: task completion now triggers `recomputeProjectPhase`, and recompute demotes stale `in_progress` when no `activeBuildWorkflowId` is set.

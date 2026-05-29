@@ -1,5 +1,4 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { QuickTaskDetailClient } from "../QuickTaskDetailClient";
 import {
   TASK_DETAIL_TABS,
   isTaskDetailTab,
@@ -21,13 +20,5 @@ export const Route = createFileRoute(
       });
     }
   },
-  component: QuickTaskDetailRoute,
+  component: () => null,
 });
-
-function QuickTaskDetailRoute() {
-  const { taskId, detailTab } = Route.useParams();
-  if (!isTaskDetailTab(detailTab)) {
-    return null;
-  }
-  return <QuickTaskDetailClient taskId={taskId} detailTab={detailTab} />;
-}

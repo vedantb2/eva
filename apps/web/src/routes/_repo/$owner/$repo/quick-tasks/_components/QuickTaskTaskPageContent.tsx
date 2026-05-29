@@ -7,18 +7,19 @@ import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
-import { QuickTaskDetailShell } from "./_components/QuickTaskDetailShell";
+import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
+import type { QuickTaskRouteState } from "../_utils/useQuickTaskRouteState";
 
-interface QuickTaskSandboxClientProps {
+interface QuickTaskTaskPageContentProps {
   taskId: string;
-  sandboxTab: TaskRouteSandboxTab;
+  routeState: QuickTaskRouteState;
 }
 
-export function QuickTaskSandboxClient({
+export function QuickTaskTaskPageContent({
   taskId,
-  sandboxTab,
-}: QuickTaskSandboxClientProps) {
+  routeState,
+}: QuickTaskTaskPageContentProps) {
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
   const typedTaskId = taskId as Id<"agentTasks">;
@@ -36,10 +37,11 @@ export function QuickTaskSandboxClient({
     return [...tagSet].sort();
   }, [tasks]);
 
-  const routing = useMemo(
-    () =>
-      ({
-        mode: "quick-sandbox",
+  const routing = useMemo(() => {
+    if (routeState.surface === "sandbox") {
+      const sandboxTab = routeState.sandboxTab;
+      return {
+        mode: "quick-sandbox" as const,
         quick: {
           sandboxTab,
           onSandboxTabChange: (tab: TaskRouteSandboxTab) => {
@@ -53,19 +55,34 @@ export function QuickTaskSandboxClient({
             });
           },
         },
-      }) as const,
-    [basePath, navigate, sandboxTab, typedTaskId],
-  );
+      };
+    }
+
+    const detailTab: TaskDetailTab = routeState.detailTab;
+    return {
+      mode: "quick-detail" as const,
+      quick: {
+        detailTab,
+        onDetailTabChange: (tab: TaskDetailTab) => {
+          navigate({
+            to: `${basePath}/quick-tasks/${typedTaskId}/${tab}`,
+          });
+        },
+        onOpenSandboxView: (sandboxTab: TaskRouteSandboxTab) => {
+          navigate({
+            to: `${basePath}/quick-tasks/${typedTaskId}/sandbox/${sandboxTab}`,
+          });
+        },
+      },
+    };
+  }, [basePath, navigate, routeState, typedTaskId]);
 
   return (
-    <QuickTaskDetailShell taskId={taskId} detailTab="activity">
-      <TaskDetailInline
-        key={typedTaskId}
-        onClose={() => navigate({ to: `${basePath}/quick-tasks` })}
-        taskId={typedTaskId}
-        allTags={allTags}
-        routing={routing}
-      />
-    </QuickTaskDetailShell>
+    <TaskDetailInline
+      onClose={() => navigate({ to: `${basePath}/quick-tasks` })}
+      taskId={typedTaskId}
+      allTags={allTags}
+      routing={routing}
+    />
   );
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## Quick task layout route for persistent header - 2026-05-28
+
+- Quick task page chrome now lives on the `$taskId` TanStack Router layout so switching tabs or opening sandbox only swaps the main pane instead of remounting the header.
+- Child routes handle URL validation only; shared layout reads the active segment and keeps context usage and header actions stable.
+
 ## Quick task actions in page header - 2026-05-28
 
 - Run Eva, sandbox, PR, and More controls moved from the bottom footer into the quick task page header (after context usage, before prev/next) so the layout matches projects.

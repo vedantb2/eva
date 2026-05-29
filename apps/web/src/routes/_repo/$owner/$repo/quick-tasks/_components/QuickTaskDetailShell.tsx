@@ -12,6 +12,7 @@ import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "../_utils";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
+import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import {
   QuickTaskHeaderActionsSlot,
   QuickTaskHeaderActionsSlotProvider,
@@ -20,6 +21,8 @@ import {
 interface QuickTaskDetailShellProps {
   taskId: string;
   detailTab: TaskDetailTab;
+  navSurface: "detail" | "sandbox";
+  sandboxTab?: TaskRouteSandboxTab;
   children: ReactNode;
 }
 
@@ -27,6 +30,8 @@ interface QuickTaskDetailShellProps {
 export function QuickTaskDetailShell({
   taskId,
   detailTab,
+  navSurface,
+  sandboxTab,
   children,
 }: QuickTaskDetailShellProps) {
   const navigate = useNavigate();
@@ -63,19 +68,33 @@ export function QuickTaskDetailShell({
   };
 
   const handleNavigatePrev = () => {
-    if (prevTaskId) {
-      navigate({
-        to: `${basePath}/quick-tasks/${prevTaskId}/${detailTab}`,
-      });
+    if (!prevTaskId) {
+      return;
     }
+    if (navSurface === "sandbox" && sandboxTab) {
+      navigate({
+        to: `${basePath}/quick-tasks/${prevTaskId}/sandbox/${sandboxTab}`,
+      });
+      return;
+    }
+    navigate({
+      to: `${basePath}/quick-tasks/${prevTaskId}/${detailTab}`,
+    });
   };
 
   const handleNavigateNext = () => {
-    if (nextTaskId) {
-      navigate({
-        to: `${basePath}/quick-tasks/${nextTaskId}/${detailTab}`,
-      });
+    if (!nextTaskId) {
+      return;
     }
+    if (navSurface === "sandbox" && sandboxTab) {
+      navigate({
+        to: `${basePath}/quick-tasks/${nextTaskId}/sandbox/${sandboxTab}`,
+      });
+      return;
+    }
+    navigate({
+      to: `${basePath}/quick-tasks/${nextTaskId}/${detailTab}`,
+    });
   };
 
   if (tasks === undefined) {

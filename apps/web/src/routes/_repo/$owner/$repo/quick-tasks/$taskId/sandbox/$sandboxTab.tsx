@@ -1,5 +1,4 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { QuickTaskSandboxClient } from "../../QuickTaskSandboxClient";
 import { isTaskRouteSandboxTab } from "@/lib/search-params";
 
 export const Route = createFileRoute(
@@ -18,13 +17,5 @@ export const Route = createFileRoute(
       });
     }
   },
-  component: QuickTaskSandboxRoute,
+  component: () => null,
 });
-
-function QuickTaskSandboxRoute() {
-  const { taskId, sandboxTab } = Route.useParams();
-  if (!isTaskRouteSandboxTab(sandboxTab)) {
-    return null;
-  }
-  return <QuickTaskSandboxClient taskId={taskId} sandboxTab={sandboxTab} />;
-}

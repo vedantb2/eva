@@ -20,12 +20,14 @@ import {
   PROJECT_CHAT_STREAM_PREFIX,
 } from "./workflowWatchdog";
 import { buildProjectChatPrompt } from "./_projects/chatPrompt";
-import { getProjectGeneratedSpec } from "./_projects/helpers";
+import {
+  buildProjectBranchName,
+  getProjectGeneratedSpec,
+} from "./_projects/helpers";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 
-// Tools available to chat — full read/write but Eva never commits/pushes
-// from chat (see prompt). Mirrors session edit mode but without branch ops.
+// Full read/write + Bash for local commits; Eva pushes after success.
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
 
 // --- Completion event ---
@@ -254,11 +256,33 @@ export const projectChatExecuteWorkflow = workflow.define({
 
     const result = await step.awaitEvent(projectChatCompleteEvent);
 
+    let savedSuccess = result.success;
+    let savedError = result.error;
+
+    if (result.success && data.sandboxId && data.branchName) {
+      try {
+        await step.runAction(internal.daytona.pushSandboxBranch, {
+          sandboxId: data.sandboxId,
+          installationId: data.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          repoId: data.repoId,
+          branchName: data.branchName,
+        });
+      } catch (error) {
+        savedSuccess = false;
+        savedError = `Chat completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
+        console.error(
+          `[projectChatWorkflow] pushSandboxBranch failed projectId=${String(args.projectId)}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
     await step.runMutation(internal.projectChatWorkflow.saveResult, {
       projectId: args.projectId,
-      success: result.success,
+      success: savedSuccess,
       result: result.result,
-      error: result.error,
+      error: savedError,
       activityLog: result.activityLog,
       pendingQuestion: result.pendingQuestion,
     });
@@ -300,8 +324,9 @@ export const getChatData = internalQuery({
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
+    installationId: v.number(),
+    branchName: v.string(),
     prompt: v.string(),
-    branchName: v.optional(v.string()),
     model: aiModelValidator,
   }),
   handler: async (ctx, args) => {
@@ -324,12 +349,16 @@ export const getChatData = internalQuery({
       project.repoId,
     );
 
+    const branchName =
+      project.branchName ??
+      buildProjectBranchName(args.projectId, project.branchVersion);
+
     let prompt = buildProjectChatPrompt({
       repoOwner: repo.owner,
       repoName: repo.name,
+      branchName,
       title: project.title,
       description: project.description,
-      branchName: project.branchName,
       generatedSpec,
       message: resolvedMessage,
       rootDirectory: repo.rootDirectory ?? "",
@@ -345,8 +374,9 @@ export const getChatData = internalQuery({
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: project.repoId,
+      installationId: repo.installationId,
+      branchName,
       prompt,
-      branchName: project.branchName,
       model: normalizeAIModel(args.model),
     };
   },

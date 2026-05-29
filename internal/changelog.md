@@ -1,5 +1,10 @@
 # Changelog
 
+## Sandbox chat commits and pushes like sessions - 2026-05-28
+
+- Quick task and project preview chat now use the same edit rules as session chat: the agent commits locally when source changes and Eva publishes the branch after a successful message.
+- Chat edits previously stayed in the sandbox working tree only, so preview and GitHub never saw them until a full task or project run.
+
 ## Quick task manual dev server restart - 2026-05-28
 
 - Quick task activity footer More menu adds Run Dev Server with a confirmation dialog for when preview is stuck loading but the sandbox is already running.

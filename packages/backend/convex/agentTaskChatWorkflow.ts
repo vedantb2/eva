@@ -20,6 +20,7 @@ import {
   TASK_CHAT_STREAM_PREFIX,
 } from "./workflowWatchdog";
 import { buildAgentTaskChatPrompt } from "./_agentTasks/chatPrompt";
+import { resolveTaskBranchName } from "./_taskWorkflow/helpers";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 
@@ -263,11 +264,33 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
 
     const result = await step.awaitEvent(agentTaskChatCompleteEvent);
 
+    let savedSuccess = result.success;
+    let savedError = result.error;
+
+    if (result.success && data.sandboxId && data.branchName) {
+      try {
+        await step.runAction(internal.daytona.pushSandboxBranch, {
+          sandboxId: data.sandboxId,
+          installationId: data.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          repoId: data.repoId,
+          branchName: data.branchName,
+        });
+      } catch (error) {
+        savedSuccess = false;
+        savedError = `Chat completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
+        console.error(
+          `[agentTaskChatWorkflow] pushSandboxBranch failed taskId=${String(args.taskId)}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
     await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
       taskId: args.taskId,
-      success: result.success,
+      success: savedSuccess,
       result: result.result,
-      error: result.error,
+      error: savedError,
       activityLog: result.activityLog,
       pendingQuestion: result.pendingQuestion,
     });
@@ -309,6 +332,8 @@ export const getChatData = internalQuery({
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
+    installationId: v.number(),
+    branchName: v.string(),
     prompt: v.string(),
     model: aiModelValidator,
   }),
@@ -332,9 +357,12 @@ export const getChatData = internalQuery({
       task.repoId,
     );
 
+    const branchName = await resolveTaskBranchName(ctx.db, task);
+
     let prompt = buildAgentTaskChatPrompt({
       repoOwner: repo.owner,
       repoName: repo.name,
+      branchName,
       title: task.title,
       description: task.description,
       tags: task.tags,
@@ -354,6 +382,8 @@ export const getChatData = internalQuery({
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: task.repoId,
+      installationId: repo.installationId,
+      branchName,
       prompt,
       model: normalizeAIModel(args.model),
     };

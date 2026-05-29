@@ -1,5 +1,11 @@
 # Changelog
 
+## Weekly changelog announcement email - 2026-05-29
+
+- Email the weekly changelog to all users when a new one publishes, triggered automatically on automation success so it sends exactly once per edition.
+- Converts the stored markdown summary to HTML for email rendering, with a pure template builder reusing the existing email layout wrapper.
+- Integrates with the same changelog automation and dismissal tracking as the in-app modal, so email recipients and viewers stay in sync.
+
 ## Full user deletion from the Convex dashboard - 2026-05-29
 
 - Added a `migrations.deleteUserAndAllData` function that purges a user and everything tied to them by user id, for clean offboarding and GDPR-style erasure.

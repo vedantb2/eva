@@ -45,6 +45,29 @@ export const get = authQuery({
   },
 });
 
+/**
+ * Lists every user with an email address, for sending broadcast emails such as
+ * the weekly changelog. Internal use only.
+ */
+export const listEmailRecipients = internalQuery({
+  args: {},
+  returns: v.array(
+    v.object({ email: v.string(), name: v.optional(v.string()) }),
+  ),
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    const recipients = [];
+    for (const user of users) {
+      if (!user.email) continue;
+      recipients.push({
+        email: user.email,
+        name: user.firstName ?? user.fullName,
+      });
+    }
+    return recipients;
+  },
+});
+
 /** Lists teammates across all of the current user's teams who were active in the last 2 minutes. */
 export const listOnlineTeammates = authQuery({
   args: {},

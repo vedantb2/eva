@@ -144,3 +144,36 @@ export function buildNotificationDigestHtml(opts: DigestEmailOptions): string {
 
   return wrapEmailLayout({ title: heading, bodyHtml });
 }
+
+export interface ChangelogEmailOptions {
+  recipientName?: string;
+  /** Base URL of the web app, e.g. https://app.example.com (no trailing slash needed). */
+  appUrl: string;
+  /** Changelog body already converted from markdown to trusted HTML by the caller. */
+  contentHtml: string;
+  publishedAt: number;
+}
+
+/**
+ * Builds the weekly changelog announcement email. The caller converts the
+ * stored markdown to HTML (contentHtml) before passing it in, so this stays a
+ * pure module with no markdown dependency.
+ */
+export function buildChangelogEmailHtml(opts: ChangelogEmailOptions): string {
+  const greeting = opts.recipientName
+    ? `Hi ${escapeHtml(opts.recipientName)},`
+    : "Hi,";
+  const heading = "What's new in Eva";
+
+  const bodyHtml = `
+    <p style="margin:0 0 4px;font-size:15px;line-height:22px;color:${TEXT};">${greeting}</p>
+    <h1 style="margin:0 0 4px;font-size:20px;line-height:28px;font-weight:700;color:${TEXT};">${heading}</h1>
+    <p style="margin:0 0 20px;font-size:13px;color:${MUTED};">${escapeHtml(formatDate(opts.publishedAt))}</p>
+    <div style="font-size:14px;line-height:22px;color:${TEXT};">${opts.contentHtml}</div>
+    <p style="margin:24px 0 0;">
+      <a href="${escapeHtml(opts.appUrl.replace(/\/+$/, ""))}" style="display:inline-block;padding:10px 18px;font-size:14px;font-weight:600;color:#ffffff;background-color:${BRAND};border-radius:8px;text-decoration:none;">Open the app</a>
+    </p>
+  `;
+
+  return wrapEmailLayout({ title: heading, bodyHtml });
+}

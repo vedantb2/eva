@@ -1,9 +1,9 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { query, internalQuery } from "./_generated/server";
 import { getCurrentUserId } from "./auth";
 import { authMutation } from "./functions";
 
-const CHANGELOG_AUTOMATION_TITLE = "Eva Weekly Changelog";
+export const CHANGELOG_AUTOMATION_TITLE = "Eva Weekly Changelog";
 
 /**
  * Returns the latest successful changelog automation run and whether the
@@ -52,6 +52,29 @@ export const getLatestChangelog = query({
       content: latestRun.resultSummary,
       publishedAt: latestRun.finishedAt,
     };
+  },
+});
+
+/**
+ * Returns a successful changelog run's markdown content for emailing, but only
+ * if the run belongs to the "Eva Weekly Changelog" automation. Returns null
+ * otherwise so the email action can safely no-op. Internal use only.
+ */
+export const getChangelogRunForEmail = internalQuery({
+  args: { runId: v.id("automationRuns") },
+  returns: v.union(
+    v.object({ content: v.string(), publishedAt: v.number() }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.status !== "success") return null;
+    if (!run.resultSummary || !run.finishedAt) return null;
+    const automation = await ctx.db.get(run.automationId);
+    if (!automation || automation.title !== CHANGELOG_AUTOMATION_TITLE) {
+      return null;
+    }
+    return { content: run.resultSummary, publishedAt: run.finishedAt };
   },
 });
 

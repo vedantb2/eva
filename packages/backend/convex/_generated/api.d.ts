@@ -134,6 +134,7 @@ import type * as automationWorkflow from "../automationWorkflow.js";
 import type * as automations from "../automations.js";
 import type * as buildWorkflow from "../buildWorkflow.js";
 import type * as changelog from "../changelog.js";
+import type * as changelogEmail from "../changelogEmail.js";
 import type * as cronManager from "../cronManager.js";
 import type * as crons from "../crons.js";
 import type * as daytona from "../daytona.js";
@@ -355,6 +356,7 @@ declare const fullApi: ApiFromModules<{
   automations: typeof automations;
   buildWorkflow: typeof buildWorkflow;
   changelog: typeof changelog;
+  changelogEmail: typeof changelogEmail;
   cronManager: typeof cronManager;
   crons: typeof crons;
   daytona: typeof daytona;

@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from "@conductor/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 
 interface SystemAlertMessageProps {
   content: string;
@@ -37,11 +37,17 @@ export function SystemAlertMessage({
         <div className="h-px flex-1 bg-border" />
         <span className="text-xs font-medium text-muted-foreground whitespace-nowrap max-w-[60%] truncate sm:max-w-none sm:truncate-none">
           {content}
-          {timestamp !== undefined && (
-            <span className="ml-1.5 text-muted-foreground/70 font-normal">
-              · {dayjs(timestamp).fromNow()}
-            </span>
-          )}
+          {timestamp !== undefined ? (
+            <>
+              <span className="ml-1.5 text-muted-foreground/70 font-normal">
+                ·
+              </span>
+              <RelativeDateTime
+                at={timestamp}
+                className="ml-1 text-muted-foreground/70 font-normal"
+              />
+            </>
+          ) : null}
         </span>
         {errorDetail && (
           <button

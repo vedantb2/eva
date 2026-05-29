@@ -1,5 +1,11 @@
 # Changelog
 
+## Task activity timeline polish - 2026-05-28
+
+- Relative timestamps with exact datetime on hover are shared across runs, comments, field changes, and system alerts so activity reads consistently.
+- Made-changes run accordions show who requested work (avatar, name, badge, duration) with started-at on the right.
+- Comment and inline run headers put the date last beside actions, matching the run accordion pattern.
+
 ## Request-changes composer and mention previews - 2026-05-28
 
 - Make changes is an in-input switch beside send (replacing the checkbox below) so the comment box stays compact while mode is obvious.

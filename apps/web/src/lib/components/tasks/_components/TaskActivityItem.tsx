@@ -1,6 +1,6 @@
 "use client";
 
-import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import {
@@ -152,9 +152,10 @@ export function TaskActivityItem({
           </>
         )}
       </span>
-      <span className="ml-auto shrink-0 text-muted-foreground/70">
-        {dayjs(event.createdAt).fromNow()}
-      </span>
+      <RelativeDateTime
+        at={event.createdAt}
+        className="ml-auto shrink-0 text-muted-foreground/70"
+      />
     </div>
   );
 }

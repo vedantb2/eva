@@ -307,6 +307,13 @@ export function ActivityTimeline({
   return (
     <div className="pt-4">
       <div className="space-y-3 mb-6">
+        {effectiveRequestingChanges && !executionError && (
+          <p className="text-xs text-muted-foreground">
+            {isProjectTask
+              ? "Submitting will add your feedback and move this task to To Do. Use Build Project to run changes in order."
+              : "Submitting will create a comment and re-run Eva with your changes"}
+          </p>
+        )}
         <div className="relative">
           {effectiveRequestingChanges ? (
             <DescriptionMentionEditor
@@ -407,13 +414,6 @@ export function ActivityTimeline({
             </Tooltip>
           </div>
         </div>
-        {effectiveRequestingChanges && !executionError && (
-          <p className="text-xs text-muted-foreground">
-            {isProjectTask
-              ? "Submitting will add your feedback and move this task to To Do. Use Build Project to run changes in order."
-              : "Submitting will create a comment and re-run Eva with your changes"}
-          </p>
-        )}
       </div>
 
       {activityTimeline.length > 0 && (

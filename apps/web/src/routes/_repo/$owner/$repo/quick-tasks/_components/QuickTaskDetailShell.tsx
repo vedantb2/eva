@@ -105,39 +105,43 @@ export function QuickTaskDetailShell({
     );
   }
 
+  const taskLabel = [
+    selectedTask?.taskNumber ? `#${selectedTask.taskNumber}` : null,
+    selectedTask?.title ?? null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
+
   return (
     <QuickTaskHeaderActionsSlotProvider>
       <PageWrapper
         title={
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 text-base sm:text-lg md:text-xl">
-            <button
-              onClick={handleBack}
-              className="text-muted-foreground hover:text-foreground transition-colors font-semibold whitespace-nowrap flex-shrink-0"
-            >
-              Quick Tasks
-            </button>
-            <IconChevronRight
-              size={14}
-              className="text-muted-foreground/50 flex-shrink-0"
-            />
-            <span className="min-w-0 flex-1 truncate font-semibold">
-              {selectedTask?.taskNumber ? `#${selectedTask.taskNumber}` : ""}
-              {selectedTask?.title ? ` ${selectedTask.title}` : ""}
-            </span>
-          </div>
-        }
-        fillHeight
-        childPadding={false}
-        headerRight={
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <div className="flex shrink-0 items-center gap-1.5 text-base sm:text-lg md:text-xl">
+              <button
+                onClick={handleBack}
+                className="text-muted-foreground hover:text-foreground transition-colors font-semibold whitespace-nowrap"
+              >
+                Quick Tasks
+              </button>
+              <IconChevronRight
+                size={14}
+                className="text-muted-foreground/50 shrink-0"
+              />
+            </div>
+            {taskLabel ? (
+              <span className="min-w-0 truncate font-semibold">
+                {taskLabel}
+              </span>
+            ) : null}
+            <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
               <EntityContextUsage repoId={repo._id} entityId={taskId} />
               <QuickTaskHeaderActionsSlot />
               <div className="flex items-center gap-0.5">
                 <button
                   onClick={handleNavigatePrev}
                   disabled={!prevTaskId}
-                  className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
                   title="Previous task"
                 >
                   <IconChevronLeft size={16} />
@@ -145,7 +149,7 @@ export function QuickTaskDetailShell({
                 <button
                   onClick={handleNavigateNext}
                   disabled={!nextTaskId}
-                  className="p-1 rounded hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
                   title="Next task"
                 >
                   <IconChevronRight size={16} />
@@ -154,6 +158,8 @@ export function QuickTaskDetailShell({
             </div>
           </div>
         }
+        fillHeight
+        childPadding={false}
       >
         <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
           <div className="flex-1 min-h-0 overflow-hidden">{children}</div>

@@ -117,7 +117,7 @@ export function TaskFooter({
     <div
       className={
         isHeader
-          ? "flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end"
+          ? "flex shrink-0 items-center gap-1.5 sm:gap-2"
           : "space-y-2 w-full"
       }
     >
@@ -129,7 +129,7 @@ export function TaskFooter({
       <div
         className={
           isHeader
-            ? "flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end"
+            ? "flex shrink-0 items-center gap-1.5 sm:gap-2"
             : "flex items-center gap-3 flex-wrap justify-end"
         }
       >
@@ -150,7 +150,13 @@ export function TaskFooter({
         {showRunButton && hasSecondaryContent && (
           <div className="h-6 w-px bg-muted-foreground/20" />
         )}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        <div
+          className={
+            isHeader
+              ? "flex shrink-0 items-center gap-1.5 sm:gap-2"
+              : "flex flex-wrap items-center gap-1.5 sm:gap-2"
+          }
+        >
           {showMoreMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

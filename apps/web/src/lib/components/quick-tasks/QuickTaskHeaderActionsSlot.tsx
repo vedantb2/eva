@@ -38,7 +38,7 @@ export function QuickTaskHeaderActionsSlot() {
   return (
     <div
       ref={slot.setSlotElement}
-      className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end"
+      className="flex shrink-0 items-center gap-1.5 sm:gap-2"
     />
   );
 }

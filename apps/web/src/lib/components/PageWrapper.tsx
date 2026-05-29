@@ -30,6 +30,7 @@ export function PageWrapper({
 }: PageWrapperProps) {
   const { setPageTitle } = usePageTitle();
   const isStringTitle = typeof title === "string";
+  const hasHeaderRight = headerRight != null;
 
   useEffect(() => {
     setPageTitle(isStringTitle ? title : "");
@@ -43,10 +44,10 @@ export function PageWrapper({
           className={`motion-base relative ${comfortable ? "p-4 sm:px-6" : "p-3 sm:px-4"}`}
         >
           <div
-            className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
+            className={`grid items-center gap-2 sm:gap-3 ${hasHeaderRight ? "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]" : "grid-cols-1"} ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
           >
             <div
-              className={`flex min-w-0 items-center gap-2 sm:gap-3 ${!headerCenter ? "md:col-span-2" : ""}`}
+              className={`flex min-w-0 items-center gap-2 sm:gap-3 ${hasHeaderRight && !headerCenter ? "md:col-span-2" : ""}`}
             >
               {showBack && (
                 <Button
@@ -60,7 +61,7 @@ export function PageWrapper({
               )}
               {title && (
                 <h1
-                  className={`min-w-0 whitespace-nowrap text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 text-balance ${isStringTitle ? "hidden lg:block" : ""}`}
+                  className={`min-w-0 flex-1 text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 text-balance ${isStringTitle ? "hidden whitespace-nowrap lg:block" : ""}`}
                 >
                   {title}
                 </h1>
@@ -71,9 +72,11 @@ export function PageWrapper({
                 <div className="w-full max-w-xl">{headerCenter}</div>
               </div>
             )}
-            <div className="flex min-h-10 items-center justify-end gap-1.5 sm:gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
-              {headerRight}
-            </div>
+            {hasHeaderRight ? (
+              <div className="flex min-h-10 items-center justify-end gap-1.5 sm:gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
+                {headerRight}
+              </div>
+            ) : null}
           </div>
           {headerCenter && (
             <div className="mt-2 md:hidden animate-in fade-in duration-300">

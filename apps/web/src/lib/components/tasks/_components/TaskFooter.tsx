@@ -20,6 +20,7 @@ import {
   IconMessagePlus,
   IconHammer,
   IconPlayerPlay,
+  IconPlayerStop,
   IconTerminal2,
   IconLoader2,
   IconChevronDown,
@@ -55,6 +56,7 @@ interface TaskFooterProps {
   isCreatingPr: boolean;
   onCreatePr: () => void;
   onViewSandbox: () => void;
+  onStopSandbox: () => void;
   isSandboxViewActive?: boolean;
   onRunStartupCommands: () => void;
   onRunDevServer: () => void;
@@ -84,6 +86,7 @@ export function TaskFooter({
   isCreatingPr,
   onCreatePr,
   onViewSandbox,
+  onStopSandbox,
   isSandboxViewActive = false,
   onRunStartupCommands,
   onRunDevServer,
@@ -100,6 +103,7 @@ export function TaskFooter({
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
   const showViewSandbox = canStartSandbox;
+  const showStopSandbox = isSandboxActive && !isSandboxStopping;
   const showResolveConflicts =
     !hasActiveRun && (status === "code_review" || status === "business_review");
   const showRequestChanges =
@@ -111,7 +115,7 @@ export function TaskFooter({
     showRequestChanges ||
     Boolean(latestDeployment?.deploymentStatus);
   const hasSecondaryContent =
-    showViewSandbox || showMoreMenu || Boolean(latestPrUrl);
+    showViewSandbox || showStopSandbox || showMoreMenu || Boolean(latestPrUrl);
 
   return (
     <div
@@ -247,6 +251,31 @@ export function TaskFooter({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {latestPrUrl ? (
+            <Button
+              asChild
+              variant="outline"
+              size={buttonSize}
+              className={outlineButtonClass}
+            >
+              <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
+                <IconGitPullRequest size={iconSize} />
+                <span className="hidden sm:inline">View PR</span>
+              </a>
+            </Button>
+          ) : null}
+          {showStopSandbox ? (
+            <Button
+              variant="destructive"
+              size={buttonSize}
+              onClick={onStopSandbox}
+              disabled={isSandboxStopping}
+              className={outlineButtonClass}
+            >
+              <IconPlayerStop size={iconSize} />
+              <span className="hidden sm:inline">Stop Sandbox</span>
+            </Button>
+          ) : null}
           {showViewSandbox && (
             <Button
               variant="outline"
@@ -278,19 +307,6 @@ export function TaskFooter({
                         ? "View Sandbox · Active"
                         : "View Sandbox"}
               </span>
-            </Button>
-          )}
-          {latestPrUrl && (
-            <Button
-              asChild
-              variant="outline"
-              size={buttonSize}
-              className={outlineButtonClass}
-            >
-              <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
-                <IconGitPullRequest size={iconSize} />
-                <span className="hidden sm:inline">View PR</span>
-              </a>
             </Button>
           )}
         </div>

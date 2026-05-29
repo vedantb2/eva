@@ -387,6 +387,7 @@ export function TaskDetailInline({
         isCreatingPr={isCreatingPr}
         onCreatePr={handleCreatePr}
         onViewSandbox={handleToggleSandboxView}
+        onStopSandbox={handleStopSandbox}
         isSandboxViewActive={isSandboxViewActive}
         onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
         onRunDevServer={() => setShowRunDevServerConfirm(true)}

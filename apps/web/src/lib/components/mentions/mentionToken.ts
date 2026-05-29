@@ -1,10 +1,17 @@
+import type { Id } from "@conductor/backend";
+
 /**
  * Token format for inline mentions: `@[Label](id)`.
  * Mirrors the backend regex in `_mentions/mentionToken.ts`. Restricting the
  * id capture to the Convex Id charset avoids false positives with regular
  * markdown links.
  */
+export const CONVEX_ID_PATTERN = /^[a-z0-9_]{16,40}$/;
 export const MENTION_TOKEN_REGEX = /@\[([^\]]{1,200})\]\(([a-z0-9_]{16,40})\)/g;
+
+export function isMentionTokenDocId(id: string): id is Id<"docs"> {
+  return CONVEX_ID_PATTERN.test(id);
+}
 
 export function formatMentionToken(label: string, id: string): string {
   return `@[${label}](${id})`;

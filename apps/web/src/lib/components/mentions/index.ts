@@ -10,9 +10,18 @@ export type { MentionMatch, SkillMatch } from "./MentionText";
 export { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
 export { UserMentionChip } from "./UserMentionChip";
 export { UserMentionText } from "./UserMentionText";
+export { DocMentionChip } from "./DocMentionChip";
+export { SkillMentionChip } from "./SkillMentionChip";
+export { DocMentionHoverCardBody } from "./DocMentionHoverCardBody";
+export { SkillMentionHoverCardBody } from "./SkillMentionHoverCardBody";
 export {
   MENTION_TOKEN_REGEX,
   formatMentionToken,
   mentionTokensToEditableText,
+  isMentionTokenDocId,
 } from "./mentionToken";
-export { SKILL_TOKEN_REGEX, formatSkillToken } from "./skillToken";
+export {
+  SKILL_TOKEN_REGEX,
+  formatSkillToken,
+  isSkillTokenId,
+} from "./skillToken";

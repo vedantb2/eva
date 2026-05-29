@@ -68,6 +68,10 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   onSkillChipClick?: (id: string) => void;
   /** Profile hover card on @mention chips in the editor (e.g. comment @people). */
   mentionChipHoverCard?: boolean;
+  /** Doc/PRD preview on @mention chips (e.g. task description). */
+  renderMentionChipHoverCard?: (id: TItem["id"]) => ReactNode;
+  /** Skill preview on /skill chips. */
+  renderSkillChipHoverCard?: (id: string) => ReactNode;
   maxItems?: number;
   dataSlot?: string;
   ariaLabel?: string;
@@ -211,6 +215,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   onMentionChipClick,
   onSkillChipClick,
   mentionChipHoverCard = false,
+  renderMentionChipHoverCard,
+  renderSkillChipHoverCard,
   maxItems = 8,
   dataSlot,
   ariaLabel,
@@ -218,6 +224,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
 }: MentionEditorProps<TItem>) {
   const chipsClickable =
     onMentionChipClick !== undefined || onSkillChipClick !== undefined;
+  const chipHoverEnabled =
+    mentionChipHoverCard ||
+    renderMentionChipHoverCard !== undefined ||
+    renderSkillChipHoverCard !== undefined;
   const editorRef = useRef<HTMLDivElement>(null);
   const [trigger, setTrigger] = useState<TriggerState>(CLOSED_TRIGGER);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -233,6 +243,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   const [mentionHover, setMentionHover] = useState<{
     userId: string;
   } | null>(null);
+  const [contentChipHover, setContentChipHover] = useState<{
+    kind: "mention" | "skill";
+    id: string;
+  } | null>(null);
   const [mentionHoverRect, setMentionHoverRect] = useState<DOMRect | null>(
     null,
   );
@@ -241,13 +255,14 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     null,
   );
 
-  const clearMentionHoverCard = useCallback(() => {
+  const clearChipHoverCard = useCallback(() => {
     if (mentionHoverOpenTimerRef.current !== null) {
       clearTimeout(mentionHoverOpenTimerRef.current);
       mentionHoverOpenTimerRef.current = null;
     }
     mentionHoverChipRef.current = null;
     setMentionHover(null);
+    setContentChipHover(null);
     setMentionHoverRect(null);
   }, []);
 
@@ -264,11 +279,37 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       if (id === undefined) return;
       mentionHoverOpenTimerRef.current = setTimeout(() => {
         mentionHoverOpenTimerRef.current = null;
+        setContentChipHover(null);
         setMentionHover({ userId: id });
         setMentionHoverRect(chip.getBoundingClientRect());
       }, 250);
     },
     [mentionMap],
+  );
+
+  const scheduleContentChipHoverCard = useCallback(
+    (chip: HTMLElement, kind: "mention" | "skill") => {
+      if (mentionHoverChipRef.current === chip) return;
+      mentionHoverChipRef.current = chip;
+      if (mentionHoverOpenTimerRef.current !== null) {
+        clearTimeout(mentionHoverOpenTimerRef.current);
+      }
+      const label =
+        kind === "mention"
+          ? chip.dataset.mentionLabel
+          : chip.dataset.skillLabel;
+      if (!label) return;
+      const id =
+        kind === "mention" ? mentionMap.get(label) : skillMap.get(label);
+      if (id === undefined) return;
+      mentionHoverOpenTimerRef.current = setTimeout(() => {
+        mentionHoverOpenTimerRef.current = null;
+        setMentionHover(null);
+        setContentChipHover({ kind, id });
+        setMentionHoverRect(chip.getBoundingClientRect());
+      }, 250);
+    },
+    [mentionMap, skillMap],
   );
 
   useEffect(() => {
@@ -526,52 +567,72 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
 
   const handleBlur = useCallback(() => {
     if (trigger.isOpen) closeTrigger();
-    if (mentionChipHoverCard) clearMentionHoverCard();
+    if (chipHoverEnabled) clearChipHoverCard();
     onBlur?.();
   }, [
     trigger.isOpen,
     closeTrigger,
     onBlur,
-    mentionChipHoverCard,
-    clearMentionHoverCard,
+    chipHoverEnabled,
+    clearChipHoverCard,
   ]);
 
   const handleEditorMouseOver = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!mentionChipHoverCard) return;
+      if (!chipHoverEnabled) return;
       const target = e.target;
       if (!(target instanceof Element)) return;
-      const chip = target.closest("[data-mention-label]");
-      if (chip instanceof HTMLElement) {
-        scheduleMentionHoverCard(chip);
+      const mentionChip = target.closest("[data-mention-label]");
+      if (mentionChip instanceof HTMLElement) {
+        if (mentionChipHoverCard) {
+          scheduleMentionHoverCard(mentionChip);
+        } else if (renderMentionChipHoverCard) {
+          scheduleContentChipHoverCard(mentionChip, "mention");
+        }
+        return;
+      }
+      const skillChip = target.closest("[data-skill-label]");
+      if (
+        skillChip instanceof HTMLElement &&
+        renderSkillChipHoverCard !== undefined
+      ) {
+        scheduleContentChipHoverCard(skillChip, "skill");
       }
     },
-    [mentionChipHoverCard, scheduleMentionHoverCard],
+    [
+      chipHoverEnabled,
+      mentionChipHoverCard,
+      renderMentionChipHoverCard,
+      renderSkillChipHoverCard,
+      scheduleMentionHoverCard,
+      scheduleContentChipHoverCard,
+    ],
   );
 
   const handleEditorMouseOut = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!mentionChipHoverCard) return;
+      if (!chipHoverEnabled) return;
       const related = e.relatedTarget;
       if (related instanceof Element) {
         if (
           related.closest("[data-mention-label]") !== null ||
+          related.closest("[data-skill-label]") !== null ||
           related.closest("[data-mention-hover-card]") !== null
         ) {
           return;
         }
       }
-      clearMentionHoverCard();
+      clearChipHoverCard();
     },
-    [mentionChipHoverCard, clearMentionHoverCard],
+    [chipHoverEnabled, clearChipHoverCard],
   );
 
   const handleHoverCardMouseLeave = useCallback(() => {
-    clearMentionHoverCard();
-  }, [clearMentionHoverCard]);
+    clearChipHoverCard();
+  }, [clearChipHoverCard]);
 
   useEffect(() => {
-    if (!mentionHover || !mentionHoverRect) return;
+    if ((!mentionHover && !contentChipHover) || !mentionHoverRect) return;
     const updateRect = () => {
       const chip = mentionHoverChipRef.current;
       if (chip) {
@@ -584,7 +645,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       window.removeEventListener("scroll", updateRect, true);
       window.removeEventListener("resize", updateRect);
     };
-  }, [mentionHover, mentionHoverRect]);
+  }, [mentionHover, contentChipHover, mentionHoverRect]);
 
   useEffect(() => {
     return () => {
@@ -678,11 +739,19 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       />
     ) : null;
 
-  const mentionHoverCard =
-    mentionChipHoverCard &&
-    mentionHover &&
-    mentionHoverRect &&
-    typeof document !== "undefined"
+  const chipHoverCardContent =
+    mentionHover && mentionChipHoverCard ? (
+      <UserProfileHoverCardBody userId={mentionHover.userId} />
+    ) : contentChipHover?.kind === "mention" &&
+      renderMentionChipHoverCard !== undefined ? (
+      renderMentionChipHoverCard(contentChipHover.id)
+    ) : contentChipHover?.kind === "skill" &&
+      renderSkillChipHoverCard !== undefined ? (
+      renderSkillChipHoverCard(contentChipHover.id)
+    ) : null;
+
+  const chipHoverCard =
+    chipHoverCardContent && mentionHoverRect && typeof document !== "undefined"
       ? createPortal(
           <div
             data-mention-hover-card="true"
@@ -694,7 +763,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
             }}
             onMouseLeave={handleHoverCardMouseLeave}
           >
-            <UserProfileHoverCardBody userId={mentionHover.userId} />
+            {chipHoverCardContent}
           </div>,
           document.body,
         )
@@ -720,8 +789,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         onClick={chipsClickable ? handleChipClick : undefined}
-        onMouseOver={mentionChipHoverCard ? handleEditorMouseOver : undefined}
-        onMouseOut={mentionChipHoverCard ? handleEditorMouseOut : undefined}
+        onMouseOver={chipHoverEnabled ? handleEditorMouseOver : undefined}
+        onMouseOut={chipHoverEnabled ? handleEditorMouseOut : undefined}
         onBlur={handleBlur}
         onPaste={handlePaste}
         onCompositionStart={() => setIsComposing(true)}
@@ -730,7 +799,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       {pickerPopup && typeof document !== "undefined"
         ? createPortal(pickerPopup, document.body)
         : null}
-      {mentionHoverCard}
+      {chipHoverCard}
     </>
   );
 }

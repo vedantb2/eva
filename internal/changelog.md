@@ -1,5 +1,12 @@
 # Changelog
 
+## Request-changes composer and mention previews - 2026-05-28
+
+- Make changes is an in-input switch beside send (replacing the checkbox below) so the comment box stays compact while mode is obvious.
+- Request-changes helper text sits above the input so users see submit behavior before typing.
+- Request-changes comments support `@` docs and `/` skills like the task description, with tokens rendered correctly in run accordions.
+- Hovering `@` or `/` mention chips shows a scrollable preview of doc or skill content in the editor and in saved comments.
+
 ## Quick task layout route for persistent header - 2026-05-28
 
 - Quick task page chrome now lives on the `$taskId` TanStack Router layout so switching tabs or opening sandbox only swaps the main pane instead of remounting the header.

@@ -14,6 +14,9 @@ import {
   type MentionEditorHandle,
   type MentionItem,
   type SlashItem,
+  DocMentionHoverCardBody,
+  SkillMentionHoverCardBody,
+  isSkillTokenId,
 } from "@/lib/components/mentions";
 
 export type DescriptionMentionEditorHandle = MentionEditorHandle;
@@ -106,6 +109,12 @@ export const DescriptionMentionEditor = forwardRef<
       slashItems={slashItems}
       onMentionChipClick={handleMentionChipClick}
       onSkillChipClick={handleSkillChipClick}
+      renderMentionChipHoverCard={(id) => (
+        <DocMentionHoverCardBody docId={id} />
+      )}
+      renderSkillChipHoverCard={(id) =>
+        isSkillTokenId(id) ? <SkillMentionHoverCardBody skillId={id} /> : null
+      }
       placeholder={placeholder}
       ariaLabel={ariaLabel ?? placeholder ?? "Description"}
       className={cn(

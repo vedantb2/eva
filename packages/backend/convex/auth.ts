@@ -185,6 +185,29 @@ export const setTheme = authMutation({
   },
 });
 
+/**
+ * Returns whether the current user has opted in to email notifications
+ * (daily summary + weekly changelog). Defaults to false (opt-in).
+ */
+export const getEmailNotificationsEnabled = authQuery({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const user = await ctx.db.get(ctx.userId);
+    return user?.emailNotificationsEnabled ?? false;
+  },
+});
+
+/** Updates the current user's email notification opt-in preference. */
+export const setEmailNotificationsEnabled = authMutation({
+  args: { enabled: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(ctx.userId, { emailNotificationsEnabled: args.enabled });
+    return null;
+  },
+});
+
 /** Returns the current user's custom theme configuration. */
 export const getCustomTheme = authQuery({
   args: {},

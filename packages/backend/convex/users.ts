@@ -59,6 +59,7 @@ export const listEmailRecipients = internalQuery({
     const recipients = [];
     for (const user of users) {
       if (!user.email) continue;
+      if (user.emailNotificationsEnabled !== true) continue;
       recipients.push({
         email: user.email,
         name: user.firstName ?? user.fullName,

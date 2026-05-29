@@ -170,6 +170,7 @@ export const getDigestRecipients = internalQuery({
     const recipients = [];
     for (const user of users) {
       if (!user.email) continue;
+      if (user.emailNotificationsEnabled !== true) continue;
       const unread = await ctx.db
         .query("notifications")
         .withIndex("by_user_and_read", (q) =>

@@ -2,6 +2,7 @@
 
 import { Link, useLocation } from "@tanstack/react-router";
 import {
+  IconBell,
   IconHome,
   IconInbox,
   IconPalette,
@@ -15,6 +16,7 @@ const ROOT_NAV_ITEMS = [
   { name: "Teams", href: "/teams", icon: IconUsers },
   { name: "Inbox", href: "/inbox", icon: IconInbox },
   { name: "Theme", href: "/settings/theme", icon: IconPalette },
+  { name: "Notifications", href: "/settings/notifications", icon: IconBell },
 ];
 
 export function RootSidebarContent({

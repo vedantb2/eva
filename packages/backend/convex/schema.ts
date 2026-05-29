@@ -53,6 +53,7 @@ const schema = defineSchema({
     lastSeenAt: v.optional(v.number()),
     lastSeenPath: v.optional(v.string()),
     lastChangelogDismissedAt: v.optional(v.number()),
+    emailNotificationsEnabled: v.optional(v.boolean()),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),

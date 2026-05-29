@@ -1,5 +1,11 @@
 # Changelog
 
+## Email notification opt-in - 2026-05-29
+
+- Added a per-user email opt-in flag so the daily summary and weekly changelog only reach users who explicitly enable them; off by default for privacy.
+- Both email recipient queries now skip users who have not opted in, gating all outbound email behind the single preference.
+- Added a Notifications settings page with a toggle so users can self-serve, reachable from the root sidebar.
+
 ## Weekly changelog announcement email - 2026-05-29
 
 - Email the weekly changelog to all users when a new one publishes, triggered automatically on automation success so it sends exactly once per edition.

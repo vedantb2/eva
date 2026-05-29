@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useMutation } from "convex/react";
 import {
   Button,
@@ -10,22 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
   Spinner,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  cn,
 } from "@conductor/ui";
-import { IconArrowUp, IconLoader2 } from "@tabler/icons-react";
+import { IconLoader2 } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
 import { TaskActivityItem } from "./TaskActivityItem";
-import {
-  CommentMentionInput,
-  type CommentMentionInputHandle,
-} from "./CommentMentionInput";
-import { DescriptionMentionEditor } from "./DescriptionMentionEditor";
+import { TaskActivityComposer } from "./TaskActivityComposer";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { CommentThread } from "./CommentThread";
 import {
@@ -144,16 +136,13 @@ export function ActivityTimeline({
   setExecutionError: (v: string | null) => void;
   onRequestChangesSubmitted: () => void;
 }) {
-  const [commentText, setCommentText] = useState("");
   const [deletingCommentId, setDeletingCommentId] =
     useState<Id<"taskComments"> | null>(null);
   const [replyingToId, setReplyingToId] = useState<Id<"taskComments"> | null>(
     null,
   );
   const [isDeletingComment, setIsDeletingComment] = useState(false);
-  const mentionRef = useRef<CommentMentionInputHandle>(null);
 
-  const createComment = useMutation(api.taskComments.create);
   const removeComment = useMutation(
     api.taskComments.remove,
   ).withOptimisticUpdate((localStore, args) => {
@@ -176,47 +165,6 @@ export function ActivityTimeline({
       );
     }
   });
-  const startExecution = useMutation(api.agentTasks.startExecution);
-  const updateStatus = useMutation(api.agentTasks.updateStatus);
-
-  const tokenizeAndReset = (raw: string): string => {
-    const tokenized = mentionRef.current?.tokenize(raw) ?? raw;
-    mentionRef.current?.reset();
-    return tokenized;
-  };
-
-  const handleAddComment = async () => {
-    const text = commentText.trim();
-    if (!text) return;
-    const content = tokenizeAndReset(text);
-    setCommentText("");
-    await createComment({ taskId, content });
-  };
-
-  const handleSubmitRequestChanges = async () => {
-    const text = commentText.trim();
-    if (!text) return;
-    const content = tokenizeAndReset(text);
-    setCommentText("");
-    try {
-      await createComment({ taskId, content });
-      if (isProjectTask) {
-        await updateStatus({ id: taskId, status: "todo" });
-      } else {
-        await startExecution({ id: taskId });
-      }
-      onRequestChangesSubmitted();
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : isProjectTask
-            ? "Failed to queue changes"
-            : "Failed to start execution";
-      setExecutionError(message);
-    }
-  };
-
   const handleDeleteComment = async () => {
     if (!deletingCommentId) return;
     setIsDeletingComment(true);
@@ -229,11 +177,6 @@ export function ActivityTimeline({
       setIsDeletingComment(false);
     }
   };
-
-  const disabledReason = requestChangesBlockedReason;
-  const canRequestChanges = disabledReason === undefined;
-  const effectiveRequestingChanges = canRequestChanges && requestingChanges;
-  const isMakeChangesGated = requestingChanges && !canRequestChanges;
 
   const sortedRuns = [...(runs ?? [])].sort(
     (a, b) =>
@@ -306,115 +249,16 @@ export function ActivityTimeline({
 
   return (
     <div className="pt-4">
-      <div className="space-y-3 mb-6">
-        {effectiveRequestingChanges && !executionError && (
-          <p className="text-xs text-muted-foreground">
-            {isProjectTask
-              ? "Submitting will add your feedback and move this task to To Do. Use Build Project to run changes in order."
-              : "Submitting will create a comment and re-run Eva with your changes"}
-          </p>
-        )}
-        <div className="relative">
-          {effectiveRequestingChanges ? (
-            <DescriptionMentionEditor
-              ref={mentionRef}
-              value={commentText}
-              onValueChange={(next) => {
-                setCommentText(next);
-                if (executionError) setExecutionError(null);
-              }}
-              placeholder="Describe the changes you'd like Eva to make..."
-              ariaLabel="Request changes comment"
-              minHeight="min-h-24"
-              className={cn(
-                "max-h-44 overflow-y-auto pb-10 pr-12 transition-[border-color,box-shadow]",
-                requestingChanges &&
-                  "border-primary focus-visible:ring-primary/40",
-              )}
-            />
-          ) : (
-            <CommentMentionInput
-              ref={mentionRef}
-              value={commentText}
-              onValueChange={(next) => {
-                setCommentText(next);
-                if (executionError) setExecutionError(null);
-              }}
-              placeholder="Add a comment..."
-              className={cn(
-                "min-h-24 max-h-44 pb-10 transition-[border-color,box-shadow]",
-                requestingChanges &&
-                  "border-primary focus-visible:ring-primary/40",
-              )}
-            />
-          )}
-          <div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-between">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="pointer-events-auto flex items-center gap-2">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={effectiveRequestingChanges}
-                    aria-label="Make changes"
-                    disabled={!canRequestChanges}
-                    onClick={() => {
-                      setRequestingChanges(!requestingChanges);
-                      if (executionError) setExecutionError(null);
-                    }}
-                    className={cn(
-                      "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      effectiveRequestingChanges ? "bg-primary" : "bg-muted",
-                      !canRequestChanges && "cursor-not-allowed opacity-50",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "absolute top-0.5 size-5 rounded-full bg-background transition-transform",
-                        effectiveRequestingChanges ? "left-[18px]" : "left-0.5",
-                      )}
-                    />
-                  </button>
-                  <span
-                    className={cn(
-                      "text-xs select-none",
-                      canRequestChanges
-                        ? "text-foreground"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    Make changes
-                  </span>
-                </span>
-              </TooltipTrigger>
-              {disabledReason !== undefined && (
-                <TooltipContent>{disabledReason}</TooltipContent>
-              )}
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="pointer-events-auto">
-                  <Button
-                    size="icon"
-                    className="rounded-full h-8 w-8"
-                    disabled={!commentText.trim() || isMakeChangesGated}
-                    onClick={
-                      effectiveRequestingChanges
-                        ? handleSubmitRequestChanges
-                        : handleAddComment
-                    }
-                  >
-                    <IconArrowUp size={16} />
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {isMakeChangesGated && disabledReason !== undefined && (
-                <TooltipContent>{disabledReason}</TooltipContent>
-              )}
-            </Tooltip>
-          </div>
-        </div>
-      </div>
+      <TaskActivityComposer
+        taskId={taskId}
+        isProjectTask={isProjectTask}
+        requestingChanges={requestingChanges}
+        setRequestingChanges={setRequestingChanges}
+        executionError={executionError}
+        setExecutionError={setExecutionError}
+        requestChangesBlockedReason={requestChangesBlockedReason}
+        onRequestChangesSubmitted={onRequestChangesSubmitted}
+      />
 
       {activityTimeline.length > 0 && (
         <div className="space-y-4">

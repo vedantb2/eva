@@ -385,6 +385,7 @@ export function TaskDetailInline({
                   latestDeployment={latestDeployment}
                   hasActiveRun={hasActiveRun}
                   allTags={allTags}
+                  requestingChanges={requestingChanges}
                 />
               </div>
             </div>

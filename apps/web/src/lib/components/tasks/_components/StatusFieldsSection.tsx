@@ -82,6 +82,7 @@ interface StatusFieldsSectionProps {
   latestDeployment: RunDoc | undefined;
   hasActiveRun: boolean;
   allTags: string[];
+  requestingChanges: boolean;
 }
 
 export function StatusFieldsSection({
@@ -96,6 +97,7 @@ export function StatusFieldsSection({
   latestDeployment,
   hasActiveRun,
   allTags,
+  requestingChanges,
 }: StatusFieldsSectionProps) {
   const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
     (localStore, args) => {
@@ -229,6 +231,7 @@ export function StatusFieldsSection({
     task?.repoId,
     currentModel,
   );
+  const canEditModel = status === "todo" || requestingChanges;
 
   return (
     <div className="space-y-0.5">
@@ -585,10 +588,10 @@ export function StatusFieldsSection({
           onValueChange={(nextModel) =>
             updateTask({ id: taskId, model: nextModel })
           }
-          disabled={status !== "todo"}
+          disabled={!canEditModel}
           className="px-0"
         />
-        {status !== "todo" && (
+        {!canEditModel ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <IconInfoCircle
@@ -600,7 +603,7 @@ export function StatusFieldsSection({
               Cannot be modified after task has run
             </TooltipContent>
           </Tooltip>
-        )}
+        ) : null}
       </div>
 
       {!task?.projectId && (

@@ -1,5 +1,11 @@
 # Changelog
 
+## Email notifications ready for production - 2026-05-29
+
+- Filtered out spammy task/quick-task run completion notifications from the daily digest so users see only impactful mentions and merged changes (run-finished notifications remain in the in-app bell).
+- Daily digest now runs on weekdays only (Mon-Fri at 08:00 UTC) to avoid weekend inbox clutter.
+- Re-enabled production email sending and weekly changelog auto-trigger so both emails now deliver to real recipients when deployed.
+
 ## Email notification opt-in - 2026-05-29
 
 - Added a per-user email opt-in flag so the daily summary and weekly changelog only reach users who explicitly enable them; off by default for privacy.

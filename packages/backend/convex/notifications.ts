@@ -4,8 +4,22 @@ import type { Id } from "./_generated/dataModel";
 import { notificationTypeValidator } from "./validators";
 import { authQuery, authMutation } from "./functions";
 
-/** Max unread notifications included per user in the daily digest. */
+/** Max unread notifications shown per user in the daily digest email. */
 const DIGEST_NOTIFICATION_LIMIT = 50;
+
+/**
+ * How many unread notifications to scan per user before filtering. Larger than
+ * the display limit so impactful items (mentions, merges) are not buried under
+ * a backlog of excluded run-completion notifications.
+ */
+const DIGEST_SCAN_LIMIT = 200;
+
+/**
+ * Notification types excluded from the daily digest. Task/quick-task run
+ * finished notifications ("run_completed") are high-volume and low-signal in an
+ * email summary; they remain in the in-app notification bell.
+ */
+const DIGEST_EXCLUDED_TYPES: ReadonlySet<string> = new Set(["run_completed"]);
 
 /** Builds a URL path for a repo, including app name for monorepo sub-apps. */
 function getRepoHref(
@@ -177,12 +191,15 @@ export const getDigestRecipients = internalQuery({
           q.eq("userId", user._id).eq("read", false),
         )
         .order("desc")
-        .take(DIGEST_NOTIFICATION_LIMIT);
-      if (unread.length === 0) continue;
+        .take(DIGEST_SCAN_LIMIT);
+      const relevant = unread
+        .filter((n) => !DIGEST_EXCLUDED_TYPES.has(n.type))
+        .slice(0, DIGEST_NOTIFICATION_LIMIT);
+      if (relevant.length === 0) continue;
       recipients.push({
         email: user.email,
         name: user.firstName ?? user.fullName,
-        notifications: unread.map((n) => ({
+        notifications: relevant.map((n) => ({
           title: n.title,
           message: n.message,
           href: n.href,

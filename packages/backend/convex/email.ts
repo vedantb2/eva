@@ -44,28 +44,25 @@ export async function sendEmail(data: SendEmailPayload): Promise<void> {
     name: "Eva",
   };
 
-  // TEMPORARY: production branch disabled while testing the dev redirect path.
-  // Re-enable this block (and remove this comment) once dev testing is done so
-  // that real recipients receive mail in production.
-  // if (process.env.EMAIL_ENV === "production") {
-  //   const normalizedTo = normalizeEmails(data.to);
-  //   const normalizedCc = normalizeEmails(data.cc);
-  //   const toAndCc = new Set([...normalizedTo, ...normalizedCc]);
-  //   const filteredBcc = normalizeEmails(data.bcc).filter(
-  //     (email) => !toAndCc.has(email),
-  //   );
-  //
-  //   await sendgrid.send({
-  //     from,
-  //     subject: data.subject,
-  //     html: data.html,
-  //     to: normalizedTo,
-  //     cc: normalizedCc,
-  //     bcc: filteredBcc,
-  //     replyTo: data.replyTo,
-  //   });
-  //   return;
-  // }
+  if (process.env.EMAIL_ENV === "production") {
+    const normalizedTo = normalizeEmails(data.to);
+    const normalizedCc = normalizeEmails(data.cc);
+    const toAndCc = new Set([...normalizedTo, ...normalizedCc]);
+    const filteredBcc = normalizeEmails(data.bcc).filter(
+      (email) => !toAndCc.has(email),
+    );
+
+    await sendgrid.send({
+      from,
+      subject: data.subject,
+      html: data.html,
+      to: normalizedTo,
+      cc: normalizedCc,
+      bcc: filteredBcc,
+      replyTo: data.replyTo,
+    });
+    return;
+  }
 
   // Non-production: redirect everything to the test inbox.
   await sendgrid.send({

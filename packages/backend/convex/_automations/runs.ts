@@ -137,18 +137,17 @@ export const updateRunStatus = internalMutation({
     await ctx.db.patch(args.runId, patch);
 
     // When a changelog run publishes, email the new changelog to all users.
-    // TEMPORARY: disabled while testing. Re-enable once changelog emails are verified working.
-    // if (args.status === "success") {
-    //   const run = await ctx.db.get(args.runId);
-    //   const automation = run ? await ctx.db.get(run.automationId) : null;
-    //   if (automation?.title === CHANGELOG_AUTOMATION_TITLE) {
-    //     await ctx.scheduler.runAfter(
-    //       0,
-    //       internal.changelogEmail.sendChangelogEmail,
-    //       { runId: args.runId },
-    //     );
-    //   }
-    // }
+    if (args.status === "success") {
+      const run = await ctx.db.get(args.runId);
+      const automation = run ? await ctx.db.get(run.automationId) : null;
+      if (automation?.title === CHANGELOG_AUTOMATION_TITLE) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.changelogEmail.sendChangelogEmail,
+          { runId: args.runId },
+        );
+      }
+    }
     return null;
   },
 });

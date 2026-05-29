@@ -3,10 +3,10 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
-// Send the daily unread-notification digest at 08:00 UTC.
-crons.daily(
+// Send the unread-notification digest at 08:00 UTC on weekdays (Mon-Fri).
+crons.cron(
   "daily notification digest",
-  { hourUTC: 8, minuteUTC: 0 },
+  "0 8 * * 1-5",
   internal.notificationDigest.sendDailyDigests,
   {},
 );

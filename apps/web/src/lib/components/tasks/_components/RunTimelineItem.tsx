@@ -17,8 +17,9 @@ import {
   formatElapsed,
 } from "@conductor/ui";
 import { IconLoader2, IconPlayerStop } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import dayjs, { formatExactDateTime } from "@conductor/shared/dates";
 import { UserInitials } from "@conductor/shared";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
@@ -140,8 +141,7 @@ export function RunTimelineItem({
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      Completed{" "}
-                      {dayjs(run.finishedAt).format("DD/MM/YYYY HH:mm")}
+                      Completed {formatExactDateTime(run.finishedAt)}
                     </TooltipContent>
                   </Tooltip>
                 ) : null}
@@ -282,9 +282,7 @@ function RunInlineComment({
             {getUserDisplayName(author)}
           </span>
         ) : null}
-        <span className="text-xs text-muted-foreground">
-          {dayjs(comment.createdAt).fromNow()}
-        </span>
+        <RelativeDateTime at={comment.createdAt} className="text-xs" />
       </div>
       <div className="text-sm text-muted-foreground">
         <MessageMentionText text={comment.content} repoBasePath={basePath} />

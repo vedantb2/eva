@@ -6,8 +6,8 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import dayjs from "@conductor/shared/dates";
 import { UserInitials } from "@conductor/shared";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {
   Button,
   DropdownMenu,
@@ -169,9 +169,10 @@ export function CommentActivityItem({
                 Unknown
               </span>
             )}
-            <span className="shrink-0 text-[11px] text-muted-foreground/60 tabular-nums">
-              {dayjs(comment.createdAt).fromNow()}
-            </span>
+            <RelativeDateTime
+              at={comment.createdAt}
+              className="shrink-0 text-[11px] text-muted-foreground/60"
+            />
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">

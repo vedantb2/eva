@@ -21,7 +21,8 @@ import dayjs from "@conductor/shared/dates";
 import { UserInitials } from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
-import { UserMentionText } from "@/lib/components/mentions";
+import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import { useRepo } from "@/lib/contexts/RepoContext";
 import { getUserDisplayName } from "./task-detail-constants";
 import type { TaskComment } from "../_utils/commentThread";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
@@ -258,6 +259,7 @@ function RunInlineComment({
   comment: TaskComment;
   users: Users | undefined;
 }) {
+  const { basePath } = useRepo();
   const author = comment.authorId
     ? users?.find((user) => user._id === comment.authorId)
     : undefined;
@@ -278,7 +280,7 @@ function RunInlineComment({
         </span>
       </div>
       <div className="text-sm text-muted-foreground">
-        <UserMentionText text={comment.content} />
+        <MessageMentionText text={comment.content} repoBasePath={basePath} />
       </div>
     </div>
   );

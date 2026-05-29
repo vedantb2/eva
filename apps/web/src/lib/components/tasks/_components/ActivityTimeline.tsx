@@ -27,6 +27,7 @@ import {
   CommentMentionInput,
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
+import { DescriptionMentionEditor } from "./DescriptionMentionEditor";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { CommentThread } from "./CommentThread";
 import {
@@ -309,24 +310,39 @@ export function ActivityTimeline({
     <div className="pt-4">
       <div className="space-y-3 mb-6">
         <div className="relative">
-          <CommentMentionInput
-            ref={mentionRef}
-            value={commentText}
-            onValueChange={(next) => {
-              setCommentText(next);
-              if (executionError) setExecutionError(null);
-            }}
-            placeholder={
-              effectiveRequestingChanges
-                ? "Describe the changes you'd like Eva to make..."
-                : "Add a comment..."
-            }
-            className={cn(
-              "min-h-24 max-h-44 transition-[border-color,box-shadow]",
-              requestingChanges &&
-                "border-primary focus-visible:ring-primary/40",
-            )}
-          />
+          {effectiveRequestingChanges ? (
+            <DescriptionMentionEditor
+              ref={mentionRef}
+              value={commentText}
+              onValueChange={(next) => {
+                setCommentText(next);
+                if (executionError) setExecutionError(null);
+              }}
+              placeholder="Describe the changes you'd like Eva to make..."
+              ariaLabel="Request changes comment"
+              minHeight="min-h-24"
+              className={cn(
+                "max-h-44 overflow-y-auto pr-12 transition-[border-color,box-shadow]",
+                requestingChanges &&
+                  "border-primary focus-visible:ring-primary/40",
+              )}
+            />
+          ) : (
+            <CommentMentionInput
+              ref={mentionRef}
+              value={commentText}
+              onValueChange={(next) => {
+                setCommentText(next);
+                if (executionError) setExecutionError(null);
+              }}
+              placeholder="Add a comment..."
+              className={cn(
+                "min-h-24 max-h-44 transition-[border-color,box-shadow]",
+                requestingChanges &&
+                  "border-primary focus-visible:ring-primary/40",
+              )}
+            />
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="absolute right-2 bottom-2">

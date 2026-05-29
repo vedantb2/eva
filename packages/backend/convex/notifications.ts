@@ -1,8 +1,11 @@
-import { MutationCtx } from "./_generated/server";
+import { MutationCtx, internalQuery } from "./_generated/server";
 import { v, Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { notificationTypeValidator } from "./validators";
 import { authQuery, authMutation } from "./functions";
+
+/** Max unread notifications included per user in the daily digest. */
+const DIGEST_NOTIFICATION_LIMIT = 50;
 
 /** Builds a URL path for a repo, including app name for monorepo sub-apps. */
 function getRepoHref(
@@ -137,5 +140,56 @@ export const markAllAsRead = authMutation({
       await ctx.db.patch(n._id, { read: true });
     }
     return null;
+  },
+});
+
+/**
+ * Gathers digest recipients for the daily email: every user with an email address
+ * and at least one unread notification, along with up to DIGEST_NOTIFICATION_LIMIT
+ * of their unread notifications. Internal use only (daily cron).
+ */
+export const getDigestRecipients = internalQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      email: v.string(),
+      name: v.optional(v.string()),
+      notifications: v.array(
+        v.object({
+          title: v.string(),
+          message: v.optional(v.string()),
+          href: v.optional(v.string()),
+          type: notificationTypeValidator,
+          createdAt: v.number(),
+        }),
+      ),
+    }),
+  ),
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    const recipients = [];
+    for (const user of users) {
+      if (!user.email) continue;
+      const unread = await ctx.db
+        .query("notifications")
+        .withIndex("by_user_and_read", (q) =>
+          q.eq("userId", user._id).eq("read", false),
+        )
+        .order("desc")
+        .take(DIGEST_NOTIFICATION_LIMIT);
+      if (unread.length === 0) continue;
+      recipients.push({
+        email: user.email,
+        name: user.firstName ?? user.fullName,
+        notifications: unread.map((n) => ({
+          title: n.title,
+          message: n.message,
+          href: n.href,
+          type: n.type,
+          createdAt: n.createdAt,
+        })),
+      });
+    }
+    return recipients;
   },
 });

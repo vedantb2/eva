@@ -1,5 +1,11 @@
 # Changelog
 
+## Daily unread-notification email digest - 2026-05-29
+
+- Daily 08:00 UTC cron emails each user a summary of their unread notifications so people who don't log in still see what needs attention.
+- Added a reusable SendGrid `sendEmail` helper that redirects all mail to a test inbox outside production, keeping test runs from reaching real users.
+- Added a pure HTML template builder for the digest, with escaped user content and inline styles for email-client compatibility.
+
 ## Task activity timeline polish - 2026-05-28
 
 - Relative timestamps with exact datetime on hover are shared across runs, comments, field changes, and system alerts so activity reads consistently.

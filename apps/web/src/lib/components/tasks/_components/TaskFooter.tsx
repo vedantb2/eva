@@ -55,6 +55,7 @@ interface TaskFooterProps {
   isCreatingPr: boolean;
   onCreatePr: () => void;
   onViewSandbox: () => void;
+  isSandboxViewActive?: boolean;
   onRunStartupCommands: () => void;
   onRunDevServer: () => void;
   onStartExecution: () => void;
@@ -82,6 +83,7 @@ export function TaskFooter({
   isCreatingPr,
   onCreatePr,
   onViewSandbox,
+  isSandboxViewActive = false,
   onRunStartupCommands,
   onRunDevServer,
   onStartExecution,
@@ -217,7 +219,7 @@ export function TaskFooter({
               onClick={onViewSandbox}
               disabled={isSandboxStopping}
               className={
-                isSandboxActive
+                isSandboxViewActive || isSandboxActive
                   ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400"
                   : undefined
               }
@@ -227,7 +229,7 @@ export function TaskFooter({
               ) : (
                 <IconTerminal2 size={18} />
               )}
-              {isSandboxActive && (
+              {isSandboxActive && !isSandboxViewActive && (
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
               )}
               <span className="hidden sm:inline">
@@ -235,9 +237,11 @@ export function TaskFooter({
                   ? "Stopping..."
                   : isSandboxStarting && !isSandboxActive
                     ? "Starting..."
-                    : isSandboxActive
-                      ? "View Sandbox · Active"
-                      : "View Sandbox"}
+                    : isSandboxViewActive
+                      ? "Back to Details"
+                      : isSandboxActive
+                        ? "View Sandbox · Active"
+                        : "View Sandbox"}
               </span>
             </Button>
           )}

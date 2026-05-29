@@ -10,12 +10,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@conductor/ui";
-import {
-  IconLoader2,
-  IconClock,
-  IconPlayerStop,
-  IconArrowLeft,
-} from "@tabler/icons-react";
+import { IconLoader2, IconClock, IconPlayerPlay } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { UserInitials } from "@conductor/shared";
 import { useTaskDetail } from "./useTaskDetail";
@@ -40,17 +35,14 @@ import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
-import type { SandboxTab } from "@/lib/search-params";
+import type { SandboxTab, TaskRouteSandboxTab } from "@/lib/search-params";
 import type { UseTaskDetailRouting } from "./useTaskDetail";
 
 interface TaskDetailInlineProps {
   onClose: () => void;
   taskId: Id<"agentTasks">;
   allTags?: string[];
-  routing?: Extract<
-    UseTaskDetailRouting,
-    { mode: "quick-detail" } | { mode: "project-detail" }
-  >;
+  routing?: UseTaskDetailRouting;
 }
 
 export function TaskDetailInline({
@@ -122,6 +114,7 @@ export function TaskDetailInline({
     isSandboxActive,
     isSandboxStarting,
     isSandboxStopping,
+    handleStartSandbox,
     handleStopSandbox,
     handleToggleSandboxView,
     handleRetryStartupCommands,
@@ -144,255 +137,239 @@ export function TaskDetailInline({
     );
   }
 
-  if (
-    showSandbox &&
-    (isSandboxActive || isSandboxStarting || isSandboxStopping)
-  ) {
-    const sandboxRightPanel =
-      isSandboxActive && sandboxId && task?.repoId ? (
-        <TaskSandboxPanel
-          taskId={taskId}
-          sandboxId={sandboxId}
-          isActive={isSandboxActive}
-          repoId={task.repoId}
-          devPort={task.devPort}
-          devCommand={task.devCommand}
-          terminalPanes={task.terminalPanes}
-          activeTab={embeddedSandboxTab}
-          onTabChange={setEmbeddedSandboxTab}
-        />
-      ) : (
-        <div className="flex items-center justify-center h-full">
-          <div className="w-full max-w-md px-4">
-            <StreamingActivityDisplay
-              activity={sandboxStartupActivity}
-              thinkingLabel={
-                isSandboxStopping
-                  ? "Stopping sandbox..."
-                  : "Starting sandbox..."
-              }
-            />
-          </div>
-        </div>
-      );
+  const isQuickTask = task?.projectId === undefined;
+  const isSandboxViewActive = showSandbox;
 
-    return (
-      <div className="flex flex-col h-full overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleSandboxView}
-            className="gap-1.5"
-          >
-            <IconArrowLeft size={16} />
-            Back to Details
+  const routeSandboxTab: TaskRouteSandboxTab =
+    routing?.mode === "quick-sandbox" ? routing.quick.sandboxTab : "preview";
+  const activeSandboxTab: SandboxTab =
+    routing?.mode === "quick-sandbox" ? routeSandboxTab : embeddedSandboxTab;
+  const handleSandboxTabChange = (tab: SandboxTab) => {
+    if (routing?.mode === "quick-sandbox") {
+      const nextTab: TaskRouteSandboxTab = tab === "prd" ? "preview" : tab;
+      routing.quick.onSandboxTabChange(nextTab);
+      return;
+    }
+    setEmbeddedSandboxTab(tab);
+  };
+
+  const isSandboxInactive =
+    !isSandboxActive && !isSandboxStarting && !isSandboxStopping;
+  const sandboxRightPanel =
+    isSandboxActive && sandboxId && task?.repoId ? (
+      <TaskSandboxPanel
+        taskId={taskId}
+        sandboxId={sandboxId}
+        isActive={isSandboxActive}
+        repoId={task.repoId}
+        devPort={task.devPort}
+        devCommand={task.devCommand}
+        terminalPanes={task.terminalPanes}
+        activeTab={activeSandboxTab}
+        onTabChange={handleSandboxTabChange}
+      />
+    ) : isSandboxInactive && canStartSandbox ? (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className="text-sm text-muted-foreground">
+            Sandbox is not running
+          </p>
+          <Button onClick={handleStartSandbox}>
+            <IconPlayerPlay size={16} />
+            Start Sandbox
           </Button>
-          <div className="flex items-center gap-2">
-            {isSandboxStarting && !isSandboxActive ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <IconLoader2 size={16} className="animate-spin" />
-                Starting sandbox...
-              </div>
-            ) : null}
-            {isSandboxStopping ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <IconLoader2 size={16} className="animate-spin" />
-                Stopping sandbox...
-              </div>
-            ) : null}
-            {isSandboxActive ? (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleStopSandbox}
-                disabled={isSandboxStopping}
-                className="gap-1.5"
-              >
-                {isSandboxStopping ? (
-                  <IconLoader2 size={14} className="animate-spin" />
-                ) : (
-                  <IconPlayerStop size={14} />
-                )}
-                {isSandboxStopping ? "Stopping..." : "Stop Sandbox"}
-              </Button>
-            ) : null}
-          </div>
         </div>
-        <div className="flex-1 min-h-0">
-          <ResizablePanelLayout
-            storageKey="task-sandbox-collapsed"
-            leftDefaultSize="30%"
-            leftMinWidthPx={350}
-            rightMinWidthPx={300}
-            defaultRightCollapsed={false}
-            leftPanel={() => (
-              <TaskSandboxChatPanel
-                taskId={taskId}
-                isSandboxActive={isSandboxActive}
-              />
-            )}
-            rightPanel={sandboxRightPanel}
+      </div>
+    ) : (
+      <div className="flex h-full items-center justify-center">
+        <div className="w-full max-w-md px-4">
+          <StreamingActivityDisplay
+            activity={sandboxStartupActivity}
+            thinkingLabel={
+              isSandboxStopping ? "Stopping sandbox..." : "Starting sandbox..."
+            }
           />
         </div>
       </div>
     );
-  }
+
+  const sandboxContent = (
+    <ResizablePanelLayout
+      storageKey="task-sandbox-collapsed"
+      leftDefaultSize="30%"
+      leftMinWidthPx={350}
+      rightMinWidthPx={300}
+      defaultRightCollapsed={false}
+      leftPanel={() => (
+        <TaskSandboxChatPanel
+          taskId={taskId}
+          isSandboxActive={isSandboxActive}
+        />
+      )}
+      rightPanel={sandboxRightPanel}
+    />
+  );
+
+  const detailContent = (
+    <div className="px-4 md:px-6 pt-4 md:pt-5 flex-1 min-h-0 overflow-y-auto scrollbar">
+      <div className="flex flex-col pb-4">
+        <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] min-h-0">
+          <div className="space-y-4 min-h-0 min-w-0 md:pr-6">
+            <div>
+              <TaskHeader
+                taskNumber={task?.taskNumber}
+                title={task?.title}
+                canEditTaskText={canEditTaskText}
+                taskId={taskId}
+              />
+              <div className="flex items-center gap-2 mt-2">
+                {task?.scheduledAt ? (
+                  <Badge
+                    variant="outline"
+                    className="gap-1 text-xs font-normal text-muted-foreground"
+                  >
+                    <IconClock size={11} />
+                    {status === "todo"
+                      ? "Scheduled for"
+                      : "Was scheduled for"}{" "}
+                    {dayjs(task.scheduledAt).format("DD/MM/YYYY HH:mm")}
+                  </Badge>
+                ) : null}
+                {task?.createdAt ? (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
+                    {creatorUser ? (
+                      <>
+                        <UserInitials userId={creatorUser._id} size="sm" />
+                        <span>{getUserDisplayName(creatorUser)}</span>
+                        <span>·</span>
+                      </>
+                    ) : null}
+                    <span>
+                      {dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <TaskDescription
+              description={task?.description}
+              canEditTaskText={canEditTaskText}
+              taskId={taskId}
+              inline={true}
+            />
+
+            <Tabs
+              value={activeTab}
+              onValueChange={(v) => {
+                if (isTaskDetailTab(v)) {
+                  setActiveTab(v);
+                }
+              }}
+            >
+              <TabsList className={TASK_DETAIL_TAB_LIST_CLASS}>
+                <TabsTrigger
+                  value="activity"
+                  className={TASK_DETAIL_TAB_TRIGGER_CLASS}
+                >
+                  <span className="hidden sm:inline">Activity</span>
+                  <span className="sm:hidden">Runs</span>
+                  {isActivityBusy ? (
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  ) : null}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="proof"
+                  className={TASK_DETAIL_TAB_TRIGGER_CLASS}
+                >
+                  Proof
+                  {isProofBusy ? (
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  ) : null}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="audit"
+                  className={TASK_DETAIL_TAB_TRIGGER_CLASS}
+                >
+                  Audit
+                  {isAuditBusy ? (
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  ) : null}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="activity" className="mt-3 sm:mt-4">
+                <ActivityTimeline
+                  taskId={taskId}
+                  runs={runs}
+                  allAudits={allAudits}
+                  comments={comments}
+                  sandboxEvents={sandboxEvents}
+                  taskActivity={taskActivity}
+                  users={users}
+                  streaming={streaming}
+                  auditStreaming={auditStreaming}
+                  activeRunElapsed={activeRunElapsed}
+                  auditElapsed={auditElapsed}
+                  fixElapsed={fixElapsed}
+                  isStopping={isStopping}
+                  onStopConfirm={() => setShowStopConfirm(true)}
+                  hasActiveRun={hasActiveRun}
+                  requestChangesBlockedReason={requestChangesBlockedReason}
+                  isProjectTask={isProjectTask}
+                  hasRuns={hasRuns}
+                  isOwner={isOwner}
+                  requestingChanges={requestingChanges}
+                  setRequestingChanges={setRequestingChanges}
+                  executionError={executionError}
+                  setExecutionError={setExecutionError}
+                  onRequestChangesSubmitted={() => setActiveTab("activity")}
+                />
+              </TabsContent>
+              <TabsContent value="proof" className="mt-3 sm:mt-4">
+                {showProofSection ? (
+                  <ProofSection
+                    proofs={proofs}
+                    status={status}
+                    isQuickTask={task?.projectId === undefined}
+                  />
+                ) : null}
+              </TabsContent>
+              <TabsContent value="audit" className="mt-3 sm:mt-4">
+                <AuditSection
+                  latestAudit={latestAudit}
+                  pastAudits={pastAudits}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+          <div className="md:pl-8 flex flex-col min-h-0 min-w-0 md:overflow-y-auto scrollbar">
+            <StatusFieldsSection
+              taskId={taskId}
+              task={task}
+              status={status}
+              isBlocked={isBlocked}
+              users={users}
+              projects={projects}
+              baseBranch={baseBranch}
+              setBaseBranch={setBaseBranch}
+              latestDeployment={latestDeployment}
+              hasActiveRun={hasActiveRun}
+              allTags={allTags}
+              requestingChanges={requestingChanges}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
       <div className="flex flex-col h-full overflow-hidden">
-        <div className="px-4 md:px-6 pt-4 md:pt-5 flex-1 min-h-0 overflow-y-auto scrollbar">
-          <div className="flex flex-col pb-4">
-            <div className="flex flex-col md:grid md:grid-rows-1 md:grid-cols-[14fr_6fr] min-h-0">
-              <div className="space-y-4 min-h-0 min-w-0 md:pr-6">
-                <div>
-                  <TaskHeader
-                    taskNumber={task?.taskNumber}
-                    title={task?.title}
-                    canEditTaskText={canEditTaskText}
-                    taskId={taskId}
-                  />
-                  <div className="flex items-center gap-2 mt-2">
-                    {task?.scheduledAt ? (
-                      <Badge
-                        variant="outline"
-                        className="gap-1 text-xs font-normal text-muted-foreground"
-                      >
-                        <IconClock size={11} />
-                        {status === "todo"
-                          ? "Scheduled for"
-                          : "Was scheduled for"}{" "}
-                        {dayjs(task.scheduledAt).format("DD/MM/YYYY HH:mm")}
-                      </Badge>
-                    ) : null}
-                    {task?.createdAt ? (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
-                        {creatorUser ? (
-                          <>
-                            <UserInitials userId={creatorUser._id} size="sm" />
-                            <span>{getUserDisplayName(creatorUser)}</span>
-                            <span>·</span>
-                          </>
-                        ) : null}
-                        <span>
-                          {dayjs(task.createdAt).format("DD/MM/YYYY HH:mm")}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                <TaskDescription
-                  description={task?.description}
-                  canEditTaskText={canEditTaskText}
-                  taskId={taskId}
-                  inline={true}
-                />
-
-                <Tabs
-                  value={activeTab}
-                  onValueChange={(v) => {
-                    if (isTaskDetailTab(v)) {
-                      setActiveTab(v);
-                    }
-                  }}
-                >
-                  <TabsList className={TASK_DETAIL_TAB_LIST_CLASS}>
-                    <TabsTrigger
-                      value="activity"
-                      className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                    >
-                      <span className="hidden sm:inline">Activity</span>
-                      <span className="sm:hidden">Runs</span>
-                      {isActivityBusy ? (
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      ) : null}
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="proof"
-                      className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                    >
-                      Proof
-                      {isProofBusy ? (
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      ) : null}
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="audit"
-                      className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-                    >
-                      Audit
-                      {isAuditBusy ? (
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      ) : null}
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="activity" className="mt-3 sm:mt-4">
-                    <ActivityTimeline
-                      taskId={taskId}
-                      runs={runs}
-                      allAudits={allAudits}
-                      comments={comments}
-                      sandboxEvents={sandboxEvents}
-                      taskActivity={taskActivity}
-                      users={users}
-                      streaming={streaming}
-                      auditStreaming={auditStreaming}
-                      activeRunElapsed={activeRunElapsed}
-                      auditElapsed={auditElapsed}
-                      fixElapsed={fixElapsed}
-                      isStopping={isStopping}
-                      onStopConfirm={() => setShowStopConfirm(true)}
-                      hasActiveRun={hasActiveRun}
-                      requestChangesBlockedReason={requestChangesBlockedReason}
-                      isProjectTask={isProjectTask}
-                      hasRuns={hasRuns}
-                      isOwner={isOwner}
-                      requestingChanges={requestingChanges}
-                      setRequestingChanges={setRequestingChanges}
-                      executionError={executionError}
-                      setExecutionError={setExecutionError}
-                      onRequestChangesSubmitted={() => setActiveTab("activity")}
-                    />
-                  </TabsContent>
-                  <TabsContent value="proof" className="mt-3 sm:mt-4">
-                    {showProofSection ? (
-                      <ProofSection
-                        proofs={proofs}
-                        status={status}
-                        isQuickTask={task?.projectId === undefined}
-                      />
-                    ) : null}
-                  </TabsContent>
-                  <TabsContent value="audit" className="mt-3 sm:mt-4">
-                    <AuditSection
-                      latestAudit={latestAudit}
-                      pastAudits={pastAudits}
-                    />
-                  </TabsContent>
-                </Tabs>
-              </div>
-              <div className="md:pl-8 flex flex-col min-h-0 min-w-0 md:overflow-y-auto scrollbar">
-                <StatusFieldsSection
-                  taskId={taskId}
-                  task={task}
-                  status={status}
-                  isBlocked={isBlocked}
-                  users={users}
-                  projects={projects}
-                  baseBranch={baseBranch}
-                  setBaseBranch={setBaseBranch}
-                  latestDeployment={latestDeployment}
-                  hasActiveRun={hasActiveRun}
-                  allTags={allTags}
-                  requestingChanges={requestingChanges}
-                />
-              </div>
-            </div>
-          </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {isSandboxViewActive ? sandboxContent : detailContent}
         </div>
-        {task?.projectId === undefined ? (
-          <div className="flex items-center justify-end px-4 md:px-6 py-3 shrink-0">
+        {isQuickTask ? (
+          <div className="flex shrink-0 items-center justify-end px-4 py-3 md:px-6">
             <TaskFooter
               taskId={taskId}
               task={task}
@@ -412,6 +389,7 @@ export function TaskDetailInline({
               isCreatingPr={isCreatingPr}
               onCreatePr={handleCreatePr}
               onViewSandbox={handleToggleSandboxView}
+              isSandboxViewActive={isSandboxViewActive}
               onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
               onRunDevServer={() => setShowRunDevServerConfirm(true)}
               isRunningDevServer={isRunningDevServer}

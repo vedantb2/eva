@@ -1,5 +1,10 @@
 # Changelog
 
+## Sticky sandbox chrome on projects and quick tasks - 2026-05-28
+
+- Project header (title, metadata bar, context usage, build/PR/sandbox actions) stays visible when switching to sandbox; only the main pane swaps to chat + preview.
+- Quick task footer and page header (title, context usage, prev/next) stay fixed on sandbox routes; View Sandbox toggles the content above and shows Back to Details while in sandbox.
+
 ## Sandbox chat commits and pushes like sessions - 2026-05-28
 
 - Quick task and project preview chat now use the same edit rules as session chat: the agent commits locally when source changes and Eva publishes the branch after a successful message.

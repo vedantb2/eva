@@ -1,23 +1,13 @@
 "use client";
 
-import { Button, Spinner } from "@conductor/ui";
-import {
-  IconArrowLeft,
-  IconChevronRight,
-  IconLoader2,
-  IconPlayerPlay,
-  IconPlayerStop,
-  IconTerminal2,
-} from "@tabler/icons-react";
+import { useMemo } from "react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
-import { PageWrapper } from "@/lib/components/PageWrapper";
-import { TaskSandboxPanel } from "@/lib/components/tasks/TaskSandboxPanel";
-import { TaskSandboxChatPanel } from "@/lib/components/tasks/TaskSandboxChatPanel";
-import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
-import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
-import { useTaskDetail } from "@/lib/components/tasks/useTaskDetail";
+import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
+import { QuickTaskDetailShell } from "./_components/QuickTaskDetailShell";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 
 interface QuickTaskSandboxClientProps {
@@ -33,162 +23,49 @@ export function QuickTaskSandboxClient({
   const { basePath, repo } = useRepo();
   const typedTaskId = taskId as Id<"agentTasks">;
 
-  const routing = {
-    mode: "quick-sandbox" as const,
-    quick: {
-      sandboxTab,
-      onSandboxTabChange: (tab: TaskRouteSandboxTab) => {
-        navigate({
-          to: `${basePath}/quick-tasks/${typedTaskId}/sandbox/${tab}`,
-        });
-      },
-      onExitSandboxView: () => {
-        navigate({
-          to: `${basePath}/quick-tasks/${typedTaskId}/activity`,
-        });
-      },
-    },
-  };
+  const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
 
-  const {
-    isLoading,
-    task,
-    canStartSandbox,
-    isSandboxActive,
-    isSandboxStarting,
-    isSandboxStopping,
-    sandboxId,
-    sandboxStartupActivity,
-    handleStartSandbox,
-    handleStopSandbox,
-    handleToggleSandboxView,
-  } = useTaskDetail(typedTaskId, routing);
+  const allTags = useMemo(() => {
+    if (!tasks) return [];
+    const tagSet = new Set<string>();
+    for (const t of tasks) {
+      if (t.tags) {
+        for (const tag of t.tags) tagSet.add(tag);
+      }
+    }
+    return [...tagSet].sort();
+  }, [tasks]);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <Spinner />
-      </div>
-    );
-  }
-
-  const isSandboxInactive =
-    !isSandboxActive && !isSandboxStarting && !isSandboxStopping;
-  const sandboxRightPanel =
-    isSandboxActive && sandboxId && task?.repoId ? (
-      <TaskSandboxPanel
-        taskId={typedTaskId}
-        sandboxId={sandboxId}
-        isActive={isSandboxActive}
-        repoId={task.repoId}
-        devPort={task.devPort}
-        devCommand={task.devCommand}
-        terminalPanes={task.terminalPanes}
-        activeTab={sandboxTab}
-        onTabChange={(tab) => {
-          routing.quick.onSandboxTabChange(tab === "prd" ? "preview" : tab);
-        }}
-      />
-    ) : isSandboxInactive && canStartSandbox ? (
-      <div className="flex items-center justify-center h-full p-8">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <IconTerminal2 size={32} className="text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Sandbox is not running
-          </p>
-          <Button onClick={handleStartSandbox}>
-            <IconPlayerPlay size={16} />
-            Start Sandbox
-          </Button>
-        </div>
-      </div>
-    ) : (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-full max-w-md px-4">
-          <StreamingActivityDisplay
-            activity={sandboxStartupActivity}
-            thinkingLabel={
-              isSandboxStopping ? "Stopping sandbox..." : "Starting sandbox..."
-            }
-          />
-        </div>
-      </div>
-    );
+  const routing = useMemo(
+    () =>
+      ({
+        mode: "quick-sandbox",
+        quick: {
+          sandboxTab,
+          onSandboxTabChange: (tab: TaskRouteSandboxTab) => {
+            navigate({
+              to: `${basePath}/quick-tasks/${typedTaskId}/sandbox/${tab}`,
+            });
+          },
+          onExitSandboxView: () => {
+            navigate({
+              to: `${basePath}/quick-tasks/${typedTaskId}/activity`,
+            });
+          },
+        },
+      }) as const,
+    [basePath, navigate, sandboxTab, typedTaskId],
+  );
 
   return (
-    <PageWrapper
-      title={
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-base sm:text-lg md:text-xl">
-          <button
-            onClick={() => navigate({ to: `${basePath}/quick-tasks` })}
-            className="text-muted-foreground hover:text-foreground transition-colors font-semibold whitespace-nowrap flex-shrink-0"
-          >
-            Quick Tasks
-          </button>
-          <IconChevronRight
-            size={14}
-            className="text-muted-foreground/50 flex-shrink-0"
-          />
-          <span className="min-w-0 flex-1 truncate font-semibold">
-            {task?.taskNumber ? `#${task.taskNumber}` : ""}
-            {task?.title ? ` ${task.title}` : ""}
-          </span>
-        </div>
-      }
-      fillHeight
-      childPadding={false}
-      headerRight={
-        <>
-          {isSandboxStarting && !isSandboxActive ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <IconLoader2 size={16} className="animate-spin" />
-              <span className="hidden sm:inline">Starting sandbox...</span>
-            </div>
-          ) : null}
-          {isSandboxStopping ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <IconLoader2 size={16} className="animate-spin" />
-              <span className="hidden sm:inline">Stopping sandbox...</span>
-            </div>
-          ) : null}
-          {isSandboxActive && !isSandboxStopping ? (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleStopSandbox}
-              disabled={isSandboxStopping}
-              className="rounded-full"
-            >
-              <IconPlayerStop size={16} />
-              <span className="hidden sm:inline">Stop Sandbox</span>
-            </Button>
-          ) : null}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleToggleSandboxView}
-            className="gap-1.5 rounded-full"
-          >
-            <IconArrowLeft size={16} />
-            <span className="hidden sm:inline">Back to Details</span>
-          </Button>
-        </>
-      }
-    >
-      <ResizablePanelLayout
-        storageKey="task-sandbox-collapsed"
-        leftDefaultSize="30%"
-        leftMinWidthPx={350}
-        rightMinWidthPx={300}
-        defaultRightCollapsed={false}
-        leftPanel={() => (
-          <TaskSandboxChatPanel
-            taskId={typedTaskId}
-            isSandboxActive={isSandboxActive}
-          />
-        )}
-        rightPanel={sandboxRightPanel}
+    <QuickTaskDetailShell taskId={taskId} detailTab="activity">
+      <TaskDetailInline
+        key={typedTaskId}
+        onClose={() => navigate({ to: `${basePath}/quick-tasks` })}
+        taskId={typedTaskId}
+        allTags={allTags}
+        routing={routing}
       />
-    </PageWrapper>
+    </QuickTaskDetailShell>
   );
 }

@@ -39,7 +39,6 @@ import {
   IconPlayerStop,
   IconPlayerPlay,
   IconTerminal2,
-  IconArrowLeft,
   IconLoader2,
   IconChevronRight,
   IconChevronDown,
@@ -126,12 +125,14 @@ export function ProjectDetailClient({
     project?.reviewProjectSandboxStatus,
   );
 
-  const openProjectSandboxView = () => {
-    navigate({ to: `${basePath}/projects/${projectId}/sandbox/preview` });
-  };
+  const isSandboxSurface = surface === "sandbox";
 
-  const exitProjectSandboxView = () => {
-    navigate({ to: `${basePath}/projects/${projectId}` });
+  const toggleProjectSandboxView = () => {
+    if (isSandboxSurface) {
+      navigate({ to: `${basePath}/projects/${projectId}` });
+      return;
+    }
+    navigate({ to: `${basePath}/projects/${projectId}/sandbox/preview` });
   };
 
   const handleStopBuild = async () => {
@@ -224,123 +225,63 @@ export function ProjectDetailClient({
     showResolveConflicts ||
     hasPlanContext;
 
-  if (surface === "sandbox") {
-    const tab = sandboxTab ?? "preview";
-    const isSandboxInactive =
-      !isSandboxActive && !isSandboxStarting && !isSandboxStopping;
-    const sandboxPanel =
-      isSandboxActive && projectSandboxId ? (
-        <ProjectSandboxPanel
-          projectId={typedProjectId}
-          sandboxId={projectSandboxId}
-          isActive={isSandboxActive}
-          repoId={repo._id}
-          devPort={project.devPort}
-          devCommand={project.devCommand}
-          terminalPanes={project.terminalPanes}
-          sandboxTab={tab}
-        />
-      ) : isSandboxInactive && canStartSandbox ? (
-        <div className="flex items-center justify-center h-full p-8">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <IconTerminal2 size={32} className="text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Sandbox is not running
-            </p>
-            <Button onClick={handleStartSandbox}>
-              <IconPlayerPlay size={16} />
-              Start Sandbox
-            </Button>
-          </div>
+  const tab = sandboxTab ?? "preview";
+  const isSandboxInactive =
+    !isSandboxActive && !isSandboxStarting && !isSandboxStopping;
+  const projectSandboxPanel =
+    isSandboxActive && projectSandboxId ? (
+      <ProjectSandboxPanel
+        projectId={typedProjectId}
+        sandboxId={projectSandboxId}
+        isActive={isSandboxActive}
+        repoId={repo._id}
+        devPort={project.devPort}
+        devCommand={project.devCommand}
+        terminalPanes={project.terminalPanes}
+        sandboxTab={tab}
+      />
+    ) : isSandboxInactive && canStartSandbox ? (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <IconTerminal2 size={32} className="text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Sandbox is not running
+          </p>
+          <Button onClick={handleStartSandbox}>
+            <IconPlayerPlay size={16} />
+            Start Sandbox
+          </Button>
         </div>
-      ) : (
-        <div className="flex items-center justify-center h-full">
-          <div className="w-full max-w-md px-4">
-            <StreamingActivityDisplay
-              activity={sandboxStartupActivity}
-              thinkingLabel={
-                isSandboxStopping
-                  ? "Stopping sandbox..."
-                  : "Starting sandbox..."
-              }
-            />
-          </div>
+      </div>
+    ) : (
+      <div className="flex h-full items-center justify-center">
+        <div className="w-full max-w-md px-4">
+          <StreamingActivityDisplay
+            activity={sandboxStartupActivity}
+            thinkingLabel={
+              isSandboxStopping ? "Stopping sandbox..." : "Starting sandbox..."
+            }
+          />
         </div>
-      );
-    return (
-      <PageWrapper
-        title={
-          <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
-            <button
-              onClick={() => navigate({ to: `${basePath}/projects` })}
-              className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
-            >
-              Projects
-            </button>
-            <IconChevronRight
-              size={14}
-              className="text-muted-foreground/50 flex-shrink-0"
-            />
-            <span className="truncate font-semibold">{project.title}</span>
-          </div>
-        }
-        fillHeight
-        childPadding={false}
-        headerRight={
-          <>
-            {isSandboxStarting && !isSandboxActive ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <IconLoader2 size={16} className="animate-spin" />
-                <span className="hidden sm:inline">Starting sandbox...</span>
-              </div>
-            ) : null}
-            {isSandboxStopping ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <IconLoader2 size={16} className="animate-spin" />
-                <span className="hidden sm:inline">Stopping sandbox...</span>
-              </div>
-            ) : null}
-            {isSandboxActive && !isSandboxStopping ? (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleStopSandbox}
-                disabled={isSandboxStopping}
-                className="rounded-full"
-              >
-                <IconPlayerStop size={16} />
-                <span className="hidden sm:inline">Stop Sandbox</span>
-              </Button>
-            ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={exitProjectSandboxView}
-              className="gap-1.5 rounded-full"
-            >
-              <IconArrowLeft size={16} />
-              <span className="hidden sm:inline">Back to Tasks</span>
-            </Button>
-          </>
-        }
-      >
-        <ResizablePanelLayout
-          storageKey="project-sandbox-collapsed"
-          leftDefaultSize="30%"
-          leftMinWidthPx={350}
-          rightMinWidthPx={300}
-          defaultRightCollapsed={false}
-          leftPanel={() => (
-            <ProjectSandboxChatPanel
-              projectId={typedProjectId}
-              isSandboxActive={isSandboxActive}
-            />
-          )}
-          rightPanel={sandboxPanel}
-        />
-      </PageWrapper>
+      </div>
     );
-  }
+
+  const projectSandboxContent = (
+    <ResizablePanelLayout
+      storageKey="project-sandbox-collapsed"
+      leftDefaultSize="30%"
+      leftMinWidthPx={350}
+      rightMinWidthPx={300}
+      defaultRightCollapsed={false}
+      leftPanel={() => (
+        <ProjectSandboxChatPanel
+          projectId={typedProjectId}
+          isSandboxActive={isSandboxActive}
+        />
+      )}
+      rightPanel={projectSandboxPanel}
+    />
+  );
 
   return (
     <PageWrapper
@@ -475,14 +416,26 @@ export function ProjectDetailClient({
                   </a>
                 </Button>
               )}
+              {isSandboxActive && !isSandboxStopping ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleStopSandbox}
+                  disabled={isSandboxStopping}
+                  className="rounded-full"
+                >
+                  <IconPlayerStop size={16} />
+                  <span className="hidden sm:inline">Stop Sandbox</span>
+                </Button>
+              ) : null}
               {canStartSandbox ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={openProjectSandboxView}
+                  onClick={toggleProjectSandboxView}
                   disabled={isSandboxStopping}
                   className={
-                    isSandboxActive
+                    isSandboxSurface || isSandboxActive
                       ? "rounded-full border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400"
                       : "rounded-full"
                   }
@@ -493,7 +446,7 @@ export function ProjectDetailClient({
                   ) : (
                     <IconTerminal2 size={16} />
                   )}
-                  {isSandboxActive && (
+                  {isSandboxActive && !isSandboxSurface && (
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   )}
                   <span className="hidden sm:inline">
@@ -501,9 +454,11 @@ export function ProjectDetailClient({
                       ? "Stopping..."
                       : isSandboxStarting && !isSandboxActive
                         ? "Starting..."
-                        : isSandboxActive
-                          ? "View Sandbox · Active"
-                          : "View Sandbox"}
+                        : isSandboxSurface
+                          ? "Back to Tasks"
+                          : isSandboxActive
+                            ? "View Sandbox · Active"
+                            : "View Sandbox"}
                   </span>
                 </Button>
               ) : null}
@@ -535,8 +490,12 @@ export function ProjectDetailClient({
       }
     >
       <ProjectMetadataBar projectId={typedProjectId} />
-      <div className="flex-1 flex flex-col min-h-0">
-        {isDraftOrFinalized ? (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {isSandboxSurface ? (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {projectSandboxContent}
+          </div>
+        ) : isDraftOrFinalized ? (
           <ProjectTabs
             projectId={typedProjectId}
             projectPhase={project.phase}

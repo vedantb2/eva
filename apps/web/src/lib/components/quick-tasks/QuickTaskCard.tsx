@@ -166,7 +166,7 @@ export function QuickTaskCard({
               : "bg-card/88 hover:bg-card"
       } ${isSelected ? "ring-2 ring-primary/40" : ""} ${isActive ? "ring-1 ring-primary/30" : ""} ${
         onClick
-          ? "cursor-pointer active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          ? "cursor-pointer active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
       }`}
       onClick={(e) => {
@@ -193,7 +193,7 @@ export function QuickTaskCard({
       <div
         className={`absolute inset-y-1.5 left-0 w-[3px] rounded-r-full ${accentClass}`}
       />
-      <CardContent className="relative z-[1] space-y-1.5 px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5">
+      <CardContent className="relative z-[1] px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5">
         <div className="flex min-w-0 items-start gap-1.5">
           {isSelecting && (
             <Checkbox
@@ -256,7 +256,7 @@ export function QuickTaskCard({
         </div>
 
         {hasMetadata && (
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
             {projectName ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -288,7 +288,7 @@ export function QuickTaskCard({
           </div>
         )}
 
-        <div className="flex items-center justify-between">
+        <div className="mt-2 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {createdByUser && <UserInitials user={createdByUser} size="sm" />}
           </div>

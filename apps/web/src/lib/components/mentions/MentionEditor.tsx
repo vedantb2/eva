@@ -27,7 +27,7 @@ import {
   getSelectionAnchorRect,
   type MentionPopupPlacement,
 } from "./mentionPopupPosition";
-import { UserProfileHoverCardBody } from "./UserMentionChip";
+import { UserProfileHoverCardBody } from "@conductor/shared";
 
 const DEFAULT_EDITOR_CLASS =
   "relative block w-full whitespace-pre-wrap break-words bg-transparent text-sm outline-none data-[empty]:before:pointer-events-none data-[empty]:before:select-none data-[empty]:before:absolute data-[empty]:before:text-muted-foreground/90 data-[empty]:before:content-[attr(data-placeholder)]";
@@ -694,9 +694,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
             }}
             onMouseLeave={handleHoverCardMouseLeave}
           >
-            <div className="rounded-md bg-popover p-3 text-popover-foreground shadow-md">
-              <UserProfileHoverCardBody userId={mentionHover.userId} />
-            </div>
+            <UserProfileHoverCardBody userId={mentionHover.userId} />
           </div>,
           document.body,
         )

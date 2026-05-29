@@ -140,10 +140,10 @@ export function ProjectCard({
 
   const cardContent = (
     <div
-      className={`group relative shrink-0 overflow-hidden rounded-lg transition-[transform,background-color] duration-200 ${
+      className={`group relative shrink-0 overflow-hidden rounded-lg transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] ${
         isActive
           ? "bg-primary/5 ring-1 ring-primary/30"
-          : "bg-card/88 hover:-translate-y-[1px] hover:bg-card hover:z-10"
+          : "bg-card/88 hover:-translate-y-0.5 hover:bg-card hover:z-10"
       }`}
     >
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
@@ -192,7 +192,7 @@ export function ProjectCard({
         </div>
         {previewText ? (
           <p
-            className={`mt-2 line-clamp-1 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground/80"}`}
+            className={`mt-1.5 line-clamp-1 text-xs leading-relaxed ${description ? "text-muted-foreground" : "italic text-muted-foreground/80"}`}
           >
             {previewText}
           </p>
@@ -223,7 +223,7 @@ export function ProjectCard({
           projectId={projectId}
           className="mt-4 h-1.5 bg-secondary/75"
         />
-        <div className="mt-4 flex items-center gap-1.5">
+        <div className="mt-3 flex items-center gap-1.5">
           <AvatarStack size={20} className="-space-x-0.5">
             {shownAvatarIds.map((id) => (
               <UserInitials key={id} userId={id} hideLastSeen />

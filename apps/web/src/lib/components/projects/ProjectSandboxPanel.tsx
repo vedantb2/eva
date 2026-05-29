@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { Id } from "@conductor/backend";
 import type { SandboxTab, TaskRouteSandboxTab } from "@/lib/search-params";
 import { useNavigate } from "@tanstack/react-router";
@@ -47,6 +47,14 @@ export function ProjectSandboxPanel({
 
   const activeTab: SandboxTab = sandboxTab;
 
+  // Stable identity: a fresh literal each render would re-run TerminalPanel's
+  // connect effect, flashing the spinner and dropping the dev-server auto-start
+  // (the reconnect sees an existing PTY, so isNewPty is false).
+  const owner = useMemo(
+    () => ({ kind: "project" as const, projectId }),
+    [projectId],
+  );
+
   const navigateToSandboxTab = useCallback(
     (tab: SandboxTab) => {
       if (tab === "prd") return;
@@ -65,7 +73,7 @@ export function ProjectSandboxPanel({
   });
 
   const panes = useSandboxPanes({
-    owner: { kind: "project", projectId },
+    owner,
     storageScope: `project:${projectIdStr}`,
     isActive,
     activeTab,
@@ -97,7 +105,7 @@ export function ProjectSandboxPanel({
           activeTab={activeTab}
           panes={panes}
           preview={preview}
-          owner={{ kind: "project", projectId }}
+          owner={owner}
           sandboxId={sandboxId}
           isActive={isActive}
           repoId={repoId}

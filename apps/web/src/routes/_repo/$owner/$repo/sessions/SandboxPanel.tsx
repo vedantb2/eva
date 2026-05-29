@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { Id } from "@conductor/backend";
 import type { SandboxTab } from "@/lib/search-params";
 import { IconClipboardList } from "@tabler/icons-react";
@@ -46,6 +46,14 @@ export function SandboxPanel({
     defaultModel: repo.defaultModel,
   });
 
+  // Stable identity: a fresh literal each render would re-run TerminalPanel's
+  // connect effect, flashing the spinner and dropping the dev-server auto-start
+  // (the reconnect sees an existing PTY, so isNewPty is false).
+  const owner = useMemo(
+    () => ({ kind: "session" as const, sessionId }),
+    [sessionId],
+  );
+
   const preview = useSandboxPreview({
     sandboxId,
     isActive,
@@ -54,7 +62,7 @@ export function SandboxPanel({
   });
 
   const panes = useSandboxPanes({
-    owner: { kind: "session", sessionId },
+    owner,
     storageScope: `session:${sessionIdStr}`,
     isActive,
     activeTab,
@@ -115,7 +123,7 @@ export function SandboxPanel({
           activeTab={activeTab}
           panes={panes}
           preview={preview}
-          owner={{ kind: "session", sessionId }}
+          owner={owner}
           sandboxId={sandboxId}
           isActive={isActive}
           repoId={repoId}

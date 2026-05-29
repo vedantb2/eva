@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import type { Id } from "@conductor/backend";
 import type { SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
@@ -55,6 +55,11 @@ export function TaskSandboxPanel({
 }: TaskSandboxPanelProps) {
   const taskIdStr = String(taskId);
 
+  // Stable identity: a fresh literal each render would re-run TerminalPanel's
+  // connect effect, flashing the spinner and dropping the dev-server auto-start
+  // (the reconnect sees an existing PTY, so isNewPty is false).
+  const owner = useMemo(() => ({ kind: "task" as const, taskId }), [taskId]);
+
   const preview = useSandboxPreview({
     sandboxId,
     isActive,
@@ -63,7 +68,7 @@ export function TaskSandboxPanel({
   });
 
   const panes = useSandboxPanes({
-    owner: { kind: "task", taskId },
+    owner,
     storageScope: `task:${taskIdStr}`,
     isActive,
     activeTab,
@@ -102,7 +107,7 @@ export function TaskSandboxPanel({
           activeTab={tabBarValue}
           panes={panes}
           preview={preview}
-          owner={{ kind: "task", taskId }}
+          owner={owner}
           sandboxId={sandboxId}
           isActive={isActive}
           repoId={repoId}

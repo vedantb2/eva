@@ -152,6 +152,8 @@ export interface ChangelogEmailOptions {
   /** Changelog body already converted from markdown to trusted HTML by the caller. */
   contentHtml: string;
   publishedAt: number;
+  /** Edition number, i.e. the count of successful changelog runs so far. */
+  runNumber: number;
 }
 
 /**
@@ -163,7 +165,7 @@ export function buildChangelogEmailHtml(opts: ChangelogEmailOptions): string {
   const greeting = opts.recipientName
     ? `Hi ${escapeHtml(opts.recipientName)},`
     : "Hi,";
-  const heading = "What's new in Eva";
+  const heading = `Eva Weekly Changelog #${opts.runNumber}`;
 
   const bodyHtml = `
     <p style="margin:0 0 4px;font-size:15px;line-height:22px;color:${TEXT};">${greeting}</p>

@@ -63,7 +63,11 @@ export const getLatestChangelog = query({
 export const getChangelogRunForEmail = internalQuery({
   args: { runId: v.id("automationRuns") },
   returns: v.union(
-    v.object({ content: v.string(), publishedAt: v.number() }),
+    v.object({
+      content: v.string(),
+      publishedAt: v.number(),
+      runNumber: v.number(),
+    }),
     v.null(),
   ),
   handler: async (ctx, args) => {
@@ -74,7 +78,18 @@ export const getChangelogRunForEmail = internalQuery({
     if (!automation || automation.title !== CHANGELOG_AUTOMATION_TITLE) {
       return null;
     }
-    return { content: run.resultSummary, publishedAt: run.finishedAt };
+    // Edition number = how many successful changelog runs exist (this one included).
+    const successfulRuns = await ctx.db
+      .query("automationRuns")
+      .withIndex("by_automation_and_status", (q) =>
+        q.eq("automationId", automation._id).eq("status", "success"),
+      )
+      .collect();
+    return {
+      content: run.resultSummary,
+      publishedAt: run.finishedAt,
+      runNumber: successfulRuns.length,
+    };
   },
 });
 

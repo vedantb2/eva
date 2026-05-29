@@ -46,11 +46,12 @@ export const sendChangelogEmail = internalAction({
         appUrl,
         contentHtml,
         publishedAt: run.publishedAt,
+        runNumber: run.runNumber,
       });
       try {
         await sendEmail({
           to: recipient.email,
-          subject: "What's new in Eva",
+          subject: `Eva Weekly Changelog #${run.runNumber}`,
           html,
         });
         sent += 1;

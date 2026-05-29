@@ -34,7 +34,7 @@ import {
   IconInfoCircle,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { FALLBACK_GIT_BASE_BRANCH, UserInitials } from "@conductor/shared";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
@@ -80,6 +80,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
 
   if (!project) return null;
 
+  const creator = (users ?? []).find((user) => user._id === project.userId);
   const displayBaseBranch =
     project.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
 
@@ -208,6 +209,16 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
           })
         }
       />
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">
+        {creator ? (
+          <>
+            <UserInitials userId={creator._id} size="sm" />
+            <span>{displayName(creator)}</span>
+            <span>·</span>
+          </>
+        ) : null}
+        <span>{dayjs(project._creationTime).format("DD/MM/YYYY HH:mm")}</span>
+      </div>
     </div>
   );
 }

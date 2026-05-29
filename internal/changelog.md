@@ -1,5 +1,15 @@
 # Changelog
 
+## Quick task manual dev server restart - 2026-05-28
+
+- Quick task activity footer More menu adds Run Dev Server with a confirmation dialog for when preview is stuck loading but the sandbox is already running.
+- The action re-runs the dev server using the same App settings dev command and port overrides as sandbox startup, and resets the default terminal so the next connect can auto-start again.
+
+## Fix dev server not starting on resumed sandbox - 2026-05-28
+
+- Resuming a stopped quick-task, project, or session sandbox now clears the default dev terminal PTY so the UI treats the next connect as new and auto-runs the dev command again.
+- Stopped sandboxes kept their old PTY session alive in Daytona, which skipped the terminal auto-start path even though the dev process itself was gone.
+
 ## Sandbox tab keyboard shortcut - 2026-05-28
 
 - Shift+Tab cycles Preview, Computer, Editor, and Terminal (plus PRD on sessions) in every sandbox panel so you can switch views without clicking the tab bar.

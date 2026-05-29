@@ -149,6 +149,71 @@ export const retryStartupCommands = authMutation({
 });
 
 /**
+ * Re-runs the dev server in an active preview sandbox using the repo App
+ * settings (same resolution as sandbox startup). For recovery when preview
+ * is stuck loading but the sandbox itself is running.
+ */
+export const runDevServer = authMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+
+    if (!task.repoId) throw new Error("Task has no associated repository");
+
+    if (task.reviewTaskSandboxStatus !== "active" || !task.sandboxId) {
+      throw new Error("Start the sandbox before running the dev server");
+    }
+
+    if (
+      !PREVIEW_ALLOWED_STATUSES.includes(
+        task.status as (typeof PREVIEW_ALLOWED_STATUSES)[number],
+      )
+    ) {
+      throw new Error(
+        `Task must be in code_review, business_review or done status. Current status: ${task.status}`,
+      );
+    }
+
+    const hasAccess = await hasRepoAccess(ctx.db, task.repoId, ctx.userId);
+    if (!hasAccess) throw new Error("No access to repository");
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.daytona.runDevServerInTaskSandbox,
+      {
+        taskId: args.taskId,
+        sandboxId: task.sandboxId,
+        repoId: task.repoId,
+      },
+    );
+
+    return null;
+  },
+});
+
+/** Persists resolved dev server settings after a manual dev-server rerun. */
+export const patchTaskDevServer = internalMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+    devPort: v.number(),
+    devCommand: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.taskId, {
+      devPort: args.devPort,
+      devCommand: args.devCommand,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
  * Stops the preview sandbox in Daytona. Keeps `sandboxId` so the reviewer
  * can resume the same paused filesystem (DB state intact) on next start.
  *

@@ -35,6 +35,7 @@ import { TaskFooter } from "./_components/TaskFooter";
 import { StopConfirmDialog } from "./_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "./_components/ResolveConfirmDialog";
 import { StartupCommandsConfirmDialog } from "./_components/StartupCommandsConfirmDialog";
+import { RunDevServerConfirmDialog } from "./_components/RunDevServerConfirmDialog";
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
@@ -108,6 +109,8 @@ export function TaskDetailInline({
     setShowResolveConfirm,
     showStartupCommandsConfirm,
     setShowStartupCommandsConfirm,
+    showRunDevServerConfirm,
+    setShowRunDevServerConfirm,
     isStarting,
     isStopping,
     handleStartExecution,
@@ -123,6 +126,9 @@ export function TaskDetailInline({
     handleToggleSandboxView,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
+    handleRunDevServer,
+    isRunningDevServer,
+    devServerCommandLabel,
     sandboxId,
     sandboxStartupActivity,
     canCreatePr,
@@ -406,6 +412,8 @@ export function TaskDetailInline({
               onCreatePr={handleCreatePr}
               onViewSandbox={handleToggleSandboxView}
               onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
+              onRunDevServer={() => setShowRunDevServerConfirm(true)}
+              isRunningDevServer={isRunningDevServer}
               onStartExecution={handleStartExecution}
               onResolveConfirm={() => setShowResolveConfirm(true)}
               onRequestChanges={() => {
@@ -433,6 +441,13 @@ export function TaskDetailInline({
         onOpenChange={setShowStartupCommandsConfirm}
         onConfirm={handleRetryStartupCommands}
         isStarting={isRetryingStartupCommands}
+      />
+      <RunDevServerConfirmDialog
+        open={showRunDevServerConfirm}
+        onOpenChange={setShowRunDevServerConfirm}
+        onConfirm={handleRunDevServer}
+        isRunning={isRunningDevServer}
+        devCommandLabel={devServerCommandLabel}
       />
     </>
   );

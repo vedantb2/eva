@@ -25,6 +25,8 @@ export {
   validateSandbox,
 } from "./_daytona/execution";
 
+export { runDevServerInTaskSandbox } from "./_daytona/runDevServer";
+
 export {
   toggleCodeServer,
   toggleDesktopServer,

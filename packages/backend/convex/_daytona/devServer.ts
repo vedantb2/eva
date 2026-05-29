@@ -103,3 +103,32 @@ export async function startSessionServices(
   const devCommand = `cd ${dir} && PORT=${port} ${pm} run dev`;
   return { port, devCommand };
 }
+
+/** Stable default terminal pane id — must match `sandboxPanes.defaultPane`. */
+export function defaultTerminalPtyId(ownerKey: string): string {
+  return `${ownerKey}-terminal-default`;
+}
+
+/**
+ * Drops the shared dev-server PTY after a stopped sandbox is resumed.
+ * The web terminal only auto-runs `devCommand` when `connectPty` reports
+ * `isNewPty`; a surviving PTY from before stop would skip that path.
+ */
+export async function resetDevTerminalForResume(
+  sandbox: Sandbox,
+  ownerKey: string,
+): Promise<void> {
+  try {
+    await sandbox.process.killPtySession(defaultTerminalPtyId(ownerKey));
+  } catch {
+    // PTY may already be gone after archive/stop.
+  }
+}
+
+/** Starts the dev server detached so preview can load without an open terminal tab. */
+export async function launchDevServerInBackground(
+  sandbox: Sandbox,
+  devCommand: string,
+): Promise<void> {
+  await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
+}

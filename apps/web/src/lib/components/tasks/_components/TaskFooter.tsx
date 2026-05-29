@@ -50,11 +50,13 @@ interface TaskFooterProps {
   isSandboxStarting: boolean;
   isSandboxStopping: boolean;
   isRetryingStartupCommands: boolean;
+  isRunningDevServer: boolean;
   canCreatePr: boolean;
   isCreatingPr: boolean;
   onCreatePr: () => void;
   onViewSandbox: () => void;
   onRunStartupCommands: () => void;
+  onRunDevServer: () => void;
   onStartExecution: () => void;
   onResolveConfirm: () => void;
   onRequestChanges: () => void;
@@ -75,11 +77,13 @@ export function TaskFooter({
   isSandboxStarting,
   isSandboxStopping,
   isRetryingStartupCommands,
+  isRunningDevServer,
   canCreatePr,
   isCreatingPr,
   onCreatePr,
   onViewSandbox,
   onRunStartupCommands,
+  onRunDevServer,
   onStartExecution,
   onResolveConfirm,
   onRequestChanges,
@@ -156,6 +160,19 @@ export function TaskFooter({
                     Run Startup Commands
                   </DropdownMenuItem>
                 )}
+                {isSandboxActive && canStartSandbox ? (
+                  <DropdownMenuItem
+                    onClick={onRunDevServer}
+                    disabled={isRunningDevServer}
+                  >
+                    {isRunningDevServer ? (
+                      <IconLoader2 size={14} className="animate-spin" />
+                    ) : (
+                      <IconPlayerPlay size={14} />
+                    )}
+                    Run Dev Server
+                  </DropdownMenuItem>
+                ) : null}
                 {canCreatePr && (
                   <DropdownMenuItem
                     onClick={onCreatePr}

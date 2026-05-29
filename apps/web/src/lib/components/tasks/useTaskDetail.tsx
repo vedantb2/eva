@@ -114,6 +114,7 @@ export function useTaskDetail(
   const retryStartupCommandsMutation = useMutation(
     api.agentTasks.retryStartupCommands,
   );
+  const runDevServerMutation = useMutation(api.agentTasks.runDevServer);
   const createTaskPrAction = useAction(api.taskWorkflowActions.createTaskPr);
 
   const [baseBranch, setBaseBranch] = useState(FALLBACK_GIT_BASE_BRANCH);
@@ -122,6 +123,8 @@ export function useTaskDetail(
   const [isSandboxStopping, setIsSandboxStopping] = useState(false);
   const [isRetryingStartupCommands, setIsRetryingStartupCommands] =
     useState(false);
+  const [isRunningDevServer, setIsRunningDevServer] = useState(false);
+  const [showRunDevServerConfirm, setShowRunDevServerConfirm] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
@@ -267,6 +270,27 @@ export function useTaskDetail(
     }
   }, [retryStartupCommandsMutation, taskId, openSandboxAfterStart]);
 
+  const handleRunDevServer = useCallback(async () => {
+    setIsRunningDevServer(true);
+    try {
+      await runDevServerMutation({ taskId });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to run dev server";
+      setExecutionError(message);
+    } finally {
+      setIsRunningDevServer(false);
+    }
+  }, [runDevServerMutation, taskId, setExecutionError]);
+
+  const devServerCommandLabel = (() => {
+    const fromTask = task?.devCommand?.trim();
+    if (fromTask) return fromTask;
+    const fromRepo = repoForTask?.devCommand?.trim();
+    if (fromRepo) return fromRepo;
+    return "Auto-detected from package.json (e.g. pnpm run dev)";
+  })();
+
   const handleCreatePr = useCallback(async () => {
     setIsCreatingPr(true);
     try {
@@ -380,6 +404,8 @@ export function useTaskDetail(
     setShowResolveConfirm,
     showStartupCommandsConfirm,
     setShowStartupCommandsConfirm,
+    showRunDevServerConfirm,
+    setShowRunDevServerConfirm,
     isStarting,
     isStopping,
 
@@ -398,6 +424,9 @@ export function useTaskDetail(
     handleToggleSandboxView,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
+    handleRunDevServer,
+    isRunningDevServer,
+    devServerCommandLabel,
     sandboxId: task?.sandboxId,
     reviewTaskSandboxStatus: task?.reviewTaskSandboxStatus,
 

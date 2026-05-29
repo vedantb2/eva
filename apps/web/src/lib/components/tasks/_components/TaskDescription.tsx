@@ -119,7 +119,7 @@ export function TaskDescription({
         <MessageMentionText
           text={desc}
           repoBasePath={basePath}
-          className="text-sm text-muted-foreground"
+          className="text-sm text-muted-foreground whitespace-pre-wrap break-words"
         />
       ) : (
         <p className="text-sm text-muted-foreground/60">

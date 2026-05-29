@@ -214,12 +214,12 @@ export function TaskDetailInline({
   );
 
   const detailContent = (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar px-4 pt-4 md:overflow-hidden md:px-6 md:pt-5">
-      <div className="flex min-h-0 flex-1 flex-col pb-4 md:overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden scrollbar md:overflow-hidden">
         <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[14fr_6fr] md:grid-rows-1 md:overflow-hidden">
-          <div className="min-h-0 min-w-0 md:flex md:flex-1 md:flex-col md:overflow-hidden md:pr-6">
-            <div className="min-h-0 md:flex-1 md:overflow-y-auto md:scrollbar">
-              <div className="space-y-4 pb-4">
+          <div className="min-h-0 min-w-0 md:flex md:flex-1 md:flex-col md:overflow-hidden">
+            <div className="min-h-0 min-w-0 overflow-x-hidden md:flex-1 md:overflow-y-auto md:scrollbar">
+              <div className="space-y-4 px-4 pb-4 pt-4 md:px-6 md:pb-4 md:pr-6 md:pt-5">
                 <div>
                   <TaskHeader
                     taskNumber={task?.taskNumber}
@@ -348,7 +348,7 @@ export function TaskDetailInline({
               </div>
             </div>
           </div>
-          <div className="mt-6 flex shrink-0 flex-col min-w-0 md:mt-0 md:pl-8 md:overflow-hidden">
+          <div className="mt-6 flex shrink-0 flex-col min-w-0 overflow-x-hidden px-4 pb-4 md:mt-0 md:overflow-hidden md:px-0 md:pb-0 md:pl-8 md:pr-6 md:pt-5">
             <StatusFieldsSection
               taskId={taskId}
               task={task}

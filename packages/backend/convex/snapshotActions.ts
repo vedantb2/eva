@@ -9,9 +9,15 @@ import {
   getDaytona,
   buildConfigFileDownloadCommands,
   filterDownloadableConfigFiles,
+  WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
   type SandboxConfigFile,
 } from "./_daytona/helpers";
-import { createSandboxAndPrepareRepo, SESSION_LIFECYCLE } from "./_daytona/git";
+import {
+  createSandbox,
+  createSandboxAndPrepareRepo,
+  SESSION_LIFECYCLE,
+  WARMING_LIFECYCLE,
+} from "./_daytona/git";
 import { Image } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
 
@@ -515,6 +521,53 @@ export const deleteDaytonaSnapshot = internalAction({
       // Snapshot may not exist
     }
     return null;
+  },
+});
+
+/**
+ * Propagation probe: boots ONE cheap ephemeral sandbox from the base Image
+ * snapshot, then deletes it. A freshly-built snapshot is not immediately
+ * available on Daytona runners (propagation lag), so `daytona.create` returns
+ * "No available runners" until propagation completes. The seeded-snapshot
+ * workflow calls this in a poll loop BEFORE fanning out per-app seed-prep
+ * sandboxes, so the expensive seed work only starts once the snapshot is
+ * actually bootable. Returns "available" on a successful create+delete, or
+ * "unavailable" on any create failure (never throws on the create itself — the
+ * workflow owns the retry loop). A successful probe also warms the cache.
+ */
+export const probeSnapshotAvailability = internalAction({
+  args: { repoId: v.id("githubRepos"), imageSnapshot: v.string() },
+  returns: v.union(v.literal("available"), v.literal("unavailable")),
+  handler: async (ctx, args): Promise<"available" | "unavailable"> => {
+    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+      ctx,
+      args.repoId,
+    );
+    const daytona = getDaytona(daytonaApiKey);
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+    try {
+      const sandbox = await createSandbox(
+        daytona,
+        repo.installationId,
+        sandboxEnvVars,
+        WARMING_LIFECYCLE,
+        args.imageSnapshot,
+        undefined,
+        WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
+      );
+      await sandbox.delete();
+      return "available";
+    } catch (err) {
+      console.log(
+        `[snapshot] propagation probe for ${args.imageSnapshot} not ready: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return "unavailable";
+    }
   },
 });
 

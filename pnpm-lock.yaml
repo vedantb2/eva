@@ -496,8 +496,8 @@ importers:
         specifier: ^0.3.4
         version: 0.3.10(@convex-dev/workpool@0.4.6(convex-helpers@0.1.114(@standard-schema/spec@1.1.0)(convex@1.36.1(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.14)(react@19.2.1)(typescript@5.9.3)(zod@3.25.76))(convex@1.36.1(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)))(convex-helpers@0.1.114(@standard-schema/spec@1.1.0)(convex@1.36.1(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.14)(react@19.2.1)(typescript@5.9.3)(zod@3.25.76))(convex@1.36.1(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))
       '@daytonaio/sdk':
-        specifier: ^0.143.0
-        version: 0.143.0(ws@8.20.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))
+        specifier: ^0.167.0
+        version: 0.167.0(ws@8.20.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))
       '@modelcontextprotocol/sdk':
         specifier: ^1.26.0
         version: 1.29.0(zod@3.25.76)
@@ -1739,14 +1739,14 @@ packages:
   '@date-fns/tz@1.4.1':
     resolution: {integrity: sha512-P5LUNhtbj6YfI3iJjw5EL9eUAG6OitD0W3fWQcpQjDRc/QIsL0tRNuO1PcDvPccWL1fSTXXdE1ds+l95DV/OFA==}
 
-  '@daytonaio/api-client@0.143.0':
-    resolution: {integrity: sha512-LcrvExGcwyngt1JnVoxuBMD19fL9F+vwGnp18Hav5HJEbICM0pbrJc2FJ242sQJquNIF5mq+5jgznWg6wshZJA==}
+  '@daytona/api-client@0.167.0':
+    resolution: {integrity: sha512-2H1NhSu5GVVfg2oU9Mgt3VZRz7OUqACjBSb9GNNyC7uGPCnQh2C93Imqj2wfyUx/XF346hYpk+Nee+/NGqn3KA==}
 
-  '@daytonaio/sdk@0.143.0':
-    resolution: {integrity: sha512-itQ409W+WuuqLd8edIRVUWeRUyujSlOKInnN6GeC3OqyOWT27wyD/KzkesXDJtQ6HthGtqa4uRtHqnayd5wRCQ==}
+  '@daytona/toolbox-api-client@0.167.0':
+    resolution: {integrity: sha512-FzSh6UVA8ptktNrRhIJCVfZMOcbXlVazTXej+YQ1rEj7L/PnGCQlBbT296xYj94C3wXQUTIxTZVkWzB4vcDTxw==}
 
-  '@daytonaio/toolbox-api-client@0.143.0':
-    resolution: {integrity: sha512-E6+yHPnFygNqRIctoDheISHCpzQkHydAU7fiBfsA5pnElfB/yLTOXQlnZfP8gfvOmUkRNU8QCXKzaualRTlI7w==}
+  '@daytonaio/sdk@0.167.0':
+    resolution: {integrity: sha512-dRP/Y3PoYyLnJWJiSOX2BPrx2U4LwyQIvOY5z8guMsdO6xQkchtXURx6Rgp3jCwS9zuLlh7i5wNcDvJhvDg5yg==}
 
   '@dnd-kit/accessibility@3.1.1':
     resolution: {integrity: sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw==}
@@ -10259,18 +10259,24 @@ snapshots:
 
   '@date-fns/tz@1.4.1': {}
 
-  '@daytonaio/api-client@0.143.0':
+  '@daytona/api-client@0.167.0':
     dependencies:
       axios: 1.15.0
     transitivePeerDependencies:
       - debug
 
-  '@daytonaio/sdk@0.143.0(ws@8.20.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))':
+  '@daytona/toolbox-api-client@0.167.0':
+    dependencies:
+      axios: 1.15.0
+    transitivePeerDependencies:
+      - debug
+
+  '@daytonaio/sdk@0.167.0(ws@8.20.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))':
     dependencies:
       '@aws-sdk/client-s3': 3.1030.0
       '@aws-sdk/lib-storage': 3.1030.0(@aws-sdk/client-s3@3.1030.0)
-      '@daytonaio/api-client': 0.143.0
-      '@daytonaio/toolbox-api-client': 0.143.0
+      '@daytona/api-client': 0.167.0
+      '@daytona/toolbox-api-client': 0.167.0
       '@iarna/toml': 2.2.5
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/exporter-trace-otlp-http': 0.207.0(@opentelemetry/api@1.9.1)
@@ -10295,12 +10301,6 @@ snapshots:
       - debug
       - supports-color
       - ws
-
-  '@daytonaio/toolbox-api-client@0.143.0':
-    dependencies:
-      axios: 1.15.0
-    transitivePeerDependencies:
-      - debug
 
   '@dnd-kit/accessibility@3.1.1(react@19.2.1)':
     dependencies:
@@ -16732,7 +16732,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 22.19.17
+      '@types/node': 24.12.2
       long: 5.3.2
 
   proxy-addr@2.0.7:

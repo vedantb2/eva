@@ -183,10 +183,57 @@ export async function prepareSandboxSteps(
     );
   }
 
-  // Step 4: Run startup commands once per sandbox (marker file). Project builds
+  // Step 4: Launch background commands (long-running daemons / services) FIRST.
+  // These run on every start/resume and are where services that must come back
+  // up on a warm start live (e.g. `supabase start`, `npx convex dev`). They run
+  // before startup commands so one-time startup/seed work can depend on services
+  // being up. Safe ordering: on resume, startup is marker-skipped, so background
+  // already runs without a same-boot startup — i.e. background never depends on
+  // startup having just run. Non-fatal.
+  await emitSteps(step, args.streamingEntityId, [
+    ...completedSteps,
+    {
+      type: "tool",
+      label: "Launching background commands...",
+      status: "active",
+    },
+  ]);
+  try {
+    const result = await step.runAction(
+      internal.daytona.runBackgroundCommands,
+      { sandboxId, repoId: args.repoId },
+      { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
+    );
+    if (result.ran) {
+      completedSteps.push({
+        type: "tool",
+        label: "Launching background commands...",
+        status: "complete",
+      });
+      if (result.commandCount > 0) {
+        console.log(
+          `[prepareSandbox] Launched ${result.commandCount} background command(s)`,
+        );
+        if (result.errors.length > 0) {
+          console.warn(
+            `[prepareSandbox] Background command errors: ${result.errors.join("; ")}`,
+          );
+        }
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(
+      `[prepareSandbox] Background commands failed — continuing: ${msg}`,
+    );
+  }
+
+  // Step 5: Run startup commands once per sandbox (marker file). Project builds
   // reuse project.sandboxId across tasks — only the first task should pay this
   // cost; interview sandboxes skip startup entirely so the first build task must
-  // run it, then later tasks skip via isFirstTaskOnBranch + marker check.
+  // run it, then later tasks skip via isFirstTaskOnBranch + marker check. Startup
+  // commands that depend on services should wait for readiness themselves, since
+  // background daemons above are launched detached.
   let shouldRunStartupCommands = !args.skipStartupCommands;
   if (shouldRunStartupCommands) {
     const markerExists = await step.runAction(
@@ -233,45 +280,6 @@ export async function prepareSandboxSteps(
         `[prepareSandbox] Startup commands failed — continuing: ${msg}`,
       );
     }
-  }
-
-  // Step 5: Launch background commands (long-running daemons). Non-fatal.
-  await emitSteps(step, args.streamingEntityId, [
-    ...completedSteps,
-    {
-      type: "tool",
-      label: "Launching background commands...",
-      status: "active",
-    },
-  ]);
-  try {
-    const result = await step.runAction(
-      internal.daytona.runBackgroundCommands,
-      { sandboxId, repoId: args.repoId },
-      { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
-    );
-    if (result.ran) {
-      completedSteps.push({
-        type: "tool",
-        label: "Launching background commands...",
-        status: "complete",
-      });
-      if (result.commandCount > 0) {
-        console.log(
-          `[prepareSandbox] Launched ${result.commandCount} background command(s)`,
-        );
-        if (result.errors.length > 0) {
-          console.warn(
-            `[prepareSandbox] Background command errors: ${result.errors.join("; ")}`,
-          );
-        }
-      }
-    }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.warn(
-      `[prepareSandbox] Background commands failed — continuing: ${msg}`,
-    );
   }
 
   return sandboxId;

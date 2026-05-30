@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { resolveAllEnvVars } from "./envVarResolver";
+import { resolveAllEnvVars, resolveDaytonaApiKey } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import {
   getDaytona,
@@ -11,6 +11,7 @@ import {
   filterDownloadableConfigFiles,
   type SandboxConfigFile,
 } from "./_daytona/helpers";
+import { createSandboxAndPrepareRepo, SESSION_LIFECYCLE } from "./_daytona/git";
 import { Image } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
 
@@ -513,6 +514,59 @@ export const deleteDaytonaSnapshot = internalAction({
     } catch {
       // Snapshot may not exist
     }
+    return null;
+  },
+});
+
+/**
+ * Seeded-snapshot build step: creates + prepares a sandbox from the base Image
+ * snapshot (NOT a seeded one — passed explicitly to bypass the seeded preference
+ * in getRepoSnapshotName), ready to run the app's background/seed/stop commands.
+ */
+export const createSeedPrepSandbox = internalAction({
+  args: { repoId: v.id("githubRepos"), imageSnapshot: v.string() },
+  returns: v.object({ sandboxId: v.string() }),
+  handler: async (ctx, args): Promise<{ sandboxId: string }> => {
+    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+      ctx,
+      args.repoId,
+    );
+    const daytona = getDaytona(daytonaApiKey);
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+    const { sandbox } = await createSandboxAndPrepareRepo(
+      ctx,
+      daytona,
+      repo.installationId,
+      repo.owner,
+      repo.name,
+      { ...sandboxEnvVars, REPO_ID: args.repoId },
+      SESSION_LIFECYCLE,
+      args.imageSnapshot,
+    );
+    return { sandboxId: sandbox.id };
+  },
+});
+
+/**
+ * Seeded-snapshot build step: captures the (clean-stopped) sandbox's filesystem
+ * — including the seeded Docker volumes — into a reusable snapshot. Positive
+ * timeout: it is the HTTP request timeout (0 would abort immediately).
+ */
+export const createSeededSnapshot = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    sandboxId: v.string(),
+    seededName: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+    await sandbox._experimental_createSnapshot(args.seededName, 600);
     return null;
   },
 });

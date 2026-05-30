@@ -14,6 +14,7 @@ export {
   runStartupCommands,
   startupCommandsMarkerExists,
   runBackgroundCommands,
+  runStopCommands,
   getPreviewUrl,
   prepareSandbox,
   createOrResumeSandbox,

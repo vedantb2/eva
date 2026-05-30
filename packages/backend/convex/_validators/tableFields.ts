@@ -162,6 +162,14 @@ export const githubRepoFields = {
   screenshotsVideosEnabled: v.optional(v.boolean()),
   startupCommands: v.optional(v.array(v.string())),
   backgroundCommands: v.optional(v.array(v.string())),
+  // Clean-shutdown commands run before snapshotting a seeded sandbox so on-disk
+  // volumes (e.g. local Postgres) flush consistently. Used by the seeded-snapshot
+  // build stage; not run on normal sandbox starts.
+  stopCommands: v.optional(v.array(v.string())),
+  // Name of this app's seeded running-sandbox snapshot (filesystem snapshot with
+  // the DB already seeded), set by the seeded-snapshot build when it succeeds.
+  // Preferred over the base Image snapshot at sandbox-create time for fast starts.
+  seededSnapshotName: v.optional(v.string()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   systemPrompt: v.optional(v.string()),

@@ -5,6 +5,8 @@ export {
   saveRepoSnapshot,
   setSnapshotEnabled,
   deleteRepoSnapshot,
+  getSeedableAppRepos,
+  setSeededSnapshotName,
 } from "./_repoSnapshots/config";
 
 export {
@@ -21,5 +23,6 @@ export {
 export {
   getStartupCommands,
   getBackgroundCommands,
+  getStopCommands,
   getRepo,
 } from "./_repoSnapshots/repoMetadata";

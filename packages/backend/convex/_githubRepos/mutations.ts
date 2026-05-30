@@ -172,6 +172,7 @@ export const updateConfig = authMutation({
     devCommand: v.optional(v.string()),
     startupCommands: v.optional(v.array(v.string())),
     backgroundCommands: v.optional(v.array(v.string())),
+    stopCommands: v.optional(v.array(v.string())),
     systemPrompt: v.optional(v.string()),
   },
   returns: v.null(),
@@ -259,6 +260,13 @@ export const updateConfig = authMutation({
           args.backgroundCommands.length > 0
             ? args.backgroundCommands
             : undefined,
+      });
+    }
+
+    if (args.stopCommands !== undefined) {
+      await ctx.db.patch(args.repoId, {
+        stopCommands:
+          args.stopCommands.length > 0 ? args.stopCommands : undefined,
       });
     }
 

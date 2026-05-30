@@ -50,10 +50,7 @@ export const VideoPlayer = ({
   ...props
 }: VideoPlayerProps) => (
   <MediaController
-    className={cn(
-      "overflow-hidden rounded-xl ring-1 ring-white/5 shadow-lg shadow-black/20",
-      className,
-    )}
+    className={cn("overflow-hidden rounded-xl ring-1 ring-white/5", className)}
     style={{
       ...variables,
       ...style,

@@ -44,7 +44,7 @@ export function MentionPickerPopup<TItem extends { id: string }>({
       aria-label={title}
       className={
         "fixed z-50 flex flex-col overflow-hidden rounded-lg border border-border/70 " +
-        "bg-popover/95 text-popover-foreground shadow-lg backdrop-blur-sm " +
+        "bg-popover/95 text-popover-foreground shadow-sm backdrop-blur-sm " +
         "animate-in fade-in-0 zoom-in-95 duration-150 " +
         slideClass
       }

@@ -44,7 +44,7 @@ export function ConfigClient() {
   return (
     <PageWrapper title="Config" comfortable>
       <div className="space-y-4">
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-lg bg-card p-3 space-y-4 sm:p-4">
           <h3 className="text-sm font-medium">Repository Configuration</h3>
 
           <div className="grid gap-4">
@@ -128,7 +128,7 @@ export function ConfigClient() {
               </p>
             </div>
 
-            <div className="rounded-md bg-muted/40 p-3 space-y-4">
+            <div className="rounded-md bg-muted p-3 space-y-4">
               <div className="flex items-start gap-3">
                 <Checkbox
                   checked={repo.screenshotsVideosEnabled ?? false}
@@ -252,7 +252,7 @@ function DomainsSection() {
   };
 
   return (
-    <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+    <div className="rounded-lg bg-card p-3 space-y-4 sm:p-4">
       <div>
         <h3 className="text-sm font-medium">Domains</h3>
         <p className="mt-1 text-[11px] text-muted-foreground">

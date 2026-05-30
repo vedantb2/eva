@@ -4,7 +4,6 @@ import { internal } from "../_generated/api";
 import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
-  snapshotWarmupStatusValidator,
 } from "../validators";
 import { authQuery, authMutation } from "../functions";
 import { workflow } from "../workflowManager";
@@ -28,8 +27,6 @@ export const listBuilds = authQuery({
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
-      warmupStatus: v.optional(snapshotWarmupStatusValidator),
-      warmupError: v.optional(v.string()),
     }),
   ),
   handler: async (ctx, args) => {
@@ -60,8 +57,6 @@ export const getBuild = authQuery({
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
-      warmupStatus: v.optional(snapshotWarmupStatusValidator),
-      warmupError: v.optional(v.string()),
     }),
     v.null(),
   ),

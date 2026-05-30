@@ -15,7 +15,6 @@ import {
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
-  snapshotWarmupStatusValidator,
   teamMemberRoleValidator,
   customThemeValidator,
   webhookEventStatusValidator,
@@ -286,8 +285,6 @@ const schema = defineSchema({
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
     retryCount: v.optional(v.number()),
-    warmupStatus: v.optional(snapshotWarmupStatusValidator),
-    warmupError: v.optional(v.string()),
   })
     .index("by_repo_snapshot", ["repoSnapshotId"])
     .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])

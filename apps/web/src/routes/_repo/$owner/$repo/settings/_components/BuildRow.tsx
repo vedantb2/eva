@@ -21,8 +21,6 @@ export function BuildRow({
     error?: string;
     startedAt: number;
     completedAt?: number;
-    warmupStatus?: "pending" | "success" | "error";
-    warmupError?: string;
   };
   isExpanded: boolean;
   duration: string;
@@ -51,21 +49,13 @@ export function BuildRow({
         <td className="px-2 py-2 sm:px-4">
           <BuildStatusBadge status={build.status} />
         </td>
-        <td className="px-2 py-2 sm:px-4">
-          <WarmupStatusBadge status={build.warmupStatus} />
-        </td>
       </tr>
       {isExpanded && (
         <tr>
-          <td colSpan={6} className="px-4 py-3">
+          <td colSpan={5} className="px-4 py-3">
             {build.error && (
               <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {build.error}
-              </div>
-            )}
-            {build.warmupError && (
-              <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                Warmup failed: {build.warmupError}
               </div>
             )}
             {build.logs ? (
@@ -109,38 +99,6 @@ export function BuildStatusBadge({
     <span className="inline-flex items-center gap-1 text-destructive">
       <IconX size={12} />
       Error
-    </span>
-  );
-}
-
-export function WarmupStatusBadge({
-  status,
-}: {
-  status?: "pending" | "success" | "error";
-}) {
-  if (!status) {
-    return <span className="text-muted-foreground">&mdash;</span>;
-  }
-  if (status === "pending") {
-    return (
-      <span className="inline-flex items-center gap-1 text-blue-500">
-        <IconClock size={12} />
-        Pending
-      </span>
-    );
-  }
-  if (status === "success") {
-    return (
-      <span className="inline-flex items-center gap-1 text-green-500">
-        <IconCheck size={12} />
-        Warmed
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-destructive">
-      <IconX size={12} />
-      Failed
     </span>
   );
 }

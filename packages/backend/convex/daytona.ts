@@ -1,7 +1,6 @@
 "use node";
 
 export {
-  warmSnapshotCache,
   killSandboxProcess,
   stopSandbox,
   deleteSandbox,

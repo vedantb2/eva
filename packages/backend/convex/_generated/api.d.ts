@@ -69,6 +69,7 @@ import type * as _mentions_skillToken from "../_mentions/skillToken.js";
 import type * as _migrations_cleanup from "../_migrations/cleanup.js";
 import type * as _migrations_deleteRepos from "../_migrations/deleteRepos.js";
 import type * as _migrations_deploymentUrl from "../_migrations/deploymentUrl.js";
+import type * as _migrations_dropWarmupFields from "../_migrations/dropWarmupFields.js";
 import type * as _migrations_logProjectIds from "../_migrations/logProjectIds.js";
 import type * as _migrations_projectInterview from "../_migrations/projectInterview.js";
 import type * as _migrations_projectPhases from "../_migrations/projectPhases.js";
@@ -291,6 +292,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/cleanup": typeof _migrations_cleanup;
   "_migrations/deleteRepos": typeof _migrations_deleteRepos;
   "_migrations/deploymentUrl": typeof _migrations_deploymentUrl;
+  "_migrations/dropWarmupFields": typeof _migrations_dropWarmupFields;
   "_migrations/logProjectIds": typeof _migrations_logProjectIds;
   "_migrations/projectInterview": typeof _migrations_projectInterview;
   "_migrations/projectPhases": typeof _migrations_projectPhases;

@@ -173,7 +173,7 @@ export const startBuild = authMutation({
   },
 });
 
-/** Marks a build as complete (success/error), triggers warmup on success or retries on cron failure. */
+/** Marks a build as complete (success/error); retries on cron failure. */
 export const completeBuild = internalMutation({
   args: {
     buildId: v.id("snapshotBuilds"),
@@ -195,16 +195,6 @@ export const completeBuild = internalMutation({
       error: args.error,
       completedAt: Date.now(),
     });
-    if (args.status === "success") {
-      const snapshot = await ctx.db.get(build.repoSnapshotId);
-      if (snapshot) {
-        await ctx.db.patch(args.buildId, { warmupStatus: "pending" });
-        await ctx.scheduler.runAfter(0, internal.daytona.warmSnapshotCache, {
-          repoId: snapshot.repoId,
-          buildId: args.buildId,
-        });
-      }
-    }
     if (
       args.status === "error" &&
       build.triggeredBy === "cron" &&
@@ -229,25 +219,6 @@ export const completeBuild = internalMutation({
         },
       );
     }
-    return null;
-  },
-});
-
-/** Updates the warmup status and optional error for a snapshot build. */
-export const updateWarmupStatus = internalMutation({
-  args: {
-    buildId: v.id("snapshotBuilds"),
-    status: snapshotWarmupStatusValidator,
-    error: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const build = await ctx.db.get(args.buildId);
-    if (!build) return null;
-    await ctx.db.patch(args.buildId, {
-      warmupStatus: args.status,
-      warmupError: args.error,
-    });
     return null;
   },
 });

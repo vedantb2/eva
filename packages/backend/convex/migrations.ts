@@ -13,3 +13,4 @@ export {
   migrateProjectPhases,
   repairStuckProjectPhases,
 } from "./_migrations/projectPhases";
+export { dropWarmupFields } from "./_migrations/dropWarmupFields";

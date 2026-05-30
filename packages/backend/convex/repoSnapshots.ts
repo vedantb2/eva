@@ -16,7 +16,6 @@ export {
   triggerScheduledBuild,
   startBuild,
   completeBuild,
-  updateWarmupStatus,
   appendLogs,
 } from "./_repoSnapshots/builds";
 

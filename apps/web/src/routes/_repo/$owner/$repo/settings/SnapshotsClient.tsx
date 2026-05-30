@@ -35,11 +35,7 @@ import {
 import { formatDurationMs } from "@conductor/shared/duration";
 import { parseCommandLines, formatFileSize } from "./_utils";
 import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
-import {
-  BuildRow,
-  BuildStatusBadge,
-  WarmupStatusBadge,
-} from "./_components/BuildRow";
+import { BuildRow, BuildStatusBadge } from "./_components/BuildRow";
 
 export function SnapshotsClient({
   activeTab,
@@ -306,12 +302,6 @@ export function SnapshotsClient({
                         <BuildStatusBadge status={lastBuild.status} />
                       </p>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Warmup</span>
-                      <p className="mt-0.5">
-                        <WarmupStatusBadge status={lastBuild.warmupStatus} />
-                      </p>
-                    </div>
                   </>
                 )}
               </div>
@@ -355,7 +345,6 @@ export function SnapshotsClient({
                       </th>
                       <th className="px-2 py-2 font-medium sm:px-4">Trigger</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Status</th>
-                      <th className="px-2 py-2 font-medium sm:px-4">Warmup</th>
                     </tr>
                   </thead>
                   <tbody>

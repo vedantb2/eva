@@ -71,21 +71,23 @@ export function BuildRow({
             {build.seededApps && build.seededApps.length > 0 && (
               <div className="mb-2 space-y-1 text-xs">
                 {build.seededApps.map((a) => (
-                  <div key={a.repoId} className="flex items-center gap-2">
+                  <div key={a.repoId} className="flex items-start gap-2">
                     {a.seededSnapshotName ? (
                       <>
-                        <span className="inline-flex items-center gap-1 text-green-500">
-                          <IconCheck size={12} />
+                        <span className="inline-flex shrink-0 items-center gap-1 text-green-500">
+                          <IconCheck size={12} className="shrink-0" />
                           {a.app ?? a.repoId}
                         </span>
-                        <span className="font-mono text-muted-foreground">
+                        <span className="min-w-0 font-mono break-all text-muted-foreground">
                           {a.seededSnapshotName}
                         </span>
                       </>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                        <IconX size={12} />
-                        {a.app ?? a.repoId} — fell back to base Image
+                      <span className="inline-flex items-start gap-1 text-muted-foreground">
+                        <IconX size={12} className="mt-0.5 shrink-0" />
+                        <span className="break-words">
+                          {a.app ?? a.repoId} — fell back to base Image
+                        </span>
                       </span>
                     )}
                   </div>

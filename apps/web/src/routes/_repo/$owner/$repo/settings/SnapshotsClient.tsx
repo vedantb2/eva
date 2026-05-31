@@ -346,20 +346,20 @@ export function SnapshotsClient({
                     {seededApps.map((app) => (
                       <div
                         key={app.repoId}
-                        className="flex items-center justify-between gap-3"
+                        className="flex items-start justify-between gap-3"
                       >
-                        <span className="font-medium">
+                        <span className="font-medium shrink-0">
                           {app.app ?? app.name}
                         </span>
                         {app.seededSnapshotName ? (
-                          <span className="inline-flex items-center gap-1 text-green-500">
-                            <IconCheck size={12} />
-                            <span className="font-mono">
+                          <span className="inline-flex min-w-0 items-start gap-1 text-green-500">
+                            <IconCheck size={12} className="mt-0.5 shrink-0" />
+                            <span className="min-w-0 font-mono break-all">
                               {app.seededSnapshotName}
                             </span>
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">
+                          <span className="shrink-0 text-muted-foreground">
                             Using base Image
                           </span>
                         )}

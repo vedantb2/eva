@@ -227,6 +227,12 @@ export const snapshotBuildWorkflow = workflow.define({
                 seededSnapshotName: seededName,
               },
             );
+            // Record the success on the build record for the history view.
+            await step.runMutation(internal.repoSnapshots.recordSeededApp, {
+              buildId: args.buildId,
+              repoId: app.repoId,
+              seededSnapshotName: seededName,
+            });
           } catch (e) {
             console.error(
               `[snapshot] seeded build failed for ${app.repoId}: ${e instanceof Error ? e.message : String(e)}`,
@@ -239,6 +245,12 @@ export const snapshotBuildWorkflow = workflow.define({
               });
             }
             // seededSnapshotName stays cleared → app uses the base Image snapshot.
+            // Record the fallback (null) on the build record for the history view.
+            await step.runMutation(internal.repoSnapshots.recordSeededApp, {
+              buildId: args.buildId,
+              repoId: app.repoId,
+              seededSnapshotName: null,
+            });
           }
         }),
       );

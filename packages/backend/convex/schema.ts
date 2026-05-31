@@ -16,6 +16,7 @@ import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
   snapshotWarmupStatusValidator,
+  seededAppResultValidator,
   teamMemberRoleValidator,
   customThemeValidator,
   webhookEventStatusValidator,
@@ -288,6 +289,8 @@ const schema = defineSchema({
     retryCount: v.optional(v.number()),
     warmupStatus: v.optional(snapshotWarmupStatusValidator),
     warmupError: v.optional(v.string()),
+    // Per-app seeding outcomes captured during Step 5 of the build workflow.
+    seededApps: v.optional(v.array(seededAppResultValidator)),
   })
     .index("by_repo_snapshot", ["repoSnapshotId"])
     .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])

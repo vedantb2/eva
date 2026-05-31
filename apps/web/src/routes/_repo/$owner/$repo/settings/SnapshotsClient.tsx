@@ -28,6 +28,7 @@ import {
 } from "@/lib/components/CronScheduleCard";
 import {
   IconCamera,
+  IconCheck,
   IconPlayerPlay,
   IconTrash,
   IconUpload,
@@ -47,6 +48,10 @@ export function SnapshotsClient({
   const snapshot = useQuery(api.repoSnapshots.getRepoSnapshot, { repoId });
   const builds = useQuery(
     api.repoSnapshots.listBuilds,
+    snapshot ? { repoSnapshotId: snapshot._id } : "skip",
+  );
+  const seededApps = useQuery(
+    api.repoSnapshots.getSeededAppStatus,
     snapshot ? { repoSnapshotId: snapshot._id } : "skip",
   );
   const saveRepoSnapshot = useMutation(api.repoSnapshots.saveRepoSnapshot);
@@ -255,69 +260,115 @@ export function SnapshotsClient({
 
         <TabsContent value="status" className="space-y-6">
           {snapshot ? (
-            <div className="rounded-lg bg-muted/40 p-4 space-y-3">
-              <h3 className="text-sm font-medium">Current Status</h3>
-              <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 sm:gap-4">
-                <div>
-                  <span className="text-muted-foreground">Snapshot Name</span>
-                  <p className="font-mono mt-0.5">{snapshot.snapshotName}</p>
+            <>
+              <div className="rounded-lg bg-muted/40 p-4 space-y-3">
+                <h3 className="text-sm font-medium">Current Status</h3>
+                <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 sm:gap-4">
+                  <div>
+                    <span className="text-muted-foreground">Snapshot Name</span>
+                    <p className="font-mono mt-0.5">{snapshot.snapshotName}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Schedule</span>
+                    <p className="mt-0.5">
+                      {snapshot.schedule === "manual"
+                        ? "Manual"
+                        : (() => {
+                            const result = describeCron(snapshot.schedule);
+                            return result.valid
+                              ? result.text
+                              : snapshot.schedule;
+                          })()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Clone Branch</span>
+                    <p className="font-mono mt-0.5">
+                      {snapshot.workflowRef ?? "main"}
+                    </p>
+                  </div>
+                  {lastBuild && (
+                    <>
+                      <div>
+                        <span className="text-muted-foreground">
+                          Last Build
+                        </span>
+                        <p className="mt-0.5">
+                          {new Date(lastBuild.startedAt).toLocaleDateString(
+                            "en-GB",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            },
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Status</span>
+                        <p className="mt-0.5">
+                          <BuildStatusBadge status={lastBuild.status} />
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Schedule</span>
-                  <p className="mt-0.5">
-                    {snapshot.schedule === "manual"
-                      ? "Manual"
-                      : (() => {
-                          const result = describeCron(snapshot.schedule);
-                          return result.valid ? result.text : snapshot.schedule;
-                        })()}
+                <Button
+                  size="sm"
+                  onClick={handleRebuild}
+                  disabled={building || isRunning}
+                >
+                  {isRunning ? (
+                    <Spinner size="sm" className="mr-1.5" />
+                  ) : (
+                    <IconPlayerPlay size={14} className="mr-1.5" />
+                  )}
+                  {isRunning ? "Building..." : "Rebuild Now"}
+                </Button>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-4 space-y-3">
+                <h3 className="text-sm font-medium">Seeded Snapshots</h3>
+                <p className="text-xs text-muted-foreground">
+                  Per-app running-sandbox snapshots with the DB already seeded.
+                  Apps without one fall back to the base Image (slower cold
+                  start).
+                </p>
+                {seededApps === undefined ? (
+                  <p className="text-xs text-muted-foreground">Loading…</p>
+                ) : seededApps.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No seedable apps for this snapshot.
                   </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Clone Branch</span>
-                  <p className="font-mono mt-0.5">
-                    {snapshot.workflowRef ?? "main"}
-                  </p>
-                </div>
-                {lastBuild && (
-                  <>
-                    <div>
-                      <span className="text-muted-foreground">Last Build</span>
-                      <p className="mt-0.5">
-                        {new Date(lastBuild.startedAt).toLocaleDateString(
-                          "en-GB",
-                          {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          },
+                ) : (
+                  <div className="space-y-2 text-xs">
+                    {seededApps.map((app) => (
+                      <div
+                        key={app.repoId}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <span className="font-medium">
+                          {app.app ?? app.name}
+                        </span>
+                        {app.seededSnapshotName ? (
+                          <span className="inline-flex items-center gap-1 text-green-500">
+                            <IconCheck size={12} />
+                            <span className="font-mono">
+                              {app.seededSnapshotName}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            Using base Image
+                          </span>
                         )}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Status</span>
-                      <p className="mt-0.5">
-                        <BuildStatusBadge status={lastBuild.status} />
-                      </p>
-                    </div>
-                  </>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-              <Button
-                size="sm"
-                onClick={handleRebuild}
-                disabled={building || isRunning}
-              >
-                {isRunning ? (
-                  <Spinner size="sm" className="mr-1.5" />
-                ) : (
-                  <IconPlayerPlay size={14} className="mr-1.5" />
-                )}
-                {isRunning ? "Building..." : "Rebuild Now"}
-              </Button>
-            </div>
+            </>
           ) : (
             <div className="rounded-lg bg-muted/40 p-8 text-center">
               <p className="text-sm text-muted-foreground">
@@ -345,6 +396,7 @@ export function SnapshotsClient({
                       </th>
                       <th className="px-2 py-2 font-medium sm:px-4">Trigger</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Status</th>
+                      <th className="px-2 py-2 font-medium sm:px-4">Seeded</th>
                     </tr>
                   </thead>
                   <tbody>

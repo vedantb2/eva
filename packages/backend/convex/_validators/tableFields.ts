@@ -138,6 +138,15 @@ export const repoSkillFields = {
   createdAt: v.number(),
 };
 
+// Per-app outcome of a seeded-snapshot build (recorded per snapshotBuild during
+// Step 5). seededSnapshotName is the captured snapshot name on success, or null
+// when that app's seeding failed and it fell back to the base Image.
+export const seededAppResultValidator = v.object({
+  repoId: v.id("githubRepos"),
+  app: v.optional(v.string()),
+  seededSnapshotName: v.union(v.string(), v.null()),
+});
+
 export const githubRepoFields = {
   owner: v.string(),
   name: v.string(),

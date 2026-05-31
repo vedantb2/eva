@@ -110,28 +110,69 @@ export const getRepoSnapshotName = internalQuery({
  * the lone repo qualifies (it parents nobody). For carepulse this yields web +
  * eprocurement, excluding the parent root.
  */
+/**
+ * Shared resolver for the seedable app repos of a snapshot config (see
+ * getSeedableAppRepos doc for the rule). Returns the full repo docs so callers
+ * can read display fields / seededSnapshotName.
+ */
+export async function findSeedableAppRepos(
+  db: GenericDatabaseReader<DataModel>,
+  repoSnapshotId: Id<"repoSnapshots">,
+): Promise<Doc<"githubRepos">[]> {
+  const config = await db.get(repoSnapshotId);
+  if (!config) return [];
+  const configRepo = await db.get(config.repoId);
+  if (!configRepo) return [];
+  const siblings = await db
+    .query("githubRepos")
+    .withIndex("by_owner_and_name", (q) =>
+      q.eq("owner", configRepo.owner).eq("name", configRepo.name),
+    )
+    .collect();
+  // Repos that are a monorepo parent of another sibling — skip these.
+  const parentIds = new Set<Id<"githubRepos">>();
+  for (const r of siblings) {
+    if (r.parentRepoId) parentIds.add(r.parentRepoId);
+  }
+  return siblings.filter(
+    (r) => (r.stopCommands?.length ?? 0) > 0 && !parentIds.has(r._id),
+  );
+}
+
 export const getSeedableAppRepos = internalQuery({
   args: { repoSnapshotId: v.id("repoSnapshots") },
   returns: v.array(v.object({ repoId: v.id("githubRepos") })),
   handler: async (ctx, args) => {
-    const config = await ctx.db.get(args.repoSnapshotId);
-    if (!config) return [];
-    const configRepo = await ctx.db.get(config.repoId);
-    if (!configRepo) return [];
-    const siblings = await ctx.db
-      .query("githubRepos")
-      .withIndex("by_owner_and_name", (q) =>
-        q.eq("owner", configRepo.owner).eq("name", configRepo.name),
-      )
-      .collect();
-    // Repos that are a monorepo parent of another sibling — skip these.
-    const parentIds = new Set<Id<"githubRepos">>();
-    for (const r of siblings) {
-      if (r.parentRepoId) parentIds.add(r.parentRepoId);
-    }
-    return siblings
-      .filter((r) => (r.stopCommands?.length ?? 0) > 0 && !parentIds.has(r._id))
-      .map((r) => ({ repoId: r._id }));
+    const apps = await findSeedableAppRepos(ctx.db, args.repoSnapshotId);
+    return apps.map((r) => ({ repoId: r._id }));
+  },
+});
+
+/**
+ * Current per-app seeded-snapshot state for a snapshot config: each seedable app
+ * with its live seededSnapshotName (null = falling back to the base Image).
+ * Used by the snapshot status tab.
+ */
+export const getSeededAppStatus = authQuery({
+  args: { repoSnapshotId: v.id("repoSnapshots") },
+  returns: v.array(
+    v.object({
+      repoId: v.id("githubRepos"),
+      app: v.optional(v.string()),
+      owner: v.string(),
+      name: v.string(),
+      seededSnapshotName: v.union(v.string(), v.null()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const apps = await findSeedableAppRepos(ctx.db, args.repoSnapshotId);
+    return apps.map((r) => ({
+      repoId: r._id,
+      app: r.rootDirectory,
+      owner: r.owner,
+      name: r.name,
+      seededSnapshotName: r.seededSnapshotName ?? null,
+    }));
   },
 });
 

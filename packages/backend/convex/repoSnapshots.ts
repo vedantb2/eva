@@ -6,6 +6,7 @@ export {
   setSnapshotEnabled,
   deleteRepoSnapshot,
   getSeedableAppRepos,
+  getSeededAppStatus,
   setSeededSnapshotName,
 } from "./_repoSnapshots/config";
 
@@ -17,6 +18,7 @@ export {
   startBuild,
   completeBuild,
   appendLogs,
+  recordSeededApp,
 } from "./_repoSnapshots/builds";
 
 export {

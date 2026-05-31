@@ -187,6 +187,14 @@ export const snapshotBuildWorkflow = workflow.define({
           const seededName = `seeded-${app.repoId}`;
           let prepSandboxId: string | null = null;
           try {
+            // Mark this app as actively seeding so the UI shows a spinner until
+            // it resolves to seeded/fallback below.
+            await step.runMutation(internal.repoSnapshots.recordSeededApp, {
+              buildId: args.buildId,
+              repoId: app.repoId,
+              status: "running",
+              seededSnapshotName: null,
+            });
             // Clear first so live sandboxes fall back to the Image during rebuild.
             await step.runMutation(
               internal.repoSnapshots.setSeededSnapshotName,
@@ -301,6 +309,7 @@ export const snapshotBuildWorkflow = workflow.define({
             await step.runMutation(internal.repoSnapshots.recordSeededApp, {
               buildId: args.buildId,
               repoId: app.repoId,
+              status: "seeded",
               seededSnapshotName: seededName,
             });
           } catch (e) {
@@ -315,10 +324,11 @@ export const snapshotBuildWorkflow = workflow.define({
               });
             }
             // seededSnapshotName stays cleared → app uses the base Image snapshot.
-            // Record the fallback (null) on the build record for the history view.
+            // Record the fallback on the build record for the history view.
             await step.runMutation(internal.repoSnapshots.recordSeededApp, {
               buildId: args.buildId,
               repoId: app.repoId,
+              status: "fallback",
               seededSnapshotName: null,
             });
           }

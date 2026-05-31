@@ -6,6 +6,7 @@ import {
   snapshotBuildTriggerValidator,
   snapshotWarmupStatusValidator,
   seededAppResultValidator,
+  seededAppStatusValidator,
 } from "../validators";
 import { authQuery, authMutation } from "../functions";
 import { workflow } from "../workflowManager";
@@ -253,6 +254,7 @@ export const recordSeededApp = internalMutation({
   args: {
     buildId: v.id("snapshotBuilds"),
     repoId: v.id("githubRepos"),
+    status: seededAppStatusValidator,
     seededSnapshotName: v.union(v.string(), v.null()),
   },
   returns: v.null(),
@@ -265,6 +267,7 @@ export const recordSeededApp = internalMutation({
       {
         repoId: args.repoId,
         app: repo?.rootDirectory,
+        status: args.status,
         seededSnapshotName: args.seededSnapshotName,
       },
     ];

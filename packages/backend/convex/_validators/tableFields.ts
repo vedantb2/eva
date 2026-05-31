@@ -138,12 +138,23 @@ export const repoSkillFields = {
   createdAt: v.number(),
 };
 
+// Lifecycle of a single app's seeded-snapshot build within Step 5: actively
+// seeding, captured successfully, or fell back to the base Image.
+export const seededAppStatusValidator = v.union(
+  v.literal("running"),
+  v.literal("seeded"),
+  v.literal("fallback"),
+);
+
 // Per-app outcome of a seeded-snapshot build (recorded per snapshotBuild during
-// Step 5). seededSnapshotName is the captured snapshot name on success, or null
-// when that app's seeding failed and it fell back to the base Image.
+// Step 5). status tracks the lifecycle (running while in progress); is optional
+// for build records created before the field existed (treat absent as terminal,
+// inferred from seededSnapshotName). seededSnapshotName is the captured snapshot
+// name on success, or null while running / when it fell back to the base Image.
 export const seededAppResultValidator = v.object({
   repoId: v.id("githubRepos"),
   app: v.optional(v.string()),
+  status: v.optional(seededAppStatusValidator),
   seededSnapshotName: v.union(v.string(), v.null()),
 });
 

@@ -4,14 +4,21 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconClock,
+  IconLoader2,
   IconX,
 } from "@tabler/icons-react";
 
 type SeededAppResult = {
   repoId: Id<"githubRepos">;
   app?: string;
+  status?: "running" | "seeded" | "fallback";
   seededSnapshotName: string | null;
 };
+
+/** A per-app entry counts as seeded by explicit status, or (legacy rows) by name. */
+function isSeededEntry(a: SeededAppResult): boolean {
+  return a.status ? a.status === "seeded" : a.seededSnapshotName !== null;
+}
 
 export function BuildRow({
   build,
@@ -72,7 +79,15 @@ export function BuildRow({
               <div className="mb-2 space-y-1 text-xs">
                 {build.seededApps.map((a) => (
                   <div key={a.repoId} className="flex items-start gap-2">
-                    {a.seededSnapshotName ? (
+                    {a.status === "running" ? (
+                      <span className="inline-flex items-center gap-1 text-blue-500">
+                        <IconLoader2
+                          size={12}
+                          className="shrink-0 animate-spin"
+                        />
+                        {a.app ?? a.repoId} — seeding…
+                      </span>
+                    ) : a.seededSnapshotName ? (
                       <>
                         <span className="inline-flex shrink-0 items-center gap-1 text-green-500">
                           <IconCheck size={12} className="shrink-0" />
@@ -145,7 +160,16 @@ function SeededSummary({ seededApps }: { seededApps?: SeededAppResult[] }) {
     return <span className="text-muted-foreground">&mdash;</span>;
   }
   const total = seededApps.length;
-  const seeded = seededApps.filter((a) => a.seededSnapshotName).length;
+  const seeded = seededApps.filter(isSeededEntry).length;
+  // Still seeding: show a spinner with progress so far.
+  if (seededApps.some((a) => a.status === "running")) {
+    return (
+      <span className="inline-flex items-center gap-1 text-blue-500">
+        <IconLoader2 size={12} className="animate-spin" />
+        {seeded}/{total}
+      </span>
+    );
+  }
   const color =
     seeded === total
       ? "text-green-500"

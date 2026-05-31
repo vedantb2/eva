@@ -124,6 +124,16 @@ export function SnapshotsClient({
   const isRunning =
     builds && builds.length > 0 && builds[0].status === "running";
   const lastBuild = builds && builds.length > 0 ? builds[0] : null;
+  // Base image is marked success before Step 5 seeding runs, so "in progress"
+  // must also cover an ongoing seed (any app still in the "running" state).
+  const isSeeding = (lastBuild?.seededApps ?? []).some(
+    (a) => a.status === "running",
+  );
+  const seedingRepoIds = new Set(
+    (lastBuild?.seededApps ?? [])
+      .filter((a) => a.status === "running")
+      .map((a) => a.repoId),
+  );
 
   const handleSnapshotsTabChange = useCallback(
     (value: string) => {
@@ -318,14 +328,18 @@ export function SnapshotsClient({
                 <Button
                   size="sm"
                   onClick={handleRebuild}
-                  disabled={building || isRunning}
+                  disabled={building || isRunning || isSeeding}
                 >
-                  {isRunning ? (
+                  {building || isRunning || isSeeding ? (
                     <Spinner size="sm" className="mr-1.5" />
                   ) : (
                     <IconPlayerPlay size={14} className="mr-1.5" />
                   )}
-                  {isRunning ? "Building..." : "Rebuild Now"}
+                  {building || isRunning
+                    ? "Building..."
+                    : isSeeding
+                      ? "Seeding..."
+                      : "Rebuild Now"}
                 </Button>
               </div>
               <div className="rounded-lg bg-muted/40 p-4 space-y-3">
@@ -351,7 +365,12 @@ export function SnapshotsClient({
                         <span className="font-medium shrink-0">
                           {app.app ?? app.name}
                         </span>
-                        {app.seededSnapshotName ? (
+                        {seedingRepoIds.has(app.repoId) ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 text-blue-500">
+                            <Spinner size="sm" />
+                            Seeding…
+                          </span>
+                        ) : app.seededSnapshotName ? (
                           <span className="inline-flex min-w-0 items-start gap-1 text-green-500">
                             <IconCheck size={12} className="mt-0.5 shrink-0" />
                             <span className="min-w-0 font-mono break-all">

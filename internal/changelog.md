@@ -1,5 +1,17 @@
 # Changelog
 
+## Seeded running-sandbox snapshots for fast cold starts - 2026-05-31
+
+- Bake the seeded local database into per-app Daytona filesystem snapshots so new sandboxes skip the ~10-minute Supabase and Convex seed on every start.
+- Added per-app Stop Commands to app settings, and clarified Startup commands (seed, run once) versus Background commands (services, run every start).
+- Sandbox prep now runs background services before startup commands so seeding has its dependencies available; sandboxes prefer the app's seeded snapshot when one exists.
+
+## Seeded-snapshot reliability and observability - 2026-05-31
+
+- Gate per-app seeding on a base-image propagation probe so seeding only starts once the freshly built snapshot is actually bootable, fixing "No available runners" failures and silent fallbacks to the base image.
+- Surface per-app seeding outcomes in snapshot settings: the status tab shows each app's current state (seeded with snapshot name, or using the base image), and build history shows per-build results as a seeded/total count with per-app detail on expand.
+- Removed the snapshot-cache warmup pass (now redundant with the propagation probe, which also warms the runner cache) and cleared its orphaned fields from existing build records.
+
 ## Email notifications ready for production - 2026-05-29
 
 - Filtered out spammy task/quick-task run completion notifications from the daily digest so users see only impactful mentions and merged changes (run-finished notifications remain in the in-app bell).

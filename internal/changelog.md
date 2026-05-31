@@ -1,5 +1,9 @@
 # Changelog
 
+## Seeded-snapshot capture polling fix - 2026-05-31
+
+- Fixed seeded-snapshot filesystem capture timeouts by switching from a blocking SDK call to non-blocking trigger-and-poll, preventing silent fallback to the base image when DB volumes exceed the 600s Convex action ceiling.
+
 ## Seeded running-sandbox snapshots for fast cold starts - 2026-05-31
 
 - Bake the seeded local database into per-app Daytona filesystem snapshots so new sandboxes skip the ~10-minute Supabase and Convex seed on every start.

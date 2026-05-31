@@ -18,7 +18,7 @@ import {
   SESSION_LIFECYCLE,
   WARMING_LIFECYCLE,
 } from "./_daytona/git";
-import { Image } from "@daytonaio/sdk";
+import { Image, DaytonaTimeoutError } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
@@ -603,12 +603,30 @@ export const createSeedPrepSandbox = internalAction({
   },
 });
 
+// Trigger timeout (seconds) for the seeded-snapshot capture. The SDK's
+// _experimental_createSnapshot fires the POST then blocks polling the sandbox
+// state until the capture finishes OR this timeout elapses. We keep it small so
+// the trigger action returns quickly (the snapshot keeps building server-side)
+// and the workflow polls completion across separate steps — see
+// triggerSeededSnapshot. Comfortable for the POST; short enough to never near
+// Convex's 600s per-action ceiling.
+const SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC = 30;
+
 /**
- * Seeded-snapshot build step: captures the (clean-stopped) sandbox's filesystem
- * — including the seeded Docker volumes — into a reusable snapshot. Positive
- * timeout: it is the HTTP request timeout (0 would abort immediately).
+ * Seeded-snapshot build — TRIGGER step. Captures the (clean-stopped) sandbox's
+ * filesystem — including the seeded Docker volumes — into a reusable snapshot.
+ *
+ * Non-blocking by design: a seeded snapshot carries the whole seeded DB volume
+ * and its capture routinely runs for many minutes. The SDK helper blocks the
+ * caller polling the sandbox state for the entire capture, which exceeds
+ * Convex's hard 600s action limit — the action gets killed mid-await (the
+ * "unawaited operation" warning) and the app silently drops to the base Image.
+ * Instead we fire the POST with a short timeout so the helper bails fast with a
+ * DaytonaTimeoutError (the snapshot keeps building server-side), then poll
+ * completion in separate workflow steps via pollSeededSnapshotState. Any
+ * non-timeout error is a real failure and propagates to the per-app fallback.
  */
-export const createSeededSnapshot = internalAction({
+export const triggerSeededSnapshot = internalAction({
   args: {
     repoId: v.id("githubRepos"),
     sandboxId: v.string(),
@@ -619,7 +637,38 @@ export const createSeededSnapshot = internalAction({
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
     const daytona = getDaytona(daytonaApiKey);
     const sandbox = await daytona.get(args.sandboxId);
-    await sandbox._experimental_createSnapshot(args.seededName, 600);
+    try {
+      await sandbox._experimental_createSnapshot(
+        args.seededName,
+        SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
+      );
+    } catch (e) {
+      // Expected: the POST fired and the snapshot is still being captured when
+      // the short client-side poll budget elapses. Completion is tracked by the
+      // workflow's pollSeededSnapshotState loop. Anything else (e.g. the sandbox
+      // entered an error state) is a genuine failure — let it propagate.
+      if (!(e instanceof DaytonaTimeoutError)) throw e;
+    }
     return null;
+  },
+});
+
+/**
+ * Seeded-snapshot build — POLL step. Returns the sandbox's current state string.
+ * The sandbox sits in "snapshotting" while the filesystem capture runs and
+ * returns to a "started"/"stopped" state on success, or "error"/"build_failed"
+ * on failure (the same signal the SDK's own waitForSnapshotComplete watches).
+ */
+export const pollSeededSnapshotState = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    sandboxId: v.string(),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const sandbox = await daytona.get(args.sandboxId);
+    return String(sandbox.state);
   },
 });

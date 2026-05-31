@@ -18,7 +18,14 @@ import {
   SESSION_LIFECYCLE,
   WARMING_LIFECYCLE,
 } from "./_daytona/git";
-import { Image, DaytonaTimeoutError } from "@daytonaio/sdk";
+import {
+  getSnapshot,
+  deleteSnapshotByName,
+  waitForSnapshotRemoval,
+  triggerSandboxSnapshot,
+} from "./_daytona/snapshots";
+import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
+import { Image } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
@@ -380,11 +387,16 @@ export const pollSnapshotProgress = internalAction({
     }
 
     const daytona = getDaytona(daytonaApiKey);
-    const snapshot = await daytona.snapshot.get(args.snapshotName);
-    const state = String(snapshot.state);
+    const snapshot = await getSnapshot(daytona, args.snapshotName);
+    if (!snapshot) {
+      // The base snapshot was just kicked off, so a missing one is unexpected;
+      // throw so the workflow step fails (matches the prior get-throws path).
+      throw new Error(`Snapshot ${args.snapshotName} not found`);
+    }
+    const state = snapshot.state;
 
     // Terminal states: fetch build logs and complete the build
-    if (state === "active" || state === "error" || state === "build_failed") {
+    if (isTerminalSnapshotState(state)) {
       // Fetch full build logs from the Daytona API (only on terminal state to avoid wasted calls).
       // Both the URL endpoint AND the returned log-stream URL require Bearer auth.
       let logs = "";
@@ -422,9 +434,7 @@ export const pollSnapshotProgress = internalAction({
         return "active";
       }
 
-      const reason = snapshot.errorReason
-        ? String(snapshot.errorReason)
-        : "Unknown error";
+      const reason = snapshot.errorReason || "Unknown error";
       await ctx.runMutation(internal.repoSnapshots.completeBuild, {
         buildId: args.buildId,
         status: "error",
@@ -473,26 +483,13 @@ export const deleteExistingSnapshot = internalAction({
 
     const daytona = getDaytona(daytonaApiKey);
 
-    try {
-      const existing = await daytona.snapshot.get(args.snapshotName);
-      await daytona.snapshot.delete(existing);
-
+    const deleted = await deleteSnapshotByName(daytona, args.snapshotName);
+    if (deleted) {
       await ctx.runMutation(internal.repoSnapshots.appendLogs, {
         buildId: args.buildId,
         chunk: "Deleting existing snapshot, waiting for removal...\n",
       });
-
-      // Poll until the snapshot is fully removed (get throws on not-found)
-      for (let i = 0; i < 30; i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        try {
-          await daytona.snapshot.get(args.snapshotName);
-        } catch {
-          break;
-        }
-      }
-    } catch {
-      // Snapshot doesn't exist — nothing to delete
+      await waitForSnapshotRemoval(daytona, args.snapshotName);
     }
 
     return null;
@@ -514,12 +511,7 @@ export const deleteDaytonaSnapshot = internalAction({
     }
 
     const daytona = getDaytona(daytonaApiKey);
-    try {
-      const snapshot = await daytona.snapshot.get(args.snapshotName);
-      await daytona.snapshot.delete(snapshot);
-    } catch {
-      // Snapshot may not exist
-    }
+    await deleteSnapshotByName(daytona, args.snapshotName);
     return null;
   },
 });
@@ -636,19 +628,12 @@ export const triggerSeededSnapshot = internalAction({
   handler: async (ctx, args): Promise<null> => {
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
     const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
-    try {
-      await sandbox._experimental_createSnapshot(
-        args.seededName,
-        SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
-      );
-    } catch (e) {
-      // Expected: the POST fired and the snapshot is still being captured when
-      // the short client-side poll budget elapses. Completion is tracked by the
-      // workflow's pollSeededSnapshotState loop. Anything else (e.g. the sandbox
-      // entered an error state) is a genuine failure — let it propagate.
-      if (!(e instanceof DaytonaTimeoutError)) throw e;
-    }
+    await triggerSandboxSnapshot(
+      daytona,
+      args.sandboxId,
+      args.seededName,
+      SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
+    );
     return null;
   },
 });
@@ -673,12 +658,8 @@ export const pollSeededSnapshotState = internalAction({
   handler: async (ctx, args): Promise<string> => {
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
     const daytona = getDaytona(daytonaApiKey);
-    try {
-      const snapshot = await daytona.snapshot.get(args.seededName);
-      return String(snapshot.state);
-    } catch {
-      // Not registered yet (or a transient lookup miss) — treat as still pending.
-      return "pending";
-    }
+    // Not registered yet (or a transient lookup miss) → treat as still pending.
+    const snapshot = await getSnapshot(daytona, args.seededName);
+    return snapshot ? snapshot.state : "pending";
   },
 });

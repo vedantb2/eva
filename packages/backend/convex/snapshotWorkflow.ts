@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
+import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
 
 const POLL_DELAY_MS = 30_000;
 const MAX_POLLS = 60; // ~30 minutes at 30s intervals
@@ -21,9 +22,6 @@ const MAX_PROBE_ATTEMPTS = 20; // ~10 minutes at 30s intervals
 // a reliable completion signal.
 const SEED_SNAPSHOT_POLL_DELAY_MS = 30_000;
 const MAX_SEED_SNAPSHOT_POLLS = 60; // ~30 minutes at 30s intervals
-
-/** Terminal snapshot states that end the poll loop. */
-const TERMINAL_STATES = ["active", "error", "build_failed"];
 
 /**
  * Workflow that orchestrates a full Daytona snapshot build:
@@ -97,11 +95,11 @@ export const snapshotBuildWorkflow = workflow.define({
 
       state = pollResult;
 
-      if (TERMINAL_STATES.includes(state)) break;
+      if (isTerminalSnapshotState(state)) break;
     }
 
     // Step 4: Finalize — if we exhausted polls without terminal state, mark timeout
-    if (!TERMINAL_STATES.includes(state)) {
+    if (!isTerminalSnapshotState(state)) {
       await step.runMutation(internal.repoSnapshots.completeBuild, {
         buildId: args.buildId,
         status: "error",
@@ -271,9 +269,7 @@ export const snapshotBuildWorkflow = workflow.define({
             for (
               let pollAttempt = 1;
               pollAttempt <= MAX_SEED_SNAPSHOT_POLLS &&
-              snapState !== "active" &&
-              snapState !== "error" &&
-              snapState !== "build_failed";
+              !isTerminalSnapshotState(snapState);
               pollAttempt++
             ) {
               snapState = await step.runAction(

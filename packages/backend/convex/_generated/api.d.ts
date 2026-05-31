@@ -43,6 +43,8 @@ import type * as _daytona_previewProxy from "../_daytona/previewProxy.js";
 import type * as _daytona_runDevServer from "../_daytona/runDevServer.js";
 import type * as _daytona_services from "../_daytona/services.js";
 import type * as _daytona_sessions from "../_daytona/sessions.js";
+import type * as _daytona_snapshotStates from "../_daytona/snapshotStates.js";
+import type * as _daytona_snapshots from "../_daytona/snapshots.js";
 import type * as _daytona_volumes from "../_daytona/volumes.js";
 import type * as _deployment_vercel from "../_deployment/vercel.js";
 import type * as _designSessions_execution from "../_designSessions/execution.js";
@@ -266,6 +268,8 @@ declare const fullApi: ApiFromModules<{
   "_daytona/runDevServer": typeof _daytona_runDevServer;
   "_daytona/services": typeof _daytona_services;
   "_daytona/sessions": typeof _daytona_sessions;
+  "_daytona/snapshotStates": typeof _daytona_snapshotStates;
+  "_daytona/snapshots": typeof _daytona_snapshots;
   "_daytona/volumes": typeof _daytona_volumes;
   "_deployment/vercel": typeof _deployment_vercel;
   "_designSessions/execution": typeof _designSessions_execution;

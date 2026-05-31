@@ -9,7 +9,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
-import type { QuickTaskRouteState } from "../_utils/useQuickTaskRouteState";
+import type { QuickTaskRouteState } from "../_utils/-useQuickTaskRouteState";
 
 interface QuickTaskTaskPageContentProps {
   taskId: string;

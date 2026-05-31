@@ -149,6 +149,52 @@ export const getSeedableAppRepos = internalQuery({
 });
 
 /**
+ * Siblings that still carry a seededSnapshotName but are NO LONGER seedable
+ * (e.g. an app that dropped its stopCommands, or the monorepo parent). The
+ * per-app rebuild loop only deletes snapshots for CURRENTLY seedable apps, so
+ * without cleanup an ex-seedable app's seeded-<repoId> snapshot lingers in
+ * Daytona forever. The build workflow uses this to delete those snapshots and
+ * clear the stale name.
+ */
+export const getOrphanedSeededApps = internalQuery({
+  args: { repoSnapshotId: v.id("repoSnapshots") },
+  returns: v.array(
+    v.object({
+      repoId: v.id("githubRepos"),
+      seededSnapshotName: v.string(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const config = await ctx.db.get(args.repoSnapshotId);
+    if (!config) return [];
+    const configRepo = await ctx.db.get(config.repoId);
+    if (!configRepo) return [];
+    const siblings = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", configRepo.owner).eq("name", configRepo.name),
+      )
+      .collect();
+    const seedable = await findSeedableAppRepos(ctx.db, args.repoSnapshotId);
+    const seedableIds = new Set(seedable.map((r) => r._id));
+    const orphans: Array<{
+      repoId: Id<"githubRepos">;
+      seededSnapshotName: string;
+    }> = [];
+    for (const r of siblings) {
+      // The !== undefined guard narrows seededSnapshotName to string.
+      if (!seedableIds.has(r._id) && r.seededSnapshotName !== undefined) {
+        orphans.push({
+          repoId: r._id,
+          seededSnapshotName: r.seededSnapshotName,
+        });
+      }
+    }
+    return orphans;
+  },
+});
+
+/**
  * Current per-app seeded-snapshot state for a snapshot config: each seedable app
  * with its live seededSnapshotName (null = falling back to the base Image).
  * Used by the snapshot status tab.

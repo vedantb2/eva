@@ -147,6 +147,38 @@ export const snapshotBuildWorkflow = workflow.define({
         internal.repoSnapshots.getSeedableAppRepos,
         { repoSnapshotId: args.repoSnapshotId },
       );
+
+      // Best-effort cleanup: delete seeded snapshots for siblings that are no
+      // longer seedable (e.g. dropped stopCommands) and clear their stale name.
+      // The per-app loop below only deletes snapshots for CURRENTLY seedable
+      // apps, so without this an ex-seedable app's seeded-<repoId> would linger
+      // in Daytona forever. A failed cleanup must not fail the build.
+      const orphans = await step.runQuery(
+        internal.repoSnapshots.getOrphanedSeededApps,
+        { repoSnapshotId: args.repoSnapshotId },
+      );
+      for (const orphan of orphans) {
+        try {
+          await step.runAction(internal.snapshotActions.deleteDaytonaSnapshot, {
+            snapshotName: orphan.seededSnapshotName,
+            repoId: orphan.repoId,
+          });
+          await step.runMutation(internal.repoSnapshots.setSeededSnapshotName, {
+            repoId: orphan.repoId,
+            seededSnapshotName: null,
+          });
+          console.log(
+            `[snapshot] cleaned up orphaned seeded snapshot ${orphan.seededSnapshotName} (repo ${orphan.repoId} no longer seedable)`,
+          );
+        } catch (e) {
+          console.error(
+            `[snapshot] failed to clean up orphaned seeded snapshot ${orphan.seededSnapshotName}: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        }
+      }
+
       // Build all apps' seeded snapshots in PARALLEL (each chain is independent).
       // Trade-off: more concurrent Daytona runner demand — the createSeedPrepSandbox
       // retry/backoff above absorbs transient "No available runners".

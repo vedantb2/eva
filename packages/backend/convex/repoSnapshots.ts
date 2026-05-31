@@ -6,6 +6,7 @@ export {
   setSnapshotEnabled,
   deleteRepoSnapshot,
   getSeedableAppRepos,
+  getOrphanedSeededApps,
   getSeededAppStatus,
   setSeededSnapshotName,
 } from "./_repoSnapshots/config";

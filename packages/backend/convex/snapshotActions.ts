@@ -654,21 +654,31 @@ export const triggerSeededSnapshot = internalAction({
 });
 
 /**
- * Seeded-snapshot build — POLL step. Returns the sandbox's current state string.
- * The sandbox sits in "snapshotting" while the filesystem capture runs and
- * returns to a "started"/"stopped" state on success, or "error"/"build_failed"
- * on failure (the same signal the SDK's own waitForSnapshotComplete watches).
+ * Seeded-snapshot build — POLL step. Returns the snapshot entity's current state
+ * ("active" on success, "error"/"build_failed" on failure, otherwise still
+ * building; "pending" if it is not registered yet).
+ *
+ * We poll the SNAPSHOT entity, not the sandbox state: a sandbox snapshot can
+ * reach "active" while the source sandbox still reports "snapshotting", so a
+ * sandbox-state poll can wait out the whole window and wrongly record a fallback
+ * for a snapshot that actually succeeded. The snapshot's own state is the
+ * authoritative signal — the same one the base-Image build polls.
  */
 export const pollSeededSnapshotState = internalAction({
   args: {
     repoId: v.id("githubRepos"),
-    sandboxId: v.string(),
+    seededName: v.string(),
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
     const daytona = getDaytona(daytonaApiKey);
-    const sandbox = await daytona.get(args.sandboxId);
-    return String(sandbox.state);
+    try {
+      const snapshot = await daytona.snapshot.get(args.seededName);
+      return String(snapshot.state);
+    } catch {
+      // Not registered yet (or a transient lookup miss) — treat as still pending.
+      return "pending";
+    }
   },
 });

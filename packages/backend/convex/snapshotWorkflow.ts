@@ -16,7 +16,9 @@ const MAX_PROBE_ATTEMPTS = 20; // ~10 minutes at 30s intervals
 // Seeded-snapshot capture poll loop (Step 5, per app). The capture is triggered
 // without blocking (triggerSeededSnapshot) then polled here across separate
 // steps, so a long DB-volume capture never exceeds Convex's 600s per-action
-// ceiling. The sandbox sits in "snapshotting" until the capture finishes.
+// ceiling. We poll the snapshot entity until it reaches "active" (success) or a
+// failure state — see pollSeededSnapshotState for why the sandbox state is not
+// a reliable completion signal.
 const SEED_SNAPSHOT_POLL_DELAY_MS = 30_000;
 const MAX_SEED_SNAPSHOT_POLLS = 60; // ~30 minutes at 30s intervals
 
@@ -225,32 +227,30 @@ export const snapshotBuildWorkflow = workflow.define({
                 seededName,
               },
             );
-            let snapState = "snapshotting";
+            let snapState = "pending";
             for (
               let pollAttempt = 1;
               pollAttempt <= MAX_SEED_SNAPSHOT_POLLS &&
-              snapState === "snapshotting";
+              snapState !== "active" &&
+              snapState !== "error" &&
+              snapState !== "build_failed";
               pollAttempt++
             ) {
               snapState = await step.runAction(
                 internal.snapshotActions.pollSeededSnapshotState,
-                { repoId: app.repoId, sandboxId: prepSandboxId },
+                { repoId: app.repoId, seededName },
                 {
                   runAfter:
                     pollAttempt === 1 ? 10_000 : SEED_SNAPSHOT_POLL_DELAY_MS,
                 },
               );
             }
-            // Throws land in the per-app catch below → prep sandbox torn down +
-            // fallback (null) recorded → app keeps the base-Image snapshot.
-            if (snapState === "snapshotting") {
+            // Anything but "active" (failure state or window exhausted) throws
+            // into the per-app catch below → prep sandbox torn down + fallback
+            // (null) recorded → app keeps the base-Image snapshot.
+            if (snapState !== "active") {
               throw new Error(
-                `Seeded snapshot for ${app.repoId} did not complete within the poll window`,
-              );
-            }
-            if (snapState === "error" || snapState === "build_failed") {
-              throw new Error(
-                `Seeded snapshot for ${app.repoId} failed (sandbox state: ${snapState})`,
+                `Seeded snapshot for ${app.repoId} did not reach active (last state: ${snapState})`,
               );
             }
             await step.runAction(internal.daytona.deleteSandbox, {

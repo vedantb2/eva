@@ -57,7 +57,7 @@ export function MarkdownEditor({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-md bg-muted/40">
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-md bg-muted">
         <EditorContent
           editor={editor}
           className="[&_.tiptap]:min-h-[12rem] [&_.tiptap]:outline-none"

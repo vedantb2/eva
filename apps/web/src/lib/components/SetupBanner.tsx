@@ -118,7 +118,7 @@ export function SetupBanner() {
             enable Codex, sign in locally with Codex once, then paste the saved
             auth JSON into `CODEX_AUTH_JSON`.
           </p>
-          <div className="rounded-lg bg-muted/40 p-4">
+          <div className="rounded-lg bg-muted p-4">
             <p className="mb-2 text-xs font-medium text-muted-foreground">
               Missing Variables:
             </p>

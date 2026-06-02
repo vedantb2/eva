@@ -78,7 +78,7 @@ export function AppClient() {
   return (
     <PageWrapper title="App" comfortable>
       <div className="space-y-4">
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-lg bg-muted p-3 space-y-4 sm:p-4">
           <div>
             <h3 className="text-sm font-medium">System Prompt</h3>
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -96,7 +96,7 @@ export function AppClient() {
           />
         </div>
 
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-lg bg-muted p-3 space-y-4 sm:p-4">
           <div>
             <h3 className="text-sm font-medium">Dev Server</h3>
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -140,7 +140,7 @@ export function AppClient() {
           </div>
         </div>
 
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-lg bg-muted p-3 space-y-4 sm:p-4">
           <h3 className="text-sm font-medium">Startup Commands</h3>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -161,7 +161,7 @@ export function AppClient() {
           </div>
         </div>
 
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-lg bg-muted p-3 space-y-4 sm:p-4">
           <h3 className="text-sm font-medium">Background Commands</h3>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">

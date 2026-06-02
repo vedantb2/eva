@@ -52,7 +52,7 @@ export function McpConfigClient() {
   return (
     <PageWrapper title="MCP Config" comfortable>
       <div className="space-y-4">
-        <div className="rounded-lg bg-muted/40 p-3 space-y-3 sm:p-4">
+        <div className="rounded-lg bg-muted p-3 space-y-3 sm:p-4">
           <div className="flex items-start justify-between gap-2">
             <div>
               <h3 className="text-sm font-medium">Root Prompt</h3>

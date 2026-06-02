@@ -17,7 +17,7 @@ export function SkillRow({ skill }: { skill: Skill }) {
       <div
         className={
           "rounded-md p-3 " +
-          (skill.available ? "bg-muted/40" : "bg-muted/30 opacity-70")
+          (skill.available ? "bg-muted" : "bg-muted/30 opacity-70")
         }
       >
         <div className="flex min-w-0 items-start justify-between gap-3">

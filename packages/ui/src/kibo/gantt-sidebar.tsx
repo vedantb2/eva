@@ -47,7 +47,7 @@ export const GanttSidebarItem: FC<GanttSidebarItemProps> = ({
   return (
     <div
       className={cn(
-        "relative flex items-center gap-2.5 p-2.5 text-xs hover:bg-muted/40",
+        "relative flex items-center gap-2.5 p-2.5 text-xs hover:bg-muted",
         className,
       )}
       key={feature.id}

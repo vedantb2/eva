@@ -49,7 +49,7 @@ export function AuditTimelineItem({
         >
           <AccordionItem
             value={`fix-${audit._id}`}
-            className="rounded-lg bg-muted/40 px-3"
+            className="rounded-lg bg-muted px-3"
           >
             <AccordionTrigger>
               <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">
@@ -108,7 +108,7 @@ export function AuditTimelineItem({
       >
         <AccordionItem
           value={`audit-${audit._id}`}
-          className="rounded-lg bg-muted/40 px-3"
+          className="rounded-lg bg-muted px-3"
         >
           <AccordionTrigger>
             <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-2">

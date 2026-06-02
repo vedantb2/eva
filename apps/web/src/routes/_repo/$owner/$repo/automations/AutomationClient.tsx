@@ -229,7 +229,7 @@ function SettingsForm({
     <div className="space-y-4">
       <CronScheduleCard value={cronSchedule} onChange={setCronSchedule} />
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-lg bg-muted p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Description</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -259,7 +259,7 @@ function SettingsForm({
       </div>
 
       {isMonorepo && (
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-lg bg-muted p-3 space-y-4 sm:p-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-medium">Share across apps</h3>
@@ -286,7 +286,7 @@ function SettingsForm({
         </div>
       )}
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-lg bg-muted p-3 space-y-4 sm:p-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium">Report Only</h3>
@@ -313,7 +313,7 @@ function SettingsForm({
       </div>
 
       {readOnly && (
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-lg bg-muted p-3 space-y-4 sm:p-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-medium">Actions</h3>
@@ -340,7 +340,7 @@ function SettingsForm({
         </div>
       )}
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-lg bg-muted p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Model</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -361,7 +361,7 @@ function SettingsForm({
         </Button>
       </div>
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-lg bg-muted p-3 space-y-4 sm:p-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium text-destructive">

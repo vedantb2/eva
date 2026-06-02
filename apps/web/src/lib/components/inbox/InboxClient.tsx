@@ -187,7 +187,7 @@ export function InboxClient() {
           />
         </div>
       ) : (
-        <div className="rounded-lg bg-muted/40 overflow-hidden">
+        <div className="rounded-lg bg-muted overflow-hidden">
           <AnimatePresence initial={false}>
             {groups!.map((group) => (
               <motion.div

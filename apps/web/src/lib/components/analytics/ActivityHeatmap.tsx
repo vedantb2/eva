@@ -145,7 +145,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
           totalCount={totalCount}
           className="w-full max-w-full"
         >
-          <ContributionGraphCalendar className="rounded-xl bg-muted/40 p-3 sm:p-4">
+          <ContributionGraphCalendar className="rounded-xl bg-muted p-3 sm:p-4">
             {({ activity, dayIndex, weekIndex }) => (
               <Tooltip>
                 <TooltipTrigger asChild>

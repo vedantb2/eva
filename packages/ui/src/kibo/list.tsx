@@ -66,7 +66,7 @@ export const ListGroup = ({ id, children, className }: ListGroupProps) => {
 
   return (
     <div
-      className={cn("transition-colors", isOver && "bg-muted/40", className)}
+      className={cn("transition-colors", isOver && "bg-muted", className)}
       ref={setNodeRef}
     >
       {children}

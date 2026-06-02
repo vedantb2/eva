@@ -124,7 +124,7 @@ export function CommentActivityItem({
     comment.authorId !== undefined && comment.authorId === currentUserId;
 
   const surfaceClass =
-    depth === 0 ? "rounded-lg bg-muted/40 p-3" : "rounded-lg bg-muted/30 p-3";
+    depth === 0 ? "rounded-lg bg-muted p-3" : "rounded-lg bg-muted/30 p-3";
 
   const startEditing = () => {
     setEditText(mentionTokensToEditableText(comment.content));

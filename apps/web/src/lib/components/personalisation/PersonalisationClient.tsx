@@ -104,7 +104,7 @@ export function PersonalisationClient() {
                     "rounded-lg p-3 text-left transition-colors cursor-pointer",
                     isActive
                       ? "bg-accent text-accent-foreground"
-                      : "bg-muted/40 text-muted-foreground hover:bg-muted/60",
+                      : "bg-muted text-muted-foreground hover:bg-muted/60",
                   )}
                 >
                   <div className="flex items-center gap-2">
@@ -120,7 +120,7 @@ export function PersonalisationClient() {
           </div>
 
           {activeRole ? (
-            <div className="rounded-lg bg-muted/40 p-3">
+            <div className="rounded-lg bg-muted p-3">
               <p className="mb-2 text-[11px] font-medium text-muted-foreground">
                 Active preset prompt
               </p>

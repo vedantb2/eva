@@ -94,10 +94,7 @@ export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
 
   return (
     <div
-      className={cn(
-        "h-full w-full rounded-md bg-muted/40 p-2 text-xs",
-        className,
-      )}
+      className={cn("h-full w-full rounded-md bg-muted p-2 text-xs", className)}
     >
       <div
         className={cn(

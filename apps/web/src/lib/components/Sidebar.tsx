@@ -362,7 +362,7 @@ export function Sidebar() {
         ) : (
           <Link
             to="/home"
-            className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
+            className="mx-auto flex items-center gap-2 rounded-lg bg-muted px-2.5 py-1.5"
           >
             <img
               src="/icon.svg"

@@ -78,7 +78,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
               {PLATFORM_SECTIONS.map((section) => (
                 <div
                   key={section.label}
-                  className="flex flex-col gap-1.5 rounded-lg bg-muted/40 p-2.5"
+                  className="flex flex-col gap-1.5 rounded-lg bg-muted p-2.5"
                 >
                   <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
                     <section.icon size={13} className="text-primary" />

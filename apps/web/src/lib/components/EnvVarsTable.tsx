@@ -419,7 +419,7 @@ export function EnvVarsTable({
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-lg bg-muted/40 overflow-x-auto">
+          <div className="rounded-lg bg-muted overflow-x-auto">
             <table className="w-full text-sm min-w-[360px]">
               {tableHeader}
               <tbody>
@@ -447,7 +447,7 @@ export function EnvVarsTable({
                   Excluded from Sandbox
                 </p>
               </div>
-              <div className="rounded-lg bg-muted/40 overflow-x-auto">
+              <div className="rounded-lg bg-muted overflow-x-auto">
                 <table className="w-full text-sm min-w-[360px]">
                   {tableHeader}
                   <tbody>{excludedVars.map(renderRow)}</tbody>

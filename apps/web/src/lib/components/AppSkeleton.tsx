@@ -22,8 +22,8 @@ export function AppSkeleton() {
       <div className="flex-1 flex flex-col">
         {/* Header skeleton */}
         <div className="h-14 flex items-center justify-between px-4 gap-4">
-          <div className="h-8 w-48 bg-muted/40 rounded-lg animate-pulse" />
-          <div className="h-8 w-8 bg-muted/40 rounded-full animate-pulse" />
+          <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
+          <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
         </div>
 
         {/* Content area skeleton */}

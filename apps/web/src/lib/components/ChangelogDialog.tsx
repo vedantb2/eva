@@ -64,7 +64,7 @@ export function ChangelogDialog() {
 
         <DialogBody>
           <div className="max-h-[60vh] overflow-y-auto">
-            <div className="rounded-lg bg-muted/40 p-4">
+            <div className="rounded-lg bg-muted p-4">
               <Streamdown
                 className="text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                 plugins={changelogPlugins}

@@ -299,7 +299,7 @@ export function ProjectsTableView({
                     : undefined;
                 return (
                   <tr
-                    className="border-b transition-colors hover:bg-muted/40 cursor-pointer data-[state=selected]:bg-muted"
+                    className="border-b transition-colors hover:bg-muted cursor-pointer data-[state=selected]:bg-muted"
                     style={style}
                     onClick={handleClick}
                     {...props}

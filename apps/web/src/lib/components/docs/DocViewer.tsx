@@ -290,7 +290,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
       </Dialog>
       {streaming && (
         <div className="px-4 pb-3">
-          <div className="rounded-lg bg-muted/40 p-3 space-y-2">
+          <div className="rounded-lg bg-muted p-3 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
               <span className="flex-1">
@@ -426,7 +426,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
           {(doc.userFlows?.length ?? 0) > 0 ? (
             <div className="space-y-4">
               {(doc.userFlows ?? []).map((flow, i) => (
-                <div key={i} className="rounded-lg bg-muted/40 p-3 sm:p-4">
+                <div key={i} className="rounded-lg bg-muted p-3 sm:p-4">
                   <p className="text-sm font-medium">{flow.name}</p>
                   <ol className="mt-2 list-decimal space-y-1 pl-5">
                     {flow.steps.map((step, j) => (

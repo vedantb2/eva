@@ -1,5 +1,10 @@
 # Changelog
 
+## Trust Daytona regional preview hosts - 2026-06-02
+
+- Eva's preview-auth return guard now accepts Daytona's regional signed-preview host shape like `9001-<token>.daytonaproxy01.eu`, so shared previews can complete the Eva sign-in gate instead of being rejected as untrusted.
+- The guard still requires HTTPS and a Daytona-style `port-*` preview subdomain, keeping localhost and arbitrary redirect targets blocked.
+
 ## Sign-in required to open shared sandbox previews - 2026-06-02
 
 - Opening a sandbox preview link now requires signing into Eva and having access to the repo, so a shared or forwarded link no longer exposes the preview to anyone outside the team.

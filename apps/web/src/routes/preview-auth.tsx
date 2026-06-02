@@ -11,7 +11,12 @@ const GRANT_PARAM = "__eva_grant";
 // Open-redirect guard: only ever redirect back to a Daytona preview origin over
 // https. The proxy builds the `return` from its own Host, but this is the
 // trust boundary on the eva side, so we re-validate rather than trust input.
-const ALLOWED_RETURN_SUFFIX = ".daytona.work";
+const ALLOWED_RETURN_SUFFIXES = [
+  ".daytona.work",
+  ".daytona.works",
+  ".daytonaproxy01.eu",
+];
+const DAYTONA_PREVIEW_HOST_PREFIX = /^[3-9]\d{3}-/;
 
 const validateSearch = (search: Record<string, string>) => ({
   sandbox: typeof search.sandbox === "string" ? search.sandbox : "",
@@ -29,7 +34,16 @@ function parseAllowedReturn(url: string): URL | null {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return null;
-    if (!parsed.hostname.endsWith(ALLOWED_RETURN_SUFFIX)) return null;
+    const isAllowedDaytonaHost = ALLOWED_RETURN_SUFFIXES.some((suffix) =>
+      parsed.hostname.endsWith(suffix),
+    );
+    const firstLabel = parsed.hostname.split(".")[0] ?? "";
+    if (
+      !isAllowedDaytonaHost ||
+      !DAYTONA_PREVIEW_HOST_PREFIX.test(firstLabel)
+    ) {
+      return null;
+    }
     return parsed;
   } catch {
     return null;

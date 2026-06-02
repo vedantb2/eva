@@ -1,5 +1,11 @@
 # Changelog
 
+## Sign-in required to open shared sandbox previews - 2026-06-02
+
+- Opening a sandbox preview link now requires signing into Eva and having access to the repo, so a shared or forwarded link no longer exposes the preview to anyone outside the team.
+- Protection now covers every preview surface — app preview, code editor, desktop, and design preview — each served through an authenticated in-sandbox proxy.
+- In-app previews still load seamlessly for the signed-in owner; links opened in a new tab or shared with someone prompt for sign-in first.
+
 ## Preview URLs restricted to repository members - 2026-06-02
 
 - Requesting a sandbox preview URL now checks that the user has access to the repository, so previews can no longer be opened by people outside the repo's team.

@@ -30,6 +30,8 @@ import {
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 import { ensurePreviewNavigationProxy } from "./previewProxy";
+import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
+import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
 
 const sessionPersistenceKindValidator = v.union(
   v.literal("sessions"),
@@ -288,10 +290,23 @@ export const getPreviewUrl = action({
       }
     }
 
+    // Always front the dev server with the in-sandbox proxy (not just when
+    // navigationSync is set) so the auth gate covers every preview surface —
+    // dev server, code-server editor, VNC desktop, design preview. When no
+    // grant key is configured the proxy runs in legacy pass-through mode.
+    // `navigationSync` now only decides whether the HTML nav-sync script is
+    // injected.
+    const previewPublicJwk = getPreviewGrantPublicJwk();
     let signedPort = args.port;
-    if (ready && args.navigationSync) {
+    if (ready) {
       try {
-        signedPort = await ensurePreviewNavigationProxy(sandbox, args.port);
+        signedPort = await ensurePreviewNavigationProxy(sandbox, args.port, {
+          publicKeyJwk: previewPublicJwk,
+          sandboxId: args.sandboxId,
+          repoId: args.repoId,
+          webAppUrl: process.env.WEB_APP_URL ?? "",
+          inject: args.navigationSync === true,
+        });
       } catch (e) {
         console.warn(
           `[daytona] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "proxy startup failed")}`,
@@ -302,6 +317,20 @@ export const getPreviewUrl = action({
     const signedPreview = await sandbox.getSignedPreviewUrl(signedPort, 86400);
     const parsedUrl = new URL(signedPreview.url);
     parsedUrl.protocol = "https:";
+
+    // Append a fresh short-lived grant so the in-app iframe (and the authed
+    // user's "open in new tab") loads without a login round-trip. The proxy
+    // exchanges it for a session cookie on first load. Only when gating is
+    // configured — otherwise the URL stays a plain proxied URL.
+    if (previewPublicJwk && ready) {
+      const grant = await signPreviewGrant({
+        sandboxId: args.sandboxId,
+        port: args.port,
+        sub: identity.subject,
+      });
+      parsedUrl.searchParams.set(PREVIEW_GRANT_PARAM, grant);
+    }
+
     const url = parsedUrl.toString();
     return { url, port: args.port, ready };
   },

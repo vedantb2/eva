@@ -22,6 +22,7 @@ import {
 } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
+import { stripPreviewGrant } from "@/lib/utils/previewGrant";
 
 type ServiceState = "idle" | "starting" | "running" | "error";
 
@@ -137,7 +138,9 @@ export function SandboxIframeService({
       const finalUrl = transformUrl ? transformUrl(rawUrl) : rawUrl;
       setUrl(finalUrl);
       setState("running");
-      setCachedUrl(finalUrl);
+      // Cache the grant-free URL; the iframe still loads `finalUrl` (with grant)
+      // for its first paint, which sets the proxy session cookie.
+      setCachedUrl(stripPreviewGrant(finalUrl));
       onReady?.(finalUrl);
     },
     [setCachedUrl, transformUrl, onReady],
@@ -324,7 +327,11 @@ export function SandboxIframeService({
               <IconMaximize className="w-4 h-4" />
             </Button>
             <Button size="icon" variant="ghost" className="size-8" asChild>
-              <a href={url} target="_blank" rel="noopener noreferrer">
+              <a
+                href={stripPreviewGrant(url)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <IconExternalLink className="w-4 h-4" />
               </a>
             </Button>

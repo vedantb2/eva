@@ -175,6 +175,8 @@ import type * as notificationEmail from "../notificationEmail.js";
 import type * as notifications from "../notifications.js";
 import type * as prBody from "../prBody.js";
 import type * as presence from "../presence.js";
+import type * as previewGrant from "../previewGrant.js";
+import type * as previewGrantConfig from "../previewGrantConfig.js";
 import type * as projectChatWorkflow from "../projectChatWorkflow.js";
 import type * as projectInterviewWorkflow from "../projectInterviewWorkflow.js";
 import type * as projectSandboxWorkflow from "../projectSandboxWorkflow.js";
@@ -397,6 +399,8 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   prBody: typeof prBody;
   presence: typeof presence;
+  previewGrant: typeof previewGrant;
+  previewGrantConfig: typeof previewGrantConfig;
   projectChatWorkflow: typeof projectChatWorkflow;
   projectInterviewWorkflow: typeof projectInterviewWorkflow;
   projectSandboxWorkflow: typeof projectSandboxWorkflow;

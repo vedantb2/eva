@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PreviewAuthRouteImport } from './routes/preview-auth'
 import { Route as AgentCallbackRouteImport } from './routes/agent-callback'
 import { Route as RepoRouteImport } from './routes/_repo'
 import { Route as GlobalRouteImport } from './routes/_global'
@@ -75,6 +76,11 @@ import { Route as RepoOwnerRepoQuickTasksTaskIdSandboxSandboxTabRouteImport } fr
 import { Route as RepoOwnerRepoProjectsProjectIdSandboxSandboxTabRouteImport } from './routes/_repo/$owner/$repo/projects/$projectId/sandbox/$sandboxTab'
 import { Route as RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRouteImport } from './routes/_repo/$owner/$repo/projects/$projectId/$taskId/$detailTab'
 
+const PreviewAuthRoute = PreviewAuthRouteImport.update({
+  id: '/preview-auth',
+  path: '/preview-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AgentCallbackRoute = AgentCallbackRouteImport.update({
   id: '/agent-callback',
   path: '/agent-callback',
@@ -448,6 +454,7 @@ const RepoOwnerRepoProjectsProjectIdTaskIdDetailTabRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agent-callback': typeof AgentCallbackRoute
+  '/preview-auth': typeof PreviewAuthRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -513,6 +520,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agent-callback': typeof AgentCallbackRoute
+  '/preview-auth': typeof PreviewAuthRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
   '/settings/notifications': typeof GlobalSettingsNotificationsRoute
@@ -571,6 +579,7 @@ export interface FileRoutesById {
   '/_global': typeof GlobalRouteWithChildren
   '/_repo': typeof RepoRouteWithChildren
   '/agent-callback': typeof AgentCallbackRoute
+  '/preview-auth': typeof PreviewAuthRoute
   '/_global/home': typeof GlobalHomeRoute
   '/_global/inbox': typeof GlobalInboxRoute
   '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -638,6 +647,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/agent-callback'
+    | '/preview-auth'
     | '/home'
     | '/inbox'
     | '/teams/$teamId'
@@ -703,6 +713,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/agent-callback'
+    | '/preview-auth'
     | '/home'
     | '/inbox'
     | '/settings/notifications'
@@ -760,6 +771,7 @@ export interface FileRouteTypes {
     | '/_global'
     | '/_repo'
     | '/agent-callback'
+    | '/preview-auth'
     | '/_global/home'
     | '/_global/inbox'
     | '/_global/teams/$teamId'
@@ -828,11 +840,19 @@ export interface RootRouteChildren {
   GlobalRoute: typeof GlobalRouteWithChildren
   RepoRoute: typeof RepoRouteWithChildren
   AgentCallbackRoute: typeof AgentCallbackRoute
+  PreviewAuthRoute: typeof PreviewAuthRoute
   McpOauthAuthorizeRoute: typeof McpOauthAuthorizeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/preview-auth': {
+      id: '/preview-auth'
+      path: '/preview-auth'
+      fullPath: '/preview-auth'
+      preLoaderRoute: typeof PreviewAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/agent-callback': {
       id: '/agent-callback'
       path: '/agent-callback'
@@ -1574,6 +1594,7 @@ const rootRouteChildren: RootRouteChildren = {
   GlobalRoute: GlobalRouteWithChildren,
   RepoRoute: RepoRouteWithChildren,
   AgentCallbackRoute: AgentCallbackRoute,
+  PreviewAuthRoute: PreviewAuthRoute,
   McpOauthAuthorizeRoute: McpOauthAuthorizeRoute,
 }
 export const routeTree = rootRouteImport

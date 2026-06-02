@@ -1,7 +1,15 @@
 "use node";
 
 import type { Sandbox } from "@daytonaio/sdk";
+import type { JWK } from "jose";
 import { exec } from "./helpers";
+import {
+  PREVIEW_GRANT_AUDIENCE,
+  PREVIEW_GRANT_ISSUER,
+  PREVIEW_GRANT_PARAM,
+  PREVIEW_SESSION_COOKIE,
+  PREVIEW_SESSION_TTL_SECONDS,
+} from "../previewGrantConfig";
 
 // Daytona preview URLs only expose HTTP ports 3000-9999, so the injected
 // navigation proxy must listen inside that range.
@@ -10,6 +18,21 @@ const PROXY_PORT_MAX = 9999;
 const PROXY_PORT_COUNT = PROXY_PORT_MAX - PROXY_PORT_MIN + 1;
 const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
+// Bump when the generated proxy script changes so already-running proxies from
+// an older deploy are detected as stale (via the health response) and relaunched.
+const SCRIPT_VERSION = "auth-v1";
+
+/** Values injected into the generated proxy script to drive the auth gate. */
+interface PreviewProxyAuthParams {
+  /** Public half of the preview-grant keypair, or null to disable gating. */
+  publicKeyJwk: JWK | null;
+  sandboxId: string;
+  repoId: string;
+  /** Eva origin to redirect cold loads to for sign-in (e.g. WEB_APP_URL). */
+  webAppUrl: string;
+  /** Whether to inject the navigation-sync script into HTML responses. */
+  inject: boolean;
+}
 
 function isPort(value: number): boolean {
   return Number.isInteger(value) && value > 0 && value <= 65535;
@@ -79,10 +102,11 @@ async function resolvePreviewProxyPort(
   );
 }
 
-function buildPreviewProxyScript(): string {
+function buildPreviewProxyScript(params: PreviewProxyAuthParams): string {
   return String.raw`
 import http from "node:http";
 import net from "node:net";
+import crypto from "node:crypto";
 
 const targetPort = Number(process.env.EVA_PREVIEW_TARGET_PORT || "0");
 const proxyPort = Number(process.env.EVA_PREVIEW_PROXY_PORT || "0");
@@ -94,6 +118,201 @@ if (!Number.isInteger(targetPort) || targetPort <= 0 || targetPort > 65535) {
 
 if (!Number.isInteger(proxyPort) || proxyPort <= 0 || proxyPort > 65535) {
   throw new Error("Invalid EVA_PREVIEW_PROXY_PORT");
+}
+
+// ---------------------------------------------------------------------------
+// Auth gate. These constants are interpolated by the Convex-side builder. When
+// no public key is configured GATE_ENABLED is false and the proxy behaves as
+// the original pass-through (legacy mode), so previews keep working until the
+// PREVIEW_GRANT_PRIVATE_KEY + WEB_APP_URL env vars are set.
+// ---------------------------------------------------------------------------
+const PUBLIC_KEY_JWK = ${params.publicKeyJwk ? JSON.stringify(params.publicKeyJwk) : "null"};
+const SANDBOX_ID = ${JSON.stringify(params.sandboxId)};
+const REPO_ID = ${JSON.stringify(params.repoId)};
+const WEB_APP_URL = ${JSON.stringify(params.webAppUrl)};
+const EXPECTED_ISS = ${JSON.stringify(PREVIEW_GRANT_ISSUER)};
+const EXPECTED_AUD = ${JSON.stringify(PREVIEW_GRANT_AUDIENCE)};
+const SESSION_COOKIE = ${JSON.stringify(PREVIEW_SESSION_COOKIE)};
+const GRANT_PARAM = ${JSON.stringify(PREVIEW_GRANT_PARAM)};
+const SESSION_TTL_SECONDS = ${PREVIEW_SESSION_TTL_SECONDS};
+const INJECT_ENABLED = ${params.inject ? "true" : "false"};
+const SCRIPT_VERSION = ${JSON.stringify(SCRIPT_VERSION)};
+const GATE_ENABLED = PUBLIC_KEY_JWK !== null && WEB_APP_URL.length > 0;
+
+let PUBLIC_KEY = null;
+if (GATE_ENABLED) {
+  try {
+    PUBLIC_KEY = crypto.createPublicKey({ key: PUBLIC_KEY_JWK, format: "jwk" });
+  } catch (e) {
+    console.error("Eva preview proxy: invalid grant public key", e);
+  }
+}
+// Random per-process secret for the proxy's own session cookie. The proxy only
+// holds the grant's public key (cannot mint long-lived grants), so it exchanges
+// a validated short-lived grant for an HMAC session cookie it can verify itself.
+// A proxy restart invalidates sessions, which just forces a fast re-auth.
+const SESSION_SECRET = crypto.randomBytes(32);
+
+function b64urlToBuf(s) {
+  let v = String(s).replace(/-/g, "+").replace(/_/g, "/");
+  while (v.length % 4) v += "=";
+  return Buffer.from(v, "base64");
+}
+
+function bufToB64url(buf) {
+  return buf
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function parseCookies(header) {
+  const out = {};
+  if (!header) return out;
+  for (const part of String(header).split(";")) {
+    const idx = part.indexOf("=");
+    if (idx === -1) continue;
+    const k = part.slice(0, idx).trim();
+    if (!k) continue;
+    out[k] = part.slice(idx + 1).trim();
+  }
+  return out;
+}
+
+// Verifies an ES256 grant JWT. JOSE signatures are raw r||s (IEEE P-1363), not
+// the DER form node:crypto defaults to, hence dsaEncoding.
+function verifyGrant(token) {
+  if (!PUBLIC_KEY) return null;
+  try {
+    const parts = String(token).split(".");
+    if (parts.length !== 3) return null;
+    const signingInput = Buffer.from(parts[0] + "." + parts[1]);
+    const ok = crypto.verify(
+      "sha256",
+      signingInput,
+      { key: PUBLIC_KEY, dsaEncoding: "ieee-p1363" },
+      b64urlToBuf(parts[2]),
+    );
+    if (!ok) return null;
+    const payload = JSON.parse(b64urlToBuf(parts[1]).toString("utf8"));
+    const now = Math.floor(Date.now() / 1000);
+    if (typeof payload.exp !== "number" || payload.exp < now) return null;
+    if (payload.iss !== EXPECTED_ISS) return null;
+    const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+    if (aud.indexOf(EXPECTED_AUD) === -1) return null;
+    if (payload.sandboxId !== SANDBOX_ID) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function signSession(payload) {
+  const body = bufToB64url(Buffer.from(JSON.stringify(payload)));
+  const mac = bufToB64url(
+    crypto.createHmac("sha256", SESSION_SECRET).update(body).digest(),
+  );
+  return body + "." + mac;
+}
+
+function verifySession(token) {
+  try {
+    const parts = String(token).split(".");
+    if (parts.length !== 2) return null;
+    const expected = bufToB64url(
+      crypto.createHmac("sha256", SESSION_SECRET).update(parts[0]).digest(),
+    );
+    const a = Buffer.from(parts[1]);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    const payload = JSON.parse(b64urlToBuf(parts[0]).toString("utf8"));
+    const now = Math.floor(Date.now() / 1000);
+    if (typeof payload.exp !== "number" || payload.exp < now) return null;
+    if (payload.sandboxId !== SANDBOX_ID) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function buildAuthRedirect(clientReq) {
+  const host = clientReq.headers["host"] || "";
+  let returnUrl;
+  try {
+    const u = new URL(clientReq.url || "/", "https://" + host);
+    u.searchParams.delete(GRANT_PARAM);
+    returnUrl = u.toString();
+  } catch {
+    returnUrl = "https://" + host + "/";
+  }
+  return (
+    WEB_APP_URL +
+    "/preview-auth?sandbox=" + encodeURIComponent(SANDBOX_ID) +
+    "&repo=" + encodeURIComponent(REPO_ID) +
+    "&port=" + String(targetPort) +
+    "&return=" + encodeURIComponent(returnUrl)
+  );
+}
+
+// Returns true if the request is authorized and may proceed. Returns false when
+// it has already written a response (cookie-set redirect, login redirect, 401).
+function authorize(clientReq, clientRes) {
+  if (!GATE_ENABLED) return true;
+
+  let parsed = null;
+  try {
+    parsed = new URL(
+      clientReq.url || "/",
+      "https://" + (clientReq.headers["host"] || "127.0.0.1"),
+    );
+  } catch {}
+
+  const cookies = parseCookies(clientReq.headers["cookie"]);
+  const session = cookies[SESSION_COOKIE];
+  if (session && verifySession(session)) return true;
+
+  const grant = parsed ? parsed.searchParams.get(GRANT_PARAM) : null;
+  if (grant) {
+    const claims = verifyGrant(grant);
+    if (claims && parsed) {
+      const now = Math.floor(Date.now() / 1000);
+      const token = signSession({
+        sandboxId: SANDBOX_ID,
+        sub: typeof claims.sub === "string" ? claims.sub : "",
+        exp: now + SESSION_TTL_SECONDS,
+      });
+      parsed.searchParams.delete(GRANT_PARAM);
+      const cleanPath = parsed.pathname + parsed.search + parsed.hash;
+      const cookie =
+        SESSION_COOKIE + "=" + token +
+        "; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=" +
+        String(SESSION_TTL_SECONDS);
+      clientRes.writeHead(302, {
+        location: cleanPath,
+        "set-cookie": cookie,
+        "referrer-policy": "no-referrer",
+        "cache-control": "no-store",
+      });
+      clientRes.end();
+      return false;
+    }
+  }
+
+  const accept = String(clientReq.headers["accept"] || "");
+  const isGet = (clientReq.method || "GET").toUpperCase() === "GET";
+  if (isGet && accept.indexOf("text/html") !== -1) {
+    clientRes.writeHead(302, {
+      location: buildAuthRedirect(clientReq),
+      "referrer-policy": "no-referrer",
+      "cache-control": "no-store",
+    });
+    clientRes.end();
+  } else {
+    clientRes.writeHead(401, { "content-type": "text/plain" });
+    clientRes.end("Unauthorized");
+  }
+  return false;
 }
 
 // Convex's browser client opens a raw WebSocket and cannot attach the Daytona
@@ -130,7 +349,7 @@ function resolveRoute(url) {
   if (convexMatch !== null) {
     return { port: CONVEX_PORT, path: convexMatch, injects: false };
   }
-  return { port: targetPort, path: u, injects: true };
+  return { port: targetPort, path: u, injects: INJECT_ENABLED };
 }
 
 const injectedScript = "(" + function () {
@@ -277,11 +496,24 @@ const server = http.createServer(function handleRequest(clientReq, clientRes) {
   const path = clientReq.url || "/";
   if (path === healthPath) {
     clientRes.writeHead(200, { "content-type": "text/plain" });
-    clientRes.end("target=" + String(targetPort));
+    clientRes.end("target=" + String(targetPort) + ";" + SCRIPT_VERSION);
     return;
   }
 
-  const route = resolveRoute(path);
+  if (!authorize(clientReq, clientRes)) return;
+
+  // Strip a (consumed/stale) grant param before forwarding so it never leaks
+  // to the dev server's own request logs.
+  let routePath = path;
+  if (GATE_ENABLED && routePath.indexOf(GRANT_PARAM) !== -1) {
+    try {
+      const u = new URL(routePath, "https://127.0.0.1");
+      u.searchParams.delete(GRANT_PARAM);
+      routePath = u.pathname + u.search + u.hash;
+    } catch {}
+  }
+
+  const route = resolveRoute(routePath);
 
   const upstreamReq = http.request(
     {
@@ -331,6 +563,15 @@ const server = http.createServer(function handleRequest(clientReq, clientRes) {
 });
 
 server.on("upgrade", function handleUpgrade(req, socket, head) {
+  if (GATE_ENABLED) {
+    const cookies = parseCookies(req.headers["cookie"]);
+    const session = cookies[SESSION_COOKIE];
+    if (!session || !verifySession(session)) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+  }
   const route = resolveRoute(req.url || "/");
   const upstream = net.connect(route.port, "127.0.0.1", function handleConnect() {
     const lines = [
@@ -390,7 +631,8 @@ async function proxyAlreadyRunning(
       5,
       "/tmp",
     );
-    return health.trim() === `target=${targetPort}`;
+    // Version suffix forces a relaunch when the script changes across deploys.
+    return health.trim() === `target=${targetPort};${SCRIPT_VERSION}`;
   } catch {
     return false;
   }
@@ -400,11 +642,12 @@ async function launchProxy(
   sandbox: Sandbox,
   targetPort: number,
   proxyPort: number,
+  authParams: PreviewProxyAuthParams,
 ): Promise<void> {
   const scriptPath = `/tmp/eva-preview-proxy-${targetPort}.mjs`;
   const pidPath = `/tmp/eva-preview-proxy-${targetPort}.pid`;
   const logPath = `/tmp/eva-preview-proxy-${targetPort}.log`;
-  const script = buildPreviewProxyScript();
+  const script = buildPreviewProxyScript(authParams);
   const command = [
     `cat > '${scriptPath}' <<'${SCRIPT_MARKER}'`,
     script,
@@ -425,6 +668,7 @@ async function launchProxy(
 export async function ensurePreviewNavigationProxy(
   sandbox: Sandbox,
   targetPort: number,
+  authParams: PreviewProxyAuthParams,
 ): Promise<number> {
   if (!isPort(targetPort)) {
     throw new Error(`Invalid preview target port: ${targetPort}`);
@@ -435,6 +679,6 @@ export async function ensurePreviewNavigationProxy(
     return proxyPort;
   }
 
-  await launchProxy(sandbox, targetPort, proxyPort);
+  await launchProxy(sandbox, targetPort, proxyPort, authParams);
   return proxyPort;
 }

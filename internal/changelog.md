@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview URLs restricted to repository members - 2026-06-02
+
+- Requesting a sandbox preview URL now checks that the user has access to the repository, so previews can no longer be opened by people outside the repo's team.
+
 ## Animated logo and on-brand loading spinner - 2026-06-02
 
 - The sidebar logo now draws itself on load and replays the draw when you hover it.

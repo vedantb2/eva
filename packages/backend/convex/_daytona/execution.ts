@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import type { Sandbox } from "@daytonaio/sdk";
 import { action, internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import {
@@ -262,6 +262,14 @@ export const getPreviewUrl = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Not authenticated");
+    }
+
+    // Authorize: the caller must have access to the repo this sandbox belongs to.
+    // `githubRepos.get` returns the repo only for the connector or a team member,
+    // otherwise null — so a null result means the user is not allowed to preview it.
+    const repo = await ctx.runQuery(api.githubRepos.get, { id: args.repoId });
+    if (!repo) {
+      throw new Error("Not authorized to access this repository");
     }
 
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);

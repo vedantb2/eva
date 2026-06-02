@@ -18,6 +18,11 @@ export interface DigestEmailOptions {
   /** Base URL of the web app, e.g. https://app.example.com (no trailing slash needed). */
   appUrl: string;
   notifications: DigestNotification[];
+  /**
+   * Overrides the default "You have N unread notifications" heading. Used by the
+   * instant single-notification email to lead with the activity itself.
+   */
+  heading?: string;
 }
 
 const BRAND = "#4f46e5";
@@ -148,7 +153,9 @@ export function buildNotificationDigestHtml(opts: DigestEmailOptions): string {
   const greeting = opts.recipientName
     ? `Hi ${escapeHtml(opts.recipientName)},`
     : "Hi,";
-  const heading = `You have ${count} unread notification${count === 1 ? "" : "s"}`;
+  const heading =
+    opts.heading ??
+    `You have ${count} unread notification${count === 1 ? "" : "s"}`;
   const rows = opts.notifications
     .map((n) => renderNotification(n, opts.appUrl))
     .join("");

@@ -1,5 +1,24 @@
 # Changelog
 
+## Instant notification emails - 2026-06-02
+
+- High-signal notifications (mentions, replies, comments, assignments) now email the user a few minutes after they happen, so time-sensitive activity no longer waits for the once-daily digest.
+- The email is skipped if the user already read it in-app, and a burst within the window collapses into one email, mirroring Linear's inbox behaviour.
+- Emailed items are marked so the daily digest never repeats them.
+
+## Code reviewer assignment - 2026-06-02
+
+- Reframed task "Assignee" as "Code Reviewer" across the create modal, detail panel, list filter, and card menu so assignment models the code-review step.
+- User pickers now list only dev-role users, keeping code-review assignment to engineers.
+
+## Mark notifications read without leaving the inbox - 2026-06-02
+
+- Hovering an unread notification now reveals a labelled "Dismiss" button that marks it read in place, so users can clear high-volume rows without navigating away to the linked task or project.
+
+## Pre-installed agentation-mcp in sandbox snapshots - 2026-06-02
+
+- Sandbox snapshots now ship with agentation-mcp already installed, so it is available the moment a sandbox starts instead of being installed on first use.
+
 ## Per-automation email toggle - 2026-06-02
 
 - Added a "Send email" toggle to automation settings so any automation can broadcast its run summary on success, replacing the hardcoded changelog-only behaviour.

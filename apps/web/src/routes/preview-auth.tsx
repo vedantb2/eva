@@ -3,7 +3,6 @@ import { useAuth, RedirectToSignIn } from "@clerk/clerk-react";
 import { useAction } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
 
 // Must match PREVIEW_GRANT_PARAM in packages/backend/convex/previewGrantConfig.ts.
 const GRANT_PARAM = "__eva_grant";
@@ -82,7 +81,7 @@ function PreviewAuth() {
     mintPreviewGrant({
       sandboxId: search.sandbox,
       port,
-      repoId: search.repo as Id<"githubRepos">,
+      repoId: search.repo,
     })
       .then((grant) => {
         parsedReturn.searchParams.set(GRANT_PARAM, grant);

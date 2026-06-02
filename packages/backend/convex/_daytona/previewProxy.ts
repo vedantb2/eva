@@ -20,7 +20,7 @@ const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "auth-v1";
+const SCRIPT_VERSION = "auth-v2";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -236,22 +236,29 @@ function verifySession(token) {
   }
 }
 
-function buildAuthRedirect(clientReq) {
-  const host = clientReq.headers["host"] || "";
-  let returnUrl;
-  try {
-    const u = new URL(clientReq.url || "/", "https://" + host);
-    u.searchParams.delete(GRANT_PARAM);
-    returnUrl = u.toString();
-  } catch {
-    returnUrl = "https://" + host + "/";
-  }
-  return (
+// HTML interstitial for unauthenticated document loads. Daytona forwards to the
+// sandbox with the Host header rewritten to the internal upstream
+// (localhost:proxyPort), so the proxy cannot know its own browser-facing URL.
+// We therefore compute the return URL in the browser from location.href, which
+// is the real external preview origin, and embed the server-known port + ids.
+function buildAuthBootstrapHtml() {
+  const base =
     WEB_APP_URL +
     "/preview-auth?sandbox=" + encodeURIComponent(SANDBOX_ID) +
     "&repo=" + encodeURIComponent(REPO_ID) +
-    "&port=" + String(targetPort) +
-    "&return=" + encodeURIComponent(returnUrl)
+    "&port=" + encodeURIComponent(String(targetPort)) +
+    "&return=";
+  const inline =
+    "var u=new URL(location.href);" +
+    "u.searchParams.delete(" + JSON.stringify(GRANT_PARAM) + ");" +
+    "location.replace(" + JSON.stringify(base) +
+    "+encodeURIComponent(u.toString()));";
+  return (
+    '<!doctype html><html><head><meta charset="utf-8">' +
+    "<title>Sign in to preview</title>" +
+    "<script>" + inline + "</scr" + "ipt></head>" +
+    "<body><noscript>Open this preview from Eva to sign in.</noscript>" +
+    "</body></html>"
   );
 }
 
@@ -302,12 +309,12 @@ function authorize(clientReq, clientRes) {
   const accept = String(clientReq.headers["accept"] || "");
   const isGet = (clientReq.method || "GET").toUpperCase() === "GET";
   if (isGet && accept.indexOf("text/html") !== -1) {
-    clientRes.writeHead(302, {
-      location: buildAuthRedirect(clientReq),
+    clientRes.writeHead(200, {
+      "content-type": "text/html; charset=utf-8",
       "referrer-policy": "no-referrer",
       "cache-control": "no-store",
     });
-    clientRes.end();
+    clientRes.end(buildAuthBootstrapHtml());
   } else {
     clientRes.writeHead(401, { "content-type": "text/plain" });
     clientRes.end("Unauthorized");

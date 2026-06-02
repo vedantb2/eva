@@ -69,7 +69,7 @@ export const mintPreviewGrant = action({
   args: {
     sandboxId: v.string(),
     port: v.number(),
-    repoId: v.id("githubRepos"),
+    repoId: v.string(),
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
@@ -78,9 +78,11 @@ export const mintPreviewGrant = action({
       throw new Error("Not authenticated");
     }
 
-    // `githubRepos.get` returns the repo only for the connector or a team
+    // `githubRepos.getByIdString` returns the repo only for the connector or a team
     // member, otherwise null — null means the user may not preview it.
-    const repo = await ctx.runQuery(api.githubRepos.get, { id: args.repoId });
+    const repo = await ctx.runQuery(api.githubRepos.getByIdString, {
+      repoId: args.repoId,
+    });
     if (!repo) {
       throw new Error("Not authorized to access this repository");
     }

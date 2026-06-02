@@ -244,6 +244,9 @@ const schema = defineSchema({
     href: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
     createdAt: v.number(),
+    // Set once this notification has been included in an email (instant send or
+    // daily digest), so neither path emails the same notification twice.
+    emailedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_read", ["userId", "read"])

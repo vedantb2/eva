@@ -108,6 +108,44 @@ export const getAutomationData = internalQuery({
   },
 });
 
+/**
+ * Returns a successful run's summary for emailing: its markdown content, finish
+ * time, edition number (this automation's count of successful runs, this one
+ * included), and the automation title used for the subject and heading. Returns
+ * null if the run is not a completed success. Internal use only.
+ */
+export const getRunForEmail = internalQuery({
+  args: { runId: v.id("automationRuns") },
+  returns: v.union(
+    v.object({
+      content: v.string(),
+      publishedAt: v.number(),
+      runNumber: v.number(),
+      automationTitle: v.string(),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run || run.status !== "success") return null;
+    if (!run.resultSummary || !run.finishedAt) return null;
+    const automation = await ctx.db.get(run.automationId);
+    if (!automation) return null;
+    const successfulRuns = await ctx.db
+      .query("automationRuns")
+      .withIndex("by_automation_and_status", (q) =>
+        q.eq("automationId", automation._id).eq("status", "success"),
+      )
+      .collect();
+    return {
+      content: run.resultSummary,
+      publishedAt: run.finishedAt,
+      runNumber: successfulRuns.length,
+      automationTitle: automation.title,
+    };
+  },
+});
+
 /** Updates an automation run's status and optional metadata fields (sandbox, error, PR URL, etc). */
 export const updateRunStatus = internalMutation({
   args: {
@@ -135,14 +173,15 @@ export const updateRunStatus = internalMutation({
     }
     await ctx.db.patch(args.runId, patch);
 
-    // When a changelog run publishes, email the new changelog to all users.
+    // When a run succeeds and the automation opts into email, broadcast its
+    // result summary to all users with email notifications enabled.
     if (args.status === "success") {
       const run = await ctx.db.get(args.runId);
       const automation = run ? await ctx.db.get(run.automationId) : null;
-      if (automation?.title === CHANGELOG_AUTOMATION_TITLE) {
+      if (automation?.sendEmail === true) {
         await ctx.scheduler.runAfter(
           0,
-          internal.changelogEmail.sendChangelogEmail,
+          internal.automationEmail.sendAutomationEmail,
           { runId: args.runId },
         );
       }

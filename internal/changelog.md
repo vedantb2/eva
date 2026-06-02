@@ -1,5 +1,11 @@
 # Changelog
 
+## Per-automation email toggle - 2026-06-02
+
+- Added a "Send email" toggle to automation settings so any automation can broadcast its run summary on success, replacing the hardcoded changelog-only behaviour.
+- Generalised the changelog email into a reusable automation email (subject derived from the automation title plus its edition number) sent to all opted-in users.
+- Extracted a shared SettingToggle component for the automation settings switches, removing duplicated markup.
+
 ## Email notifications ready for production - 2026-05-29
 
 - Filtered out spammy task/quick-task run completion notifications from the daily digest so users see only impactful mentions and merged changes (run-finished notifications remain in the in-app bell).

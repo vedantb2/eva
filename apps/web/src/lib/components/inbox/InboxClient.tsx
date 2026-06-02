@@ -9,7 +9,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button, Badge, Spinner } from "@conductor/ui";
-import { IconChecks, IconInbox, IconX } from "@tabler/icons-react";
+import { IconCheck, IconChecks, IconInbox } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { inboxFilterParser } from "@/lib/search-params";
 import {
@@ -234,14 +234,17 @@ export function InboxClient() {
                         </span>
                       </button>
                       {!n.read && (
-                        <button
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           onClick={() => markAsRead({ id: n._id })}
                           title="Mark as read"
                           aria-label="Mark as read"
-                          className="absolute right-2 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-[opacity,background-color] duration-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none group-hover:opacity-100 sm:right-3"
+                          className="absolute right-2 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-[opacity,background-color] duration-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 sm:right-3"
                         >
-                          <IconX size={14} />
-                        </button>
+                          <IconCheck size={14} />
+                          Dismiss
+                        </Button>
                       )}
                     </div>
                   </motion.div>

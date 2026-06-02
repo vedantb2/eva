@@ -149,7 +149,7 @@ export function TaskActivityComposer({
                     clearExecutionError();
                   }}
                   className={cn(
-                    "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                     effectiveRequestingChanges ? "bg-primary" : "bg-muted",
                     !canRequestChanges && "cursor-not-allowed opacity-50",
                   )}

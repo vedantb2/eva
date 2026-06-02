@@ -56,7 +56,7 @@ export function AppearanceSection({
                     ? "bg-white"
                     : mode === "dark"
                       ? "bg-zinc-900"
-                      : "bg-gradient-to-br from-white to-zinc-900",
+                      : "bg-linear-to-br from-white to-zinc-900",
                 )}
               >
                 <Icon

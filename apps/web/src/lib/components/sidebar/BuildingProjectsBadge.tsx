@@ -172,7 +172,7 @@ function ProjectRow({ title, to }: ProjectRowProps) {
   return (
     <DynamicLink
       to={to}
-      className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+      className="block rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40"
     >
       <div className="group flex items-center gap-2 rounded-md px-2 py-1.5 transition-[background-color,transform] hover:bg-background hover:translate-x-0.5">
         <div className="min-w-0 flex-1">

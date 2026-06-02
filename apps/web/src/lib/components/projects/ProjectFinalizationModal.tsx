@@ -111,10 +111,7 @@ export function ProjectFinalizationModal({
         <DialogHeader className="flex flex-col gap-1">
           <DialogTitle>
             <span className="flex items-center gap-2 text-sm sm:text-base">
-              <IconCircleCheck
-                size={20}
-                className="text-success flex-shrink-0"
-              />
+              <IconCircleCheck size={20} className="text-success shrink-0" />
               Plan Generated
             </span>
           </DialogTitle>
@@ -139,7 +136,7 @@ export function ProjectFinalizationModal({
                     key={i}
                     className="flex items-start gap-2 text-xs sm:text-sm bg-muted p-2 rounded"
                   >
-                    <span className="text-muted-foreground font-mono flex-shrink-0">
+                    <span className="text-muted-foreground font-mono shrink-0">
                       {i + 1}.
                     </span>
                     <div className="min-w-0">

@@ -61,7 +61,7 @@ export function ActiveTasksAccordion({
                 <Link
                   key={task._id}
                   to={getTaskLink(task)}
-                  className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                  className="block rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                 >
                   <div className="flex items-center justify-between rounded-lg p-2.5 transition-colors hover:bg-sidebar-accent/50">
                     <div className="flex-1 min-w-0">

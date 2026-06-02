@@ -69,7 +69,7 @@ export function ProjectsToolbar({
   onSortDirectionToggle,
 }: ProjectsToolbarProps) {
   return (
-    <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+    <div className="flex items-center gap-2 flex-wrap shrink-0">
       <div className="flex items-center rounded-lg bg-muted overflow-hidden">
         {VIEW_OPTIONS.map((opt) => (
           <Tooltip key={opt.key}>

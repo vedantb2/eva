@@ -72,7 +72,7 @@ export function SidebarSessionItem({
     <DynamicLink
       to={href}
       onClick={onNavigate}
-      className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+      className="block rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
     >
       <div className="flex items-center justify-between gap-2">
         <h3

@@ -215,9 +215,9 @@ export function InboxClient() {
                   >
                     <button
                       onClick={() => handleClick(n)}
-                      className={`group flex w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-100 hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50 sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
+                      className={`group flex w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-100 hover:bg-muted/50 focus-visible:outline-hidden focus-visible:bg-muted/50 sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
                     >
-                      <div className="flex w-3 items-center justify-center flex-shrink-0">
+                      <div className="flex w-3 items-center justify-center shrink-0">
                         {!n.read && (
                           <span className="h-2 w-2 rounded-full bg-primary" />
                         )}
@@ -226,7 +226,7 @@ export function InboxClient() {
                       <span className="flex-1 min-w-0 text-xs font-medium truncate sm:text-sm">
                         {n.title}
                       </span>
-                      <span className="text-[10px] text-muted-foreground tabular-nums flex-shrink-0 sm:text-xs">
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 sm:text-xs">
                         {dayjs(n.createdAt).fromNow()}
                       </span>
                     </button>

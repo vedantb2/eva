@@ -54,13 +54,13 @@ export function SpotlightSearch() {
       >
         <Command className="flex flex-col bg-transparent" shouldFilter>
           <div className="flex items-center gap-2 px-4 py-3 focus-within:ring-2 focus-within:ring-ring/35">
-            <IconSearch className="size-4 flex-shrink-0 text-muted-foreground" />
+            <IconSearch className="size-4 shrink-0 text-muted-foreground" />
             <Command.Input
               autoFocus
               placeholder="Search pages, projects, sessions..."
               value={search}
               onValueChange={setSearch}
-              className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
+              className="flex-1 bg-transparent outline-hidden text-sm text-foreground placeholder:text-muted-foreground"
             />
             <kbd className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
               ESC
@@ -77,7 +77,7 @@ export function SpotlightSearch() {
                 className={itemClass}
                 onSelect={() => handleSelect(`${basePath}/projects`)}
               >
-                <IconLayoutKanban size={16} className="flex-shrink-0" />
+                <IconLayoutKanban size={16} className="shrink-0" />
                 <span className="flex-1">Projects</span>
                 <span className="text-xs text-muted-foreground">Build</span>
               </Command.Item>
@@ -86,7 +86,7 @@ export function SpotlightSearch() {
                 className={itemClass}
                 onSelect={() => handleSelect(`${basePath}/quick-tasks`)}
               >
-                <IconChecklist size={16} className="flex-shrink-0" />
+                <IconChecklist size={16} className="shrink-0" />
                 <span className="flex-1">Quick Tasks</span>
                 <span className="text-xs text-muted-foreground">Fix</span>
               </Command.Item>
@@ -95,7 +95,7 @@ export function SpotlightSearch() {
                 className={itemClass}
                 onSelect={() => handleSelect(`${basePath}/sessions`)}
               >
-                <IconTerminal2 size={16} className="flex-shrink-0" />
+                <IconTerminal2 size={16} className="shrink-0" />
                 <span className="flex-1">Sessions</span>
                 <span className="text-xs text-muted-foreground">Fix</span>
               </Command.Item>
@@ -104,7 +104,7 @@ export function SpotlightSearch() {
                 className={itemClass}
                 onSelect={() => handleSelect(`${basePath}/docs`)}
               >
-                <IconFileText size={16} className="flex-shrink-0" />
+                <IconFileText size={16} className="shrink-0" />
                 <span className="flex-1">Documents</span>
                 <span className="text-xs text-muted-foreground">Test</span>
               </Command.Item>
@@ -113,7 +113,7 @@ export function SpotlightSearch() {
                 className={itemClass}
                 onSelect={() => handleSelect(`${basePath}/testing-arena`)}
               >
-                <IconFlask size={16} className="flex-shrink-0" />
+                <IconFlask size={16} className="shrink-0" />
                 <span className="flex-1">Testing Arena</span>
                 <span className="text-xs text-muted-foreground">Test</span>
               </Command.Item>
@@ -122,7 +122,7 @@ export function SpotlightSearch() {
                 className={itemClass}
                 onSelect={() => handleSelect(`${basePath}/stats`)}
               >
-                <IconChartBar size={16} className="flex-shrink-0" />
+                <IconChartBar size={16} className="shrink-0" />
                 <span className="flex-1">Stats</span>
                 <span className="text-xs text-muted-foreground">Analytics</span>
               </Command.Item>
@@ -131,7 +131,7 @@ export function SpotlightSearch() {
                 className={itemClass}
                 onSelect={() => handleSelect(`${basePath}/settings`)}
               >
-                <IconShield size={16} className="flex-shrink-0" />
+                <IconShield size={16} className="shrink-0" />
                 <span className="flex-1">Settings</span>
                 <span className="text-xs text-muted-foreground">Settings</span>
               </Command.Item>
@@ -148,7 +148,7 @@ export function SpotlightSearch() {
                       handleSelect(`${basePath}/projects/${p._id}`)
                     }
                   >
-                    <IconLayoutKanban size={16} className="flex-shrink-0" />
+                    <IconLayoutKanban size={16} className="shrink-0" />
                     <span className="flex-1 truncate">{p.title}</span>
                     <span className="text-xs text-muted-foreground">
                       {p.phase}
@@ -167,7 +167,7 @@ export function SpotlightSearch() {
                     className={itemClass}
                     onSelect={() => handleSelect(`${basePath}/quick-tasks`)}
                   >
-                    <IconChecklist size={16} className="flex-shrink-0" />
+                    <IconChecklist size={16} className="shrink-0" />
                     <span className="flex-1 truncate">{t.title}</span>
                     <span className="text-xs text-muted-foreground">
                       {t.status}
@@ -188,7 +188,7 @@ export function SpotlightSearch() {
                       handleSelect(`${basePath}/sessions/${s._id}`)
                     }
                   >
-                    <IconTerminal2 size={16} className="flex-shrink-0" />
+                    <IconTerminal2 size={16} className="shrink-0" />
                     <span className="flex-1 truncate">{s.title}</span>
                     <span className="text-xs text-muted-foreground">
                       {s.status}
@@ -211,7 +211,7 @@ export function SpotlightSearch() {
                       )
                     }
                   >
-                    <IconFileText size={16} className="flex-shrink-0" />
+                    <IconFileText size={16} className="shrink-0" />
                     <span className="flex-1 truncate">{d.title}</span>
                     <span className="text-xs text-muted-foreground">Doc</span>
                   </Command.Item>
@@ -230,7 +230,7 @@ export function SpotlightSearch() {
                       handleSelect(`${basePath}/testing-arena/${d._id}`)
                     }
                   >
-                    <IconFlask size={16} className="flex-shrink-0" />
+                    <IconFlask size={16} className="shrink-0" />
                     <span className="flex-1 truncate">{d.title}</span>
                     <span className="text-xs text-muted-foreground">Test</span>
                   </Command.Item>

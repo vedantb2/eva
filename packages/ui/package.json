@@ -51,7 +51,7 @@
     "react-day-picker": "^9.13.2",
     "react-dom": ">=19.0.0",
     "streamdown": "^2.1.0",
-    "tailwind-merge": "^2.6.0",
+    "tailwind-merge": "^3.6.0",
     "use-stick-to-bottom": "^1.1.2"
   },
   "devDependencies": {

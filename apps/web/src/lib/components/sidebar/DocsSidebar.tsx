@@ -265,7 +265,7 @@ export function DocsSidebar({
                       <Link
                         to={href}
                         onClick={onNavigate}
-                        className="flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                        className="flex items-center focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                       >
                         <span
                           className={cn(

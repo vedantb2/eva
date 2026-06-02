@@ -1,4 +1,3 @@
-import tailwindcssAnimate from "tailwindcss-animate";
 import tailwindcssTypography from "@tailwindcss/typography";
 
 function c(name) {
@@ -104,13 +103,12 @@ export const themeExtend = {
 
 /** @type {import('tailwindcss').Config} */
 const config = {
-  darkMode: "class",
   content: [
     "./index.html",
     "./src/**/*.{ts,tsx}",
     "../../packages/ui/src/**/*.{ts,tsx}",
   ],
   theme: { extend: themeExtend },
-  plugins: [tailwindcssAnimate, tailwindcssTypography],
+  plugins: [tailwindcssTypography],
 };
 export default config;

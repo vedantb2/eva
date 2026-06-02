@@ -26,7 +26,7 @@ export function PageHeader({
       {showBack && (
         <button
           onClick={onBack ?? (() => window.history.back())}
-          className="motion-press flex-shrink-0 rounded-lg bg-muted p-1.5 transition-[transform,background-color] hover:-translate-y-0.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          className="motion-press shrink-0 rounded-lg bg-muted p-1.5 transition-[transform,background-color] hover:-translate-y-0.5 hover:bg-accent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35"
         >
           <IconArrowLeft size={18} className="text-muted-foreground" />
         </button>
@@ -37,7 +37,7 @@ export function PageHeader({
         </h1>
       )}
       {headerRight && (
-        <div className="ml-auto flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
           {headerRight}
         </div>
       )}

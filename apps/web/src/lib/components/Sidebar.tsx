@@ -320,7 +320,7 @@ export function Sidebar() {
 
   const navItemClass = (isActive: boolean) =>
     cn(
-      "group motion-base flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+      "group motion-base flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
       collapsed && "lg:justify-center lg:px-0",
       isActive
         ? "bg-sidebar-primary/10 text-sidebar-primary"

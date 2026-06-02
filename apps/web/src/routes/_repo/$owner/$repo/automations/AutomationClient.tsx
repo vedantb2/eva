@@ -65,7 +65,7 @@ export function AutomationClient({
               })
             }
             className={cn(
-              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
               automation.enabled ? "bg-emerald-500" : "bg-muted-foreground/30",
             )}
           >
@@ -271,7 +271,7 @@ function SettingsForm({
               type="button"
               onClick={() => setShared(!shared)}
               className={cn(
-                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                 shared ? "bg-emerald-500" : "bg-muted-foreground/30",
               )}
             >
@@ -298,7 +298,7 @@ function SettingsForm({
             type="button"
             onClick={() => setReadOnly(!readOnly)}
             className={cn(
-              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
               readOnly ? "bg-emerald-500" : "bg-muted-foreground/30",
             )}
           >
@@ -325,7 +325,7 @@ function SettingsForm({
               type="button"
               onClick={() => setActionsEnabled(!actionsEnabled)}
               className={cn(
-                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                 actionsEnabled ? "bg-emerald-500" : "bg-muted-foreground/30",
               )}
             >

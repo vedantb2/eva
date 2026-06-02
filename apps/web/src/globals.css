@@ -1,6 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@config "../tailwind.config.js";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {
   font-family: "Geist Sans";
@@ -201,66 +202,62 @@
   }
 }
 
-@layer components {
-  .ui-surface {
-    @apply rounded-lg bg-card;
-  }
-  .ui-surface-strong {
-    @apply rounded-lg bg-card;
-  }
-  .ui-surface-interactive {
-    @apply ui-surface motion-base hover:-translate-y-0.5 hover:bg-muted;
-  }
-  .ui-panel {
-    @apply ui-surface p-4 md:p-5;
-  }
+@utility ui-surface {
+  @apply rounded-lg bg-card;
+}
+@utility ui-surface-strong {
+  @apply rounded-lg bg-card;
+}
+@utility ui-surface-interactive {
+  @apply ui-surface motion-base hover:-translate-y-0.5 hover:bg-muted;
+}
+@utility ui-panel {
+  @apply ui-surface p-4 md:p-5;
 }
 
-@layer utilities {
-  .bg-app-shell {
-    background-color: rgb(var(--app-shell));
-  }
+@utility bg-app-shell {
+  background-color: rgb(var(--app-shell));
+}
 
-  .motion-base {
-    transition-property:
-      color, background-color, border-color, box-shadow, transform, opacity;
-    transition-duration: var(--motion-base);
-    transition-timing-function: var(--motion-ease-out);
-  }
+@utility motion-base {
+  transition-property:
+    color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease-out);
+}
 
-  .motion-emphasized {
-    transition-property: transform, opacity, box-shadow;
-    transition-duration: var(--motion-base);
-    transition-timing-function: var(--motion-ease-emphasized);
-  }
+@utility motion-emphasized {
+  transition-property: transform, opacity, box-shadow;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease-emphasized);
+}
 
-  .motion-press {
-    transition-property: transform;
-    transition-duration: var(--motion-fast);
-    transition-timing-function: var(--motion-ease-out);
-  }
+@utility motion-press {
+  transition-property: transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease-out);
+}
 
-  .scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
-  }
-  .scrollbar:hover {
+@utility scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
+  &:hover {
     scrollbar-color: rgb(var(--muted-foreground) / 0.55) transparent;
   }
-  .scrollbar::-webkit-scrollbar {
+  &::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
-  .scrollbar::-webkit-scrollbar-track {
+  &::-webkit-scrollbar-track {
     background: transparent;
   }
-  .scrollbar::-webkit-scrollbar-thumb {
+  &::-webkit-scrollbar-thumb {
     background: rgb(var(--muted-foreground) / 0.32);
     border: 2px solid transparent;
     border-radius: 999px;
     background-clip: padding-box;
   }
-  .scrollbar::-webkit-scrollbar-thumb:hover {
+  &::-webkit-scrollbar-thumb:hover {
     background: rgb(var(--muted-foreground) / 0.52);
     background-clip: padding-box;
   }

@@ -153,7 +153,7 @@ export function ProjectCard({
       <div
         role="button"
         tabIndex={0}
-        className="relative z-[1] block w-full cursor-pointer p-2.5 pl-3 text-left motion-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+        className="relative z-[1] block w-full cursor-pointer p-2.5 pl-3 text-left motion-base focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35"
         onClick={(event) => {
           if (href && (event.metaKey || event.ctrlKey)) {
             event.preventDefault();

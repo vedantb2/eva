@@ -166,7 +166,7 @@ export function QuickTaskCard({
               : "bg-card/88 hover:bg-card"
       } ${isSelected ? "ring-2 ring-primary/40" : ""} ${isActive ? "ring-1 ring-primary/30" : ""} ${
         onClick
-          ? "cursor-pointer active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          ? "cursor-pointer active:scale-[0.985] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
       }`}
       onClick={(e) => {
@@ -200,7 +200,7 @@ export function QuickTaskCard({
               checked={isSelected}
               onCheckedChange={() => onToggleSelect?.()}
               onClick={(e) => e.stopPropagation()}
-              className="mt-0.5 flex-shrink-0"
+              className="mt-0.5 shrink-0"
             />
           )}
           <h4 className="min-w-0 flex-1 line-clamp-1 text-sm font-medium leading-5 text-foreground">

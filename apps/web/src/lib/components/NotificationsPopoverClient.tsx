@@ -133,7 +133,7 @@ export function NotificationsPopoverClient() {
                   role="option"
                   aria-selected={false}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${notification.read ? "opacity-60" : ""}`}
+                  className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 ${notification.read ? "opacity-60" : ""}`}
                 >
                   <NotificationIcon type={notification.type} />
                   <div className="mt-0.5 min-w-0 flex-1">
@@ -158,7 +158,7 @@ export function NotificationsPopoverClient() {
                     </div>
                   </div>
                   {!notification.read && (
-                    <span className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
+                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />
                   )}
                 </button>
               ))}

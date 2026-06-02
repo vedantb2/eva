@@ -1,7 +1,6 @@
 import { defineConfig, build as viteBuild, normalizePath } from "vite";
 import react from "@vitejs/plugin-react-swc";
-import tailwindcss from "tailwindcss";
-import autoprefixer from "autoprefixer";
+import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "path";
 import { copyFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 
@@ -17,7 +16,6 @@ const watchInclude = [
   `${extensionRoot}/sidepanel.html`,
   `${extensionRoot}/manifest.json`,
   `${extensionRoot}/tailwind.config.js`,
-  `${extensionRoot}/postcss.config.js`,
   `${extensionRoot}/.env*`,
   `${workspaceRoot}/packages/ui/src/**`,
   `${workspaceRoot}/packages/shared/src/**`,
@@ -35,10 +33,7 @@ const contentScriptWatchRoots = [
   `${workspaceRoot}/packages/shared/src`,
 ];
 
-const contentScriptWatchFiles = [
-  `${extensionRoot}/tailwind.config.js`,
-  `${extensionRoot}/postcss.config.js`,
-];
+const contentScriptWatchFiles = [`${extensionRoot}/tailwind.config.js`];
 
 function isFileInDirectory(filePath: string, directoryPath: string) {
   return filePath === directoryPath || filePath.startsWith(`${directoryPath}/`);
@@ -68,17 +63,9 @@ function runContentScriptBuild() {
   return viteBuild({
     configFile: false,
     root: resolve(__dirname),
-    plugins: [react()],
+    plugins: [tailwindcss(), react()],
     resolve: {
       alias: { "@": resolve(__dirname, "src") },
-    },
-    css: {
-      postcss: {
-        plugins: [
-          tailwindcss({ config: resolve(__dirname, "tailwind.config.js") }),
-          autoprefixer(),
-        ],
-      },
     },
     esbuild: { charset: "ascii" },
     logLevel: "warn",
@@ -134,7 +121,7 @@ function buildContentScript() {
 }
 
 export default defineConfig({
-  plugins: [react(), copyStaticFiles(), buildContentScript()],
+  plugins: [tailwindcss(), react(), copyStaticFiles(), buildContentScript()],
   base: "",
   resolve: {
     alias: {

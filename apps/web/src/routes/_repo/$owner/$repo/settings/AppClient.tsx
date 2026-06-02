@@ -91,7 +91,7 @@ export function AppClient() {
             key={`system-prompt-${repoId}`}
             defaultValue={repo.systemPrompt ?? ""}
             onBlur={handleSystemPromptBlur}
-            className="w-full h-32 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full h-32 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-hidden focus:ring-1 focus:ring-ring"
             placeholder="e.g. run pnpm migrate after making backend changes"
           />
         </div>
@@ -150,7 +150,7 @@ export function AppClient() {
               key={`startup-${repoId}`}
               defaultValue={startupCommands}
               onBlur={handleStartupCommandsBlur}
-              className="w-full h-48 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full h-48 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-hidden focus:ring-1 focus:ring-ring"
               placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /home/eva/sandbox-config/seed.sql"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -171,7 +171,7 @@ export function AppClient() {
               key={`background-${repoId}`}
               defaultValue={backgroundCommands}
               onBlur={handleBackgroundCommandsBlur}
-              className="w-full h-32 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full h-32 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-hidden focus:ring-1 focus:ring-ring"
               placeholder="npx convex dev"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">

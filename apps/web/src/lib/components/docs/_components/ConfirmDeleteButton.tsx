@@ -28,7 +28,7 @@ export function ConfirmDeleteButton({
         size="icon"
         variant="ghost"
         onClick={() => setOpen(true)}
-        className="text-muted-foreground hover:text-destructive flex-shrink-0 h-8 w-8"
+        className="text-muted-foreground hover:text-destructive shrink-0 h-8 w-8"
       >
         <IconX size={14} />
       </Button>

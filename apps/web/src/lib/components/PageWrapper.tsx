@@ -54,7 +54,7 @@ export function PageWrapper({
                   size="icon"
                   variant="outline"
                   onClick={onBack ?? (() => window.history.back())}
-                  className="motion-press h-9 w-9 flex-shrink-0 rounded-full hover:scale-[1.03] active:scale-[0.96]"
+                  className="motion-press h-9 w-9 shrink-0 rounded-full hover:scale-[1.03] active:scale-[0.96]"
                 >
                   <IconArrowLeft size={16} className="text-muted-foreground" />
                 </Button>

@@ -128,7 +128,7 @@ export function SidebarLayoutWrapper({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="motion-press flex-shrink-0 hover:scale-[1.03] active:scale-[0.96]"
+                        className="motion-press shrink-0 hover:scale-[1.03] active:scale-[0.96]"
                         onClick={() => setCollapsed(!collapsed)}
                       >
                         <IconLayoutSidebarLeftExpand size={16} />
@@ -151,7 +151,7 @@ export function SidebarLayoutWrapper({
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="motion-press flex-shrink-0 hover:scale-[1.03] active:scale-[0.96]"
+                          className="motion-press shrink-0 hover:scale-[1.03] active:scale-[0.96]"
                           onClick={() => setCollapsed(!collapsed)}
                         >
                           <IconLayoutSidebarLeftCollapse size={16} />

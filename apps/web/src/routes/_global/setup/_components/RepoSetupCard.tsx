@@ -36,7 +36,7 @@ export function RepoSetupCard({
     <div className="rounded-xl bg-muted overflow-hidden">
       <div className="flex items-center justify-between p-3 sm:p-4 bg-card">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <IconBrandGithub className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+          <IconBrandGithub className="w-5 h-5 text-muted-foreground shrink-0" />
           <div className="min-w-0">
             <p className="font-medium text-sm sm:text-base text-foreground truncate">
               {repo.name}
@@ -46,7 +46,7 @@ export function RepoSetupCard({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {isAdded ? (
             <span className="flex items-center gap-1 text-success text-xs sm:text-sm">
               <IconCheck className="w-4 h-4" />

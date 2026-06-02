@@ -1,4 +1,8 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+@config "../../tailwind.config.js";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {
   font-family: "Geist Sans";
@@ -32,10 +36,6 @@
   src: url("https://cdn.jsdelivr.net/npm/@fontsource/geist-sans/files/geist-sans-latin-700-normal.woff2")
     format("woff2");
 }
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 @layer base {
   :root {
@@ -234,66 +234,62 @@
   }
 }
 
-@layer components {
-  .ui-surface {
-    @apply rounded-2xl border border-border/65 bg-card/80 shadow-sm;
-  }
-  .ui-surface-strong {
-    @apply rounded-2xl border border-border/80 bg-card/95 shadow-md;
-  }
-  .ui-surface-interactive {
-    @apply ui-surface motion-base hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md;
-  }
-  .ui-panel {
-    @apply ui-surface p-4 md:p-5;
-  }
+@utility ui-surface {
+  @apply rounded-2xl border border-border/65 bg-card/80 shadow-sm;
+}
+@utility ui-surface-strong {
+  @apply rounded-2xl border border-border/80 bg-card/95 shadow-md;
+}
+@utility ui-surface-interactive {
+  @apply ui-surface motion-base hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md;
+}
+@utility ui-panel {
+  @apply ui-surface p-4 md:p-5;
 }
 
-@layer utilities {
-  .bg-app-shell {
-    background-color: rgb(var(--app-shell));
-  }
+@utility bg-app-shell {
+  background-color: rgb(var(--app-shell));
+}
 
-  .motion-base {
-    transition-property:
-      color, background-color, border-color, box-shadow, transform, opacity;
-    transition-duration: var(--motion-base);
-    transition-timing-function: var(--motion-ease-out);
-  }
+@utility motion-base {
+  transition-property:
+    color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease-out);
+}
 
-  .motion-emphasized {
-    transition-property: transform, opacity, box-shadow;
-    transition-duration: var(--motion-base);
-    transition-timing-function: var(--motion-ease-emphasized);
-  }
+@utility motion-emphasized {
+  transition-property: transform, opacity, box-shadow;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease-emphasized);
+}
 
-  .motion-press {
-    transition-property: transform;
-    transition-duration: var(--motion-fast);
-    transition-timing-function: var(--motion-ease-out);
-  }
+@utility motion-press {
+  transition-property: transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease-out);
+}
 
-  .scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
-  }
-  .scrollbar:hover {
+@utility scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
+  &:hover {
     scrollbar-color: rgb(var(--muted-foreground) / 0.55) transparent;
   }
-  .scrollbar::-webkit-scrollbar {
+  &::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
-  .scrollbar::-webkit-scrollbar-track {
+  &::-webkit-scrollbar-track {
     background: transparent;
   }
-  .scrollbar::-webkit-scrollbar-thumb {
+  &::-webkit-scrollbar-thumb {
     background: rgb(var(--muted-foreground) / 0.32);
     border: 2px solid transparent;
     border-radius: 999px;
     background-clip: padding-box;
   }
-  .scrollbar::-webkit-scrollbar-thumb:hover {
+  &::-webkit-scrollbar-thumb:hover {
     background: rgb(var(--muted-foreground) / 0.52);
     background-clip: padding-box;
   }

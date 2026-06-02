@@ -187,7 +187,7 @@ export function SnapshotsClient({
                     })
                   }
                   className={cn(
-                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                     isEnabled ? "bg-emerald-500" : "bg-muted-foreground/30",
                   )}
                 >
@@ -239,7 +239,7 @@ export function SnapshotsClient({
                 key={`build-${snapshot?._id ?? "none"}`}
                 defaultValue={buildCommandsText}
                 onBlur={handleBuildCommandsBlur}
-                className="w-full h-48 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full h-48 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-hidden focus:ring-1 focus:ring-ring"
                 placeholder="pnpm convex codegen&#10;pnpm build"
               />
               <p className="mt-1 text-[11px] text-muted-foreground">

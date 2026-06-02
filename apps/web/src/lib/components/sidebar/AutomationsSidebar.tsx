@@ -124,7 +124,7 @@ export function AutomationsSidebar({
                   <Link
                     to={href}
                     onClick={onNavigate}
-                    className="flex items-center px-3 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                    className="flex items-center px-3 py-3 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
                   >
                     <span
                       className={cn(

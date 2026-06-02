@@ -25,7 +25,7 @@ function GlobalMainContent() {
       <div className="relative flex flex-1 flex-col bg-background">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-linear-to-b from-primary/8 via-primary/3 to-transparent"
         />
         <div className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />

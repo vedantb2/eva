@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import tanstackRouter from "@tanstack/router-plugin/vite";
 import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
@@ -69,6 +70,7 @@ function agentLoginPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [
+    tailwindcss(),
     tanstackRouter({
       routesDirectory: "./src/routes",
       routeFileIgnorePattern:

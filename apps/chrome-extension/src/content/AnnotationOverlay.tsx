@@ -453,7 +453,7 @@ function InputCard({
           readOnly={locked}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-none resize-none ${dark ? "bg-neutral-900 text-neutral-100 border-neutral-700 placeholder-neutral-500" : "bg-neutral-50 text-neutral-800 border-neutral-200 placeholder-neutral-400"}`}
+          className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-hidden resize-none ${dark ? "bg-neutral-900 text-neutral-100 border-neutral-700 placeholder-neutral-500" : "bg-neutral-50 text-neutral-800 border-neutral-200 placeholder-neutral-400"}`}
           style={{ boxSizing: "border-box", display: "block" }}
         />
       </div>

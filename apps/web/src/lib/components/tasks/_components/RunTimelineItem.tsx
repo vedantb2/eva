@@ -241,7 +241,7 @@ export function RunTimelineItem({
                             : "text-muted-foreground"
                       }`}
                     >
-                      <span className="text-muted-foreground flex-shrink-0">
+                      <span className="text-muted-foreground shrink-0">
                         {dayjs(log.timestamp).format("DD/MM/YYYY HH:mm")}
                       </span>
                       <span className="break-all">{log.message}</span>

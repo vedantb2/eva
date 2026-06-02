@@ -35,7 +35,7 @@ function SearchInput({
         <button
           type="button"
           onClick={onClear}
-          className="motion-press absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:scale-105 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          className="motion-press absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:scale-105 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35"
         >
           <IconX size={14} />
         </button>

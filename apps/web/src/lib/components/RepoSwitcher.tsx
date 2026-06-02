@@ -217,7 +217,7 @@ export function RepoSwitcher({
         <button
           type="button"
           className={cn(
-            "flex w-full items-center gap-3 rounded-md bg-sidebar-accent/50 px-3 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
+            "flex w-full items-center gap-3 rounded-md bg-sidebar-accent/50 px-3 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
             className,
           )}
         >
@@ -265,7 +265,7 @@ export function RepoSwitcher({
               setSelectedMonorepo(null);
             }}
             placeholder="Search repos..."
-            className="h-6 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+            className="h-6 w-full bg-transparent text-sm outline-hidden placeholder:text-muted-foreground/60"
           />
         </div>
 

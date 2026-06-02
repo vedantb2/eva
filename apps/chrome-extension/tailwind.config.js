@@ -1,5 +1,3 @@
-import tailwindcssAnimate from "tailwindcss-animate";
-
 /** @type {import('tailwindcss').Config} */
 
 function c(name) {
@@ -7,7 +5,6 @@ function c(name) {
 }
 
 const config = {
-  darkMode: "class",
   content: [
     "./sidepanel.html",
     "./src/**/*.{ts,tsx}",
@@ -81,6 +78,6 @@ const config = {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [],
 };
 export default config;

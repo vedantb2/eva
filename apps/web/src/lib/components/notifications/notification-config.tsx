@@ -117,7 +117,7 @@ export function NotificationIcon({
   const iconSize = size === "sm" ? 16 : 20;
 
   return (
-    <Avatar className={`${dim} rounded-lg flex-shrink-0`}>
+    <Avatar className={`${dim} rounded-lg shrink-0`}>
       <AvatarFallback className={`rounded-lg ${config.iconBg}`}>
         <Icon size={iconSize} className={config.iconColor} />
       </AvatarFallback>

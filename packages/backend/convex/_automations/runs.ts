@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { CHANGELOG_AUTOMATION_TITLE } from "../changelog";
 import {
   automationRunFields,
   automationFindingValidator,
@@ -178,8 +177,7 @@ export const cancelRun = authMutation({
     await cancelTrackedWorkflow(ctx, run.activeWorkflowId);
 
     await ctx.db.patch(args.runId, {
-      status: "error",
-      error: "Cancelled by user",
+      status: "cancelled",
       finishedAt: Date.now(),
       activeWorkflowId: undefined,
     });

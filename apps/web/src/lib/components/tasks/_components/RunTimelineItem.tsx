@@ -126,29 +126,31 @@ export function RunTimelineItem({
                           : "secondary"
                   }
                 >
-                  {run.mode === "resolve_conflicts"
-                    ? run.status === "running"
-                      ? "resolving conflicts"
-                      : run.status === "success"
-                        ? "resolved conflicts"
-                        : run.status === "error"
-                          ? "error"
-                          : "queued"
-                    : hasRunComment
+                  {run.status === "cancelled"
+                    ? "cancelled"
+                    : run.mode === "resolve_conflicts"
                       ? run.status === "running"
-                        ? "making changes"
+                        ? "resolving conflicts"
                         : run.status === "success"
-                          ? "made changes"
+                          ? "resolved conflicts"
                           : run.status === "error"
                             ? "error"
                             : "queued"
-                      : run.status === "running"
-                        ? "running"
-                        : run.status === "success"
-                          ? "success"
-                          : run.status === "error"
-                            ? "error"
-                            : "queued"}
+                      : hasRunComment
+                        ? run.status === "running"
+                          ? "making changes"
+                          : run.status === "success"
+                            ? "made changes"
+                            : run.status === "error"
+                              ? "error"
+                              : "queued"
+                        : run.status === "running"
+                          ? "running"
+                          : run.status === "success"
+                            ? "success"
+                            : run.status === "error"
+                              ? "error"
+                              : "queued"}
                 </Badge>
                 {runDuration}
               </div>

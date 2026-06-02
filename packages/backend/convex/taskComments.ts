@@ -193,6 +193,9 @@ export const remove = authMutation({
     if (!comment) {
       throw new Error("Comment not found");
     }
+    if (comment.authorId !== ctx.userId) {
+      throw new Error("Only the comment author can delete");
+    }
     const task = await ctx.db.get(comment.taskId);
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
       throw new Error("Comment not found");

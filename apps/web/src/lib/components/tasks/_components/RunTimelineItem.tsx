@@ -46,6 +46,28 @@ type Run = NonNullable<
 type Streaming = FunctionReturnType<typeof api.streaming.get>;
 type Users = FunctionReturnType<typeof api.users.listAll>;
 
+/** Human-readable badge label for a run. The error/queued/cancelled labels are
+ * the same everywhere; only running/success vary by run mode and whether the
+ * run was triggered by a change-request comment. */
+function getRunStatusLabel(run: Run, hasRunComment: boolean): string {
+  switch (run.status) {
+    case "cancelled":
+      return "cancelled";
+    case "error":
+      return "error";
+    case "queued":
+      return "queued";
+    case "running":
+      if (run.mode === "resolve_conflicts") return "resolving conflicts";
+      if (hasRunComment) return "making changes";
+      return "running";
+    case "success":
+      if (run.mode === "resolve_conflicts") return "resolved conflicts";
+      if (hasRunComment) return "made changes";
+      return "success";
+  }
+}
+
 export function RunTimelineItem({
   run,
   isActiveRun,
@@ -126,31 +148,7 @@ export function RunTimelineItem({
                           : "secondary"
                   }
                 >
-                  {run.status === "cancelled"
-                    ? "cancelled"
-                    : run.mode === "resolve_conflicts"
-                      ? run.status === "running"
-                        ? "resolving conflicts"
-                        : run.status === "success"
-                          ? "resolved conflicts"
-                          : run.status === "error"
-                            ? "error"
-                            : "queued"
-                      : hasRunComment
-                        ? run.status === "running"
-                          ? "making changes"
-                          : run.status === "success"
-                            ? "made changes"
-                            : run.status === "error"
-                              ? "error"
-                              : "queued"
-                        : run.status === "running"
-                          ? "running"
-                          : run.status === "success"
-                            ? "success"
-                            : run.status === "error"
-                              ? "error"
-                              : "queued"}
+                  {getRunStatusLabel(run, hasRunComment)}
                 </Badge>
                 {runDuration}
               </div>

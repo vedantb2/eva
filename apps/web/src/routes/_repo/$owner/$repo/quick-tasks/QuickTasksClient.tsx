@@ -140,8 +140,8 @@ export function QuickTasksClient() {
           ? "Unassigned"
           : (users?.find((u) => u._id === assignee)?.fullName ??
             users?.find((u) => u._id === assignee)?.firstName ??
-            "Assignee");
-      labels.push({ key: "assignee", label: `Assigned to: ${name}` });
+            "Code Reviewer");
+      labels.push({ key: "assignee", label: `Code reviewer: ${name}` });
     }
     if (statuses.length !== TASK_STATUSES.length) {
       labels.push({

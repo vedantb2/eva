@@ -142,14 +142,16 @@ export function QuickTasksToolbar({
   const visibleStatuses = useMemo(() => new Set(statuses), [statuses]);
   const selectedTags = useMemo(() => new Set(tags), [tags]);
 
+  const reviewers = (users ?? []).filter((u) => u.role === "dev");
+
   const assigneeLabel =
     assignee === "all"
-      ? "All Assignees"
+      ? "All Code Reviewers"
       : assignee === "unassigned"
         ? "Unassigned"
         : (users?.find((u) => u._id === assignee)?.fullName ??
           users?.find((u) => u._id === assignee)?.firstName ??
-          "Assignee");
+          "Code Reviewer");
 
   const handleStatusToggle = (status: DisplayTaskStatus) => {
     const next = new Set(visibleStatuses);
@@ -389,15 +391,15 @@ export function QuickTasksToolbar({
                   onValueChange={(v) => setParams({ assignee: v })}
                 >
                   <DropdownMenuRadioItem value="all">
-                    All Assignees
+                    All Code Reviewers
                   </DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="unassigned">
                     Unassigned
                   </DropdownMenuRadioItem>
-                  {users && users.length > 0 && (
+                  {reviewers.length > 0 && (
                     <>
                       <DropdownMenuSeparator />
-                      {users.map((u) => (
+                      {reviewers.map((u) => (
                         <DropdownMenuRadioItem key={u._id} value={u._id}>
                           {u.fullName ?? u.firstName ?? "Unknown"}
                         </DropdownMenuRadioItem>

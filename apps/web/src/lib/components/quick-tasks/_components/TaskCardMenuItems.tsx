@@ -220,7 +220,7 @@ export function TaskCardMenuItems({
       <Sub>
         <SubTrigger>
           <IconUserPlus size={16} />
-          Assignee
+          Code Reviewer
         </SubTrigger>
         <SubContent>
           <RadioGroup
@@ -242,11 +242,13 @@ export function TaskCardMenuItems({
             )}
             <MenuSeparator />
             <RadioItem value="unassigned">Unassigned</RadioItem>
-            {users?.map((user) => (
-              <RadioItem key={user._id} value={user._id}>
-                {user.fullName ?? user.firstName ?? "Unknown"}
-              </RadioItem>
-            ))}
+            {(users ?? [])
+              .filter((user) => user.role === "dev")
+              .map((user) => (
+                <RadioItem key={user._id} value={user._id}>
+                  {user.fullName ?? user.firstName ?? "Unknown"}
+                </RadioItem>
+              ))}
           </RadioGroup>
         </SubContent>
       </Sub>

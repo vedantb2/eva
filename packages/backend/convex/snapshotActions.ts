@@ -103,7 +103,7 @@ function buildSnapshotImage(
       "ln -s /usr/bin/fdfind /usr/local/bin/fd",
       "git lfs install --system",
       // Global npm packages
-      "npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex",
+      "npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0",
       // Code-server
       "curl -fsSL https://code-server.dev/install.sh | sh",
       // Supabase CLI (pinned version — npm global install not supported, API calls hit rate limits)

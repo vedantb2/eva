@@ -3,5 +3,5 @@ export function cssColor(name: string, alpha = 1): string {
   const v = getComputedStyle(document.documentElement)
     .getPropertyValue(`--${name}`)
     .trim();
-  return `oklch(${v} / ${alpha})`;
+  return `rgb(${v} / ${alpha})`;
 }

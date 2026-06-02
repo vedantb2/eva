@@ -6,15 +6,15 @@
     ".": "./index.ts"
   },
   "scripts": {
-    "dev": "npx convex dev",
-    "dev:personal": "cross-env CONVEX_DEPLOYMENT=dev:elegant-snail-639 npx convex dev",
-    "dev:evalucom": "cross-env CONVEX_DEPLOYMENT=dev:good-mule-506 npx convex dev",
+    "dev": "convex dev",
+    "dev:personal": "cross-env CONVEX_DEPLOYMENT=dev:elegant-snail-639 convex dev",
+    "dev:evalucom": "cross-env CONVEX_DEPLOYMENT=dev:good-mule-506 convex dev",
     "dev:all": "concurrently -n personal,evalucom -c blue,green \"pnpm dev:personal\" \"pnpm dev:evalucom\"",
     "build:callback": "node scripts/build-callback-script.mjs",
     "test:callback": "node --import tsx --test callback-src/tests/createSessionStore.test.ts callback-src/tests/evaluateAttemptHealth.test.ts callback-src/tests/canonical.test.ts",
     "test:skill-markdown": "node --import tsx --test tests/skillMarkdown.test.ts",
     "predeploy": "node scripts/build-callback-script.mjs",
-    "deploy": "npx convex deploy"
+    "deploy": "convex deploy"
   },
   "author": "",
   "license": "ISC",

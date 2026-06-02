@@ -171,6 +171,7 @@ import type * as mcp_tools from "../mcp/tools.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as notificationDigest from "../notificationDigest.js";
+import type * as notificationEmail from "../notificationEmail.js";
 import type * as notifications from "../notifications.js";
 import type * as prBody from "../prBody.js";
 import type * as presence from "../presence.js";
@@ -392,6 +393,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   migrations: typeof migrations;
   notificationDigest: typeof notificationDigest;
+  notificationEmail: typeof notificationEmail;
   notifications: typeof notifications;
   prBody: typeof prBody;
   presence: typeof presence;

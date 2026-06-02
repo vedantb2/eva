@@ -210,13 +210,15 @@ export function CommentActivityItem({
                   Edit
                 </DropdownMenuItem>
               ) : null}
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => onDeleteRequest(comment._id)}
-              >
-                <IconTrash size={14} />
-                Delete
-              </DropdownMenuItem>
+              {isAuthor && !isDeleted ? (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => onDeleteRequest(comment._id)}
+                >
+                  <IconTrash size={14} />
+                  Delete
+                </DropdownMenuItem>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
           <RelativeDateTime

@@ -1,11 +1,35 @@
-import { MutationCtx, internalQuery } from "./_generated/server";
+import {
+  MutationCtx,
+  internalQuery,
+  internalMutation,
+} from "./_generated/server";
 import { v, Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { notificationTypeValidator } from "./validators";
 import { authQuery, authMutation } from "./functions";
 
 /** Max unread notifications shown per user in the daily digest email. */
 const DIGEST_NOTIFICATION_LIMIT = 50;
+
+/**
+ * Notification types worth an instant (debounced) email — high-signal, human-
+ * directed activity. Everything else waits for the daily digest. Lower-signal
+ * types (run/task completion, system) are intentionally absent.
+ */
+const EMAIL_NOTIFICATION_TYPES: ReadonlySet<string> = new Set([
+  "mention",
+  "comment_reply",
+  "comment_added",
+  "task_assigned",
+]);
+
+/**
+ * Delay before an instant notification email is sent. Acts as a debounce: a
+ * burst of activity within this window is swept into a single email, and the
+ * send is skipped entirely if the user reads the notification in-app first.
+ */
+const EMAIL_SEND_DELAY_MS = 5 * 60 * 1000;
 
 /**
  * How many unread notifications to scan per user before filtering. Larger than
@@ -60,9 +84,10 @@ export async function createNotification(
       }
     }
   }
+  const type = params.type ?? "system";
   await ctx.db.insert("notifications", {
     userId: params.userId,
-    type: params.type ?? "system",
+    type,
     title: params.title,
     message: params.message,
     href,
@@ -70,6 +95,16 @@ export async function createNotification(
     read: false,
     createdAt: Date.now(),
   });
+
+  // High-signal types get an instant email after a short debounce. The send is
+  // skipped if the user reads it in-app first (see notificationEmail.ts).
+  if (EMAIL_NOTIFICATION_TYPES.has(type)) {
+    await ctx.scheduler.runAfter(
+      EMAIL_SEND_DELAY_MS,
+      internal.notificationEmail.sendUnreadForUser,
+      { userId: params.userId },
+    );
+  }
 }
 
 const notificationValidator = v.object({
@@ -83,6 +118,7 @@ const notificationValidator = v.object({
   href: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
   createdAt: v.number(),
+  emailedAt: v.optional(v.number()),
 });
 
 /** Lists the 100 most recent notifications for the current user. */
@@ -193,7 +229,10 @@ export const getDigestRecipients = internalQuery({
         .order("desc")
         .take(DIGEST_SCAN_LIMIT);
       const relevant = unread
-        .filter((n) => !DIGEST_EXCLUDED_TYPES.has(n.type))
+        .filter(
+          (n) =>
+            !DIGEST_EXCLUDED_TYPES.has(n.type) && n.emailedAt === undefined,
+        )
         .slice(0, DIGEST_NOTIFICATION_LIMIT);
       if (relevant.length === 0) continue;
       recipients.push({
@@ -209,5 +248,76 @@ export const getDigestRecipients = internalQuery({
       });
     }
     return recipients;
+  },
+});
+
+/**
+ * For an instant notification email: returns the user's unread, not-yet-emailed,
+ * high-signal notifications (or null if there is nothing to send — user opted
+ * out, has no email, or has already read/been emailed everything). Sweeping all
+ * pending items lets a burst within the debounce window collapse into one email.
+ * Internal use only (notificationEmail.sendUnreadForUser).
+ */
+export const getUnreadEmailableForUser = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.union(
+    v.object({
+      email: v.string(),
+      name: v.optional(v.string()),
+      notifications: v.array(
+        v.object({
+          id: v.id("notifications"),
+          title: v.string(),
+          message: v.optional(v.string()),
+          href: v.optional(v.string()),
+          type: notificationTypeValidator,
+          createdAt: v.number(),
+        }),
+      ),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user || !user.email) return null;
+    if (user.emailNotificationsEnabled !== true) return null;
+
+    const unread = await ctx.db
+      .query("notifications")
+      .withIndex("by_user_and_read", (q) =>
+        q.eq("userId", args.userId).eq("read", false),
+      )
+      .order("desc")
+      .take(DIGEST_SCAN_LIMIT);
+    const relevant = unread.filter(
+      (n) => EMAIL_NOTIFICATION_TYPES.has(n.type) && n.emailedAt === undefined,
+    );
+    if (relevant.length === 0) return null;
+
+    return {
+      email: user.email,
+      name: user.firstName ?? user.fullName,
+      notifications: relevant.map((n) => ({
+        id: n._id,
+        title: n.title,
+        message: n.message,
+        href: n.href,
+        type: n.type,
+        createdAt: n.createdAt,
+      })),
+    };
+  },
+});
+
+/** Stamps emailedAt on the given notifications so they are not emailed again. */
+export const markEmailed = internalMutation({
+  args: { notificationIds: v.array(v.id("notifications")) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    for (const id of args.notificationIds) {
+      await ctx.db.patch(id, { emailedAt: now });
+    }
+    return null;
   },
 });

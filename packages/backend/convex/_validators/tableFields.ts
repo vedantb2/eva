@@ -226,6 +226,9 @@ export const automationFields = {
   readOnly: v.optional(v.boolean()),
   actionsEnabled: v.optional(v.boolean()),
   shared: v.optional(v.boolean()),
+  // When true, a successful run broadcasts its result summary by email to every
+  // user with email notifications enabled (see automationEmail.sendAutomationEmail).
+  sendEmail: v.optional(v.boolean()),
   cronJobId: v.optional(v.string()),
   createdBy: v.id("users"),
   createdAt: v.number(),

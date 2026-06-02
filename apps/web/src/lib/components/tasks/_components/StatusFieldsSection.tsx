@@ -226,6 +226,7 @@ export function StatusFieldsSection({
   const assignedDisplayName = assignedUser
     ? getUserDisplayName(assignedUser)
     : "Unnamed User";
+  const reviewers = (users ?? []).filter((u) => u.role === "dev");
   const currentModel = normalizeAIModel(task?.model);
   const { options: modelOptions } = useAvailableAiModels(
     task?.repoId,
@@ -483,15 +484,17 @@ export function StatusFieldsSection({
               ) : (
                 <IconUserPlus size={14} className="text-muted-foreground" />
               )}
-              <span>{task?.assignedTo ? assignedDisplayName : "Assignee"}</span>
+              <span>
+                {task?.assignedTo ? assignedDisplayName : "Code Reviewer"}
+              </span>
             </div>
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectLabel>Assignee</SelectLabel>
+            <SelectLabel>Code Reviewer</SelectLabel>
             <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
-            {(users ?? []).map((user) => (
+            {reviewers.map((user) => (
               <SelectItem key={user._id} value={user._id}>
                 <div className="flex items-center gap-1.5">
                   <Facehash

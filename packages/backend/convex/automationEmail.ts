@@ -5,7 +5,7 @@ import { marked } from "marked";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { sendEmail } from "./email";
-import { buildChangelogEmailHtml } from "./emailTemplates";
+import { buildAutomationEmailHtml } from "./emailTemplates";
 
 /** Reads a required environment variable, throwing a clear error when it is missing. */
 function getEnv(name: string): string {
@@ -17,16 +17,16 @@ function getEnv(name: string): string {
 }
 
 /**
- * Emails the weekly changelog to every user with an email address. Scheduled by
- * updateRunStatus when an "Eva Weekly Changelog" automation run succeeds, so it
- * sends exactly once per published changelog. A failed send is logged and
- * skipped so it does not abort the batch.
+ * Emails an automation's latest successful run summary to every user with email
+ * notifications enabled. Scheduled by updateRunStatus when a run succeeds and
+ * the automation has sendEmail enabled, so it sends exactly once per successful
+ * run. A failed send is logged and skipped so it does not abort the batch.
  */
-export const sendChangelogEmail = internalAction({
+export const sendAutomationEmail = internalAction({
   args: { runId: v.id("automationRuns") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const run = await ctx.runQuery(internal.changelog.getChangelogRunForEmail, {
+    const run = await ctx.runQuery(internal.automations.getRunForEmail, {
       runId: args.runId,
     });
     if (!run) return null;
@@ -41,16 +41,17 @@ export const sendChangelogEmail = internalAction({
     let sent = 0;
     const failures: string[] = [];
     for (const recipient of recipients) {
-      const html = buildChangelogEmailHtml({
+      const html = buildAutomationEmailHtml({
         recipientName: recipient.name,
         appUrl,
         contentHtml,
         publishedAt: run.publishedAt,
+        heading: run.automationTitle,
       });
       try {
         await sendEmail({
           to: recipient.email,
-          subject: `Eva Weekly Changelog #${run.runNumber}`,
+          subject: `${run.automationTitle} #${run.runNumber}`,
           html,
         });
         sent += 1;
@@ -60,10 +61,10 @@ export const sendChangelogEmail = internalAction({
     }
 
     console.log(
-      `Changelog email: ${sent} sent, ${failures.length} failed of ${recipients.length} recipients.`,
+      `Automation email (${run.automationTitle}): ${sent} sent, ${failures.length} failed of ${recipients.length} recipients.`,
     );
     if (failures.length > 0) {
-      console.error(`Changelog email failures:\n${failures.join("\n")}`);
+      console.error(`Automation email failures:\n${failures.join("\n")}`);
     }
     return null;
   },

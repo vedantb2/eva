@@ -1,5 +1,36 @@
 # Changelog
 
+## Enhanced prompt continuity for task changes - 2026-06-02
+
+- Fixed "Make changes" re-runs to resolve `@mention` tokens in feedback comments, matching how task descriptions are prepared.
+- Annotated each change request with the reviewer's name and date, helping the agent understand recency and authorship of feedback.
+- Injected the previous successful run's summary into change-request prompts, so "Make changes" re-runs understand prior work instead of rediscovering it from scratch.
+
+## Instant notification emails - 2026-06-02
+
+- High-signal notifications (mentions, replies, comments, assignments) now email the user a few minutes after they happen, so time-sensitive activity no longer waits for the once-daily digest.
+- The email is skipped if the user already read it in-app, and a burst within the window collapses into one email, mirroring Linear's inbox behaviour.
+- Emailed items are marked so the daily digest never repeats them.
+
+## Code reviewer assignment - 2026-06-02
+
+- Reframed task "Assignee" as "Code Reviewer" across the create modal, detail panel, list filter, and card menu so assignment models the code-review step.
+- User pickers now list only dev-role users, keeping code-review assignment to engineers.
+
+## Mark notifications read without leaving the inbox - 2026-06-02
+
+- Hovering an unread notification now reveals a labelled "Dismiss" button that marks it read in place, so users can clear high-volume rows without navigating away to the linked task or project.
+
+## Pre-installed agentation-mcp in sandbox snapshots - 2026-06-02
+
+- Sandbox snapshots now ship with agentation-mcp already installed, so it is available the moment a sandbox starts instead of being installed on first use.
+
+## Per-automation email toggle - 2026-06-02
+
+- Added a "Send email" toggle to automation settings so any automation can broadcast its run summary on success, replacing the hardcoded changelog-only behaviour.
+- Generalised the changelog email into a reusable automation email (subject derived from the automation title plus its edition number) sent to all opted-in users.
+- Extracted a shared SettingToggle component for the automation settings switches, removing duplicated markup.
+
 ## Email notifications ready for production - 2026-05-29
 
 - Filtered out spammy task/quick-task run completion notifications from the daily digest so users see only impactful mentions and merged changes (run-finished notifications remain in the in-app bell).

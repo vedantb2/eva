@@ -15,6 +15,9 @@ export const runStatusValidator = v.union(
   v.literal("running"),
   v.literal("success"),
   v.literal("error"),
+  // User-initiated cancellation. Distinct from "error" so cancelled runs are
+  // not flagged as failures (no red card border, neutral timeline badge).
+  v.literal("cancelled"),
 );
 
 export const logLevelValidator = v.union(

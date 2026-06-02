@@ -18,6 +18,11 @@ export interface DigestEmailOptions {
   /** Base URL of the web app, e.g. https://app.example.com (no trailing slash needed). */
   appUrl: string;
   notifications: DigestNotification[];
+  /**
+   * Overrides the default "You have N unread notifications" heading. Used by the
+   * instant single-notification email to lead with the activity itself.
+   */
+  heading?: string;
 }
 
 const BRAND = "#4f46e5";
@@ -68,14 +73,20 @@ function buildLink(appUrl: string, href: string): string {
   return `${base}${path}`;
 }
 
+const DEFAULT_FOOTER_TEXT =
+  "You are receiving this email because you have unread notifications. Open the app to manage them.";
+
 /** Wraps body content in a centred, responsive email shell with a logo header and footer. */
 export function wrapEmailLayout(opts: {
   title: string;
   bodyHtml: string;
   /** Base URL of the web app, used to load the logo from its public assets. */
   appUrl: string;
+  /** Footer line explaining why the recipient got the email. Defaults to the digest wording. */
+  footerText?: string;
 }): string {
   const logoUrl = `${opts.appUrl.replace(/\/+$/, "")}/icon.png`;
+  const footerText = opts.footerText ?? DEFAULT_FOOTER_TEXT;
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -100,7 +111,7 @@ export function wrapEmailLayout(opts: {
             <tr>
               <td style="padding:20px 32px;background-color:${SURFACE};">
                 <p style="margin:0;font-size:12px;line-height:18px;color:${MUTED};">
-                  You are receiving this email because you have unread notifications. Open the app to manage them.
+                  ${escapeHtml(footerText)}
                 </p>
               </td>
             </tr>
@@ -142,7 +153,9 @@ export function buildNotificationDigestHtml(opts: DigestEmailOptions): string {
   const greeting = opts.recipientName
     ? `Hi ${escapeHtml(opts.recipientName)},`
     : "Hi,";
-  const heading = `You have ${count} unread notification${count === 1 ? "" : "s"}`;
+  const heading =
+    opts.heading ??
+    `You have ${count} unread notification${count === 1 ? "" : "s"}`;
   const rows = opts.notifications
     .map((n) => renderNotification(n, opts.appUrl))
     .join("");
@@ -157,29 +170,30 @@ export function buildNotificationDigestHtml(opts: DigestEmailOptions): string {
   return wrapEmailLayout({ title: heading, bodyHtml, appUrl: opts.appUrl });
 }
 
-export interface ChangelogEmailOptions {
+export interface AutomationEmailOptions {
   recipientName?: string;
   /** Base URL of the web app, e.g. https://app.example.com (no trailing slash needed). */
   appUrl: string;
-  /** Changelog body already converted from markdown to trusted HTML by the caller. */
+  /** Run summary already converted from markdown to trusted HTML by the caller. */
   contentHtml: string;
   publishedAt: number;
+  /** Heading shown above the body, typically the automation title. */
+  heading: string;
 }
 
 /**
- * Builds the weekly changelog announcement email. The caller converts the
- * stored markdown to HTML (contentHtml) before passing it in, so this stays a
- * pure module with no markdown dependency.
+ * Builds an automation result announcement email (e.g. the weekly changelog).
+ * The caller converts the stored markdown to HTML (contentHtml) before passing
+ * it in, so this stays a pure module with no markdown dependency.
  */
-export function buildChangelogEmailHtml(opts: ChangelogEmailOptions): string {
+export function buildAutomationEmailHtml(opts: AutomationEmailOptions): string {
   const greeting = opts.recipientName
     ? `Hi ${escapeHtml(opts.recipientName)},`
     : "Hi,";
-  const heading = "What's new in Eva";
 
   const bodyHtml = `
     <p style="margin:0 0 4px;font-size:15px;line-height:22px;color:${TEXT};">${greeting}</p>
-    <h1 style="margin:0 0 4px;font-size:20px;line-height:28px;font-weight:700;color:${TEXT};">${heading}</h1>
+    <h1 style="margin:0 0 4px;font-size:20px;line-height:28px;font-weight:700;color:${TEXT};">${escapeHtml(opts.heading)}</h1>
     <p style="margin:0 0 20px;font-size:13px;color:${MUTED};">${escapeHtml(formatDate(opts.publishedAt))}</p>
     <div style="font-size:14px;line-height:22px;color:${TEXT};">${opts.contentHtml}</div>
     <p style="margin:24px 0 0;">
@@ -187,5 +201,11 @@ export function buildChangelogEmailHtml(opts: ChangelogEmailOptions): string {
     </p>
   `;
 
-  return wrapEmailLayout({ title: heading, bodyHtml, appUrl: opts.appUrl });
+  return wrapEmailLayout({
+    title: opts.heading,
+    bodyHtml,
+    appUrl: opts.appUrl,
+    footerText:
+      "You are receiving this email because email notifications are enabled. Open the app to manage them.",
+  });
 }

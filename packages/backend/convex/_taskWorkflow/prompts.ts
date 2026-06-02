@@ -55,6 +55,7 @@ export function buildImplementationPrompt(
   changeRequests?: string[],
   projectContext?: { title: string; description?: string },
   systemPrompt?: string,
+  previousRunSummary?: string,
 ): string {
   const commitScope = isQuickTask
     ? "feat"
@@ -72,12 +73,15 @@ export function buildImplementationPrompt(
     : `${commitScope}: ${task.title}`;
   const typecheckCommand = buildTypecheckCommand(rootDirectory);
 
+  const previousRunSection = previousRunSummary
+    ? `\n\n### What the previous run completed:\n${previousRunSummary}`
+    : "";
   const changeRequestSection =
     changeRequests && changeRequests.length > 0
       ? `\n## Change Requests (from reviewer):
 ${changeRequests.map((r, i) => `${i + 1}. ${r}`).join("\n")}
 
-IMPORTANT: This task was already implemented. The branch "${branchName}" has commits from a previous run. Focus ONLY on addressing the change requests above. Do NOT redo work that was already completed successfully.\n`
+IMPORTANT: This task was already implemented. The branch "${branchName}" has commits from a previous run. Focus ONLY on addressing the change requests above. Do NOT redo work that was already completed successfully.${previousRunSection}\n`
       : "";
   const proofOfCompletionSection = screenshotsVideosEnabled
     ? `

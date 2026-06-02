@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhanced prompt continuity for task changes - 2026-06-02
+
+- Fixed "Make changes" re-runs to resolve `@mention` tokens in feedback comments, matching how task descriptions are prepared.
+- Annotated each change request with the reviewer's name and date, helping the agent understand recency and authorship of feedback.
+- Injected the previous successful run's summary into change-request prompts, so "Make changes" re-runs understand prior work instead of rediscovering it from scratch.
+
 ## Instant notification emails - 2026-06-02
 
 - High-signal notifications (mentions, replies, comments, assignments) now email the user a few minutes after they happen, so time-sensitive activity no longer waits for the once-daily digest.

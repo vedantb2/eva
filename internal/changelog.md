@@ -1,5 +1,10 @@
 # Changelog
 
+## Animated logo and on-brand loading spinner - 2026-06-02
+
+- The sidebar logo now draws itself on load and replays the draw when you hover it.
+- Replaced the generic loading spinner with the Eva mark traced as an animated outline, so loading states are on-brand across the app.
+
 ## Enhanced prompt continuity for task changes - 2026-06-02
 
 - Fixed "Make changes" re-runs to resolve `@mention` tokens in feedback comments, matching how task descriptions are prepared.

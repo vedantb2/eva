@@ -870,3 +870,37 @@
   }
 }
 */
+
+/* ───────────────────────────────────────────────────────────────────
+ * Eva logo draw-on (used by <LogoMark/> — plays on mount, replays on
+ * hover via React remount). Each half strokes its outline, then fills.
+ * ─────────────────────────────────────────────────────────────────── */
+@keyframes logo-draw-stroke {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  55%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes logo-draw-fill {
+  0%,
+  50% {
+    fill-opacity: 0;
+  }
+  72%,
+  100% {
+    fill-opacity: 1;
+  }
+}
+.logo-draw-poly {
+  stroke-width: 10;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  fill-opacity: 0;
+  animation:
+    logo-draw-stroke 1.8s ease forwards,
+    logo-draw-fill 1.8s ease forwards;
+}

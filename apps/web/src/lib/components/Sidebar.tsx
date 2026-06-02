@@ -33,6 +33,7 @@ import {
   StatsIcon,
   TestingArenaIcon,
 } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
+import { LogoMark } from "@/lib/components/LogoMark";
 import { api } from "@conductor/backend";
 import {
   Button,
@@ -364,13 +365,7 @@ export function Sidebar() {
             to="/home"
             className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
           >
-            <img
-              src="/icon.svg"
-              alt="Eva"
-              width={22}
-              height={22}
-              className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
-            />
+            <LogoMark size={26} />
             <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
               Eva
             </span>
@@ -500,13 +495,7 @@ export function Sidebar() {
                           to="/home"
                           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
                         >
-                          <img
-                            src="/icon.svg"
-                            alt="Eva"
-                            width={20}
-                            height={20}
-                            className="shrink-0 rounded outline outline-1 outline-black/10 dark:outline-white/10"
-                          />
+                          <LogoMark size={24} className="shrink-0" />
                           <span className="text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
                             Eva
                           </span>

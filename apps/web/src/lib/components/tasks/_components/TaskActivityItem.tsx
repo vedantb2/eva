@@ -3,18 +3,8 @@
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
-import {
-  IconArrowRight,
-  IconArrowsExchange,
-  IconUser,
-  IconFolder,
-  IconFlag,
-  IconTag,
-  IconRobot,
-  IconGitBranch,
-  IconPencil,
-  IconFileText,
-} from "@tabler/icons-react";
+import { UserInitials } from "@conductor/shared";
+import { IconArrowRight } from "@tabler/icons-react";
 
 type TaskActivityEvent = NonNullable<
   FunctionReturnType<typeof api.taskActivity.listByTask>
@@ -38,29 +28,6 @@ const PRIORITY_LABELS: Record<string, string> = {
   medium: "Medium",
   low: "Low",
 };
-
-function getFieldIcon(field: TaskActivityEvent["field"]) {
-  switch (field) {
-    case "status":
-      return <IconArrowsExchange size={14} />;
-    case "assignee":
-      return <IconUser size={14} />;
-    case "project":
-      return <IconFolder size={14} />;
-    case "priority":
-      return <IconFlag size={14} />;
-    case "title":
-      return <IconPencil size={14} />;
-    case "description":
-      return <IconFileText size={14} />;
-    case "tags":
-      return <IconTag size={14} />;
-    case "model":
-      return <IconRobot size={14} />;
-    case "baseBranch":
-      return <IconGitBranch size={14} />;
-  }
-}
 
 function formatFieldLabel(field: TaskActivityEvent["field"]): string {
   switch (field) {
@@ -123,6 +90,9 @@ export function TaskActivityItem({
   event: TaskActivityEvent;
   users: User[] | undefined;
 }) {
+  const actor = event.userId
+    ? users?.find((u) => u._id === event.userId)
+    : undefined;
   const actorName = getUserName(event.userId, users);
   const fieldLabel = formatFieldLabel(event.field);
   const oldFormatted = formatValue(event.field, event.oldValue, users);
@@ -132,10 +102,19 @@ export function TaskActivityItem({
 
   return (
     <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
-      <span className="shrink-0 text-muted-foreground/60">
-        {getFieldIcon(event.field)}
+      {/* Fixed slot reserves the avatar's width so it fills in without shifting
+          the text once the user record resolves. */}
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        {event.userId && actor ? (
+          <UserInitials
+            userId={event.userId}
+            user={actor}
+            size="sm"
+            hideLastSeen
+          />
+        ) : null}
       </span>
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1 truncate">
         <span className="font-medium text-foreground">{actorName}</span>
         {" changed "}
         <span className="font-medium">{fieldLabel}</span>
@@ -154,7 +133,7 @@ export function TaskActivityItem({
       </span>
       <RelativeDateTime
         at={event.createdAt}
-        className="ml-auto shrink-0 text-muted-foreground/70"
+        className="shrink-0 text-muted-foreground/70"
       />
     </div>
   );

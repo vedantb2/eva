@@ -138,9 +138,6 @@ export function ActivityTimeline({
 }) {
   const [deletingCommentId, setDeletingCommentId] =
     useState<Id<"taskComments"> | null>(null);
-  const [replyingToId, setReplyingToId] = useState<Id<"taskComments"> | null>(
-    null,
-  );
   const [isDeletingComment, setIsDeletingComment] = useState(false);
 
   const removeComment = useMutation(
@@ -308,8 +305,6 @@ export function ActivityTimeline({
                   taskId={taskId}
                   users={users}
                   repliesByParentId={repliesByParentId}
-                  replyingToId={replyingToId}
-                  onReplyingToChange={setReplyingToId}
                   onDeleteRequest={setDeletingCommentId}
                 />
               );

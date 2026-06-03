@@ -3,6 +3,7 @@
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
+import { Separator } from "@conductor/ui";
 import { CommentActivityItem } from "./CommentActivityItem";
 import { CommentReplyComposer } from "./CommentReplyComposer";
 import type { TaskComment } from "../_utils/commentThread";
@@ -14,8 +15,6 @@ interface CommentThreadProps {
   taskId: Id<"agentTasks">;
   users: Users | undefined;
   repliesByParentId: Map<Id<"taskComments">, TaskComment[]>;
-  replyingToId: Id<"taskComments"> | null;
-  onReplyingToChange: (commentId: Id<"taskComments"> | null) => void;
   onDeleteRequest: (commentId: Id<"taskComments">) => void;
   depth?: number;
 }
@@ -25,17 +24,10 @@ export function CommentThread({
   taskId,
   users,
   repliesByParentId,
-  replyingToId,
-  onReplyingToChange,
   onDeleteRequest,
   depth = 0,
 }: CommentThreadProps) {
   const replies = repliesByParentId.get(comment._id) ?? [];
-  const isReplyingHere = replyingToId === comment._id;
-
-  const handleReply = () => {
-    onReplyingToChange(comment._id);
-  };
 
   const childThreads = replies.map((reply) => (
     <CommentThread
@@ -44,8 +36,6 @@ export function CommentThread({
       taskId={taskId}
       users={users}
       repliesByParentId={repliesByParentId}
-      replyingToId={replyingToId}
-      onReplyingToChange={onReplyingToChange}
       onDeleteRequest={onDeleteRequest}
       depth={depth + 1}
     />
@@ -53,29 +43,21 @@ export function CommentThread({
 
   if (depth === 0) {
     return (
-      <div className="space-y-0">
+      <div className="space-y-3 rounded-lg bg-muted/40 p-3">
         <CommentActivityItem
           comment={comment}
           taskId={taskId}
           users={users}
           depth={depth}
-          onReply={handleReply}
           onDeleteRequest={onDeleteRequest}
         />
-        {isReplyingHere ? (
-          <div className="px-3 pb-3">
-            <CommentReplyComposer
-              taskId={taskId}
-              parentId={comment._id}
-              parentAuthorId={comment.authorId}
-              users={users}
-              onCancel={() => onReplyingToChange(null)}
-            />
-          </div>
-        ) : null}
         {replies.length > 0 ? (
-          <div className="space-y-3 px-3 pb-3">{childThreads}</div>
+          <div className="space-y-3">{childThreads}</div>
         ) : null}
+        <div>
+          <Separator className="mb-3" />
+          <CommentReplyComposer taskId={taskId} parentId={comment._id} />
+        </div>
       </div>
     );
   }
@@ -87,18 +69,8 @@ export function CommentThread({
         taskId={taskId}
         users={users}
         depth={depth}
-        onReply={handleReply}
         onDeleteRequest={onDeleteRequest}
       />
-      {isReplyingHere ? (
-        <CommentReplyComposer
-          taskId={taskId}
-          parentId={comment._id}
-          parentAuthorId={comment.authorId}
-          users={users}
-          onCancel={() => onReplyingToChange(null)}
-        />
-      ) : null}
       {childThreads}
     </div>
   );

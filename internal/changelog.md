@@ -1,5 +1,12 @@
 # Changelog
 
+## Linear-style comment threads and activity refinements - 2026-06-03
+
+- Replaced per-comment reply buttons with a persistent Linear-style "Leave a reply" input at the bottom of each thread, showing your avatar and a send button that's always visible (disabled when empty).
+- Added user avatar before the actor name in status-change activity items, matching comment cards and improving visual hierarchy.
+- Unified the card background to group comment, replies, separator, and reply input as a single surface so they read as related.
+- Fixed layout shifts when expanding the reply input, editing a comment, and expanding activity rows by reserving fixed avatar slots and constraining text to a single line.
+
 ## Trust Daytona regional preview hosts - 2026-06-02
 
 - Eva's preview-auth return guard now accepts Daytona's regional signed-preview host shape like `9001-<token>.daytonaproxy01.eu`, so shared previews can complete the Eva sign-in gate instead of being rejected as untrusted.

@@ -14,16 +14,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from "@conductor/ui";
-import {
-  IconDots,
-  IconMessageReply,
-  IconPencil,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
 import { mentionTokensToEditableText } from "@/lib/components/mentions/mentionToken";
 import { UserMentionText } from "@/lib/components/mentions";
 import { getUserDisplayName } from "./task-detail-constants";
@@ -44,7 +36,6 @@ interface CommentActivityItemProps {
   taskId: Id<"agentTasks">;
   users: Users | undefined;
   depth: number;
-  onReply: () => void;
   onDeleteRequest: (commentId: Id<"taskComments">) => void;
 }
 
@@ -94,7 +85,6 @@ export function CommentActivityItem({
   taskId,
   users,
   depth,
-  onReply,
   onDeleteRequest,
 }: CommentActivityItemProps) {
   const currentUserId = useQuery(api.auth.me);
@@ -122,9 +112,12 @@ export function CommentActivityItem({
   const isDeleted = isCommentDeleted(comment);
   const isAuthor =
     comment.authorId !== undefined && comment.authorId === currentUserId;
+  const canManage = isAuthor && !isDeleted;
 
-  const surfaceClass =
-    depth === 0 ? "rounded-lg bg-muted/40 p-3" : "rounded-lg bg-muted/30 p-3";
+  // At depth 0 the surrounding CommentThread owns the card background so the
+  // comment, separator and reply input share one surface; nested replies keep
+  // their own tonal card.
+  const surfaceClass = depth === 0 ? "" : "rounded-lg bg-muted/30 p-3";
 
   const startEditing = () => {
     setEditText(mentionTokensToEditableText(comment.content));
@@ -170,47 +163,24 @@ export function CommentActivityItem({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {!isEditing ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
+          {canManage && !isEditing ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
-                  variant="ghost"
                   size="icon-sm"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  onClick={onReply}
-                  aria-label="Reply"
+                  variant="ghost"
+                  className="h-7 w-7 text-muted-foreground"
+                  aria-label="Comment options"
                 >
-                  <IconMessageReply size={14} />
+                  <IconDots size={14} />
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>Reply</TooltipContent>
-            </Tooltip>
-          ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                className="h-7 w-7 text-muted-foreground"
-                aria-label="Comment options"
-              >
-                <IconDots size={14} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onReply}>
-                <IconMessageReply size={14} />
-                Reply
-              </DropdownMenuItem>
-              {isAuthor && !isDeleted ? (
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={startEditing}>
                   <IconPencil size={14} />
                   Edit
                 </DropdownMenuItem>
-              ) : null}
-              {isAuthor && !isDeleted ? (
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={() => onDeleteRequest(comment._id)}
@@ -218,9 +188,9 @@ export function CommentActivityItem({
                   <IconTrash size={14} />
                   Delete
                 </DropdownMenuItem>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
           <RelativeDateTime
             at={comment.createdAt}
             className="shrink-0 pl-1 text-[11px] text-muted-foreground/60"
@@ -235,6 +205,7 @@ export function CommentActivityItem({
             value={editText}
             onValueChange={setEditText}
             placeholder="Edit comment..."
+            className="min-h-0 max-h-60"
           />
           <div className="flex justify-end gap-2">
             <Button

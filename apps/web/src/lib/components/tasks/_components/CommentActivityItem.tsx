@@ -148,7 +148,7 @@ export function CommentActivityItem({
   };
 
   return (
-    <div className={`space-y-2 ${surfaceClass}`}>
+    <div className={`group space-y-2 ${surfaceClass}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {comment.authorId ? (
@@ -170,7 +170,7 @@ export function CommentActivityItem({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  className="h-7 w-7 text-muted-foreground"
+                  className="h-7 w-7 text-muted-foreground opacity-0 transition-[opacity,background-color] group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
                   aria-label="Comment options"
                 >
                   <IconDots size={14} />

@@ -44,15 +44,24 @@ export function TaskSubscribers({
     currentUserId !== undefined &&
     currentUserId !== null &&
     subscriberIds.has(currentUserId);
-  // Only dev-role users can be code reviewers / added as subscribers — mirrors
-  // the assignee picker in StatusFieldsSection.
-  const manageableUsers = (users ?? []).filter((user) => user.role === "dev");
+  // Anyone in the workspace can follow or be added to a task, not just devs
+  // (unlike the code-reviewer assignee picker, which is dev-only).
+  const manageableUsers = users ?? [];
 
   return (
-    <div className="flex items-center gap-2 pb-4">
-      <span className="text-xs font-medium text-muted-foreground">
-        Subscribers
-      </span>
+    <div className="flex items-center justify-end gap-2 pb-4">
+      <Button
+        variant={isSubscribed ? "secondary" : "outline"}
+        size="sm"
+        className="h-7 gap-1.5"
+        disabled={currentUserId === undefined || currentUserId === null}
+        onClick={() =>
+          void setSubscription({ taskId, subscribed: !isSubscribed })
+        }
+      >
+        {isSubscribed ? <IconBellOff size={14} /> : <IconBell size={14} />}
+        {isSubscribed ? "Subscribed" : "Subscribe"}
+      </Button>
 
       {subscribedUsers.length > 0 && (
         <div className="flex items-center -space-x-1">
@@ -73,7 +82,7 @@ export function TaskSubscribers({
             <IconUserPlus size={15} />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>Manage subscribers</DropdownMenuLabel>
           {manageableUsers.map((user) => (
             <DropdownMenuCheckboxItem
@@ -92,19 +101,6 @@ export function TaskSubscribers({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <Button
-        variant={isSubscribed ? "secondary" : "outline"}
-        size="sm"
-        className="h-7 gap-1.5"
-        disabled={currentUserId === undefined || currentUserId === null}
-        onClick={() =>
-          void setSubscription({ taskId, subscribed: !isSubscribed })
-        }
-      >
-        {isSubscribed ? <IconBellOff size={14} /> : <IconBell size={14} />}
-        {isSubscribed ? "Subscribed" : "Subscribe"}
-      </Button>
     </div>
   );
 }

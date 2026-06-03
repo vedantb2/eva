@@ -34,7 +34,7 @@ export const agentTaskFields = {
   priority: v.optional(priorityValidator),
   createdAt: v.number(),
   updatedAt: v.number(),
-  createdBy: v.optional(v.id("users")),
+  createdBy: v.id("users"),
   assignedTo: v.optional(v.id("users")),
   model: v.optional(aiModelValidator),
   baseBranch: v.optional(v.string()),

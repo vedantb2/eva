@@ -47,7 +47,7 @@ export const listByTask = authQuery({
   },
 });
 
-/** Creates a comment on a task and notifies the assignee + mentioned users. */
+/** Creates a comment on a task and notifies the creator, assignee + mentioned users. */
 export const create = authMutation({
   args: {
     taskId: v.id("agentTasks"),
@@ -118,6 +118,19 @@ export const create = authMutation({
         message: buildCommentNotificationMessage(args.content, task.projectId),
       });
       notifiedUserIds.add(task.assignedTo);
+    }
+
+    if (task.createdBy !== ctx.userId && !notifiedUserIds.has(task.createdBy)) {
+      await createNotification(ctx, {
+        userId: task.createdBy,
+        type: "comment_added",
+        title: `New comment on "${task.title}"`,
+        repoId: task.repoId,
+        projectId: task.projectId,
+        taskId: args.taskId,
+        message: buildCommentNotificationMessage(args.content, task.projectId),
+      });
+      notifiedUserIds.add(task.createdBy);
     }
 
     const mentionedUserIds = extractMentionedUserIds(ctx, args.content);

@@ -1,5 +1,10 @@
 # Changelog
 
+## Task creators notified on new comments - 2026-06-03
+
+- Task creators now receive a `comment_added` notification when someone comments on their task, matching the behavior for assigned users.
+- Made `createdBy` required on `agentTasks` schema for data safety, since all existing tasks have a creator and every creation path populates it.
+
 ## Linear-style comment threads and activity refinements - 2026-06-03
 
 - Replaced per-comment reply buttons with a persistent Linear-style "Leave a reply" input at the bottom of each thread, showing your avatar and a send button that's always visible (disabled when empty).

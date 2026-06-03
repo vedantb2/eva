@@ -33,7 +33,7 @@ import {
   IconPencil,
   IconPlus,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 
 type SessionStatus = "active" | "starting" | "stopping" | "closed";
 
@@ -352,18 +352,15 @@ export function SessionListSidebar<T extends SessionItem>({
                             <h3 className="truncate text-sm">
                               {session.title}
                             </h3>
-                            <span
+                            <RelativeDateTime
+                              at={session.updatedAt ?? session._creationTime}
                               className={cn(
                                 "text-xs text-muted-foreground/60 transition-opacity",
                                 isSelected
                                   ? "opacity-100"
                                   : "opacity-0 group-hover:opacity-100",
                               )}
-                            >
-                              {dayjs(
-                                session.updatedAt ?? session._creationTime,
-                              ).fromNow()}
-                            </span>
+                            />
                           </DynamicLink>
                         </motion.div>
                       </ContextMenuTrigger>

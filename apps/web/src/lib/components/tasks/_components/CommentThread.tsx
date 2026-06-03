@@ -3,12 +3,15 @@
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@conductor/backend";
-import { Separator } from "@conductor/ui";
+import { Separator, cn } from "@conductor/ui";
 import { CommentActivityItem } from "./CommentActivityItem";
 import { CommentReplyComposer } from "./CommentReplyComposer";
 import type { TaskComment } from "../_utils/commentThread";
 
 type Users = FunctionReturnType<typeof api.users.listAll>;
+
+/** Subtle dividers inside comment threads — tuned per theme on `bg-muted/40`. */
+const THREAD_SEPARATOR_CLASS = "bg-foreground/5 dark:bg-foreground/5";
 
 interface CommentThreadProps {
   comment: TaskComment;
@@ -38,9 +41,9 @@ function ReplyThreads({
 
   return (
     <div className="space-y-3 pl-4">
-      {replies.map((reply, index) => (
+      {replies.map((reply) => (
         <div key={reply._id} className="space-y-3">
-          {index > 0 ? <Separator /> : null}
+          <Separator className={THREAD_SEPARATOR_CLASS} />
           <CommentThread
             comment={reply}
             taskId={taskId}
@@ -83,7 +86,7 @@ export function CommentThread({
           depth={depth}
         />
         <div>
-          <Separator className="mb-3" />
+          <Separator className={cn("mb-3", THREAD_SEPARATOR_CLASS)} />
           <CommentReplyComposer taskId={taskId} parentId={comment._id} />
         </div>
       </div>

@@ -42,7 +42,7 @@ import {
   IconSettings,
   IconPlayerStop,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 
 import { DocInterviewDialog } from "./DocInterviewDialog";
 import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
@@ -188,9 +188,10 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
               <span className="hidden sm:inline">Generating...</span>
             </div>
           )}
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {dayjs(doc.updatedAt).fromNow()}
-          </span>
+          <RelativeDateTime
+            at={doc.updatedAt}
+            className="text-xs text-muted-foreground whitespace-nowrap"
+          />
           <Button
             size="icon"
             variant="ghost"

@@ -37,7 +37,7 @@ import {
   IconGitPullRequest,
   IconTool,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { UITestingPanel } from "../UITestingPanelClient";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -151,9 +151,10 @@ function ReportCard({
                   View Fix PR
                 </a>
               )}
-              <span className="text-sm text-muted-foreground">
-                {dayjs(report.createdAt).fromNow()}
-              </span>
+              <RelativeDateTime
+                at={report.createdAt}
+                className="text-sm text-muted-foreground"
+              />
             </div>
           </TestResultsHeader>
 
@@ -269,7 +270,7 @@ function RunListItem({
               {passed}/{total} passed
             </span>
             <span className="text-xs text-muted-foreground">
-              {passRate}% &middot; {dayjs(report.createdAt).fromNow()}
+              {passRate}% &middot; <RelativeDateTime at={report.createdAt} />
               {report.fixStatus === "fixing" && " · Fixing..."}
               {report.prUrl && " · PR created"}
             </span>
@@ -281,9 +282,10 @@ function RunListItem({
           <IconAlertTriangle size={14} className="text-destructive shrink-0" />
           <div className="flex flex-col min-w-0">
             <span className="text-sm text-destructive">Error</span>
-            <span className="text-xs text-muted-foreground">
-              {dayjs(report.createdAt).fromNow()}
-            </span>
+            <RelativeDateTime
+              at={report.createdAt}
+              className="text-xs text-muted-foreground"
+            />
           </div>
         </>
       )}
@@ -292,9 +294,10 @@ function RunListItem({
           <Spinner size="sm" />
           <div className="flex flex-col min-w-0">
             <span className="text-sm text-muted-foreground">Running...</span>
-            <span className="text-xs text-muted-foreground">
-              {dayjs(report.createdAt).fromNow()}
-            </span>
+            <RelativeDateTime
+              at={report.createdAt}
+              className="text-xs text-muted-foreground"
+            />
           </div>
         </>
       )}

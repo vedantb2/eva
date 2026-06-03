@@ -34,6 +34,7 @@ import {
   IconCalendarDue,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 
@@ -109,7 +110,7 @@ export function ProjectDetailInline({
               />
               <span>{dayjs(project._creationTime).format("MMM D, YYYY")}</span>
               <span className="text-muted-foreground">
-                ({dayjs(project._creationTime).fromNow()})
+                (<RelativeDateTime at={project._creationTime} />)
               </span>
             </div>
 

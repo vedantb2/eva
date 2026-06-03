@@ -1,5 +1,11 @@
 # Changelog
 
+## Compact relative dates everywhere - 2026-06-03
+
+- Dates across the app now display in abbreviated form ("15m", "2d", "1h") instead of prose ("19 minutes ago"), making timelines scan faster and visually lighter.
+- All relative-date displays (activity items, notifications, inbox, docs, sessions, testing arena, user presence) route through `RelativeDateTime` for consistency, which always shows the exact date/time in a hover tooltip.
+- Removed the verbose `formatRelativeTime` helper; all relative dates use the compact `compactRelativeTime` variant.
+
 ## Task creators notified on new comments - 2026-06-03
 
 - Task creators now receive a `comment_added` notification when someone comments on their task, matching the behavior for assigned users.

@@ -11,6 +11,7 @@ import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button, Badge, Spinner } from "@conductor/ui";
 import { IconCheck, IconChecks, IconInbox } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { inboxFilterParser } from "@/lib/search-params";
 import {
   NotificationIcon,
@@ -227,11 +228,10 @@ export function InboxClient() {
                         <span className="flex-1 min-w-0 text-xs font-medium truncate sm:text-sm">
                           {n.title}
                         </span>
-                        <span
+                        <RelativeDateTime
+                          at={n.createdAt}
                           className={`text-[10px] text-muted-foreground tabular-nums flex-shrink-0 sm:text-xs ${n.read ? "" : "group-hover:opacity-0"}`}
-                        >
-                          {dayjs(n.createdAt).fromNow()}
-                        </span>
+                        />
                       </button>
                       {!n.read && (
                         <Button

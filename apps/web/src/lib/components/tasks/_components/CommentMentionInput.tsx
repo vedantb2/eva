@@ -20,6 +20,8 @@ interface CommentMentionInputProps {
   onValueChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  /** Submit on Enter (Shift+Enter inserts a newline). */
+  onEnterSubmit?: () => void;
 }
 
 interface UserMentionItem extends MentionItem<Id<"users">> {
@@ -30,7 +32,7 @@ export const CommentMentionInput = forwardRef<
   CommentMentionInputHandle,
   CommentMentionInputProps
 >(function CommentMentionInput(
-  { value, onValueChange, placeholder, className },
+  { value, onValueChange, placeholder, className, onEnterSubmit },
   ref,
 ) {
   const { repo } = useRepo();
@@ -51,6 +53,7 @@ export const CommentMentionInput = forwardRef<
       ref={ref}
       value={value}
       onValueChange={onValueChange}
+      onEnterSubmit={onEnterSubmit}
       items={items}
       mentionPopupTitle="People"
       mentionChipHoverCard

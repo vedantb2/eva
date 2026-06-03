@@ -5,13 +5,12 @@ import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { Button } from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
-import { IconArrowUp } from "@tabler/icons-react";
 import {
   CommentMentionInput,
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
+import { CommentSendButton } from "./CommentSendButton";
 
 interface CommentReplyComposerProps {
   taskId: Id<"agentTasks">;
@@ -21,7 +20,7 @@ interface CommentReplyComposerProps {
 /**
  * Persistent thread reply input, Linear-style: the current user's avatar, a
  * single-line "Leave a reply" field that grows as you type, and an always-
- * visible send button.
+ * visible send button. Enter submits; Shift+Enter inserts a newline.
  */
 export function CommentReplyComposer({
   taskId,
@@ -34,15 +33,19 @@ export function CommentReplyComposer({
 
   const createComment = useMutation(api.taskComments.create);
 
+  const canSubmit = replyText.trim().length > 0 && !isSubmitting;
+
   const handleSubmit = async () => {
     const trimmed = replyText.trim();
-    if (!trimmed) return;
+    if (!trimmed || isSubmitting) return;
     const content = mentionRef.current?.tokenize(trimmed) ?? trimmed;
     setIsSubmitting(true);
     try {
       await createComment({ taskId, content, parentId });
       mentionRef.current?.reset();
       setReplyText("");
+      // Keep focus so a follow-up reply can be typed without re-clicking.
+      mentionRef.current?.focus();
     } catch (err) {
       console.error("Failed to post reply:", err);
     } finally {
@@ -64,19 +67,17 @@ export function CommentReplyComposer({
           ref={mentionRef}
           value={replyText}
           onValueChange={setReplyText}
+          onEnterSubmit={handleSubmit}
           placeholder="Leave a reply"
-          className="min-h-0 max-h-36 border-0"
+          className="min-h-0 max-h-36 border-0 bg-transparent transition-[background-color] hover:bg-background/40"
         />
-        <Button
-          type="button"
-          size="icon"
-          className="absolute right-1.5 bottom-1.5 h-7 w-7 rounded-full"
-          disabled={!replyText.trim() || isSubmitting}
+        <CommentSendButton
+          className="absolute right-1.5 bottom-1.5"
+          disabled={!canSubmit}
+          isSubmitting={isSubmitting}
           onClick={handleSubmit}
-          aria-label="Post reply"
-        >
-          <IconArrowUp size={16} />
-        </Button>
+          ariaLabel="Post reply"
+        />
       </div>
     </div>
   );

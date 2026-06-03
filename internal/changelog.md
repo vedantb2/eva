@@ -1,5 +1,11 @@
 # Changelog
 
+## Polished comment composers - 2026-06-03
+
+- Comment composers now submit with a tactile send button that cross-fades to a spinner while posting, so every submit has clear in-flight feedback.
+- The inline reply box submits on Enter (Shift+Enter for a newline) and refocuses after sending, making back-and-forth replies faster; the multi-line activity composer keeps Enter as newline.
+- The borderless reply input reveals a subtle background well on hover for discoverability without adding a border, staying within the tonal design system.
+
 ## Compact relative dates everywhere - 2026-06-03
 
 - Dates across the app now display in abbreviated form ("15m", "2d", "1h") instead of prose ("19 minutes ago"), making timelines scan faster and visually lighter.

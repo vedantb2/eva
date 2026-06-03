@@ -2,20 +2,14 @@
 
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
-import {
-  Button,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  cn,
-} from "@conductor/ui";
-import { IconArrowUp } from "@tabler/icons-react";
+import { Tooltip, TooltipTrigger, TooltipContent, cn } from "@conductor/ui";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import {
   CommentMentionInput,
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
+import { CommentSendButton } from "./CommentSendButton";
 import { DescriptionMentionEditor } from "./DescriptionMentionEditor";
 
 interface TaskActivityComposerProps {
@@ -41,6 +35,7 @@ export function TaskActivityComposer({
   onRequestChangesSubmitted,
 }: TaskActivityComposerProps) {
   const [commentText, setCommentText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const mentionRef = useRef<CommentMentionInputHandle>(null);
 
   const createComment = useMutation(api.taskComments.create);
@@ -55,17 +50,25 @@ export function TaskActivityComposer({
 
   const handleAddComment = async () => {
     const text = commentText.trim();
-    if (!text) return;
+    if (!text || isSubmitting) return;
     const content = tokenizeAndReset(text);
     setCommentText("");
-    await createComment({ taskId, content });
+    setIsSubmitting(true);
+    try {
+      await createComment({ taskId, content });
+    } catch (err) {
+      console.error("Failed to add comment:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmitRequestChanges = async () => {
     const text = commentText.trim();
-    if (!text) return;
+    if (!text || isSubmitting) return;
     const content = tokenizeAndReset(text);
     setCommentText("");
+    setIsSubmitting(true);
     try {
       await createComment({ taskId, content });
       if (isProjectTask) {
@@ -82,6 +85,8 @@ export function TaskActivityComposer({
             ? "Failed to queue changes"
             : "Failed to start execution";
       setExecutionError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -180,18 +185,23 @@ export function TaskActivityComposer({
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="pointer-events-auto">
-                <Button
-                  size="icon"
-                  className="rounded-full h-8 w-8"
-                  disabled={!commentText.trim() || isMakeChangesGated}
+                <CommentSendButton
+                  size="icon-sm"
+                  disabled={
+                    !commentText.trim() || isMakeChangesGated || isSubmitting
+                  }
+                  isSubmitting={isSubmitting}
                   onClick={
                     effectiveRequestingChanges
                       ? handleSubmitRequestChanges
                       : handleAddComment
                   }
-                >
-                  <IconArrowUp size={16} />
-                </Button>
+                  ariaLabel={
+                    effectiveRequestingChanges
+                      ? "Submit changes"
+                      : "Add comment"
+                  }
+                />
               </span>
             </TooltipTrigger>
             {isMakeChangesGated && disabledReason !== undefined && (

@@ -13,7 +13,8 @@ import {
   DropdownMenuCheckboxItem,
 } from "@conductor/ui";
 import { IconBell, IconBellOff, IconUserPlus } from "@tabler/icons-react";
-import { UserInitials } from "@conductor/shared";
+import { UserInitials, getUserInitials } from "@conductor/shared";
+import { Facehash } from "facehash";
 import { getUserDisplayName } from "./task-detail-constants";
 
 type Users = FunctionReturnType<typeof api.users.listAll>;
@@ -96,7 +97,10 @@ export function TaskSubscribers({
                 })
               }
             >
-              {getUserDisplayName(user)}
+              <div className="flex items-center gap-1.5">
+                <Facehash size={16} name={getUserInitials(user)} enableBlink />
+                <span>{getUserDisplayName(user)}</span>
+              </div>
             </DropdownMenuCheckboxItem>
           ))}
         </DropdownMenuContent>

@@ -1,5 +1,12 @@
 # Changelog
 
+## Clean flat design system and analytics page reskin - 2026-06-03
+
+- Flattened design tokens: neutralised base surfaces to grey/white (removed green tint), removed ambient background gradient and grid overlay, shifted main content to pure white with grey sidebar for tonal separation, kept accent colours user-driven via theme settings.
+- Simplified surface styling: removed borders from `.ui-surface` and `Card` components, restored soft shadows for elevation, removed hover-lift micro-motions on interactive surfaces (hover now a background shift only).
+- Cleaned sidebar chrome: collapsed translucent surface washes into one opaque panel, switched active nav item to a neutral fill instead of primary-tinted, kept group labels and section dividers.
+- Redesigned analytics page (`/stats`): introduced `ScoreBar` (segmented tick-meter driven by real data) and `StatusChip` (soft pastel status pill) components, reskinned `StatCard` to reference-style KPI layout (icon chip + label, delta badge, big number, shadows), reskinned `Leaderboard` with avatar rows, metric lines, and score bars.
+
 ## Polished comment composers - 2026-06-03
 
 - Comment composers now submit with a tactile send button that cross-fades to a spinner while posting, so every submit has clear in-flight feedback.

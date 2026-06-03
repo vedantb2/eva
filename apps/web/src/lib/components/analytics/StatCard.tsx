@@ -73,23 +73,27 @@ export function StatCard({
   const showTrend = previousValue !== undefined && currentValue !== undefined;
 
   return (
-    <Card className="bg-muted/40 transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-muted/60">
-      <CardContent className="flex flex-col gap-2 p-3 sm:p-4">
-        <div className="flex items-center justify-between">
-          <div className="rounded-lg bg-secondary p-1.5 text-muted-foreground sm:p-2">
-            <Icon size={18} className="sm:h-5 sm:w-5" />
+    <Card>
+      <CardContent className="flex flex-col gap-4 p-5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+              <Icon size={18} />
+            </span>
+            <span className="truncate text-sm font-medium text-muted-foreground">
+              {label}
+            </span>
           </div>
           {showTrend && (
             <TrendBadge current={currentValue} previous={previousValue} />
           )}
         </div>
         <div className="min-w-0">
-          <p className="text-2xl font-bold tabular-nums text-foreground sm:text-3xl">
+          <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
             {value}
           </p>
-          <p className="text-xs text-muted-foreground sm:text-sm">{label}</p>
           {subtitle && (
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
           )}
         </div>
       </CardContent>

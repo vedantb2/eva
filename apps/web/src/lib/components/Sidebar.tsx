@@ -324,8 +324,8 @@ export function Sidebar() {
       "group motion-base flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
       collapsed && "lg:justify-center lg:px-0",
       isActive
-        ? "bg-sidebar-primary/10 text-sidebar-primary"
-        : "text-sidebar-foreground/80 hover:-translate-y-[1px] hover:bg-sidebar-accent/85 hover:text-sidebar-foreground",
+        ? "bg-sidebar-accent font-medium text-sidebar-foreground"
+        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
     );
 
   const contextSidebarTitle =
@@ -403,10 +403,10 @@ export function Sidebar() {
         )}
       >
         <div className="h-full">
-          <div className="flex h-full flex-col overflow-hidden bg-sidebar lg:bg-sidebar/92">
+          <div className="flex h-full flex-col overflow-hidden bg-sidebar">
             <div
               className={cn(
-                "flex h-16 items-center bg-sidebar-accent/20",
+                "flex h-16 items-center",
                 collapsed ? "px-2" : "px-3",
               )}
             >
@@ -812,12 +812,7 @@ export function Sidebar() {
               </div>
             </nav>
 
-            <div
-              className={cn(
-                "bg-sidebar-accent/32",
-                collapsed ? "px-2 py-3" : "px-3 py-3",
-              )}
-            >
+            <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
               <TeamMembers collapsed={collapsed} />
               <div
                 className={cn(

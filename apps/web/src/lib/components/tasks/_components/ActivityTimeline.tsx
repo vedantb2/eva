@@ -18,6 +18,7 @@ import type { Id } from "@conductor/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
 import { TaskActivityItem } from "./TaskActivityItem";
 import { TaskActivityComposer } from "./TaskActivityComposer";
+import { TaskSubscribers } from "./TaskSubscribers";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { CommentThread } from "./CommentThread";
 import {
@@ -246,6 +247,8 @@ export function ActivityTimeline({
 
   return (
     <div className="pt-4">
+      <TaskSubscribers taskId={taskId} users={users} />
+
       <TaskActivityComposer
         taskId={taskId}
         isProjectTask={isProjectTask}

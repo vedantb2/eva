@@ -66,6 +66,7 @@ import type * as _mentions_resolveDocMentions from "../_mentions/resolveDocMenti
 import type * as _mentions_resolveMessageTokens from "../_mentions/resolveMessageTokens.js";
 import type * as _mentions_resolveSkillMentions from "../_mentions/resolveSkillMentions.js";
 import type * as _mentions_skillToken from "../_mentions/skillToken.js";
+import type * as _migrations_backfillTaskSubscribers from "../_migrations/backfillTaskSubscribers.js";
 import type * as _migrations_cleanup from "../_migrations/cleanup.js";
 import type * as _migrations_deleteRepos from "../_migrations/deleteRepos.js";
 import type * as _migrations_deploymentUrl from "../_migrations/deploymentUrl.js";
@@ -213,6 +214,7 @@ import type * as taskDependencies from "../taskDependencies.js";
 import type * as taskProof from "../taskProof.js";
 import type * as taskSandboxEvents from "../taskSandboxEvents.js";
 import type * as taskSandboxWorkflow from "../taskSandboxWorkflow.js";
+import type * as taskSubscribers from "../taskSubscribers.js";
 import type * as taskWorkflow from "../taskWorkflow.js";
 import type * as taskWorkflowActions from "../taskWorkflowActions.js";
 import type * as teamEnvVars from "../teamEnvVars.js";
@@ -290,6 +292,7 @@ declare const fullApi: ApiFromModules<{
   "_mentions/resolveMessageTokens": typeof _mentions_resolveMessageTokens;
   "_mentions/resolveSkillMentions": typeof _mentions_resolveSkillMentions;
   "_mentions/skillToken": typeof _mentions_skillToken;
+  "_migrations/backfillTaskSubscribers": typeof _migrations_backfillTaskSubscribers;
   "_migrations/cleanup": typeof _migrations_cleanup;
   "_migrations/deleteRepos": typeof _migrations_deleteRepos;
   "_migrations/deploymentUrl": typeof _migrations_deploymentUrl;
@@ -437,6 +440,7 @@ declare const fullApi: ApiFromModules<{
   taskProof: typeof taskProof;
   taskSandboxEvents: typeof taskSandboxEvents;
   taskSandboxWorkflow: typeof taskSandboxWorkflow;
+  taskSubscribers: typeof taskSubscribers;
   taskWorkflow: typeof taskWorkflow;
   taskWorkflowActions: typeof taskWorkflowActions;
   teamEnvVars: typeof teamEnvVars;

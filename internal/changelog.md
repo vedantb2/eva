@@ -1,5 +1,14 @@
 # Changelog
 
+## Task subscribers and hybrid notification routing - 2026-06-03
+
+- Added per-task subscriber management: auto-subscribe on create, assign, comment, or @mention; manual toggle in Activity-tab header with avatar stack, self subscribe button, and add-others picker (dev-role users only).
+- Transitioned notification routing to hybrid model: broadcast events (comments, meaningful status changes, PR merge/close) fan out to all active subscribers; targeted events (mention, reply, assignment) remain distinct, high-signal types and also auto-subscribe their recipients.
+- Added `status_changed` notification type for transitions to code_review, business_review, and cancelled; digest-only (no instant email) to limit noise; `task_complete` (instant-emailed) fires on done.
+- Implemented sticky unsubscribe: explicit opt-out persists across auto-subscribe triggers, so commenting again doesn't silently re-subscribe you.
+- Increased instant-email debounce from 5 to 30 minutes so comment bursts collapse into a single email, reducing notification fatigue on active tasks.
+- Backfilled all existing tasks: each task's creator and (if set) assignee are pre-subscribed so historical tasks keep notifying the right people.
+
 ## Clean flat design system and analytics page reskin - 2026-06-03
 
 - Flattened design tokens: neutralised base surfaces to grey/white (removed green tint), removed ambient background gradient and grid overlay, shifted main content to pure white with grey sidebar for tonal separation, kept accent colours user-driven via theme settings.

@@ -7,6 +7,7 @@ import {
   recomputeProjectPhase,
 } from "../functions";
 import { createNotification } from "../notifications";
+import { ensureSubscribed } from "../taskSubscribers";
 import {
   agentTaskValidator,
   normalizeTaskTags,
@@ -68,7 +69,7 @@ export const saveDraft = authMutation({
       return args.id;
     }
 
-    return await ctx.db.insert("agentTasks", {
+    const draftId = await ctx.db.insert("agentTasks", {
       title: args.title ?? "",
       description: args.description,
       repoId: args.repoId,
@@ -79,6 +80,8 @@ export const saveDraft = authMutation({
       baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       projectId: args.projectId,
     });
+    await ensureSubscribed(ctx, draftId, ctx.userId);
+    return draftId;
   },
 });
 
@@ -114,6 +117,9 @@ export const activateDraft = authMutation({
       assignedTo: args.assignedTo,
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
     });
+    if (args.assignedTo) {
+      await ensureSubscribed(ctx, args.id, args.assignedTo);
+    }
     if (args.assignedTo && args.assignedTo !== ctx.userId) {
       await createNotification(ctx, {
         userId: args.assignedTo,

@@ -339,6 +339,17 @@ export const taskCommentFields = {
   createdAt: v.number(),
 };
 
+// One row per (task, user). `subscribed: false` is a sticky opt-out tombstone —
+// it stops auto-subscribe triggers (commenting, being mentioned) from silently
+// re-adding a user who explicitly unsubscribed. Absence of a row = never involved.
+export const taskSubscriberFields = {
+  taskId: v.id("agentTasks"),
+  userId: v.id("users"),
+  subscribed: v.boolean(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
 // Per-sandbox bearer secret the in-sandbox git credential helper presents to
 // /api/git-credentials to receive a freshly minted GitHub App installation
 // token. One row per Daytona sandbox; rotated every time the helper is

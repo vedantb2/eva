@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { createNotification } from "./notifications";
+import { ensureSubscribed, notifySubscribers } from "./taskSubscribers";
 import { authQuery, authMutation, hasTaskAccess } from "./functions";
 import { extractMentionedUserIds } from "./_mentions/extractMentionedUserIds";
 import { taskCommentFields } from "./validators";
@@ -80,6 +81,9 @@ export const create = authMutation({
     const author = await ctx.db.get(ctx.userId);
     const authorName = author?.fullName?.trim() || "Someone";
 
+    // Commenting subscribes you to the task (sticky opt-out respected).
+    await ensureSubscribed(ctx, args.taskId, ctx.userId);
+
     if (args.parentId) {
       const parent = await ctx.db.get(args.parentId);
       if (
@@ -100,37 +104,8 @@ export const create = authMutation({
           ),
         });
         notifiedUserIds.add(parent.authorId);
+        await ensureSubscribed(ctx, args.taskId, parent.authorId);
       }
-    }
-
-    if (
-      task.assignedTo &&
-      task.assignedTo !== ctx.userId &&
-      !notifiedUserIds.has(task.assignedTo)
-    ) {
-      await createNotification(ctx, {
-        userId: task.assignedTo,
-        type: "comment_added",
-        title: `New comment on "${task.title}"`,
-        repoId: task.repoId,
-        projectId: task.projectId,
-        taskId: args.taskId,
-        message: buildCommentNotificationMessage(args.content, task.projectId),
-      });
-      notifiedUserIds.add(task.assignedTo);
-    }
-
-    if (task.createdBy !== ctx.userId && !notifiedUserIds.has(task.createdBy)) {
-      await createNotification(ctx, {
-        userId: task.createdBy,
-        type: "comment_added",
-        title: `New comment on "${task.title}"`,
-        repoId: task.repoId,
-        projectId: task.projectId,
-        taskId: args.taskId,
-        message: buildCommentNotificationMessage(args.content, task.projectId),
-      });
-      notifiedUserIds.add(task.createdBy);
     }
 
     const mentionedUserIds = extractMentionedUserIds(ctx, args.content);
@@ -163,8 +138,23 @@ export const create = authMutation({
           message: mentionMessage,
         });
         notifiedUserIds.add(mentionedUserId);
+        await ensureSubscribed(ctx, args.taskId, mentionedUserId);
       }
     }
+
+    // Broadcast to the rest of the subscriber set (creator, assignee, followers).
+    // Mention/reply recipients are already in notifiedUserIds, so they keep their
+    // higher-signal notification instead of a duplicate "comment added".
+    await notifySubscribers(ctx, {
+      taskId: args.taskId,
+      type: "comment_added",
+      title: `New comment on "${task.title}"`,
+      message: buildCommentNotificationMessage(args.content, task.projectId),
+      repoId: task.repoId,
+      projectId: task.projectId,
+      actorId: ctx.userId,
+      alreadyNotified: notifiedUserIds,
+    });
 
     return commentId;
   },

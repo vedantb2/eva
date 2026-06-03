@@ -1,0 +1,110 @@
+"use client";
+
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
+} from "@conductor/ui";
+import { IconBell, IconBellOff, IconUserPlus } from "@tabler/icons-react";
+import { UserInitials } from "@conductor/shared";
+import { getUserDisplayName } from "./task-detail-constants";
+
+type Users = FunctionReturnType<typeof api.users.listAll>;
+
+/**
+ * Activity-tab header showing who follows the task. Subscribers are notified of
+ * comments, meaningful status changes, and PR events. The self toggle manages
+ * the current user's subscription; the picker adds or removes teammates.
+ */
+export function TaskSubscribers({
+  taskId,
+  users,
+}: {
+  taskId: Id<"agentTasks">;
+  users: Users | undefined;
+}) {
+  const currentUserId = useQuery(api.auth.me);
+  const subscribers = useQuery(api.taskSubscribers.listByTask, { taskId });
+  const setSubscription = useMutation(api.taskSubscribers.setSubscription);
+
+  if (subscribers === undefined) return null;
+
+  const subscriberIds = new Set(subscribers.map((sub) => sub.userId));
+  const subscribedUsers = (users ?? []).filter((user) =>
+    subscriberIds.has(user._id),
+  );
+  const isSubscribed =
+    currentUserId !== undefined &&
+    currentUserId !== null &&
+    subscriberIds.has(currentUserId);
+  // Only dev-role users can be code reviewers / added as subscribers — mirrors
+  // the assignee picker in StatusFieldsSection.
+  const manageableUsers = (users ?? []).filter((user) => user.role === "dev");
+
+  return (
+    <div className="flex items-center gap-2 pb-4">
+      <span className="text-xs font-medium text-muted-foreground">
+        Subscribers
+      </span>
+
+      {subscribedUsers.length > 0 && (
+        <div className="flex items-center -space-x-1">
+          {subscribedUsers.map((user) => (
+            <UserInitials key={user._id} user={user} size="sm" hideLastSeen />
+          ))}
+        </div>
+      )}
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground"
+            aria-label="Manage subscribers"
+          >
+            <IconUserPlus size={15} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuLabel>Manage subscribers</DropdownMenuLabel>
+          {manageableUsers.map((user) => (
+            <DropdownMenuCheckboxItem
+              key={user._id}
+              checked={subscriberIds.has(user._id)}
+              onCheckedChange={(checked) =>
+                void setSubscription({
+                  taskId,
+                  userId: user._id,
+                  subscribed: checked,
+                })
+              }
+            >
+              {getUserDisplayName(user)}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Button
+        variant={isSubscribed ? "secondary" : "outline"}
+        size="sm"
+        className="h-7 gap-1.5"
+        disabled={currentUserId === undefined || currentUserId === null}
+        onClick={() =>
+          void setSubscription({ taskId, subscribed: !isSubscribed })
+        }
+      >
+        {isSubscribed ? <IconBellOff size={14} /> : <IconBell size={14} />}
+        {isSubscribed ? "Subscribed" : "Subscribe"}
+      </Button>
+    </div>
+  );
+}

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { authMutation, recomputeProjectPhase } from "../functions";
+import { ensureSubscribed } from "../taskSubscribers";
 import {
   parseSpec,
   getProjectGeneratedSpec,
@@ -50,6 +51,7 @@ export const startDevelopment = authMutation({
         createdBy: ctx.userId,
         baseBranch: projectBaseBranch,
       });
+      await ensureSubscribed(ctx, taskId, ctx.userId);
       taskIdMap.set(taskNumber, taskId);
     }
     for (let i = 0; i < spec.tasks.length; i++) {

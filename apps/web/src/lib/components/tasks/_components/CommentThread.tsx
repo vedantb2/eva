@@ -19,6 +19,42 @@ interface CommentThreadProps {
   depth?: number;
 }
 
+function ReplyThreads({
+  replies,
+  taskId,
+  users,
+  repliesByParentId,
+  onDeleteRequest,
+  depth,
+}: {
+  replies: TaskComment[];
+  taskId: Id<"agentTasks">;
+  users: Users | undefined;
+  repliesByParentId: Map<Id<"taskComments">, TaskComment[]>;
+  onDeleteRequest: (commentId: Id<"taskComments">) => void;
+  depth: number;
+}) {
+  if (replies.length === 0) return null;
+
+  return (
+    <div className="space-y-3 pl-4">
+      {replies.map((reply, index) => (
+        <div key={reply._id} className="space-y-3">
+          {index > 0 ? <Separator /> : null}
+          <CommentThread
+            comment={reply}
+            taskId={taskId}
+            users={users}
+            repliesByParentId={repliesByParentId}
+            onDeleteRequest={onDeleteRequest}
+            depth={depth + 1}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function CommentThread({
   comment,
   taskId,
@@ -29,18 +65,6 @@ export function CommentThread({
 }: CommentThreadProps) {
   const replies = repliesByParentId.get(comment._id) ?? [];
 
-  const childThreads = replies.map((reply) => (
-    <CommentThread
-      key={reply._id}
-      comment={reply}
-      taskId={taskId}
-      users={users}
-      repliesByParentId={repliesByParentId}
-      onDeleteRequest={onDeleteRequest}
-      depth={depth + 1}
-    />
-  ));
-
   if (depth === 0) {
     return (
       <div className="space-y-3 rounded-lg bg-muted/40 p-3">
@@ -50,9 +74,14 @@ export function CommentThread({
           users={users}
           onDeleteRequest={onDeleteRequest}
         />
-        {replies.length > 0 ? (
-          <div className="space-y-3">{childThreads}</div>
-        ) : null}
+        <ReplyThreads
+          replies={replies}
+          taskId={taskId}
+          users={users}
+          repliesByParentId={repliesByParentId}
+          onDeleteRequest={onDeleteRequest}
+          depth={depth}
+        />
         <div>
           <Separator className="mb-3" />
           <CommentReplyComposer taskId={taskId} parentId={comment._id} />
@@ -62,14 +91,21 @@ export function CommentThread({
   }
 
   return (
-    <div className="space-y-3 pl-4">
+    <div className="space-y-3">
       <CommentActivityItem
         comment={comment}
         taskId={taskId}
         users={users}
         onDeleteRequest={onDeleteRequest}
       />
-      {childThreads}
+      <ReplyThreads
+        replies={replies}
+        taskId={taskId}
+        users={users}
+        repliesByParentId={repliesByParentId}
+        onDeleteRequest={onDeleteRequest}
+        depth={depth}
+      />
     </div>
   );
 }

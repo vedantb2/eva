@@ -48,7 +48,6 @@ export function CommentThread({
           comment={comment}
           taskId={taskId}
           users={users}
-          depth={depth}
           onDeleteRequest={onDeleteRequest}
         />
         {replies.length > 0 ? (
@@ -68,7 +67,6 @@ export function CommentThread({
         comment={comment}
         taskId={taskId}
         users={users}
-        depth={depth}
         onDeleteRequest={onDeleteRequest}
       />
       {childThreads}

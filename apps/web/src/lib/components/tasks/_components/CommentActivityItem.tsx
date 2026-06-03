@@ -35,7 +35,6 @@ interface CommentActivityItemProps {
   comment: TaskComment;
   taskId: Id<"agentTasks">;
   users: Users | undefined;
-  depth: number;
   onDeleteRequest: (commentId: Id<"taskComments">) => void;
 }
 
@@ -84,7 +83,6 @@ export function CommentActivityItem({
   comment,
   taskId,
   users,
-  depth,
   onDeleteRequest,
 }: CommentActivityItemProps) {
   const currentUserId = useQuery(api.auth.me);
@@ -113,11 +111,6 @@ export function CommentActivityItem({
   const isAuthor =
     comment.authorId !== undefined && comment.authorId === currentUserId;
   const canManage = isAuthor && !isDeleted;
-
-  // At depth 0 the surrounding CommentThread owns the card background so the
-  // comment, separator and reply input share one surface; nested replies keep
-  // their own tonal card.
-  const surfaceClass = depth === 0 ? "" : "rounded-lg bg-muted/30 p-3";
 
   const startEditing = () => {
     setEditText(mentionTokensToEditableText(comment.content));
@@ -148,7 +141,7 @@ export function CommentActivityItem({
   };
 
   return (
-    <div className={`group space-y-2 ${surfaceClass}`}>
+    <div className="group space-y-2">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {comment.authorId ? (

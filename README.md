@@ -89,8 +89,8 @@ Eva is self-hosted - there is no managed cloud version. You create your own Conv
 ### Step 1: Clone and Install
 
 ```bash
-git clone https://github.com/your-org/conductor.git
-cd conductor
+git clone https://github.com/your-org/eva.git
+cd eva
 pnpm install
 ```
 

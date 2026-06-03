@@ -10,6 +10,7 @@ import {
   themeValidator,
   roleUserValidator,
   customThemeValidator,
+  userFields,
 } from "./validators";
 import { authQuery, authMutation } from "./functions";
 
@@ -50,20 +51,7 @@ export const getUserByClerkId = internalQuery({
     v.object({
       _id: v.id("users"),
       _creationTime: v.number(),
-      clerkId: v.optional(v.string()),
-      email: v.optional(v.string()),
-      firstName: v.optional(v.string()),
-      lastName: v.optional(v.string()),
-      fullName: v.optional(v.string()),
-      isAdmin: v.optional(v.boolean()),
-      role: v.optional(roleUserValidator),
-      theme: v.optional(themeValidator),
-      customTheme: v.optional(customThemeValidator),
-      toolbarVisible: v.optional(v.boolean()),
-      customInstructions: v.optional(v.string()),
-      lastSeenAt: v.optional(v.number()),
-      lastSeenPath: v.optional(v.string()),
-      lastChangelogDismissedAt: v.optional(v.number()),
+      ...userFields,
     }),
     v.null(),
   ),

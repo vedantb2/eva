@@ -5,6 +5,7 @@ import {
   errorTypeValidator,
   phaseValidator,
   priorityValidator,
+  roleUserValidator,
   roleValidator,
   runModeValidator,
   runStatusValidator,
@@ -14,14 +15,34 @@ import {
   taskSandboxEventValidator,
   taskSandboxStatusValidator,
   taskStatusValidator,
+  themeValidator,
 } from "./enums";
 import {
   automationFindingValidator,
   conversationMessageValidator,
+  customThemeValidator,
   logEntryValidator,
   terminalPaneValidator,
   variationValidator,
 } from "./shapes";
+
+export const userFields = {
+  clerkId: v.optional(v.string()),
+  email: v.optional(v.string()),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  fullName: v.optional(v.string()),
+  isAdmin: v.optional(v.boolean()),
+  role: v.optional(roleUserValidator),
+  theme: v.optional(themeValidator),
+  customTheme: v.optional(customThemeValidator),
+  toolbarVisible: v.optional(v.boolean()),
+  customInstructions: v.optional(v.string()),
+  lastSeenAt: v.optional(v.number()),
+  lastSeenPath: v.optional(v.string()),
+  lastChangelogDismissedAt: v.optional(v.number()),
+  emailNotificationsEnabled: v.optional(v.boolean()),
+};
 
 export const agentTaskFields = {
   title: v.string(),
@@ -162,6 +183,8 @@ export const githubRepoFields = {
   screenshotsVideosEnabled: v.optional(v.boolean()),
   startupCommands: v.optional(v.array(v.string())),
   backgroundCommands: v.optional(v.array(v.string())),
+  stopCommands: v.optional(v.array(v.string())),
+  seededSnapshotName: v.optional(v.string()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   systemPrompt: v.optional(v.string()),

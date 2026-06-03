@@ -84,14 +84,6 @@ Component Structure:
 - Only add `"use client"` to child components that use hooks/interactivity
 - Inline sub-components defined in the same file should be extracted to `_components/`
 
-Next.js:
-
-- This is a client-first app. SSR/SSG is not used. All components are client components.
-- Never use `Link` from `next/link` — it adds prefetching/SSR overhead we don't need. Use `useRouter` from `next/navigation` and `router.push()` instead.
-- Never use `Image` from `next/image` — the image optimization server is unnecessary overhead. Use plain `<img>` tags instead.
-- When using Convex:
-  - Extract interactive/live logic into child Client Components.
-
 TanStack Router (eva web app):
 
 - Never use `window.location.href` for navigation. Always use `useNavigate` from `@tanstack/react-router` or the `<Link>` component.

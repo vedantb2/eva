@@ -453,7 +453,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
     repoName: z
       .string()
       .describe(
-        'Repo name (e.g. "conductor" or "vedantb2/conductor"). Resolved by matching against your connected repos.',
+        'Repo name (e.g. "eva" or "vvedantb/eva"). Resolved by matching against your connected repos.',
       ),
     model: z
       .enum(["opus", "sonnet", "haiku"])
@@ -572,7 +572,7 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
       repoName: z
         .string()
         .describe(
-          'Repo name (e.g. "conductor" or "vedantb2/conductor"). Resolved by matching against your connected repos.',
+          'Repo name (e.g. "eva" or "vvedantb/eva"). Resolved by matching against your connected repos.',
         ),
       tasks: z
         .array(

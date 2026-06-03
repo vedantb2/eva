@@ -6,18 +6,15 @@ import {
   sessionStatusValidator,
   evaluationStatusValidator,
   evalFixStatusValidator,
-  themeValidator,
   evalResultValidator,
   auditSectionValidator,
   userFlowValidator,
   notificationTypeValidator,
-  roleUserValidator,
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
   snapshotWarmupStatusValidator,
   teamMemberRoleValidator,
-  customThemeValidator,
   webhookEventStatusValidator,
   messageFields,
   automationFields,
@@ -35,26 +32,11 @@ import {
   taskCommentFields,
   repoSkillFields,
   sandboxGitCredentialsFields,
+  userFields,
 } from "./validators";
 
 const schema = defineSchema({
-  users: defineTable({
-    clerkId: v.optional(v.string()),
-    email: v.optional(v.string()),
-    firstName: v.optional(v.string()),
-    lastName: v.optional(v.string()),
-    fullName: v.optional(v.string()),
-    isAdmin: v.optional(v.boolean()),
-    role: v.optional(roleUserValidator),
-    theme: v.optional(themeValidator),
-    customTheme: v.optional(customThemeValidator),
-    toolbarVisible: v.optional(v.boolean()),
-    customInstructions: v.optional(v.string()),
-    lastSeenAt: v.optional(v.number()),
-    lastSeenPath: v.optional(v.string()),
-    lastChangelogDismissedAt: v.optional(v.number()),
-    emailNotificationsEnabled: v.optional(v.boolean()),
-  })
+  users: defineTable(userFields)
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),
 
@@ -291,6 +273,16 @@ const schema = defineSchema({
     retryCount: v.optional(v.number()),
     warmupStatus: v.optional(snapshotWarmupStatusValidator),
     warmupError: v.optional(v.string()),
+    seededApps: v.optional(
+      v.array(
+        v.object({
+          app: v.string(),
+          repoId: v.id("githubRepos"),
+          seededSnapshotName: v.union(v.string(), v.null()),
+          status: v.optional(v.string()),
+        }),
+      ),
+    ),
   })
     .index("by_repo_snapshot", ["repoSnapshotId"])
     .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])

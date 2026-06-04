@@ -48,6 +48,7 @@ import {
   IconRefresh,
   IconFileText,
   IconMessage,
+  IconServerBolt,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useNavigate } from "@tanstack/react-router";
@@ -118,6 +119,8 @@ export function ProjectDetailClient({
     handleStopSandbox,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
+    handleRunBackgroundCommands,
+    isRunningBackgroundCommands,
   } = useProjectSandbox(
     typedProjectId,
     project?.phase,
@@ -205,6 +208,7 @@ export function ProjectDetailClient({
     (project.phase === "business_review" || project.phase === "in_progress");
   const showRetryStartupCommands =
     canStartSandbox && !isSandboxStarting && !isSandboxStopping;
+  const showRunBackgroundCommands = isSandboxActive;
   const showResolveConflicts =
     Boolean(project.prUrl) &&
     !project.activeBuildWorkflowId &&
@@ -222,6 +226,7 @@ export function ProjectDetailClient({
     canCreatePr ||
     hasDeployedPreview ||
     showRetryStartupCommands ||
+    showRunBackgroundCommands ||
     showResolveConflicts ||
     hasPlanContext;
 
@@ -348,6 +353,19 @@ export function ProjectDetailClient({
                           <IconRefresh size={14} />
                         )}
                         Run Startup Commands
+                      </DropdownMenuItem>
+                    )}
+                    {showRunBackgroundCommands && (
+                      <DropdownMenuItem
+                        onClick={handleRunBackgroundCommands}
+                        disabled={isRunningBackgroundCommands}
+                      >
+                        {isRunningBackgroundCommands ? (
+                          <IconLoader2 size={14} className="animate-spin" />
+                        ) : (
+                          <IconServerBolt size={14} />
+                        )}
+                        Run Background Commands
                       </DropdownMenuItem>
                     )}
                     {canCreatePr && (

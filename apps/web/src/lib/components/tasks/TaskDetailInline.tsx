@@ -125,6 +125,8 @@ export function TaskDetailInline({
     isRetryingStartupCommands,
     handleRunDevServer,
     isRunningDevServer,
+    handleRunBackgroundCommands,
+    isRunningBackgroundCommands,
     devServerCommandLabel,
     sandboxId,
     sandboxStartupActivity,
@@ -398,6 +400,8 @@ export function TaskDetailInline({
         onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
         onRunDevServer={() => setShowRunDevServerConfirm(true)}
         isRunningDevServer={isRunningDevServer}
+        onRunBackgroundCommands={handleRunBackgroundCommands}
+        isRunningBackgroundCommands={isRunningBackgroundCommands}
         onStartExecution={handleStartExecution}
         onResolveConfirm={() => setShowResolveConfirm(true)}
         onRequestChanges={() => {

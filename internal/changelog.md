@@ -1,5 +1,10 @@
 # Changelog
 
+## Run background commands from task/project headers - 2026-06-04
+
+- Added "Run Background Commands" menu item to the More (⋯) menu on both quick-task and project preview headers, allowing users to respawn long-running daemons (e.g., `npx convex dev`) in an active sandbox without restarting.
+- Implemented backend mutations (`agentTasks.runBackgroundCommands`, `projects.runProjectBackgroundCommands`) that schedule the existing daemon-launch action; requires an active sandbox and repo access.
+
 ## Agentation annotation widget works in remote previews - 2026-06-04
 
 - Added `/__agentation` proxy route in preview proxy, forwarding widget requests to sandbox-local agentation server (port 4747), mirroring the existing `/__convex` pattern for Convex backend access.

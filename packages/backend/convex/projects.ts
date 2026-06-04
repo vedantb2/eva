@@ -29,6 +29,7 @@ export {
   startProjectSandbox,
   stopProjectSandbox,
   retryProjectStartupCommands,
+  runProjectBackgroundCommands,
   resolveProjectConflicts,
   projectSandboxAllocated,
   projectSandboxStarting,

@@ -27,6 +27,7 @@ import {
   IconCalendarClock,
   IconDots,
   IconRefresh,
+  IconServerBolt,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import type { TaskStatus } from "../TaskStatusBadge";
@@ -53,6 +54,7 @@ interface TaskFooterProps {
   isSandboxStopping: boolean;
   isRetryingStartupCommands: boolean;
   isRunningDevServer: boolean;
+  isRunningBackgroundCommands: boolean;
   canCreatePr: boolean;
   isCreatingPr: boolean;
   onCreatePr: () => void;
@@ -61,6 +63,7 @@ interface TaskFooterProps {
   isSandboxViewActive?: boolean;
   onRunStartupCommands: () => void;
   onRunDevServer: () => void;
+  onRunBackgroundCommands: () => void;
   onStartExecution: () => void;
   onResolveConfirm: () => void;
   onRequestChanges: () => void;
@@ -84,6 +87,7 @@ export function TaskFooter({
   isSandboxStopping,
   isRetryingStartupCommands,
   isRunningDevServer,
+  isRunningBackgroundCommands,
   canCreatePr,
   isCreatingPr,
   onCreatePr,
@@ -92,6 +96,7 @@ export function TaskFooter({
   isSandboxViewActive = false,
   onRunStartupCommands,
   onRunDevServer,
+  onRunBackgroundCommands,
   onStartExecution,
   onResolveConfirm,
   onRequestChanges,
@@ -213,6 +218,19 @@ export function TaskFooter({
                       <IconPlayerPlay size={14} />
                     )}
                     Run Dev Server
+                  </DropdownMenuItem>
+                ) : null}
+                {isSandboxActive && canStartSandbox ? (
+                  <DropdownMenuItem
+                    onClick={onRunBackgroundCommands}
+                    disabled={isRunningBackgroundCommands}
+                  >
+                    {isRunningBackgroundCommands ? (
+                      <IconLoader2 size={14} className="animate-spin" />
+                    ) : (
+                      <IconServerBolt size={14} />
+                    )}
+                    Run Background Commands
                   </DropdownMenuItem>
                 ) : null}
                 {canCreatePr && (

@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix run attribution and comment merging in task activity - 2026-06-04
+
+- Fixed "Resolve Conflicts" runs showing the wrong initiator by replacing a broken timestamp-based heuristic with explicit `triggeredBy` tracking on every run.
+- Prevented recent comments from being incorrectly merged into unrelated runs (especially Resolve Conflicts) by storing `triggeringCommentId` only on "Make changes" runs that actually have a triggering comment.
+- Run initiators now display correctly: "Make changes" runs show the comment author, button-initiated runs (task start, Resolve Conflicts) show whoever clicked, legacy runs show blank (predating the field).
+
 ## Daily sandbox auto-stop scheduler - 2026-06-04
 
 - Added app-wide setting for a daily time at which all running sandboxes automatically stop, preventing overnight cost/resource leakage; set via `/settings/sandboxes` with a native time input in the user's local timezone.

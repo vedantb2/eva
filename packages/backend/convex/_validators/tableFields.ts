@@ -106,6 +106,13 @@ export const agentRunFields = {
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
   mode: v.optional(runModeValidator),
+  // Who started this run (button click or "Make changes" submit). Absent on
+  // runs created before this field existed.
+  triggeredBy: v.optional(v.id("users")),
+  // The change-request comment that started this run, set only for "Make
+  // changes" runs. Lets the timeline link a run to its comment explicitly
+  // rather than guessing by timestamp.
+  triggeringCommentId: v.optional(v.id("taskComments")),
 };
 
 export const sessionFields = {

@@ -92,10 +92,13 @@ export function RunTimelineItem({
   users: Users | undefined;
 }) {
   const hasRunComment = runComment !== undefined;
-  const requester =
-    hasRunComment && runComment.authorId
-      ? users?.find((user) => user._id === runComment.authorId)
-      : undefined;
+  // The run's initiator: the change-request comment's author when the run was
+  // started via "Make changes", otherwise whoever clicked the button. Legacy
+  // runs predating `triggeredBy` show no initiator.
+  const requesterUserId = runComment?.authorId ?? run.triggeredBy;
+  const requester = requesterUserId
+    ? users?.find((user) => user._id === requesterUserId)
+    : undefined;
 
   const runDuration =
     isActiveRun && run.startedAt ? (
@@ -125,9 +128,9 @@ export function RunTimelineItem({
           <AccordionTrigger className="flex-1 min-w-0">
             <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-2 flex-wrap">
-                {hasRunComment && runComment.authorId ? (
+                {requesterUserId ? (
                   <UserInitials
-                    userId={runComment.authorId}
+                    userId={requesterUserId}
                     size="sm"
                     hideLastSeen
                   />

@@ -1,5 +1,10 @@
 # Changelog
 
+## Agentation annotation widget works in remote previews - 2026-06-04
+
+- Added `/__agentation` proxy route in preview proxy, forwarding widget requests to sandbox-local agentation server (port 4747), mirroring the existing `/__convex` pattern for Convex backend access.
+- Sandboxed apps now resolve the agentation endpoint dynamically: Daytona preview hosts use the proxied `/__agentation` path, local dev continues to use `http://localhost:4747`.
+
 ## Task subscribers and hybrid notification routing - 2026-06-03
 
 - Added per-task subscriber management: auto-subscribe on create, assign, comment, or @mention; manual toggle in Activity-tab header with avatar stack, self subscribe button, and add-others picker (dev-role users only).

@@ -20,7 +20,7 @@ const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "auth-v2";
+const SCRIPT_VERSION = "auth-v3";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -328,10 +328,16 @@ function authorize(clientReq, clientRes) {
 // same (already-authenticated) preview origin under /__convex, and the proxy
 // forwards those requests to the local Convex backend. /__convex-site maps to
 // the Convex HTTP-actions port the same way.
+//
+// The agentation annotation widget has the same problem: it runs in the browser
+// but its server listens on sandbox-localhost:4747, which the user's machine
+// cannot reach. /__agentation forwards to it on the authenticated preview origin.
 const CONVEX_PORT = 3210;
 const CONVEX_SITE_PORT = 3211;
+const AGENTATION_PORT = 4747;
 const CONVEX_PREFIX = "/__convex";
 const CONVEX_SITE_PREFIX = "/__convex-site";
+const AGENTATION_PREFIX = "/__agentation";
 
 // Returns the path with the prefix stripped (always leading-slashed), or null
 // when "url" is not the prefix or a "/", "?", "#" delimited sub-path of it.
@@ -355,6 +361,10 @@ function resolveRoute(url) {
   const convexMatch = matchPrefix(u, CONVEX_PREFIX);
   if (convexMatch !== null) {
     return { port: CONVEX_PORT, path: convexMatch, injects: false };
+  }
+  const agentationMatch = matchPrefix(u, AGENTATION_PREFIX);
+  if (agentationMatch !== null) {
+    return { port: AGENTATION_PORT, path: agentationMatch, injects: false };
   }
   return { port: targetPort, path: u, injects: INJECT_ENABLED };
 }

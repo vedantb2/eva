@@ -1,5 +1,11 @@
 # Changelog
 
+## Notification cards show task/project context - 2026-06-04
+
+- Every notification card (in the bell popover and `/inbox`) now displays the associated task or project title directly under the notification type, so "Kezia mentioned you" also shows which quick task or project issue it's about.
+- Quick-task notifications show just the task title; project-task notifications show "Project title: issue title" for context at a glance.
+- Context is snapshotted at notification creation time, keeping the reactive bell query fast (no per-render lookups); task renames after the notification don't affect old cards.
+
 ## Improve daily digest: filter to 24 hours, "View all" button, clarify scope - 2026-06-04
 
 - Daily unread-notification digest now shows only notifications from the past 24 hours (not the entire unread backlog), keeping older items in the in-app inbox.

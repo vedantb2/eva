@@ -91,6 +91,21 @@ export async function createNotification(
       }
     }
   }
+  // Snapshot a human-readable task/project label for the notification card.
+  // Project tasks read "Project title: issue title"; quick tasks just the title.
+  let contextLabel: string | undefined;
+  if (params.taskId) {
+    const task = await ctx.db.get(params.taskId);
+    if (task) {
+      if (params.projectId) {
+        const project = await ctx.db.get(params.projectId);
+        contextLabel = project ? `${project.title}: ${task.title}` : task.title;
+      } else {
+        contextLabel = task.title;
+      }
+    }
+  }
+
   const type = params.type ?? "system";
   await ctx.db.insert("notifications", {
     userId: params.userId,
@@ -99,6 +114,7 @@ export async function createNotification(
     message: params.message,
     href,
     repoId: params.repoId,
+    contextLabel,
     read: false,
     createdAt: Date.now(),
   });
@@ -125,6 +141,7 @@ const notificationValidator = v.object({
   href: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
   createdAt: v.number(),
+  contextLabel: v.optional(v.string()),
   emailedAt: v.optional(v.number()),
 });
 

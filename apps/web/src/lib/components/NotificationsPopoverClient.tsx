@@ -140,6 +140,11 @@ export function NotificationsPopoverClient() {
                     <p className="truncate text-sm font-medium">
                       {notification.title}
                     </p>
+                    {notification.contextLabel && (
+                      <p className="truncate text-xs font-medium text-muted-foreground">
+                        {notification.contextLabel}
+                      </p>
+                    )}
                     {notification.message && (
                       <p className="mt-1 break-words text-xs text-muted-foreground">
                         {notification.message}

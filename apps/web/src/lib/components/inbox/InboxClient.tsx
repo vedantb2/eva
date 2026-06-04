@@ -225,9 +225,16 @@ export function InboxClient() {
                           )}
                         </div>
                         <NotificationIcon type={n.type} size="sm" />
-                        <span className="flex-1 min-w-0 text-xs font-medium truncate sm:text-sm">
-                          {n.title}
-                        </span>
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate text-xs font-medium sm:text-sm">
+                            {n.title}
+                          </span>
+                          {n.contextLabel && (
+                            <span className="truncate text-[10px] text-muted-foreground sm:text-xs">
+                              {n.contextLabel}
+                            </span>
+                          )}
+                        </div>
                         <RelativeDateTime
                           at={n.createdAt}
                           className={`text-[10px] text-muted-foreground tabular-nums flex-shrink-0 sm:text-xs ${n.read ? "" : "group-hover:opacity-0"}`}

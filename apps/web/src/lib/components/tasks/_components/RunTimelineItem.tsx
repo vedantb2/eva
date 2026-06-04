@@ -71,7 +71,6 @@ function getRunStatusLabel(run: Run, hasRunComment: boolean): string {
 export function RunTimelineItem({
   run,
   isActiveRun,
-  isFirst,
   streaming,
   activeRunElapsed,
   isStopping,
@@ -82,7 +81,6 @@ export function RunTimelineItem({
 }: {
   run: Run;
   isActiveRun: boolean;
-  isFirst: boolean;
   streaming: Streaming | undefined;
   activeRunElapsed: number;
   isStopping: boolean;
@@ -119,10 +117,7 @@ export function RunTimelineItem({
     ) : null;
 
   return (
-    <Accordion
-      type="multiple"
-      defaultValue={isActiveRun || isFirst ? [run._id] : []}
-    >
+    <Accordion type="multiple" defaultValue={[]}>
       <AccordionItem value={run._id} className="rounded-lg bg-muted/40 px-3">
         <div className="flex items-center gap-2">
           <AccordionTrigger className="flex-1 min-w-0">
@@ -189,6 +184,18 @@ export function RunTimelineItem({
         </div>
         <AccordionContent>
           <div className="space-y-2">
+            {runComment ? (
+              <div
+                className={`ml-2 space-y-2 border-l-2 border-muted-foreground/25 pl-3 ${RUN_ACCORDION_SCROLL_CLASS}`}
+              >
+                <RunInlineComment comment={runComment} users={users} />
+                {runCommentReplies.map((reply) => (
+                  <div key={reply._id} className="ml-2 pl-2">
+                    <RunInlineComment comment={reply} users={users} />
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {run.status === "running" &&
               streaming?.currentActivity &&
               (() => {
@@ -252,19 +259,7 @@ export function RunTimelineItem({
                   ))}
                 </div>
               </div>
-            )}
-            {runComment ? (
-              <div
-                className={`ml-2 space-y-2 border-l-2 border-muted-foreground/25 pl-3 ${RUN_ACCORDION_SCROLL_CLASS}`}
-              >
-                <RunInlineComment comment={runComment} users={users} />
-                {runCommentReplies.map((reply) => (
-                  <div key={reply._id} className="ml-2 pl-2">
-                    <RunInlineComment comment={reply} users={users} />
-                  </div>
-                ))}
-              </div>
-            ) : null}
+            )}{" "}
           </div>
         </AccordionContent>
       </AccordionItem>

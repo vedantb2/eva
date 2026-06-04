@@ -306,7 +306,6 @@ export function ActivityTimeline({
                 <RunTimelineItem
                   run={run}
                   isActiveRun={isActiveRun}
-                  isFirst={index === 0}
                   streaming={streaming}
                   activeRunElapsed={activeRunElapsed}
                   isStopping={isStopping}

@@ -6,6 +6,7 @@ import {
   IconHome,
   IconInbox,
   IconPalette,
+  IconServerBolt,
   IconUsers,
 } from "@tabler/icons-react";
 import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@conductor/ui";
@@ -17,6 +18,7 @@ const ROOT_NAV_ITEMS = [
   { name: "Inbox", href: "/inbox", icon: IconInbox },
   { name: "Theme", href: "/settings/theme", icon: IconPalette },
   { name: "Notifications", href: "/settings/notifications", icon: IconBell },
+  { name: "Sandboxes", href: "/settings/sandboxes", icon: IconServerBolt },
 ];
 
 export function RootSidebarContent({

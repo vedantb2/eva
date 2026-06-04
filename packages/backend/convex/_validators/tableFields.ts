@@ -354,6 +354,18 @@ export const taskSubscriberFields = {
 // /api/git-credentials to receive a freshly minted GitHub App installation
 // token. One row per Daytona sandbox; rotated every time the helper is
 // reinstalled.
+// App-wide singleton settings (a single row). Currently holds the daily
+// sandbox auto-stop schedule: a wall-clock time + IANA timezone at which the
+// `sandboxAutoStop` cron stops every active sandbox so none are left running
+// overnight. `sandboxAutoStopLastRunDate` is the once-per-day dedup guard
+// (the local date "YYYY-MM-DD" of the last occurrence that was swept).
+export const appSettingsFields = {
+  sandboxAutoStopEnabled: v.boolean(),
+  sandboxAutoStopTime: v.string(),
+  sandboxAutoStopTimeZone: v.string(),
+  sandboxAutoStopLastRunDate: v.optional(v.string()),
+};
+
 export const sandboxGitCredentialsFields = {
   sandboxId: v.string(),
   installationId: v.number(),

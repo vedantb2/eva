@@ -196,6 +196,7 @@ import type * as repoSkills from "../repoSkills.js";
 import type * as repoSnapshots from "../repoSnapshots.js";
 import type * as repoUtils from "../repoUtils.js";
 import type * as sandboxAuthConfig from "../sandboxAuthConfig.js";
+import type * as sandboxAutoStop from "../sandboxAutoStop.js";
 import type * as sandboxConfigFiles from "../sandboxConfigFiles.js";
 import type * as sandboxGitCredentials from "../sandboxGitCredentials.js";
 import type * as sandboxJwt from "../sandboxJwt.js";
@@ -422,6 +423,7 @@ declare const fullApi: ApiFromModules<{
   repoSnapshots: typeof repoSnapshots;
   repoUtils: typeof repoUtils;
   sandboxAuthConfig: typeof sandboxAuthConfig;
+  sandboxAutoStop: typeof sandboxAutoStop;
   sandboxConfigFiles: typeof sandboxConfigFiles;
   sandboxGitCredentials: typeof sandboxGitCredentials;
   sandboxJwt: typeof sandboxJwt;

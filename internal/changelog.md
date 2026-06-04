@@ -1,5 +1,11 @@
 # Changelog
 
+## Daily sandbox auto-stop scheduler - 2026-06-04
+
+- Added app-wide setting for a daily time at which all running sandboxes automatically stop, preventing overnight cost/resource leakage; set via `/settings/sandboxes` with a native time input in the user's local timezone.
+- Implemented a 15-minute cron that checks whether the configured stop time has been reached and, if so, sweeps every active sandbox (task, project, session, design) through each module's existing stop pipeline (Daytona stop → mark closed → event log), idempotent per day via last-run date tracking.
+- Stop time is interpreted in the browser's IANA timezone (captured on save) so the entered time remains correct across DST transitions, and changing the schedule clears the daily guard so the new time can fire the same day.
+
 ## Run background commands from task/project headers - 2026-06-04
 
 - Added "Run Background Commands" menu item to the More (⋯) menu on both quick-task and project preview headers, allowing users to respawn long-running daemons (e.g., `npx convex dev`) in an active sandbox without restarting.

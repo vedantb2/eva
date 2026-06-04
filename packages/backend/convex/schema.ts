@@ -33,6 +33,7 @@ import {
   taskSubscriberFields,
   repoSkillFields,
   sandboxGitCredentialsFields,
+  appSettingsFields,
   userFields,
 } from "./validators";
 
@@ -390,6 +391,10 @@ const schema = defineSchema({
   sandboxGitCredentials: defineTable(sandboxGitCredentialsFields)
     .index("by_sandbox_id", ["sandboxId"])
     .index("by_secret", ["secret"]),
+
+  // App-wide singleton settings (only ever one row). Read/written via the
+  // helpers in `sandboxAutoStop.ts`.
+  appSettings: defineTable(appSettingsFields),
 });
 
 export default schema;

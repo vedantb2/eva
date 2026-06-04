@@ -225,7 +225,12 @@ export const runBackgroundCommands = internalAction({
       const logPath = `/tmp/bg-${i}.log`;
       // Escape single quotes for the bash -lc payload.
       const escaped = command.replace(/'/g, "'\\''");
-      const launchCmd = `nohup bash -lc '${escaped}' > ${logPath} 2>&1 &`;
+      // setsid + </dev/null fully detaches the daemon into its own session, so
+      // it survives the exec session teardown even when the user's command
+      // self-backgrounds. A trailing `&` would otherwise let bash -lc exit
+      // immediately, letting a process-group SIGTERM reach the daemon (nohup
+      // only blocks SIGHUP).
+      const launchCmd = `setsid nohup bash -lc '${escaped}' </dev/null > ${logPath} 2>&1 &`;
       console.log(
         `[daytona] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
       );

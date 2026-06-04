@@ -1,5 +1,11 @@
 # Changelog
 
+## Background commands now robust to self-backgrounding, improved documentation - 2026-06-04
+
+- Fixed a race condition where background commands (e.g. `npx convex dev`) would die immediately if the user's command included a trailing `&` or `nohup` wrapper; the platform now uses `setsid` to fully detach daemons into their own session, surviving session teardown regardless of how the command is written.
+- Clarified App-settings documentation to explain that background commands should be written as plain foreground commands — the platform automatically adds `nohup`, detachment (`&`), and log redirection (`>/tmp/bg-<N>.log`), so users should omit those.
+- Background commands now work correctly both on first sandbox start and on resume of a paused sandbox.
+
 ## Notification cards show task/project context - 2026-06-04
 
 - Every notification card (in the bell popover and `/inbox`) now displays the associated task or project title directly under the notification type, so "Kezia mentioned you" also shows which quick task or project issue it's about.

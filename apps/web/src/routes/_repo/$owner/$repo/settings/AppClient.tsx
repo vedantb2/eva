@@ -175,11 +175,13 @@ export function AppClient() {
               placeholder="npx convex dev"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              One command per line. Each is launched detached (
-              <code>nohup ... &amp;</code>) and respawned every time the sandbox
-              starts or resumes. Use for daemons like{" "}
-              <code>npx convex dev</code>. Output is written to{" "}
-              <code>/tmp/bg-&lt;index&gt;.log</code>.
+              One command per line, each written as a plain foreground command.
+              The platform launches every line detached for you (
+              <code>nohup ... &amp;</code>), so there is no need to add your own{" "}
+              <code>nohup</code>, trailing <code>&amp;</code>, or output
+              redirect. Commands respawn every time the sandbox starts or
+              resumes. Use for daemons like <code>npx convex dev</code>. Output
+              is written to <code>/tmp/bg-&lt;index&gt;.log</code>.
             </p>
           </div>
         </div>

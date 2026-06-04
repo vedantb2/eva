@@ -178,8 +178,10 @@ export const getTaskData = internalQuery({
       authorNameById.set(id, userDisplayName(authors[index]));
     });
 
-    // Annotate each change request with author + date and resolve any `@`
-    // mention tokens, matching how the task description is prepared.
+    // Resolve any `@` mention tokens (matching how the task description is
+    // prepared), then keep the raw resolved text for the commit subject
+    // separate from the author/date-annotated text shown to the agent — the
+    // annotation must not leak into the edit commit message.
     const changeRequests = await Promise.all(
       sortedComments.map(async (c) => {
         const author = c.authorId
@@ -187,7 +189,10 @@ export const getTaskData = internalQuery({
           : "Reviewer";
         const resolved =
           (await resolveDescriptionForPrompt(c.content)) ?? c.content;
-        return `[${author} · ${formatCommentDate(c.createdAt)}] ${resolved}`;
+        return {
+          commitText: resolved,
+          promptText: `[${author} · ${formatCommentDate(c.createdAt)}] ${resolved}`,
+        };
       }),
     );
 

@@ -202,11 +202,12 @@ export const markAllAsRead = authMutation({
 
 /**
  * Gathers digest recipients for the daily email: every user with an email address
- * and at least one unread notification, along with up to DIGEST_NOTIFICATION_LIMIT
- * of their unread notifications. Internal use only (daily cron).
+ * and at least one unread notification created since `since` (the digest window,
+ * typically the past 24 hours), along with up to DIGEST_NOTIFICATION_LIMIT of
+ * those notifications. Internal use only (daily cron).
  */
 export const getDigestRecipients = internalQuery({
-  args: {},
+  args: { since: v.number() },
   returns: v.array(
     v.object({
       email: v.string(),
@@ -222,7 +223,7 @@ export const getDigestRecipients = internalQuery({
       ),
     }),
   ),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const users = await ctx.db.query("users").collect();
     const recipients = [];
     for (const user of users) {
@@ -238,7 +239,9 @@ export const getDigestRecipients = internalQuery({
       const relevant = unread
         .filter(
           (n) =>
-            !DIGEST_EXCLUDED_TYPES.has(n.type) && n.emailedAt === undefined,
+            n.createdAt >= args.since &&
+            !DIGEST_EXCLUDED_TYPES.has(n.type) &&
+            n.emailedAt === undefined,
         )
         .slice(0, DIGEST_NOTIFICATION_LIMIT);
       if (relevant.length === 0) continue;

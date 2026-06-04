@@ -23,6 +23,11 @@ export interface DigestEmailOptions {
    * instant single-notification email to lead with the activity itself.
    */
   heading?: string;
+  /**
+   * Optional muted line under the heading clarifying the scope, e.g. the daily
+   * digest's "From the past 24 hours". Omitted by the instant email.
+   */
+  subtext?: string;
 }
 
 const BRAND = "#4f46e5";
@@ -159,12 +164,16 @@ export function buildNotificationDigestHtml(opts: DigestEmailOptions): string {
   const rows = opts.notifications
     .map((n) => renderNotification(n, opts.appUrl))
     .join("");
+  const subtext = opts.subtext
+    ? `<p style="margin:0 0 20px;font-size:13px;line-height:18px;color:${MUTED};">${escapeHtml(opts.subtext)}</p>`
+    : "";
 
   const bodyHtml = `
     <p style="margin:0 0 4px;font-size:15px;line-height:22px;color:${TEXT};">${greeting}</p>
-    <h1 style="margin:0 0 20px;font-size:20px;line-height:28px;font-weight:700;color:${TEXT};">${heading}</h1>
+    <h1 style="margin:0 0 ${opts.subtext ? "6px" : "20px"};font-size:20px;line-height:28px;font-weight:700;color:${TEXT};">${heading}</h1>
+    ${subtext}
     ${rows}
-    <a href="${escapeHtml(opts.appUrl.replace(/\/+$/, ""))}" style="display:inline-block;margin-top:8px;padding:10px 18px;font-size:14px;font-weight:600;color:#ffffff;background-color:${BRAND};border-radius:8px;text-decoration:none;">Open the app</a>
+    <a href="${escapeHtml(buildLink(opts.appUrl, "/inbox"))}" style="display:inline-block;margin-top:8px;padding:10px 18px;font-size:14px;font-weight:600;color:#ffffff;background-color:${BRAND};border-radius:8px;text-decoration:none;">View all notifications</a>
   `;
 
   return wrapEmailLayout({ title: heading, bodyHtml, appUrl: opts.appUrl });

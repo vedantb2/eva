@@ -1,5 +1,12 @@
 # Changelog
 
+## Improve daily digest: filter to 24 hours, "View all" button, clarify scope - 2026-06-04
+
+- Daily unread-notification digest now shows only notifications from the past 24 hours (not the entire unread backlog), keeping older items in the in-app inbox.
+- Email CTA changed from generic "Open the app" to **"View all notifications"** linking directly to `/inbox` for immediate access to the full unread list.
+- Added muted "From the past 24 hours" subtext under the digest heading to clarify the 24-hour scope.
+- Task activity run timeline now shows triggering comments before the agent's result summary and keeps all accordions collapsed by default (expand manually to view).
+
 ## Fix run attribution and comment merging in task activity - 2026-06-04
 
 - Fixed "Resolve Conflicts" runs showing the wrong initiator by replacing a broken timestamp-based heuristic with explicit `triggeredBy` tracking on every run.

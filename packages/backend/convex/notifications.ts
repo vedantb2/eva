@@ -45,7 +45,12 @@ const DIGEST_SCAN_LIMIT = 200;
  * finished notifications ("run_completed") are high-volume and low-signal in an
  * email summary; they remain in the in-app notification bell.
  */
-const DIGEST_EXCLUDED_TYPES: ReadonlySet<string> = new Set(["run_completed"]);
+const DIGEST_EXCLUDED_TYPES: ReadonlySet<string> = new Set([
+  "run_completed",
+  // Change requests show in-app only — they re-run Eva, which is low-signal in
+  // an email summary.
+  "changes_requested",
+]);
 
 /** Builds a URL path for a repo, including app name for monorepo sub-apps. */
 function getRepoHref(

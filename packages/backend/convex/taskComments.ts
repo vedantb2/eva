@@ -33,6 +33,23 @@ function buildCommentNotificationMessage(
   return `New comment on this ${scopeLabel}: "${summary}"`;
 }
 
+/** Builds the subscriber notification message for a "Make changes" request. */
+function buildChangeRequestNotificationMessage(
+  content: string,
+  projectId: Id<"projects"> | undefined,
+): string {
+  const scopeLabel = projectId ? "project task" : "quick task";
+  const trimmedContent = content.trim();
+  if (!trimmedContent) {
+    return `Changes requested on this ${scopeLabel}.`;
+  }
+  const summary =
+    trimmedContent.length > 180
+      ? `${trimmedContent.slice(0, 177)}...`
+      : trimmedContent;
+  return `Changes requested on this ${scopeLabel}: "${summary}"`;
+}
+
 /** Lists all comments for a task, sorted oldest first. */
 export const listByTask = authQuery({
   args: { taskId: v.id("agentTasks") },
@@ -54,6 +71,9 @@ export const create = authMutation({
     taskId: v.id("agentTasks"),
     content: v.string(),
     parentId: v.optional(v.id("taskComments")),
+    // Set when the comment is submitted via "Make changes" (re-runs Eva). The
+    // subscriber broadcast then reads as a change request, not a plain comment.
+    requestsChanges: v.optional(v.boolean()),
   },
   returns: v.id("taskComments"),
   handler: async (ctx, args) => {
@@ -144,12 +164,17 @@ export const create = authMutation({
 
     // Broadcast to the rest of the subscriber set (creator, assignee, followers).
     // Mention/reply recipients are already in notifiedUserIds, so they keep their
-    // higher-signal notification instead of a duplicate "comment added".
+    // higher-signal notification instead of a duplicate broadcast. A "Make
+    // changes" submission reads as a change request rather than a new comment.
     await notifySubscribers(ctx, {
       taskId: args.taskId,
-      type: "comment_added",
-      title: `New comment on "${task.title}"`,
-      message: buildCommentNotificationMessage(args.content, task.projectId),
+      type: args.requestsChanges ? "changes_requested" : "comment_added",
+      title: args.requestsChanges
+        ? `${authorName} requested changes on "${task.title}"`
+        : `New comment on "${task.title}"`,
+      message: args.requestsChanges
+        ? buildChangeRequestNotificationMessage(args.content, task.projectId)
+        : buildCommentNotificationMessage(args.content, task.projectId),
       repoId: task.repoId,
       projectId: task.projectId,
       actorId: ctx.userId,

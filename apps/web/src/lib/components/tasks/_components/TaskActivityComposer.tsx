@@ -70,7 +70,7 @@ export function TaskActivityComposer({
     setCommentText("");
     setIsSubmitting(true);
     try {
-      await createComment({ taskId, content });
+      await createComment({ taskId, content, requestsChanges: true });
       if (isProjectTask) {
         await updateStatus({ id: taskId, status: "todo" });
       } else {

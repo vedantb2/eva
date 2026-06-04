@@ -13,6 +13,7 @@ import {
   IconAt,
   IconPlayerPlay,
   IconProgress,
+  IconPencil,
 } from "@tabler/icons-react";
 import { Avatar, AvatarFallback } from "@conductor/ui";
 import type { BadgeProps } from "@conductor/ui";
@@ -74,6 +75,13 @@ export const typeConfig: Record<
     badgeVariant: "default",
     iconBg: "bg-primary/10",
     iconColor: "text-primary",
+  },
+  changes_requested: {
+    icon: IconPencil,
+    label: "Changes",
+    badgeVariant: "warning",
+    iconBg: "bg-warning/10",
+    iconColor: "text-warning",
   },
   comment_reply: {
     icon: IconMessageReply,

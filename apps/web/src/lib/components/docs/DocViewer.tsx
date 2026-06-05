@@ -372,7 +372,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
                 }
                 placeholder="A short summary of this PRD."
                 rows={2}
-                className="bg-card"
+                className="scrollbar bg-card"
               />
             </section>
           ) : null}

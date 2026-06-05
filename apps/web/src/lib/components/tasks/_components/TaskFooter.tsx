@@ -105,7 +105,6 @@ export function TaskFooter({
   const isHeader = variant === "header";
   const buttonSize = isHeader ? "sm" : "default";
   const iconSize = isHeader ? 16 : 18;
-  const outlineButtonClass = isHeader ? "rounded-full" : undefined;
   const showRunButton =
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
@@ -171,11 +170,7 @@ export function TaskFooter({
           {showMoreMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size={buttonSize}
-                  className={outlineButtonClass}
-                >
+                <Button variant="secondary" size={buttonSize}>
                   <IconDots size={iconSize} />
                   <span className="hidden sm:inline">More</span>
                 </Button>
@@ -272,12 +267,7 @@ export function TaskFooter({
             </DropdownMenu>
           )}
           {latestPrUrl ? (
-            <Button
-              asChild
-              variant="outline"
-              size={buttonSize}
-              className={outlineButtonClass}
-            >
+            <Button asChild variant="secondary" size={buttonSize}>
               <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
                 <IconGitPullRequest size={iconSize} />
                 <span className="hidden sm:inline">View PR</span>
@@ -290,7 +280,6 @@ export function TaskFooter({
               size={buttonSize}
               onClick={onStopSandbox}
               disabled={isSandboxStopping}
-              className={outlineButtonClass}
             >
               <IconPlayerStop size={iconSize} />
               <span className="hidden sm:inline">Stop Sandbox</span>
@@ -298,14 +287,14 @@ export function TaskFooter({
           ) : null}
           {showViewSandbox && (
             <Button
-              variant="outline"
+              variant="secondary"
               size={buttonSize}
               onClick={onViewSandbox}
               disabled={isSandboxStopping}
               className={
                 isSandboxViewActive || isSandboxActive
-                  ? `border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success ${outlineButtonClass ?? ""}`
-                  : outlineButtonClass
+                  ? "border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
+                  : undefined
               }
             >
               {(isSandboxStarting && !isSandboxActive) || isSandboxStopping ? (

@@ -10,6 +10,11 @@ import {
   TooltipContent,
 } from "@conductor/ui";
 import { IconSearch, IconX } from "@tabler/icons-react";
+import { cn } from "@conductor/ui";
+
+// "compact" is the small toolbar pill; "large" is the taller, wider,
+// rounded-and-shadowed bar used on the quick-tasks page.
+type ToggleSearchVariant = "compact" | "large";
 
 interface ToggleSearchProps {
   value: string;
@@ -17,6 +22,7 @@ interface ToggleSearchProps {
   placeholder?: string;
   tooltipLabel?: string;
   visible?: boolean;
+  variant?: ToggleSearchVariant;
 }
 
 export function ToggleSearch({
@@ -25,9 +31,11 @@ export function ToggleSearch({
   placeholder = "Search...",
   tooltipLabel = "Search",
   visible = true,
+  variant = "compact",
 }: ToggleSearchProps) {
   const [isOpen, setIsOpen] = useState(false);
   const showInput = isOpen || !!value;
+  const isLarge = variant === "large";
 
   if (!visible) return null;
 
@@ -42,9 +50,14 @@ export function ToggleSearch({
           transition={{ duration: 0.2 }}
           className="overflow-hidden"
         >
-          <div className="relative w-28 sm:w-32 md:w-44">
+          <div
+            className={cn(
+              "relative",
+              isLarge ? "w-56 sm:w-64 md:w-80" : "w-28 sm:w-32 md:w-44",
+            )}
+          >
             <IconSearch
-              size={14}
+              size={isLarge ? 16 : 14}
               className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
             <Input
@@ -61,7 +74,11 @@ export function ToggleSearch({
                   setIsOpen(false);
                 }
               }}
-              className="h-8 pl-7 pr-7 text-sm"
+              className={cn(
+                isLarge
+                  ? "h-9 rounded-xl pl-9 pr-8 text-sm shadow-sm focus-visible:border-border focus-visible:shadow-md focus-visible:ring-0"
+                  : "h-8 pl-7 pr-7 text-sm focus-visible:border-border focus-visible:shadow-lg focus-visible:ring-0",
+              )}
             />
             {value && (
               <button
@@ -70,9 +87,12 @@ export function ToggleSearch({
                   onChange(null);
                   setIsOpen(false);
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className={cn(
+                  "absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
+                  isLarge ? "right-3" : "right-2",
+                )}
               >
-                <IconX size={13} />
+                <IconX size={isLarge ? 15 : 13} />
               </button>
             )}
           </div>

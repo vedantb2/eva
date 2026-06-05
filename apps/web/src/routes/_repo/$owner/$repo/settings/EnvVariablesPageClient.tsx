@@ -24,7 +24,7 @@ export function EnvVariablesPageClient({ scope }: { scope: EnvVarScope }) {
           }
         }}
       >
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 tabs-segmented">
           <TabsTrigger value="repo">Repo</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
         </TabsList>

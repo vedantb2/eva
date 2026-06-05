@@ -55,10 +55,12 @@ export function isTaskDetailTab(v: string): v is TaskDetailTab {
 /**
  * Compact tabs for Activity / Proof / Audit on task detail.
  * Radius comes from the shared Tabs primitives (`rounded-lg` → `--radius`).
- * Active pill uses primary so it stays visible when background and card match.
+ * `tabs-segmented` (defined in globals.css) drives the trough + active-pill
+ * fills per mode, so the active pill stays lighter/raised in both light and
+ * dark. Inactive labels use muted-foreground so they read as dimmed.
  */
 export const TASK_DETAIL_TAB_LIST_CLASS =
-  "sticky top-0 z-10 h-auto w-fit gap-0.5 border-0 bg-secondary p-1 shadow-none";
+  "sticky top-0 z-10 h-auto w-fit gap-0.5 border border-border p-1 shadow-none tabs-segmented";
 
 export const TASK_DETAIL_TAB_TRIGGER_CLASS =
-  "gap-1 px-3 py-1.5 text-xs font-medium sm:gap-1.5 sm:text-sm transition-[color,background-color] data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-secondary-foreground data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground";
+  "gap-1 px-3 py-1.5 text-xs font-medium sm:gap-1.5 sm:text-sm transition-[color,background-color] data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground";

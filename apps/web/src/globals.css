@@ -72,7 +72,7 @@
     --sidebar-foreground: 24 24 25;
     --sidebar-primary: 13 132 120;
     --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 255 255 255;
+    --sidebar-accent: 233 234 236;
     --sidebar-accent-foreground: 10 90 81;
     --sidebar-border: 221 222 223;
     --sidebar-ring: 13 132 120;
@@ -162,7 +162,7 @@
     --sidebar-foreground: 251 252 253;
     --sidebar-primary: 52 199 181;
     --sidebar-primary-foreground: 8 23 20;
-    --sidebar-accent: 23 24 26;
+    --sidebar-accent: 39 39 42;
     --sidebar-accent-foreground: 228 242 238;
     --sidebar-border: 40 41 42;
     --sidebar-ring: 52 199 181;
@@ -269,6 +269,37 @@
     background: rgb(var(--muted-foreground) / 0.52);
     background-clip: padding-box;
   }
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * Segmented tabs — opt in with `tabs-segmented` on a Radix Tabs.List.
+ * Renders a recessed neutral trough with a lighter, raised active pill,
+ * correct in BOTH light and dark.
+ *
+ * Why plain CSS here instead of Tailwind `dark:` utilities:
+ *  1. --card and --secondary swap lightness between modes (light: card is
+ *     lightest; dark: secondary is lightest), so the active pill cannot be
+ *     expressed as a single utility — it needs a per-mode value.
+ *  2. New utility classes added under packages/ui are not recompiled by the
+ *     running dev server without a full restart; these CSS-variable rules
+ *     hot-reload reliably. Placed after `@tailwind utilities`, so they win
+ *     over the list's own bg utility at equal specificity.
+ * ─────────────────────────────────────────────────────────────────── */
+.tabs-segmented {
+  background-color: rgb(var(--secondary)); /* light: grey trough */
+}
+.tabs-segmented [role="tab"][data-state="active"] {
+  background-color: rgb(
+    var(--card)
+  ); /* light: white pill (lighter than trough) */
+}
+.dark .tabs-segmented {
+  background-color: rgb(var(--card)); /* dark: card-grey trough */
+}
+.dark .tabs-segmented [role="tab"][data-state="active"] {
+  background-color: rgb(
+    var(--secondary)
+  ); /* dark: lighter pill (lighter than trough) */
 }
 
 /* Animated border for in-progress quick task cards */

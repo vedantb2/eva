@@ -1,5 +1,11 @@
 # Changelog
 
+## Activity timeline now shows PR merge/close events - 2026-06-05
+
+- PR merge and close events now appear on the task activity timeline, making it visible when a PR is merged or closed without checking notifications.
+- Replaced invisible system comments with a dedicated "pr" activity event that renders as "GitHub merged the PR — task moved to Done" or "GitHub closed the PR — task moved to Cancelled".
+- System-driven webhook events now log with no actor, allowing the timeline to distinguish human actions from platform automation.
+
 ## Background commands now robust to self-backgrounding, improved documentation - 2026-06-04
 
 - Fixed a race condition where background commands (e.g. `npx convex dev`) would die immediately if the user's command included a trailing `&` or `nohup` wrapper; the platform now uses `setsid` to fully detach daemons into their own session, surviving session teardown regardless of how the command is written.

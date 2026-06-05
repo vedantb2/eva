@@ -240,4 +240,7 @@ export const taskActivityFieldValidator = v.union(
   v.literal("tags"),
   v.literal("model"),
   v.literal("baseBranch"),
+  // GitHub PR merged/closed event. newValue is "merged" or "closed"; the
+  // resulting task status (done/cancelled) is implied and rendered client-side.
+  v.literal("pr"),
 );

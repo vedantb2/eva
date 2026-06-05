@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { createNotification } from "./notifications";
 import { ensureSubscribed, notifySubscribers } from "./taskSubscribers";
@@ -236,23 +235,5 @@ export const remove = authMutation({
       content: DELETED_COMMENT_PLACEHOLDER,
     });
     return null;
-  },
-});
-
-/** Creates a system-generated comment on a task (no author). */
-export const createSystemComment = internalMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    content: v.string(),
-  },
-  returns: v.id("taskComments"),
-  handler: async (ctx, args) => {
-    const commentId = await ctx.db.insert("taskComments", {
-      taskId: args.taskId,
-      content: args.content,
-      authorId: undefined,
-      createdAt: Date.now(),
-    });
-    return commentId;
   },
 });

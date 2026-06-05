@@ -49,6 +49,8 @@ function formatFieldLabel(field: TaskActivityEvent["field"]): string {
       return "model";
     case "baseBranch":
       return "base branch";
+    case "pr":
+      return "PR";
   }
 }
 
@@ -90,6 +92,30 @@ export function TaskActivityItem({
   event: TaskActivityEvent;
   users: User[] | undefined;
 }) {
+  // PR merge/close is a GitHub-driven event, not a field edit, so it reads as a
+  // sentence rather than an "X → Y" change and has no actor avatar.
+  if (event.field === "pr") {
+    const merged = event.newValue === "merged";
+    return (
+      <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
+        <span className="flex size-4 shrink-0 items-center justify-center" />
+        <span className="min-w-0 flex-1 truncate">
+          <span className="font-medium text-foreground">GitHub</span>
+          {merged
+            ? " merged the PR — task moved to "
+            : " closed the PR — task moved to "}
+          <span className="font-medium text-foreground/80">
+            {merged ? "Done" : "Cancelled"}
+          </span>
+        </span>
+        <RelativeDateTime
+          at={event.createdAt}
+          className="shrink-0 text-muted-foreground/70"
+        />
+      </div>
+    );
+  }
+
   const actor = event.userId
     ? users?.find((u) => u._id === event.userId)
     : undefined;

@@ -62,14 +62,32 @@ export function ActivityTimelineChart({
   const options = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {
-      legend: { position: "bottom" as const, labels: { usePointStyle: true } },
-    },
+    plugins: { legend: { display: false } },
     scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
   };
 
   return (
-    <Widget title="Activity Over Time">
+    <Widget
+      title="Activity Over Time"
+      actions={
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: cssColor("chart-2") }}
+            />
+            Sessions
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: cssColor("chart-4") }}
+            />
+            Runs
+          </span>
+        </div>
+      }
+    >
       <div className="h-48 sm:h-64">
         <Line data={chartData} options={options} />
       </div>

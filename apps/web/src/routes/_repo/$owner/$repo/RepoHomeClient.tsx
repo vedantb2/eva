@@ -107,14 +107,14 @@ export function RepoHomeClient() {
               </SelectContent>
             </Select>
           }
-          contentClassName="border-0 bg-transparent p-0 shadow-none"
+          contentClassName="overflow-hidden p-0"
         >
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Spinner />
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2">
               <StatCard
                 icon={IconGitPullRequest}
                 label="PRs Shipped"

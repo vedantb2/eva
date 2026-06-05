@@ -32,6 +32,7 @@ import { api, type AIModel } from "@conductor/backend";
 import type { Doc, Id } from "@conductor/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import { ChatMessageActions } from "@/lib/components/chat/ChatMessageActions";
 import {
   MentionTextarea,
   type MentionTextareaHandle,
@@ -344,6 +345,12 @@ export function ChatBody({
                           </>
                         )}
                       </MessageContent>
+                      {message.role === "assistant" && message.content ? (
+                        <ChatMessageActions
+                          copyText={message.content}
+                          className="ml-0.5"
+                        />
+                      ) : null}
                       {message.role === "user" && (
                         <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
                           <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">

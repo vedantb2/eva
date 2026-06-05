@@ -24,9 +24,7 @@ interface CommentMentionInputProps {
   onEnterSubmit?: () => void;
 }
 
-interface UserMentionItem extends MentionItem<Id<"users">> {
-  email: string | undefined;
-}
+type UserMentionItem = MentionItem<Id<"users">>;
 
 export const CommentMentionInput = forwardRef<
   CommentMentionInputHandle,
@@ -45,7 +43,7 @@ export const CommentMentionInput = forwardRef<
     if (!m.user) return [];
     const label = m.user.fullName?.trim() || m.user.email?.trim();
     if (!label) return [];
-    return [{ id: m.user._id, label, email: m.user.email }];
+    return [{ id: m.user._id, label }];
   });
 
   return (
@@ -66,14 +64,7 @@ export const CommentMentionInput = forwardRef<
       renderItem={(item) => (
         <div className="flex w-full min-w-0 items-center gap-2">
           <UserInitials userId={item.id} size="sm" hideLastSeen />
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
-            <span className="truncate">{item.label}</span>
-            {item.email && item.email !== item.label ? (
-              <span className="truncate text-xs text-muted-foreground">
-                {item.email}
-              </span>
-            ) : null}
-          </div>
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
         </div>
       )}
     />

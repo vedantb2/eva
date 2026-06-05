@@ -47,7 +47,9 @@ export function QuickTaskDetailShell({
   }, [typedTaskId, tasks]);
 
   const orderedTasks = useFilteredQuickTasks(tasks, {
-    groupByStatus: view === "kanban",
+    // Kanban and list both render tasks grouped by status, so prev/next must
+    // walk that same order. Only the table view is a flat sorted list.
+    groupByStatus: view === "kanban" || view === "list",
   });
 
   const { prevTaskId, nextTaskId } = useMemo(() => {

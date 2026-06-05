@@ -38,20 +38,20 @@ export function Widget({
   return (
     <div
       className={cn(
-        "flex h-full flex-col rounded-xl border border-border bg-muted/40 p-2.5 sm:p-3",
+        "flex h-full flex-col rounded-2xl border border-border bg-muted/50 p-1.5 shadow-sm",
         className,
       )}
     >
       {hasHeader && (
-        <div className="flex items-start justify-between gap-2 px-1.5 pb-2 pt-1">
+        <div className="flex items-center justify-between gap-3 px-3 pb-3 pt-2.5">
           <div className="min-w-0">
             {title !== undefined && (
-              <div className="text-sm font-semibold text-foreground">
+              <div className="text-base font-semibold tracking-tight text-foreground">
                 {title}
               </div>
             )}
             {subtitle !== undefined && (
-              <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
             )}
           </div>
           {actions !== undefined && <div className="shrink-0">{actions}</div>}
@@ -59,7 +59,7 @@ export function Widget({
       )}
       <div
         className={cn(
-          "min-h-0 flex-1 rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4",
+          "min-h-0 flex-1 rounded-xl border border-border bg-card p-4 shadow-sm",
           contentClassName,
         )}
       >

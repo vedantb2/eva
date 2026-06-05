@@ -11,6 +11,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconHammer,
+  IconHome,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
   IconMenu2,
@@ -479,15 +480,15 @@ export function Sidebar() {
                     </>
                   ) : (
                     <>
-                      {!collapsed && isRepoRoute && (
+                      {!collapsed && repoBasePath && (
                         <Button
                           size="icon-sm"
                           variant="ghost"
-                          onClick={() => navigate({ to: "/home" })}
+                          onClick={() => navigate({ to: repoBasePath })}
                           className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
-                          title="Back to home"
+                          title="Repo home"
                         >
-                          <IconChevronLeft size={16} />
+                          <IconHome size={16} />
                         </Button>
                       )}
                       {!collapsed && (

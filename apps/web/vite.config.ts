@@ -71,10 +71,10 @@ export default defineConfig({
   plugins: [
     tanstackRouter({
       routesDirectory: "./src/routes",
-      // Match `_utils` followed by either path separator so `_utils/` folders
-      // are excluded on POSIX (/) and Windows (\) alike.
-      routeFileIgnorePattern:
-        "(_components|_utils\\.ts|_utils[\\\\/]|Client\\.tsx|Panel\\.tsx)",
+      // The generator tests this against each bare directory-entry name (not the
+      // full path), so a plain `_utils` excludes both the `_utils.ts` helper file
+      // and the `_utils/` folder — mirroring how `_components` is matched.
+      routeFileIgnorePattern: "(_components|_utils|Client\\.tsx|Panel\\.tsx)",
       autoCodeSplitting: true,
     }),
     react(),

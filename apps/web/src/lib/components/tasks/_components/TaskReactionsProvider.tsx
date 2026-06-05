@@ -14,8 +14,12 @@ import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 
 type ReactionView = FunctionReturnType<
-  typeof api.taskCommentReactions.listByTask
+  typeof api.taskReactions.listByTask
 >[number];
+
+// "comment" | "description" — sourced from the backend validator so the union
+// stays in sync with the schema.
+export type ReactionTargetType = ReactionView["targetType"];
 
 export interface ReactionGroup {
   emoji: string;
@@ -25,23 +29,32 @@ export interface ReactionGroup {
 }
 
 interface TaskReactionsContextValue {
-  groupsByComment: Map<Id<"taskComments">, ReactionGroup[]>;
-  toggle: (commentId: Id<"taskComments">, emoji: string) => Promise<void>;
+  groupsByTarget: Map<string, ReactionGroup[]>;
+  toggle: (
+    targetType: ReactionTargetType,
+    targetId: string,
+    emoji: string,
+  ) => Promise<void>;
 }
 
 const TaskReactionsContext = createContext<TaskReactionsContextValue | null>(
   null,
 );
 
-// Stable empty array so comments without reactions don't churn referential
+// Stable empty array so targets without reactions don't churn referential
 // identity on every render.
 const EMPTY_GROUPS: ReactionGroup[] = [];
 
+// Composite key for the grouped map — a target is (type, id).
+function targetKey(targetType: ReactionTargetType, targetId: string): string {
+  return `${targetType}:${targetId}`;
+}
+
 /**
- * Loads every comment reaction for a task once and distributes them via
- * context, so deeply nested comment items (including recursive replies and
- * run-linked comments) read their slice without prop drilling. The toggle
- * mutation applies an optimistic update keyed off the same query.
+ * Loads every reaction for a task once and distributes them via context, so any
+ * reactable surface (comments, their nested replies, the task description) reads
+ * its slice without prop drilling. The toggle mutation applies an optimistic
+ * update keyed off the same query.
  */
 export function TaskReactionsProvider({
   taskId,
@@ -51,19 +64,20 @@ export function TaskReactionsProvider({
   children: ReactNode;
 }) {
   const currentUserId = useQuery(api.auth.me);
-  const reactions = useQuery(api.taskCommentReactions.listByTask, { taskId });
+  const reactions = useQuery(api.taskReactions.listByTask, { taskId });
 
   const toggleMutation = useMutation(
-    api.taskCommentReactions.toggle,
+    api.taskReactions.toggle,
   ).withOptimisticUpdate((localStore, args) => {
     if (!currentUserId) return;
-    const current = localStore.getQuery(api.taskCommentReactions.listByTask, {
+    const current = localStore.getQuery(api.taskReactions.listByTask, {
       taskId,
     });
     if (current === undefined) return;
     const existingIndex = current.findIndex(
       (reaction) =>
-        reaction.commentId === args.commentId &&
+        reaction.targetType === args.targetType &&
+        reaction.targetId === args.targetId &&
         reaction.userId === currentUserId &&
         reaction.emoji === args.emoji,
     );
@@ -73,27 +87,29 @@ export function TaskReactionsProvider({
         : [
             ...current,
             {
-              commentId: args.commentId,
+              targetType: args.targetType,
+              targetId: args.targetId,
               userId: currentUserId,
               emoji: args.emoji,
             },
           ];
-    localStore.setQuery(api.taskCommentReactions.listByTask, { taskId }, next);
+    localStore.setQuery(api.taskReactions.listByTask, { taskId }, next);
   });
 
-  const groupsByComment = useMemo(() => {
-    const map = new Map<Id<"taskComments">, ReactionGroup[]>();
+  const groupsByTarget = useMemo(() => {
+    const map = new Map<string, ReactionGroup[]>();
     if (!reactions) return map;
-    // commentId -> emoji -> { count, mine }, preserving first-seen emoji order.
-    const byComment = new Map<
-      Id<"taskComments">,
+    // targetKey -> emoji -> { count, mine }, preserving first-seen emoji order.
+    const byTarget = new Map<
+      string,
       Map<string, { count: number; mine: boolean }>
     >();
     for (const reaction of reactions) {
-      let emojiMap = byComment.get(reaction.commentId);
+      const key = targetKey(reaction.targetType, reaction.targetId);
+      let emojiMap = byTarget.get(key);
       if (!emojiMap) {
         emojiMap = new Map();
-        byComment.set(reaction.commentId, emojiMap);
+        byTarget.set(key, emojiMap);
       }
       const entry = emojiMap.get(reaction.emoji) ?? { count: 0, mine: false };
       entry.count += 1;
@@ -102,9 +118,9 @@ export function TaskReactionsProvider({
       }
       emojiMap.set(reaction.emoji, entry);
     }
-    for (const [commentId, emojiMap] of byComment) {
+    for (const [key, emojiMap] of byTarget) {
       map.set(
-        commentId,
+        key,
         [...emojiMap.entries()].map(([emoji, entry]) => ({
           emoji,
           count: entry.count,
@@ -116,15 +132,15 @@ export function TaskReactionsProvider({
   }, [reactions, currentUserId]);
 
   const toggle = useCallback(
-    async (commentId: Id<"taskComments">, emoji: string) => {
-      await toggleMutation({ commentId, emoji });
+    async (targetType: ReactionTargetType, targetId: string, emoji: string) => {
+      await toggleMutation({ taskId, targetType, targetId, emoji });
     },
-    [toggleMutation],
+    [toggleMutation, taskId],
   );
 
   const value = useMemo<TaskReactionsContextValue>(
-    () => ({ groupsByComment, toggle }),
-    [groupsByComment, toggle],
+    () => ({ groupsByTarget, toggle }),
+    [groupsByTarget, toggle],
   );
 
   return (
@@ -134,18 +150,17 @@ export function TaskReactionsProvider({
   );
 }
 
-/** Reaction groups + a bound toggle for a single comment. */
-export function useCommentReactions(commentId: Id<"taskComments">) {
+/** Reaction groups + a bound toggle for a single reactable target. */
+export function useReactions(targetType: ReactionTargetType, targetId: string) {
   const context = useContext(TaskReactionsContext);
   if (!context) {
-    throw new Error(
-      "useCommentReactions must be used within a TaskReactionsProvider",
-    );
+    throw new Error("useReactions must be used within a TaskReactionsProvider");
   }
-  const groups = context.groupsByComment.get(commentId) ?? EMPTY_GROUPS;
+  const groups =
+    context.groupsByTarget.get(targetKey(targetType, targetId)) ?? EMPTY_GROUPS;
   const toggle = useCallback(
-    (emoji: string) => context.toggle(commentId, emoji),
-    [context, commentId],
+    (emoji: string) => context.toggle(targetType, targetId, emoji),
+    [context, targetType, targetId],
   );
   return { groups, toggle };
 }

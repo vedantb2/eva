@@ -26,7 +26,7 @@ import {
 } from "./CommentMentionInput";
 import { ReactionBar } from "./ReactionBar";
 import { EmojiReactionPicker } from "./EmojiReactionPicker";
-import { useCommentReactions } from "./TaskReactionsProvider";
+import { useReactions } from "./TaskReactionsProvider";
 import {
   DELETED_COMMENT_PLACEHOLDER,
   isCommentDeleted,
@@ -91,7 +91,7 @@ export function CommentActivityItem({
 }: CommentActivityItemProps) {
   const currentUserId = useQuery(api.auth.me);
   const { basePath } = useRepo();
-  const { groups, toggle } = useCommentReactions(comment._id);
+  const { groups, toggle } = useReactions("comment", comment._id);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
   const [isSaving, setIsSaving] = useState(false);

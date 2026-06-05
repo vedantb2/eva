@@ -11,6 +11,9 @@ import {
   DescriptionMentionEditor,
   type DescriptionMentionEditorHandle,
 } from "./DescriptionMentionEditor";
+import { ReactionBar } from "./ReactionBar";
+import { EmojiReactionPicker } from "./EmojiReactionPicker";
+import { useReactions } from "./TaskReactionsProvider";
 
 /**
  * Descriptions are authored and stored as Markdown. Legacy/imported content can
@@ -39,6 +42,7 @@ export function TaskDescription({
   inline: boolean;
 }) {
   const { basePath } = useRepo();
+  const { groups, toggle } = useReactions("description", taskId);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(stripHtml(description ?? ""));
   const mentionRef = useRef<DescriptionMentionEditorHandle>(null);
@@ -107,40 +111,54 @@ export function TaskDescription({
   }, [isEditing, canEditTaskText, desc]);
 
   return (
-    <div
-      onClick={handleClick}
-      title={
-        !isEditing && !canEditTaskText
-          ? "Description can only be edited in To Do"
-          : undefined
-      }
-      className={cn(
-        "min-h-[1.5rem] overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1",
-        inline && !isEditing && "max-h-[40vh] overflow-y-auto scrollbar",
-        !isEditing && canEditTaskText && "cursor-pointer hover:bg-muted/50",
-      )}
-    >
-      {isEditing ? (
-        <DescriptionMentionEditor
-          ref={mentionRef}
-          value={editValue}
-          onValueChange={setEditValue}
-          onBlur={handleSave}
-          placeholder="Add description..."
-          minHeight="min-h-[160px]"
-          className="border-0 px-0 py-0 shadow-none focus-visible:ring-0"
-        />
-      ) : desc ? (
-        <MarkdownMentionText
-          text={desc}
-          repoBasePath={basePath}
-          className="text-sm text-muted-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-        />
-      ) : (
-        <p className="text-sm text-muted-foreground/60">
-          {canEditTaskText ? "Click to add description..." : "No description"}
-        </p>
-      )}
+    <div className="group">
+      <div
+        onClick={handleClick}
+        title={
+          !isEditing && !canEditTaskText
+            ? "Description can only be edited in To Do"
+            : undefined
+        }
+        className={cn(
+          "min-h-[1.5rem] overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1",
+          inline && !isEditing && "max-h-[40vh] overflow-y-auto scrollbar",
+          !isEditing && canEditTaskText && "cursor-pointer hover:bg-muted/50",
+        )}
+      >
+        {isEditing ? (
+          <DescriptionMentionEditor
+            ref={mentionRef}
+            value={editValue}
+            onValueChange={setEditValue}
+            onBlur={handleSave}
+            placeholder="Add description..."
+            minHeight="min-h-[160px]"
+            className="border-0 px-0 py-0 shadow-none focus-visible:ring-0"
+          />
+        ) : desc ? (
+          <MarkdownMentionText
+            text={desc}
+            repoBasePath={basePath}
+            className="text-sm text-muted-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground/60">
+            {canEditTaskText ? "Click to add description..." : "No description"}
+          </p>
+        )}
+      </div>
+
+      {/* Reactions live outside the click-to-edit area so toggling a reaction
+          never enters edit mode. Only shown when there's description content. */}
+      {!isEditing && desc ? (
+        <div className="mt-1.5">
+          {groups.length > 0 ? (
+            <ReactionBar groups={groups} toggle={toggle} />
+          ) : (
+            <EmojiReactionPicker onSelect={toggle} variant="ghost" />
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   errorTypeValidator,
   phaseValidator,
   priorityValidator,
+  reactionTargetValidator,
   roleUserValidator,
   roleValidator,
   runModeValidator,
@@ -346,11 +347,14 @@ export const taskCommentFields = {
   createdAt: v.number(),
 };
 
-// One row per (comment, user, emoji). `taskId` is denormalised so the whole
-// thread's reactions load with a single `by_task` query (grouped client-side).
-export const taskCommentReactionFields = {
+// One row per (target, user, emoji). Polymorphic within a task: `targetType`
+// + `targetId` identify what is reacted to (a comment or the description).
+// `targetId` is a string because it spans tables (commentId vs taskId), and is
+// never used with `db.get` — access is always gated by the real `taskId`.
+export const taskReactionFields = {
   taskId: v.id("agentTasks"),
-  commentId: v.id("taskComments"),
+  targetType: reactionTargetValidator,
+  targetId: v.string(),
   emoji: v.string(),
   userId: v.id("users"),
   createdAt: v.number(),

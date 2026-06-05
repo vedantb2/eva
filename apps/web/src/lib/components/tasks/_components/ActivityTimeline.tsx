@@ -21,7 +21,6 @@ import { TaskActivityComposer } from "./TaskActivityComposer";
 import { TaskSubscribers } from "./TaskSubscribers";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { CommentThread } from "./CommentThread";
-import { TaskReactionsProvider } from "./TaskReactionsProvider";
 import {
   buildRepliesByParentId,
   DELETED_COMMENT_PLACEHOLDER,
@@ -232,135 +231,130 @@ export function ActivityTimeline({
   ].sort((a, b) => b.timestamp - a.timestamp);
 
   return (
-    <TaskReactionsProvider taskId={taskId}>
-      <div className="pt-4">
-        <TaskSubscribers taskId={taskId} users={users} />
+    <div className="pt-4">
+      <TaskSubscribers taskId={taskId} users={users} />
 
-        <TaskActivityComposer
-          taskId={taskId}
-          isProjectTask={isProjectTask}
-          requestingChanges={requestingChanges}
-          setRequestingChanges={setRequestingChanges}
-          executionError={executionError}
-          setExecutionError={setExecutionError}
-          requestChangesBlockedReason={requestChangesBlockedReason}
-          onRequestChangesSubmitted={onRequestChangesSubmitted}
-        />
+      <TaskActivityComposer
+        taskId={taskId}
+        isProjectTask={isProjectTask}
+        requestingChanges={requestingChanges}
+        setRequestingChanges={setRequestingChanges}
+        executionError={executionError}
+        setExecutionError={setExecutionError}
+        requestChangesBlockedReason={requestChangesBlockedReason}
+        onRequestChangesSubmitted={onRequestChangesSubmitted}
+      />
 
-        {activityTimeline.length > 0 && (
-          <div className="space-y-4">
-            {activityTimeline.map((item, index) => {
-              if (item.kind === "audit") {
-                const audit = item.audit;
-                const auditIndex = (allAudits ?? []).indexOf(audit);
-                const isLatest = auditIndex === 0;
-                return (
-                  <AuditTimelineItem
-                    key={`audit-${audit._id}`}
-                    audit={audit}
-                    isLatest={isLatest}
-                    isFirst={index === 0}
-                    auditStreaming={auditStreaming}
-                    auditElapsed={auditElapsed}
-                    fixElapsed={fixElapsed}
-                  />
-                );
-              }
-              if (item.kind === "taskActivity") {
-                return (
-                  <TaskActivityItem
-                    key={`activity-${item.activity._id}`}
-                    event={item.activity}
-                    users={users}
-                  />
-                );
-              }
-              if (item.kind === "sandboxEvent") {
-                const event = item.event;
-                return (
-                  <SystemAlertMessage
-                    key={`sandbox-${event._id}`}
-                    content={sandboxEventLabel(event.event)}
-                    errorDetail={event.errorDetail}
-                    timestamp={event.createdAt}
-                  />
-                );
-              }
-              if (item.kind === "comment") {
-                const comment = item.comment;
-                return (
-                  <CommentThread
-                    key={`comment-${comment._id}`}
-                    comment={comment}
-                    taskId={taskId}
-                    users={users}
-                    repliesByParentId={repliesByParentId}
-                    onDeleteRequest={setDeletingCommentId}
-                  />
-                );
-              }
-              const run = item.run;
-              const isActiveRun =
-                run.status === "running" || run.status === "queued";
-              const runComment = runCommentMap.get(run._id);
+      {activityTimeline.length > 0 && (
+        <div className="space-y-4">
+          {activityTimeline.map((item, index) => {
+            if (item.kind === "audit") {
+              const audit = item.audit;
+              const auditIndex = (allAudits ?? []).indexOf(audit);
+              const isLatest = auditIndex === 0;
               return (
-                <Suspense key={run._id} fallback={<Spinner size="sm" />}>
-                  <RunTimelineItem
-                    run={run}
-                    isActiveRun={isActiveRun}
-                    streaming={streaming}
-                    activeRunElapsed={activeRunElapsed}
-                    isStopping={isStopping}
-                    onStopConfirm={onStopConfirm}
-                    runComment={runComment}
-                    runCommentReplies={
-                      runComment
-                        ? (repliesByParentId.get(runComment._id) ?? [])
-                        : []
-                    }
-                    users={users}
-                  />
-                </Suspense>
+                <AuditTimelineItem
+                  key={`audit-${audit._id}`}
+                  audit={audit}
+                  isLatest={isLatest}
+                  isFirst={index === 0}
+                  auditStreaming={auditStreaming}
+                  auditElapsed={auditElapsed}
+                  fixElapsed={fixElapsed}
+                />
               );
-            })}
-          </div>
-        )}
+            }
+            if (item.kind === "taskActivity") {
+              return (
+                <TaskActivityItem
+                  key={`activity-${item.activity._id}`}
+                  event={item.activity}
+                  users={users}
+                />
+              );
+            }
+            if (item.kind === "sandboxEvent") {
+              const event = item.event;
+              return (
+                <SystemAlertMessage
+                  key={`sandbox-${event._id}`}
+                  content={sandboxEventLabel(event.event)}
+                  errorDetail={event.errorDetail}
+                  timestamp={event.createdAt}
+                />
+              );
+            }
+            if (item.kind === "comment") {
+              const comment = item.comment;
+              return (
+                <CommentThread
+                  key={`comment-${comment._id}`}
+                  comment={comment}
+                  taskId={taskId}
+                  users={users}
+                  repliesByParentId={repliesByParentId}
+                  onDeleteRequest={setDeletingCommentId}
+                />
+              );
+            }
+            const run = item.run;
+            const isActiveRun =
+              run.status === "running" || run.status === "queued";
+            const runComment = runCommentMap.get(run._id);
+            return (
+              <Suspense key={run._id} fallback={<Spinner size="sm" />}>
+                <RunTimelineItem
+                  run={run}
+                  isActiveRun={isActiveRun}
+                  streaming={streaming}
+                  activeRunElapsed={activeRunElapsed}
+                  isStopping={isStopping}
+                  onStopConfirm={onStopConfirm}
+                  runComment={runComment}
+                  runCommentReplies={
+                    runComment
+                      ? (repliesByParentId.get(runComment._id) ?? [])
+                      : []
+                  }
+                  users={users}
+                />
+              </Suspense>
+            );
+          })}
+        </div>
+      )}
 
-        <Dialog
-          open={deletingCommentId !== null}
-          onOpenChange={(open) => {
-            if (!open) setDeletingCommentId(null);
-          }}
-        >
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Delete Comment</DialogTitle>
-            </DialogHeader>
-            <p className="text-muted-foreground">
-              Are you sure you want to delete this comment? This action cannot
-              be undone.
-            </p>
-            <DialogFooter>
-              <Button
-                variant="ghost"
-                onClick={() => setDeletingCommentId(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteComment}
-                disabled={isDeletingComment}
-              >
-                {isDeletingComment && (
-                  <IconLoader2 size={16} className="animate-spin" />
-                )}
-                Delete
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </TaskReactionsProvider>
+      <Dialog
+        open={deletingCommentId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingCommentId(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Comment</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">
+            Are you sure you want to delete this comment? This action cannot be
+            undone.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeletingCommentId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteComment}
+              disabled={isDeletingComment}
+            >
+              {isDeletingComment && (
+                <IconLoader2 size={16} className="animate-spin" />
+              )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

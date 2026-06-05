@@ -28,6 +28,14 @@ export const logLevelValidator = v.union(
 
 export const roleValidator = v.union(v.literal("user"), v.literal("assistant"));
 
+// What a reaction is attached to within a task. `comment` targets a
+// `taskComments` doc (targetId = commentId); `description` targets the task's
+// own description field (targetId = taskId).
+export const reactionTargetValidator = v.union(
+  v.literal("comment"),
+  v.literal("description"),
+);
+
 export const sessionModeValidator = v.union(
   v.literal("edit"),
   v.literal("ask"),

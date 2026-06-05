@@ -1,5 +1,10 @@
 # Changelog
 
+## Emoji reactions on task descriptions - 2026-06-05
+
+- Task descriptions can now be reacted to with emoji, the same way as comments and replies — hover the description to add one, and toggle reaction chips beneath it.
+- Reactions are now backed by a single generalised `taskReactions` table (polymorphic over comments and descriptions) instead of a comment-only table, so new reactable surfaces can be added without new tables. Existing comment reactions were migrated across.
+
 ## Quick-task bulk selection toolbar redesigned with responsive labels - 2026-06-05
 
 - The floating action bar that appears when selecting quick tasks now follows the HeroUI Action Bar pattern: a compact pill with count prefix, primary actions (Status, Assign, Run) with responsive labels, a "More" dropdown for secondary actions, a red Delete button, and a dismiss ×.

@@ -35,32 +35,36 @@ interface ProjectsTimelineProps {
 }
 
 const phaseStatusMap: Record<ProjectPhase, GanttStatus> = {
-  draft: { id: "draft", name: "Draft", color: "rgb(115 115 115 / 0.5)" },
+  draft: {
+    id: "draft",
+    name: "Draft",
+    color: "rgb(var(--muted-foreground) / 0.5)",
+  },
   finalized: { id: "finalized", name: "Finalized", color: "rgb(59 130 246)" },
   in_progress: {
     id: "in_progress",
     name: "In Progress",
-    color: "hsl(var(--status-progress-bar))",
+    color: "rgb(var(--status-progress-bar))",
   },
   business_review: {
     id: "business_review",
     name: "Business Review",
-    color: "hsl(var(--status-business-review-bar))",
+    color: "rgb(var(--status-business-review-bar))",
   },
   code_review: {
     id: "code_review",
     name: "Code Review",
-    color: "hsl(var(--status-code-review-bar))",
+    color: "rgb(var(--status-code-review-bar))",
   },
   completed: {
     id: "completed",
     name: "Merged",
-    color: "hsl(var(--status-done-bar))",
+    color: "rgb(var(--status-done-bar))",
   },
   cancelled: {
     id: "cancelled",
     name: "Cancelled",
-    color: "hsl(var(--status-cancelled-bar))",
+    color: "rgb(var(--status-cancelled-bar))",
   },
 };
 

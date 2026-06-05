@@ -90,7 +90,7 @@ export function TestingArenaSidebar({
         <Button
           size="icon-sm"
           variant="ghost"
-          className="shrink-0 text-amber-600 dark:text-amber-400"
+          className="shrink-0 text-warning"
           onClick={() => setShowTestAllModal(true)}
           title="Test all documents"
         >

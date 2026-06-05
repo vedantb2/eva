@@ -206,7 +206,7 @@ export function RepoSwitcher({
       "flex cursor-pointer items-center gap-2 rounded-md px-3 py-2.5 text-sm transition-colors",
       active
         ? "bg-sidebar-primary/10 text-sidebar-primary"
-        : "text-foreground/80 hover:bg-accent/60",
+        : "text-foreground/80 hover:bg-muted/60",
     );
 
   const hasSelection = Boolean(currentOwner && currentName);

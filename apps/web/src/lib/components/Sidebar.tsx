@@ -321,10 +321,10 @@ export function Sidebar() {
 
   const navItemClass = (isActive: boolean) =>
     cn(
-      "group motion-base flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+      "group motion-base flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
       collapsed && "lg:justify-center lg:px-0",
       isActive
-        ? "bg-sidebar-accent font-medium text-sidebar-foreground"
+        ? "border-sidebar-border bg-sidebar-accent font-medium text-sidebar-foreground"
         : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
     );
 
@@ -363,7 +363,7 @@ export function Sidebar() {
         ) : (
           <Link
             to="/home"
-            className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
+            className="mx-auto flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5"
           >
             <LogoMark size={26} />
             <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
@@ -403,7 +403,7 @@ export function Sidebar() {
         )}
       >
         <div className="h-full">
-          <div className="flex h-full flex-col overflow-hidden bg-sidebar">
+          <div className="flex h-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
             <div
               className={cn(
                 "flex h-16 items-center",

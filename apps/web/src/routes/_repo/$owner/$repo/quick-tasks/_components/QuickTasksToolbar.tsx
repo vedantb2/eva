@@ -203,7 +203,7 @@ export function QuickTasksToolbar({
         visible={hasQuickTasks}
       />
       {hasQuickTasks && (
-        <div className="flex items-center rounded-lg bg-muted/40 overflow-hidden">
+        <div className="flex items-center rounded-lg border border-border bg-muted/40 overflow-hidden">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

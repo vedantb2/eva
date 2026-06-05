@@ -139,7 +139,7 @@ interface SectionProps {
 
 function Section({ label, count, glyph, children }: SectionProps) {
   return (
-    <div className="rounded-lg bg-muted/40 p-1">
+    <div className="rounded-lg border border-border bg-muted/40 p-1">
       <div className="flex items-center gap-2 px-2 pb-1 pt-1.5">
         <span className="flex h-3 w-3 items-center justify-center">
           {glyph}
@@ -187,8 +187,8 @@ function TaskRow({ title, taskNumber, to }: TaskRowProps) {
 function PulseDot() {
   return (
     <span className="relative flex h-2 w-2">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/75" />
-      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/75" />
+      <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
     </span>
   );
 }

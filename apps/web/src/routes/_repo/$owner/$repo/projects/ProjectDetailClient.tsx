@@ -454,7 +454,7 @@ export function ProjectDetailClient({
                   disabled={isSandboxStopping}
                   className={
                     isSandboxSurface || isSandboxActive
-                      ? "rounded-full border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400"
+                      ? "rounded-full border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
                       : "rounded-full"
                   }
                 >
@@ -465,7 +465,7 @@ export function ProjectDetailClient({
                     <IconTerminal2 size={16} />
                   )}
                   {isSandboxActive && !isSandboxSurface && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                   )}
                   <span className="hidden sm:inline">
                     {isSandboxStopping
@@ -682,7 +682,7 @@ function SplitBuildButton({
   const isScheduled = scheduledBuildAt !== undefined;
 
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-200 hover:-translate-y-[1px] active:scale-[0.96]">
+    <div className="group/split flex items-center transition-[transform,background-color] duration-200 active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>

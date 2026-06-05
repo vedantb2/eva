@@ -6,11 +6,26 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import { MarkdownMentionText } from "@/lib/components/chat/MarkdownMentionText";
 import {
   DescriptionMentionEditor,
   type DescriptionMentionEditorHandle,
 } from "./DescriptionMentionEditor";
+
+/**
+ * Descriptions are authored and stored as Markdown. Legacy/imported content can
+ * carry stray HTML (e.g. `<p>` wrappers from Linear) which Markdown should not
+ * contain — strip those tags so they don't render literally, turning block tags
+ * into line breaks. Non-tag angle brackets (e.g. `<3`) are preserved.
+ */
+function stripHtml(raw: string): string {
+  return raw
+    .replace(/<\/(p|div|li)>\s*/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/?[a-z][^>]*>/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 export function TaskDescription({
   description,
@@ -25,7 +40,7 @@ export function TaskDescription({
 }) {
   const { basePath } = useRepo();
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(description ?? "");
+  const [editValue, setEditValue] = useState(stripHtml(description ?? ""));
   const mentionRef = useRef<DescriptionMentionEditorHandle>(null);
 
   const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
@@ -67,7 +82,7 @@ export function TaskDescription({
     },
   );
 
-  const desc = description ?? "";
+  const desc = stripHtml(description ?? "");
 
   useEffect(() => {
     if (!isEditing) {
@@ -116,10 +131,10 @@ export function TaskDescription({
           className="border-0 px-0 py-0 shadow-none focus-visible:ring-0"
         />
       ) : desc ? (
-        <MessageMentionText
+        <MarkdownMentionText
           text={desc}
           repoBasePath={basePath}
-          className="text-sm text-muted-foreground whitespace-pre-wrap break-words"
+          className="text-sm text-muted-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         />
       ) : (
         <p className="text-sm text-muted-foreground/60">

@@ -9,7 +9,7 @@ interface SettingToggleProps {
 
 /**
  * A labelled on/off switch row used across the automation settings cards
- * (Share, Report Only, Actions, Send email). Wrap in a `rounded-lg bg-muted/40`
+ * (Share, Report Only, Actions, Send email). Wrap in a `rounded-lg border border-border bg-muted/40`
  * card at the call site for surface grouping.
  */
 export function SettingToggle({
@@ -31,7 +31,7 @@ export function SettingToggle({
         onClick={() => onChange(!checked)}
         className={cn(
           "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          checked ? "bg-emerald-500" : "bg-muted-foreground/30",
+          checked ? "bg-primary" : "bg-muted-foreground/30",
         )}
       >
         <span

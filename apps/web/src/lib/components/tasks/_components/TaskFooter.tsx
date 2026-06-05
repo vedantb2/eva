@@ -304,7 +304,7 @@ export function TaskFooter({
               disabled={isSandboxStopping}
               className={
                 isSandboxViewActive || isSandboxActive
-                  ? `border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400 ${outlineButtonClass ?? ""}`
+                  ? `border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success ${outlineButtonClass ?? ""}`
                   : outlineButtonClass
               }
             >
@@ -314,7 +314,7 @@ export function TaskFooter({
                 <IconTerminal2 size={iconSize} />
               )}
               {isSandboxActive && !isSandboxViewActive && (
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
               )}
               <span className="hidden sm:inline">
                 {isSandboxStopping
@@ -356,7 +356,7 @@ function SplitRunButton({
   const iconSize = size === "sm" ? 16 : 18;
 
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-200 hover:-translate-y-[1px] active:scale-[0.96]">
+    <div className="group/split flex items-center transition-[transform,background-color] duration-200 active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>

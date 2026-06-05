@@ -100,7 +100,7 @@ export function QuickTasksBulkBar({
                         type="button"
                         className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:pointer-events-none disabled:opacity-30 ${
                           action.destructive
-                            ? "text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                            ? "text-destructive hover:bg-destructive/20 hover:text-destructive"
                             : "text-background/70 hover:bg-background/10 hover:text-background"
                         }`}
                         onClick={() => onSetBulkAction(action.key)}

@@ -77,8 +77,10 @@ export function SidebarSessionItem({
       <div className="flex items-center justify-between gap-2">
         <h3
           className={cn(
-            "truncate text-sm font-medium transition-colors duration-200",
-            isSelected ? "text-sidebar-primary" : "text-sidebar-foreground",
+            "truncate text-sm transition-colors duration-200",
+            isSelected
+              ? "font-medium text-sidebar-primary"
+              : "text-sidebar-foreground",
           )}
         >
           {title}

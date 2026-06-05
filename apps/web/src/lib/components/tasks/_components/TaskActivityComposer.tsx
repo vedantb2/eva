@@ -103,10 +103,11 @@ export function TaskActivityComposer({
     if (executionError) setExecutionError(null);
   };
 
-  const editorClassName = cn(
-    "min-h-24 max-h-44 pb-10 transition-[border-color,box-shadow]",
-    requestingChanges && "border-primary focus-visible:ring-primary/40",
-  );
+  // Mirror the sessions/sandbox chat composer (PromptInput): a bordered card
+  // wraps a borderless input with a footer row of controls, rather than
+  // floating controls over the textarea.
+  const editorClassName =
+    "min-h-20 max-h-44 border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
 
   return (
     <div className="space-y-3 mb-6">
@@ -117,7 +118,13 @@ export function TaskActivityComposer({
             : "Submitting will create a comment and re-run Eva with your changes"}
         </p>
       )}
-      <div className="relative">
+      <div
+        className={cn(
+          "overflow-hidden rounded-lg border border-input bg-card transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-2 focus-within:ring-ring/35",
+          requestingChanges &&
+            "border-primary focus-within:border-primary focus-within:ring-primary/35",
+        )}
+      >
         {effectiveRequestingChanges ? (
           <DescriptionMentionEditor
             ref={mentionRef}
@@ -129,7 +136,7 @@ export function TaskActivityComposer({
             placeholder="Describe the changes you'd like Eva to make..."
             ariaLabel="Request changes comment"
             minHeight="min-h-24"
-            className={cn("overflow-y-auto pr-12", editorClassName)}
+            className={cn("overflow-y-auto", editorClassName)}
           />
         ) : (
           <CommentMentionInput
@@ -143,10 +150,10 @@ export function TaskActivityComposer({
             className={editorClassName}
           />
         )}
-        <div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 px-2 pb-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="pointer-events-auto flex items-center gap-2">
+              <span className="flex items-center gap-2">
                 <button
                   type="button"
                   role="switch"
@@ -165,7 +172,7 @@ export function TaskActivityComposer({
                 >
                   <span
                     className={cn(
-                      "absolute top-0.5 size-5 rounded-full bg-background transition-transform",
+                      "absolute top-0.5 size-5 rounded-full bg-white transition-transform",
                       effectiveRequestingChanges ? "left-[18px]" : "left-0.5",
                     )}
                   />
@@ -188,7 +195,7 @@ export function TaskActivityComposer({
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="pointer-events-auto">
+              <span>
                 <CommentSendButton
                   size="icon-sm"
                   disabled={

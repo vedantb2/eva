@@ -393,7 +393,7 @@ export function QuickTaskModal({
                       {tagSearch.trim() ? (
                         <button
                           type="button"
-                          className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent rounded-sm"
+                          className="w-full px-2 py-1.5 text-sm text-left hover:bg-muted rounded-sm"
                           onClick={() => addCustomTag(tagSearch)}
                         >
                           Create &quot;{tagSearch.trim()}&quot;
@@ -492,7 +492,7 @@ export function QuickTaskModal({
                             <div
                               role="button"
                               tabIndex={0}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors group cursor-pointer"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors group cursor-pointer"
                               onClick={() => loadDraft(draft)}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ")

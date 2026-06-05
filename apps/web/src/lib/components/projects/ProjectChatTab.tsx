@@ -238,7 +238,7 @@ export function ProjectChatTab({
               </div>
             )}
           {canContinueInterview && (
-            <div className="flex flex-col gap-2 rounded-lg bg-muted/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 The last interview run stopped before Eva asked the next
                 question.

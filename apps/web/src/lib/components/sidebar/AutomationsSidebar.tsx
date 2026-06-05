@@ -130,7 +130,7 @@ export function AutomationsSidebar({
                       className={cn(
                         "mr-2 h-2 w-2 shrink-0 rounded-full",
                         automation.enabled
-                          ? "bg-emerald-500"
+                          ? "bg-success"
                           : "bg-muted-foreground/30",
                       )}
                     />

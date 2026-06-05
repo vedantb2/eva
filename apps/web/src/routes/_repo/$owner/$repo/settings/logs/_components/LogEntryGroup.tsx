@@ -79,7 +79,7 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
             return (
               <div
                 key={log._id}
-                className="motion-base rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/25"
+                className="motion-base rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/25"
               >
                 <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
                   <span className="min-w-0 flex-1 truncate text-sm">

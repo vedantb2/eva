@@ -1,35 +1,32 @@
 FOLLOW ALL OF THESE RULES
 
-UI Design System — Tonal Surface Hierarchy:
+UI Design System — HeroUI (border-based):
 
-Shadows:
-
-- No shadows on inline elements (cards, buttons, inputs, tabs, alerts, checkboxes).
-- Only floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) get shadows — they need depth to show layering over content.
-- `shadow-none`/`border-0` on embedded form elements is fine — that's stripping inherited defaults, not adding decoration.
+Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `--card`/`--popover` (surface, elevated) → `--muted` (surface-secondary) → `--secondary` (default). Accent (`--primary`/`--accent`/`--ring`/`--chart-1`/sidebar accent), `--radius`, and `--font-*` are user-defined via theme settings — never hardcode them.
 
 Borders:
 
-- No borders for visual separation between layout regions (sidebar edge, section dividers, header/footer separators). Use background color contrast instead.
-- No borders on cards, accordion items, or content containers. Use `bg-muted/40` or similar tonal shift.
-- No borders on active/selected/hover states. Background color change alone indicates state.
-- Borders allowed only for: form element affordance (inputs, selects) and structural metaphors (e.g. browser-tab in SandboxTabBar).
+- Cards, surfaces, and content containers get a hairline `border border-border`. This is the primary way surfaces are defined (HeroUI look).
+- Layout regions (sidebar edge, list/detail dividers) are separated by a hairline `border-border`/`border-sidebar-border`, not tonal contrast.
+- Active/selected items use a surface fill + `border-border` chip; give inactive items `border border-transparent` to avoid layout shift.
+- Inputs/selects keep their form-affordance border.
+
+Shadows:
+
+- Cards/surfaces may carry a subtle `shadow-sm`. Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) get larger shadows for layering.
 
 Layout & Surface Colors:
 
-- Sidebar is always the darker surface, main content the lighter surface (both light and dark mode).
-- Hierarchy comes from: tonal surface contrast > whitespace > typography weight/size.
+- Sidebar shares the canvas tone (`--sidebar` = `--background`); it is distinguished by the region-divider border, not by being darker.
+- Hierarchy comes from: hairline borders + surface tone steps > whitespace > typography weight/size.
 
 Hover & Interaction States:
 
-- Hover: `hover:bg-*` (background shift). Never `hover:border-*` or `hover:shadow-*`.
-- Active/selected: `bg-*` + `ring-*` if emphasis needed. Never border.
-- Keep transitions to `transition-[transform,background-color]` — no `box-shadow` or `border-color` in transitions.
+- Hover: `hover:bg-*` (background shift). Active/selected: surface fill + `border-border` (and `ring-*` if extra emphasis is needed).
 
 Spacing:
 
-- Use whitespace/padding (Gestalt Law of Proximity) to group related elements, not dividers or `border-t`/`border-b`.
-- Section separation = increased margin (`mt-6`), not a line.
+- Use whitespace/padding (Gestalt Law of Proximity) to group related elements; reach for borders/dividers for structural separation (HeroUI style).
 
 Implementation:
 

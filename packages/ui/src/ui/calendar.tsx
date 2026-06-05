@@ -21,10 +21,7 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn(
-        "rounded-lg border border-border/70 bg-card/90 p-3",
-        className,
-      )}
+      className={cn("rounded-lg border border-border bg-card p-3", className)}
       classNames={{
         root: cn("w-fit", defaultClassNames.root),
         months: cn(

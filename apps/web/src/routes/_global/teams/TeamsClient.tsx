@@ -175,7 +175,7 @@ export function TeamsClient() {
               to="/teams/$teamId"
               params={{ teamId: team._id }}
             >
-              <Card className="h-full transition-colors hover:bg-accent/50">
+              <Card className="h-full transition-colors hover:bg-muted/50">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">

@@ -140,10 +140,10 @@ export function ProjectCard({
 
   const cardContent = (
     <div
-      className={`group relative shrink-0 overflow-hidden rounded-lg transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] ${
+      className={`group relative shrink-0 overflow-hidden rounded-lg border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] ${
         isActive
-          ? "bg-primary/5 ring-1 ring-primary/30"
-          : "bg-card/88 shadow-sm hover:-translate-y-0.5 hover:bg-card hover:z-10"
+          ? "border-primary/30 bg-primary/5 ring-1 ring-primary/30"
+          : "border-border bg-card shadow-sm hover:bg-muted/40"
       }`}
     >
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />

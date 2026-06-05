@@ -17,7 +17,8 @@ import {
 } from "@conductor/ui";
 import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
 import { mentionTokensToEditableText } from "@/lib/components/mentions/mentionToken";
-import { UserMentionText } from "@/lib/components/mentions";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { MarkdownMentionText } from "@/lib/components/chat/MarkdownMentionText";
 import { getUserDisplayName } from "./task-detail-constants";
 import {
   CommentMentionInput,
@@ -86,6 +87,7 @@ export function CommentActivityItem({
   onDeleteRequest,
 }: CommentActivityItemProps) {
   const currentUserId = useQuery(api.auth.me);
+  const { basePath } = useRepo();
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -225,7 +227,12 @@ export function CommentActivityItem({
           {DELETED_COMMENT_PLACEHOLDER}
         </p>
       ) : (
-        <UserMentionText text={comment.content} />
+        <MarkdownMentionText
+          text={comment.content}
+          repoBasePath={basePath}
+          atKind="user"
+          className="text-sm text-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+        />
       )}
     </div>
   );

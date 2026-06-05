@@ -292,7 +292,7 @@ export function EnvVarsTable({
                     }
                   >
                     {v.sandboxExclude ? (
-                      <IconLock size={14} className="text-amber-500" />
+                      <IconLock size={14} className="text-warning" />
                     ) : (
                       <IconLockOpen size={14} />
                     )}
@@ -419,7 +419,7 @@ export function EnvVarsTable({
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-lg bg-muted/40 overflow-x-auto">
+          <div className="rounded-lg border border-border bg-muted/40 overflow-x-auto">
             <table className="w-full text-sm min-w-[360px]">
               {tableHeader}
               <tbody>
@@ -442,12 +442,12 @@ export function EnvVarsTable({
           {excludedVars.length > 0 && (
             <div>
               <div className="mb-2 flex items-center gap-1.5">
-                <IconLock size={14} className="text-amber-500" />
+                <IconLock size={14} className="text-warning" />
                 <p className="text-xs font-medium text-muted-foreground">
                   Excluded from Sandbox
                 </p>
               </div>
-              <div className="rounded-lg bg-muted/40 overflow-x-auto">
+              <div className="rounded-lg border border-border bg-muted/40 overflow-x-auto">
                 <table className="w-full text-sm min-w-[360px]">
                   {tableHeader}
                   <tbody>{excludedVars.map(renderRow)}</tbody>

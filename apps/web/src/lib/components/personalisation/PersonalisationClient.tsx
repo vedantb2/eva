@@ -120,7 +120,7 @@ export function PersonalisationClient() {
           </div>
 
           {activeRole ? (
-            <div className="rounded-lg bg-muted/40 p-3">
+            <div className="rounded-lg border border-border bg-card p-3">
               <p className="mb-2 text-[11px] font-medium text-muted-foreground">
                 Active preset prompt
               </p>

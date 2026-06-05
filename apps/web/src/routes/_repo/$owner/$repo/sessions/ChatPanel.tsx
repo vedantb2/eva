@@ -480,7 +480,7 @@ export function ChatPanel({
   const toolsBefore = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50">
+        <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50">
           <SelectedModeIcon className="size-3.5" />
           {selectedModeOption.label}
         </button>

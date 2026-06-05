@@ -69,7 +69,7 @@ export function CommentReplyComposer({
           onValueChange={setReplyText}
           onEnterSubmit={handleSubmit}
           placeholder="Leave a reply"
-          className="min-h-0 max-h-36 border-0 bg-transparent transition-[background-color] hover:bg-background/40"
+          className="min-h-0 max-h-36 border-0 bg-transparent transition-[background-color] hover:bg-muted/50"
         />
         <CommentSendButton
           className="absolute right-1.5 bottom-1.5"

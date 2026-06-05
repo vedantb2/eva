@@ -345,7 +345,7 @@ export function SandboxIframeService({
             </Button>
           </div>
           {!warningHintDismissed ? (
-            <div className="flex items-start gap-2 bg-orange-500/10 px-3 py-2 text-xs text-orange-700 dark:text-orange-300">
+            <div className="flex items-start gap-2 bg-warning/10 px-3 py-2 text-xs text-warning">
               <IconAlertTriangle size={14} className="mt-0.5 shrink-0" />
               <p className="flex-1 leading-relaxed">
                 If you see a preview warning, click Accept, then click the
@@ -354,7 +354,7 @@ export function SandboxIframeService({
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-5 w-5 shrink-0 text-orange-700/70 hover:bg-orange-500/20 hover:text-orange-700 dark:text-orange-300/70 dark:hover:text-orange-300"
+                className="h-5 w-5 shrink-0 text-warning/70 hover:bg-warning/20 hover:text-warning"
                 onClick={() => setWarningHintDismissed(true)}
               >
                 <IconX size={12} />

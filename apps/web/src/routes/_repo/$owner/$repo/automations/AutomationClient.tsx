@@ -67,7 +67,7 @@ export function AutomationClient({
             }
             className={cn(
               "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              automation.enabled ? "bg-emerald-500" : "bg-muted-foreground/30",
+              automation.enabled ? "bg-primary" : "bg-muted-foreground/30",
             )}
           >
             <span
@@ -233,7 +233,7 @@ function SettingsForm({
     <div className="space-y-4">
       <CronScheduleCard value={cronSchedule} onChange={setCronSchedule} />
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-lg border border-border bg-card p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Description</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -263,7 +263,7 @@ function SettingsForm({
       </div>
 
       {isMonorepo && (
-        <div className="rounded-lg bg-muted/40 p-3 sm:p-4">
+        <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
           <SettingToggle
             title="Share across apps"
             description="Show and run this automation from every app in the monorepo"
@@ -273,7 +273,7 @@ function SettingsForm({
         </div>
       )}
 
-      <div className="rounded-lg bg-muted/40 p-3 sm:p-4">
+      <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
         <SettingToggle
           title="Report Only"
           description="Analyze and report without making code changes, branches, or PRs"
@@ -283,7 +283,7 @@ function SettingsForm({
       </div>
 
       {readOnly && (
-        <div className="rounded-lg bg-muted/40 p-3 sm:p-4">
+        <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
           <SettingToggle
             title="Actions"
             description="Parse findings into actionable items you can convert to tasks"
@@ -293,7 +293,7 @@ function SettingsForm({
         </div>
       )}
 
-      <div className="rounded-lg bg-muted/40 p-3 sm:p-4">
+      <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
         <SettingToggle
           title="Send email"
           description="Email this automation's run summary to all users when a run succeeds"
@@ -302,7 +302,7 @@ function SettingsForm({
         />
       </div>
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-lg border border-border bg-card p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Model</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -323,7 +323,7 @@ function SettingsForm({
         </Button>
       </div>
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-lg border border-border bg-card p-3 space-y-4 sm:p-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium text-destructive">

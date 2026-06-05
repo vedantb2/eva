@@ -398,7 +398,7 @@ export function DesignChatPanel({
                         className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
                           numDesigns === n
                             ? "bg-primary text-primary-foreground"
-                            : "hover:bg-accent"
+                            : "hover:bg-muted"
                         }`}
                       >
                         {n}

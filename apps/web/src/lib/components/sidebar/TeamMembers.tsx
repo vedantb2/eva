@@ -47,7 +47,7 @@ export function TeamMembers({ collapsed }: { collapsed: boolean }) {
                   type="button"
                   className={cn(
                     "cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110",
-                    isFollowing && "ring-2 ring-blue-500",
+                    isFollowing && "ring-2 ring-primary",
                   )}
                   onClick={() => {
                     if (isFollowing) {
@@ -96,7 +96,7 @@ export function TeamMembers({ collapsed }: { collapsed: boolean }) {
                   type="button"
                   className={cn(
                     "cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110",
-                    isFollowing && "ring-2 ring-blue-500",
+                    isFollowing && "ring-2 ring-primary",
                   )}
                   onClick={() => {
                     if (isFollowing) {

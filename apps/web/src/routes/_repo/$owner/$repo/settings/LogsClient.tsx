@@ -280,7 +280,7 @@ function ProjectSummaryCards({
 
 function SummaryStatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-muted/40 p-3 sm:p-4">
+    <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
       <p className="text-lg font-bold text-foreground sm:text-2xl">{value}</p>
       <p className="text-xs text-muted-foreground sm:text-sm">{label}</p>
     </div>

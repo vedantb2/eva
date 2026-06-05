@@ -38,7 +38,7 @@ export function PersonaDropdown({
         onChange(persona?._id);
       }}
     >
-      <SelectTrigger className="h-7 w-auto gap-1.5 border-none bg-transparent text-xs text-muted-foreground shadow-none hover:bg-accent hover:text-foreground">
+      <SelectTrigger className="h-7 w-auto gap-1.5 border-none bg-transparent text-xs text-muted-foreground shadow-none hover:bg-muted hover:text-foreground">
         <SelectValue placeholder="No persona" />
       </SelectTrigger>
       <SelectContent>
@@ -149,7 +149,7 @@ export function ManagePersonasModal({
   };
 
   const formUI = (
-    <div className="space-y-2 rounded-md bg-muted/40 p-3">
+    <div className="space-y-2 rounded-md border border-border bg-card p-3">
       <Input
         placeholder="Persona name"
         value={formName}
@@ -201,7 +201,7 @@ export function ManagePersonasModal({
               ) : (
                 <div
                   key={persona._id}
-                  className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2"
+                  className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">

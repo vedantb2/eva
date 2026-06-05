@@ -282,7 +282,7 @@ export function TaskDetailInline({
                       <span className="hidden sm:inline">Activity</span>
                       <span className="sm:hidden">Runs</span>
                       {isActivityBusy ? (
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
                       ) : null}
                     </TabsTrigger>
                     <TabsTrigger
@@ -291,7 +291,7 @@ export function TaskDetailInline({
                     >
                       Proof
                       {isProofBusy ? (
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
                       ) : null}
                     </TabsTrigger>
                     <TabsTrigger
@@ -300,7 +300,7 @@ export function TaskDetailInline({
                     >
                       Audit
                       {isAuditBusy ? (
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
                       ) : null}
                     </TabsTrigger>
                   </TabsList>

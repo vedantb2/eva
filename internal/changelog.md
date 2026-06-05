@@ -1,5 +1,11 @@
 # Changelog
 
+## Quick-task bulk selection toolbar redesigned with responsive labels - 2026-06-05
+
+- The floating action bar that appears when selecting quick tasks now follows the HeroUI Action Bar pattern: a compact pill with count prefix, primary actions (Status, Assign, Run) with responsive labels, a "More" dropdown for secondary actions, a red Delete button, and a dismiss ×.
+- Action labels show inline on larger screens (`sm+`) and collapse to icon-only with tooltips on mobile, keeping the bar scannable and compact on all viewport sizes.
+- Secondary actions (Assign to Me, Add Labels, Group into Project, Schedule Run) are tucked into a dropdown menu to avoid toolbar overflow while keeping them discoverable.
+
 ## Emoji reactions on comments and replies - 2026-06-05
 
 - Comments and their replies now support emoji reactions: hover a comment to add one from a quick-react row or the full searchable emoji picker, and click a reaction chip to toggle it on or off. Reactions you added are highlighted with a primary-bordered chip, and counts update instantly.

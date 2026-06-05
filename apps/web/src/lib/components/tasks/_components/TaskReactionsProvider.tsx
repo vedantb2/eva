@@ -22,14 +22,19 @@ type ReactionView = FunctionReturnType<
 // stays in sync with the schema.
 export type ReactionTargetType = ReactionView["targetType"];
 
+export interface Reactor {
+  userId: Id<"users">;
+  // Display name (the current user shown as "You").
+  name: string;
+}
+
 export interface ReactionGroup {
   emoji: string;
   count: number;
   // Whether the current user is one of the reactors (drives chip highlight).
   reactedByMe: boolean;
-  // Display names of everyone who reacted with this emoji (the current user
-  // shown as "You"), for the chip tooltip.
-  reactorNames: string[];
+  // Everyone who reacted with this emoji, for the chip's hover list.
+  reactors: Reactor[];
 }
 
 interface TaskReactionsContextValue {
@@ -117,20 +122,22 @@ export function TaskReactionsProvider({
         emojiMap = new Map();
         byTarget.set(key, emojiMap);
       }
-      const reactors = emojiMap.get(reaction.emoji) ?? [];
-      reactors.push(reaction.userId);
-      emojiMap.set(reaction.emoji, reactors);
+      const ids = emojiMap.get(reaction.emoji) ?? [];
+      ids.push(reaction.userId);
+      emojiMap.set(reaction.emoji, ids);
     }
     for (const [key, emojiMap] of byTarget) {
       map.set(
         key,
-        [...emojiMap.entries()].map(([emoji, reactors]) => ({
+        [...emojiMap.entries()].map(([emoji, ids]) => ({
           emoji,
-          count: reactors.length,
-          reactedByMe: currentUserId ? reactors.includes(currentUserId) : false,
-          reactorNames: reactors.map((id) =>
-            id === currentUserId ? "You" : (nameById.get(id) ?? "Someone"),
-          ),
+          count: ids.length,
+          reactedByMe: currentUserId ? ids.includes(currentUserId) : false,
+          reactors: ids.map((id) => ({
+            userId: id,
+            name:
+              id === currentUserId ? "You" : (nameById.get(id) ?? "Someone"),
+          })),
         })),
       );
     }

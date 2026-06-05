@@ -147,7 +147,7 @@ export function CommentActivityItem({
   };
 
   return (
-    <div className="group space-y-2">
+    <div className="group">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {comment.authorId ? (
@@ -243,7 +243,7 @@ export function CommentActivityItem({
       )}
 
       {!isEditing && !isDeleted ? (
-        <div className="pl-6">
+        <div className="mt-2 pl-6">
           <ReactionBar groups={groups} toggle={toggle} />
         </div>
       ) : null}

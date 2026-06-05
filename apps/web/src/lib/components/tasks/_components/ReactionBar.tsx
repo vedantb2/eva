@@ -1,6 +1,12 @@
 "use client";
 
-import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@conductor/ui";
+import {
+  cn,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@conductor/ui";
+import { UserInitials } from "@conductor/shared";
 import { EmojiReactionPicker } from "./EmojiReactionPicker";
 import type { ReactionGroup } from "./TaskReactionsProvider";
 
@@ -22,8 +28,8 @@ export function ReactionBar({ groups, toggle }: ReactionBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       {groups.map((group) => (
-        <Tooltip key={group.emoji}>
-          <TooltipTrigger asChild>
+        <HoverCard key={group.emoji} openDelay={200} closeDelay={80}>
+          <HoverCardTrigger asChild>
             <button
               type="button"
               onClick={() => toggle(group.emoji)}
@@ -38,11 +44,25 @@ export function ReactionBar({ groups, toggle }: ReactionBarProps) {
               <span className="text-sm leading-none">{group.emoji}</span>
               <span className="tabular-nums">{group.count}</span>
             </button>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-56">
-            {group.reactorNames.join(", ")}
-          </TooltipContent>
-        </Tooltip>
+          </HoverCardTrigger>
+          <HoverCardContent align="start" className="w-auto min-w-40 p-2">
+            <div className="flex flex-col gap-1.5">
+              {group.reactors.map((reactor) => (
+                <div key={reactor.userId} className="flex items-center gap-2">
+                  <UserInitials
+                    userId={reactor.userId}
+                    size="sm"
+                    hideLastSeen
+                    disableProfileCard
+                  />
+                  <span className="text-sm text-foreground">
+                    {reactor.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </HoverCardContent>
+        </HoverCard>
       ))}
       <EmojiReactionPicker onSelect={toggle} alwaysVisible />
     </div>

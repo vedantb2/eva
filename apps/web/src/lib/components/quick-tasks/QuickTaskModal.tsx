@@ -271,7 +271,7 @@ export function QuickTaskModal({
             />
           </div>
 
-          <div className="px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
+          <div className="scrollbar px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
             <DescriptionMentionEditor
               ref={editorRef}
               value={description}
@@ -461,7 +461,7 @@ export function QuickTaskModal({
                     <div className="px-3 py-2 border-b border-border">
                       <p className="text-sm font-medium">Saved Drafts</p>
                     </div>
-                    <div className="max-h-56 overflow-y-auto">
+                    <div className="scrollbar max-h-56 overflow-y-auto">
                       {drafts.map((draft) => (
                         <div key={draft._id}>
                           {confirmDeleteId === draft._id ? (

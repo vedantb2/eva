@@ -234,7 +234,8 @@ const schema = defineSchema({
     createdAt: v.number(),
     // Human-readable task/project context shown on the notification card, e.g.
     // a quick task's title or "Project title: issue title" for project tasks.
-    // Snapshotted at creation; absent on notifications without a task.
+    // Only set for types whose title does not already name the task (mentions,
+    // comment replies); snapshotted at creation, absent otherwise.
     contextLabel: v.optional(v.string()),
     // Set once this notification has been included in an email (instant send or
     // daily digest), so neither path emails the same notification twice.

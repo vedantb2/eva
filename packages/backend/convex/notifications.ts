@@ -25,6 +25,17 @@ const EMAIL_NOTIFICATION_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Notification types whose title does not name the task (e.g. "X mentioned you
+ * in a comment", "X replied to your comment"). Only these get a contextLabel
+ * second line on the card. Every other type already embeds the task title in
+ * its own title, so a context line would just repeat it.
+ */
+const CONTEXT_LABEL_TYPES: ReadonlySet<string> = new Set([
+  "mention",
+  "comment_reply",
+]);
+
+/**
  * Delay before an instant notification email is sent. Acts as a debounce: a
  * burst of activity within this window is swept into a single email, and the
  * send is skipped entirely if the user reads the notification in-app first.
@@ -91,10 +102,14 @@ export async function createNotification(
       }
     }
   }
-  // Snapshot a human-readable task/project label for the notification card.
-  // Project tasks read "Project title: issue title"; quick tasks just the title.
+  const type = params.type ?? "system";
+
+  // Snapshot a human-readable task/project label for the notification card, but
+  // only for types whose title does not already name the task (see
+  // CONTEXT_LABEL_TYPES). Project tasks read "Project title: issue title"; quick
+  // tasks just the title.
   let contextLabel: string | undefined;
-  if (params.taskId) {
+  if (params.taskId && CONTEXT_LABEL_TYPES.has(type)) {
     const task = await ctx.db.get(params.taskId);
     if (task) {
       if (params.projectId) {
@@ -105,8 +120,6 @@ export async function createNotification(
       }
     }
   }
-
-  const type = params.type ?? "system";
   await ctx.db.insert("notifications", {
     userId: params.userId,
     type,

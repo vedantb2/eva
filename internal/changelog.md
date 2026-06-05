@@ -1,5 +1,10 @@
 # Changelog
 
+## Floating table of contents and styled scrollbars on docs - 2026-06-05
+
+- Document pages now show a floating table of contents alongside the content (on large screens), letting readers jump between headings and track their position while scrolling.
+- Applied the thin, themed scrollbar styling to every scroll area on the document page — content view, requirements/user-flows tabs, and the markdown edit input — for a consistent look matching the rest of the app.
+
 ## Activity timeline now shows PR merge/close events - 2026-06-05
 
 - PR merge and close events now appear on the task activity timeline, making it visible when a PR is merged or closed without checking notifications.

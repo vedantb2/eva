@@ -45,6 +45,7 @@ import {
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 
 import { DocInterviewDialog } from "./DocInterviewDialog";
+import { FloatingToc } from "./FloatingToc";
 import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
@@ -75,6 +76,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
   const handleDocTabChange = useCallback(
     (value: string) => {
@@ -385,16 +387,28 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
                 isSaving={isSaving}
               />
             ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="flex min-h-0 flex-1 gap-6 overflow-hidden">
+                <div
+                  ref={contentScrollRef}
+                  className="scrollbar min-h-0 flex-1 overflow-y-auto"
+                >
+                  {doc.content.trim().length > 0 ? (
+                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                      {doc.content}
+                    </MessageResponse>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No content yet. Click Edit to add product requirements.
+                    </p>
+                  )}
+                </div>
                 {doc.content.trim().length > 0 ? (
-                  <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                    {doc.content}
-                  </MessageResponse>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No content yet. Click Edit to add product requirements.
-                  </p>
-                )}
+                  <FloatingToc
+                    containerRef={contentScrollRef}
+                    content={doc.content}
+                    className="hidden w-52 shrink-0 py-1 lg:block"
+                  />
+                ) : null}
               </div>
             )}
           </div>
@@ -402,7 +416,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
 
         <TabsContent
           value="requirements"
-          className="mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:px-4"
+          className="scrollbar mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:px-4"
         >
           {(doc.requirements?.length ?? 0) > 0 ? (
             <ul className="list-disc space-y-2 pl-5">
@@ -422,7 +436,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
 
         <TabsContent
           value="user-flows"
-          className="mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:px-4"
+          className="scrollbar mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:px-4"
         >
           {(doc.userFlows?.length ?? 0) > 0 ? (
             <div className="space-y-4">

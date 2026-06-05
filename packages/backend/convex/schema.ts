@@ -30,6 +30,7 @@ import {
   taskSandboxEventFields,
   taskActivityFields,
   taskCommentFields,
+  taskCommentReactionFields,
   taskSubscriberFields,
   repoSkillFields,
   sandboxGitCredentialsFields,
@@ -81,6 +82,10 @@ const schema = defineSchema({
     .index("by_connected_by", ["connectedBy"]),
 
   taskComments: defineTable(taskCommentFields).index("by_task", ["taskId"]),
+
+  taskCommentReactions: defineTable(taskCommentReactionFields)
+    .index("by_task", ["taskId"])
+    .index("by_comment_user_emoji", ["commentId", "userId", "emoji"]),
 
   taskSubscribers: defineTable(taskSubscriberFields)
     .index("by_task", ["taskId"])

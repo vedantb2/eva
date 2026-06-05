@@ -1,5 +1,10 @@
 # Changelog
 
+## Emoji reactions on comments and replies - 2026-06-05
+
+- Comments and their replies now support emoji reactions: hover a comment to add one from a quick-react row or the full searchable emoji picker, and click a reaction chip to toggle it on or off. Reactions you added are highlighted with a primary-bordered chip, and counts update instantly.
+- A single `listByTask` query loads all reactions for the thread and distributes them via context, so nested replies (and replies-on-replies) don't require prop-drilling; the toggle mutation applies optimistic updates keyed off the same query.
+
 ## Floating table of contents and styled scrollbars on docs - 2026-06-05
 
 - Document pages now show a floating table of contents alongside the content (on large screens), letting readers jump between headings and track their position while scrolling.

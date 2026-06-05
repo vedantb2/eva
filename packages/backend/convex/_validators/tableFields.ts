@@ -346,6 +346,16 @@ export const taskCommentFields = {
   createdAt: v.number(),
 };
 
+// One row per (comment, user, emoji). `taskId` is denormalised so the whole
+// thread's reactions load with a single `by_task` query (grouped client-side).
+export const taskCommentReactionFields = {
+  taskId: v.id("agentTasks"),
+  commentId: v.id("taskComments"),
+  emoji: v.string(),
+  userId: v.id("users"),
+  createdAt: v.number(),
+};
+
 // One row per (task, user). `subscribed: false` is a sticky opt-out tombstone —
 // it stops auto-subscribe triggers (commenting, being mentioned) from silently
 // re-adding a user who explicitly unsubscribed. Absence of a row = never involved.

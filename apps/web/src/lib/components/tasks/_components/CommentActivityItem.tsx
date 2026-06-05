@@ -24,6 +24,7 @@ import {
   CommentMentionInput,
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
+import { ReactionBar } from "./ReactionBar";
 import {
   DELETED_COMMENT_PLACEHOLDER,
   isCommentDeleted,
@@ -234,6 +235,10 @@ export function CommentActivityItem({
           className="text-sm text-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         />
       )}
+
+      {!isEditing && !isDeleted ? (
+        <ReactionBar commentId={comment._id} />
+      ) : null}
     </div>
   );
 }

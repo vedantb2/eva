@@ -8,7 +8,7 @@ import {
   BarElement,
   Tooltip,
 } from "chart.js";
-import { Card, CardContent } from "@conductor/ui";
+import { Widget } from "@/lib/components/Widget";
 import dayjs from "@conductor/shared/dates";
 import { cssColor } from "@/lib/utils/cssColor";
 
@@ -41,15 +41,10 @@ export function PRsOverTimeChart({ timeline }: PRsOverTimeChartProps) {
   };
 
   return (
-    <Card>
-      <CardContent className="p-3 sm:p-4">
-        <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4 text-balance">
-          PRs Shipped Over Time
-        </h3>
-        <div className="h-48 sm:h-64">
-          <Bar data={chartData} options={options} />
-        </div>
-      </CardContent>
-    </Card>
+    <Widget title="PRs Shipped Over Time">
+      <div className="h-48 sm:h-64">
+        <Bar data={chartData} options={options} />
+      </div>
+    </Widget>
   );
 }

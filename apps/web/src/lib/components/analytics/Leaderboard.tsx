@@ -1,7 +1,7 @@
 "use client";
 
-import { Card, CardContent } from "@conductor/ui";
 import { IconStar, IconUser } from "@tabler/icons-react";
+import { Widget } from "@/lib/components/Widget";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import { ScoreBar } from "./ScoreBar";
@@ -27,50 +27,49 @@ export function Leaderboard({ entries }: LeaderboardProps) {
     : 1;
 
   return (
-    <Card className="animate-in fade-in duration-300">
-      <CardContent className="p-5">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">
-          Top Contributors
-        </h3>
-        {entries.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground">
-            No activity yet
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {entries.map((entry, index) => {
-              const isTop = index === 0;
-              return (
-                <div key={entry.clerkId} className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-                      <IconUser size={16} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {entry.fullName || "Unknown User"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {entry.prsCreated} PRs · {entry.tasksCompleted} tasks
-                      </p>
-                    </div>
-                    {isTop && (
-                      <StatusChip tone="top" icon={IconStar}>
-                        Top
-                      </StatusChip>
-                    )}
+    <Widget
+      title="Top Contributors"
+      className="animate-in fade-in duration-300"
+      contentClassName="p-5"
+    >
+      {entries.length === 0 ? (
+        <div className="py-8 text-center text-muted-foreground">
+          No activity yet
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {entries.map((entry, index) => {
+            const isTop = index === 0;
+            return (
+              <div key={entry.clerkId} className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+                    <IconUser size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {entry.fullName || "Unknown User"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.prsCreated} PRs · {entry.tasksCompleted} tasks
+                    </p>
                   </div>
-                  <ScoreBar
-                    value={activityOf(entry)}
-                    max={maxActivity}
-                    tone={isTop ? "top" : "default"}
-                  />
+                  {isTop && (
+                    <StatusChip tone="top" icon={IconStar}>
+                      Top
+                    </StatusChip>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                <ScoreBar
+                  value={activityOf(entry)}
+                  max={maxActivity}
+                  tone={isTop ? "top" : "default"}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Widget>
   );
 }

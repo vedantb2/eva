@@ -2,8 +2,6 @@
 
 import { useMemo } from "react";
 import {
-  Card,
-  CardContent,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -16,6 +14,7 @@ import {
 } from "@conductor/ui";
 import type { Activity } from "@conductor/ui";
 import { IconFlame } from "@tabler/icons-react";
+import { Widget } from "@/lib/components/Widget";
 
 interface ActivityHeatmapProps {
   data: Array<{ date: string; count: number }>;
@@ -111,71 +110,69 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
     }, [data]);
 
   return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
-          <div>
-            <p className="text-3xl font-bold tabular-nums text-foreground">
-              {totalCount}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              tasks completed in the last year
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            {currentStreak > 0 && (
-              <div className="flex items-center gap-1.5">
-                <IconFlame size={18} className="text-warning" />
-                <p className="text-sm font-semibold tabular-nums text-foreground">
-                  {currentStreak} day streak
-                </p>
-              </div>
-            )}
-            {longestStreak > currentStreak && (
-              <p className="text-xs text-muted-foreground">
-                Longest:{" "}
-                <span className="font-semibold tabular-nums text-foreground">
-                  {longestStreak}d
-                </span>
-              </p>
-            )}
-          </div>
+    <Widget contentClassName="p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
+        <div>
+          <p className="text-3xl font-bold tabular-nums text-foreground">
+            {totalCount}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            tasks completed in the last year
+          </p>
         </div>
+        <div className="flex items-center gap-4">
+          {currentStreak > 0 && (
+            <div className="flex items-center gap-1.5">
+              <IconFlame size={18} className="text-warning" />
+              <p className="text-sm font-semibold tabular-nums text-foreground">
+                {currentStreak} day streak
+              </p>
+            </div>
+          )}
+          {longestStreak > currentStreak && (
+            <p className="text-xs text-muted-foreground">
+              Longest:{" "}
+              <span className="font-semibold tabular-nums text-foreground">
+                {longestStreak}d
+              </span>
+            </p>
+          )}
+        </div>
+      </div>
 
-        <TooltipProvider delayDuration={0}>
-          <ContributionGraph
-            data={activities}
-            totalCount={totalCount}
-            className="w-full max-w-full"
-          >
-            <ContributionGraphCalendar className="w-full">
-              {({ activity, dayIndex, weekIndex }) => (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <g>
-                      <ContributionGraphBlock
-                        activity={activity}
-                        dayIndex={dayIndex}
-                        weekIndex={weekIndex}
-                        className="cursor-pointer"
-                      />
-                    </g>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    <span className="font-medium">
-                      {activity.count} {activity.count === 1 ? "task" : "tasks"}
-                    </span>{" "}
-                    on {formatDate(activity.date)}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </ContributionGraphCalendar>
-            <ContributionGraphFooter>
-              <ContributionGraphLegend />
-            </ContributionGraphFooter>
-          </ContributionGraph>
-        </TooltipProvider>
-      </CardContent>
-    </Card>
+      <TooltipProvider delayDuration={0}>
+        <ContributionGraph
+          data={activities}
+          totalCount={totalCount}
+          className="w-full max-w-full"
+        >
+          <ContributionGraphCalendar className="w-full">
+            {({ activity, dayIndex, weekIndex }) => (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <g>
+                    <ContributionGraphBlock
+                      activity={activity}
+                      dayIndex={dayIndex}
+                      weekIndex={weekIndex}
+                      className="cursor-pointer"
+                    />
+                  </g>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  <span className="font-medium">
+                    {activity.count} {activity.count === 1 ? "task" : "tasks"}
+                  </span>{" "}
+                  on {formatDate(activity.date)}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </ContributionGraphCalendar>
+          <ContributionGraphFooter>
+            <ContributionGraphLegend />
+          </ContributionGraphFooter>
+        </ContributionGraph>
+      </TooltipProvider>
+    </Widget>
   );
 }

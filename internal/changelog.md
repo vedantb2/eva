@@ -1,5 +1,11 @@
 # Changelog
 
+## Stats and home dashboard panels adopt a layered Widget look - 2026-06-05
+
+- Stats page chart panels (PRs over time, activity over time, session funnel, top contributors, activity heatmap) and the repo home page now use a shared `Widget` container: a muted outer shell with a title/actions header above an elevated content area, modelled on the HeroUI Widget.
+- Consolidates four duplicated card-with-`<h3>`-title patterns into one component and gives the dashboards a consistent layered surface treatment.
+- The home page's "Eva's Stats" header (title, repo, time-range picker) and its stat cards are now a single Widget, with the cards sitting directly on the shell.
+
 ## Emoji reactions on task descriptions - 2026-06-05
 
 - Task descriptions can now be reacted to with emoji, the same way as comments and replies — hover the description to add one, and toggle reaction chips beneath it.

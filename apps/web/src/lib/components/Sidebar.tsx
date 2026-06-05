@@ -3,7 +3,7 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
-import { UserButton, useUser } from "@clerk/clerk-react";
+import { useUser } from "@clerk/clerk-react";
 import { useMemo, useState, type ComponentType } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { AnimatePresence, motion } from "motion/react";
@@ -51,7 +51,7 @@ import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
 import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomationsBadge";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { TeamMembers } from "@/lib/components/sidebar/TeamMembers";
-import { SidebarSearchButton } from "@/lib/components/sidebar/SidebarSearchButton";
+import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
@@ -325,7 +325,7 @@ export function Sidebar() {
       "group motion-base flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
       collapsed && "lg:justify-center lg:px-0",
       isActive
-        ? "border-sidebar-border bg-sidebar-accent font-medium text-sidebar-foreground"
+        ? "bg-sidebar-accent font-medium text-sidebar-foreground"
         : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
     );
 
@@ -689,7 +689,7 @@ export function Sidebar() {
                                               className={cn(
                                                 "shrink-0",
                                                 isActive
-                                                  ? "text-sidebar-primary"
+                                                  ? "text-sidebar-foreground"
                                                   : "text-muted-foreground",
                                               )}
                                             />
@@ -754,7 +754,7 @@ export function Sidebar() {
                                           className={cn(
                                             "shrink-0",
                                             isActive
-                                              ? "text-sidebar-primary"
+                                              ? "text-sidebar-foreground"
                                               : "text-muted-foreground",
                                           )}
                                         />
@@ -815,41 +815,12 @@ export function Sidebar() {
 
             <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
               <TeamMembers collapsed={collapsed} />
-              <div
-                className={cn(
-                  "flex items-center",
-                  collapsed ? "flex-col gap-2" : "gap-2 pr-2",
-                )}
-              >
-                <UserButton
-                  appearance={{
-                    elements: {
-                      avatarBox: "h-6 w-6",
-                    },
-                  }}
-                />
-
-                {!collapsed && (
-                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-sidebar-foreground">
-                    {user?.fullName || user?.firstName || "User"}
-                  </p>
-                )}
-                {isRepoRoute && <SidebarSearchButton />}
-
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-muted-foreground hover:text-sidebar-foreground"
-                  title="Toggle theme"
-                  onClick={toggleTheme}
-                >
-                  {theme === "dark" ? (
-                    <IconSun size={16} />
-                  ) : (
-                    <IconMoon size={16} />
-                  )}
-                </Button>
-              </div>
+              <SidebarUserMenu
+                collapsed={collapsed}
+                name={user?.fullName || user?.firstName || "User"}
+                email={user?.primaryEmailAddress?.emailAddress}
+                showSearch={isRepoRoute}
+              />
             </div>
           </div>
         </div>

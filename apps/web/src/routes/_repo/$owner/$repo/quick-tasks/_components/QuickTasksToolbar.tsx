@@ -201,6 +201,7 @@ export function QuickTasksToolbar({
         placeholder="Search tasks..."
         tooltipLabel="Search tasks"
         visible={hasQuickTasks}
+        variant="large"
       />
       {hasQuickTasks && (
         <div className="flex items-center rounded-lg border border-border bg-muted/40 overflow-hidden">

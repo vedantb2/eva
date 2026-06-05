@@ -1,9 +1,6 @@
 import { useCallback } from "react";
 import { useLocalStorage } from "usehooks-ts";
-import {
-  PROJECT_PHASES,
-  type ProjectPhase,
-} from "@/lib/components/projects/ProjectPhaseBadge";
+import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 
 type ProjectView = "kanban" | "timeline" | "list" | "table";
 export const SORT_FIELDS = ["created", "title", "priority"] as const;
@@ -13,7 +10,10 @@ type SortDir = "asc" | "desc";
 interface ProjectFilters {
   q: string;
   view: ProjectView;
-  phases: ProjectPhase[];
+  // Phases the user has hidden (blocklist). Empty = all phases visible.
+  // Storing exclusions (not the visible allowlist) keeps "no filter" stable
+  // and makes any newly-added phase visible by default.
+  hiddenPhases: ProjectPhase[];
   sortField: SortField;
   sortDir: SortDir;
 }
@@ -21,12 +21,14 @@ interface ProjectFilters {
 const DEFAULTS: ProjectFilters = {
   q: "",
   view: "kanban",
-  phases: [...PROJECT_PHASES],
+  hiddenPhases: [],
   sortField: "created",
   sortDir: "desc",
 };
 
-const STORAGE_KEY = "project-filters";
+// Bumped from "project-filters": the old shape persisted a visible-phase
+// allowlist, which left newly-added phases stuck off for existing users.
+const STORAGE_KEY = "project-filters-v2";
 
 export type { ProjectView, SortField, SortDir, ProjectFilters };
 

@@ -6,7 +6,7 @@ import { api } from "@conductor/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { StatCard } from "@/lib/components/analytics/StatCard";
+import { Kpi, KpiGroup } from "@/lib/components/analytics/Kpi";
 import { PRsOverTimeChart } from "@/lib/components/analytics/PRsOverTimeChart";
 import { SessionFunnel } from "@/lib/components/analytics/SessionFunnel";
 import { ActivityTimelineChart } from "@/lib/components/analytics/ActivityTimelineChart";
@@ -90,51 +90,52 @@ export function StatsClient() {
           </motion.div>
 
           <motion.div
-            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <StatCard
-              icon={IconGitPullRequest}
-              label="PRs Shipped"
-              value={impactStats.prsShipped}
-              currentValue={impactStats.prsShipped}
-              previousValue={
-                "prevPrsShipped" in impactStats
-                  ? impactStats.prevPrsShipped
-                  : undefined
-              }
-            />
-            <StatCard
-              icon={IconPercentage}
-              label="Ship Rate"
-              value={`${impactStats.shipRate}%`}
-              subtitle={`${impactStats.sessionsWithPr} of ${impactStats.totalSessions} sessions`}
-              currentValue={impactStats.shipRate}
-              previousValue={
-                "prevShipRate" in impactStats
-                  ? impactStats.prevShipRate
-                  : undefined
-              }
-            />
-            <StatCard
-              icon={IconUsers}
-              label="Humans Prompting"
-              value={activeUsers.count}
-              subtitle="Last 5 minutes"
-            />
-            <StatCard
-              icon={IconChecklist}
-              label="Tasks Completed"
-              value={impactStats.tasksCompleted}
-              currentValue={impactStats.tasksCompleted}
-              previousValue={
-                "prevTasksCompleted" in impactStats
-                  ? impactStats.prevTasksCompleted
-                  : undefined
-              }
-            />
+            <KpiGroup>
+              <Kpi
+                icon={IconGitPullRequest}
+                label="PRs Shipped"
+                value={impactStats.prsShipped}
+                currentValue={impactStats.prsShipped}
+                previousValue={
+                  "prevPrsShipped" in impactStats
+                    ? impactStats.prevPrsShipped
+                    : undefined
+                }
+              />
+              <Kpi
+                icon={IconPercentage}
+                label="Ship Rate"
+                value={`${impactStats.shipRate}%`}
+                subtitle={`${impactStats.sessionsWithPr} of ${impactStats.totalSessions} sessions`}
+                currentValue={impactStats.shipRate}
+                previousValue={
+                  "prevShipRate" in impactStats
+                    ? impactStats.prevShipRate
+                    : undefined
+                }
+              />
+              <Kpi
+                icon={IconUsers}
+                label="Humans Prompting"
+                value={activeUsers.count}
+                subtitle="Last 5 minutes"
+              />
+              <Kpi
+                icon={IconChecklist}
+                label="Tasks Completed"
+                value={impactStats.tasksCompleted}
+                currentValue={impactStats.tasksCompleted}
+                previousValue={
+                  "prevTasksCompleted" in impactStats
+                    ? impactStats.prevTasksCompleted
+                    : undefined
+                }
+              />
+            </KpiGroup>
           </motion.div>
 
           <motion.div

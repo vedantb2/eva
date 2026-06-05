@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@conductor/ui";
+import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@conductor/ui";
 import { EmojiReactionPicker } from "./EmojiReactionPicker";
 import type { ReactionGroup } from "./TaskReactionsProvider";
 
@@ -22,21 +22,27 @@ export function ReactionBar({ groups, toggle }: ReactionBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       {groups.map((group) => (
-        <button
-          key={group.emoji}
-          type="button"
-          onClick={() => toggle(group.emoji)}
-          aria-pressed={group.reactedByMe}
-          className={cn(
-            "flex h-6 items-center gap-1 rounded-full border px-2 text-xs leading-none transition-colors",
-            group.reactedByMe
-              ? "border-primary bg-primary/10 text-foreground"
-              : "border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
-        >
-          <span className="text-sm leading-none">{group.emoji}</span>
-          <span className="tabular-nums">{group.count}</span>
-        </button>
+        <Tooltip key={group.emoji}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => toggle(group.emoji)}
+              aria-pressed={group.reactedByMe}
+              className={cn(
+                "flex h-6 items-center gap-1 rounded-full border px-2 text-xs leading-none transition-colors",
+                group.reactedByMe
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <span className="text-sm leading-none">{group.emoji}</span>
+              <span className="tabular-nums">{group.count}</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-56">
+            {group.reactorNames.join(", ")}
+          </TooltipContent>
+        </Tooltip>
       ))}
       <EmojiReactionPicker onSelect={toggle} alwaysVisible />
     </div>

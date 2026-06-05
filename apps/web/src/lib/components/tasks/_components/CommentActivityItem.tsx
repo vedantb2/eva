@@ -230,7 +230,7 @@ export function CommentActivityItem({
           </div>
         </div>
       ) : isDeleted ? (
-        <p className="text-sm italic text-muted-foreground">
+        <p className="pl-6 text-sm italic text-muted-foreground">
           {DELETED_COMMENT_PLACEHOLDER}
         </p>
       ) : (
@@ -238,12 +238,14 @@ export function CommentActivityItem({
           text={comment.content}
           repoBasePath={basePath}
           atKind="user"
-          className="text-sm text-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+          className="pl-6 text-sm text-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         />
       )}
 
       {!isEditing && !isDeleted ? (
-        <ReactionBar groups={groups} toggle={toggle} />
+        <div className="pl-6">
+          <ReactionBar groups={groups} toggle={toggle} />
+        </div>
       ) : null}
     </div>
   );

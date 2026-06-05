@@ -12,6 +12,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
+import { getUserDisplayName } from "./task-detail-constants";
 
 type ReactionView = FunctionReturnType<
   typeof api.taskReactions.listByTask
@@ -26,6 +27,9 @@ export interface ReactionGroup {
   count: number;
   // Whether the current user is one of the reactors (drives chip highlight).
   reactedByMe: boolean;
+  // Display names of everyone who reacted with this emoji (the current user
+  // shown as "You"), for the chip tooltip.
+  reactorNames: string[];
 }
 
 interface TaskReactionsContextValue {
@@ -65,6 +69,7 @@ export function TaskReactionsProvider({
 }) {
   const currentUserId = useQuery(api.auth.me);
   const reactions = useQuery(api.taskReactions.listByTask, { taskId });
+  const users = useQuery(api.users.listAll);
 
   const toggleMutation = useMutation(
     api.taskReactions.toggle,
@@ -99,11 +104,12 @@ export function TaskReactionsProvider({
   const groupsByTarget = useMemo(() => {
     const map = new Map<string, ReactionGroup[]>();
     if (!reactions) return map;
-    // targetKey -> emoji -> { count, mine }, preserving first-seen emoji order.
-    const byTarget = new Map<
-      string,
-      Map<string, { count: number; mine: boolean }>
-    >();
+    const nameById = new Map<Id<"users">, string>();
+    for (const user of users ?? []) {
+      nameById.set(user._id, getUserDisplayName(user));
+    }
+    // targetKey -> emoji -> reactor ids (in first-seen order, one row per user).
+    const byTarget = new Map<string, Map<string, Id<"users">[]>>();
     for (const reaction of reactions) {
       const key = targetKey(reaction.targetType, reaction.targetId);
       let emojiMap = byTarget.get(key);
@@ -111,25 +117,25 @@ export function TaskReactionsProvider({
         emojiMap = new Map();
         byTarget.set(key, emojiMap);
       }
-      const entry = emojiMap.get(reaction.emoji) ?? { count: 0, mine: false };
-      entry.count += 1;
-      if (currentUserId && reaction.userId === currentUserId) {
-        entry.mine = true;
-      }
-      emojiMap.set(reaction.emoji, entry);
+      const reactors = emojiMap.get(reaction.emoji) ?? [];
+      reactors.push(reaction.userId);
+      emojiMap.set(reaction.emoji, reactors);
     }
     for (const [key, emojiMap] of byTarget) {
       map.set(
         key,
-        [...emojiMap.entries()].map(([emoji, entry]) => ({
+        [...emojiMap.entries()].map(([emoji, reactors]) => ({
           emoji,
-          count: entry.count,
-          reactedByMe: entry.mine,
+          count: reactors.length,
+          reactedByMe: currentUserId ? reactors.includes(currentUserId) : false,
+          reactorNames: reactors.map((id) =>
+            id === currentUserId ? "You" : (nameById.get(id) ?? "Someone"),
+          ),
         })),
       );
     }
     return map;
-  }, [reactions, currentUserId]);
+  }, [reactions, currentUserId, users]);
 
   const toggle = useCallback(
     async (targetType: ReactionTargetType, targetId: string, emoji: string) => {

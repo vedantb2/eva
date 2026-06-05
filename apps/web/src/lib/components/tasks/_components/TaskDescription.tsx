@@ -155,7 +155,11 @@ export function TaskDescription({
           {groups.length > 0 ? (
             <ReactionBar groups={groups} toggle={toggle} />
           ) : (
-            <EmojiReactionPicker onSelect={toggle} variant="ghost" />
+            <EmojiReactionPicker
+              onSelect={toggle}
+              variant="ghost"
+              alwaysVisible
+            />
           )}
         </div>
       ) : null}

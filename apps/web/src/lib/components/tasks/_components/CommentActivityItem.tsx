@@ -25,6 +25,8 @@ import {
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
 import { ReactionBar } from "./ReactionBar";
+import { EmojiReactionPicker } from "./EmojiReactionPicker";
+import { useCommentReactions } from "./TaskReactionsProvider";
 import {
   DELETED_COMMENT_PLACEHOLDER,
   isCommentDeleted,
@@ -89,6 +91,7 @@ export function CommentActivityItem({
 }: CommentActivityItemProps) {
   const currentUserId = useQuery(api.auth.me);
   const { basePath } = useRepo();
+  const { groups, toggle } = useCommentReactions(comment._id);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -159,6 +162,9 @@ export function CommentActivityItem({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {!isEditing && !isDeleted ? (
+            <EmojiReactionPicker onSelect={toggle} variant="ghost" />
+          ) : null}
           {canManage && !isEditing ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -237,7 +243,7 @@ export function CommentActivityItem({
       )}
 
       {!isEditing && !isDeleted ? (
-        <ReactionBar commentId={comment._id} />
+        <ReactionBar groups={groups} toggle={toggle} />
       ) : null}
     </div>
   );

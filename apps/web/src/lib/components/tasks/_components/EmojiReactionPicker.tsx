@@ -13,6 +13,9 @@ interface EmojiReactionPickerProps {
   // When the comment already has reactions the trigger stays visible; otherwise
   // it only appears on hover/focus of the comment to keep the row uncluttered.
   alwaysVisible?: boolean;
+  // "pill" = bordered chip beside the reaction chips; "ghost" = icon button
+  // matching the comment-header actions (e.g. next to the options menu).
+  variant?: "pill" | "ghost";
 }
 
 /**
@@ -23,6 +26,7 @@ interface EmojiReactionPickerProps {
 export function EmojiReactionPicker({
   onSelect,
   alwaysVisible,
+  variant = "pill",
 }: EmojiReactionPickerProps) {
   const [open, setOpen] = useState(false);
 
@@ -31,17 +35,22 @@ export function EmojiReactionPicker({
     setOpen(false);
   };
 
+  const triggerClassName = cn(
+    "flex items-center justify-center text-muted-foreground transition-[opacity,background-color,color] hover:text-foreground focus-visible:opacity-100 data-[state=open]:text-foreground data-[state=open]:opacity-100",
+    variant === "ghost"
+      ? "size-7 rounded-md hover:bg-muted/60 data-[state=open]:bg-muted"
+      : "h-6 rounded-full border border-border bg-muted/40 px-2 hover:bg-muted data-[state=open]:bg-muted",
+    !alwaysVisible &&
+      "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+  );
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
           aria-label="Add reaction"
-          className={cn(
-            "flex h-6 items-center justify-center rounded-full border border-border bg-muted/40 px-2 text-muted-foreground transition-[opacity,background-color,color] hover:bg-muted hover:text-foreground focus-visible:opacity-100 data-[state=open]:bg-muted data-[state=open]:text-foreground data-[state=open]:opacity-100",
-            !alwaysVisible &&
-              "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-          )}
+          className={triggerClassName}
         >
           <IconMoodSmile className="size-3.5" />
         </button>

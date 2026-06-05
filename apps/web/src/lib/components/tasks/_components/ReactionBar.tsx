@@ -1,18 +1,23 @@
 "use client";
 
-import type { Id } from "@conductor/backend";
 import { cn } from "@conductor/ui";
-import { useCommentReactions } from "./TaskReactionsProvider";
 import { EmojiReactionPicker } from "./EmojiReactionPicker";
+import type { ReactionGroup } from "./TaskReactionsProvider";
+
+interface ReactionBarProps {
+  groups: ReactionGroup[];
+  toggle: (emoji: string) => void;
+}
 
 /**
- * Grouped reaction chips for a comment plus an "add reaction" trigger.
- * Chips the current user picked get a filled, primary-bordered look; clicking
- * any chip toggles that emoji. The picker trigger only shows on hover until the
- * comment has at least one reaction.
+ * Grouped reaction chips for a comment. Renders nothing until the comment has
+ * at least one reaction — the primary "add reaction" entry point lives in the
+ * comment header. Once reactions exist, an inline picker trigger is kept
+ * alongside the chips for convenience (so it's available in both places). Chips
+ * the current user picked are highlighted; click any chip to toggle that emoji.
  */
-export function ReactionBar({ commentId }: { commentId: Id<"taskComments"> }) {
-  const { groups, toggle } = useCommentReactions(commentId);
+export function ReactionBar({ groups, toggle }: ReactionBarProps) {
+  if (groups.length === 0) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -33,10 +38,7 @@ export function ReactionBar({ commentId }: { commentId: Id<"taskComments"> }) {
           <span className="tabular-nums">{group.count}</span>
         </button>
       ))}
-      <EmojiReactionPicker
-        onSelect={toggle}
-        alwaysVisible={groups.length > 0}
-      />
+      <EmojiReactionPicker onSelect={toggle} alwaysVisible />
     </div>
   );
 }

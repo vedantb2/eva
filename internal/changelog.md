@@ -1,10 +1,16 @@
 # Changelog
 
-## Landing page redesign - 2026-05-28
+## Sign-in landing v2 with product preview - 2026-06-06
 
-- Replaced the centered logo-and-buttons screen with a two-column marketing layout: hero copy and CTAs on the left, platform capability cards on the right.
-- Added a subtle grid-and-glow atmosphere (teal radial accents) and staggered entrance motion so the sign-in page feels intentional rather than a placeholder.
-- Feature cards reuse the same platform sections as the home welcome banner, with tonal `bg-muted/40` surfaces and no card borders per the design system.
+- New sign-in landing shows a static task-detail mock built from real Eva UI so visitors understand the product before creating an account; `VITE_NEW_LANDING=false` keeps the simpler hero + capability-cards layout for gradual rollout.
+- Public route avoids Convex tooltips and auth-only providers; activity steps in the mock use the shared `ActivityStepsTaskView` export.
+
+## Activity logs adopt AI Elements task composition - 2026-06-05
+
+- Replaced the activity-step accordion/timeline presentation with the AI Elements `Task` composition so run progress uses the same collapsible task-list language as the rest of the AI UI kit.
+- Split activity rendering into composable `task` and `timeline` variants behind the stable `ActivitySteps` API, making it easy to switch between the AI Elements design and the legacy timeline.
+- File-oriented steps now render inline `TaskItemFile` chips in the task view, while commands, searches, and other tool details remain compact text rows.
+- Tightened the callback progress contract so durable activity logs record tool/work events only; startup, thinking, response streaming, and finalization status stay out of the task list.
 
 ## Stats and home dashboard panels adopt a layered Widget look - 2026-06-05
 

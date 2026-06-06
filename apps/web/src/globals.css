@@ -287,6 +287,122 @@
       );
   }
 
+  .landing-grain::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    opacity: 0.4;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+
+  .dark .landing-grain::after {
+    opacity: 0.22;
+    mix-blend-mode: overlay;
+  }
+
+  .landing-display {
+    font-family: "Geist Sans", var(--font-sans);
+  }
+
+  .landing-headline-emphasis {
+    background: linear-gradient(
+      128deg,
+      rgb(var(--primary)),
+      rgb(var(--primary) / 0.62)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .landing-mock-stage {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .landing-mock-stage::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: -8% -6% -4%;
+    z-index: -1;
+    background: radial-gradient(
+      ellipse 70% 55% at 50% 42%,
+      rgb(var(--primary) / 0.14),
+      transparent 68%
+    );
+  }
+
+  .landing-mock-float {
+    animation: landing-mock-float 8s ease-in-out infinite;
+  }
+
+  @keyframes landing-mock-float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-0.35deg);
+    }
+    50% {
+      transform: translateY(-8px) rotate(0.35deg);
+    }
+  }
+
+  .landing-beam::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    top: -20%;
+    right: -5%;
+    width: 42%;
+    height: 70%;
+    transform: rotate(-18deg);
+    background: linear-gradient(
+      165deg,
+      rgb(var(--primary) / 0.07),
+      transparent 62%
+    );
+  }
+
+  .landing-orb {
+    animation: landing-orb-breathe 6s ease-in-out infinite;
+  }
+
+  @keyframes landing-orb-breathe {
+    0%,
+    100% {
+      opacity: 0.75;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.08);
+    }
+  }
+
+  .landing-mock-body {
+    max-height: min(32rem, 72vh);
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, black 88%, transparent 100%);
+  }
+
+  .landing-pulse-dot {
+    animation: landing-pulse-dot 2.4s ease-in-out infinite;
+  }
+
+  @keyframes landing-pulse-dot {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+  }
+
   .scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;

@@ -6,6 +6,9 @@ export const clientEnv = createEnv({
   client: {
     VITE_CONVEX_URL: z.string().min(1),
     VITE_CLERK_PUBLISHABLE_KEY: z.string().min(1),
+    VITE_NEW_LANDING: z.enum(["true", "false"]).optional(),
   },
   runtimeEnv: import.meta.env,
 });
+
+export const newLandingEnabled = clientEnv.VITE_NEW_LANDING !== "false";

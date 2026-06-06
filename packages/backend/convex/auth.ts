@@ -263,9 +263,7 @@ export const getOnboardingStatus = authQuery({
   handler: async (ctx) => {
     const user = await ctx.db.get(ctx.userId);
     if (!user) return { show: false };
-
     if (user.onboardingCompletedAt) return { show: false };
-    if (user.role) return { show: false };
 
     return { show: true };
   },

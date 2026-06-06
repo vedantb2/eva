@@ -1065,3 +1065,9 @@
     logo-draw-stroke 1.8s ease forwards,
     logo-draw-fill 1.8s ease forwards;
 }
+
+/* Unlayered — streamdown table-wrapper uses rounded-lg; inner scroll div uses rounded-md. */
+[data-streamdown="table-wrapper"],
+[data-streamdown="table-wrapper"] > div:has([data-streamdown="table"]) {
+  border-radius: clamp(0.75rem, var(--radius), 1.25rem);
+}

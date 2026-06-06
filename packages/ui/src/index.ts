@@ -1,4 +1,5 @@
 export { cn } from "./utils/cn";
+export { STREAMDOWN_TABLE_RADIUS_CLASS } from "./utils/surface-radius";
 
 export * from "./ui/accordion";
 export * from "./ui/alert";

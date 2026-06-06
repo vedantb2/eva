@@ -12,6 +12,8 @@ import {
   DialogBody,
   DialogFooter,
   Button,
+  cn,
+  STREAMDOWN_TABLE_RADIUS_CLASS,
 } from "@conductor/ui";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
@@ -91,7 +93,10 @@ export function ChangelogDialog() {
           <div className="max-h-[60vh] overflow-y-auto">
             <div className="rounded-surface border border-border bg-card p-4">
               <Streamdown
-                className="text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                className={cn(
+                  "text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+                  STREAMDOWN_TABLE_RADIUS_CLASS,
+                )}
                 plugins={changelogPlugins}
               >
                 {changelog.content}

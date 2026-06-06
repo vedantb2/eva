@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { cn } from "../utils/cn";
+import { STREAMDOWN_TABLE_RADIUS_CLASS } from "../utils/surface-radius";
 import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
@@ -328,6 +329,7 @@ export const MessageResponse = memo(
     <Streamdown
       className={cn(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        STREAMDOWN_TABLE_RADIUS_CLASS,
         className,
       )}
       plugins={streamdownPlugins}

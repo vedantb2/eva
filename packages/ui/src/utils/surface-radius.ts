@@ -31,3 +31,8 @@ export const CONTROL_RADIUS_CLASS = "rounded-control";
 /** Multi-line inset rows (e.g. session sidebar items with title + metadata). */
 
 export const MENU_ITEM_RADIUS_CLASS = "rounded-menu-item";
+
+/** Streamdown table-wrapper uses rounded-lg; inner scroll div uses rounded-md. */
+
+export const STREAMDOWN_TABLE_RADIUS_CLASS =
+  "[&_[data-streamdown=table-wrapper]]:rounded-surface [&_[data-streamdown=table-wrapper]>div]:rounded-surface";

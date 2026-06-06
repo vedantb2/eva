@@ -1,5 +1,9 @@
 # Changelog
 
+## Dev testing page for dialog previews - 2026-05-28
+
+- Root sidebar **Testing** tab (dev only) opens welcome-setup and changelog modals without URL hacks; preview hooks subscribe to router search params so dialogs open on click without refresh.
+
 ## Changelog requires explicit acknowledgment - 2026-05-28
 
 - Dialog cannot be dismissed with X, outside click, or Escape; primary action reads "Yes, I've read this" so users confirm they saw the update.

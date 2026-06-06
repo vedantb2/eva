@@ -7,6 +7,7 @@ import {
   IconInbox,
   IconPalette,
   IconServerBolt,
+  IconTestPipe,
   IconUsers,
 } from "@tabler/icons-react";
 import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@conductor/ui";
@@ -19,7 +20,13 @@ const ROOT_NAV_ITEMS = [
   { name: "Theme", href: "/settings/theme", icon: IconPalette },
   { name: "Notifications", href: "/settings/notifications", icon: IconBell },
   { name: "Sandboxes", href: "/settings/sandboxes", icon: IconServerBolt },
-];
+  {
+    name: "Testing",
+    href: "/testing",
+    icon: IconTestPipe,
+    devOnly: true,
+  },
+] as const;
 
 export function RootSidebarContent({
   collapsed,
@@ -32,9 +39,13 @@ export function RootSidebarContent({
 }) {
   const { pathname } = useLocation();
 
+  const navItems = import.meta.env.DEV
+    ? ROOT_NAV_ITEMS
+    : ROOT_NAV_ITEMS.filter((item) => !("devOnly" in item && item.devOnly));
+
   return (
     <div className="space-y-1">
-      {ROOT_NAV_ITEMS.map((item) => {
+      {navItems.map((item) => {
         const isActive =
           item.href === "/home"
             ? pathname === "/home" || pathname.startsWith("/setup")

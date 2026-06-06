@@ -14,6 +14,7 @@ import { Route as AgentCallbackRouteImport } from './routes/agent-callback'
 import { Route as RepoRouteImport } from './routes/_repo'
 import { Route as GlobalRouteImport } from './routes/_global'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GlobalTestingRouteImport } from './routes/_global/testing'
 import { Route as GlobalInboxRouteImport } from './routes/_global/inbox'
 import { Route as GlobalHomeRouteImport } from './routes/_global/home'
 import { Route as GlobalTeamsIndexRouteImport } from './routes/_global/teams/index'
@@ -99,6 +100,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const GlobalTestingRoute = GlobalTestingRouteImport.update({
+  id: '/testing',
+  path: '/testing',
+  getParentRoute: () => GlobalRoute,
 } as any)
 const GlobalInboxRoute = GlobalInboxRouteImport.update({
   id: '/inbox',
@@ -463,6 +469,7 @@ export interface FileRoutesByFullPath {
   '/preview-auth': typeof PreviewAuthRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
+  '/testing': typeof GlobalTestingRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
   '/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
@@ -530,6 +537,7 @@ export interface FileRoutesByTo {
   '/preview-auth': typeof PreviewAuthRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
+  '/testing': typeof GlobalTestingRoute
   '/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
   '/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
@@ -590,6 +598,7 @@ export interface FileRoutesById {
   '/preview-auth': typeof PreviewAuthRoute
   '/_global/home': typeof GlobalHomeRoute
   '/_global/inbox': typeof GlobalInboxRoute
+  '/_global/testing': typeof GlobalTestingRoute
   '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
   '/_global/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/_global/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
@@ -659,6 +668,7 @@ export interface FileRouteTypes {
     | '/preview-auth'
     | '/home'
     | '/inbox'
+    | '/testing'
     | '/teams/$teamId'
     | '/settings/notifications'
     | '/settings/personalisation'
@@ -726,6 +736,7 @@ export interface FileRouteTypes {
     | '/preview-auth'
     | '/home'
     | '/inbox'
+    | '/testing'
     | '/settings/notifications'
     | '/settings/personalisation'
     | '/settings/sandboxes'
@@ -785,6 +796,7 @@ export interface FileRouteTypes {
     | '/preview-auth'
     | '/_global/home'
     | '/_global/inbox'
+    | '/_global/testing'
     | '/_global/teams/$teamId'
     | '/_global/settings/notifications'
     | '/_global/settings/personalisation'
@@ -892,6 +904,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_global/testing': {
+      id: '/_global/testing'
+      path: '/testing'
+      fullPath: '/testing'
+      preLoaderRoute: typeof GlobalTestingRouteImport
+      parentRoute: typeof GlobalRoute
     }
     '/_global/inbox': {
       id: '/_global/inbox'
@@ -1349,6 +1368,7 @@ const GlobalTeamsTeamIdRouteRouteWithChildren =
 interface GlobalRouteChildren {
   GlobalHomeRoute: typeof GlobalHomeRoute
   GlobalInboxRoute: typeof GlobalInboxRoute
+  GlobalTestingRoute: typeof GlobalTestingRoute
   GlobalTeamsTeamIdRouteRoute: typeof GlobalTeamsTeamIdRouteRouteWithChildren
   GlobalSettingsNotificationsRoute: typeof GlobalSettingsNotificationsRoute
   GlobalSettingsPersonalisationRoute: typeof GlobalSettingsPersonalisationRoute
@@ -1362,6 +1382,7 @@ interface GlobalRouteChildren {
 const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalHomeRoute: GlobalHomeRoute,
   GlobalInboxRoute: GlobalInboxRoute,
+  GlobalTestingRoute: GlobalTestingRoute,
   GlobalTeamsTeamIdRouteRoute: GlobalTeamsTeamIdRouteRouteWithChildren,
   GlobalSettingsNotificationsRoute: GlobalSettingsNotificationsRoute,
   GlobalSettingsPersonalisationRoute: GlobalSettingsPersonalisationRoute,

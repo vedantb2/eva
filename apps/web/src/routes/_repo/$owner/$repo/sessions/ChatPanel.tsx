@@ -438,7 +438,7 @@ export function ChatPanel({
   }, [showSummaryStreaming, hasSummary, summaryStreamingActivity, summary]);
 
   const startupStreamingNode = (
-    <div className="rounded-lg bg-secondary p-4">
+    <div className="rounded-surface bg-secondary p-4">
       <StreamingActivityDisplay
         activity={startupStreamingActivity}
         thinkingLabel="Starting sandbox..."
@@ -712,7 +712,7 @@ export function ChatPanel({
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.1 }}
-                  className="rounded-lg bg-success/10 p-4 text-center"
+                  className="rounded-surface bg-success/10 p-4 text-center"
                 >
                   <IconCircleCheck
                     size={24}

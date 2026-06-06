@@ -70,7 +70,7 @@ export function CommentThread({
 
   if (depth === 0) {
     return (
-      <div className="space-y-3 rounded-lg border border-border bg-card p-3">
+      <div className="space-y-3 rounded-surface border border-border bg-card p-3">
         <CommentActivityItem
           comment={comment}
           taskId={taskId}

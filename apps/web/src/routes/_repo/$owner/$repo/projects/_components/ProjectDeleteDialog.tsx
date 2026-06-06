@@ -36,7 +36,7 @@ export function ProjectDeleteDialog({
           <p className="text-muted-foreground">
             Are you sure you want to delete <strong>{project?.title}</strong>?
           </p>
-          <div className="mt-3 p-3 bg-warning-bg rounded-lg">
+          <div className="mt-3 p-3 bg-warning-bg rounded-surface">
             <p className="text-sm text-warning">
               This will permanently delete the project and all associated tasks,
               agent runs, and dependencies.

@@ -256,7 +256,7 @@ export function DocsSidebar({
                   <ContextMenuTrigger asChild>
                     <div
                       className={cn(
-                        "group mx-1 rounded-md px-3 py-3 transition-colors",
+                        "group mx-1 rounded-lg px-3 py-3 transition-colors",
                         isSelected
                           ? "bg-sidebar-accent text-sidebar-primary"
                           : "text-sidebar-foreground hover:bg-sidebar-accent/70",
@@ -326,7 +326,7 @@ export function DocsSidebar({
           </DialogHeader>
           {showUploadSection ? (
             <div className="space-y-4">
-              <div className="rounded-md border border-border bg-card p-3">
+              <div className="rounded-surface border border-border bg-card p-3">
                 <p className="text-sm font-medium">Upload a file</p>
                 <p className="mb-3 text-sm text-muted-foreground">
                   Supported formats: .md, .txt
@@ -388,7 +388,7 @@ export function DocsSidebar({
               />
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                className="flex w-full items-center gap-2 rounded-control border border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
                 onClick={() => setShowUploadSection(true)}
               >
                 <IconUpload size={14} />

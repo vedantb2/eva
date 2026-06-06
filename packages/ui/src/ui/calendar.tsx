@@ -8,6 +8,7 @@ import {
 } from "react-day-picker";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { cn } from "../utils/cn";
+import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 import { buttonVariants } from "./button";
 
 function Calendar({
@@ -21,7 +22,11 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("rounded-lg border border-border bg-card p-3", className)}
+      className={cn(
+        "border border-border bg-card p-3",
+        SURFACE_RADIUS_CLASS,
+        className,
+      )}
       classNames={{
         root: cn("w-fit", defaultClassNames.root),
         months: cn(
@@ -54,7 +59,8 @@ function Calendar({
         table: "w-full border-collapse",
         weekdays: cn("flex", defaultClassNames.weekdays),
         weekday: cn(
-          "text-muted-foreground rounded-lg flex-1 font-medium text-[0.76rem] uppercase tracking-[0.08em] select-none",
+          "text-muted-foreground flex-1 font-medium text-[0.76rem] uppercase tracking-[0.08em] select-none",
+          "rounded-lg",
           defaultClassNames.weekday,
         ),
         week: cn("flex w-full mt-2", defaultClassNames.week),
@@ -63,7 +69,8 @@ function Calendar({
           defaultClassNames.day,
         ),
         today: cn(
-          "rounded-lg border border-primary/25 bg-primary/10 text-primary",
+          "border border-primary/25 bg-primary/10 text-primary",
+          "rounded-lg",
           defaultClassNames.today,
         ),
         outside: cn(

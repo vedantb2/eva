@@ -12,9 +12,9 @@ export function AppSkeleton() {
       <div className="hidden md:flex w-64 flex-col bg-sidebar p-4 gap-4">
         <div className="h-8 w-32 bg-muted/50 rounded-lg animate-pulse" />
         <div className="flex-1 flex flex-col gap-2 mt-4">
-          <div className="h-10 w-full bg-muted/30 rounded-lg animate-pulse" />
-          <div className="h-10 w-full bg-muted/30 rounded-lg animate-pulse" />
-          <div className="h-10 w-full bg-muted/30 rounded-lg animate-pulse" />
+          <div className="h-10 w-full rounded-control bg-muted/30 animate-pulse" />
+          <div className="h-10 w-full rounded-control bg-muted/30 animate-pulse" />
+          <div className="h-10 w-full rounded-control bg-muted/30 animate-pulse" />
         </div>
       </div>
 

@@ -9,7 +9,7 @@ interface SettingToggleProps {
 
 /**
  * A labelled on/off switch row used across the automation settings cards
- * (Share, Report Only, Actions, Send email). Wrap in a `rounded-lg border border-border bg-muted/40`
+ * (Share, Report Only, Actions, Send email). Wrap in a `rounded-surface border border-border bg-muted/40`
  * card at the call site for surface grouping.
  */
 export function SettingToggle({

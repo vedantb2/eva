@@ -55,7 +55,7 @@ export function LatestRun({
 
   if (!run) {
     return (
-      <div className="rounded-lg border border-border bg-card p-8 text-center">
+      <div className="rounded-surface border border-border bg-card p-8 text-center">
         <p className="text-sm text-muted-foreground">
           No runs yet. Enable the automation and wait for the cron schedule to
           trigger, or click &quot;Run Now&quot;.
@@ -99,7 +99,7 @@ export function RunHistory({
 
   if (runs.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-8 text-center">
+      <div className="rounded-surface border border-border bg-card p-8 text-center">
         <p className="text-sm text-muted-foreground">
           No runs yet. Enable the automation and wait for the cron schedule to
           trigger, or click &quot;Run Now&quot;.
@@ -175,7 +175,7 @@ function RunAccordion({
     : null;
 
   return (
-    <div className="rounded-lg border border-border bg-muted/40 overflow-hidden">
+    <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
       <button
         type="button"
         onClick={() => {
@@ -264,7 +264,7 @@ function RunAccordion({
                 run.resultSummary &&
                 !run.findings &&
                 run.status === "success" && (
-                  <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-3 py-2">
+                  <div className="flex items-center gap-2 rounded-surface bg-warning/10 px-3 py-2">
                     <IconAlertTriangle
                       size={14}
                       className="shrink-0 text-warning"

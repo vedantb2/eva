@@ -10,7 +10,7 @@ export function LandingCapabilityGrid() {
           <div
             key={section.label}
             className={cn(
-              "group rounded-xl bg-muted/40 p-3 transition-[background-color,transform] sm:p-3.5",
+              "group rounded-surface bg-muted/40 p-3 transition-[background-color,transform] sm:p-3.5",
               "hover:bg-muted/55",
             )}
           >

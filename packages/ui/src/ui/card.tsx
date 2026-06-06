@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "../utils/cn";
+import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 
 const Card = React.forwardRef<
   HTMLDivElement,
@@ -8,7 +9,8 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border border-border bg-card text-card-foreground shadow-sm",
+      SURFACE_RADIUS_CLASS,
+      "border border-border bg-card text-card-foreground shadow-sm",
       className,
     )}
     {...props}

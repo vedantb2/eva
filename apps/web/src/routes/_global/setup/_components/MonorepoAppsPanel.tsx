@@ -54,7 +54,7 @@ export function MonorepoAppsPanel({
         return (
           <div
             key={app.path}
-            className="flex items-center justify-between p-2 rounded-lg border border-border bg-card"
+            className="flex items-center justify-between p-2 rounded-surface border border-border bg-card"
           >
             <div className="flex items-center gap-2 min-w-0">
               <IconFolder className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -92,7 +92,7 @@ export function MonorepoAppsPanel({
           placeholder="Custom root directory..."
           value={customRootDir}
           onChange={(e) => setCustomRootDir(e.target.value)}
-          className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+          className="flex-1 rounded-control border border-border bg-background px-2 py-1.5 text-sm"
         />
         <Button
           size="sm"

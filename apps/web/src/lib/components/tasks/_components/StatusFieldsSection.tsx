@@ -511,7 +511,7 @@ export function StatusFieldsSection({
       </Select>
 
       <div
-        className="group/tags flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1 flex-wrap cursor-text"
+        className="group/tags flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1 flex-wrap cursor-text"
         onClick={() => tagDraftRef.current?.focus()}
       >
         <IconTags size={14} className="text-muted-foreground shrink-0" />
@@ -584,7 +584,7 @@ export function StatusFieldsSection({
         )}
       </div>
 
-      <div className="flex items-center min-h-[40px] rounded-md px-2 transition-colors hover:bg-muted/50">
+      <div className="flex items-center min-h-[40px] rounded-lg px-2 transition-colors hover:bg-muted/50">
         <ModelSelect
           value={currentModel}
           options={modelOptions}
@@ -610,7 +610,7 @@ export function StatusFieldsSection({
       </div>
 
       {!task?.projectId && (
-        <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2">
+        <div className="flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2">
           {status === "todo" ? (
             <BranchSelect
               value={baseBranch}
@@ -641,7 +641,7 @@ export function StatusFieldsSection({
       )}
 
       {latestDeployment?.deploymentStatus && (
-        <div className="flex items-center h-10 rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+        <div className="flex items-center h-10 rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
           <IconBrandVercelFilled
             size={14}
             className={

@@ -13,6 +13,7 @@ import {
 } from "../ui/tooltip";
 import { IconBug, IconTerminal2 } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
+import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 import {
   createContext,
   useCallback,
@@ -98,7 +99,8 @@ export const WebPreview = ({
       <div
         ref={ref}
         className={cn(
-          "flex size-full flex-col rounded-lg border bg-card",
+          "flex size-full flex-col border bg-card",
+          SURFACE_RADIUS_CLASS,
           className,
         )}
         {...props}

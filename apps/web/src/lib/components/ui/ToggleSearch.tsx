@@ -76,7 +76,7 @@ export function ToggleSearch({
               }}
               className={cn(
                 isLarge
-                  ? "h-9 rounded-xl pl-9 pr-8 text-sm shadow-sm focus-visible:border-border focus-visible:shadow-md focus-visible:ring-0"
+                  ? "h-9 rounded-control pl-9 pr-8 text-sm shadow-sm focus-visible:border-border focus-visible:shadow-md focus-visible:ring-0"
                   : "h-8 pl-7 pr-7 text-sm focus-visible:border-border focus-visible:shadow-lg focus-visible:ring-0",
               )}
             />

@@ -54,7 +54,7 @@ export function LogsHeader({
         tooltipLabel="Search logs"
       />
 
-      <div className="flex items-center rounded-md bg-muted/60 p-0.5">
+      <div className="flex items-center rounded-lg bg-muted/60 p-0.5">
         <button
           onClick={() => onLogViewChange("type")}
           className={`motion-base rounded px-2 py-1 text-xs font-medium ${

@@ -60,7 +60,7 @@ export function ChatMessage({
         <MessageContent
           className={
             isUser
-              ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+              ? "rounded-surface bg-secondary text-foreground px-4 py-3"
               : "px-1 py-2"
           }
         >

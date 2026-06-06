@@ -204,14 +204,27 @@
     background: rgb(var(--primary) / 0.22);
     color: rgb(var(--foreground));
   }
+
+  /* Cap radius on form controls when theme radius is "full" (9999px). */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="hidden"]
+    ):not([type="file"]),
+  textarea,
+  select {
+    border-radius: min(var(--radius), 1.25rem);
+  }
+
+  [contenteditable="true"][role="textbox"] {
+    border-radius: min(var(--radius), 1.25rem);
+  }
 }
 
 @layer components {
   .ui-surface {
-    @apply rounded-lg border border-border bg-card shadow-sm;
+    @apply rounded-surface border border-border bg-card shadow-sm;
   }
   .ui-surface-strong {
-    @apply rounded-lg border border-border bg-card shadow-sm;
+    @apply rounded-surface border border-border bg-card shadow-sm;
   }
   .ui-surface-interactive {
     @apply ui-surface motion-base hover:bg-muted/60;
@@ -222,6 +235,18 @@
 }
 
 @layer utilities {
+  .rounded-surface {
+    border-radius: clamp(0.75rem, var(--radius), 1.25rem);
+  }
+
+  .rounded-menu-item {
+    border-radius: min(var(--radius), 0.75rem);
+  }
+
+  .rounded-control {
+    border-radius: min(var(--radius), 1.25rem);
+  }
+
   .bg-app-shell {
     background-color: rgb(var(--app-shell));
   }

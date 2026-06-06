@@ -83,7 +83,7 @@ export function CronScheduleCard({
   const schedule = allowManual ? value : value || "";
 
   return (
-    <div className="rounded-lg border border-border bg-card p-3 space-y-4 sm:p-4">
+    <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
       <h3 className="text-sm font-medium">Cron Schedule</h3>
       <div>
         <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -133,7 +133,7 @@ function CronPreview({
 }) {
   if (allowManual && schedule === "manual") {
     return (
-      <div className="mb-2 rounded-md bg-muted/50 px-3 py-2 text-center">
+      <div className="mb-2 rounded-surface bg-muted/50 px-3 py-2 text-center">
         <p className="text-sm text-muted-foreground">Manual only</p>
       </div>
     );
@@ -145,7 +145,7 @@ function CronPreview({
 
   if (!result.valid) {
     return (
-      <div className="mb-2 rounded-md bg-muted/50 px-3 py-2 text-center">
+      <div className="mb-2 rounded-surface bg-muted/50 px-3 py-2 text-center">
         <p className="text-sm text-muted-foreground">
           {result.partial
             ? "Type a cron expression..."
@@ -158,7 +158,7 @@ function CronPreview({
   const next = nextCronDate(schedule);
 
   return (
-    <div className="mb-2 rounded-md bg-muted/50 px-3 py-2 text-center">
+    <div className="mb-2 rounded-surface bg-muted/50 px-3 py-2 text-center">
       <p className="text-lg font-medium">{result.text}</p>
       {next && (
         <p className="text-[11px] text-muted-foreground">next at {next}</p>
@@ -169,7 +169,7 @@ function CronPreview({
 
 function CronGuide() {
   return (
-    <div className="mt-3 rounded-md border border-border bg-muted/40 overflow-hidden">
+    <div className="mt-3 rounded-surface border border-border bg-muted/40 overflow-hidden">
       <div className="bg-muted/30 px-3 py-1.5">
         <p className="text-[11px] font-medium text-muted-foreground">
           Cron format reference

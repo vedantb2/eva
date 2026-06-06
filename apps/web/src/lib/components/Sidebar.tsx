@@ -184,6 +184,7 @@ export function Sidebar() {
       "inbox",
       "api",
       "settings",
+      "testing",
     ]);
     if (nonRepoRoutes.has(segments[0])) {
       return {
@@ -325,7 +326,7 @@ export function Sidebar() {
       "group motion-base flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
       collapsed && "lg:justify-center lg:px-0",
       isActive
-        ? "bg-sidebar-accent font-medium text-sidebar-foreground"
+        ? "bg-sidebar-accent font-medium text-sidebar-primary"
         : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
     );
 
@@ -364,7 +365,7 @@ export function Sidebar() {
         ) : (
           <Link
             to="/home"
-            className="mx-auto flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5"
+            className="mx-auto flex items-center gap-2 rounded-surface border border-border bg-muted/40 px-2.5 py-1.5"
           >
             <LogoMark size={26} />
             <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
@@ -689,7 +690,7 @@ export function Sidebar() {
                                               className={cn(
                                                 "shrink-0",
                                                 isActive
-                                                  ? "text-sidebar-foreground"
+                                                  ? "text-sidebar-primary"
                                                   : "text-muted-foreground",
                                               )}
                                             />
@@ -754,7 +755,7 @@ export function Sidebar() {
                                           className={cn(
                                             "shrink-0",
                                             isActive
-                                              ? "text-sidebar-foreground"
+                                              ? "text-sidebar-primary"
                                               : "text-muted-foreground",
                                           )}
                                         />

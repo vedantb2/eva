@@ -133,7 +133,7 @@ export function TaskDescription({
             onBlur={handleSave}
             placeholder="Add description..."
             minHeight="min-h-[160px]"
-            className="border-0 px-0 py-0 shadow-none focus-visible:ring-0"
+            className="rounded-none border-0 px-0 py-0 shadow-none focus-visible:ring-0"
           />
         ) : desc ? (
           <MarkdownMentionText

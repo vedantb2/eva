@@ -7,7 +7,7 @@ import { IconAlertTriangle } from "@tabler/icons-react";
  */
 export function RebuildRequiredWarning() {
   return (
-    <div className="flex items-start gap-3 rounded-lg bg-warning/10 p-3">
+    <div className="flex items-start gap-3 rounded-surface bg-warning/10 p-3">
       <IconAlertTriangle size={18} className="mt-0.5 shrink-0 text-warning" />
       <div className="text-xs">
         <p className="font-medium text-warning">

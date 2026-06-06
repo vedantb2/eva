@@ -37,7 +37,7 @@ export function ActiveTasksAccordion({
   }
 
   return (
-    <div className="rounded-lg bg-sidebar-accent/50 p-1.5">
+    <div className="rounded-surface bg-sidebar-accent/50 p-1.5">
       <Accordion
         type="multiple"
         defaultValue={["active-tasks"]}

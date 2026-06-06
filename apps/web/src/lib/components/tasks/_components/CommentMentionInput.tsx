@@ -58,7 +58,7 @@ export const CommentMentionInput = forwardRef<
       placeholder={placeholder}
       ariaLabel={placeholder ?? "Comment input"}
       className={cn(
-        "min-h-16 max-h-40 overflow-y-auto rounded-lg border border-input bg-card px-3 py-2 pr-12 focus-visible:ring-1 focus-visible:ring-ring",
+        "min-h-16 max-h-40 overflow-y-auto rounded-control border border-input bg-card px-3 py-2 pr-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35",
         className,
       )}
       renderItem={(item) => (

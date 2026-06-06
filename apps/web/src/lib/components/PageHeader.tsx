@@ -26,7 +26,7 @@ export function PageHeader({
       {showBack && (
         <button
           onClick={onBack ?? (() => window.history.back())}
-          className="flex-shrink-0 rounded-lg border border-border bg-card p-1.5 transition-[background-color] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          className="flex-shrink-0 rounded-surface border border-border bg-card p-1.5 transition-[background-color] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
         >
           <IconArrowLeft size={18} className="text-muted-foreground" />
         </button>

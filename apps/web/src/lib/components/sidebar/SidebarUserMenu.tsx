@@ -63,7 +63,7 @@ export function SidebarUserMenu({
         ) : (
           <button
             type="button"
-            className="flex w-full items-center gap-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/40 p-2 text-left shadow-sm transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35"
+            className="flex w-full items-center gap-2.5 rounded-surface border border-sidebar-border bg-sidebar-accent/40 p-2 text-left shadow-sm transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35"
           >
             <UserInitials
               user={{ fullName: name }}

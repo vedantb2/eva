@@ -115,7 +115,7 @@ export function AutomationsSidebar({
                 <div
                   key={automation._id}
                   className={cn(
-                    "group mx-1 rounded-md transition-colors",
+                    "group mx-1 rounded-lg transition-colors",
                     isSelected
                       ? "bg-sidebar-accent text-sidebar-primary"
                       : "text-sidebar-foreground hover:bg-sidebar-accent/70",

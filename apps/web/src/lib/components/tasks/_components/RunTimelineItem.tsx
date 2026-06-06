@@ -118,7 +118,10 @@ export function RunTimelineItem({
 
   return (
     <Accordion type="multiple" defaultValue={[]}>
-      <AccordionItem value={run._id} className="rounded-lg bg-muted/40 px-3">
+      <AccordionItem
+        value={run._id}
+        className="rounded-surface bg-muted/40 px-3"
+      >
         <div className="flex items-center gap-2">
           <AccordionTrigger className="flex-1 min-w-0">
             <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-3">

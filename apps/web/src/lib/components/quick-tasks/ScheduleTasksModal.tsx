@@ -116,7 +116,7 @@ export function ScheduleTasksModal({
           time={time}
           onTimeChange={setTime}
           timestamp={timestamp}
-          calendarClassName="border rounded-md shadow-none mx-auto"
+          calendarClassName="border rounded-control shadow-none mx-auto"
           showPreview={false}
         />
         {timestamp && (

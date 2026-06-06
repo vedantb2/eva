@@ -29,7 +29,7 @@ export function NotificationsSettingsClient() {
 
   return (
     <PageWrapper title="Notifications" comfortable>
-      <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted/60">
+      <label className="flex cursor-pointer items-start gap-3 rounded-surface border border-border bg-card p-4 transition-colors hover:bg-muted/60">
         <Checkbox
           className="mt-0.5"
           checked={enabled}

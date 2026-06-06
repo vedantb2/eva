@@ -40,7 +40,7 @@ import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 
 const GHOST_TRIGGER_CLASS =
-  "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-md text-[13px] [&>svg:last-child]:hidden shrink-0";
+  "h-8 w-auto border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden shrink-0";
 
 interface ProjectMetadataBarProps {
   projectId: Id<"projects">;
@@ -153,7 +153,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className={`flex items-center h-8 rounded-md hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 ${!project.members?.length ? "text-muted-foreground" : ""}`}
+            className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 ${!project.members?.length ? "text-muted-foreground" : ""}`}
           >
             <IconUsers size={14} className="text-muted-foreground shrink-0" />
             <span>
@@ -242,7 +242,7 @@ function DatePickerField({
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className={`flex items-center h-8 rounded-md hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 whitespace-nowrap ${!selected ? "text-muted-foreground" : ""}`}
+          className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 whitespace-nowrap ${!selected ? "text-muted-foreground" : ""}`}
         >
           <Icon
             size={14}

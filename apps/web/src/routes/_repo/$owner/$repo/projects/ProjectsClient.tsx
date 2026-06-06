@@ -239,7 +239,7 @@ export function ProjectsClient() {
         variant="large"
       />
       {hasProjects && (
-        <div className="flex items-center rounded-lg border border-border bg-muted/40 overflow-hidden">
+        <div className="flex items-center rounded-surface border border-border bg-muted/40 overflow-hidden">
           {VIEW_OPTIONS.map((opt) => (
             <Tooltip key={opt.key}>
               <TooltipTrigger asChild>

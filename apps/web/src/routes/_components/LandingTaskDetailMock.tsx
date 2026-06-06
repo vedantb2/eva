@@ -81,7 +81,7 @@ export function LandingTaskDetailMock() {
         </div>
       </div>
 
-      <div className="landing-mock-body space-y-4 rounded-xl bg-background p-4 sm:p-5">
+      <div className="landing-mock-body space-y-4 rounded-surface bg-background p-4 sm:p-5">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
@@ -130,7 +130,7 @@ export function LandingTaskDetailMock() {
             <Accordion type="multiple" defaultValue={[MOCK_RUN_ID]}>
               <AccordionItem
                 value={MOCK_RUN_ID}
-                className="rounded-lg bg-muted/40 px-3"
+                className="rounded-surface bg-muted/40 px-3"
               >
                 <AccordionTrigger className="hover:no-underline">
                   <div className="mr-2 flex min-w-0 flex-1 items-center justify-between gap-3">
@@ -175,7 +175,7 @@ export function LandingTaskDetailMock() {
 
 function LandingMockComposer() {
   return (
-    <div className="overflow-hidden rounded-lg border border-input bg-card">
+    <div className="overflow-hidden rounded-surface border border-input bg-card">
       <div
         aria-hidden
         className="min-h-20 px-3 py-2.5 text-sm text-muted-foreground"
@@ -221,7 +221,7 @@ function LandingMockSystemAlert() {
 
 function LandingMockCommentThread() {
   return (
-    <div className="space-y-3 rounded-lg bg-muted/40 p-3">
+    <div className="space-y-3 rounded-surface bg-muted/40 p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <LandingMockAvatar initials="AK" />

@@ -146,7 +146,7 @@ interface SectionProps {
 
 function Section({ label, count, glyph, children }: SectionProps) {
   return (
-    <div className="rounded-lg border border-border bg-muted/40 p-1">
+    <div className="rounded-surface border border-border bg-muted/40 p-1">
       <div className="flex items-center gap-2 px-2 pb-1 pt-1.5">
         <span className="flex h-3 w-3 items-center justify-center">
           {glyph}
@@ -172,9 +172,9 @@ function ProjectRow({ title, to }: ProjectRowProps) {
   return (
     <DynamicLink
       to={to}
-      className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+      className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
     >
-      <div className="group flex items-center gap-2 rounded-md px-2 py-1.5 transition-[background-color,transform] hover:bg-background hover:translate-x-0.5">
+      <div className="group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-[background-color,transform] hover:bg-background hover:translate-x-0.5">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] leading-tight text-foreground">
             {title}

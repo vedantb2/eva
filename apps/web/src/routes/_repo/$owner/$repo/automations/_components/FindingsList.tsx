@@ -137,7 +137,7 @@ function FindingRow({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-muted/40 overflow-hidden",
+        "rounded-surface border border-border bg-muted/40 overflow-hidden",
       )}
     >
       <div className="flex items-center gap-3 px-3 py-2.5">

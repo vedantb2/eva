@@ -140,7 +140,7 @@ export function QuickTasksBulkBar({
           transition={{ duration: 0.15, ease: "easeOut" }}
         >
           <TooltipProvider delayDuration={300}>
-            <div className="flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-xl bg-foreground px-2.5 py-2 shadow-lg scrollbar-none">
+            <div className="flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-surface bg-foreground px-2.5 py-2 shadow-lg scrollbar-none">
               {/* Prefix: selection count */}
               <div className="flex shrink-0 items-center gap-2 pl-1 pr-0.5">
                 <span className="rounded-md bg-background/15 px-2 py-0.5 text-xs font-semibold text-background tabular-nums">

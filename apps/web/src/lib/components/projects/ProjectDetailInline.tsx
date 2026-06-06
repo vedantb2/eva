@@ -39,7 +39,7 @@ import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 
 const GHOST_TRIGGER_CLASS =
-  "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-md text-[13px] [&>svg:last-child]:hidden";
+  "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden";
 
 interface ProjectDetailInlineProps {
   projectId: Id<"projects">;
@@ -103,7 +103,7 @@ export function ProjectDetailInline({
           </div>
 
           <div className="pl-0 sm:pl-6 space-y-0.5">
-            <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+            <div className="flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
               <IconCalendar
                 size={14}
                 className="text-muted-foreground shrink-0"
@@ -114,7 +114,7 @@ export function ProjectDetailInline({
               </span>
             </div>
 
-            <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+            <div className="flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
               <IconFlag size={14} className="text-muted-foreground shrink-0" />
               <ProjectPhaseBadge phase={project.phase} />
             </div>
@@ -164,7 +164,7 @@ export function ProjectDetailInline({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className={`flex items-center w-full min-h-[40px] rounded-md hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] ${!project.members?.length ? "text-muted-foreground" : ""}`}
+                  className={`flex items-center w-full min-h-[40px] rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] ${!project.members?.length ? "text-muted-foreground" : ""}`}
                 >
                   <IconUsers
                     size={14}
@@ -256,7 +256,7 @@ function DatePickerField({
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className={`flex items-center w-full min-h-[40px] rounded-md hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] ${!selected ? "text-muted-foreground" : ""}`}
+          className={`flex items-center w-full min-h-[40px] rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] ${!selected ? "text-muted-foreground" : ""}`}
         >
           <Icon
             size={14}

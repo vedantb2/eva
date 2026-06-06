@@ -12,6 +12,10 @@ import type { FC, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "../utils/cn";
 import {
+  CONTROL_RADIUS_CLASS,
+  SURFACE_RADIUS_CLASS,
+} from "../utils/surface-radius";
+import {
   useGanttContext,
   getAddRange,
   getDateByMousePosition,
@@ -65,7 +69,8 @@ export const GanttFeatureDragHelper: FC<GanttFeatureDragHelperProps> = ({
       {date && (
         <div
           className={cn(
-            "-translate-x-1/2 absolute top-10 hidden whitespace-nowrap rounded-lg bg-background/90 px-2 py-1 text-foreground text-xs backdrop-blur-lg group-hover:block",
+            "-translate-x-1/2 absolute top-10 hidden whitespace-nowrap bg-background/90 px-2 py-1 text-foreground text-xs backdrop-blur-lg group-hover:block",
+            SURFACE_RADIUS_CLASS,
             isPressed && "block",
           )}
         >
@@ -95,7 +100,8 @@ export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
   return (
     <div
       className={cn(
-        "h-full w-full rounded-md bg-muted/40 p-2 text-xs",
+        "h-full w-full bg-muted/40 p-2 text-xs",
+        CONTROL_RADIUS_CLASS,
         className,
       )}
     >

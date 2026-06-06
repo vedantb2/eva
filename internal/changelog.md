@@ -1,5 +1,10 @@
 # Changelog
 
+## Full-radius theme no longer warps wide surfaces - 2026-05-28
+
+- Introduced capped `rounded-surface`, `rounded-control`, and `rounded-menu-item` tokens so **Full** corner radius keeps pills on compact nav rows but stops modals, cards, dropdown panels, and textareas from becoming ovals.
+- Repo and root sidebar active items use accent foreground on icons and labels for clearer selection state.
+
 ## Default theme cyan accent and xl radius - 2026-06-06
 
 - New users and unset preferences now open on cyan accents with extra-large corner radius so the default Eva look matches the intended brand polish.

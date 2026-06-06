@@ -7,7 +7,7 @@ export const SCREENSHOTS_ON_VALUE = "__on__";
 export const SCREENSHOTS_OFF_VALUE = "__off__";
 
 export const GHOST_TRIGGER_CLASS =
-  "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-md text-[13px] [&>svg:last-child]:hidden";
+  "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden";
 
 export const DEPLOYMENT_STATUS_CONFIG: Record<
   string,

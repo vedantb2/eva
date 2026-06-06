@@ -425,7 +425,7 @@ export function EnvVarsTable({
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-lg border border-border bg-muted/40">
+          <div className="rounded-surface border border-border bg-muted/40">
             <Table className="min-w-[360px]">
               {tableHeader}
               <TableBody>
@@ -453,7 +453,7 @@ export function EnvVarsTable({
                   Excluded from Sandbox
                 </p>
               </div>
-              <div className="rounded-lg border border-border bg-muted/40">
+              <div className="rounded-surface border border-border bg-muted/40">
                 <Table className="min-w-[360px]">
                   {tableHeader}
                   <TableBody>{excludedVars.map(renderRow)}</TableBody>

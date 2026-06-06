@@ -203,7 +203,7 @@ export function RepoSwitcher({
 
   const itemClass = (active: boolean) =>
     cn(
-      "flex cursor-pointer items-center gap-2 rounded-md px-3 py-2.5 text-sm transition-colors",
+      "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors",
       active
         ? "bg-sidebar-primary/10 text-sidebar-primary"
         : "text-foreground/80 hover:bg-muted/60",
@@ -217,7 +217,7 @@ export function RepoSwitcher({
         <button
           type="button"
           className={cn(
-            "flex w-full items-center gap-3 rounded-md bg-sidebar-accent/50 px-3 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
+            "flex w-full items-center gap-3 rounded-lg bg-sidebar-accent/50 px-3 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
             className,
           )}
         >

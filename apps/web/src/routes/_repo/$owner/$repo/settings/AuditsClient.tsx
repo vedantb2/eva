@@ -59,7 +59,7 @@ export function AuditsClient() {
   return (
     <PageWrapper title="Audits" comfortable>
       <div className="space-y-6">
-        <div className="rounded-lg border border-border bg-card p-3 space-y-4 sm:p-4">
+        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
           <div>
             <h3 className="text-sm font-medium">Repo-level Audits</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -92,7 +92,7 @@ export function AuditsClient() {
         </div>
 
         {isApp && (
-          <div className="rounded-lg border border-border bg-card p-3 space-y-4 sm:p-4">
+          <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
             <div>
               <h3 className="text-sm font-medium">App-specific Audits</h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -133,7 +133,7 @@ function CategoryRow({
   onRemove: () => void;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-md border border-border bg-card p-3">
+    <div className="flex items-start gap-3 rounded-surface border border-border bg-card p-3">
       <Checkbox
         checked={category.enabled}
         onCheckedChange={(value) => onToggle(value === true)}

@@ -38,7 +38,7 @@ export function LandingWorkflowStrip() {
           <li key={step.label} className="flex flex-1">
             <div
               className={cn(
-                "flex w-full items-start gap-3 rounded-xl p-3 transition-[background-color] sm:p-3.5",
+                "flex w-full items-start gap-3 rounded-surface p-3 transition-[background-color] sm:p-3.5",
                 step.featured
                   ? "bg-primary/8 ring-1 ring-primary/15"
                   : "bg-muted/40 hover:bg-muted/55",

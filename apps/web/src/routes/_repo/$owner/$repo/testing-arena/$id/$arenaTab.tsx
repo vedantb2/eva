@@ -165,7 +165,7 @@ function ReportCard({
               (() => {
                 const fixSteps = parseActivitySteps(streamingActivity);
                 return fixSteps ? (
-                  <div className="rounded-md border border-primary/20 bg-primary/5 px-4 py-3">
+                  <div className="rounded-surface border border-primary/20 bg-primary/5 px-4 py-3">
                     <div className="flex items-center gap-1.5 mb-2">
                       <IconTool size={14} className="text-primary shrink-0" />
                       <span className="text-xs font-medium text-primary">
@@ -175,7 +175,7 @@ function ReportCard({
                     <ActivitySteps steps={fixSteps} isStreaming />
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2">
+                  <div className="flex items-center gap-2 rounded-surface border border-primary/20 bg-primary/5 px-3 py-2">
                     <IconTool size={14} className="text-primary shrink-0" />
                     <span className="text-sm text-primary">
                       {streamingActivity ||

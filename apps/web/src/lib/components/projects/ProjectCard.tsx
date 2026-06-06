@@ -140,7 +140,7 @@ export function ProjectCard({
 
   const cardContent = (
     <div
-      className={`group relative shrink-0 overflow-hidden rounded-lg border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] ${
+      className={`group relative shrink-0 overflow-hidden rounded-surface border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] ${
         isActive
           ? "border-primary/30 bg-primary/5 ring-1 ring-primary/30"
           : "border-border bg-card shadow-sm hover:bg-muted/40"

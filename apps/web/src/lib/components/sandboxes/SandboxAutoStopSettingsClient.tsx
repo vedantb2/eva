@@ -40,7 +40,7 @@ export function SandboxAutoStopSettingsClient() {
 
   return (
     <PageWrapper title="Sandboxes" comfortable>
-      <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-muted/40 p-4 transition-colors hover:bg-muted/60">
+      <label className="flex cursor-pointer items-start gap-3 rounded-surface bg-muted/40 p-4 transition-colors hover:bg-muted/60">
         <Checkbox
           className="mt-0.5"
           checked={settings.enabled}
@@ -62,7 +62,7 @@ export function SandboxAutoStopSettingsClient() {
       </label>
 
       {settings.enabled && (
-        <div className="mt-4 rounded-lg bg-muted/40 p-4">
+        <div className="mt-4 rounded-surface bg-muted/40 p-4">
           <h3 className="text-sm font-medium">Stop time</h3>
           <p className="mt-1 text-[11px] text-muted-foreground">
             Sandboxes stop at this time in {settings.timeZone}. The sweep runs

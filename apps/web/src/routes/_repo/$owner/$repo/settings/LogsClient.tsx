@@ -210,7 +210,7 @@ export function LogsClient() {
         </div>
       ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-          <div className="rounded-xl bg-secondary p-3">
+          <div className="rounded-surface bg-secondary p-3">
             <IconFileOff size={24} />
           </div>
           <p className="text-sm">

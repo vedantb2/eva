@@ -43,13 +43,13 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
     <div className="mt-2">
       <button
         onClick={() => setOpen((p) => !p)}
-        className="motion-base flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+        className="motion-base flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
       >
         <IconCode size={12} />
         {open ? "Hide raw" : "View raw"}
       </button>
       {open && (
-        <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
+        <pre className="mt-2 max-h-48 overflow-auto rounded-surface bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
           {formatted}
         </pre>
       )}

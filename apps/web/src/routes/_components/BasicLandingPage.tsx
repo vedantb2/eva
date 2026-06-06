@@ -157,7 +157,7 @@ function LandingFeatureCard({
   return (
     <div
       className={cn(
-        "group flex flex-col gap-3 rounded-xl bg-muted/40 p-4 transition-[background-color] hover:bg-muted/55 sm:p-5",
+        "group flex flex-col gap-3 rounded-surface bg-muted/40 p-4 transition-[background-color] hover:bg-muted/55 sm:p-5",
         className,
       )}
     >

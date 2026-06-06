@@ -107,7 +107,7 @@ export function TaskActivityComposer({
   // wraps a borderless input with a footer row of controls, rather than
   // floating controls over the textarea.
   const editorClassName =
-    "min-h-20 max-h-44 border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
+    "min-h-20 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
 
   return (
     <div className="space-y-3 mb-6">
@@ -120,7 +120,7 @@ export function TaskActivityComposer({
       )}
       <div
         className={cn(
-          "overflow-hidden rounded-lg border border-input bg-card transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-2 focus-within:ring-ring/35",
+          "overflow-hidden rounded-surface border border-input bg-card transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-2 focus-within:ring-ring/35",
           requestingChanges &&
             "border-primary focus-within:border-primary focus-within:ring-primary/35",
         )}

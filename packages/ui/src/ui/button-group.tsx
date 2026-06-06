@@ -2,6 +2,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "../utils/cn";
+import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 import { Separator } from "./separator";
 
 const buttonGroupVariants = cva(
@@ -49,7 +50,8 @@ function ButtonGroupText({
   return (
     <Comp
       className={cn(
-        "bg-secondary flex items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none",
+        "bg-secondary flex items-center gap-2 border border-border px-4 text-sm font-medium [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none",
+        SURFACE_RADIUS_CLASS,
         className,
       )}
       {...props}

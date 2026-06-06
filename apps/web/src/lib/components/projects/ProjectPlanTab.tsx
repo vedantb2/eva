@@ -204,7 +204,7 @@ export function ProjectPlanTab({
           </div>
         )}
         {isLocked && (
-          <div className="p-4 bg-success-bg rounded-lg">
+          <div className="p-4 bg-success-bg rounded-surface">
             <p className="text-sm text-success">
               Development has started on this project. The plan is now locked.
             </p>

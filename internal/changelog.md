@@ -1,5 +1,11 @@
 # Changelog
 
+## Landing page redesign - 2026-05-28
+
+- Replaced the centered logo-and-buttons screen with a two-column marketing layout: hero copy and CTAs on the left, platform capability cards on the right.
+- Added a subtle grid-and-glow atmosphere (teal radial accents) and staggered entrance motion so the sign-in page feels intentional rather than a placeholder.
+- Feature cards reuse the same platform sections as the home welcome banner, with tonal `bg-muted/40` surfaces and no card borders per the design system.
+
 ## Stats and home dashboard panels adopt a layered Widget look - 2026-06-05
 
 - Stats page chart panels (PRs over time, activity over time, session funnel, top contributors, activity heatmap) and the repo home page now use a shared `Widget` container: a muted outer shell with a title/actions header above an elevated content area, modelled on the HeroUI Widget.

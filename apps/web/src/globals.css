@@ -245,6 +245,48 @@
     transition-timing-function: var(--motion-ease-out);
   }
 
+  .landing-atmosphere {
+    background-color: rgb(var(--background));
+    background-image:
+      radial-gradient(
+        ellipse 90% 55% at 50% -12%,
+        rgb(var(--primary) / 0.13),
+        transparent 58%
+      ),
+      radial-gradient(
+        ellipse 45% 35% at 100% 100%,
+        rgb(var(--primary) / 0.05),
+        transparent 55%
+      ),
+      linear-gradient(rgb(var(--foreground) / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--foreground) / 0.04) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      100% 100%,
+      56px 56px,
+      56px 56px;
+  }
+
+  .dark .landing-atmosphere {
+    background-image:
+      radial-gradient(
+        ellipse 90% 55% at 50% -12%,
+        rgb(var(--primary) / 0.09),
+        transparent 58%
+      ),
+      radial-gradient(
+        ellipse 45% 35% at 100% 100%,
+        rgb(var(--primary) / 0.04),
+        transparent 55%
+      ),
+      linear-gradient(rgb(var(--foreground) / 0.055) 1px, transparent 1px),
+      linear-gradient(
+        90deg,
+        rgb(var(--foreground) / 0.055) 1px,
+        transparent 1px
+      );
+  }
+
   .scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;

@@ -1,44 +1,9 @@
 import { motion } from "motion/react";
 import { Card, CardContent, Button } from "@conductor/ui";
-import {
-  IconX,
-  IconSparkles,
-  IconLayoutKanban,
-  IconTerminal2,
-  IconCode,
-  IconFileText,
-} from "@tabler/icons-react";
+import { IconX, IconSparkles } from "@tabler/icons-react";
+import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 
-export const PLATFORM_SECTIONS = [
-  {
-    icon: IconLayoutKanban,
-    label: "Projects",
-    shortDesc: "Autonomous feature builder",
-    longDesc:
-      "Eva plans and executes large features end-to-end — tasks, PRs, and reviews — without interrupting your flow.",
-  },
-  {
-    icon: IconTerminal2,
-    label: "Sessions",
-    shortDesc: "Interactive pair programming",
-    longDesc:
-      "Chat with Eva in real time to iterate on ideas, debug issues, and ship incremental changes fast.",
-  },
-  {
-    icon: IconCode,
-    label: "Quick Tasks",
-    shortDesc: "Small fixes & changes",
-    longDesc:
-      "Ship one-off fixes and small changes without spinning up a full project or session.",
-  },
-  {
-    icon: IconFileText,
-    label: "Documents",
-    shortDesc: "AI-assisted docs",
-    longDesc:
-      "Generate and maintain specs, PRDs, and runbooks — kept in sync with your actual codebase.",
-  },
-];
+export { PLATFORM_SECTIONS };
 
 export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
   return (
@@ -78,7 +43,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
               {PLATFORM_SECTIONS.map((section) => (
                 <div
                   key={section.label}
-                  className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-2.5"
+                  className="rounded-surface flex flex-col gap-1.5 border border-border bg-card p-2.5"
                 >
                   <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
                     <section.icon size={13} className="text-primary" />

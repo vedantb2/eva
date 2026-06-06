@@ -1,5 +1,10 @@
 # Changelog
 
+## Welcome setup dialog for new users - 2026-05-28
+
+- Five-step modal walks new users through role, theme, typography, and changelog email opt-in before they use the app; fixed height prevents layout shift between steps.
+- Backend tracks `onboardingCompletedAt` and defers the changelog popup until setup finishes and a role is set.
+
 ## Full-radius theme no longer warps wide surfaces - 2026-05-28
 
 - Introduced capped `rounded-surface`, `rounded-control`, and `rounded-menu-item` tokens so **Full** corner radius keeps pills on compact nav rows but stops modals, cards, dropdown panels, and textareas from becoming ovals.

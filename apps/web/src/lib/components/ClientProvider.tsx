@@ -19,6 +19,7 @@ import { Navigate, useLocation } from "@tanstack/react-router";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { TooltipProvider } from "@conductor/ui";
 import { AppSkeleton } from "./AppSkeleton";
+import { WelcomeSetupDialog } from "./onboarding/WelcomeSetupDialog";
 import { clientEnv } from "@/env/client";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
@@ -141,6 +142,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <TooltipProvider delayDuration={300}>
             {children}
             <PresenceHeartbeat />
+            <WelcomeSetupDialog />
           </TooltipProvider>
         </ThemeProvider>
       </Authenticated>

@@ -256,6 +256,31 @@ export const setRole = authMutation({
   },
 });
 
+/** Whether the welcome setup dialog should appear for the current user. */
+export const getOnboardingStatus = authQuery({
+  args: {},
+  returns: v.object({ show: v.boolean() }),
+  handler: async (ctx) => {
+    const user = await ctx.db.get(ctx.userId);
+    if (!user) return { show: false };
+
+    if (user.onboardingCompletedAt) return { show: false };
+    if (user.role) return { show: false };
+
+    return { show: true };
+  },
+});
+
+/** Marks the welcome setup flow as completed (continue or skip). */
+export const completeOnboarding = authMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    await ctx.db.patch(ctx.userId, { onboardingCompletedAt: Date.now() });
+    return null;
+  },
+});
+
 /** Returns whether the toolbar is visible for the current user. */
 export const getToolbarVisible = authQuery({
   args: {},

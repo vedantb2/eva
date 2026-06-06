@@ -42,6 +42,7 @@ export const userFields = {
   lastSeenAt: v.optional(v.number()),
   lastSeenPath: v.optional(v.string()),
   lastChangelogDismissedAt: v.optional(v.number()),
+  onboardingCompletedAt: v.optional(v.number()),
   emailNotificationsEnabled: v.optional(v.boolean()),
 };
 

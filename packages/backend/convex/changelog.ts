@@ -45,6 +45,10 @@ export const getLatestChangelog = query({
     const user = await ctx.db.get(userId);
     if (!user) return null;
 
+    if (!user.onboardingCompletedAt && !user.role) {
+      return null;
+    }
+
     const dismissed = user.lastChangelogDismissedAt ?? 0;
 
     return {

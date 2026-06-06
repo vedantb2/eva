@@ -1,5 +1,9 @@
 # Changelog
 
+## Changelog requires explicit acknowledgment - 2026-05-28
+
+- Dialog cannot be dismissed with X, outside click, or Escape; primary action reads "Yes, I've read this" so users confirm they saw the update.
+
 ## Welcome setup dialog for new users - 2026-05-28
 
 - Five-step modal walks new users through role, theme, typography, and changelog email opt-in before they use the app; fixed height prevents layout shift between steps.

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import {
@@ -18,11 +19,25 @@ import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
 import { IconSparkles } from "@tabler/icons-react";
 import dayjs from "dayjs";
+import {
+  useDevChangelogPreview,
+  useDevPreviewSearchKey,
+} from "@/lib/dev/preview";
 
 const changelogPlugins = { cjk, math, mermaid };
 
 export function ChangelogDialog() {
+  const [forcedDismissed, setForcedDismissed] = useState(false);
+  const previewSearchKey = useDevPreviewSearchKey();
+  const isPreview = useDevChangelogPreview();
+  const forceShow = isPreview && !forcedDismissed;
   const changelog = useQuery(api.changelog.getLatestChangelog);
+
+  useEffect(() => {
+    if (isPreview) {
+      setForcedDismissed(false);
+    }
+  }, [isPreview, previewSearchKey]);
   const dismiss = useMutation(
     api.changelog.dismissChangelog,
   ).withOptimisticUpdate((localStore) => {
@@ -39,17 +54,27 @@ export function ChangelogDialog() {
     }
   });
 
-  if (!changelog || !changelog.show) return null;
+  if (!changelog) return null;
+  if (!changelog.show && !forceShow) return null;
 
   const weekLabel = dayjs(changelog.publishedAt).format("MMM D, YYYY");
 
   function handleDismiss() {
+    if (isPreview) {
+      setForcedDismissed(true);
+      return;
+    }
     void dismiss();
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && handleDismiss()}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open>
+      <DialogContent
+        hideCloseButton
+        onInteractOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        className="max-w-2xl"
+      >
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
@@ -64,7 +89,7 @@ export function ChangelogDialog() {
 
         <DialogBody>
           <div className="max-h-[60vh] overflow-y-auto">
-            <div className="rounded-lg border border-border bg-card p-4">
+            <div className="rounded-surface border border-border bg-card p-4">
               <Streamdown
                 className="text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                 plugins={changelogPlugins}
@@ -76,7 +101,7 @@ export function ChangelogDialog() {
         </DialogBody>
 
         <DialogFooter>
-          <Button onClick={handleDismiss}>Got it</Button>
+          <Button onClick={handleDismiss}>Yes, I&apos;ve read this</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

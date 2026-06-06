@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsgo -b && vite build",
-    "typecheck": "tsgo -b",
+    "build": "tsgo -p tsconfig.json && vite build",
+    "typecheck": "tsgo -p tsconfig.json",
     "preview": "vite preview"
   },
   "dependencies": {

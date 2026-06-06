@@ -254,8 +254,19 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   const mentionHoverOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const mentionHoverCloseTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  const cancelChipHoverClose = useCallback(() => {
+    if (mentionHoverCloseTimerRef.current !== null) {
+      clearTimeout(mentionHoverCloseTimerRef.current);
+      mentionHoverCloseTimerRef.current = null;
+    }
+  }, []);
 
   const clearChipHoverCard = useCallback(() => {
+    cancelChipHoverClose();
     if (mentionHoverOpenTimerRef.current !== null) {
       clearTimeout(mentionHoverOpenTimerRef.current);
       mentionHoverOpenTimerRef.current = null;
@@ -264,10 +275,19 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     setMentionHover(null);
     setContentChipHover(null);
     setMentionHoverRect(null);
-  }, []);
+  }, [cancelChipHoverClose]);
+
+  const scheduleChipHoverClose = useCallback(() => {
+    cancelChipHoverClose();
+    mentionHoverCloseTimerRef.current = setTimeout(() => {
+      mentionHoverCloseTimerRef.current = null;
+      clearChipHoverCard();
+    }, 200);
+  }, [cancelChipHoverClose, clearChipHoverCard]);
 
   const scheduleMentionHoverCard = useCallback(
     (chip: HTMLElement) => {
+      cancelChipHoverClose();
       if (mentionHoverChipRef.current === chip) return;
       mentionHoverChipRef.current = chip;
       if (mentionHoverOpenTimerRef.current !== null) {
@@ -284,11 +304,12 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         setMentionHoverRect(chip.getBoundingClientRect());
       }, 250);
     },
-    [mentionMap],
+    [cancelChipHoverClose, mentionMap],
   );
 
   const scheduleContentChipHoverCard = useCallback(
     (chip: HTMLElement, kind: "mention" | "skill") => {
+      cancelChipHoverClose();
       if (mentionHoverChipRef.current === chip) return;
       mentionHoverChipRef.current = chip;
       if (mentionHoverOpenTimerRef.current !== null) {
@@ -309,7 +330,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         setMentionHoverRect(chip.getBoundingClientRect());
       }, 250);
     },
-    [mentionMap, skillMap],
+    [cancelChipHoverClose, mentionMap, skillMap],
   );
 
   useEffect(() => {
@@ -622,14 +643,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
           return;
         }
       }
-      clearChipHoverCard();
+      scheduleChipHoverClose();
     },
-    [chipHoverEnabled, clearChipHoverCard],
+    [chipHoverEnabled, scheduleChipHoverClose],
   );
-
-  const handleHoverCardMouseLeave = useCallback(() => {
-    clearChipHoverCard();
-  }, [clearChipHoverCard]);
 
   useEffect(() => {
     if ((!mentionHover && !contentChipHover) || !mentionHoverRect) return;
@@ -651,6 +668,9 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     return () => {
       if (mentionHoverOpenTimerRef.current !== null) {
         clearTimeout(mentionHoverOpenTimerRef.current);
+      }
+      if (mentionHoverCloseTimerRef.current !== null) {
+        clearTimeout(mentionHoverCloseTimerRef.current);
       }
     };
   }, []);
@@ -755,14 +775,15 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       ? createPortal(
           <div
             data-mention-hover-card="true"
-            className="fixed z-50 w-72 pb-3"
+            className="fixed z-50 flex w-72 flex-col-reverse items-stretch"
             style={{
               left: mentionHoverRect.left,
-              top: mentionHoverRect.top - 8,
-              transform: "translateY(-100%)",
+              bottom: window.innerHeight - mentionHoverRect.top,
             }}
-            onMouseLeave={handleHoverCardMouseLeave}
+            onMouseEnter={cancelChipHoverClose}
+            onMouseLeave={scheduleChipHoverClose}
           >
+            <div className="h-3 shrink-0" aria-hidden />
             {chipHoverCardContent}
           </div>,
           document.body,

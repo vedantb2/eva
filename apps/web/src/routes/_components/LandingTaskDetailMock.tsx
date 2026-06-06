@@ -5,7 +5,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-  ActivityStepsTaskView,
+  ActivitySteps,
   Badge,
   Button,
   Separator,
@@ -153,12 +153,10 @@ export function LandingTaskDetailMock() {
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <ActivityStepsTaskView
+                  <ActivitySteps
                     steps={LANDING_MOCK_RUN_STEPS}
-                    headerLabel="Eva completed"
-                    isStreaming={false}
-                    open
-                    onOpenChange={() => {}}
+                    name="Eva"
+                    duration="4m 12s"
                     className="pt-1"
                   />
                 </AccordionContent>

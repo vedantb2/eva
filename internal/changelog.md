@@ -1,5 +1,10 @@
 # Changelog
 
+## Activity steps back to chain-of-thought timeline - 2026-06-06
+
+- Reverted the task-variant split (`ActivityStepsTaskView`, AI Elements `Task` composition) and restored the single chain-of-thought timeline with scroll-to-latest on open.
+- Landing mock uses `ActivitySteps` again so the sign-in preview matches production run progress UI.
+
 ## Dev testing page for dialog previews - 2026-05-28
 
 - Root sidebar **Testing** tab (dev only) opens welcome-setup and changelog modals without URL hacks; preview hooks subscribe to router search params so dialogs open on click without refresh.
@@ -25,7 +30,7 @@
 ## Sign-in landing v2 with product preview - 2026-06-06
 
 - New sign-in landing shows a static task-detail mock built from real Eva UI so visitors understand the product before creating an account; `VITE_NEW_LANDING=false` keeps the simpler hero + capability-cards layout for gradual rollout.
-- Public route avoids Convex tooltips and auth-only providers; activity steps in the mock use the shared `ActivityStepsTaskView` export.
+- Public route avoids Convex tooltips and auth-only providers; activity steps in the mock use the shared `ActivitySteps` component.
 
 ## Activity logs adopt AI Elements task composition - 2026-06-05
 

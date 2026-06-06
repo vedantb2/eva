@@ -1,5 +1,9 @@
 # Changelog
 
+## Doc/skill hover previews in session chat composer - 2026-06-06
+
+- Session and design chat composers now show doc and skill preview cards on @ and / chip hover, matching task description mention behavior.
+
 ## Activity steps back to chain-of-thought timeline - 2026-06-06
 
 - Reverted the task-variant split (`ActivityStepsTaskView`, AI Elements `Task` composition) and restored the single chain-of-thought timeline with scroll-to-latest on open.

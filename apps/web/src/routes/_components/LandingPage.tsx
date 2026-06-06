@@ -3,13 +3,15 @@
 import type { ComponentType } from "react";
 import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { useNavigate } from "@tanstack/react-router";
-import { motion } from "motion/react";
+import { motion, type Variants } from "motion/react";
 import { Button, cn } from "@conductor/ui";
 import { PLATFORM_SECTIONS } from "@/routes/_global/home/_components/WelcomeBanner";
 
 const isDev = import.meta.env.DEV;
 
-const STAGGER_CONTAINER = {
+const LANDING_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+const STAGGER_CONTAINER: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -17,12 +19,12 @@ const STAGGER_CONTAINER = {
   },
 };
 
-const STAGGER_ITEM = {
+const STAGGER_ITEM: Variants = {
   hidden: { opacity: 0, y: 14 },
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.38, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.38, ease: LANDING_EASE },
   },
 };
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## Default theme cyan accent and xl radius - 2026-06-06
+
+- New users and unset preferences now open on cyan accents with extra-large corner radius so the default Eva look matches the intended brand polish.
+
 ## Sign-in landing v2 with product preview - 2026-06-06
 
 - New sign-in landing shows a static task-detail mock built from real Eva UI so visitors understand the product before creating an account; `VITE_NEW_LANDING=false` keeps the simpler hero + capability-cards layout for gradual rollout.

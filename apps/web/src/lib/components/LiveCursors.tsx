@@ -20,7 +20,7 @@ function accentToHex(accentColor: string): string {
   if (isAccentColorKey(accentColor)) {
     return ACCENT_COLORS[accentColor].preview;
   }
-  return ACCENT_COLORS.teal.preview;
+  return ACCENT_COLORS.cyan.preview;
 }
 
 function RemoteCursorItem({ cursor }: { cursor: RemoteCursor }) {

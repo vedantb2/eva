@@ -56,7 +56,7 @@ export interface ResolvedCustomTheme {
 
 const CUSTOM_THEME_DEFAULTS: ResolvedCustomTheme = {
   accentColor: "cyan",
-  radius: "md",
+  radius: "xl",
   fontFamily: "inter",
   letterSpacing: "tight",
 };
@@ -366,7 +366,7 @@ export const LETTER_SPACING_VALUES: Record<
 
 function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
   const accentColor = customTheme.accentColor ?? "cyan";
-  const radius = customTheme.radius ?? "md";
+  const radius = customTheme.radius ?? "xl";
   const fontFamily = customTheme.fontFamily ?? "inter";
   const letterSpacing = customTheme.letterSpacing ?? "tight";
 
@@ -382,8 +382,8 @@ function applyCustomThemeVars(customTheme: CustomTheme, isDark: boolean) {
     LETTER_SPACING_VALUES[letterSpacing].value,
   );
 
-  // If using teal (CSS default), remove any custom style element so base CSS applies
-  if (accentColor === "teal") {
+  // If using cyan (CSS default), remove any custom style element so base CSS applies
+  if (accentColor === "cyan") {
     const el = document.getElementById("custom-theme-accent");
     if (el) el.remove();
     return;

@@ -11,4 +11,4 @@ export const clientEnv = createEnv({
   runtimeEnv: import.meta.env,
 });
 
-export const newLandingEnabled = clientEnv.VITE_NEW_LANDING !== "false";
+export const newLandingEnabled = clientEnv.VITE_NEW_LANDING === "true";

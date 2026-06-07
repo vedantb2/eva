@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* transitions-dev — modal / input-clear / tabs motion tokens
+ * (see .agents/skills/transitions-dev/) */
+:root {
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --modal-scale: 0.96;
+  --modal-scale-close: 0.96;
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --clear-dur: 1000ms;
+  --clear-out-dur: 400ms;
+  --clear-in-dur: 400ms;
+  --clear-out-fly: 12px;
+  --clear-in-fly: 12px;
+  --clear-out-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --clear-in-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --clear-blur: 2px;
+  --glow-delay: 50ms;
+  --glow-peak-at: 0.15;
+  --glow-opacity: 0.85;
+  --glow-spread: 1.5;
+  --tabs-dur: 200ms;
+  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @font-face {
   font-family: "Geist Sans";
   font-style: normal;
@@ -231,6 +255,106 @@
   }
   .ui-panel {
     @apply ui-surface p-5 md:p-6;
+  }
+
+  /* transitions.dev — modal open / close. The dialog is always centered, so
+   * .t-modal owns the centering transform (translate -50%) plus scale/fade. */
+  .t-modal {
+    transform-origin: center;
+    transform: translate(-50%, -50%) scale(var(--modal-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--modal-open-dur) var(--modal-ease),
+      opacity var(--modal-open-dur) var(--modal-ease);
+    will-change: transform, opacity;
+  }
+  .t-modal.is-open {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .t-modal.is-closing {
+    transform: translate(-50%, -50%) scale(var(--modal-scale-close));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--modal-close-dur) var(--modal-ease),
+      opacity var(--modal-close-dur) var(--modal-ease);
+    /* Radix Presence waits on animationend, not transitionend */
+    animation: t-modal-presence-wait var(--modal-close-dur) linear forwards;
+  }
+
+  @keyframes t-modal-presence-wait {
+    from {
+      clip-path: inset(0);
+    }
+    to {
+      clip-path: inset(0);
+    }
+  }
+
+  /* transitions.dev — input clear with dissolve */
+  .t-clear {
+    position: relative;
+    overflow: hidden;
+  }
+  .t-clear-mirror,
+  .t-clear-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    z-index: 2;
+  }
+  .t-clear-mirror {
+    opacity: 0;
+  }
+  .t-clear.has-value .t-clear-mirror,
+  .t-clear.is-clearing .t-clear-mirror {
+    opacity: 1;
+  }
+  .t-clear.has-value > input,
+  .t-clear.is-clearing > input {
+    -webkit-text-fill-color: transparent;
+  }
+  .t-clear.has-value .t-clear-placeholder {
+    opacity: 0;
+  }
+  .t-clear-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 3;
+    mix-blend-mode: multiply;
+  }
+  .dark .t-clear-glow,
+  [data-theme="dark"] .t-clear-glow {
+    mix-blend-mode: screen;
+  }
+
+  /* transitions.dev — tabs sliding pill. Carries the active tab's card
+   * background (bg-card/shadow-sm via the span) so it glides between tabs
+   * instead of the background snapping. */
+  .t-tabs-pill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 0;
+    width: 0;
+    transform: translateX(0);
+    transition:
+      transform var(--tabs-dur) var(--tabs-ease),
+      width var(--tabs-dur) var(--tabs-ease),
+      top var(--tabs-dur) var(--tabs-ease),
+      height var(--tabs-dur) var(--tabs-ease);
+    z-index: 0;
+    pointer-events: none;
+    will-change: transform, width;
   }
 }
 

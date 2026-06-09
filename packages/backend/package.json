@@ -32,7 +32,7 @@
     "@sendgrid/mail": "^8.1.6",
     "@solvers-hub/llm-json": "^0.1.8",
     "@tiptap/pm": "^3.20.1",
-    "convex": "^1.36.1",
+    "convex": "^1.40.0",
     "convex-helpers": "0.1.114",
     "convex-timeline": "^0.1.2",
     "jose": "^6.0.11",

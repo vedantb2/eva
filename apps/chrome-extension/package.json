@@ -34,7 +34,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "convex": "^1.31.6",
+    "convex": "^1.40.0",
     "convex-helpers": "0.1.114",
     "facehash": "^0.0.7",
     "highlight.js": "^11.11.1",

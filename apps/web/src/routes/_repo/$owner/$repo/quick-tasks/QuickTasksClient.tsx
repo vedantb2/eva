@@ -4,7 +4,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
@@ -16,8 +16,9 @@ import {
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
 import { QuickTasksTableView } from "@/lib/components/quick-tasks/QuickTasksTableView";
 import { QuickTasksListSplit } from "./_components/QuickTasksListSplit";
-import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
-import type { TaskRouteSandboxTab } from "@/lib/search-params";
+import { QuickTaskDetailShell } from "./_components/QuickTaskDetailShell";
+import { QuickTaskTaskPageContent } from "./_components/QuickTaskTaskPageContent";
+import { useQuickTaskRouteState } from "./_utils/useQuickTaskRouteState";
 import { IconChecklist } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
@@ -29,21 +30,14 @@ import {
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 
-interface QuickTasksClientProps {
-  /** When set, the list view renders a master/detail split with this task open. */
-  selectedTaskId?: string;
-  detailTab?: TaskDetailTab;
-  sandboxTab?: TaskRouteSandboxTab;
-  navSurface?: "detail" | "sandbox";
-}
-
-export function QuickTasksClient({
-  selectedTaskId,
-  detailTab,
-  sandboxTab,
-  navSurface = "detail",
-}: QuickTasksClientProps = {}) {
+export function QuickTasksClient() {
   const navigate = useNavigate();
+  // The open task (if any) comes from the child route params, read here at the
+  // layout level so the list stays mounted while the detail changes.
+  const params = useParams({ strict: false });
+  const routeState = useQuickTaskRouteState();
+  const selectedTaskId =
+    typeof params.taskId === "string" ? params.taskId : undefined;
   const { basePath, repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
   const [isCreating, setIsCreating] = useState(false);
@@ -237,6 +231,26 @@ export function QuickTasksClient({
     );
   }
 
+  // Kanban and table keep the dedicated full-page detail when a task is open.
+  // List view instead renders the master/detail split further down.
+  if (selectedTaskId && routeState && view !== "list") {
+    return (
+      <QuickTaskDetailShell
+        taskId={selectedTaskId}
+        detailTab={routeState.detailTab}
+        navSurface={routeState.surface}
+        sandboxTab={
+          routeState.surface === "sandbox" ? routeState.sandboxTab : undefined
+        }
+      >
+        <QuickTaskTaskPageContent
+          taskId={selectedTaskId}
+          routeState={routeState}
+        />
+      </QuickTaskDetailShell>
+    );
+  }
+
   return (
     <>
       <PageWrapper
@@ -349,9 +363,13 @@ export function QuickTasksClient({
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
                   selectedTaskId={selectedTaskId}
-                  detailTab={detailTab}
-                  sandboxTab={sandboxTab}
-                  navSurface={navSurface}
+                  detailTab={routeState?.detailTab}
+                  sandboxTab={
+                    routeState?.surface === "sandbox"
+                      ? routeState.sandboxTab
+                      : undefined
+                  }
+                  navSurface={routeState?.surface ?? "detail"}
                 />
               </motion.div>
             )}

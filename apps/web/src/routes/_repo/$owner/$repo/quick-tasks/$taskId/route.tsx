@@ -1,13 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { QuickTaskTaskLayout } from "../_components/QuickTaskTaskLayout";
 
+// The open task is rendered by the quick-tasks layout route (../route.tsx),
+// which reads this `taskId` param. This match only needs to exist; its detail
+// tab / sandbox children supply the remaining params.
 export const Route = createFileRoute("/_repo/$owner/$repo/quick-tasks/$taskId")(
   {
-    component: QuickTaskTaskLayoutRoute,
+    component: () => null,
   },
 );
-
-function QuickTaskTaskLayoutRoute() {
-  const { taskId } = Route.useParams();
-  return <QuickTaskTaskLayout taskId={taskId} />;
-}

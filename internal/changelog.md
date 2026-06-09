@@ -3,6 +3,7 @@
 ## Quick tasks list view master/detail split - 2026-06-09
 
 - The quick-tasks **List** view now shows the task list on the left and the selected task's detail on the right, mirroring the projects task-list layout, so you can step through tasks without losing the list.
+- A `quick-tasks` layout route keeps the list mounted while the open task changes, so selecting a task never remounts or scroll-resets the list.
 - Existing `/quick-tasks/$taskId` URLs are unchanged; the split is chosen from the persisted view preference, and Kanban/Table keep their full-page detail.
 - Extracted prev/next neighbour navigation into a shared hook so the split and the full-page detail stay in sync.
 

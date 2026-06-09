@@ -1,5 +1,12 @@
 # Changelog
 
+## OOM-protect the sandbox callback and capture watchdog kill diagnostics - 2026-06-09
+
+- **Why**: Prod data showed `Run killed by watchdog: no heartbeat` failures are the callback process dying inside a still-running sandbox — heartbeats stop permanently (kills always land at the full stale threshold across every threshold raise), and activity-log snapshots show death mid-short-bounded-command (`timeout 120s npx tsc --noEmit` in half the sampled kills). Best-fit cause: the kernel OOM killer SIGKILLing the callback during memory-heavy tool steps.
+- **OOM bias**: The callback lowers its own `oom_score_adj` to -600 at startup (best-effort, needs privilege) and raises the spawned CLI subtree to +300 (always permitted), so an out-of-memory sandbox kills the work — which the callback then reports as a normal failure — instead of the heartbeat/reporting process.
+- **Kill diagnostics**: The watchdog kill path (`cleanUpStaleRun`) now routes quick-task sandbox deletion through `captureDiagnosticsAndDeleteSandbox`, which first execs dmesg OOM lines, the `/tmp/run-design.done` file, and the callback log tail, persisting them to `agentRuns.logs` (new `appendRunLog` mutation) and the Convex logs — previously deletion destroyed this evidence, leaving every kill a generic mystery.
+- **Reason**: Future watchdog kills become a 10-second diagnosis (OOM vs network vs crash) instead of an investigation, and the dominant suspected cause stops killing runs outright.
+
 ## Quick tasks list view master/detail split - 2026-06-09
 
 - The quick-tasks **List** view now shows the task list on the left and the selected task's detail on the right, mirroring the projects task-list layout, so you can step through tasks without losing the list.

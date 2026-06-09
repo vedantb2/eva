@@ -184,12 +184,19 @@ export async function cleanUpStaleRun(
     if (!params.isProjectTask) {
       // Stale runs mean the workflow died mid-execution — sandbox state is
       // suspect, so delete (don't stop) and force a fresh sandbox on next run.
+      // Diagnostics (dmesg OOM lines, done file, callback log tail) are
+      // captured onto the run first, since deletion destroys the evidence.
       // Clear `task.sandboxId` too so reviewer Start Sandbox doesn't point at
       // a deleted Daytona sandbox.
-      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
-        sandboxId: params.sandboxId,
-        repoId: params.repoId,
-      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.daytona.captureDiagnosticsAndDeleteSandbox,
+        {
+          sandboxId: params.sandboxId,
+          repoId: params.repoId,
+          runId: params.runId,
+        },
+      );
     }
   }
 

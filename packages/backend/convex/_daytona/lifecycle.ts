@@ -231,6 +231,56 @@ export const stopSandbox = internalAction({
   },
 });
 
+// Evidence of why a run's callback process died, gathered before the sandbox
+// (and with it /tmp and the kernel log) is destroyed. The dmesg grep directly
+// confirms or rules out OOM kills; a missing done file means the callback was
+// SIGKILLed (its exit handler never ran); the log tail shows its last words.
+const KILL_DIAGNOSTICS_COMMAND = [
+  "echo '--- oom (dmesg) ---'",
+  "(dmesg 2>/dev/null | grep -iE 'out of memory|oom[-_ ]kill|killed process' | tail -n 12) || true",
+  "echo '--- done file ---'",
+  "cat /tmp/run-design.done 2>/dev/null || echo '(missing: callback died without running its exit handler, e.g. SIGKILL/OOM)'",
+  "echo; echo '--- callback log tail ---'",
+  "tail -n 30 /tmp/design.log 2>/dev/null || true",
+].join("; ");
+
+/**
+ * Captures post-mortem diagnostics from a sandbox whose run was killed by the
+ * watchdog, persists them on the run, then deletes the sandbox. Capture is
+ * best-effort — deletion proceeds regardless so cleanup never leaks capacity.
+ */
+export const captureDiagnosticsAndDeleteSandbox = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    runId: v.id("agentRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      const diagnostics = await exec(sandbox, KILL_DIAGNOSTICS_COMMAND, 15);
+      const trimmed = diagnostics.trim().slice(0, 4000);
+      console.log(
+        `[watchdog][diagnostics] runId=${args.runId} sandboxId=${args.sandboxId}\n${trimmed}`,
+      );
+      await ctx.runMutation(internal.taskWorkflow.appendRunLog, {
+        runId: args.runId,
+        message: `Sandbox diagnostics captured before deletion:\n${trimmed}`,
+      });
+    } catch (error) {
+      console.log(
+        `[watchdog][diagnostics] runId=${args.runId} capture failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    await ctx.runAction(internal.daytona.deleteSandbox, {
+      sandboxId: args.sandboxId,
+      repoId: args.repoId,
+    });
+    return null;
+  },
+});
+
 /** Deletes a Daytona sandbox, silently ignoring already-deleted sandboxes. */
 export const deleteSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },

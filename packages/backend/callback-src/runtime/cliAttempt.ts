@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import { writeFileSync } from "fs";
 import {
   FIRST_ASSISTANT_EVENT_TIMEOUT_MS,
   FIRST_EVENT_TIMEOUT_MS,
@@ -136,6 +137,17 @@ export async function runCliAttempt(
       },
     );
     S.activeAttemptChild = child;
+    // Make the kernel OOM killer prefer the CLI subtree (bash → CLI → tool
+    // processes like tsc, which all inherit this score) over the callback, so
+    // an out-of-memory sandbox kills the work — not the heartbeat/reporting
+    // process. Raising a score on our own child is always permitted.
+    if (child.pid) {
+      try {
+        writeFileSync("/proc/" + String(child.pid) + "/oom_score_adj", "300");
+      } catch {
+        /* non-Linux or already exited — ignore */
+      }
+    }
     log(
       options.processLabel +
         " process spawned after " +

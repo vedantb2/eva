@@ -246,10 +246,12 @@ const KILL_DIAGNOSTICS_COMMAND = [
 
 /**
  * Captures post-mortem diagnostics from a sandbox whose run was killed by the
- * watchdog, persists them on the run, then deletes the sandbox. Capture is
- * best-effort — deletion proceeds regardless so cleanup never leaks capacity.
+ * watchdog, persists them on the run, then stops (not deletes) the sandbox.
+ * Quick-task sandboxes are persistent — the paused filesystem keeps any
+ * uncommitted work and unpushed commits recoverable, and the next run resumes
+ * it. Capture is best-effort — the stop proceeds regardless.
  */
-export const captureDiagnosticsAndDeleteSandbox = internalAction({
+export const captureDiagnosticsAndStopSandbox = internalAction({
   args: {
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
@@ -266,14 +268,14 @@ export const captureDiagnosticsAndDeleteSandbox = internalAction({
       );
       await ctx.runMutation(internal.taskWorkflow.appendRunLog, {
         runId: args.runId,
-        message: `Sandbox diagnostics captured before deletion:\n${trimmed}`,
+        message: `Sandbox diagnostics captured before stop:\n${trimmed}`,
       });
     } catch (error) {
       console.log(
         `[watchdog][diagnostics] runId=${args.runId} capture failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-    await ctx.runAction(internal.daytona.deleteSandbox, {
+    await ctx.runAction(internal.daytona.stopSandbox, {
       sandboxId: args.sandboxId,
       repoId: args.repoId,
     });

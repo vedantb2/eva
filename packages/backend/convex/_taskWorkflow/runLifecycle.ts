@@ -227,7 +227,7 @@ export const markTaskSandboxStopped = internalMutation({
 });
 
 /** Clears the sandbox association on a quick task — used when the sandbox is
- * deleted (e.g. stale-run recovery) so the resume button doesn't point at a
+ * deleted (e.g. PR-merge cleanup) so the resume button doesn't point at a
  * dead Daytona sandbox. */
 export const clearTaskSandbox = internalMutation({
   args: {

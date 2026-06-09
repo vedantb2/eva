@@ -14,8 +14,10 @@ import {
   ImportLinearModal,
 } from "@/lib/components/quick-tasks";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
-import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { QuickTasksTableView } from "@/lib/components/quick-tasks/QuickTasksTableView";
+import { QuickTasksListSplit } from "./_components/QuickTasksListSplit";
+import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
+import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import { IconChecklist } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
@@ -27,7 +29,20 @@ import {
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 
-export function QuickTasksClient() {
+interface QuickTasksClientProps {
+  /** When set, the list view renders a master/detail split with this task open. */
+  selectedTaskId?: string;
+  detailTab?: TaskDetailTab;
+  sandboxTab?: TaskRouteSandboxTab;
+  navSurface?: "detail" | "sandbox";
+}
+
+export function QuickTasksClient({
+  selectedTaskId,
+  detailTab,
+  sandboxTab,
+  navSurface = "detail",
+}: QuickTasksClientProps = {}) {
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
@@ -260,7 +275,7 @@ export function QuickTasksClient() {
             />
           )}
           <AnimatePresence mode="wait">
-            {!hasQuickTasks ? (
+            {!hasQuickTasks && !(view === "list" && selectedTaskId) ? (
               <motion.div
                 key="quick-tasks-empty"
                 initial={{ opacity: 0, y: 8 }}
@@ -326,13 +341,17 @@ export function QuickTasksClient() {
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <QuickTasksListView
+                <QuickTasksListSplit
                   tasks={quickTasks}
                   projectNames={projectNames}
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
+                  selectedTaskId={selectedTaskId}
+                  detailTab={detailTab}
+                  sandboxTab={sandboxTab}
+                  navSurface={navSurface}
                 />
               </motion.div>
             )}

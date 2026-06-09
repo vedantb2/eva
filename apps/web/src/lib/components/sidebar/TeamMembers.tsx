@@ -81,11 +81,23 @@ export function TeamMembers({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <div className="flex flex-col gap-1 pb-3">
-      <span className="text-xs font-medium text-sidebar-foreground mb-1">
-        {teamData.teamName} · {onlineMembers.length} online
-      </span>
-      <div className="flex flex-wrap items-center gap-1">
+    <div className="ui-surface mb-2 p-2.5">
+      <div className="mb-2 flex items-center gap-1.5">
+        <span
+          className="relative flex size-2 shrink-0 items-center justify-center"
+          aria-hidden
+        >
+          <span className="size-1.5 rounded-full bg-success" />
+          <span className="absolute inline-flex size-2 animate-ping rounded-full bg-success/40" />
+        </span>
+        <span className="truncate text-xs font-medium text-sidebar-foreground">
+          {teamData.teamName}
+        </span>
+        <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">
+          {onlineMembers.length} online
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
         {onlineMembers.map((u) => {
           const name = getDisplayName(u);
           const isFollowing = following?.userId === u._id;

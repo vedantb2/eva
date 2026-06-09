@@ -319,11 +319,7 @@ export function ProjectDetailClient({
               {showMoreMenu && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full"
-                    >
+                    <Button variant="secondary" size="sm">
                       <IconDots size={16} />
                       <span className="hidden sm:inline">More</span>
                     </Button>
@@ -418,12 +414,7 @@ export function ProjectDetailClient({
                 </DropdownMenu>
               )}
               {project.prUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                  asChild
-                >
+                <Button variant="secondary" size="sm" asChild>
                   <a
                     href={project.prUrl}
                     target="_blank"
@@ -440,7 +431,6 @@ export function ProjectDetailClient({
                   size="sm"
                   onClick={handleStopSandbox}
                   disabled={isSandboxStopping}
-                  className="rounded-full"
                 >
                   <IconPlayerStop size={16} />
                   <span className="hidden sm:inline">Stop Sandbox</span>
@@ -448,14 +438,14 @@ export function ProjectDetailClient({
               ) : null}
               {canStartSandbox ? (
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={toggleProjectSandboxView}
                   disabled={isSandboxStopping}
                   className={
                     isSandboxSurface || isSandboxActive
-                      ? "rounded-full border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
-                      : "rounded-full"
+                      ? "border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
+                      : undefined
                   }
                 >
                   {(isSandboxStarting && !isSandboxActive) ||

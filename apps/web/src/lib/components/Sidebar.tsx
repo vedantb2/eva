@@ -166,15 +166,6 @@ export function Sidebar() {
     }
     const o = segments[0];
     const n = segments[1];
-    if (segments.length >= 3 && !KNOWN_SUB_PAGES.has(segments[2])) {
-      return {
-        repoBasePath: `/${o}/${n}/${segments[2]}`,
-        owner: o,
-        repoName: n,
-        appName: segments[2],
-        isRepoRoute: true,
-      };
-    }
     const nonRepoRoutes = new Set([
       "home",
       "sign-in",
@@ -186,13 +177,25 @@ export function Sidebar() {
       "settings",
       "testing",
     ]);
-    if (nonRepoRoutes.has(segments[0])) {
+    // Guard non-repo routes before the repo-route heuristic below, otherwise
+    // sub-paths like /teams/{id}/members are misread as /owner/repo/appName
+    // (because "members" isn't a KNOWN_SUB_PAGE) and the repo nav renders.
+    if (nonRepoRoutes.has(o)) {
       return {
         repoBasePath: null,
         owner: null,
         repoName: null,
         appName: undefined,
         isRepoRoute: false,
+      };
+    }
+    if (segments.length >= 3 && !KNOWN_SUB_PAGES.has(segments[2])) {
+      return {
+        repoBasePath: `/${o}/${n}/${segments[2]}`,
+        owner: o,
+        repoName: n,
+        appName: segments[2],
+        isRepoRoute: true,
       };
     }
     const decoded = decodeRepoParam(n);

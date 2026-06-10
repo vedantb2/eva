@@ -1,5 +1,15 @@
 # Changelog
 
+## Real-time collaborative documents - 2026-06-10
+
+- Documents are now always-live and multiplayer: edits from every collaborator sync in real time, replacing the click-Edit-then-Save flow where the last save clobbered everyone else's work.
+- A presence facepile in the header shows who else currently has the document open.
+- Anchored inline comments: select text to start a threaded comment, commented passages are highlighted, and threads live in a side panel with Open/Resolved filters; resolving a thread clears its highlight for everyone.
+- Comments show the author's avatar and name, the toggle surfaces a live open-thread count, and @mentions, replies, and new comments notify the right people and auto-subscribe commenters, with notifications deep-linking back to the document.
+- Version history captures automatic snapshots as edits settle, attributes them to contributors, and lets you diff any version against the current document and restore it.
+- A mode switcher adds a read-only Viewing mode alongside Editing, and document content is mirrored to markdown so requirement/user-flow extraction, copy, and AI workflows keep working.
+- Requirements and user flows no longer re-extract on every save; a manual "Re-extract" button with a stale indicator puts that under your control.
+
 ## OOM-protect the sandbox callback and capture watchdog kill diagnostics - 2026-06-09
 
 - **Why**: Prod data showed `Run killed by watchdog: no heartbeat` failures are the callback process dying inside a still-running sandbox — heartbeats stop permanently (kills always land at the full stale threshold across every threshold raise), and activity-log snapshots show death mid-short-bounded-command (`timeout 120s npx tsc --noEmit` in half the sampled kills). Best-fit cause: the kernel OOM killer SIGKILLing the callback during memory-heavy tool steps.

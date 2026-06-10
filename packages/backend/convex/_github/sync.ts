@@ -31,8 +31,6 @@ export const syncRepos = action({
       },
     );
 
-    await ctx.runMutation(internal.syncSettings.migrateOwnersFromRepos, {});
-
     const syncSettings = await ctx.runQuery(internal.syncSettings.listAll, {});
     const disabledRepos = new Set(
       syncSettings

@@ -1,61 +1,8 @@
 import { v } from "convex/values";
-import type { Doc, Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
 import { hasRepoReferences, normalizePath } from "../repoUtils";
-
-function rootDirectoryMatches(
-  repo: Doc<"githubRepos">,
-  normalizedRoot: string | undefined,
-): boolean {
-  return (repo.rootDirectory ?? undefined) === (normalizedRoot ?? undefined);
-}
-
-/** Renames owner on all repo rows and sync settings for a GitHub username change. */
-async function propagateOwnerRename(
-  ctx: MutationCtx,
-  args: {
-    oldOwner: string;
-    newOwner: string;
-    name: string;
-    installationId: number;
-  },
-): Promise<void> {
-  const siblings = await ctx.db
-    .query("githubRepos")
-    .withIndex("by_installation_and_name", (q) =>
-      q.eq("installationId", args.installationId).eq("name", args.name),
-    )
-    .collect();
-
-  for (const sibling of siblings) {
-    if (sibling.owner !== args.newOwner) {
-      await ctx.db.patch(sibling._id, { owner: args.newOwner });
-    }
-  }
-
-  const oldSetting = await ctx.db
-    .query("syncSettings")
-    .withIndex("by_owner_and_name", (q) =>
-      q.eq("owner", args.oldOwner).eq("name", args.name),
-    )
-    .unique();
-
-  if (!oldSetting) return;
-
-  const newSetting = await ctx.db
-    .query("syncSettings")
-    .withIndex("by_owner_and_name", (q) =>
-      q.eq("owner", args.newOwner).eq("name", args.name),
-    )
-    .unique();
-
-  if (newSetting) {
-    await ctx.db.delete(oldSetting._id);
-  } else {
-    await ctx.db.patch(oldSetting._id, { owner: args.newOwner });
-  }
-}
 
 /** Inserts or updates a GitHub repo entry, matching by GitHub ID or owner/name. */
 export const upsert = internalMutation({
@@ -81,8 +28,8 @@ export const upsert = internalMutation({
         .query("githubRepos")
         .withIndex("by_github_id", (q) => q.eq("githubId", args.githubId))
         .collect();
-      existing = byGithubId.find((r) =>
-        rootDirectoryMatches(r, normalizedRoot),
+      existing = byGithubId.find(
+        (r) => (r.rootDirectory ?? undefined) === (normalizedRoot ?? undefined),
       );
     }
 
@@ -93,21 +40,8 @@ export const upsert = internalMutation({
           q.eq("owner", args.owner).eq("name", args.name),
         )
         .collect();
-      existing = byOwnerName.find((r) =>
-        rootDirectoryMatches(r, normalizedRoot),
-      );
-    }
-
-    // GitHub username renames change owner but keep installationId + repo name stable.
-    if (!existing) {
-      const byInstallation = await ctx.db
-        .query("githubRepos")
-        .withIndex("by_installation_and_name", (q) =>
-          q.eq("installationId", args.installationId).eq("name", args.name),
-        )
-        .collect();
-      existing = byInstallation.find((r) =>
-        rootDirectoryMatches(r, normalizedRoot),
+      existing = byOwnerName.find(
+        (r) => (r.rootDirectory ?? undefined) === (normalizedRoot ?? undefined),
       );
     }
 
@@ -140,16 +74,6 @@ export const upsert = internalMutation({
         updates.parentRepoId = args.parentRepoId;
       }
       await ctx.db.patch(existing._id, updates);
-
-      if (existing.owner !== args.owner) {
-        await propagateOwnerRename(ctx, {
-          oldOwner: existing.owner,
-          newOwner: args.owner,
-          name: args.name,
-          installationId: args.installationId,
-        });
-      }
-
       return existing._id;
     }
 

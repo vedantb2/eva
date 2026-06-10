@@ -4,6 +4,7 @@ import { components } from "./_generated/api";
 import { evaluationStatusValidator, roleValidator } from "./validators";
 import { docFields } from "./validators";
 import { prosemirrorSync } from "./prosemirrorSync";
+import { markdownToDocJson } from "./_docEditor/markdown";
 
 const interviewMessageValidator = v.object({
   role: roleValidator,
@@ -17,27 +18,6 @@ const docValidator = v.object({
   _creationTime: v.number(),
   ...docFields,
 });
-
-/**
- * Wraps markdown content as a minimal ProseMirror doc for the sync component.
- * This does NOT parse markdown structure — headings/lists stay as plain text
- * until the doc is next edited in the rich editor (a server-side markdown
- * parser would need the full TipTap schema in the isolate). Shared by the
- * create / lazy-migration / session-import paths so they behave identically.
- */
-function planToDocJson(content: string): {
-  type: string;
-  content: Array<Record<string, unknown>>;
-} {
-  return content.trim()
-    ? {
-        type: "doc",
-        content: [
-          { type: "paragraph", content: [{ type: "text", text: content }] },
-        ],
-      }
-    : { type: "doc", content: [{ type: "paragraph" }] };
-}
 
 /** Lists all docs for a given repo, filtered by user access. */
 export const list = authQuery({
@@ -85,7 +65,7 @@ export const create = authMutation({
       updatedAt: now,
     });
 
-    await prosemirrorSync.create(ctx, docId, planToDocJson(args.content));
+    await prosemirrorSync.create(ctx, docId, markdownToDocJson(args.content));
 
     return docId;
   },
@@ -155,7 +135,7 @@ export const createFromSession = authMutation({
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .first();
     const now = Date.now();
-    const planJson = planToDocJson(session.planContent ?? "");
+    const planJson = markdownToDocJson(session.planContent ?? "");
 
     if (existing) {
       // "Update Document": overwrite the live synced doc with the latest plan.
@@ -212,7 +192,7 @@ export const ensureSyncDoc = authMutation({
     );
     if (existing.content !== null) return null;
 
-    await prosemirrorSync.create(ctx, args.id, planToDocJson(doc.content));
+    await prosemirrorSync.create(ctx, args.id, markdownToDocJson(doc.content));
     return null;
   },
 });

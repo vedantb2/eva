@@ -522,7 +522,16 @@ importers:
       '@solvers-hub/llm-json':
         specifier: ^0.1.8
         version: 0.1.11
+      '@tiptap/core':
+        specifier: ^3.20.1
+        version: 3.22.3(@tiptap/pm@3.22.3)
+      '@tiptap/markdown':
+        specifier: ^3.20.1
+        version: 3.22.3(@tiptap/core@3.22.3(@tiptap/pm@3.22.3))(@tiptap/pm@3.22.3)
       '@tiptap/pm':
+        specifier: ^3.20.1
+        version: 3.22.3
+      '@tiptap/starter-kit':
         specifier: ^3.20.1
         version: 3.22.3
       convex:

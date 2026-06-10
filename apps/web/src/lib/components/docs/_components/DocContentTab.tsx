@@ -27,6 +27,15 @@ import {
   disableSuggesting,
   collectSuggestions,
 } from "@/lib/components/editor/suggestChanges";
+import {
+  DocCommentMark,
+  DocCommentHighlight,
+  applyCommentAnchor,
+  removeCommentAnchor,
+  collectPresentAnchorIds,
+  setCommentHighlightState,
+  scrollToAnchor,
+} from "../_utils/docCommentAnchors";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -69,10 +78,17 @@ export function DocContentTab({
   const currentUserId = useQuery(api.auth.me);
   const userIdRef = useRef<string | null>(null);
   userIdRef.current = currentUserId ?? null;
+  // Clicking a highlight routes here; the ref lets the (memoized once) editor
+  // extension reach the latest handler without recreating the editor.
+  const anchorClickRef = useRef<(anchorId: string) => void>(() => undefined);
   const extensions = useMemo(
     () => [
       ...baseEditorExtensions,
       SuggestChangesKit.configure({ getUserId: () => userIdRef.current }),
+      DocCommentMark,
+      DocCommentHighlight.configure({
+        onAnchorClick: (anchorId) => anchorClickRef.current(anchorId),
+      }),
     ],
     [],
   );
@@ -89,6 +105,24 @@ export function DocContentTab({
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
     null,
   );
+  const [presentAnchorIds, setPresentAnchorIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  // Cached query (shared with the panel). Open anchors = unresolved thread
+  // roots plus the anchor currently being composed.
+  const comments =
+    useQuery(api.docComments.listByDoc, { docId: doc._id }) ?? [];
+  const openAnchorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of comments) {
+      if (!c.parentId && c.resolvedAt === undefined && c.anchorId) {
+        ids.add(c.anchorId);
+      }
+    }
+    if (composingAnchorId) ids.add(composingAnchorId);
+    return ids;
+  }, [comments, composingAnchorId]);
 
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
   const lastTouchDraftRef = useRef<number>(0);
@@ -183,12 +217,47 @@ export function DocContentTab({
     };
   }, [editor, doc._id, touchDraft, saveVersion]);
 
+  // Reflect open/active anchors as highlights in the document.
+  useEffect(() => {
+    if (!editor) return;
+    setCommentHighlightState(editor, { openAnchorIds, activeAnchorId });
+  }, [editor, openAnchorIds, activeAnchorId]);
+
+  // Track anchors still present in the doc so deleted ones show as orphaned.
+  useEffect(() => {
+    if (!editor) return;
+    const update = () =>
+      setPresentAnchorIds(collectPresentAnchorIds(editor.state.doc));
+    update();
+    editor.on("update", update);
+    return () => {
+      editor.off("update", update);
+    };
+  }, [editor]);
+
+  // Highlight click -> focus its thread in the panel.
+  anchorClickRef.current = (anchorId: string) => {
+    setActiveAnchorId(anchorId);
+    if (!commentsOpen) onToggleComments();
+  };
+
+  // Panel thread click -> scroll the editor to the anchored text.
+  const handleAnchorActivate = useCallback(
+    (anchorId: string) => {
+      setActiveAnchorId(anchorId);
+      if (editor) scrollToAnchor(editor, anchorId);
+    },
+    [editor],
+  );
+
   const handleStartComment = useCallback(() => {
     if (!editor) return;
     const { from, to } = editor.state.selection;
     if (from === to) return;
     const text = editor.state.doc.textBetween(from, to, " ");
     const anchorId = nanoid();
+    // Anchor the selection immediately so the pending highlight tracks edits.
+    applyCommentAnchor(editor, anchorId);
     setComposingAnchorId(anchorId);
     setComposingAnchorText(text);
     setActiveAnchorId(anchorId);
@@ -196,9 +265,11 @@ export function DocContentTab({
   }, [editor, commentsOpen, onToggleComments]);
 
   const handleCancelCompose = useCallback(() => {
+    if (editor && composingAnchorId)
+      removeCommentAnchor(editor, composingAnchorId);
     setComposingAnchorId(null);
     setComposingAnchorText(null);
-  }, []);
+  }, [editor, composingAnchorId]);
 
   const handleCommentCreated = useCallback(() => {
     setComposingAnchorId(null);
@@ -299,12 +370,13 @@ export function DocContentTab({
         <DocCommentsPanel
           docId={doc._id}
           activeAnchorId={activeAnchorId}
-          onAnchorClick={setActiveAnchorId}
+          onAnchorClick={handleAnchorActivate}
           onClose={onToggleComments}
           composingAnchorId={composingAnchorId}
           composingAnchorText={composingAnchorText}
           onCancelCompose={handleCancelCompose}
           onCommentCreated={handleCommentCreated}
+          presentAnchorIds={presentAnchorIds}
         />
       )}
 

@@ -9,7 +9,7 @@ import { UserInitials } from "@conductor/shared";
 import { Button, cn, Textarea } from "@conductor/ui";
 import { IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 type DocComment = FunctionReturnType<typeof api.docComments.listByDoc>[number];
 
@@ -18,20 +18,30 @@ export function DocCommentThread({
   replies,
   docId,
   isActive,
+  isOrphaned,
   onClick,
 }: {
   root: DocComment;
   replies: DocComment[];
   docId: Id<"docs">;
   isActive: boolean;
+  isOrphaned: boolean;
   onClick: () => void;
 }) {
   const setResolved = useMutation(api.docComments.setResolved);
   const createComment = useMutation(api.docComments.create);
   const [replyContent, setReplyContent] = useState("");
   const [isReplying, setIsReplying] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   const isResolved = root.resolvedAt !== undefined;
+
+  // Bring the thread into view when its highlight is clicked in the editor.
+  useEffect(() => {
+    if (isActive) {
+      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [isActive]);
 
   const handleReply = useCallback(async () => {
     if (!replyContent.trim()) return;
@@ -46,15 +56,21 @@ export function DocCommentThread({
 
   return (
     <div
+      ref={rootRef}
       onClick={onClick}
       className={cn(
         "border-b border-border p-3 cursor-pointer transition-colors",
-        isActive && "bg-accent/50",
+        isActive && "bg-accent/50 ring-1 ring-inset ring-ring",
       )}
     >
       {root.anchorText && (
         <div className="mb-2 rounded border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground line-clamp-2 italic">
           &ldquo;{root.anchorText}&rdquo;
+        </div>
+      )}
+      {isOrphaned && (
+        <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-warning">
+          Original text deleted
         </div>
       )}
 

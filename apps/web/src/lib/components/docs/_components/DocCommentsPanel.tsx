@@ -24,6 +24,7 @@ export function DocCommentsPanel({
   composingAnchorText,
   onCancelCompose,
   onCommentCreated,
+  presentAnchorIds,
 }: {
   docId: Id<"docs">;
   activeAnchorId: string | null;
@@ -33,6 +34,7 @@ export function DocCommentsPanel({
   composingAnchorText: string | null;
   onCancelCompose: () => void;
   onCommentCreated: () => void;
+  presentAnchorIds: ReadonlySet<string>;
 }) {
   const [filter, setFilter] = useQueryState("comments", docCommentFilterParser);
   const comments = useQuery(api.docComments.listByDoc, { docId }) ?? [];
@@ -125,6 +127,7 @@ export function DocCommentsPanel({
             replies={repliesByParent.get(root._id) ?? []}
             docId={docId}
             isActive={root.anchorId === activeAnchorId}
+            isOrphaned={!!root.anchorId && !presentAnchorIds.has(root.anchorId)}
             onClick={() => {
               if (root.anchorId) onAnchorClick(root.anchorId);
             }}

@@ -4,7 +4,7 @@
 
 - Documents are now always-live and multiplayer: edits from every collaborator sync in real time, replacing the click-Edit-then-Save flow where the last save clobbered everyone else's work.
 - A presence facepile in the header shows who else currently has the document open.
-- Inline comments: select text to start a threaded comment that captures the quoted passage, with threads in a side panel filtered by Open/Resolved; resolving syncs to everyone in real time.
+- Anchored inline comments: select text to comment and the passage is highlighted in the document; clicking a highlight focuses its thread and clicking a thread scrolls to the text, threads sit in a side panel filtered by Open/Resolved, resolving clears the highlight for everyone in real time, and deleting the anchored text marks the thread as orphaned.
 - Comments show the author's avatar and name, the toggle surfaces a live open-thread count, and @mentions, replies, and new comments notify the right people and auto-subscribe commenters, with notifications deep-linking back to the document.
 - Suggestion mode (track changes): edits made while Suggesting are recorded as coloured insertions and struck-through deletions attributed to their author instead of changing the document, and anyone with access can accept or reject them individually or all at once; the markdown mirror reflects the accepted result.
 - Version history captures automatic snapshots as edits settle, attributes them to contributors, and lets you diff any version against the current document and restore it.

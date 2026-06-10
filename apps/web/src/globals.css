@@ -1224,3 +1224,15 @@
 .tiptap [data-node-insertion="true"] {
   background-color: rgb(var(--success) / 0.08);
 }
+
+/* Anchored-comment highlights. Driven by DocCommentHighlight decorations, not
+ * the mark itself, so resolved threads lose their tint without editing the doc.
+ * Amber keeps them distinct from the green/red suggestion marks. */
+.doc-comment-highlight {
+  background-color: rgb(var(--warning) / 0.18);
+  border-bottom: 1.5px solid rgb(var(--warning) / 0.55);
+  cursor: pointer;
+}
+.doc-comment-highlight-active {
+  background-color: rgb(var(--warning) / 0.34);
+}

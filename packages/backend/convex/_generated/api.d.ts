@@ -141,8 +141,8 @@ import type * as daytona from "../daytona.js";
 import type * as designPersonas from "../designPersonas.js";
 import type * as designSessions from "../designSessions.js";
 import type * as designWorkflow from "../designWorkflow.js";
-import type * as docInterviewWorkflow from "../docInterviewWorkflow.js";
 import type * as docComments from "../docComments.js";
+import type * as docInterviewWorkflow from "../docInterviewWorkflow.js";
 import type * as docPrdWorkflow from "../docPrdWorkflow.js";
 import type * as docSubscribers from "../docSubscribers.js";
 import type * as docVersions from "../docVersions.js";
@@ -372,8 +372,8 @@ declare const fullApi: ApiFromModules<{
   designPersonas: typeof designPersonas;
   designSessions: typeof designSessions;
   designWorkflow: typeof designWorkflow;
-  docInterviewWorkflow: typeof docInterviewWorkflow;
   docComments: typeof docComments;
+  docInterviewWorkflow: typeof docInterviewWorkflow;
   docPrdWorkflow: typeof docPrdWorkflow;
   docSubscribers: typeof docSubscribers;
   docVersions: typeof docVersions;
@@ -493,7 +493,6 @@ export declare const internal: FilterApi<
 export declare const components: {
   presence: import("@convex-dev/presence/_generated/component.js").ComponentApi<"presence">;
   prosemirrorSync: import("@convex-dev/prosemirror-sync/_generated/component.js").ComponentApi<"prosemirrorSync">;
-  timeline: import("convex-timeline/_generated/component.js").ComponentApi<"timeline">;
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   crons: import("@convex-dev/crons/_generated/component.js").ComponentApi<"crons">;
 };

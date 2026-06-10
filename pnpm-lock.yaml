@@ -365,9 +365,6 @@ importers:
       convex-helpers:
         specifier: 0.1.114
         version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.40.0(@clerk/clerk-react@5.61.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.14)(react@19.2.1)(typescript@5.9.3)(zod@3.25.76)
-      convex-timeline:
-        specifier: ^0.1.2
-        version: 0.1.2(convex@1.40.0(@clerk/clerk-react@5.61.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))
       cron-parser:
         specifier: ^5.5.0
         version: 5.5.0
@@ -534,9 +531,6 @@ importers:
       convex-helpers:
         specifier: 0.1.114
         version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.40.0(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.14)(react@19.2.1)(typescript@5.9.3)(zod@3.25.76)
-      convex-timeline:
-        specifier: ^0.1.2
-        version: 0.1.2(convex@1.40.0(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))
       jose:
         specifier: ^6.0.11
         version: 6.2.2
@@ -5482,11 +5476,6 @@ packages:
         optional: true
       zod:
         optional: true
-
-  convex-timeline@0.1.2:
-    resolution: {integrity: sha512-xT6dh1ohVUsDb/aepAKcvN9bcYGwu3tZ4Hxk1MrnzrcltHyId7EnhDij6piVA8JJRvBE1v9u8Rl6ugi9XKU+3A==}
-    peerDependencies:
-      convex: ^1.31.0
 
   convex@1.35.1:
     resolution: {integrity: sha512-g23KrTjBiXqRHzWIN0PVFagKjrmFxWUaOSiBsAWPTpXX2rXl0L1F4PR0YpAcMJEzMgfZR9AGymJvLTM+KA6lsQ==}
@@ -14433,14 +14422,6 @@ snapshots:
       react: 19.2.1
       typescript: 5.9.3
       zod: 4.3.6
-
-  convex-timeline@0.1.2(convex@1.40.0(@clerk/clerk-react@5.61.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)):
-    dependencies:
-      convex: 1.40.0(@clerk/clerk-react@5.61.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)
-
-  convex-timeline@0.1.2(convex@1.40.0(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)):
-    dependencies:
-      convex: 1.40.0(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)
 
   convex@1.35.1(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6):
     dependencies:

@@ -70,7 +70,6 @@
     "cmdk": "^1.1.1",
     "convex": "^1.40.0",
     "convex-helpers": "0.1.114",
-    "convex-timeline": "^0.1.2",
     "cron-parser": "^5.5.0",
     "cronstrue": "^3.13.0",
     "dayjs": "^1.11.13",

@@ -25,6 +25,7 @@ import {
   IconCopy,
   IconFileExport,
   IconPencil,
+  IconX,
 } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
@@ -56,6 +57,7 @@ export function SessionPrdPlanView({
   const [editingSnapshot, setEditingSnapshot] = useState<string | null>(null);
   const [editKey, setEditKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const getMarkdownRef = useRef<() => string | null>(() => null);
   const [isSavingDoc, setIsSavingDoc] = useState(false);
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,21 +86,24 @@ export function SessionPrdPlanView({
     setEditingSnapshot(null);
   }, []);
 
-  const handleSave = useCallback(
-    async (markdown: string) => {
-      setIsSaving(true);
-      try {
-        await updatePlanContent({
-          id: sessionId,
-          planContent: markdown,
-        });
-        setEditingSnapshot(null);
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [sessionId, updatePlanContent],
-  );
+  const handleEditorReady = useCallback((getMarkdown: () => string | null) => {
+    getMarkdownRef.current = getMarkdown;
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    const markdown = getMarkdownRef.current();
+    if (markdown === null) return;
+    setIsSaving(true);
+    try {
+      await updatePlanContent({
+        id: sessionId,
+        planContent: markdown,
+      });
+      setEditingSnapshot(null);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [sessionId, updatePlanContent]);
 
   const handleSaveAsDocument = useCallback(async () => {
     if (!planContent.trim()) return;
@@ -153,9 +158,7 @@ export function SessionPrdPlanView({
           <MarkdownEditor
             key={editKey}
             initialMarkdown={editingSnapshot}
-            onSave={handleSave}
-            onCancel={handleCancelEdit}
-            isSaving={isSaving}
+            onEditorReady={handleEditorReady}
           />
         ) : (
           <div
@@ -186,6 +189,23 @@ export function SessionPrdPlanView({
             <IconPencil className="w-3.5 h-3.5" />
             Edit
           </Button>
+        ) : null}
+        {editingSnapshot !== null ? (
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={isSaving}
+              onClick={handleCancelEdit}
+            >
+              <IconX className="w-3.5 h-3.5" />
+              Cancel
+            </Button>
+            <Button size="sm" disabled={isSaving} onClick={handleSave}>
+              <IconCheck className="w-3.5 h-3.5" />
+              Save
+            </Button>
+          </>
         ) : null}
         {editingSnapshot === null && !isArchived ? (
           <Tooltip>

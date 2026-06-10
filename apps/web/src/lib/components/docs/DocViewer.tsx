@@ -20,6 +20,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Textarea,
 } from "@conductor/ui";
 import {
   IconCheck,
@@ -307,6 +308,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
       >
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
+            <TabsTrigger value="description">Description</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="requirements">
               Requirements
@@ -359,6 +361,21 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
             )}
           </div>
         </div>
+
+        <TabsContent
+          value="description"
+          className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4"
+        >
+          <Textarea
+            value={doc.description ?? ""}
+            onChange={(e) =>
+              updateDoc({ id: doc._id, description: e.target.value })
+            }
+            placeholder="A short summary of this PRD."
+            rows={6}
+            className="scrollbar bg-card"
+          />
+        </TabsContent>
 
         <TabsContent
           value="content"

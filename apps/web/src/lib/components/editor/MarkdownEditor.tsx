@@ -4,9 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
-import { useCallback } from "react";
-import { Button } from "@conductor/ui";
-import { IconCheck, IconX } from "@tabler/icons-react";
+import { useEffect } from "react";
 
 const markdownExtensions = [
   StarterKit.configure({
@@ -25,16 +23,12 @@ function getMarkdownFromEditor(editor: Editor): string {
 
 interface MarkdownEditorProps {
   initialMarkdown: string;
-  onSave: (markdown: string) => void | Promise<void>;
-  onCancel: () => void;
-  isSaving: boolean;
+  onEditorReady: (getMarkdown: () => string | null) => void;
 }
 
 export function MarkdownEditor({
   initialMarkdown,
-  onSave,
-  onCancel,
-  isSaving,
+  onEditorReady,
 }: MarkdownEditorProps) {
   const editor = useEditor({
     extensions: markdownExtensions,
@@ -49,40 +43,20 @@ export function MarkdownEditor({
     },
   });
 
-  const handleSave = useCallback(() => {
-    if (!editor) return;
-    const md = getMarkdownFromEditor(editor);
-    void onSave(md);
-  }, [editor, onSave]);
+  useEffect(() => {
+    onEditorReady(() => {
+      if (!editor) return null;
+      return getMarkdownFromEditor(editor);
+    });
+  }, [editor, onEditorReady]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="scrollbar min-h-0 flex-1 overflow-y-auto rounded-control border border-border bg-muted/40">
         <EditorContent
           editor={editor}
           className="[&_.tiptap]:min-h-[12rem] [&_.tiptap]:outline-none"
         />
-      </div>
-      <div className="flex shrink-0 justify-end gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          disabled={isSaving}
-          onClick={onCancel}
-        >
-          <IconX className="h-3.5 w-3.5" />
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          disabled={isSaving || !editor}
-          onClick={handleSave}
-        >
-          <IconCheck className="h-3.5 w-3.5" />
-          Save
-        </Button>
       </div>
     </div>
   );

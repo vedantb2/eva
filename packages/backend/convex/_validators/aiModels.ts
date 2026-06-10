@@ -17,7 +17,7 @@ export const aiModelValidator = v.union(
   v.literal("claude:opusplan"),
   v.literal("claude:claude-opus-4-5-20251101"),
   v.literal("claude:claude-opus-4-6"),
-  v.literal("claude:fable"),
+  v.literal("claude:claude-fable-5"),
   v.literal("codex:gpt-5.4"),
   v.literal("codex:gpt-5.4-mini"),
   v.literal("codex:gpt-5.3-codex"),
@@ -48,7 +48,7 @@ export type AIModel =
   | "claude:opusplan"
   | "claude:claude-opus-4-5-20251101"
   | "claude:claude-opus-4-6"
-  | "claude:fable"
+  | "claude:claude-fable-5"
   | "codex:gpt-5.4"
   | "codex:gpt-5.4-mini"
   | "codex:gpt-5.3-codex"
@@ -119,7 +119,7 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     requiresAuth: true,
   },
   {
-    id: "claude:fable",
+    id: "claude:claude-fable-5",
     provider: "claude",
     label: "Fable 5",
     requiresAuth: true,
@@ -247,7 +247,7 @@ export const CLAUDE_MODELS: ReadonlyArray<AIModel> = [
   "claude:opusplan",
   "claude:claude-opus-4-5-20251101",
   "claude:claude-opus-4-6",
-  "claude:fable",
+  "claude:claude-fable-5",
 ];
 export const CODEX_MODELS: ReadonlyArray<AIModel> = AI_MODEL_OPTIONS.filter(
   (option) => option.provider === "codex",
@@ -310,7 +310,7 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "claude:fable":
     case "claude-fable-5":
     case "claude:claude-fable-5":
-      return "claude:fable";
+      return "claude:claude-fable-5";
     case "codex:gpt-5.4":
       return "codex:gpt-5.4";
     case "codex:gpt-5.4-mini":

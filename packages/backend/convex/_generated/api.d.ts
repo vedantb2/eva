@@ -50,6 +50,7 @@ import type * as _designSessions_mutations from "../_designSessions/mutations.js
 import type * as _designSessions_queries from "../_designSessions/queries.js";
 import type * as _designSessions_sandbox from "../_designSessions/sandbox.js";
 import type * as _designSessions_workflow from "../_designSessions/workflow.js";
+import type * as _docEditor_markdown from "../_docEditor/markdown.js";
 import type * as _githubRepos_helpers from "../_githubRepos/helpers.js";
 import type * as _githubRepos_mutations from "../_githubRepos/mutations.js";
 import type * as _githubRepos_queries from "../_githubRepos/queries.js";
@@ -281,6 +282,7 @@ declare const fullApi: ApiFromModules<{
   "_designSessions/queries": typeof _designSessions_queries;
   "_designSessions/sandbox": typeof _designSessions_sandbox;
   "_designSessions/workflow": typeof _designSessions_workflow;
+  "_docEditor/markdown": typeof _docEditor_markdown;
   "_githubRepos/helpers": typeof _githubRepos_helpers;
   "_githubRepos/mutations": typeof _githubRepos_mutations;
   "_githubRepos/queries": typeof _githubRepos_queries;

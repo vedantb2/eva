@@ -15,7 +15,7 @@ import type { Id } from "@conductor/backend";
 import { useQueryState } from "nuqs";
 import { docModeParser, type DocMode } from "@/lib/search-params";
 import { nanoid } from "nanoid";
-import { Button, Spinner, Textarea } from "@conductor/ui";
+import { Button, Spinner } from "@conductor/ui";
 import { IconMessage } from "@tabler/icons-react";
 import { FloatingToc } from "../FloatingToc";
 import { DocCommentsPanel } from "./DocCommentsPanel";
@@ -71,7 +71,6 @@ export function DocContentTab({
 }) {
   const [mode] = useQueryState("mode", docModeParser);
   const ensureSyncDoc = useMutation(api.docs.ensureSyncDoc);
-  const updateDoc = useMutation(api.docs.update);
   const touchDraft = useMutation(api.docVersions.touchDraft);
   const saveVersion = useMutation(api.docVersions.saveVersion);
 
@@ -318,21 +317,6 @@ export function DocContentTab({
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <section className="mb-2 shrink-0 px-4">
-          <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
-            Description
-          </label>
-          <Textarea
-            value={doc.description ?? ""}
-            onChange={(e) =>
-              updateDoc({ id: doc._id, description: e.target.value })
-            }
-            placeholder="A short summary of this PRD."
-            rows={2}
-            className="scrollbar bg-card"
-          />
-        </section>
-
         {selectedVersionId ? (
           <div className="scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             <DocVersionDiff

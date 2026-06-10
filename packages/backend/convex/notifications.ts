@@ -74,7 +74,7 @@ function getRepoHref(
   return `/${owner}/${name}/${appName}`;
 }
 
-/** Creates a notification for a user, auto-generating an href from repo/project/task context. */
+/** Creates a notification for a user, auto-generating an href from repo/project/task/doc context. */
 export async function createNotification(
   ctx: MutationCtx,
   params: {
@@ -86,6 +86,7 @@ export async function createNotification(
     repoId?: Id<"githubRepos">;
     projectId?: Id<"projects">;
     taskId?: Id<"agentTasks">;
+    docId?: Id<"docs">;
   },
 ) {
   let href = params.href;
@@ -93,7 +94,9 @@ export async function createNotification(
     const repo = await ctx.db.get(params.repoId);
     if (repo) {
       const baseHref = getRepoHref(repo.owner, repo.name, repo.rootDirectory);
-      if (params.taskId && !params.projectId) {
+      if (params.docId) {
+        href = `${baseHref}/docs/${params.docId}/content`;
+      } else if (params.taskId && !params.projectId) {
         href = `${baseHref}/quick-tasks/${params.taskId}`;
       } else if (params.projectId) {
         href = `${baseHref}/projects/${params.projectId}`;
@@ -104,12 +107,15 @@ export async function createNotification(
   }
   const type = params.type ?? "system";
 
-  // Snapshot a human-readable task/project label for the notification card, but
-  // only for types whose title does not already name the task (see
-  // CONTEXT_LABEL_TYPES). Project tasks read "Project title: issue title"; quick
-  // tasks just the title.
+  // Snapshot a human-readable context label for the notification card, but only
+  // for types whose title does not already name the entity.
   let contextLabel: string | undefined;
-  if (params.taskId && CONTEXT_LABEL_TYPES.has(type)) {
+  if (params.docId && CONTEXT_LABEL_TYPES.has(type)) {
+    const doc = await ctx.db.get(params.docId);
+    if (doc) {
+      contextLabel = doc.title;
+    }
+  } else if (params.taskId && CONTEXT_LABEL_TYPES.has(type)) {
     const task = await ctx.db.get(params.taskId);
     if (task) {
       if (params.projectId) {

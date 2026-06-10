@@ -8,6 +8,33 @@
 - Results are capped by a row limit and a ~1 MB byte cap with an explicit `truncated` flag, keeping large `SELECT`s within Convex return limits.
 - Schema discovery works through `information_schema`, so one tool covers both introspection and querying.
 
+## Real-time collaborative document editing - 2026-06-10
+
+- Documents are now always-live and multiplayer: edits from every collaborator sync in real time, replacing the click-Edit-then-Save flow where the last save clobbered everyone else's work.
+- A mode switcher offers Editing, Suggesting, and read-only Viewing, and a presence facepile in the header shows who else currently has the document open.
+- The description now lives in its own tab.
+- Document content is mirrored to markdown — now parsed with full structure (headings, lists, code) rather than flattened — so requirement/user-flow extraction, copy, and AI workflows keep working.
+
+## Anchored, resolvable document comments - 2026-06-10
+
+- Select text to comment and the passage is highlighted in the document; clicking a highlight focuses its thread and clicking a thread scrolls to the text.
+- Threads live in a side panel filtered by Open/Resolved; resolving clears the highlight for everyone in real time, and deleting the anchored text marks the thread as orphaned.
+- Comments show the author's avatar and name with a live open-thread count, and @mentions, replies, and new comments notify the right people and auto-subscribe commenters, deep-linking back to the document.
+
+## Suggestion mode for documents - 2026-06-10
+
+- Edits made while in Suggesting mode are recorded as coloured insertions and struck-through deletions attributed to their author, instead of changing the document directly.
+- Anyone with access can accept or reject suggestions individually or all at once; the markdown mirror reflects the accepted result.
+
+## Document version history - 2026-06-10
+
+- Automatic version snapshots are captured as edits settle, attributed to the contributors involved.
+- Diff any saved version against the current document and restore it; restoring snapshots the current state first so it stays reversible.
+
+## Manual PRD re-extraction - 2026-06-10
+
+- Requirements and user flows no longer re-extract on every save; a "Re-extract" button with a stale indicator puts that under your control.
+
 ## OOM-protect the sandbox callback and capture watchdog kill diagnostics - 2026-06-09
 
 - **Why**: Prod data showed `Run killed by watchdog: no heartbeat` failures are the callback process dying inside a still-running sandbox — heartbeats stop permanently (kills always land at the full stale threshold across every threshold raise), and activity-log snapshots show death mid-short-bounded-command (`timeout 120s npx tsc --noEmit` in half the sampled kills). Best-fit cause: the kernel OOM killer SIGKILLing the callback during memory-heavy tool steps.

@@ -215,6 +215,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.1)
+      '@handlewithcare/prosemirror-suggest-changes':
+        specifier: ^0.1.8
+        version: 0.1.8(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.41.8)
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -362,9 +365,6 @@ importers:
       convex-helpers:
         specifier: 0.1.114
         version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.40.0(@clerk/clerk-react@5.61.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.14)(react@19.2.1)(typescript@5.9.3)(zod@3.25.76)
-      convex-timeline:
-        specifier: ^0.1.2
-        version: 0.1.2(convex@1.40.0(@clerk/clerk-react@5.61.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))
       cron-parser:
         specifier: ^5.5.0
         version: 5.5.0
@@ -374,6 +374,9 @@ importers:
       dayjs:
         specifier: ^1.11.13
         version: 1.11.20
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.1)
@@ -444,6 +447,9 @@ importers:
       '@tanstack/router-plugin':
         specifier: ^1.120.0
         version: 1.167.22(@tanstack/react-router@1.168.22(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(vite@8.0.14(@types/node@24.12.2)(esbuild@0.27.7)(jiti@1.21.7)(terser@5.48.0)(tsx@4.21.0)(yaml@2.8.3))
+      '@types/diff':
+        specifier: ^8.0.0
+        version: 8.0.0
       '@types/node':
         specifier: ^24.10.1
         version: 24.12.2
@@ -516,7 +522,16 @@ importers:
       '@solvers-hub/llm-json':
         specifier: ^0.1.8
         version: 0.1.11
+      '@tiptap/core':
+        specifier: ^3.20.1
+        version: 3.22.3(@tiptap/pm@3.22.3)
+      '@tiptap/markdown':
+        specifier: ^3.20.1
+        version: 3.22.3(@tiptap/core@3.22.3(@tiptap/pm@3.22.3))(@tiptap/pm@3.22.3)
       '@tiptap/pm':
+        specifier: ^3.20.1
+        version: 3.22.3
+      '@tiptap/starter-kit':
         specifier: ^3.20.1
         version: 3.22.3
       convex:
@@ -525,9 +540,6 @@ importers:
       convex-helpers:
         specifier: 0.1.114
         version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.40.0(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.14)(react@19.2.1)(typescript@5.9.3)(zod@3.25.76)
-      convex-timeline:
-        specifier: ^0.1.2
-        version: 0.1.2(convex@1.40.0(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))
       jose:
         specifier: ^6.0.11
         version: 6.2.2
@@ -2428,6 +2440,14 @@ packages:
     resolution: {integrity: sha512-rc1hOQtjIWGxcxpb9aHAfLpIctjEnsDehj0DAiVfBlmT84uvR0uUtN2hEi/ecvWVjXUGf5qPF4qEgiLOx1YIMQ==}
     engines: {node: '>=6'}
     hasBin: true
+
+  '@handlewithcare/prosemirror-suggest-changes@0.1.8':
+    resolution: {integrity: sha512-ewrJl4a8dTpPJNhqYySE2ZCjTRpXulWlUmFy3sbyJgPnGtN/zx7+8tbQ1OhHfMzZWfdmA8VjP9ecy+KO4HdOpA==}
+    peerDependencies:
+      prosemirror-model: ^1.0.0
+      prosemirror-state: ^1.0.0
+      prosemirror-transform: ^1.0.0
+      prosemirror-view: ^1.0.0
 
   '@hono/node-server@1.19.14':
     resolution: {integrity: sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==}
@@ -4704,6 +4724,10 @@ packages:
   '@types/debug@4.1.13':
     resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
 
+  '@types/diff@8.0.0':
+    resolution: {integrity: sha512-o7jqJM04gfaYrdCecCVMbZhNdG6T1MHg/oQoRFdERLV+4d+V7FijhiEAbFu0Usww84Yijk9yH58U4Jk4HbtzZw==}
+    deprecated: This is a stub types definition. diff provides its own type definitions, so you do not need this installed.
+
   '@types/estree-jsx@1.0.5':
     resolution: {integrity: sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg==}
 
@@ -5496,11 +5520,6 @@ packages:
       zod:
         optional: true
 
-  convex-timeline@0.1.2:
-    resolution: {integrity: sha512-xT6dh1ohVUsDb/aepAKcvN9bcYGwu3tZ4Hxk1MrnzrcltHyId7EnhDij6piVA8JJRvBE1v9u8Rl6ugi9XKU+3A==}
-    peerDependencies:
-      convex: ^1.31.0
-
   convex@1.35.1:
     resolution: {integrity: sha512-g23KrTjBiXqRHzWIN0PVFagKjrmFxWUaOSiBsAWPTpXX2rXl0L1F4PR0YpAcMJEzMgfZR9AGymJvLTM+KA6lsQ==}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
@@ -5862,6 +5881,10 @@ packages:
 
   diff@8.0.4:
     resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
+    engines: {node: '>=0.3.1'}
+
+  diff@9.0.0:
+    resolution: {integrity: sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==}
     engines: {node: '>=0.3.1'}
 
   dijkstrajs@1.0.3:
@@ -11044,6 +11067,13 @@ snapshots:
       protobufjs: 7.5.5
       yargs: 17.7.2
 
+  '@handlewithcare/prosemirror-suggest-changes@0.1.8(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.0)(prosemirror-view@1.41.8)':
+    dependencies:
+      prosemirror-model: 1.25.4
+      prosemirror-state: 1.4.4
+      prosemirror-transform: 1.12.0
+      prosemirror-view: 1.41.8
+
   '@hono/node-server@1.19.14(hono@4.12.14)':
     dependencies:
       hono: 4.12.14
@@ -13684,6 +13714,10 @@ snapshots:
     dependencies:
       '@types/ms': 2.1.0
 
+  '@types/diff@8.0.0':
+    dependencies:
+      diff: 9.0.0
+
   '@types/estree-jsx@1.0.5':
     dependencies:
       '@types/estree': 1.0.8
@@ -14500,14 +14534,6 @@ snapshots:
       typescript: 5.9.3
       zod: 4.3.6
 
-  convex-timeline@0.1.2(convex@1.40.0(@clerk/clerk-react@5.61.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)):
-    dependencies:
-      convex: 1.40.0(@clerk/clerk-react@5.61.3(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)
-
-  convex-timeline@0.1.2(convex@1.40.0(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)):
-    dependencies:
-      convex: 1.40.0(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)
-
   convex@1.35.1(@clerk/clerk-react@5.61.5(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6):
     dependencies:
       esbuild: 0.27.0
@@ -14861,6 +14887,8 @@ snapshots:
   didyoumean@1.2.2: {}
 
   diff@8.0.4: {}
+
+  diff@9.0.0: {}
 
   dijkstrajs@1.0.3: {}
 

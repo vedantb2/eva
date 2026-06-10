@@ -80,7 +80,14 @@ export function ProjectsTimeline({
         repoId: repo._id,
       });
       if (currentList !== undefined) {
-        const { id: _id, priority, projectLead, ...safeFields } = args;
+        const {
+          id: _id,
+          priority,
+          projectLead,
+          codeReviewer,
+          model,
+          ...safeFields
+        } = args;
         localStore.setQuery(
           api.projects.list,
           { repoId: repo._id },
@@ -95,6 +102,10 @@ export function ProjectsTimeline({
                   ...(projectLead !== undefined
                     ? { projectLead: projectLead ?? undefined }
                     : {}),
+                  ...(codeReviewer !== undefined
+                    ? { codeReviewer: codeReviewer ?? undefined }
+                    : {}),
+                  ...(model !== undefined ? { model: model ?? undefined } : {}),
                 }
               : p,
           ),

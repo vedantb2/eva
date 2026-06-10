@@ -11,18 +11,10 @@ import { isDocViewerTab, type DocViewerTab } from "@/lib/search-params";
 import {
   ActivitySteps,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  MessageResponse,
   Spinner,
   Tabs,
   TabsContent,
@@ -30,23 +22,26 @@ import {
   TabsTrigger,
   Textarea,
 } from "@conductor/ui";
-import { ConfirmDeleteButton } from "./_components/ConfirmDeleteButton";
 import {
   IconCheck,
   IconCopy,
-  IconPencil,
   IconMessageChatbot,
-  IconHistory,
   IconTestPipe,
   IconExternalLink,
   IconSettings,
   IconPlayerStop,
+  IconMessage,
+  IconHistory,
+  IconPencilCheck,
 } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 
 import { DocInterviewDialog } from "./DocInterviewDialog";
-import { FloatingToc } from "./FloatingToc";
-import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
+import { DocContentTab } from "./_components/DocContentTab";
+import { DocModeSwitcher } from "./_components/DocModeSwitcher";
+import { DocPresenceFacepile } from "./_components/DocPresenceFacepile";
+import { DocReExtractButton } from "./_components/DocReExtractButton";
+import { DocTestGenDialog } from "./_components/DocTestGenDialog";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
@@ -66,17 +61,42 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
   const { basePath } = useRepo();
   const streaming = useQuery(api.streaming.get, { entityId: doc._id });
   const streamingSteps = parseActivitySteps(streaming?.currentActivity);
+  // Cached query — shares the panel's listByDoc fetch. Count unresolved
+  // root threads (replies and resolved threads are excluded).
+  const docComments =
+    useQuery(api.docComments.listByDoc, { docId: doc._id }) ?? [];
+  const openCommentCount = docComments.filter(
+    (c) => !c.parentId && c.resolvedAt === undefined,
+  ).length;
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [testGenConfirmOpen, setTestGenConfirmOpen] = useState(false);
   const [isTriggeringTestGen, setIsTriggeringTestGen] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
-  const [editingSnapshot, setEditingSnapshot] = useState<string | null>(null);
-  const [editKey, setEditKey] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionCount, setSuggestionCount] = useState(0);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const contentScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // The three right-side panels are mutually exclusive; opening one closes
+  // the others. Stable handlers so DocContentTab effects don't re-run.
+  const toggleComments = useCallback(() => {
+    setCommentsOpen((v) => !v);
+    setHistoryPanelOpen(false);
+    setSuggestionsOpen(false);
+  }, []);
+  const toggleHistory = useCallback(() => {
+    setHistoryPanelOpen((v) => !v);
+    setCommentsOpen(false);
+    setSuggestionsOpen(false);
+  }, []);
+  const toggleSuggestions = useCallback(() => {
+    setSuggestionsOpen((v) => !v);
+    setCommentsOpen(false);
+    setHistoryPanelOpen(false);
+  }, []);
 
   const handleDocTabChange = useCallback(
     (value: string) => {
@@ -90,7 +110,6 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
 
   const startTestGenMutation = useMutation(api.testGenWorkflow.startTestGen);
   const cancelTestGenMutation = useMutation(api.testGenWorkflow.cancelTestGen);
-  const startPrdParse = useMutation(api.docPrdWorkflow.startPrdParse);
   const updateDoc = useMutation(api.docs.update).withOptimisticUpdate(
     (localStore, args) => {
       const current = localStore.getQuery(api.docs.get, { id: args.id });
@@ -121,39 +140,11 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
     };
   }, []);
 
-  const handleStartEdit = useCallback(() => {
-    setEditingSnapshot(doc.content);
-    setEditKey((k) => k + 1);
-  }, [doc.content]);
-
-  const handleCancelEdit = useCallback(() => {
-    setEditingSnapshot(null);
-  }, []);
-
-  const handleSave = useCallback(
-    async (markdown: string) => {
-      setIsSaving(true);
-      try {
-        await updateDoc({ id: doc._id, content: markdown });
-        // Trigger extraction so requirements/userFlows stay in sync with new content.
-        if (markdown.trim().length > 0) {
-          await startPrdParse({ docId: doc._id });
-        }
-        setEditingSnapshot(null);
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [doc._id, updateDoc, startPrdParse],
-  );
-
   const handleGenerateTests = async () => {
     if (isTriggeringTestGen || doc.testGenStatus === "running") return;
     setIsTriggeringTestGen(true);
     try {
-      await startTestGenMutation({
-        docId: doc._id,
-      });
+      await startTestGenMutation({ docId: doc._id });
     } finally {
       setIsTriggeringTestGen(false);
     }
@@ -171,8 +162,6 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
   const isGeneratingTests =
     doc.testGenStatus === "running" || isTriggeringTestGen;
 
-  const isEditing = editingSnapshot !== null;
-
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
@@ -184,6 +173,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
           size={Math.max(doc.title.length, 12)}
         />
         <div className="ml-auto flex items-center gap-2 shrink-0">
+          <DocPresenceFacepile docId={doc._id} />
           {isGeneratingTests && (
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Spinner size="sm" />
@@ -194,19 +184,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
             at={doc.updatedAt}
             className="text-xs text-muted-foreground whitespace-nowrap"
           />
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            onClick={handleCopy}
-            aria-label={copied ? "Copied" : "Copy content"}
-          >
-            {copied ? (
-              <IconCheck className="size-4 text-success" />
-            ) : (
-              <IconCopy className="size-4" />
-            )}
-          </Button>
+          <DocModeSwitcher />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -219,6 +197,20 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  // Keep the menu open briefly so the copied checkmark is visible.
+                  e.preventDefault();
+                  handleCopy();
+                }}
+              >
+                {copied ? (
+                  <IconCheck size={16} className="text-success" />
+                ) : (
+                  <IconCopy size={16} />
+                )}
+                Copy PRD
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setInterviewOpen(true)}>
                 <IconMessageChatbot size={16} />
                 Interview Me
@@ -243,10 +235,14 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
                   Generate Tests
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={toggleHistory}>
+                <IconHistory size={16} />
+                Version History
+              </DropdownMenuItem>
               {(doc.interviewHistory ?? []).length > 0 && (
                 <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
                   <IconHistory size={16} />
-                  View History
+                  Interview History
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -264,33 +260,11 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
         onOpenChange={setHistoryOpen}
         readOnly
       />
-      <Dialog open={testGenConfirmOpen} onOpenChange={setTestGenConfirmOpen}>
-        <DialogContent hideCloseButton className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Generate Tests?</DialogTitle>
-            <DialogDescription>
-              This will generate tests based on the current requirements and
-              user flows extracted from the PRD.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary" size="sm">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button
-              size="sm"
-              onClick={() => {
-                setTestGenConfirmOpen(false);
-                handleGenerateTests();
-              }}
-            >
-              Generate
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DocTestGenDialog
+        open={testGenConfirmOpen}
+        onOpenChange={setTestGenConfirmOpen}
+        onConfirm={handleGenerateTests}
+      />
       {streaming && (
         <div className="px-4 pb-3">
           <div className="rounded-surface border border-border bg-card p-3 space-y-2">
@@ -334,6 +308,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
       >
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
+            <TabsTrigger value="description">Description</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="requirements">
               Requirements
@@ -348,70 +323,74 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
               </span>
             </TabsTrigger>
           </TabsList>
-          {activeTab === "content" && !isEditing ? (
-            <Button size="sm" variant="secondary" onClick={handleStartEdit}>
-              <IconPencil size={14} />
-              Edit
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-1">
+            {activeTab === "content" && (
+              <>
+                <Button
+                  size="sm"
+                  variant={suggestionsOpen ? "secondary" : "ghost"}
+                  className="h-7 px-2"
+                  onClick={toggleSuggestions}
+                >
+                  <IconPencilCheck size={14} />
+                  <span className="text-xs">Suggestions</span>
+                  {suggestionCount > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      {suggestionCount}
+                    </span>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={commentsOpen ? "secondary" : "ghost"}
+                  className="h-7 px-2"
+                  onClick={toggleComments}
+                >
+                  <IconMessage size={14} />
+                  <span className="text-xs">Comments</span>
+                  {openCommentCount > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      {openCommentCount}
+                    </span>
+                  )}
+                </Button>
+              </>
+            )}
+            {(activeTab === "requirements" || activeTab === "user-flows") && (
+              <DocReExtractButton doc={doc} />
+            )}
+          </div>
         </div>
 
         <TabsContent
-          value="content"
-          className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4 data-[state=active]:flex data-[state=active]:flex-col"
+          value="description"
+          className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4"
         >
-          {!isEditing ? (
-            <section className="mb-3 shrink-0">
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Description
-              </label>
-              <Textarea
-                value={doc.description ?? ""}
-                onChange={(e) =>
-                  updateDoc({ id: doc._id, description: e.target.value })
-                }
-                placeholder="A short summary of this PRD."
-                rows={2}
-                className="scrollbar bg-card"
-              />
-            </section>
-          ) : null}
+          <Textarea
+            value={doc.description ?? ""}
+            onChange={(e) =>
+              updateDoc({ id: doc._id, description: e.target.value })
+            }
+            placeholder="A short summary of this PRD."
+            rows={6}
+            className="scrollbar bg-card"
+          />
+        </TabsContent>
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            {editingSnapshot !== null ? (
-              <MarkdownEditor
-                key={editKey}
-                initialMarkdown={editingSnapshot}
-                onSave={handleSave}
-                onCancel={handleCancelEdit}
-                isSaving={isSaving}
-              />
-            ) : (
-              <div className="flex min-h-0 flex-1 gap-6 overflow-hidden">
-                <div
-                  ref={contentScrollRef}
-                  className="scrollbar min-h-0 flex-1 overflow-y-auto"
-                >
-                  {doc.content.trim().length > 0 ? (
-                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                      {doc.content}
-                    </MessageResponse>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No content yet. Click Edit to add product requirements.
-                    </p>
-                  )}
-                </div>
-                {doc.content.trim().length > 0 ? (
-                  <FloatingToc
-                    containerRef={contentScrollRef}
-                    content={doc.content}
-                    className="hidden w-52 shrink-0 py-1 lg:block"
-                  />
-                ) : null}
-              </div>
-            )}
-          </div>
+        <TabsContent
+          value="content"
+          className="mt-3 min-h-0 flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
+        >
+          <DocContentTab
+            doc={doc}
+            commentsOpen={commentsOpen}
+            onToggleComments={toggleComments}
+            historyOpen={historyPanelOpen}
+            onToggleHistory={toggleHistory}
+            suggestionsOpen={suggestionsOpen}
+            onToggleSuggestions={toggleSuggestions}
+            onSuggestionCount={setSuggestionCount}
+          />
         </TabsContent>
 
         <TabsContent
@@ -428,8 +407,8 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No requirements extracted yet. They are populated automatically
-              when you save the PRD content.
+              No requirements extracted yet. Add content to the document and
+              click &ldquo;Re-extract&rdquo; to populate them.
             </p>
           )}
         </TabsContent>
@@ -458,8 +437,8 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No user flows extracted yet. They are populated automatically when
-              you save the PRD content.
+              No user flows extracted yet. Add content to the document and click
+              &ldquo;Re-extract&rdquo; to populate them.
             </p>
           )}
         </TabsContent>

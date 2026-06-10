@@ -191,12 +191,14 @@ export const saveResult = internalMutation({
         const description = doc.description?.trim()
           ? doc.description
           : normalized.description;
+        const now = Date.now();
         await ctx.db.patch(args.docId, {
           description,
           requirements: normalized.requirements,
           userFlows: normalized.userFlows,
           activeWorkflowId: undefined,
-          updatedAt: Date.now(),
+          lastParsedAt: now,
+          updatedAt: now,
         });
         return null;
       }

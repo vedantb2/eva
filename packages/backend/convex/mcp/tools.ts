@@ -57,12 +57,10 @@ export function registerTools(
     return ctx.runAction(internal.mcp.nodeActions.listUserRepos, { userId });
   }
 
-  async function resolveTargetWithAccess(
+  async function assertRepoAccess(
     repoId: string,
-    deployKey: string,
     userId: string,
-    environment: "staging" | "prod",
-  ): Promise<RepoCredentials> {
+  ): Promise<void> {
     if (scopedRepoId && scopedRepoId !== repoId) {
       throw new Error(
         "Access denied: this token is scoped to a different repository.",
@@ -76,6 +74,15 @@ export function registerTools(
     if (!hasAccess) {
       throw new Error("Access denied: you do not have access to this repo.");
     }
+  }
+
+  async function resolveTargetWithAccess(
+    repoId: string,
+    deployKey: string,
+    userId: string,
+    environment: "staging" | "prod",
+  ): Promise<RepoCredentials> {
+    await assertRepoAccess(repoId, userId);
 
     const repoCreds = await ctx.runAction(
       internal.mcp.nodeActions.getRepoConvexCredentials,
@@ -379,6 +386,61 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
       );
 
       return textResult({ table, count: result.value });
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // postgres_query
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  server.tool(
+    "postgres_query",
+    `Run read-only SQL against a repo's Postgres read replica (the POSTGRES_READ_REPLICA_URL env var configured for the repo in Eva).
+
+Constraints:
+- Read-only: every query runs inside a READ ONLY transaction; writes fail.
+- Single statement only — multi-statement SQL (e.g. "SELECT 1; SELECT 2") is rejected.
+- 30 second statement timeout.
+- Always add a LIMIT — large result sets are truncated to the limit and a ~1 MB byte cap.
+
+For schema discovery, query information_schema (e.g. "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'").`,
+    {
+      sql: z.string().describe("A single read-only SQL statement to execute."),
+      limit: z
+        .number()
+        .max(1000)
+        .default(100)
+        .describe("Max rows to return (default 100, max 1000)."),
+      repoId: z
+        .string()
+        .describe(
+          "Repo ID from list_repos. Required to specify which repo's read replica to query.",
+        ),
+    },
+    async ({ sql, limit, repoId }) => {
+      const { userId } = await getContext();
+      await assertRepoAccess(repoId, userId);
+
+      const result = await ctx.runAction(
+        internal.mcp.postgres.runPostgresQuery,
+        { repoId, sql, maxRows: limit },
+      );
+
+      if (!result.ok) {
+        if (result.errorCode === "missing_config") {
+          return errorResult(
+            `This repo has no Postgres read replica configured. Add a POSTGRES_READ_REPLICA_URL env var in the repo's Environment Variables settings in Eva (append "?sslmode=require" if the server needs TLS, and mark it as excluded from sandboxes so the URL never reaches task sandboxes).`,
+          );
+        }
+        return errorResult(`Postgres query failed: ${result.error}`);
+      }
+
+      return textResult({
+        columns: result.columns,
+        rows: result.rows,
+        rowCount: result.rowCount,
+        truncated: result.truncated,
+      });
     },
   );
 

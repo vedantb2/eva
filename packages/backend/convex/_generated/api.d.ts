@@ -164,6 +164,7 @@ import type * as logs from "../logs.js";
 import type * as mcp_native from "../mcp/native.js";
 import type * as mcp_nodeActions from "../mcp/nodeActions.js";
 import type * as mcp_oauth from "../mcp/oauth.js";
+import type * as mcp_postgres from "../mcp/postgres.js";
 import type * as mcp_queries from "../mcp/queries.js";
 import type * as mcp_routes from "../mcp/routes.js";
 import type * as mcp_supabase from "../mcp/supabase.js";
@@ -392,6 +393,7 @@ declare const fullApi: ApiFromModules<{
   "mcp/native": typeof mcp_native;
   "mcp/nodeActions": typeof mcp_nodeActions;
   "mcp/oauth": typeof mcp_oauth;
+  "mcp/postgres": typeof mcp_postgres;
   "mcp/queries": typeof mcp_queries;
   "mcp/routes": typeof mcp_routes;
   "mcp/supabase": typeof mcp_supabase;

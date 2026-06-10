@@ -1,5 +1,10 @@
 # Changelog
 
+## Sync repos updates owner on GitHub username rename - 2026-06-10
+
+- **Why**: After renaming a GitHub username (e.g. `vedantb2` → `vvedantb`), sync matched repos only by `owner/name`, so existing rows were missed and duplicates were created.
+- **Fix**: Upsert now also matches by `installationId` + repo name (stable across renames), propagates the new owner to all monorepo sub-apps, and migrates `syncSettings` disabled-repo keys before each sync.
+
 ## OOM-protect the sandbox callback and capture watchdog kill diagnostics - 2026-06-09
 
 - **Why**: Prod data showed `Run killed by watchdog: no heartbeat` failures are the callback process dying inside a still-running sandbox — heartbeats stop permanently (kills always land at the full stale threshold across every threshold raise), and activity-log snapshots show death mid-short-bounded-command (`timeout 120s npx tsc --noEmit` in half the sampled kills). Best-fit cause: the kernel OOM killer SIGKILLing the callback during memory-heavy tool steps.

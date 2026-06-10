@@ -162,19 +162,6 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
             at={doc.updatedAt}
             className="text-xs text-muted-foreground whitespace-nowrap"
           />
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            onClick={handleCopy}
-            aria-label={copied ? "Copied" : "Copy content"}
-          >
-            {copied ? (
-              <IconCheck className="size-4 text-success" />
-            ) : (
-              <IconCopy className="size-4" />
-            )}
-          </Button>
           <DocModeSwitcher />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -188,6 +175,20 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  // Keep the menu open briefly so the copied checkmark is visible.
+                  e.preventDefault();
+                  handleCopy();
+                }}
+              >
+                {copied ? (
+                  <IconCheck size={16} className="text-success" />
+                ) : (
+                  <IconCopy size={16} />
+                )}
+                Copy PRD
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setInterviewOpen(true)}>
                 <IconMessageChatbot size={16} />
                 Interview Me

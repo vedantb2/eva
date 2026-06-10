@@ -1,6 +1,6 @@
 "use client";
 
-import { Mark, Extension, type Editor } from "@tiptap/core";
+import { Mark, Extension, type Editor, type Content } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";
 import {
@@ -306,4 +306,21 @@ export function rejectAllSuggestions(editor: Editor): void {
 export function revealSuggestion(editor: Editor, id: SuggestionId): void {
   selectSuggestion(id)(editor.state, dispatchSkip(editor));
   editor.view.focus();
+}
+
+/**
+ * Replaces the editor content without the replacement being captured as a
+ * tracked suggestion. Used by version restore, which must apply verbatim even
+ * while Suggesting mode is on. Chained commands share one transaction, so the
+ * skip meta set first applies to the setContent step.
+ */
+export function setContentUntracked(editor: Editor, content: Content): void {
+  editor
+    .chain()
+    .command(({ tr }) => {
+      tr.setMeta(suggestChangesKey, { skip: true });
+      return true;
+    })
+    .setContent(content, { emitUpdate: true })
+    .run();
 }

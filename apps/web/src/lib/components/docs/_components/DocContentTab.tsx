@@ -26,6 +26,7 @@ import {
   enableSuggesting,
   disableSuggesting,
   collectSuggestions,
+  setContentUntracked,
 } from "@/lib/components/editor/suggestChanges";
 import {
   DocCommentMark,
@@ -279,15 +280,24 @@ export function DocContentTab({
   const handleRestoreVersion = useCallback(
     (pmContent: string) => {
       if (!editor) return;
+      // Snapshot the current state first so the restore is itself reversible
+      // (dedupe in saveVersion makes this free when nothing changed).
+      saveVersion({
+        docId: doc._id,
+        content: editor.getMarkdown(),
+        pmContent: JSON.stringify(editor.state.doc.toJSON()),
+      });
       try {
         const json = JSON.parse(pmContent);
-        editor.commands.setContent(json);
+        // Apply with skip meta so the restore is not turned into a tracked
+        // suggestion while in Suggesting mode.
+        setContentUntracked(editor, json);
       } catch {
-        // noop
+        // ignore malformed snapshots
       }
       setSelectedVersionId(null);
     },
-    [editor],
+    [editor, doc._id, saveVersion],
   );
 
   if (sync.isLoading || (!sync.extension && sync.initialContent === null)) {

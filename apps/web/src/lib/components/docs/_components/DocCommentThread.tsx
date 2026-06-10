@@ -1,9 +1,11 @@
 "use client";
 
 import { useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
+import { UserInitials } from "@conductor/shared";
 import { Button, cn, Textarea } from "@conductor/ui";
 import { IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -148,15 +150,38 @@ export function DocCommentThread({
   );
 }
 
+/** Resolves a comment author's display name, accounting for the query's
+ *  loading (undefined) and not-found (null) states. */
+function authorDisplayName(
+  user: FunctionReturnType<typeof api.users.get> | undefined,
+): string {
+  if (user === undefined) return "…";
+  if (user === null) return "Unknown";
+  if (user.fullName?.trim()) return user.fullName.trim();
+  const parts = [user.firstName, user.lastName].filter(
+    (p): p is string => typeof p === "string" && p.trim().length > 0,
+  );
+  if (parts.length > 0) return parts.join(" ");
+  if (user.email?.trim()) return user.email.trim();
+  return "Unknown";
+}
+
 function DocCommentItem({ comment }: { comment: DocComment }) {
   const isDeleted = comment.deletedAt !== undefined;
+  // Cached query — dedupes with the UserInitials avatar's own users.get fetch.
+  const author = useQuery(
+    api.users.get,
+    comment.authorId ? { id: comment.authorId } : "skip",
+  );
+  const name = comment.authorId ? authorDisplayName(author) : "Unknown";
 
   return (
     <div className="text-sm">
       <div className="flex items-center gap-1.5">
-        <span className="font-medium text-xs">
-          {isDeleted ? "Deleted" : "Comment"}
-        </span>
+        {comment.authorId ? (
+          <UserInitials userId={comment.authorId} size="sm" />
+        ) : null}
+        <span className="font-medium text-xs">{name}</span>
         <RelativeDateTime
           at={comment.createdAt}
           className="text-[10px] text-muted-foreground"

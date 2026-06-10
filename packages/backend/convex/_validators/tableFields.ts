@@ -240,6 +240,9 @@ export const projectFields = {
   // Set when chat or other queue helpers touch the project. Mirrors
   // `sessions.updatedAt` so the same queue/list helpers work uniformly.
   updatedAt: v.optional(v.number()),
+  codeReviewer: v.optional(v.id("users")),
+  tags: v.optional(v.array(v.string())),
+  model: v.optional(aiModelValidator),
 };
 
 export const projectDetailsFields = {

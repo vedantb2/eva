@@ -1,15 +1,31 @@
 # Changelog
 
-## Real-time collaborative documents - 2026-06-10
+## Real-time collaborative document editing - 2026-06-10
 
 - Documents are now always-live and multiplayer: edits from every collaborator sync in real time, replacing the click-Edit-then-Save flow where the last save clobbered everyone else's work.
-- A presence facepile in the header shows who else currently has the document open.
-- Anchored inline comments: select text to comment and the passage is highlighted in the document; clicking a highlight focuses its thread and clicking a thread scrolls to the text, threads sit in a side panel filtered by Open/Resolved, resolving clears the highlight for everyone in real time, and deleting the anchored text marks the thread as orphaned.
-- Comments show the author's avatar and name, the toggle surfaces a live open-thread count, and @mentions, replies, and new comments notify the right people and auto-subscribe commenters, with notifications deep-linking back to the document.
-- Suggestion mode (track changes): edits made while Suggesting are recorded as coloured insertions and struck-through deletions attributed to their author instead of changing the document, and anyone with access can accept or reject them individually or all at once; the markdown mirror reflects the accepted result.
-- Version history captures automatic snapshots as edits settle, attributes them to contributors, and lets you diff any version against the current document and restore it.
-- A mode switcher offers Editing, Suggesting, and read-only Viewing, and document content is mirrored to markdown so requirement/user-flow extraction, copy, and AI workflows keep working.
-- Requirements and user flows no longer re-extract on every save; a manual "Re-extract" button with a stale indicator puts that under your control.
+- A mode switcher offers Editing, Suggesting, and read-only Viewing, and a presence facepile in the header shows who else currently has the document open.
+- The description now lives in its own tab.
+- Document content is mirrored to markdown — now parsed with full structure (headings, lists, code) rather than flattened — so requirement/user-flow extraction, copy, and AI workflows keep working.
+
+## Anchored, resolvable document comments - 2026-06-10
+
+- Select text to comment and the passage is highlighted in the document; clicking a highlight focuses its thread and clicking a thread scrolls to the text.
+- Threads live in a side panel filtered by Open/Resolved; resolving clears the highlight for everyone in real time, and deleting the anchored text marks the thread as orphaned.
+- Comments show the author's avatar and name with a live open-thread count, and @mentions, replies, and new comments notify the right people and auto-subscribe commenters, deep-linking back to the document.
+
+## Suggestion mode for documents - 2026-06-10
+
+- Edits made while in Suggesting mode are recorded as coloured insertions and struck-through deletions attributed to their author, instead of changing the document directly.
+- Anyone with access can accept or reject suggestions individually or all at once; the markdown mirror reflects the accepted result.
+
+## Document version history - 2026-06-10
+
+- Automatic version snapshots are captured as edits settle, attributed to the contributors involved.
+- Diff any saved version against the current document and restore it; restoring snapshots the current state first so it stays reversible.
+
+## Manual PRD re-extraction - 2026-06-10
+
+- Requirements and user flows no longer re-extract on every save; a "Re-extract" button with a stale indicator puts that under your control.
 
 ## OOM-protect the sandbox callback and capture watchdog kill diagnostics - 2026-06-09
 

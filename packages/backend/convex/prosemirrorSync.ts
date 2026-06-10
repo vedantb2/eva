@@ -116,7 +116,7 @@ export const {
 
     let markdown: string;
     try {
-      const parsed = JSON.parse(snapshot) as PMNode;
+      const parsed: PMNode = JSON.parse(snapshot);
       markdown = pmJsonToMarkdown(parsed).trim();
     } catch {
       return;

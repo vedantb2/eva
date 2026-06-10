@@ -18,6 +18,8 @@ const MODE_CONFIG: Record<DocMode, { label: string; icon: typeof IconPencil }> =
     viewing: { label: "Viewing", icon: IconEye },
   };
 
+const DOC_MODES: readonly DocMode[] = ["editing", "suggesting", "viewing"];
+
 export function DocModeSwitcher() {
   const [mode, setMode] = useQueryState("mode", docModeParser);
 
@@ -33,7 +35,7 @@ export function DocModeSwitcher() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {(Object.keys(MODE_CONFIG) as DocMode[]).map((m) => {
+        {DOC_MODES.map((m) => {
           const config = MODE_CONFIG[m];
           const ModeIcon = config.icon;
           return (

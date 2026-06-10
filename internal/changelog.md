@@ -4,10 +4,11 @@
 
 - Documents are now always-live and multiplayer: edits from every collaborator sync in real time, replacing the click-Edit-then-Save flow where the last save clobbered everyone else's work.
 - A presence facepile in the header shows who else currently has the document open.
-- Anchored inline comments: select text to start a threaded comment, commented passages are highlighted, and threads live in a side panel with Open/Resolved filters; resolving a thread clears its highlight for everyone.
+- Inline comments: select text to start a threaded comment that captures the quoted passage, with threads in a side panel filtered by Open/Resolved; resolving syncs to everyone in real time.
 - Comments show the author's avatar and name, the toggle surfaces a live open-thread count, and @mentions, replies, and new comments notify the right people and auto-subscribe commenters, with notifications deep-linking back to the document.
+- Suggestion mode (track changes): edits made while Suggesting are recorded as coloured insertions and struck-through deletions attributed to their author instead of changing the document, and anyone with access can accept or reject them individually or all at once; the markdown mirror reflects the accepted result.
 - Version history captures automatic snapshots as edits settle, attributes them to contributors, and lets you diff any version against the current document and restore it.
-- A mode switcher adds a read-only Viewing mode alongside Editing, and document content is mirrored to markdown so requirement/user-flow extraction, copy, and AI workflows keep working.
+- A mode switcher offers Editing, Suggesting, and read-only Viewing, and document content is mirrored to markdown so requirement/user-flow extraction, copy, and AI workflows keep working.
 - Requirements and user flows no longer re-extract on every save; a manual "Re-extract" button with a stale indicator puts that under your control.
 
 ## OOM-protect the sandbox callback and capture watchdog kill diagnostics - 2026-06-09

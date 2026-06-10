@@ -31,6 +31,7 @@ import {
   IconPlayerStop,
   IconMessage,
   IconHistory,
+  IconPencilCheck,
 } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 
@@ -74,7 +75,27 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
   const [copied, setCopied] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionCount, setSuggestionCount] = useState(0);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The three right-side panels are mutually exclusive; opening one closes
+  // the others. Stable handlers so DocContentTab effects don't re-run.
+  const toggleComments = useCallback(() => {
+    setCommentsOpen((v) => !v);
+    setHistoryPanelOpen(false);
+    setSuggestionsOpen(false);
+  }, []);
+  const toggleHistory = useCallback(() => {
+    setHistoryPanelOpen((v) => !v);
+    setCommentsOpen(false);
+    setSuggestionsOpen(false);
+  }, []);
+  const toggleSuggestions = useCallback(() => {
+    setSuggestionsOpen((v) => !v);
+    setCommentsOpen(false);
+    setHistoryPanelOpen(false);
+  }, []);
 
   const handleDocTabChange = useCallback(
     (value: string) => {
@@ -213,12 +234,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
                   Generate Tests
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem
-                onClick={() => {
-                  setHistoryPanelOpen((v) => !v);
-                  if (commentsOpen) setCommentsOpen(false);
-                }}
-              >
+              <DropdownMenuItem onClick={toggleHistory}>
                 <IconHistory size={16} />
                 Version History
               </DropdownMenuItem>
@@ -307,23 +323,36 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
           </TabsList>
           <div className="flex items-center gap-1">
             {activeTab === "content" && (
-              <Button
-                size="sm"
-                variant={commentsOpen ? "secondary" : "ghost"}
-                className="h-7 px-2"
-                onClick={() => {
-                  setCommentsOpen((v) => !v);
-                  if (historyPanelOpen) setHistoryPanelOpen(false);
-                }}
-              >
-                <IconMessage size={14} />
-                <span className="text-xs">Comments</span>
-                {openCommentCount > 0 && (
-                  <span className="ml-1 text-xs text-muted-foreground">
-                    {openCommentCount}
-                  </span>
-                )}
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant={suggestionsOpen ? "secondary" : "ghost"}
+                  className="h-7 px-2"
+                  onClick={toggleSuggestions}
+                >
+                  <IconPencilCheck size={14} />
+                  <span className="text-xs">Suggestions</span>
+                  {suggestionCount > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      {suggestionCount}
+                    </span>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={commentsOpen ? "secondary" : "ghost"}
+                  className="h-7 px-2"
+                  onClick={toggleComments}
+                >
+                  <IconMessage size={14} />
+                  <span className="text-xs">Comments</span>
+                  {openCommentCount > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      {openCommentCount}
+                    </span>
+                  )}
+                </Button>
+              </>
             )}
             {(activeTab === "requirements" || activeTab === "user-flows") && (
               <DocReExtractButton doc={doc} />
@@ -338,15 +367,12 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
           <DocContentTab
             doc={doc}
             commentsOpen={commentsOpen}
-            onToggleComments={() => {
-              setCommentsOpen((v) => !v);
-              if (historyPanelOpen) setHistoryPanelOpen(false);
-            }}
+            onToggleComments={toggleComments}
             historyOpen={historyPanelOpen}
-            onToggleHistory={() => {
-              setHistoryPanelOpen((v) => !v);
-              if (commentsOpen) setCommentsOpen(false);
-            }}
+            onToggleHistory={toggleHistory}
+            suggestionsOpen={suggestionsOpen}
+            onToggleSuggestions={toggleSuggestions}
+            onSuggestionCount={setSuggestionCount}
           />
         </TabsContent>
 

@@ -1195,3 +1195,32 @@
 [data-streamdown="table-wrapper"] > div:has([data-streamdown="table"]) {
   border-radius: clamp(0.75rem, var(--radius), 1.25rem);
 }
+
+/* ───────────────────────────────────────────────────────────────────
+ * Suggestion mode (track changes) marks in the doc editor. The data-id
+ * gate means only tracked-change marks are styled, never stray <ins>/<del>.
+ * Insertions read as green additions, deletions as red strike-throughs,
+ * modifications as a dotted-underline tint. Whole-block changes get node
+ * decorations (data-node-*) from the suggest-changes plugin.
+ * ─────────────────────────────────────────────────────────────────── */
+.tiptap ins[data-id] {
+  background-color: rgb(var(--success) / 0.16);
+  color: rgb(var(--success));
+  text-decoration: none;
+  border-radius: 2px;
+}
+.tiptap del[data-id] {
+  color: rgb(var(--destructive));
+  background-color: rgb(var(--destructive) / 0.1);
+  text-decoration: line-through;
+}
+.tiptap span[data-type="modification"] {
+  background-color: rgb(var(--warning) / 0.16);
+  text-decoration: underline dotted;
+}
+.tiptap [data-node-deletion="true"] {
+  background-color: rgb(var(--destructive) / 0.08);
+}
+.tiptap [data-node-insertion="true"] {
+  background-color: rgb(var(--success) / 0.08);
+}

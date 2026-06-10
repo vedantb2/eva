@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 import { useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
@@ -18,11 +19,18 @@ import { IconMessage } from "@tabler/icons-react";
 import { FloatingToc } from "../FloatingToc";
 import { DocCommentsPanel } from "./DocCommentsPanel";
 import { DocHistoryPanel } from "./DocHistoryPanel";
+import { DocSuggestionsPanel } from "./DocSuggestionsPanel";
 import { DocVersionDiff } from "./DocVersionDiff";
+import {
+  SuggestChangesKit,
+  enableSuggesting,
+  disableSuggesting,
+  collectSuggestions,
+} from "@/lib/components/editor/suggestChanges";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
-const editorExtensions = [
+const baseEditorExtensions = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3, 4, 5, 6] },
   }),
@@ -37,18 +45,37 @@ export function DocContentTab({
   onToggleComments,
   historyOpen,
   onToggleHistory,
+  suggestionsOpen,
+  onToggleSuggestions,
+  onSuggestionCount,
 }: {
   doc: Doc;
   commentsOpen: boolean;
   onToggleComments: () => void;
   historyOpen: boolean;
   onToggleHistory: () => void;
+  suggestionsOpen: boolean;
+  onToggleSuggestions: () => void;
+  onSuggestionCount: (count: number) => void;
 }) {
   const [mode] = useQueryState("mode", docModeParser);
   const ensureSyncDoc = useMutation(api.docs.ensureSyncDoc);
   const updateDoc = useMutation(api.docs.update);
   const touchDraft = useMutation(api.docVersions.touchDraft);
   const saveVersion = useMutation(api.docVersions.saveVersion);
+
+  // Attribute new suggestions to the current user; a stable ref avoids
+  // recreating the editor when auth resolves.
+  const currentUserId = useQuery(api.auth.me);
+  const userIdRef = useRef<string | null>(null);
+  userIdRef.current = currentUserId ?? null;
+  const extensions = useMemo(
+    () => [
+      ...baseEditorExtensions,
+      SuggestChangesKit.configure({ getUserId: () => userIdRef.current }),
+    ],
+    [],
+  );
 
   const sync = useTiptapSync(api.prosemirrorSync, doc._id);
 
@@ -81,9 +108,7 @@ export function DocContentTab({
 
   const editor = useEditor(
     {
-      extensions: sync.extension
-        ? [...editorExtensions, sync.extension]
-        : editorExtensions,
+      extensions: sync.extension ? [...extensions, sync.extension] : extensions,
       content: sync.initialContent ?? undefined,
       editable: mode !== "viewing",
       immediatelyRender: false,
@@ -103,6 +128,25 @@ export function DocContentTab({
       editor.setEditable(mode !== "viewing");
     }
   }, [editor, mode]);
+
+  // Toggle suggestion tracking with the mode. Editing/Viewing apply edits
+  // directly; Suggesting converts them into tracked-change marks.
+  useEffect(() => {
+    if (!editor) return;
+    if (mode === "suggesting") enableSuggesting(editor);
+    else disableSuggesting(editor);
+  }, [editor, mode]);
+
+  // Surface the pending-suggestion count so the header toggle can show it.
+  const suggestionCount =
+    useEditorState({
+      editor,
+      selector: ({ editor: e }) =>
+        e ? collectSuggestions(e.state.doc).length : 0,
+    }) ?? 0;
+  useEffect(() => {
+    onSuggestionCount(suggestionCount);
+  }, [suggestionCount, onSuggestionCount]);
 
   // Version snapshot tracking
   useEffect(() => {
@@ -237,13 +281,16 @@ export function DocContentTab({
               )}
             </div>
 
-            {!commentsOpen && !historyOpen && doc.content.trim().length > 0 && (
-              <FloatingToc
-                containerRef={contentScrollRef}
-                content={doc.content}
-                className="hidden w-52 shrink-0 py-1 lg:block"
-              />
-            )}
+            {!commentsOpen &&
+              !historyOpen &&
+              !suggestionsOpen &&
+              doc.content.trim().length > 0 && (
+                <FloatingToc
+                  containerRef={contentScrollRef}
+                  content={doc.content}
+                  className="hidden w-52 shrink-0 py-1 lg:block"
+                />
+              )}
           </div>
         )}
       </div>
@@ -268,6 +315,10 @@ export function DocContentTab({
           onSelectVersion={(id) => setSelectedVersionId(id)}
           onClose={onToggleHistory}
         />
+      )}
+
+      {suggestionsOpen && editor && (
+        <DocSuggestionsPanel editor={editor} onClose={onToggleSuggestions} />
       )}
     </div>
   );

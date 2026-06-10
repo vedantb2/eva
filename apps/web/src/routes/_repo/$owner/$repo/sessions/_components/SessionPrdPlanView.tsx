@@ -14,10 +14,19 @@ import {
   PlanTrigger,
   MessageResponse,
 } from "@conductor/ui";
-import { IconCheck, IconCode, IconCopy, IconPencil } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconCode,
+  IconCopy,
+  IconPencil,
+  IconX,
+} from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
-import { SessionPrdPlanEditor } from "./SessionPrdPlanEditor";
+import {
+  SessionPrdPlanEditor,
+  type SessionPrdPlanEditorHandle,
+} from "./SessionPrdPlanEditor";
 
 interface SessionPrdPlanViewProps {
   sessionId: Id<"sessions">;
@@ -41,6 +50,7 @@ export function SessionPrdPlanView({
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editorRef = useRef<SessionPrdPlanEditorHandle>(null);
 
   const showEdit = !isArchived && editingSnapshot === null;
 
@@ -66,21 +76,20 @@ export function SessionPrdPlanView({
     setEditingSnapshot(null);
   }, []);
 
-  const handleSave = useCallback(
-    async (markdown: string) => {
-      setIsSaving(true);
-      try {
-        await updatePlanContent({
-          id: sessionId,
-          planContent: markdown,
-        });
-        setEditingSnapshot(null);
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [sessionId, updatePlanContent],
-  );
+  const handleSave = useCallback(async () => {
+    const markdown = editorRef.current?.getMarkdown();
+    if (markdown === null || markdown === undefined) return;
+    setIsSaving(true);
+    try {
+      await updatePlanContent({
+        id: sessionId,
+        planContent: markdown,
+      });
+      setEditingSnapshot(null);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [sessionId, updatePlanContent]);
 
   return (
     <Plan
@@ -120,10 +129,8 @@ export function SessionPrdPlanView({
         {editingSnapshot !== null ? (
           <SessionPrdPlanEditor
             key={editKey}
+            ref={editorRef}
             initialMarkdown={editingSnapshot}
-            onSave={handleSave}
-            onCancel={handleCancelEdit}
-            isSaving={isSaving}
           />
         ) : (
           <div
@@ -144,27 +151,51 @@ export function SessionPrdPlanView({
           isPanel && "shrink-0",
         )}
       >
-        {showEdit ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="motion-press"
-            onClick={handleStartEdit}
-          >
-            <IconPencil className="w-3.5 h-3.5" />
-            Edit
-          </Button>
-        ) : null}
-        {editingSnapshot === null ? (
-          <Button
-            size="sm"
-            className="motion-press bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.01] active:scale-[0.96]"
-            onClick={onApprovePlan}
-          >
-            <IconCode className="w-3.5 h-3.5" />
-            Approve Plan
-          </Button>
-        ) : null}
+        {editingSnapshot !== null ? (
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="motion-press"
+              disabled={isSaving}
+              onClick={handleCancelEdit}
+            >
+              <IconX className="w-3.5 h-3.5" />
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="motion-press"
+              disabled={isSaving}
+              onClick={handleSave}
+            >
+              <IconCheck className="w-3.5 h-3.5" />
+              Save
+            </Button>
+          </>
+        ) : (
+          <>
+            {showEdit ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="motion-press"
+                onClick={handleStartEdit}
+              >
+                <IconPencil className="w-3.5 h-3.5" />
+                Edit
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              className="motion-press bg-success text-success-foreground hover:bg-success/90 hover:scale-[1.01] active:scale-[0.96]"
+              onClick={onApprovePlan}
+            >
+              <IconCode className="w-3.5 h-3.5" />
+              Approve Plan
+            </Button>
+          </>
+        )}
       </PlanFooter>
     </Plan>
   );

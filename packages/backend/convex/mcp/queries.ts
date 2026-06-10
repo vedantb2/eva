@@ -71,6 +71,61 @@ export const listUserRepos = internalQuery({
   },
 });
 
+/** Env var key that holds a repo's Postgres read-replica connection string. */
+const POSTGRES_REPLICA_ENV_KEY = "POSTGRES_READ_REPLICA_URL";
+
+/**
+ * Given a list of repo IDs, returns the subset that have a
+ * POSTGRES_READ_REPLICA_URL env var configured at the repo or (inherited) team
+ * level. Used by `list_repos` to advertise which repos support `postgres_query`.
+ *
+ * Checks key presence only — it never reads or decrypts the value, and team
+ * lookups are memoised so a shared team is only queried once.
+ */
+export const reposWithPostgresReplica = internalQuery({
+  args: { repoIds: v.array(v.string()) },
+  returns: v.array(v.string()),
+  handler: async (ctx, { repoIds }): Promise<string[]> => {
+    const teamHasKey = new Map<string, boolean>();
+    const matches: string[] = [];
+
+    for (const rawId of repoIds) {
+      // normalizeId turns the caller's string back into a typed Id (or null
+      // for anything malformed) without an `as` cast.
+      const repoId = ctx.db.normalizeId("githubRepos", rawId);
+      if (!repoId) continue;
+
+      const repoVars = await ctx.db
+        .query("repoEnvVars")
+        .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+        .first();
+      if (repoVars?.vars.some((e) => e.key === POSTGRES_REPLICA_ENV_KEY)) {
+        matches.push(rawId);
+        continue;
+      }
+
+      const repo = await ctx.db.get(repoId);
+      const teamId = repo?.teamId;
+      if (!teamId) continue;
+
+      let teamHas = teamHasKey.get(teamId);
+      if (teamHas === undefined) {
+        const teamVars = await ctx.db
+          .query("teamEnvVars")
+          .withIndex("by_team", (q) => q.eq("teamId", teamId))
+          .first();
+        teamHas =
+          teamVars?.vars.some((e) => e.key === POSTGRES_REPLICA_ENV_KEY) ??
+          false;
+        teamHasKey.set(teamId, teamHas);
+      }
+      if (teamHas) matches.push(rawId);
+    }
+
+    return matches;
+  },
+});
+
 /** Query a table with access control. */
 export const queryTable = internalQuery({
   args: {

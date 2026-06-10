@@ -119,11 +119,20 @@ export function registerTools(
       const { userId } = await getContext();
       const repos = await getUserRepos(userId);
 
+      // Advertise which repos have a Postgres read replica configured, so the
+      // agent can pick a postgres_query target without probing each repo.
+      const replicaRepoIds = new Set(
+        await ctx.runQuery(internal.mcp.queries.reposWithPostgresReplica, {
+          repoIds: repos.map((r) => r.id),
+        }),
+      );
+
       const repoList = repos.map((r) => ({
         id: r.id,
         owner: r.owner,
         name: r.name,
         app: r.rootDirectory,
+        hasPostgresReplica: replicaRepoIds.has(r.id),
         ...(r.mcpRootPrompt ? { mcpRootPrompt: r.mcpRootPrompt } : {}),
       }));
 

@@ -7,6 +7,7 @@
 - The connection string stays inside an internal Node action and never reaches the tool layer or output; query errors come back as clean Postgres error text instead of opaque failures.
 - Results are capped by a row limit and a ~1 MB byte cap with an explicit `truncated` flag, keeping large `SELECT`s within Convex return limits.
 - Schema discovery works through `information_schema`, so one tool covers both introspection and querying.
+- `list_repos` now flags each repo with `hasPostgresReplica`, so agents can pick a query target directly instead of probing every repo for a connection string.
 
 ## Real-time collaborative document editing - 2026-06-10
 

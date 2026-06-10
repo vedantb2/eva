@@ -104,9 +104,8 @@ export function DocContentTab({
     null,
   );
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
-    null,
-  );
+  const [selectedVersionId, setSelectedVersionId] =
+    useState<Id<"docVersions"> | null>(null);
   const [presentAnchorIds, setPresentAnchorIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -337,7 +336,7 @@ export function DocContentTab({
         {selectedVersionId ? (
           <div className="scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             <DocVersionDiff
-              versionId={selectedVersionId as Id<"docVersions">}
+              versionId={selectedVersionId}
               currentContent={doc.content}
               onRestore={handleRestoreVersion}
             />

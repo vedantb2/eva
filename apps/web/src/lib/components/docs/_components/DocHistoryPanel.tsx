@@ -14,7 +14,7 @@ export function DocHistoryPanel({
   onClose,
 }: {
   docId: Id<"docs">;
-  selectedVersionId: string | null;
+  selectedVersionId: Id<"docVersions"> | null;
   onSelectVersion: (id: Id<"docVersions"> | null) => void;
   onClose: () => void;
 }) {

@@ -338,6 +338,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
       >
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
+            <TabsTrigger value="description">Description</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="requirements">
               Requirements
@@ -379,26 +380,24 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
         </div>
 
         <TabsContent
+          value="description"
+          className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4"
+        >
+          <Textarea
+            value={doc.description ?? ""}
+            onChange={(e) =>
+              updateDoc({ id: doc._id, description: e.target.value })
+            }
+            placeholder="A short summary of this PRD."
+            rows={6}
+            className="scrollbar bg-card"
+          />
+        </TabsContent>
+
+        <TabsContent
           value="content"
           className="mt-3 min-h-0 flex-1 overflow-hidden px-3 pb-4 sm:px-4 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          {!isEditing ? (
-            <section className="mb-3 shrink-0">
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Description
-              </label>
-              <Textarea
-                value={doc.description ?? ""}
-                onChange={(e) =>
-                  updateDoc({ id: doc._id, description: e.target.value })
-                }
-                placeholder="A short summary of this PRD."
-                rows={2}
-                className="scrollbar bg-card"
-              />
-            </section>
-          ) : null}
-
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {editingSnapshot !== null ? (
               <MarkdownEditor

@@ -18,6 +18,27 @@ const docValidator = v.object({
   ...docFields,
 });
 
+/**
+ * Wraps markdown content as a minimal ProseMirror doc for the sync component.
+ * This does NOT parse markdown structure — headings/lists stay as plain text
+ * until the doc is next edited in the rich editor (a server-side markdown
+ * parser would need the full TipTap schema in the isolate). Shared by the
+ * create / lazy-migration / session-import paths so they behave identically.
+ */
+function planToDocJson(content: string): {
+  type: string;
+  content: Array<Record<string, unknown>>;
+} {
+  return content.trim()
+    ? {
+        type: "doc",
+        content: [
+          { type: "paragraph", content: [{ type: "text", text: content }] },
+        ],
+      }
+    : { type: "doc", content: [{ type: "paragraph" }] };
+}
+
 /** Lists all docs for a given repo, filtered by user access. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
@@ -64,18 +85,7 @@ export const create = authMutation({
       updatedAt: now,
     });
 
-    const emptyDoc = {
-      type: "doc",
-      content: args.content.trim()
-        ? [
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: args.content }],
-            },
-          ]
-        : [{ type: "paragraph" }],
-    };
-    await prosemirrorSync.create(ctx, docId, emptyDoc);
+    await prosemirrorSync.create(ctx, docId, planToDocJson(args.content));
 
     return docId;
   },
@@ -145,21 +155,42 @@ export const createFromSession = authMutation({
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .first();
     const now = Date.now();
+    const planJson = planToDocJson(session.planContent ?? "");
+
     if (existing) {
+      // "Update Document": overwrite the live synced doc with the latest plan.
+      // We reset the sync component's data and recreate it (rather than a
+      // server-side transform, which would need the full editor schema in the
+      // isolate). This is an explicit, infrequent overwrite, so clobbering any
+      // in-flight collaborative edits on this doc is acceptable.
+      const snapshot = await ctx.runQuery(
+        components.prosemirrorSync.lib.getSnapshot,
+        { id: existing._id },
+      );
+      if (snapshot.content !== null) {
+        await ctx.runMutation(components.prosemirrorSync.lib.deleteDocument, {
+          id: existing._id,
+        });
+      }
+      await prosemirrorSync.create(ctx, existing._id, planJson);
       await ctx.db.patch(existing._id, {
         content: session.planContent ?? "",
+        contentUpdatedAt: now,
         updatedAt: now,
       });
       return existing._id;
     }
+
     const docId = await ctx.db.insert("docs", {
       repoId: session.repoId,
       sessionId: args.sessionId,
       title: session.title,
       content: session.planContent ?? "",
+      contentUpdatedAt: now,
       createdAt: now,
       updatedAt: now,
     });
+    await prosemirrorSync.create(ctx, docId, planJson);
     return docId;
   },
 });
@@ -181,19 +212,7 @@ export const ensureSyncDoc = authMutation({
     );
     if (existing.content !== null) return null;
 
-    const jsonContent = doc.content.trim()
-      ? {
-          type: "doc",
-          content: [
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: doc.content }],
-            },
-          ],
-        }
-      : { type: "doc", content: [{ type: "paragraph" }] };
-
-    await prosemirrorSync.create(ctx, args.id, jsonContent);
+    await prosemirrorSync.create(ctx, args.id, planToDocJson(doc.content));
     return null;
   },
 });

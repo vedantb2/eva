@@ -1,5 +1,13 @@
 # Changelog
 
+## Postgres read replica MCP support - 2026-06-10
+
+- New `postgres_query` MCP tool lets agents run read-only SQL against a repo's Postgres read replica, configured per repo via a `POSTGRES_READ_REPLICA_URL` environment variable — no new UI.
+- Read-only is enforced server-side (READ ONLY transaction, single-statement-only extended query protocol, fixed 30s statement timeout) so the tool cannot write even against a primary.
+- The connection string stays inside an internal Node action and never reaches the tool layer or output; query errors come back as clean Postgres error text instead of opaque failures.
+- Results are capped by a row limit and a ~1 MB byte cap with an explicit `truncated` flag, keeping large `SELECT`s within Convex return limits.
+- Schema discovery works through `information_schema`, so one tool covers both introspection and querying.
+
 ## OOM-protect the sandbox callback and capture watchdog kill diagnostics - 2026-06-09
 
 - **Why**: Prod data showed `Run killed by watchdog: no heartbeat` failures are the callback process dying inside a still-running sandbox — heartbeats stop permanently (kills always land at the full stale threshold across every threshold raise), and activity-log snapshots show death mid-short-bounded-command (`timeout 120s npx tsc --noEmit` in half the sampled kills). Best-fit cause: the kernel OOM killer SIGKILLing the callback during memory-heavy tool steps.

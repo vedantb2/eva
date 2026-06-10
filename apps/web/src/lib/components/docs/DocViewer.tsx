@@ -59,6 +59,13 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
   const { basePath } = useRepo();
   const streaming = useQuery(api.streaming.get, { entityId: doc._id });
   const streamingSteps = parseActivitySteps(streaming?.currentActivity);
+  // Cached query — shares the panel's listByDoc fetch. Count unresolved
+  // root threads (replies and resolved threads are excluded).
+  const docComments =
+    useQuery(api.docComments.listByDoc, { docId: doc._id }) ?? [];
+  const openCommentCount = docComments.filter(
+    (c) => !c.parentId && c.resolvedAt === undefined,
+  ).length;
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [testGenConfirmOpen, setTestGenConfirmOpen] = useState(false);
@@ -310,6 +317,11 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
               >
                 <IconMessage size={14} />
                 <span className="text-xs">Comments</span>
+                {openCommentCount > 0 && (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    {openCommentCount}
+                  </span>
+                )}
               </Button>
             )}
             {(activeTab === "requirements" || activeTab === "user-flows") && (

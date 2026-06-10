@@ -3,6 +3,7 @@ import { aiModelValidator } from "./aiModels";
 import {
   deploymentStatusValidator,
   errorTypeValidator,
+  evaluationStatusValidator,
   phaseValidator,
   priorityValidator,
   reactionTargetValidator,
@@ -396,4 +397,70 @@ export const sandboxGitCredentialsFields = {
   installationId: v.number(),
   secret: v.string(),
   createdAt: v.number(),
+};
+
+export const docFields = {
+  repoId: v.id("githubRepos"),
+  sessionId: v.optional(v.id("sessions")),
+  title: v.string(),
+  content: v.string(),
+  description: v.optional(v.string()),
+  userFlows: v.optional(
+    v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
+  ),
+  requirements: v.optional(v.array(v.string())),
+  interviewHistory: v.optional(
+    v.array(
+      v.object({
+        role: roleValidator,
+        content: v.string(),
+        activityLog: v.optional(v.string()),
+        userId: v.optional(v.id("users")),
+      }),
+    ),
+  ),
+  sandboxId: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
+  testGenStatus: v.optional(evaluationStatusValidator),
+  testPrUrl: v.optional(v.string()),
+  contentUpdatedAt: v.optional(v.number()),
+  lastParsedAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
+export const docCommentFields = {
+  docId: v.id("docs"),
+  content: v.string(),
+  authorId: v.optional(v.id("users")),
+  parentId: v.optional(v.id("docComments")),
+  anchorId: v.optional(v.string()),
+  anchorText: v.optional(v.string()),
+  resolvedAt: v.optional(v.number()),
+  resolvedBy: v.optional(v.id("users")),
+  deletedAt: v.optional(v.number()),
+  createdAt: v.number(),
+};
+
+export const docSubscriberFields = {
+  docId: v.id("docs"),
+  userId: v.id("users"),
+  subscribed: v.boolean(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
+export const docVersionFields = {
+  docId: v.id("docs"),
+  title: v.string(),
+  content: v.string(),
+  pmContent: v.string(),
+  authorIds: v.array(v.id("users")),
+  createdAt: v.number(),
+};
+
+export const docVersionDraftFields = {
+  docId: v.id("docs"),
+  authorIds: v.array(v.id("users")),
+  updatedAt: v.number(),
 };

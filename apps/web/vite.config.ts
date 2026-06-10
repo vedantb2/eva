@@ -108,6 +108,7 @@ export default defineConfig({
       "@clerk/clerk-react",
       "@tiptap/react",
       "@tiptap/core",
+      "@convex-dev/prosemirror-sync",
       "frimousse",
     ],
   },

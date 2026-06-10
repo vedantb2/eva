@@ -3,3 +3,5 @@ packages:
   - "apps/*"
 
 minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - prettier

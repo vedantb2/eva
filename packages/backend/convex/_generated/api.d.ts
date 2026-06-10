@@ -50,6 +50,7 @@ import type * as _designSessions_mutations from "../_designSessions/mutations.js
 import type * as _designSessions_queries from "../_designSessions/queries.js";
 import type * as _designSessions_sandbox from "../_designSessions/sandbox.js";
 import type * as _designSessions_workflow from "../_designSessions/workflow.js";
+import type * as _docEditor_markdown from "../_docEditor/markdown.js";
 import type * as _githubRepos_helpers from "../_githubRepos/helpers.js";
 import type * as _githubRepos_mutations from "../_githubRepos/mutations.js";
 import type * as _githubRepos_queries from "../_githubRepos/queries.js";
@@ -141,8 +142,11 @@ import type * as daytona from "../daytona.js";
 import type * as designPersonas from "../designPersonas.js";
 import type * as designSessions from "../designSessions.js";
 import type * as designWorkflow from "../designWorkflow.js";
+import type * as docComments from "../docComments.js";
 import type * as docInterviewWorkflow from "../docInterviewWorkflow.js";
 import type * as docPrdWorkflow from "../docPrdWorkflow.js";
+import type * as docSubscribers from "../docSubscribers.js";
+import type * as docVersions from "../docVersions.js";
 import type * as docs from "../docs.js";
 import type * as email from "../email.js";
 import type * as emailTemplates from "../emailTemplates.js";
@@ -278,6 +282,7 @@ declare const fullApi: ApiFromModules<{
   "_designSessions/queries": typeof _designSessions_queries;
   "_designSessions/sandbox": typeof _designSessions_sandbox;
   "_designSessions/workflow": typeof _designSessions_workflow;
+  "_docEditor/markdown": typeof _docEditor_markdown;
   "_githubRepos/helpers": typeof _githubRepos_helpers;
   "_githubRepos/mutations": typeof _githubRepos_mutations;
   "_githubRepos/queries": typeof _githubRepos_queries;
@@ -369,8 +374,11 @@ declare const fullApi: ApiFromModules<{
   designPersonas: typeof designPersonas;
   designSessions: typeof designSessions;
   designWorkflow: typeof designWorkflow;
+  docComments: typeof docComments;
   docInterviewWorkflow: typeof docInterviewWorkflow;
   docPrdWorkflow: typeof docPrdWorkflow;
+  docSubscribers: typeof docSubscribers;
+  docVersions: typeof docVersions;
   docs: typeof docs;
   email: typeof email;
   emailTemplates: typeof emailTemplates;
@@ -487,7 +495,6 @@ export declare const internal: FilterApi<
 export declare const components: {
   presence: import("@convex-dev/presence/_generated/component.js").ComponentApi<"presence">;
   prosemirrorSync: import("@convex-dev/prosemirror-sync/_generated/component.js").ComponentApi<"prosemirrorSync">;
-  timeline: import("convex-timeline/_generated/component.js").ComponentApi<"timeline">;
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   crons: import("@convex-dev/crons/_generated/component.js").ComponentApi<"crons">;
 };

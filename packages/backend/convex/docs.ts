@@ -306,30 +306,3 @@ export const clearInterview = authMutation({
     return null;
   },
 });
-
-/** Fetches basic profile info for a list of user IDs. */
-export const collaboratorNames = authQuery({
-  args: { docId: v.id("docs"), userIds: v.array(v.id("users")) },
-  returns: v.array(
-    v.object({
-      _id: v.id("users"),
-      name: v.optional(v.string()),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const doc = await ctx.db.get(args.docId);
-    if (!doc) return [];
-    if (!(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId))) return [];
-    const results: Array<{
-      _id: (typeof args.userIds)[number];
-      name: string | undefined;
-    }> = [];
-    for (const userId of args.userIds) {
-      const user = await ctx.db.get(userId);
-      if (user) {
-        results.push({ _id: user._id, name: user.fullName ?? user.firstName });
-      }
-    }
-    return results;
-  },
-});

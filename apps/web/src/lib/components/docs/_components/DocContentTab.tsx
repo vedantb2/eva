@@ -5,6 +5,7 @@ import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
+import type { Transaction } from "@tiptap/pm/state";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -187,7 +188,14 @@ export function DocContentTab({
   useEffect(() => {
     if (!editor) return;
 
-    const handleTransaction = () => {
+    const handleTransaction = ({
+      transaction,
+    }: {
+      transaction: Transaction;
+    }) => {
+      // Only local edits drive version snapshots; ignore remote (collab) steps
+      // so another user's edits don't trigger or attribute a version here.
+      if (transaction.getMeta("collab$")) return;
       editCountRef.current += 1;
 
       const now = Date.now();

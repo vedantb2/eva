@@ -49,7 +49,7 @@ export function DocVersionDiff({
           Restore this version
         </Button>
       </div>
-      <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-3 text-sm leading-relaxed">
+      <pre className="whitespace-pre-wrap rounded-surface border border-border bg-muted/30 p-3 text-sm leading-relaxed">
         {changes.map((part, i) => {
           if (part.added) {
             return (

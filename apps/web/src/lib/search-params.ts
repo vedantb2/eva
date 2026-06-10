@@ -133,6 +133,18 @@ export function isDocViewerTab(s: string): s is DocViewerTab {
 
 export const DOC_VIEWER_DEFAULT_TAB: DocViewerTab = "content";
 
+const docModes = ["editing", "suggesting", "viewing"] as const;
+export type DocMode = (typeof docModes)[number];
+export const docModeParser = parseAsStringLiteral(docModes)
+  .withDefault("editing")
+  .withOptions(searchOptions);
+
+const docCommentFilters = ["open", "resolved"] as const;
+export type DocCommentFilter = (typeof docCommentFilters)[number];
+export const docCommentFilterParser = parseAsStringLiteral(docCommentFilters)
+  .withDefault("open")
+  .withOptions(searchOptions);
+
 const automationTabs = ["latest", "run-history", "settings"] as const;
 export type AutomationTab = (typeof automationTabs)[number];
 

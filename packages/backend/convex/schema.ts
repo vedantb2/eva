@@ -2,13 +2,11 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
   activityLogTypeValidator,
-  roleValidator,
   sessionStatusValidator,
   evaluationStatusValidator,
   evalFixStatusValidator,
   evalResultValidator,
   auditSectionValidator,
-  userFlowValidator,
   notificationTypeValidator,
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
@@ -36,6 +34,11 @@ import {
   sandboxGitCredentialsFields,
   appSettingsFields,
   userFields,
+  docFields,
+  docCommentFields,
+  docSubscriberFields,
+  docVersionFields,
+  docVersionDraftFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -134,33 +137,21 @@ const schema = defineSchema({
     pendingQuestion: v.optional(v.string()),
     lastUpdatedAt: v.optional(v.number()),
   }).index("by_entity", ["entityId"]),
-  docs: defineTable({
-    repoId: v.id("githubRepos"),
-    sessionId: v.optional(v.id("sessions")),
-    title: v.string(),
-    content: v.string(),
-    description: v.optional(v.string()),
-    userFlows: v.optional(v.array(userFlowValidator)),
-    requirements: v.optional(v.array(v.string())),
-    interviewHistory: v.optional(
-      v.array(
-        v.object({
-          role: roleValidator,
-          content: v.string(),
-          activityLog: v.optional(v.string()),
-          userId: v.optional(v.id("users")),
-        }),
-      ),
-    ),
-    sandboxId: v.optional(v.string()),
-    activeWorkflowId: v.optional(v.string()),
-    testGenStatus: v.optional(evaluationStatusValidator),
-    testPrUrl: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
+  docs: defineTable(docFields)
     .index("by_repo", ["repoId"])
     .index("by_session", ["sessionId"]),
+
+  docComments: defineTable(docCommentFields).index("by_doc", ["docId"]),
+
+  docSubscribers: defineTable(docSubscriberFields)
+    .index("by_doc", ["docId"])
+    .index("by_doc_and_user", ["docId", "userId"]),
+
+  docVersions: defineTable(docVersionFields).index("by_doc", ["docId"]),
+
+  docVersionDrafts: defineTable(docVersionDraftFields).index("by_doc", [
+    "docId",
+  ]),
   annotations: defineTable({
     userId: v.id("users"),
     pageUrl: v.string(),

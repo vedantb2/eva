@@ -41,6 +41,7 @@ import {
   IconExternalLink,
   IconSettings,
   IconPlayerStop,
+  IconX,
 } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 
@@ -77,6 +78,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
   const [copied, setCopied] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const getMarkdownRef = useRef<() => string | null>(() => null);
 
   const handleDocTabChange = useCallback(
     (value: string) => {
@@ -130,22 +132,24 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
     setEditingSnapshot(null);
   }, []);
 
-  const handleSave = useCallback(
-    async (markdown: string) => {
-      setIsSaving(true);
-      try {
-        await updateDoc({ id: doc._id, content: markdown });
-        // Trigger extraction so requirements/userFlows stay in sync with new content.
-        if (markdown.trim().length > 0) {
-          await startPrdParse({ docId: doc._id });
-        }
-        setEditingSnapshot(null);
-      } finally {
-        setIsSaving(false);
+  const handleEditorReady = useCallback((getMarkdown: () => string | null) => {
+    getMarkdownRef.current = getMarkdown;
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    const markdown = getMarkdownRef.current();
+    if (markdown === null) return;
+    setIsSaving(true);
+    try {
+      await updateDoc({ id: doc._id, content: markdown });
+      if (markdown.trim().length > 0) {
+        await startPrdParse({ docId: doc._id });
       }
-    },
-    [doc._id, updateDoc, startPrdParse],
-  );
+      setEditingSnapshot(null);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [doc._id, updateDoc, startPrdParse]);
 
   const handleGenerateTests = async () => {
     if (isTriggeringTestGen || doc.testGenStatus === "running") return;
@@ -348,11 +352,29 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
               </span>
             </TabsTrigger>
           </TabsList>
-          {activeTab === "content" && !isEditing ? (
-            <Button size="sm" variant="secondary" onClick={handleStartEdit}>
-              <IconPencil size={14} />
-              Edit
-            </Button>
+          {activeTab === "content" ? (
+            isEditing ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={isSaving}
+                  onClick={handleCancelEdit}
+                >
+                  <IconX size={14} />
+                  Cancel
+                </Button>
+                <Button size="sm" disabled={isSaving} onClick={handleSave}>
+                  <IconCheck size={14} />
+                  Save
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" variant="secondary" onClick={handleStartEdit}>
+                <IconPencil size={14} />
+                Edit
+              </Button>
+            )
           ) : null}
         </div>
 
@@ -382,9 +404,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
               <MarkdownEditor
                 key={editKey}
                 initialMarkdown={editingSnapshot}
-                onSave={handleSave}
-                onCancel={handleCancelEdit}
-                isSaving={isSaving}
+                onEditorReady={handleEditorReady}
               />
             ) : (
               <div className="flex min-h-0 flex-1 gap-6 overflow-hidden">

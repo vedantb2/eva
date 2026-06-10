@@ -10,80 +10,6 @@ export type TaskStatus =
   | "done"
   | "cancelled";
 
-export type MessageType =
-  | "START_SELECTION"
-  | "STOP_SELECTION"
-  | "ELEMENT_CAPTURED"
-  | "SELECTION_CANCELLED"
-  | "GET_CAPTURED_CONTEXT"
-  | "CLEAR_CONTEXT"
-  | "START_ANNOTATION"
-  | "STOP_ANNOTATION"
-  | "SAVE_ANNOTATION_TASK"
-  | "ANNOTATION_TASK_CREATED"
-  | "ANNOTATION_STATUS_SYNC"
-  | "ANNOTATIONS_LOADED"
-  | "ANNOTATIONS_CHANGED"
-  | "SHOW_TOOLBAR"
-  | "HIDE_TOOLBAR"
-  | "TOOLBAR_ADD_QUICK_TASKS"
-  | "TOOLBAR_ADD_TO_PROJECT"
-  | "TOOLBAR_RESULT"
-  | "RUN_ALL_ANNOTATIONS"
-  | "RUN_ALL_RESULT"
-  | "RUN_ANNOTATION_TASK"
-  | "PANEL_CLOSED"
-  | "REQUEST_ANNOTATIONS"
-  | "REQUEST_TOOLBAR_STATE";
-
-export interface StartSelectionMessage {
-  type: "START_SELECTION";
-}
-
-export interface StopSelectionMessage {
-  type: "STOP_SELECTION";
-}
-
-export interface ElementCapturedMessage {
-  type: "ELEMENT_CAPTURED";
-  payload: ExtractedContext;
-}
-
-export interface SelectionCancelledMessage {
-  type: "SELECTION_CANCELLED";
-}
-
-export interface GetCapturedContextMessage {
-  type: "GET_CAPTURED_CONTEXT";
-}
-
-export interface GetCapturedContextResponse {
-  context: ExtractedContext | null;
-}
-
-export interface ClearContextMessage {
-  type: "CLEAR_CONTEXT";
-}
-
-export interface StartAnnotationMessage {
-  type: "START_ANNOTATION";
-}
-
-export interface StopAnnotationMessage {
-  type: "STOP_ANNOTATION";
-}
-
-export interface SaveAnnotationTaskMessage {
-  type: "SAVE_ANNOTATION_TASK";
-  payload: {
-    title: string;
-    pageUrl: string;
-    position: { x: number; y: number };
-    pinId: string;
-    elementContext?: ExtractedContext;
-  };
-}
-
 export interface StoredPin {
   x: number;
   y: number;
@@ -99,149 +25,159 @@ export interface StoredPin {
   creatorInitials?: string;
 }
 
-export interface AnnotationTaskCreatedMessage {
-  type: "ANNOTATION_TASK_CREATED";
-  payload: {
-    pinId: string;
-    taskId: string;
-    userId?: string;
-    creatorInitials?: string;
+export const EVA_URL: string = import.meta.env.VITE_EVA_URL;
+
+export function isRepoId(value: string): value is Id<"githubRepos"> {
+  return value.length > 0;
+}
+
+export function isTaskId(value: string): value is Id<"agentTasks"> {
+  return value.length > 0;
+}
+
+export function isProjectId(value: string): value is Id<"projects"> {
+  return value.length > 0;
+}
+
+const TASK_STATUSES: ReadonlySet<string> = new Set<string>([
+  "draft",
+  "todo",
+  "in_progress",
+  "code_review",
+  "business_review",
+  "done",
+  "cancelled",
+]);
+
+export function isTaskStatus(value: string): value is TaskStatus {
+  return TASK_STATUSES.has(value);
+}
+
+// ---------- runtime guards ----------
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isStoredPinRecord(
+  value: unknown,
+): value is Record<string, StoredPin> {
+  if (!isRecord(value)) return false;
+  for (const v of Object.values(value)) {
+    if (!isRecord(v) || typeof v.x !== "number" || typeof v.y !== "number")
+      return false;
+  }
+  return true;
+}
+
+// ---------- error types ----------
+
+export type BgErrorCode = "not_signed_in" | "no_repo_match" | "convex_error";
+
+export interface BgError {
+  ok: false;
+  code: BgErrorCode;
+  message: string;
+}
+
+export interface BgOk {
+  ok: true;
+}
+
+export type BgResult<T = Record<never, never>> = (BgOk & T) | BgError;
+
+// ---------- request / response map ----------
+
+export interface BgRequestMap {
+  GET_TOOLBAR_VISIBILITY: {
+    request: Record<string, never>;
+    response: { visible: boolean };
+  };
+  LOAD_ANNOTATIONS: {
+    request: { pageUrl: string };
+    response: BgResult<{ pins: Record<string, StoredPin> }>;
+  };
+  SAVE_ANNOTATIONS: {
+    request: { pageUrl: string; pins: Record<string, StoredPin> };
+    response: BgResult;
+  };
+  CREATE_ANNOTATION_TASK: {
+    request: {
+      pageUrl: string;
+      title: string;
+      pinId: string;
+      elementContext?: ExtractedContext;
+    };
+    response: BgResult<{
+      pinId: string;
+      taskId: string;
+      userId?: string;
+      creatorInitials?: string;
+    }>;
+  };
+  RUN_ANNOTATION_TASK: {
+    request: { taskId: string };
+    response: BgResult;
+  };
+  RUN_ALL_ANNOTATIONS: {
+    request: { pageUrl: string; pins: Record<string, StoredPin> };
+    response: BgResult<{
+      created: Array<{ pinId: string; taskId: string }>;
+      userId?: string;
+      creatorInitials?: string;
+      message: string;
+    }>;
+  };
+  LIST_PROJECTS: {
+    request: { pageUrl: string };
+    response: BgResult<{
+      projects: Array<{ id: string; title: string; phase: string }>;
+    }>;
+  };
+  ADD_TO_PROJECT: {
+    request: {
+      pageUrl: string;
+      pins: Record<string, StoredPin>;
+      target:
+        | { kind: "existing"; projectId: string }
+        | { kind: "new"; title: string };
+    };
+    response: BgResult<{ count: number; message: string }>;
+  };
+  SYNC_TASK_STATUSES: {
+    request: { taskIds: string[] };
+    response: BgResult<{
+      updates: Record<string, { status: TaskStatus }>;
+    }>;
+  };
+  OPEN_EVA: {
+    request: { path?: string };
+    response: { ok: true };
   };
 }
 
-export interface RunAnnotationTaskMessage {
-  type: "RUN_ANNOTATION_TASK";
-  payload: {
-    taskId: string;
-  };
+export type BgRequestType = keyof BgRequestMap;
+
+// ---------- push messages (background → content) ----------
+
+export interface ToolbarVisibilityChangedMessage {
+  type: "TOOLBAR_VISIBILITY_CHANGED";
+  visible: boolean;
 }
 
-export interface PanelClosedMessage {
-  type: "PANEL_CLOSED";
-}
+export type PushMessage = ToolbarVisibilityChangedMessage;
 
-export interface RequestAnnotationsMessage {
-  type: "REQUEST_ANNOTATIONS";
-}
+// ---------- typed request helper ----------
 
-export interface RequestToolbarStateMessage {
-  type: "REQUEST_TOOLBAR_STATE";
-}
-
-export interface AnnotationStatusSyncMessage {
-  type: "ANNOTATION_STATUS_SYNC";
-  payload: {
-    updates: Record<string, { status: TaskStatus }>;
-  };
-}
-
-export interface AnnotationsLoadedMessage {
-  type: "ANNOTATIONS_LOADED";
-  payload: {
-    pins: Record<string, StoredPin>;
-  };
-}
-
-export interface AnnotationsChangedMessage {
-  type: "ANNOTATIONS_CHANGED";
-  payload: {
-    pageUrl: string;
-    pins: Record<string, StoredPin>;
-  };
-}
-
-export interface ShowToolbarMessage {
-  type: "SHOW_TOOLBAR";
-}
-
-export interface HideToolbarMessage {
-  type: "HIDE_TOOLBAR";
-}
-
-export interface ToolbarAddQuickTasksMessage {
-  type: "TOOLBAR_ADD_QUICK_TASKS";
-  payload: {
-    pageUrl: string;
-    pins: Record<string, StoredPin>;
-  };
-}
-
-export interface ToolbarAddToProjectMessage {
-  type: "TOOLBAR_ADD_TO_PROJECT";
-  payload: {
-    pageUrl: string;
-    pins: Record<string, StoredPin>;
-  };
-}
-
-export interface ToolbarResultMessage {
-  type: "TOOLBAR_RESULT";
-  payload: {
-    success: boolean;
-    message: string;
-  };
-}
-
-export interface RunAllAnnotationsMessage {
-  type: "RUN_ALL_ANNOTATIONS";
-  payload: {
-    pageUrl: string;
-    pins: Record<string, StoredPin>;
-  };
-}
-
-export interface RunAllResultMessage {
-  type: "RUN_ALL_RESULT";
-  payload: {
-    success: boolean;
-    message: string;
-  };
-}
-
-export type ExtensionMessage =
-  | StartSelectionMessage
-  | StopSelectionMessage
-  | ElementCapturedMessage
-  | SelectionCancelledMessage
-  | GetCapturedContextMessage
-  | ClearContextMessage
-  | StartAnnotationMessage
-  | StopAnnotationMessage
-  | SaveAnnotationTaskMessage
-  | AnnotationTaskCreatedMessage
-  | AnnotationStatusSyncMessage
-  | AnnotationsLoadedMessage
-  | AnnotationsChangedMessage
-  | ShowToolbarMessage
-  | HideToolbarMessage
-  | ToolbarAddQuickTasksMessage
-  | ToolbarAddToProjectMessage
-  | ToolbarResultMessage
-  | RunAllAnnotationsMessage
-  | RunAllResultMessage
-  | RunAnnotationTaskMessage
-  | PanelClosedMessage
-  | RequestAnnotationsMessage
-  | RequestToolbarStateMessage;
-
-export const EVA_URL = import.meta.env.VITE_EVA_URL;
-
-export function isSessionId(value: unknown): value is Id<"sessions"> {
-  return typeof value === "string" && value.length > 0;
-}
-
-export function isRepoId(value: unknown): value is Id<"githubRepos"> {
-  return typeof value === "string" && value.length > 0;
-}
-
-export function isTaskId(value: unknown): value is Id<"agentTasks"> {
-  return typeof value === "string" && value.length > 0;
-}
-
-export function sendExtensionMessage(message: ExtensionMessage): Promise<void> {
-  return chrome.runtime.sendMessage(message).catch(() => {});
-}
-
-export function sendTabMessage(tabId: number, message: ExtensionMessage): void {
-  void chrome.tabs.sendMessage(tabId, message).catch(() => {});
+// chrome.runtime.sendMessage returns untyped data; we validate via isRecord at call sites
+export function requestBackground<T extends BgRequestType>(
+  type: T,
+  payload: BgRequestMap[T]["request"],
+): Promise<BgRequestMap[T]["response"]> {
+  type R = BgRequestMap[T]["response"];
+  return new Promise<R>((resolve) => {
+    chrome.runtime.sendMessage({ type, payload }, (response: R) => {
+      resolve(response);
+    });
+  });
 }

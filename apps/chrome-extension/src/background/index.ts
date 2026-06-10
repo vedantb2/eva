@@ -1,108 +1,133 @@
-import { createClerkClient } from "@clerk/chrome-extension/background";
-import { sendExtensionMessage, sendTabMessage } from "../shared/messaging";
+import type { BgRequestType } from "../shared/messaging";
+import {
+  loadAnnotations,
+  saveAnnotations,
+  createAnnotationTask,
+  runAnnotationTask,
+  runAllAnnotations,
+  listProjects,
+  addToProject,
+  syncTaskStatuses,
+  openEva,
+} from "./handlers";
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+// ---- toolbar visibility (per-tab, session storage) ----
 
-if (typeof PUBLISHABLE_KEY === "string" && PUBLISHABLE_KEY.length > 0) {
-  void createClerkClient({ publishableKey: PUBLISHABLE_KEY });
+function storageKey(tabId: number): string {
+  return `toolbarVisible:${tabId}`;
 }
 
-let capturedContext: unknown = null;
+async function setToolbarVisibility(
+  tabId: number,
+  visible: boolean,
+): Promise<void> {
+  await chrome.storage.session.set({ [storageKey(tabId)]: visible });
 
-function forwardRuntimeMessage(msg: { type: string; payload?: unknown }): void {
-  void chrome.runtime.sendMessage(msg).catch(() => {});
-}
-
-chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== "sidepanel") return;
-  port.onDisconnect.addListener(() => {
-    chrome.tabs.query({}, (tabs) => {
-      for (const tab of tabs) {
-        if (tab.id) {
-          sendTabMessage(tab.id, { type: "PANEL_CLOSED" });
-        }
-      }
+  if (visible) {
+    await chrome.action.setBadgeText({ tabId, text: "●" });
+    await chrome.action.setBadgeBackgroundColor({
+      tabId,
+      color: "#00000000",
     });
-  });
-});
+    await chrome.action.setBadgeTextColor({ tabId, color: "#22c55e" });
+  } else {
+    await chrome.action.setBadgeText({ tabId, text: "" });
+  }
+
+  try {
+    await chrome.tabs.sendMessage(tabId, {
+      type: "TOOLBAR_VISIBILITY_CHANGED",
+      visible,
+    });
+  } catch {
+    // Tab unreachable (chrome:// page) — revert
+    await chrome.storage.session.set({ [storageKey(tabId)]: !visible });
+    if (!visible) {
+      await chrome.action.setBadgeText({ tabId, text: "●" });
+      await chrome.action.setBadgeBackgroundColor({
+        tabId,
+        color: "#00000000",
+      });
+      await chrome.action.setBadgeTextColor({ tabId, color: "#22c55e" });
+    } else {
+      await chrome.action.setBadgeText({ tabId, text: "" });
+    }
+  }
+}
+
+// ---- icon click toggles toolbar ----
 
 chrome.action.onClicked.addListener(async (tab) => {
-  if (tab.id) {
-    await chrome.sidePanel.open({ tabId: tab.id });
-  }
+  if (!tab.id) return;
+  const key = storageKey(tab.id);
+  const result = await chrome.storage.session.get(key);
+  const current = result[key] === true;
+  await setToolbarVisibility(tab.id, !current);
 });
 
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+// ---- cleanup on tab close ----
 
-interface ExtensionMessage {
-  type: string;
-  payload?: unknown;
-}
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.storage.session.remove(storageKey(tabId));
+});
+
+// ---- message router ----
 
 chrome.runtime.onMessage.addListener(
   (
-    message: ExtensionMessage,
-    _sender: chrome.runtime.MessageSender,
-    sendResponse: (response?: unknown) => void,
+    message: { type: string; payload?: unknown },
+    sender: chrome.runtime.MessageSender,
+    sendResponse: (response: unknown) => void,
   ) => {
-    switch (message.type) {
-      case "ELEMENT_CAPTURED": {
-        capturedContext = message.payload ?? null;
-        sendResponse({ success: true });
-        break;
-      }
+    const { type, payload } = message;
 
-      case "SELECTION_CANCELLED": {
-        sendResponse({ success: true });
-        break;
+    if (type === "GET_TOOLBAR_VISIBILITY") {
+      const tabId = sender.tab?.id;
+      if (!tabId) {
+        sendResponse({ visible: false });
+        return true;
       }
+      chrome.storage.session.get(storageKey(tabId)).then((result) => {
+        sendResponse({ visible: result[storageKey(tabId)] === true });
+      });
+      return true;
+    }
 
-      case "GET_CAPTURED_CONTEXT": {
-        sendResponse({ context: capturedContext });
-        break;
-      }
+    const handlers: Record<
+      string,
+      ((p: never) => Promise<unknown>) | ((p: never) => unknown) | undefined
+    > = {
+      LOAD_ANNOTATIONS: loadAnnotations,
+      SAVE_ANNOTATIONS: saveAnnotations,
+      CREATE_ANNOTATION_TASK: createAnnotationTask,
+      RUN_ANNOTATION_TASK: runAnnotationTask,
+      RUN_ALL_ANNOTATIONS: runAllAnnotations,
+      LIST_PROJECTS: listProjects,
+      ADD_TO_PROJECT: addToProject,
+      SYNC_TASK_STATUSES: syncTaskStatuses,
+      OPEN_EVA: openEva,
+    } satisfies Partial<
+      Record<BgRequestType, (p: never) => Promise<unknown> | unknown>
+    >;
 
-      case "CLEAR_CONTEXT": {
-        capturedContext = null;
-        sendResponse({ success: true });
-        break;
-      }
+    const handler = handlers[type];
+    if (!handler) {
+      sendResponse({
+        ok: false,
+        code: "convex_error",
+        message: "Unknown message type",
+      });
+      return true;
+    }
 
-      case "ANNOTATIONS_CHANGED": {
-        forwardRuntimeMessage({
-          type: "ANNOTATIONS_CHANGED",
-          payload: message.payload,
-        });
-        sendResponse({ success: true });
-        break;
-      }
-
-      case "STOP_ANNOTATION": {
-        void sendExtensionMessage({ type: "STOP_ANNOTATION" });
-        sendResponse({ success: true });
-        break;
-      }
-
-      case "REQUEST_ANNOTATIONS": {
-        void sendExtensionMessage({ type: "REQUEST_ANNOTATIONS" });
-        sendResponse({ success: true });
-        break;
-      }
-
-      case "REQUEST_TOOLBAR_STATE":
-      case "TOOLBAR_ADD_QUICK_TASKS":
-      case "TOOLBAR_ADD_TO_PROJECT":
-      case "RUN_ALL_ANNOTATIONS": {
-        forwardRuntimeMessage({
-          type: message.type,
-          payload: message.payload,
-        });
-        sendResponse({ success: true });
-        break;
-      }
-
-      default:
-        sendResponse({ success: false, error: "Unknown message type" });
+    const result = handler(payload as never);
+    if (result instanceof Promise) {
+      result.then(sendResponse).catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : "Unknown error";
+        sendResponse({ ok: false, code: "convex_error", message: msg });
+      });
+    } else {
+      sendResponse(result);
     }
     return true;
   },

@@ -1,77 +1,32 @@
 import { useRef, useCallback, useSyncExternalStore } from "react";
-import { IconEye, IconEyeOff } from "@tabler/icons-react";
+import {
+  IconEye,
+  IconEyeOff,
+  IconMapPin,
+  IconSearch,
+} from "@tabler/icons-react";
 import {
   getAnnotationState,
   subscribeAnnotation,
   togglePinsHidden,
 } from "./AnnotationOverlay";
 import { subscribeDark, getDark } from "./theme";
-import { Button } from "@conductor/ui";
+import {
+  subscribeToolbar,
+  getToolbarState,
+  setMode,
+  setToolbarLoading,
+  setToolbarFeedback,
+  setSignedOut,
+  setProjectModalOpen,
+  setToolbarPosition,
+} from "./toolbar-state";
+import { requestBackground } from "@/shared/messaging";
 import type { StoredPin } from "@/shared/messaging";
-
-interface ToolbarState {
-  visible: boolean;
-  feedback: { message: string; type: "success" | "error" } | null;
-  loading: boolean;
-  x: number;
-  y: number;
-  version: number;
-}
-
-let _toolbar: ToolbarState = {
-  visible: false,
-  feedback: null,
-  loading: false,
-  x: -1,
-  y: -1,
-  version: 0,
-};
-const _toolbarSubs = new Set<() => void>();
-function _toolbarEmit() {
-  _toolbarSubs.forEach((s) => s());
-}
-
-export function showToolbar() {
-  _toolbar = { ..._toolbar, visible: true, version: _toolbar.version + 1 };
-  _toolbarEmit();
-}
-
-export function hideToolbar() {
-  _toolbar = { ..._toolbar, visible: false, version: _toolbar.version + 1 };
-  _toolbarEmit();
-}
-
-export function setToolbarFeedback(message: string, type: "success" | "error") {
-  _toolbar = {
-    ..._toolbar,
-    feedback: { message, type },
-    loading: false,
-    version: _toolbar.version + 1,
-  };
-  _toolbarEmit();
-  setTimeout(() => {
-    _toolbar = { ..._toolbar, feedback: null, version: _toolbar.version + 1 };
-    _toolbarEmit();
-  }, 3000);
-}
+import { notifyTasksCreated } from "./AnnotationOverlay";
 
 function getPageUrl(): string {
   return window.location.origin + window.location.pathname;
-}
-
-function sendPins(
-  type:
-    | "TOOLBAR_ADD_QUICK_TASKS"
-    | "TOOLBAR_ADD_TO_PROJECT"
-    | "RUN_ALL_ANNOTATIONS",
-  pins: Record<string, StoredPin>,
-) {
-  _toolbar = { ..._toolbar, loading: true, version: _toolbar.version + 1 };
-  _toolbarEmit();
-  chrome.runtime.sendMessage({
-    type,
-    payload: { pageUrl: getPageUrl(), pins },
-  });
 }
 
 function dividerStyle(dark: boolean): React.CSSProperties {
@@ -90,16 +45,127 @@ function feedbackStyle(type: "success" | "error"): React.CSSProperties {
   };
 }
 
-export function PageToolbar() {
-  const toolbar = useSyncExternalStore(
-    (cb) => {
-      _toolbarSubs.add(cb);
-      return () => {
-        _toolbarSubs.delete(cb);
-      };
-    },
-    () => _toolbar,
+function ToolbarButton({
+  active,
+  onClick,
+  title,
+  children,
+  dark,
+  disabled,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  title: string;
+  children: React.ReactNode;
+  dark: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      title={title}
+      disabled={disabled}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 32,
+        height: 32,
+        borderRadius: 9999,
+        border: active ? "1.5px solid #109182" : "1.5px solid transparent",
+        background: active
+          ? dark
+            ? "rgba(16, 145, 130, 0.15)"
+            : "rgba(16, 145, 130, 0.1)"
+          : "transparent",
+        color: active
+          ? "#109182"
+          : disabled
+            ? dark
+              ? "#555"
+              : "#bbb"
+            : dark
+              ? "#a1a1aa"
+              : "#71717a",
+        cursor: disabled ? "not-allowed" : "pointer",
+        padding: 0,
+        transition: "all 0.15s",
+      }}
+    >
+      {children}
+    </button>
   );
+}
+
+function ActionButton({
+  onClick,
+  children,
+  variant,
+  disabled,
+  dark,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  variant: "primary" | "outline";
+  disabled?: boolean;
+  dark: boolean;
+}) {
+  const isPrimary = variant === "primary";
+  return (
+    <button
+      disabled={disabled}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "4px 12px",
+        borderRadius: 9999,
+        border: isPrimary
+          ? "none"
+          : dark
+            ? "1px solid rgba(255,255,255,0.15)"
+            : "1px solid rgba(0,0,0,0.12)",
+        background: isPrimary
+          ? disabled
+            ? dark
+              ? "#555"
+              : "#ccc"
+            : "#109182"
+          : "transparent",
+        color: isPrimary ? "#fff" : dark ? "#e4e4e7" : "#27272a",
+        fontSize: 13,
+        fontWeight: 500,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.6 : 1,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+async function handleRunAll(pins: Record<string, StoredPin>) {
+  setToolbarLoading(true);
+  const resp = await requestBackground("RUN_ALL_ANNOTATIONS", {
+    pageUrl: getPageUrl(),
+    pins,
+  });
+  if (!resp.ok) {
+    if (resp.code === "not_signed_in") {
+      setSignedOut(true);
+    }
+    setToolbarFeedback(resp.message, "error");
+    return;
+  }
+  notifyTasksCreated(resp.created, resp.userId, resp.creatorInitials);
+  setToolbarFeedback(resp.message, "success");
+}
+
+export function PageToolbar() {
+  const toolbar = useSyncExternalStore(subscribeToolbar, getToolbarState);
   const ext = useSyncExternalStore(subscribeAnnotation, getAnnotationState);
   const dark = useSyncExternalStore(subscribeDark, getDark);
   const dragging = useRef(false);
@@ -114,18 +180,14 @@ export function PageToolbar() {
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     const el = elRef.current;
-    if (el && _toolbar.x === -1) {
+    const state = getToolbarState();
+    if (el && state.x === -1) {
       const rect = el.getBoundingClientRect();
-      _toolbar = {
-        ..._toolbar,
-        x: rect.left,
-        y: rect.top,
-        version: _toolbar.version + 1,
-      };
-      _toolbarEmit();
+      setToolbarPosition(rect.left, rect.top);
     }
-    startX.current = _toolbar.x;
-    startY.current = _toolbar.y;
+    const s = getToolbarState();
+    startX.current = s.x;
+    startY.current = s.y;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }, []);
 
@@ -148,8 +210,7 @@ export function PageToolbar() {
         startY.current + (e.clientY - dragStartY.current),
       ),
     );
-    _toolbar = { ..._toolbar, x: nx, y: ny, version: _toolbar.version + 1 };
-    _toolbarEmit();
+    setToolbarPosition(nx, ny);
   }, []);
 
   const onPointerUp = useCallback(() => {
@@ -157,6 +218,7 @@ export function PageToolbar() {
   }, []);
 
   if (!toolbar.visible) return null;
+
   const pins = ext.currentPins;
   const pinCount = Object.keys(pins).length;
   const hasPins = pinCount > 0;
@@ -168,8 +230,8 @@ export function PageToolbar() {
     zIndex: 2147483645,
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    padding: "8px 16px",
+    gap: 8,
+    padding: "8px 14px",
     borderRadius: 9999,
     background: dark ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.9)",
     backdropFilter: "blur(12px)",
@@ -185,10 +247,34 @@ export function PageToolbar() {
     cursor: dragging.current ? "grabbing" : "grab",
     userSelect: "none",
     touchAction: "none",
+    fontFamily:
+      "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     ...(positioned
       ? { left: toolbar.x, top: toolbar.y }
       : { bottom: 16, left: "50%", transform: "translateX(-50%)" }),
   };
+
+  const signedOutLink = toolbar.signedOut && (
+    <button
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={() => {
+        requestBackground("OPEN_EVA", {});
+        setSignedOut(false);
+      }}
+      style={{
+        background: "none",
+        border: "none",
+        color: "#109182",
+        fontSize: 12,
+        fontWeight: 500,
+        cursor: "pointer",
+        textDecoration: "underline",
+        padding: 0,
+      }}
+    >
+      Sign in to Eva
+    </button>
+  );
 
   return (
     <div
@@ -201,50 +287,76 @@ export function PageToolbar() {
       <span style={{ fontWeight: 600, color: "#109182", fontSize: 14 }}>
         Eva
       </span>
+
       <div style={dividerStyle(dark)} />
+
+      {/* Mode toggles */}
+      <ToolbarButton
+        active={toolbar.mode === "annotate"}
+        onClick={() => setMode(toolbar.mode === "annotate" ? null : "annotate")}
+        title="Annotate"
+        dark={dark}
+      >
+        <IconMapPin size={16} />
+      </ToolbarButton>
+
+      <ToolbarButton
+        active={toolbar.mode === "inspect"}
+        onClick={() => setMode(toolbar.mode === "inspect" ? null : "inspect")}
+        title="Inspect"
+        dark={dark}
+      >
+        <IconSearch size={16} />
+      </ToolbarButton>
+
+      <div style={dividerStyle(dark)} />
+
       <span style={{ color: dark ? "#a1a1aa" : "#71717a", fontSize: 13 }}>
         {pinCount} annotation{pinCount !== 1 ? "s" : ""}
       </span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className={`w-8 h-8 ${ext.pinsHidden ? "text-neutral-400" : "text-[#109182]"}`}
-        style={{ borderRadius: 9999 }}
-        title={ext.pinsHidden ? "Show annotations" : "Hide annotations"}
-        onPointerDown={(e) => e.stopPropagation()}
+
+      <ToolbarButton
+        active={false}
         onClick={() => togglePinsHidden()}
+        title={ext.pinsHidden ? "Show annotations" : "Hide annotations"}
+        dark={dark}
       >
-        {ext.pinsHidden ? <IconEyeOff size={18} /> : <IconEye size={18} />}
-      </Button>
+        {ext.pinsHidden ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+      </ToolbarButton>
+
       <div style={dividerStyle(dark)} />
+
+      {signedOutLink}
+
       {toolbar.feedback ? (
         <span style={feedbackStyle(toolbar.feedback.type)}>
           {toolbar.feedback.message}
         </span>
       ) : (
-        <>
-          <Button
-            size="sm"
-            className="bg-[#109182] hover:bg-[#2db8a4] text-white text-sm"
-            style={{ borderRadius: 9999 }}
-            disabled={disabled}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => hasPins && sendPins("RUN_ALL_ANNOTATIONS", pins)}
-          >
-            Run All
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-sm"
-            style={{ borderRadius: 9999 }}
-            disabled={disabled}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => hasPins && sendPins("TOOLBAR_ADD_TO_PROJECT", pins)}
-          >
-            Add all to a Project
-          </Button>
-        </>
+        !toolbar.signedOut && (
+          <>
+            <ActionButton
+              variant="primary"
+              dark={dark}
+              disabled={disabled}
+              onClick={() => {
+                if (hasPins) handleRunAll(pins);
+              }}
+            >
+              Run All
+            </ActionButton>
+            <ActionButton
+              variant="outline"
+              dark={dark}
+              disabled={disabled}
+              onClick={() => {
+                if (hasPins) setProjectModalOpen(true);
+              }}
+            >
+              Add all to a Project
+            </ActionButton>
+          </>
+        )
       )}
     </div>
   );

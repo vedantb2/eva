@@ -5,6 +5,7 @@ import {
   roleValidator,
   phaseValidator,
   priorityValidator,
+  aiModelValidator,
 } from "../validators";
 import {
   authMutation,
@@ -86,11 +87,23 @@ export const update = authMutation({
     members: v.optional(v.array(v.id("users"))),
     projectStartDate: v.optional(v.number()),
     projectEndDate: v.optional(v.number()),
+    codeReviewer: v.optional(v.union(v.id("users"), v.null())),
+    tags: v.optional(v.array(v.string())),
+    model: v.optional(v.union(aiModelValidator, v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    const { id, generatedSpec, projectLead, priority, phase, ...fields } = args;
+    const {
+      id,
+      generatedSpec,
+      projectLead,
+      priority,
+      codeReviewer,
+      model,
+      phase,
+      ...fields
+    } = args;
     const updates: Record<string, string | number | Array<string> | undefined> =
       {};
     for (const [key, value] of Object.entries(fields)) {
@@ -99,6 +112,9 @@ export const update = authMutation({
     if (projectLead !== undefined)
       updates.projectLead = projectLead ?? undefined;
     if (priority !== undefined) updates.priority = priority ?? undefined;
+    if (codeReviewer !== undefined)
+      updates.codeReviewer = codeReviewer ?? undefined;
+    if (model !== undefined) updates.model = model ?? undefined;
     if (phase !== undefined) updates.phase = phase;
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(args.id, updates);

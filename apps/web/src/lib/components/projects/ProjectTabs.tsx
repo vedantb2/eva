@@ -38,7 +38,14 @@ export function ProjectTabs({
     (localStore, args) => {
       const current = localStore.getQuery(api.projects.get, { id: projectId });
       if (current !== undefined && current !== null) {
-        const { id: _id, priority, projectLead, ...safeFields } = args;
+        const {
+          id: _id,
+          priority,
+          projectLead,
+          codeReviewer,
+          model,
+          ...safeFields
+        } = args;
         localStore.setQuery(
           api.projects.get,
           { id: projectId },
@@ -51,6 +58,10 @@ export function ProjectTabs({
             ...(projectLead !== undefined
               ? { projectLead: projectLead ?? undefined }
               : {}),
+            ...(codeReviewer !== undefined
+              ? { codeReviewer: codeReviewer ?? undefined }
+              : {}),
+            ...(model !== undefined ? { model: model ?? undefined } : {}),
           },
         );
       }

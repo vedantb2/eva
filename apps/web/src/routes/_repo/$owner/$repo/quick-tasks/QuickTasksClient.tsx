@@ -260,9 +260,14 @@ export function QuickTasksClient() {
         headerRight={
           <QuickTasksToolbar
             view={view}
-            onViewChange={(v: "kanban" | "list" | "table") =>
-              setParams({ view: v })
-            }
+            onViewChange={(v: "kanban" | "list" | "table") => {
+              setParams({ view: v });
+              // Only list view renders an open task inline (master/detail
+              // split); kanban/table show the board, so close the task.
+              if (selectedTaskId && v !== "list") {
+                navigate({ to: `${basePath}/quick-tasks` });
+              }
+            }}
             searchQuery={q}
             onSearchChange={(v) => setParams({ q: v ?? "" })}
             hasQuickTasks={hasAnyTasks}

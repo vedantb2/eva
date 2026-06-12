@@ -61,6 +61,7 @@ import {
   SCREENSHOTS_INHERIT_VALUE,
   SCREENSHOTS_ON_VALUE,
   SCREENSHOTS_OFF_VALUE,
+  canEditTaskModel,
 } from "./task-detail-constants";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -232,7 +233,7 @@ export function StatusFieldsSection({
     task?.repoId,
     currentModel,
   );
-  const canEditModel = status === "todo" || requestingChanges;
+  const canEditModel = canEditTaskModel(status);
 
   return (
     <div className="space-y-0.5">
@@ -603,7 +604,7 @@ export function StatusFieldsSection({
               />
             </TooltipTrigger>
             <TooltipContent>
-              Cannot be modified after task has run
+              Locked when the task is done or cancelled
             </TooltipContent>
           </Tooltip>
         ) : null}

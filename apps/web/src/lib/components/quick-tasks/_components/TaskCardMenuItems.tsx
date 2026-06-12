@@ -44,6 +44,7 @@ import {
   TASK_STATUSES,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
+import { canEditTaskModel } from "@/lib/components/tasks/_components/task-detail-constants";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 type GroupedCodebase = FunctionReturnType<
@@ -254,7 +255,7 @@ export function TaskCardMenuItems({
       </Sub>
 
       <Sub>
-        <SubTrigger disabled={status !== "todo"}>
+        <SubTrigger disabled={!canEditTaskModel(status)}>
           <IconBrain size={16} />
           Model
         </SubTrigger>

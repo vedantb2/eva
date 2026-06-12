@@ -1,3 +1,5 @@
+import type { TaskStatus } from "../TaskStatusBadge";
+
 export const NO_PROJECT_VALUE = "__none__";
 export const NEW_PROJECT_VALUE = "__new_project__";
 export const UNASSIGNED_VALUE = "__unassigned__";
@@ -5,6 +7,11 @@ export const NO_PRIORITY_VALUE = "__no_priority__";
 export const SCREENSHOTS_INHERIT_VALUE = "__inherit__";
 export const SCREENSHOTS_ON_VALUE = "__on__";
 export const SCREENSHOTS_OFF_VALUE = "__off__";
+
+/** Model can change on any active task; only terminal statuses lock it. */
+export function canEditTaskModel(status: TaskStatus | undefined): boolean {
+  return status !== "done" && status !== "cancelled";
+}
 
 export const GHOST_TRIGGER_CLASS =
   "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden";

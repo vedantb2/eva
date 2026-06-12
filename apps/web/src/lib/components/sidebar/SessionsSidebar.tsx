@@ -131,6 +131,7 @@ export function SessionsSidebar({
       archiveTitle="Archive Session"
       archiveDescription="This will stop the sandbox and remove the session from the active list."
       searchPlaceholder="Search sessions..."
+      layoutId="sessions-nav"
     />
   );
 }

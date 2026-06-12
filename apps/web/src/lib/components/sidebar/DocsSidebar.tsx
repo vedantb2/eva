@@ -27,6 +27,11 @@ import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { searchParser, DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import {
+  SharedLayoutNav,
+  SharedLayoutNavSurface,
+  sidebarNavListItemClass,
+} from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface DocsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -247,32 +252,27 @@ export function DocsSidebar({
             No matches found
           </div>
         ) : (
-          <div>
+          <SharedLayoutNav layoutId="docs-nav">
             {filteredDocs.map((doc) => {
               const href = `${basePath}/docs/${doc._id}/${DOC_VIEWER_DEFAULT_TAB}`;
               const isSelected = pathname.startsWith(href);
               return (
                 <ContextMenu key={doc._id}>
                   <ContextMenuTrigger asChild>
-                    <div
-                      className={cn(
-                        "group mx-1 rounded-lg px-3 py-3 transition-colors",
-                        isSelected
-                          ? "bg-sidebar-accent text-sidebar-primary"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent/70",
-                      )}
+                    <SharedLayoutNavSurface
+                      itemId={doc._id}
+                      isActive={isSelected}
+                      className="group mx-1"
                     >
                       <Link
                         to={href}
                         onClick={onNavigate}
-                        className="flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                        className={cn(
+                          "flex items-center px-3 py-3",
+                          sidebarNavListItemClass(isSelected),
+                        )}
                       >
-                        <span
-                          className={cn(
-                            "min-w-0 flex-1 truncate text-sm",
-                            isSelected && "font-medium text-sidebar-primary",
-                          )}
-                        >
+                        <span className="min-w-0 flex-1 truncate text-sm">
                           {doc.title}
                         </span>
                         <span
@@ -288,7 +288,7 @@ export function DocsSidebar({
                           )}
                         </span>
                       </Link>
-                    </div>
+                    </SharedLayoutNavSurface>
                   </ContextMenuTrigger>
                   <ContextMenuContent onClick={(e) => e.stopPropagation()}>
                     <ContextMenuItem
@@ -304,7 +304,7 @@ export function DocsSidebar({
                 </ContextMenu>
               );
             })}
-          </div>
+          </SharedLayoutNav>
         )}
       </div>
 

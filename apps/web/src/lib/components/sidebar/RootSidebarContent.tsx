@@ -12,6 +12,11 @@ import {
 } from "@tabler/icons-react";
 import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@conductor/ui";
 import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
+import {
+  SharedLayoutNav,
+  SharedLayoutNavSurface,
+  sidebarNavLinkClass,
+} from "@/lib/components/sidebar/SharedLayoutNav";
 
 const ROOT_NAV_ITEMS = [
   { name: "Home", href: "/home", icon: IconHome },
@@ -30,11 +35,9 @@ const ROOT_NAV_ITEMS = [
 
 export function RootSidebarContent({
   collapsed,
-  navItemClass,
   onNavigate,
 }: {
   collapsed: boolean;
-  navItemClass: (isActive: boolean) => string;
   onNavigate: () => void;
 }) {
   const { pathname } = useLocation();
@@ -44,7 +47,7 @@ export function RootSidebarContent({
     : ROOT_NAV_ITEMS.filter((item) => !("devOnly" in item && item.devOnly));
 
   return (
-    <div className="space-y-1">
+    <SharedLayoutNav layoutId="global-nav" className="space-y-1">
       {navItems.map((item) => {
         const isActive =
           item.href === "/home"
@@ -52,22 +55,27 @@ export function RootSidebarContent({
             : pathname.startsWith(item.href);
 
         const linkElement = (
-          <Link
+          <SharedLayoutNavSurface
             key={item.name}
-            to={item.href}
-            onClick={onNavigate}
-            className={navItemClass(isActive)}
+            itemId={item.name}
+            isActive={isActive}
           >
-            <item.icon
-              size={16}
-              className={cn(
-                "shrink-0",
-                isActive ? "text-sidebar-primary" : "text-muted-foreground",
-              )}
-            />
-            {!collapsed && <span className="truncate">{item.name}</span>}
-            {!collapsed && item.name === "Inbox" && <UnreadInboxBadge />}
-          </Link>
+            <Link
+              to={item.href}
+              onClick={onNavigate}
+              className={sidebarNavLinkClass(isActive, collapsed)}
+            >
+              <item.icon
+                size={16}
+                className={cn(
+                  "shrink-0",
+                  isActive ? "text-sidebar-primary" : "text-muted-foreground",
+                )}
+              />
+              {!collapsed && <span className="truncate">{item.name}</span>}
+              {!collapsed && item.name === "Inbox" && <UnreadInboxBadge />}
+            </Link>
+          </SharedLayoutNavSurface>
         );
 
         if (collapsed) {
@@ -81,6 +89,6 @@ export function RootSidebarContent({
 
         return linkElement;
       })}
-    </div>
+    </SharedLayoutNav>
   );
 }

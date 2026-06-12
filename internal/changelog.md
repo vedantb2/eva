@@ -1,5 +1,10 @@
 # Changelog
 
+## Shared layout background for sidebar navigation - 2026-06-10
+
+- Sidebar tabs now use a Motion `layoutId` shared background that springs between items on hover and active state, replacing static `bg-sidebar-accent` fills — gives nav a cohesive, physical feel when moving between routes.
+- Applied across global nav, repo main nav, settings groups, and all context sidebars (sessions, designs, docs, automations, testing arena).
+
 ## Postgres read replica MCP support - 2026-06-10
 
 - New `postgres_query` MCP tool lets agents run read-only SQL against a repo's Postgres read replica, configured per repo via a `POSTGRES_READ_REPLICA_URL` environment variable — no new UI.

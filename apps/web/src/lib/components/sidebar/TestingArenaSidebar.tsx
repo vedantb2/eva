@@ -21,6 +21,11 @@ import { IconAlertTriangle, IconFileText } from "@tabler/icons-react";
 import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { branchParser, searchParser } from "@/lib/search-params";
+import {
+  SharedLayoutNav,
+  SharedLayoutNavSurface,
+  sidebarNavListItemClass,
+} from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface TestingArenaSidebarProps {
   repoId: Id<"githubRepos">;
@@ -119,38 +124,42 @@ export function TestingArenaSidebar({
             No matches found
           </div>
         ) : (
-          <div>
+          <SharedLayoutNav layoutId="testing-arena-nav">
             {filteredDocs.map((doc) => {
               const href = `${basePath}/testing-arena/${doc._id}`;
               const isSelected = pathname.startsWith(href);
               return (
-                <Link
+                <SharedLayoutNavSurface
                   key={doc._id}
-                  to={href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "group mx-1 flex items-center rounded-lg px-3 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
-                    isSelected
-                      ? "bg-sidebar-accent font-medium text-sidebar-primary"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
-                  )}
+                  itemId={doc._id}
+                  isActive={isSelected}
+                  className="group mx-1"
                 >
-                  <IconFileText size={14} className="mr-2.5 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{doc.title}</span>
-                  <span
+                  <Link
+                    to={href}
+                    onClick={onNavigate}
                     className={cn(
-                      "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
-                      isSelected
-                        ? "max-w-[80px] pl-2 opacity-100"
-                        : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
+                      "flex items-center px-3 py-3 text-sm",
+                      sidebarNavListItemClass(isSelected),
                     )}
                   >
-                    {compactRelativeTime(doc.updatedAt ?? doc._creationTime)}
-                  </span>
-                </Link>
+                    <IconFileText size={14} className="mr-2.5 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{doc.title}</span>
+                    <span
+                      className={cn(
+                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
+                        isSelected
+                          ? "max-w-[80px] pl-2 opacity-100"
+                          : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
+                      )}
+                    >
+                      {compactRelativeTime(doc.updatedAt ?? doc._creationTime)}
+                    </span>
+                  </Link>
+                </SharedLayoutNavSurface>
               );
             })}
-          </div>
+          </SharedLayoutNav>
         )}
       </div>
 

@@ -59,6 +59,11 @@ import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSideba
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoSwitcher } from "@/lib/components/RepoSwitcher";
 import { RootSidebarContent } from "@/lib/components/sidebar/RootSidebarContent";
+import {
+  SharedLayoutNav,
+  SharedLayoutNavSurface,
+  sidebarNavLinkClass,
+} from "@/lib/components/sidebar/SharedLayoutNav";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
@@ -325,13 +330,7 @@ export function Sidebar() {
   };
 
   const navItemClass = (isActive: boolean) =>
-    cn(
-      "group motion-base flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
-      collapsed && "lg:justify-center lg:px-0",
-      isActive
-        ? "bg-sidebar-accent font-medium text-sidebar-primary"
-        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-    );
+    sidebarNavLinkClass(isActive, collapsed);
 
   const contextSidebarTitle =
     contextSidebarMode === "designs"
@@ -559,7 +558,6 @@ export function Sidebar() {
                 {!isRepoRoute && (
                   <RootSidebarContent
                     collapsed={collapsed}
-                    navItemClass={navItemClass}
                     onNavigate={closeMobileSidebar}
                   />
                 )}
@@ -638,7 +636,10 @@ export function Sidebar() {
                             />
                           )}
 
-                          <div className="space-y-4">
+                          <SharedLayoutNav
+                            layoutId="repo-main-nav"
+                            className="space-y-4"
+                          >
                             {repoNavigation.map((group) => (
                               <div key={group.label}>
                                 {!collapsed && (
@@ -672,8 +673,10 @@ export function Sidebar() {
                                           item.name === "Designs") &&
                                         repo;
                                       return (
-                                        <div
+                                        <SharedLayoutNavSurface
                                           key={item.name}
+                                          itemId={item.name}
+                                          isActive={isActive}
                                           className="group relative"
                                         >
                                           <button
@@ -720,7 +723,7 @@ export function Sidebar() {
                                           <Button
                                             size="icon-sm"
                                             variant="ghost"
-                                            className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground after:absolute after:inset-[-8px]"
+                                            className="absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground after:absolute after:inset-[-8px]"
                                             onClick={(event) => {
                                               event.preventDefault();
                                               event.stopPropagation();
@@ -735,59 +738,66 @@ export function Sidebar() {
                                               className="text-muted-foreground"
                                             />
                                           </Button>
-                                        </div>
+                                        </SharedLayoutNavSurface>
                                       );
                                     }
 
                                     const linkElement = (
-                                      <Link
+                                      <SharedLayoutNavSurface
                                         key={item.name}
-                                        to={item.href}
-                                        onClick={() => {
-                                          if (contextMode) {
-                                            setContextSidebarMode(contextMode);
-                                          }
-                                          if (!contextMode) {
-                                            closeMobileSidebar();
-                                          }
-                                        }}
-                                        className={navItemClass(isActive)}
+                                        itemId={item.name}
+                                        isActive={isActive}
                                       >
-                                        <item.icon
-                                          size={19}
-                                          className={cn(
-                                            "shrink-0",
-                                            isActive
-                                              ? "text-sidebar-primary"
-                                              : "text-muted-foreground",
+                                        <Link
+                                          to={item.href}
+                                          onClick={() => {
+                                            if (contextMode) {
+                                              setContextSidebarMode(
+                                                contextMode,
+                                              );
+                                            }
+                                            if (!contextMode) {
+                                              closeMobileSidebar();
+                                            }
+                                          }}
+                                          className={navItemClass(isActive)}
+                                        >
+                                          <item.icon
+                                            size={19}
+                                            className={cn(
+                                              "shrink-0",
+                                              isActive
+                                                ? "text-sidebar-primary"
+                                                : "text-muted-foreground",
+                                            )}
+                                          />
+                                          {!collapsed && (
+                                            <span className="truncate">
+                                              {item.name}
+                                            </span>
                                           )}
-                                        />
-                                        {!collapsed && (
-                                          <span className="truncate">
-                                            {item.name}
-                                          </span>
-                                        )}
-                                        {item.name === "Inbox" &&
-                                          !collapsed && <UnreadInboxBadge />}
-                                        {item.name === "Quick Tasks" &&
-                                          !collapsed &&
-                                          repo &&
-                                          repoBasePath && (
-                                            <ActiveTasksBadge
-                                              repoId={repo._id}
-                                              basePath={repoBasePath}
-                                            />
-                                          )}
-                                        {item.name === "Projects" &&
-                                          !collapsed &&
-                                          repo &&
-                                          repoBasePath && (
-                                            <BuildingProjectsBadge
-                                              repoId={repo._id}
-                                              basePath={repoBasePath}
-                                            />
-                                          )}
-                                      </Link>
+                                          {item.name === "Inbox" &&
+                                            !collapsed && <UnreadInboxBadge />}
+                                          {item.name === "Quick Tasks" &&
+                                            !collapsed &&
+                                            repo &&
+                                            repoBasePath && (
+                                              <ActiveTasksBadge
+                                                repoId={repo._id}
+                                                basePath={repoBasePath}
+                                              />
+                                            )}
+                                          {item.name === "Projects" &&
+                                            !collapsed &&
+                                            repo &&
+                                            repoBasePath && (
+                                              <BuildingProjectsBadge
+                                                repoId={repo._id}
+                                                basePath={repoBasePath}
+                                              />
+                                            )}
+                                        </Link>
+                                      </SharedLayoutNavSurface>
                                     );
 
                                     if (collapsed) {
@@ -808,7 +818,7 @@ export function Sidebar() {
                                 </div>
                               </div>
                             ))}
-                          </div>
+                          </SharedLayoutNav>
                         </div>
                       )}
                     </motion.div>

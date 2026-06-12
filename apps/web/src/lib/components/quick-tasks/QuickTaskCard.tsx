@@ -154,6 +154,9 @@ export function QuickTaskCard({
   const hasMetadata =
     projectName !== undefined || (tags !== undefined && tags.length > 0);
 
+  const creatorFirstName =
+    createdByUser?.firstName ?? createdByUser?.fullName?.split(/\s+/)[0];
+
   const card = (
     <Card
       className={`group relative overflow-hidden transition-[transform,background-color] duration-150 ${
@@ -289,8 +292,17 @@ export function QuickTaskCard({
         )}
 
         <div className="mt-2 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            {createdByUser && <UserInitials user={createdByUser} size="sm" />}
+          <div className="flex min-w-0 items-center gap-1.5">
+            {createdByUser ? (
+              <>
+                <UserInitials user={createdByUser} size="sm" />
+                {creatorFirstName ? (
+                  <span className="truncate text-[10px] text-muted-foreground/70">
+                    {creatorFirstName}
+                  </span>
+                ) : null}
+              </>
+            ) : null}
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] tabular-nums text-muted-foreground/70">

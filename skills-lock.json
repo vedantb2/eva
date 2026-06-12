@@ -152,6 +152,18 @@
       "skillPath": "skills/minimalist-skill/SKILL.md",
       "computedHash": "7e88897e0371184e97a82b8d9ef080323c13f21eb067b58ef71eb05173a08ac2"
     },
+    "no-ui-flash": {
+      "source": "RhysSullivan/skills",
+      "sourceType": "github",
+      "skillPath": "skills/no-ui-flash/SKILL.md",
+      "computedHash": "02d9a4a17e1220d6312a64628977e172792b29505c20e2747e1eb046c3d18b2e"
+    },
+    "quality-code": {
+      "source": "RhysSullivan/skills",
+      "sourceType": "github",
+      "skillPath": "skills/quality-code/SKILL.md",
+      "computedHash": "0d342067e1896598ba221a7862edcec412d58c072fd689bc6f0d379261e31008"
+    },
     "redesign-existing-projects": {
       "source": "Leonxlnx/taste-skill",
       "sourceType": "github",
@@ -169,6 +181,12 @@
       "sourceType": "github",
       "skillPath": "skills/transitions-dev/SKILL.md",
       "computedHash": "3e054fc65e5cfced994aea3b120edd5abb1059c32af56a297d60910f266a53d1"
+    },
+    "write-better-error-messages": {
+      "source": "RhysSullivan/skills",
+      "sourceType": "github",
+      "skillPath": "skills/write-better-error-messages/SKILL.md",
+      "computedHash": "f8fa1e176be82422a0e7368230f2eb374bc23f10d3563f27e17f40f5bc3e0a52"
     }
   }
 }

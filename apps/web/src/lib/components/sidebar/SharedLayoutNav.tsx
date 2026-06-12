@@ -6,8 +6,8 @@ import { createContext, use, useState, type ReactNode } from "react";
 
 const sharedLayoutTransition = {
   type: "spring" as const,
-  stiffness: 380,
-  damping: 32,
+  stiffness: 520,
+  damping: 38,
 };
 
 interface SharedLayoutNavContextValue {

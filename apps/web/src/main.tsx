@@ -7,7 +7,7 @@ import { createAppHistory } from "./lib/history";
 import { clientEnv } from "./env/client";
 import { convex } from "./lib/components/ClientProvider";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
-import { AppSkeleton } from "./lib/components/AppSkeleton";
+import { AuthLoadingScreen } from "./lib/components/AuthLoadingScreen";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
 import { saveMcpOauthParamsFromUrl } from "./lib/mcpOauthStorage";
 import "./fonts";
@@ -66,7 +66,7 @@ function InnerApp() {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) {
-    return <AppSkeleton />;
+    return <AuthLoadingScreen />;
   }
 
   return (

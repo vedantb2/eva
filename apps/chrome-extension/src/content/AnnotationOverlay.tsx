@@ -21,7 +21,12 @@ import {
   detectReactVersion,
 } from "./react-extractor";
 import type { ExtractedContext } from "@/shared/types";
-import type { StoredPin, TaskStatus } from "@/shared/messaging";
+import {
+  type StoredPin,
+  type TaskStatus,
+  requestBackground,
+} from "@/shared/messaging";
+import { setMode, setSignedOut } from "./toolbar-state";
 import { subscribeDark, getDark } from "./theme";
 import hljs from "highlight.js/lib/core";
 import xml from "highlight.js/lib/languages/xml";
@@ -99,6 +104,38 @@ export function subscribeAnnotation(cb: () => void) {
   return () => {
     _subs.delete(cb);
   };
+}
+
+/** Task ids attached to currently-saved pins. Drives the status poller. */
+export function getTrackedTaskIds(): string[] {
+  const ids: string[] = [];
+  for (const pin of Object.values(_ext.currentPins)) {
+    if (pin.taskId) ids.push(pin.taskId);
+  }
+  return ids;
+}
+
+interface TasksCreatedEvent {
+  items: Array<{ pinId: string; taskId: string }>;
+  userId?: string;
+  creatorInitials?: string;
+}
+
+const _taskCreatedSubs = new Set<(e: TasksCreatedEvent) => void>();
+const _statusSubs = new Set<(updates: Record<string, TaskStatus>) => void>();
+
+/** Background created task(s) for these pins — recolour them in the overlay. */
+export function notifyTasksCreated(
+  items: Array<{ pinId: string; taskId: string }>,
+  userId?: string,
+  creatorInitials?: string,
+): void {
+  _taskCreatedSubs.forEach((s) => s({ items, userId, creatorInitials }));
+}
+
+/** Apply taskId → status updates from the status poller. */
+export function applyTaskStatuses(updates: Record<string, TaskStatus>): void {
+  _statusSubs.forEach((s) => s(updates));
 }
 
 interface PinData {
@@ -743,9 +780,11 @@ export function AnnotationOverlay() {
         };
       }
       updateCurrentPins(stored);
-      chrome.runtime.sendMessage({
-        type: "ANNOTATIONS_CHANGED",
-        payload: { pageUrl: getPageUrl(), pins: stored },
+      void requestBackground("SAVE_ANNOTATIONS", {
+        pageUrl: getPageUrl(),
+        pins: stored,
+      }).then((res) => {
+        if (!res.ok && res.code === "not_signed_in") setSignedOut(true);
       });
     },
     [],
@@ -825,16 +864,21 @@ export function AnnotationOverlay() {
 
   const handleInputTask = useCallback(
     (pinId: string, text: string) => {
-      const pinData = pinsRef.current.get(pinId);
-      chrome.runtime.sendMessage({
-        type: "SAVE_ANNOTATION_TASK",
-        payload: {
-          title: text,
-          pageUrl: window.location.href,
-          position: pinData ? { x: pinData.x, y: pinData.y } : { x: 0, y: 0 },
-          pinId,
-          elementContext: pinContextsRef.current.get(pinId) ?? undefined,
-        },
+      void requestBackground("CREATE_ANNOTATION_TASK", {
+        pageUrl: window.location.href,
+        title: text,
+        pinId,
+        elementContext: pinContextsRef.current.get(pinId) ?? undefined,
+      }).then((res) => {
+        if (res.ok) {
+          notifyTasksCreated(
+            [{ pinId: res.pinId, taskId: res.taskId }],
+            res.userId,
+            res.creatorInitials,
+          );
+        } else if (res.code === "not_signed_in") {
+          setSignedOut(true);
+        }
       });
       setPins((prev) => {
         const next = new Map(prev);
@@ -877,9 +921,8 @@ export function AnnotationOverlay() {
   const handleRunEva = useCallback((pinId: string) => {
     const taskId = pinTaskIdsRef.current.get(pinId);
     if (!taskId) return;
-    chrome.runtime.sendMessage({
-      type: "RUN_ANNOTATION_TASK",
-      payload: { taskId },
+    void requestBackground("RUN_ANNOTATION_TASK", { taskId }).then((res) => {
+      if (!res.ok && res.code === "not_signed_in") setSignedOut(true);
     });
     setActiveInputId(null);
     setHighlight(null);
@@ -1101,8 +1144,7 @@ export function AnnotationOverlay() {
         return;
       }
       if (_ext.active) {
-        deactivateAnnotation();
-        chrome.runtime.sendMessage({ type: "STOP_ANNOTATION" });
+        setMode(null);
         e.preventDefault();
       }
     }
@@ -1116,66 +1158,71 @@ export function AnnotationOverlay() {
   }, [pins.size > 0 || ext.active]);
 
   useEffect(() => {
-    const handler = (message: {
-      type: string;
-      payload?: Record<string, unknown>;
-    }) => {
-      if (message.type === "ANNOTATION_TASK_CREATED" && message.payload) {
-        const { pinId, taskId, userId, creatorInitials } = message.payload as {
-          pinId: string;
-          taskId: string;
-          userId?: string;
-          creatorInitials?: string;
-        };
+    const onCreated = ({
+      items,
+      userId,
+      creatorInitials,
+    }: TasksCreatedEvent) => {
+      for (const { pinId, taskId } of items) {
         pinTaskIdsRef.current.set(pinId, taskId);
         if (userId) pinUserIdRef.current.set(pinId, userId);
         if (creatorInitials) pinInitialsRef.current.set(pinId, creatorInitials);
-        setPinStatuses((prev) => ({ ...prev, [pinId]: "todo" as const }));
       }
-      if (message.type === "ANNOTATION_STATUS_SYNC" && message.payload) {
-        const { updates } = message.payload as {
-          updates: Record<string, { status: TaskStatus }>;
-        };
-        const taskIdToPinId = new Map<string, string>();
-        for (const [pinId, taskId] of pinTaskIdsRef.current) {
-          taskIdToPinId.set(taskId, pinId);
-        }
-        const doneIds: string[] = [];
-        setPinStatuses((prev) => {
-          const next = { ...prev };
-          for (const [taskId, { status }] of Object.entries(updates)) {
-            const pinId = taskIdToPinId.get(taskId);
-            if (!pinId) continue;
-            if (status === "done") {
-              doneIds.push(pinId);
-              delete next[pinId];
-            } else {
-              next[pinId] = status;
-            }
+      setPinStatuses((prev) => {
+        const next = { ...prev };
+        for (const { pinId } of items) next[pinId] = "todo";
+        return next;
+      });
+      // Persist so the new taskIds reach the backend and survive a reload —
+      // the status poller tracks tasks via the saved pins.
+      persistAnnotations(pinsRef.current);
+    };
+
+    const onStatus = (updates: Record<string, TaskStatus>) => {
+      const taskIdToPinId = new Map<string, string>();
+      for (const [pinId, taskId] of pinTaskIdsRef.current) {
+        taskIdToPinId.set(taskId, pinId);
+      }
+      const doneIds: string[] = [];
+      setPinStatuses((prev) => {
+        const next = { ...prev };
+        for (const [taskId, status] of Object.entries(updates)) {
+          const pinId = taskIdToPinId.get(taskId);
+          if (!pinId) continue;
+          if (status === "done") {
+            doneIds.push(pinId);
+            delete next[pinId];
+          } else {
+            next[pinId] = status;
           }
+        }
+        return next;
+      });
+      if (doneIds.length > 0) {
+        setPins((prev) => {
+          const next = new Map(prev);
+          for (const pinId of doneIds) {
+            next.delete(pinId);
+            pinContextsRef.current.delete(pinId);
+            pinElementsRef.current.delete(pinId);
+            pinSelectorsRef.current.delete(pinId);
+            pinTextRef.current.delete(pinId);
+            pinTaskIdsRef.current.delete(pinId);
+            pinUserIdRef.current.delete(pinId);
+            pinInitialsRef.current.delete(pinId);
+          }
+          persistAnnotations(next);
           return next;
         });
-        if (doneIds.length > 0) {
-          setPins((prev) => {
-            const next = new Map(prev);
-            for (const pinId of doneIds) {
-              next.delete(pinId);
-              pinContextsRef.current.delete(pinId);
-              pinElementsRef.current.delete(pinId);
-              pinSelectorsRef.current.delete(pinId);
-              pinTextRef.current.delete(pinId);
-              pinTaskIdsRef.current.delete(pinId);
-              pinUserIdRef.current.delete(pinId);
-              pinInitialsRef.current.delete(pinId);
-            }
-            persistAnnotations(next);
-            return next;
-          });
-        }
       }
     };
-    chrome.runtime.onMessage.addListener(handler);
-    return () => chrome.runtime.onMessage.removeListener(handler);
+
+    _taskCreatedSubs.add(onCreated);
+    _statusSubs.add(onStatus);
+    return () => {
+      _taskCreatedSubs.delete(onCreated);
+      _statusSubs.delete(onStatus);
+    };
   }, [persistAnnotations]);
 
   const tooltipPin = tooltipId ? pins.get(tooltipId) : undefined;

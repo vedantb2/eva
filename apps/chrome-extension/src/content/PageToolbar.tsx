@@ -21,12 +21,9 @@ import {
   openProjectModal,
 } from "./toolbar-state";
 import { subscribeDark, getDark } from "./theme";
+import { getPageUrl } from "./page-url";
 import { Button } from "@conductor/ui";
 import { requestBackground, type BgError } from "@/shared/messaging";
-
-function getPageUrl(): string {
-  return window.location.origin + window.location.pathname;
-}
 
 function dividerStyle(dark: boolean): React.CSSProperties {
   return {

@@ -9,15 +9,12 @@ import {
 } from "./toolbar-state";
 import { getAnnotationState } from "./AnnotationOverlay";
 import { requestBackground, type AddToProjectTarget } from "@/shared/messaging";
+import { getPageUrl } from "./page-url";
 
 interface ProjectItem {
   id: string;
   title: string;
   phase: string;
-}
-
-function getPageUrl(): string {
-  return `${window.location.origin}${window.location.pathname}`;
 }
 
 export function ProjectModal() {

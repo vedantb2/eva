@@ -28,6 +28,7 @@ import {
 } from "@/shared/messaging";
 import { setMode, setSignedOut } from "./toolbar-state";
 import { subscribeDark, getDark } from "./theme";
+import { getPageUrl } from "./page-url";
 import hljs from "highlight.js/lib/core";
 import xml from "highlight.js/lib/languages/xml";
 import hljsCss from "highlight.js/styles/github-dark.min.css?inline";
@@ -146,10 +147,6 @@ interface PinData {
   saved: boolean;
   type: "element" | "text";
   selectedText?: string;
-}
-
-function getPageUrl() {
-  return `${window.location.origin}${window.location.pathname}`;
 }
 
 function captureContext(element: HTMLElement): ExtractedContext {

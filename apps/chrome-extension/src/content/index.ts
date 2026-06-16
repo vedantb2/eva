@@ -20,16 +20,13 @@ import {
   registerInspectController,
 } from "./toolbar-state";
 import { formatInspectMarkdown, copyToClipboard } from "./inspect-markdown";
+import { getPageUrl } from "./page-url";
 import {
   requestBackground,
   type ToolbarVisibilityChangedMessage,
 } from "@/shared/messaging";
 
 type ShadowMount = ReturnType<typeof createShadowMount>;
-
-function getPageUrl(): string {
-  return `${window.location.origin}${window.location.pathname}`;
-}
 
 // Persistent overlays: the annotation layer and the toolbar (+ project modal).
 // Both render nothing until activated, so mounting eagerly is cheap.

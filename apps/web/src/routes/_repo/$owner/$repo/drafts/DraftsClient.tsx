@@ -27,7 +27,7 @@ export function DraftsClient() {
   const drafts = mergeDrafts(commentDrafts, taskDrafts);
 
   return (
-    <PageWrapper title="Drafts">
+    <PageWrapper title="Drafts" comfortable>
       {drafts.length === 0 ? (
         <EmptyState
           icon={<IconFileText size={24} className="text-muted-foreground" />}

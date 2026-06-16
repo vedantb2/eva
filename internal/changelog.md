@@ -1,5 +1,23 @@
 # Changelog
 
+## Drafts: save unsent input across all surfaces - 2026-06-16
+
+- New Drafts page (`/$owner/$repo/drafts`) displays all unsent comment, chat, and quick-task input as cards; clicking a card returns to where the draft was started (task/session/design detail page or quick-tasks with modal).
+- Task comment composers (top-level and replies) and chat prompts (session and design) now auto-save drafts as you type, persisting to Convex so drafts survive reload and sync across tabs in real time.
+- Mentions (docs, users, skills) are stored tokenized so they survive reload and re-submit as real mentions; the editor's mention/skill maps are seeded from persisted tokens on restore, fixing prior mention degradation.
+- Draft saves are throttled via single-flight (at most one request in flight; rapid keystrokes coalesce to the latest value), avoiding mutation spam on fast typing.
+- Sidebar nav gained a "Drafts" item next to Inbox with a count badge showing total unsent drafts across all surfaces.
+- Quick-task modal can deep-link via `?draft=<id>` on the `/quick-tasks` route and opens pre-loaded with the saved draft, including seeded mention maps for the description editor.
+
+## Chrome extension: toolbar-first, side panel removed - 2026-06-10
+
+- Removed the extension side panel entirely; clicking the icon now toggles an in-page toolbar per tab, with a green dot badge on the icon showing where the toolbar is active.
+- The toolbar gained Annotate and Inspect mode buttons alongside the existing Run All / Add to Project actions, so annotating and element capture no longer need a separate panel.
+- Inspect mode copies element info (page URL, selector, React component chain, props/hooks, HTML) to the clipboard as formatted markdown, ready to paste into a task or PR.
+- "Add all to a Project" now opens an in-page modal (list, create, or assign) instead of the panel picker.
+- All backend work (Clerk auth + Convex) moved from the panel into the background service worker over a typed request/response protocol; the content script polls task status while the toolbar is visible.
+- Chat and sessions were dropped from the extension (they remain in the Eva web app), and the repo for new tasks is resolved automatically by matching the page domain.
+
 ## Shared layout background for sidebar navigation - 2026-06-10
 
 - Sidebar tabs now use a Motion `layoutId` shared background that springs between items on hover and active state, replacing static `bg-sidebar-accent` fills — gives nav a cohesive, physical feel when moving between routes.

@@ -1,77 +1,31 @@
 import { useRef, useCallback, useSyncExternalStore } from "react";
-import { IconEye, IconEyeOff } from "@tabler/icons-react";
+import {
+  IconEye,
+  IconEyeOff,
+  IconMapPin,
+  IconCrosshair,
+} from "@tabler/icons-react";
 import {
   getAnnotationState,
   subscribeAnnotation,
   togglePinsHidden,
+  notifyTasksCreated,
 } from "./AnnotationOverlay";
+import {
+  getToolbarState,
+  subscribeToolbar,
+  setToolbarPosition,
+  setToolbarLoading,
+  setToolbarFeedback,
+  setMode,
+  openProjectModal,
+} from "./toolbar-state";
 import { subscribeDark, getDark } from "./theme";
 import { Button } from "@conductor/ui";
-import type { StoredPin } from "@/shared/messaging";
-
-interface ToolbarState {
-  visible: boolean;
-  feedback: { message: string; type: "success" | "error" } | null;
-  loading: boolean;
-  x: number;
-  y: number;
-  version: number;
-}
-
-let _toolbar: ToolbarState = {
-  visible: false,
-  feedback: null,
-  loading: false,
-  x: -1,
-  y: -1,
-  version: 0,
-};
-const _toolbarSubs = new Set<() => void>();
-function _toolbarEmit() {
-  _toolbarSubs.forEach((s) => s());
-}
-
-export function showToolbar() {
-  _toolbar = { ..._toolbar, visible: true, version: _toolbar.version + 1 };
-  _toolbarEmit();
-}
-
-export function hideToolbar() {
-  _toolbar = { ..._toolbar, visible: false, version: _toolbar.version + 1 };
-  _toolbarEmit();
-}
-
-export function setToolbarFeedback(message: string, type: "success" | "error") {
-  _toolbar = {
-    ..._toolbar,
-    feedback: { message, type },
-    loading: false,
-    version: _toolbar.version + 1,
-  };
-  _toolbarEmit();
-  setTimeout(() => {
-    _toolbar = { ..._toolbar, feedback: null, version: _toolbar.version + 1 };
-    _toolbarEmit();
-  }, 3000);
-}
+import { requestBackground, type BgError } from "@/shared/messaging";
 
 function getPageUrl(): string {
   return window.location.origin + window.location.pathname;
-}
-
-function sendPins(
-  type:
-    | "TOOLBAR_ADD_QUICK_TASKS"
-    | "TOOLBAR_ADD_TO_PROJECT"
-    | "RUN_ALL_ANNOTATIONS",
-  pins: Record<string, StoredPin>,
-) {
-  _toolbar = { ..._toolbar, loading: true, version: _toolbar.version + 1 };
-  _toolbarEmit();
-  chrome.runtime.sendMessage({
-    type,
-    payload: { pageUrl: getPageUrl(), pins },
-  });
 }
 
 function dividerStyle(dark: boolean): React.CSSProperties {
@@ -90,16 +44,16 @@ function feedbackStyle(type: "success" | "error"): React.CSSProperties {
   };
 }
 
+function applyErrorFeedback(err: BgError): void {
+  if (err.code === "not_signed_in") {
+    setToolbarFeedback("Sign in to Eva", "error", "sign_in");
+  } else {
+    setToolbarFeedback(err.message, "error");
+  }
+}
+
 export function PageToolbar() {
-  const toolbar = useSyncExternalStore(
-    (cb) => {
-      _toolbarSubs.add(cb);
-      return () => {
-        _toolbarSubs.delete(cb);
-      };
-    },
-    () => _toolbar,
-  );
+  const toolbar = useSyncExternalStore(subscribeToolbar, getToolbarState);
   const ext = useSyncExternalStore(subscribeAnnotation, getAnnotationState);
   const dark = useSyncExternalStore(subscribeDark, getDark);
   const dragging = useRef(false);
@@ -114,19 +68,13 @@ export function PageToolbar() {
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     const el = elRef.current;
-    if (el && _toolbar.x === -1) {
+    if (el && getToolbarState().x === -1) {
       const rect = el.getBoundingClientRect();
-      _toolbar = {
-        ..._toolbar,
-        x: rect.left,
-        y: rect.top,
-        version: _toolbar.version + 1,
-      };
-      _toolbarEmit();
+      setToolbarPosition(rect.left, rect.top);
     }
-    startX.current = _toolbar.x;
-    startY.current = _toolbar.y;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    startX.current = getToolbarState().x;
+    startY.current = getToolbarState().y;
+    e.currentTarget.setPointerCapture(e.pointerId);
   }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
@@ -148,19 +96,33 @@ export function PageToolbar() {
         startY.current + (e.clientY - dragStartY.current),
       ),
     );
-    _toolbar = { ..._toolbar, x: nx, y: ny, version: _toolbar.version + 1 };
-    _toolbarEmit();
+    setToolbarPosition(nx, ny);
   }, []);
 
   const onPointerUp = useCallback(() => {
     dragging.current = false;
   }, []);
 
+  const handleRunAll = useCallback(async () => {
+    const pins = getAnnotationState().currentPins;
+    if (Object.keys(pins).length === 0) return;
+    setToolbarLoading(true);
+    const res = await requestBackground("RUN_ALL_ANNOTATIONS", {
+      pageUrl: getPageUrl(),
+      pins,
+    });
+    if (res.ok) {
+      notifyTasksCreated(res.created, res.userId, res.creatorInitials);
+      setToolbarFeedback(res.message, "success");
+    } else {
+      applyErrorFeedback(res);
+    }
+  }, []);
+
   if (!toolbar.visible) return null;
-  const pins = ext.currentPins;
-  const pinCount = Object.keys(pins).length;
+  const pinCount = Object.keys(ext.currentPins).length;
   const hasPins = pinCount > 0;
-  const disabled = !hasPins || toolbar.loading;
+  const actionsDisabled = !hasPins || toolbar.loading;
 
   const positioned = toolbar.x !== -1;
   const containerStyle: React.CSSProperties = {
@@ -190,6 +152,9 @@ export function PageToolbar() {
       : { bottom: 16, left: "50%", transform: "translateX(-50%)" }),
   };
 
+  const modeButtonClass = (active: boolean) =>
+    `w-8 h-8 ${active ? "text-[#109182]" : dark ? "text-neutral-400" : "text-neutral-500"}`;
+
   return (
     <div
       ref={elRef}
@@ -201,6 +166,45 @@ export function PageToolbar() {
       <span style={{ fontWeight: 600, color: "#109182", fontSize: 14 }}>
         Eva
       </span>
+      <div style={dividerStyle(dark)} />
+
+      <Button
+        variant="ghost"
+        size="icon"
+        className={modeButtonClass(toolbar.mode === "annotate")}
+        style={{
+          borderRadius: 9999,
+          ...(toolbar.mode === "annotate"
+            ? { background: "rgba(16,145,130,0.12)" }
+            : {}),
+        }}
+        title={toolbar.mode === "annotate" ? "Stop annotating" : "Annotate"}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => setMode(toolbar.mode === "annotate" ? null : "annotate")}
+      >
+        <IconMapPin size={18} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={modeButtonClass(toolbar.mode === "inspect")}
+        style={{
+          borderRadius: 9999,
+          ...(toolbar.mode === "inspect"
+            ? { background: "rgba(16,145,130,0.12)" }
+            : {}),
+        }}
+        title={
+          toolbar.mode === "inspect"
+            ? "Stop inspecting"
+            : "Inspect & copy element"
+        }
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => setMode(toolbar.mode === "inspect" ? null : "inspect")}
+      >
+        <IconCrosshair size={18} />
+      </Button>
+
       <div style={dividerStyle(dark)} />
       <span style={{ color: dark ? "#a1a1aa" : "#71717a", fontSize: 13 }}>
         {pinCount} annotation{pinCount !== 1 ? "s" : ""}
@@ -217,19 +221,50 @@ export function PageToolbar() {
         {ext.pinsHidden ? <IconEyeOff size={18} /> : <IconEye size={18} />}
       </Button>
       <div style={dividerStyle(dark)} />
+
       {toolbar.feedback ? (
-        <span style={feedbackStyle(toolbar.feedback.type)}>
-          {toolbar.feedback.message}
-        </span>
+        toolbar.feedback.action === "sign_in" ? (
+          <button
+            style={{
+              ...feedbackStyle("error"),
+              cursor: "pointer",
+              border: "none",
+              background: "transparent",
+              textDecoration: "underline",
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => void requestBackground("OPEN_EVA", {})}
+          >
+            {toolbar.feedback.message}
+          </button>
+        ) : (
+          <span style={feedbackStyle(toolbar.feedback.type)}>
+            {toolbar.feedback.message}
+          </span>
+        )
+      ) : toolbar.signedOut ? (
+        <button
+          style={{
+            ...feedbackStyle("error"),
+            cursor: "pointer",
+            border: "none",
+            background: "transparent",
+            textDecoration: "underline",
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => void requestBackground("OPEN_EVA", {})}
+        >
+          Sign in to Eva
+        </button>
       ) : (
         <>
           <Button
             size="sm"
             className="bg-[#109182] hover:bg-[#2db8a4] text-white text-sm"
             style={{ borderRadius: 9999 }}
-            disabled={disabled}
+            disabled={actionsDisabled}
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => hasPins && sendPins("RUN_ALL_ANNOTATIONS", pins)}
+            onClick={() => void handleRunAll()}
           >
             Run All
           </Button>
@@ -238,9 +273,9 @@ export function PageToolbar() {
             size="sm"
             className="text-sm"
             style={{ borderRadius: 9999 }}
-            disabled={disabled}
+            disabled={actionsDisabled}
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => hasPins && sendPins("TOOLBAR_ADD_TO_PROJECT", pins)}
+            onClick={() => openProjectModal()}
           >
             Add all to a Project
           </Button>

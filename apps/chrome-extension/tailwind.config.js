@@ -8,12 +8,7 @@ function c(name) {
 
 const config = {
   darkMode: "class",
-  content: [
-    "./sidepanel.html",
-    "./src/**/*.{ts,tsx}",
-    "./node_modules/streamdown/dist/**/*.js",
-    "../../packages/ui/src/**/*.{ts,tsx}",
-  ],
+  content: ["./src/**/*.{ts,tsx}", "../../packages/ui/src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {

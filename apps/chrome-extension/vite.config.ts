@@ -14,7 +14,6 @@ const workspaceRoot = normalizePath(resolve(__dirname, "../.."));
 const watchInclude = [
   `${extensionRoot}/src/**`,
   `${extensionRoot}/public/**`,
-  `${extensionRoot}/sidepanel.html`,
   `${extensionRoot}/manifest.json`,
   `${extensionRoot}/tailwind.config.js`,
   `${extensionRoot}/postcss.config.js`,
@@ -155,7 +154,6 @@ export default defineConfig({
     chunkSizeWarningLimit: 3000,
     rollupOptions: {
       input: {
-        sidepanel: resolve(__dirname, "sidepanel.html"),
         background: resolve(__dirname, "src/background/index.ts"),
       },
       output: {

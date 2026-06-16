@@ -33,6 +33,7 @@ export function CollapsibleSidebarSection({
         aria-expanded={open}
         className="flex w-full items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
       >
+        <span>{label}</span>
         <IconChevronDown
           size={12}
           className={cn(
@@ -40,7 +41,6 @@ export function CollapsibleSidebarSection({
             !open && "-rotate-90",
           )}
         />
-        <span>{label}</span>
       </button>
       {open ? (
         <div className={cn("space-y-1 pl-2", itemsClassName)}>{children}</div>

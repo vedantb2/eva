@@ -292,16 +292,6 @@ export function Sidebar() {
         label: "SETTINGS",
         items: [
           {
-            name: "Inbox",
-            href: `${repoBasePath}/inbox`,
-            icon: InboxIcon,
-          },
-          {
-            name: "Drafts",
-            href: `${repoBasePath}/drafts`,
-            icon: DraftsIcon,
-          },
-          {
             name: "Automations",
             href: `${repoBasePath}/automations`,
             icon: AutomationsIcon,
@@ -329,6 +319,22 @@ export function Sidebar() {
       .filter((g) => g.items.length > 0);
   }, [repoBasePath, isRepoRoute, isDev]);
 
+  const repoTopNavItems = useMemo((): RepoMainNavItem[] => {
+    if (!isRepoRoute || !repoBasePath) return [];
+    return [
+      {
+        name: "Inbox",
+        href: `${repoBasePath}/inbox`,
+        icon: InboxIcon,
+      },
+      {
+        name: "Drafts",
+        href: `${repoBasePath}/drafts`,
+        icon: DraftsIcon,
+      },
+    ];
+  }, [repoBasePath, isRepoRoute]);
+
   const { theme, toggleTheme } = useThemeContext();
 
   const handleRepoSwitch = (
@@ -347,6 +353,122 @@ export function Sidebar() {
   const navItemClass = (isActive: boolean) =>
     sidebarNavLinkClass(isActive, collapsed);
 
+  const closeMobileSidebar = () => setMobileOpen(false);
+
+  const renderRepoNavItem = (item: RepoMainNavItem) => {
+    const isActive = pathname.startsWith(item.href);
+    const contextMode =
+      CONTEXT_SIDEBAR_BY_NAV_NAME[
+        item.name as keyof typeof CONTEXT_SIDEBAR_BY_NAV_NAME
+      ];
+
+    if (contextMode && !collapsed) {
+      const showActiveCount =
+        (item.name === "Sessions" || item.name === "Designs") && repo;
+      return (
+        <SharedLayoutNavSurface
+          key={item.name}
+          itemId={item.name}
+          isActive={isActive}
+          className="group relative"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setContextSidebarMode(contextMode);
+            }}
+            className={cn(navItemClass(isActive), "w-full pr-9")}
+          >
+            <item.icon
+              size={19}
+              className={cn(
+                "shrink-0",
+                isActive ? "text-sidebar-primary" : "text-muted-foreground",
+              )}
+            />
+            <span className="truncate">{item.name}</span>
+            {showActiveCount && (
+              <ActiveCountBadge
+                repoId={repo._id}
+                type={item.name === "Sessions" ? "sessions" : "designs"}
+              />
+            )}
+            {item.name === "Automations" && repo && (
+              <UnreadAutomationsBadge repoId={repo._id} />
+            )}
+          </button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground after:absolute after:inset-[-8px]"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setContextSidebarMode(contextMode);
+            }}
+            title={`Open ${item.name.toLowerCase()} sidebar`}
+          >
+            <IconChevronRight size={14} className="text-muted-foreground" />
+          </Button>
+        </SharedLayoutNavSurface>
+      );
+    }
+
+    const linkElement = (
+      <SharedLayoutNavSurface
+        key={item.name}
+        itemId={item.name}
+        isActive={isActive}
+      >
+        <Link
+          to={item.href}
+          onClick={() => {
+            if (contextMode) {
+              setContextSidebarMode(contextMode);
+            }
+            if (!contextMode) {
+              closeMobileSidebar();
+            }
+          }}
+          className={navItemClass(isActive)}
+        >
+          <item.icon
+            size={19}
+            className={cn(
+              "shrink-0",
+              isActive ? "text-sidebar-primary" : "text-muted-foreground",
+            )}
+          />
+          {!collapsed && <span className="truncate">{item.name}</span>}
+          {item.name === "Inbox" && !collapsed && <UnreadInboxBadge />}
+          {item.name === "Drafts" && !collapsed && repo && (
+            <DraftsCountBadge repoId={repo._id} />
+          )}
+          {item.name === "Quick Tasks" &&
+            !collapsed &&
+            repo &&
+            repoBasePath && (
+              <ActiveTasksBadge repoId={repo._id} basePath={repoBasePath} />
+            )}
+          {item.name === "Projects" && !collapsed && repo && repoBasePath && (
+            <BuildingProjectsBadge repoId={repo._id} basePath={repoBasePath} />
+          )}
+        </Link>
+      </SharedLayoutNavSurface>
+    );
+
+    if (collapsed) {
+      return (
+        <Tooltip key={item.name}>
+          <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
+          <TooltipContent side="right">{item.name}</TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return linkElement;
+  };
+
   const contextSidebarTitle =
     contextSidebarMode === "designs"
       ? "Designs"
@@ -361,8 +483,6 @@ export function Sidebar() {
               : contextSidebarMode === "automations"
                 ? "Automations"
                 : "";
-
-  const closeMobileSidebar = () => setMobileOpen(false);
 
   return (
     <>
@@ -655,6 +775,9 @@ export function Sidebar() {
                             layoutId="repo-main-nav"
                             className="space-y-4"
                           >
+                            <div className="space-y-1">
+                              {repoTopNavItems.map(renderRepoNavItem)}
+                            </div>
                             {repoNavigation.map((group) => (
                               <div key={group.label}>
                                 <CollapsibleSidebarSection
@@ -663,170 +786,7 @@ export function Sidebar() {
                                   onToggle={() => toggleNavSection(group.label)}
                                   showHeader={!collapsed}
                                 >
-                                  {group.items.map((item) => {
-                                    const isActive = pathname.startsWith(
-                                      item.href,
-                                    );
-                                    const contextMode =
-                                      CONTEXT_SIDEBAR_BY_NAV_NAME[
-                                        item.name as keyof typeof CONTEXT_SIDEBAR_BY_NAV_NAME
-                                      ];
-
-                                    if (contextMode && !collapsed) {
-                                      const showActiveCount =
-                                        (item.name === "Sessions" ||
-                                          item.name === "Designs") &&
-                                        repo;
-                                      return (
-                                        <SharedLayoutNavSurface
-                                          key={item.name}
-                                          itemId={item.name}
-                                          isActive={isActive}
-                                          className="group relative"
-                                        >
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setContextSidebarMode(
-                                                contextMode,
-                                              );
-                                            }}
-                                            className={cn(
-                                              navItemClass(isActive),
-                                              "w-full pr-9",
-                                            )}
-                                          >
-                                            <item.icon
-                                              size={19}
-                                              className={cn(
-                                                "shrink-0",
-                                                isActive
-                                                  ? "text-sidebar-primary"
-                                                  : "text-muted-foreground",
-                                              )}
-                                            />
-                                            <span className="truncate">
-                                              {item.name}
-                                            </span>
-                                            {showActiveCount && (
-                                              <ActiveCountBadge
-                                                repoId={repo._id}
-                                                type={
-                                                  item.name === "Sessions"
-                                                    ? "sessions"
-                                                    : "designs"
-                                                }
-                                              />
-                                            )}
-                                            {item.name === "Automations" &&
-                                              repo && (
-                                                <UnreadAutomationsBadge
-                                                  repoId={repo._id}
-                                                />
-                                              )}
-                                          </button>
-                                          <Button
-                                            size="icon-sm"
-                                            variant="ghost"
-                                            className="absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground after:absolute after:inset-[-8px]"
-                                            onClick={(event) => {
-                                              event.preventDefault();
-                                              event.stopPropagation();
-                                              setContextSidebarMode(
-                                                contextMode,
-                                              );
-                                            }}
-                                            title={`Open ${item.name.toLowerCase()} sidebar`}
-                                          >
-                                            <IconChevronRight
-                                              size={14}
-                                              className="text-muted-foreground"
-                                            />
-                                          </Button>
-                                        </SharedLayoutNavSurface>
-                                      );
-                                    }
-
-                                    const linkElement = (
-                                      <SharedLayoutNavSurface
-                                        key={item.name}
-                                        itemId={item.name}
-                                        isActive={isActive}
-                                      >
-                                        <Link
-                                          to={item.href}
-                                          onClick={() => {
-                                            if (contextMode) {
-                                              setContextSidebarMode(
-                                                contextMode,
-                                              );
-                                            }
-                                            if (!contextMode) {
-                                              closeMobileSidebar();
-                                            }
-                                          }}
-                                          className={navItemClass(isActive)}
-                                        >
-                                          <item.icon
-                                            size={19}
-                                            className={cn(
-                                              "shrink-0",
-                                              isActive
-                                                ? "text-sidebar-primary"
-                                                : "text-muted-foreground",
-                                            )}
-                                          />
-                                          {!collapsed && (
-                                            <span className="truncate">
-                                              {item.name}
-                                            </span>
-                                          )}
-                                          {item.name === "Inbox" &&
-                                            !collapsed && <UnreadInboxBadge />}
-                                          {item.name === "Drafts" &&
-                                            !collapsed &&
-                                            repo && (
-                                              <DraftsCountBadge
-                                                repoId={repo._id}
-                                              />
-                                            )}
-                                          {item.name === "Quick Tasks" &&
-                                            !collapsed &&
-                                            repo &&
-                                            repoBasePath && (
-                                              <ActiveTasksBadge
-                                                repoId={repo._id}
-                                                basePath={repoBasePath}
-                                              />
-                                            )}
-                                          {item.name === "Projects" &&
-                                            !collapsed &&
-                                            repo &&
-                                            repoBasePath && (
-                                              <BuildingProjectsBadge
-                                                repoId={repo._id}
-                                                basePath={repoBasePath}
-                                              />
-                                            )}
-                                        </Link>
-                                      </SharedLayoutNavSurface>
-                                    );
-
-                                    if (collapsed) {
-                                      return (
-                                        <Tooltip key={item.name}>
-                                          <TooltipTrigger asChild>
-                                            {linkElement}
-                                          </TooltipTrigger>
-                                          <TooltipContent side="right">
-                                            {item.name}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      );
-                                    }
-
-                                    return linkElement;
-                                  })}
+                                  {group.items.map(renderRepoNavItem)}
                                 </CollapsibleSidebarSection>
                               </div>
                             ))}

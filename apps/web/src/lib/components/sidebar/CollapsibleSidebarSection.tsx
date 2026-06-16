@@ -31,13 +31,13 @@ export function CollapsibleSidebarSection({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="flex w-full items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+        className="flex w-full items-center gap-1.5 px-1 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground/55 transition-colors hover:text-muted-foreground/80"
       >
         <span>{label}</span>
         <IconChevronDown
           size={12}
           className={cn(
-            "shrink-0 transition-transform duration-200",
+            "shrink-0 text-muted-foreground/55 transition-transform duration-200",
             !open && "-rotate-90",
           )}
         />

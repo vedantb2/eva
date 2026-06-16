@@ -38,10 +38,6 @@ function snippetText(model: DraftCardModel): string {
   return tokenizedToDisplayText(model.row.content);
 }
 
-function timestamp(model: DraftCardModel): number {
-  return model.row.updatedAt;
-}
-
 export function DraftCard({ model, basePath }: DraftCardProps) {
   const navigate = useNavigate();
   const removeCommentDraft = useMutation(api.drafts.remove);
@@ -92,7 +88,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
   const snippet = snippetText(model);
   const label = kindLabel(model);
   const title = contextTitle(model);
-  const ts = timestamp(model);
+  const ts = model.row.updatedAt;
 
   return (
     <div

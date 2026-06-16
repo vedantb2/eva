@@ -235,7 +235,7 @@ export function SessionListSidebar<T extends SessionItem>({
                         <SharedLayoutNavSurface
                           itemId={session._id}
                           isActive={isSelected}
-                          className="group mx-1 rounded-menu-item px-3 py-2"
+                          className="group mx-1 rounded-menu-item px-3 py-1.5"
                         >
                           <SidebarSessionItem
                             href={`${baseUrl}/${session._id}`}
@@ -353,7 +353,7 @@ export function SessionListSidebar<T extends SessionItem>({
                                   to={`${baseUrl}/${session._id}`}
                                   onClick={onNavigate}
                                   className={cn(
-                                    "block px-3 py-2",
+                                    "block",
                                     sidebarNavListItemClass(isSelected),
                                     !isSelected && "text-sidebar-foreground/60",
                                   )}

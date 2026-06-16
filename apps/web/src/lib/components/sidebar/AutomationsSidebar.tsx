@@ -127,7 +127,7 @@ export function AutomationsSidebar({
                     to={href}
                     onClick={onNavigate}
                     className={cn(
-                      "flex items-center px-3 py-3",
+                      "flex items-center",
                       sidebarNavListItemClass(isSelected),
                     )}
                   >

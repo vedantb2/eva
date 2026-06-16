@@ -87,7 +87,7 @@ export function sidebarNavLinkClass(
   collapsed?: boolean,
 ): string {
   return cn(
-    "group motion-base flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+    "group motion-base flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
     collapsed && "lg:justify-center lg:px-0",
     isActive
       ? "font-medium text-sidebar-primary"
@@ -97,7 +97,7 @@ export function sidebarNavLinkClass(
 
 export function sidebarNavLinkClassCompact(isActive: boolean): string {
   return cn(
-    "group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+    "group flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
     isActive
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",
@@ -106,7 +106,7 @@ export function sidebarNavLinkClassCompact(isActive: boolean): string {
 
 export function sidebarNavListItemClass(isActive: boolean): string {
   return cn(
-    "flex w-full items-center text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
+    "flex w-full items-center px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
     isActive
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",

@@ -139,7 +139,7 @@ export function TestingArenaSidebar({
                     to={href}
                     onClick={onNavigate}
                     className={cn(
-                      "flex items-center px-3 py-3 text-sm",
+                      "flex items-center text-sm",
                       sidebarNavListItemClass(isSelected),
                     )}
                   >

@@ -1,6 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
-import { mentionTokensToEditableText } from "@/lib/components/mentions/mentionToken";
 
 export type CommentDraft = FunctionReturnType<
   typeof api.drafts.listForRepo
@@ -36,18 +35,4 @@ export function mergeDrafts(
     ...taskDrafts.map((row): DraftCardModel => ({ source: "task", row })),
   ];
   return models.sort((a, b) => effectiveTimestamp(b) - effectiveTimestamp(a));
-}
-
-/**
- * Converts tokenized content (mention + skill tokens) to plain readable text.
- * Handles both `@[Label](id)` mention tokens and `/[Label](id)` skill tokens.
- */
-export function detokenize(content: string): string {
-  // First convert @[Label](id) → @Label
-  const withMentions = mentionTokensToEditableText(content);
-  // Then convert /[Label](id) → /Label
-  return withMentions.replace(
-    /\/\[([^\]]{1,200})\]\(([a-z0-9_]{16,40})\)/g,
-    (_match, label: string) => `/${label}`,
-  );
 }

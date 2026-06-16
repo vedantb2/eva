@@ -5,9 +5,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
 import { Badge, Button, cn } from "@conductor/ui";
 import { IconTrash } from "@tabler/icons-react";
+import { tokenizedToDisplayText } from "@/lib/components/mentions";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { DraftCardModel } from "../_utils";
-import { detokenize } from "../_utils";
 
 interface DraftCardProps {
   model: DraftCardModel;
@@ -33,9 +33,9 @@ function contextTitle(model: DraftCardModel): string {
 
 function snippetText(model: DraftCardModel): string {
   if (model.source === "task") {
-    return detokenize(model.row.description ?? "");
+    return tokenizedToDisplayText(model.row.description ?? "");
   }
-  return detokenize(model.row.content);
+  return tokenizedToDisplayText(model.row.content);
 }
 
 function timestamp(model: DraftCardModel): number {

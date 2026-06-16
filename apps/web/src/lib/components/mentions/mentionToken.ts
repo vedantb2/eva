@@ -63,6 +63,21 @@ export function extractMapsFromTokenizedText(content: string): {
 }
 
 /**
+ * Converts stored tokenized content into plain editable display text:
+ * `@[Label](id)` → `@Label` and `/[Label](id)` → `/Label`.
+ *
+ * The skill-token regex is inlined here (rather than imported from
+ * skillToken.ts) to avoid a circular import.
+ */
+export function tokenizedToDisplayText(content: string): string {
+  const withMentions = mentionTokensToEditableText(content);
+  return withMentions.replace(
+    /\/\[([^\]]{1,200})\]\(([a-z0-9_]{16,40})\)/g,
+    (_match, label: string) => `/${label}`,
+  );
+}
+
+/**
  * Converts a stored tokenized string into editable display text and the two
  * maps the MentionEditor needs for chip rendering. Pass the returned maps as
  * `initialMentionMap`/`initialSkillMap` and the `displayText` as `value`.
@@ -72,13 +87,7 @@ export function tokenizedToEditable(content: string): {
   mentionMap: Map<string, string>;
   skillMap: Map<string, string>;
 } {
-  // Convert @[Label](id) → @Label then /[Label](id) → /Label.
-  // Skill regex is inlined here to avoid a circular import with skillToken.ts.
-  const withMentions = mentionTokensToEditableText(content);
-  const displayText = withMentions.replace(
-    /\/\[([^\]]{1,200})\]\(([a-z0-9_]{16,40})\)/g,
-    (_match, label: string) => `/${label}`,
-  );
+  const displayText = tokenizedToDisplayText(content);
   const { mentionMap, skillMap } = extractMapsFromTokenizedText(content);
   return { displayText, mentionMap, skillMap };
 }

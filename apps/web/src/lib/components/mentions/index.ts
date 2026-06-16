@@ -21,6 +21,7 @@ export {
   isMentionTokenDocId,
   extractMapsFromTokenizedText,
   tokenizedToEditable,
+  tokenizedToDisplayText,
 } from "./mentionToken";
 export {
   SKILL_TOKEN_REGEX,

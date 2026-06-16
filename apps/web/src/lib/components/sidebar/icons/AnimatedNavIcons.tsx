@@ -306,6 +306,45 @@ export function InboxIcon({ size = 24, className }: IconProps) {
   );
 }
 
+export function DraftsIcon({ size = 24, className }: IconProps) {
+  return (
+    <svg {...baseSvgProps(size, className)}>
+      {/* Document outline */}
+      <path d="M14 3H7a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 7 21h11a1.5 1.5 0 0 0 1.5-1.5V8.5z" />
+      <path d="M14 3v4.5a1 1 0 0 0 1 1h4.5" className="nav-icon-doc-corner" />
+      {/* Pencil tip overlay — a small dashed-line pair to suggest "draft" */}
+      <line
+        x1="9"
+        y1="12"
+        x2="16"
+        y2="12"
+        className="nav-icon-doc-line nav-icon-doc-line-1"
+      />
+      <line
+        x1="9"
+        y1="15"
+        x2="13"
+        y2="15"
+        className="nav-icon-doc-line nav-icon-doc-line-2"
+        strokeDasharray="1.5 1.5"
+      />
+      {/* Pencil nib */}
+      <g className="nav-icon-pencil">
+        <path
+          d="M16.5 16.5l1.5-1.5 1.2 1.2-1.5 1.5z"
+          fill="currentColor"
+          stroke="none"
+        />
+        <path
+          d="M16.5 16.5l-0.8 2.3 2.3-0.8z"
+          fill="currentColor"
+          stroke="none"
+        />
+      </g>
+    </svg>
+  );
+}
+
 export function AutomationsIcon({ size = 24, className }: IconProps) {
   return (
     <svg {...baseSvgProps(size, className)}>

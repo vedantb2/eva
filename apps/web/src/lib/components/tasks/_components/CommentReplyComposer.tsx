@@ -6,32 +6,64 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { UserInitials } from "@conductor/shared";
+import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   CommentMentionInput,
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
 import { CommentSendButton } from "./CommentSendButton";
+import { useSingleFlight } from "@/lib/hooks/useSingleFlight";
 
 interface CommentReplyComposerProps {
   taskId: Id<"agentTasks">;
   parentId: Id<"taskComments">;
 }
 
-/**
- * Persistent thread reply input, Linear-style: the current user's avatar, a
- * single-line "Leave a reply" field that grows as you type, and an always-
- * visible send button. Enter submits; Shift+Enter inserts a newline.
- */
-export function CommentReplyComposer({
+// ---------------------------------------------------------------------------
+// Inner form — mounts only once the draft has resolved.
+// ---------------------------------------------------------------------------
+
+interface CommentReplyComposerFormProps extends CommentReplyComposerProps {
+  initialContent: string | null;
+}
+
+function CommentReplyComposerForm({
   taskId,
   parentId,
-}: CommentReplyComposerProps) {
+  initialContent,
+}: CommentReplyComposerFormProps) {
   const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<CommentMentionInputHandle>(null);
-  const [replyText, setReplyText] = useState("");
+
+  // Seed text + maps from draft via useState initializer (no hydration useEffect).
+  const [
+    {
+      displayText: initialText,
+      mentionMap: initialMentionMap,
+      skillMap: initialSkillMap,
+    },
+  ] = useState(() => tokenizedToEditable(initialContent ?? ""));
+
+  const [replyText, setReplyText] = useState(initialText);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const createComment = useMutation(api.taskComments.create);
+  const setDraftMutation = useMutation(api.drafts.set);
+
+  const target = {
+    kind: "taskComment" as const,
+    taskId,
+    parentCommentId: parentId,
+  };
+
+  // Single-flight wrapper: coalesces rapid keystrokes to one in-flight save.
+  const saveDraft = useSingleFlight(setDraftMutation);
+
+  const handleValueChange = (next: string) => {
+    setReplyText(next);
+    const tokenized = mentionRef.current?.tokenize(next) ?? next;
+    void saveDraft({ target, content: tokenized });
+  };
 
   const canSubmit = replyText.trim().length > 0 && !isSubmitting;
 
@@ -44,6 +76,7 @@ export function CommentReplyComposer({
       await createComment({ taskId, content, parentId });
       mentionRef.current?.reset();
       setReplyText("");
+      void saveDraft({ target, content: "" });
       // Keep focus so a follow-up reply can be typed without re-clicking.
       mentionRef.current?.focus();
     } catch (err) {
@@ -66,9 +99,11 @@ export function CommentReplyComposer({
         <CommentMentionInput
           ref={mentionRef}
           value={replyText}
-          onValueChange={setReplyText}
+          onValueChange={handleValueChange}
           onEnterSubmit={handleSubmit}
           placeholder="Leave a reply"
+          initialMentionMap={initialMentionMap}
+          initialSkillMap={initialSkillMap}
           className="min-h-0 max-h-36 rounded-none border-0 bg-transparent transition-[background-color] hover:bg-muted/50"
         />
         <CommentSendButton
@@ -80,5 +115,51 @@ export function CommentReplyComposer({
         />
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Outer shell — loads the draft, shows a disabled editor while loading.
+// ---------------------------------------------------------------------------
+
+/**
+ * Persistent thread reply input, Linear-style: the current user's avatar, a
+ * single-line "Leave a reply" field that grows as you type, and an always-
+ * visible send button. Enter submits; Shift+Enter inserts a newline.
+ */
+export function CommentReplyComposer({
+  taskId,
+  parentId,
+}: CommentReplyComposerProps) {
+  const draft = useQuery(api.drafts.getForTarget, {
+    target: { kind: "taskComment", taskId, parentCommentId: parentId },
+  });
+
+  // While the draft query is pending, render a disabled placeholder with the
+  // same layout so there is no shift when the form mounts.
+  if (draft === undefined) {
+    return (
+      <div className="flex items-start gap-2">
+        <span className="flex h-9 w-4 shrink-0 items-center justify-center" />
+        <div className="relative flex-1">
+          <CommentMentionInput
+            value=""
+            onValueChange={() => undefined}
+            placeholder="Leave a reply"
+            disabled
+            className="min-h-0 max-h-36 rounded-none border-0 bg-transparent transition-[background-color]"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <CommentReplyComposerForm
+      key="ready"
+      taskId={taskId}
+      parentId={parentId}
+      initialContent={draft}
+    />
   );
 }

@@ -19,6 +19,8 @@ export {
   formatMentionToken,
   mentionTokensToEditableText,
   isMentionTokenDocId,
+  extractMapsFromTokenizedText,
+  tokenizedToEditable,
 } from "./mentionToken";
 export {
   SKILL_TOKEN_REGEX,

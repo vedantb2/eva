@@ -64,19 +64,33 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   filterItem?: (item: TItem, query: string) => boolean;
   emptySlashContent?: ReactNode;
   mentionPopupTitle?: string;
-  onMentionChipClick?: (id: TItem["id"]) => void;
+  onMentionChipClick?: (id: string) => void;
   onSkillChipClick?: (id: string) => void;
   /** Profile hover card on @mention chips in the editor (e.g. comment @people). */
   mentionChipHoverCard?: boolean;
   /** Doc/PRD preview on @mention chips (e.g. task description). */
-  renderMentionChipHoverCard?: (id: TItem["id"]) => ReactNode;
+  renderMentionChipHoverCard?: (id: string) => ReactNode;
   /** Skill preview on /skill chips. */
   renderSkillChipHoverCard?: (id: string) => ReactNode;
   maxItems?: number;
   dataSlot?: string;
   ariaLabel?: string;
   onBlur?: () => void;
+  /** When true, sets contentEditable to false and blocks all input. */
+  disabled?: boolean;
   ref?: Ref<MentionEditorHandle>;
+  /**
+   * Seed the editor's mention label→id map on first render. Obtain from
+   * `tokenizedToEditable` when restoring persisted tokenized content.
+   * Initializer-only — changes after mount are ignored.
+   */
+  initialMentionMap?: Map<string, string>;
+  /**
+   * Seed the editor's skill label→id map on first render. Obtain from
+   * `tokenizedToEditable` when restoring persisted tokenized content.
+   * Initializer-only — changes after mount are ignored.
+   */
+  initialSkillMap?: Map<string, string>;
 }
 
 interface TriggerState {
@@ -221,6 +235,9 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   dataSlot,
   ariaLabel,
   onBlur,
+  disabled = false,
+  initialMentionMap,
+  initialSkillMap,
 }: MentionEditorProps<TItem>) {
   const chipsClickable =
     onMentionChipClick !== undefined || onSkillChipClick !== undefined;
@@ -233,11 +250,11 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [popupPlacement, setPopupPlacement] =
     useState<MentionPopupPlacement | null>(null);
-  const [mentionMap, setMentionMap] = useState<Map<string, TItem["id"]>>(
-    () => new Map(),
+  const [mentionMap, setMentionMap] = useState<Map<string, string>>(() =>
+    initialMentionMap ? new Map(initialMentionMap) : new Map(),
   );
-  const [skillMap, setSkillMap] = useState<Map<string, string>>(
-    () => new Map(),
+  const [skillMap, setSkillMap] = useState<Map<string, string>>(() =>
+    initialSkillMap ? new Map(initialSkillMap) : new Map(),
   );
   const [isComposing, setIsComposing] = useState(false);
   const [mentionHover, setMentionHover] = useState<{
@@ -797,25 +814,28 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         data-slot={dataSlot}
         data-placeholder={placeholder ?? ""}
         data-empty={isEmpty ? "true" : undefined}
-        contentEditable
+        contentEditable={!disabled}
         suppressContentEditableWarning
         role="textbox"
         aria-multiline="true"
+        aria-disabled={disabled ? "true" : undefined}
         aria-label={ariaLabel ?? placeholder ?? "Editor"}
         className={
           className
             ? `${DEFAULT_EDITOR_CLASS} ${className}`
             : DEFAULT_EDITOR_CLASS
         }
-        onInput={handleInput}
-        onKeyDown={handleKeyDown}
-        onClick={chipsClickable ? handleChipClick : undefined}
+        onInput={disabled ? undefined : handleInput}
+        onKeyDown={disabled ? undefined : handleKeyDown}
+        onClick={
+          disabled ? undefined : chipsClickable ? handleChipClick : undefined
+        }
         onMouseOver={chipHoverEnabled ? handleEditorMouseOver : undefined}
         onMouseOut={chipHoverEnabled ? handleEditorMouseOut : undefined}
-        onBlur={handleBlur}
-        onPaste={handlePaste}
-        onCompositionStart={() => setIsComposing(true)}
-        onCompositionEnd={() => setIsComposing(false)}
+        onBlur={disabled ? undefined : handleBlur}
+        onPaste={disabled ? undefined : handlePaste}
+        onCompositionStart={disabled ? undefined : () => setIsComposing(true)}
+        onCompositionEnd={disabled ? undefined : () => setIsComposing(false)}
       />
       {pickerPopup && typeof document !== "undefined"
         ? createPortal(pickerPopup, document.body)

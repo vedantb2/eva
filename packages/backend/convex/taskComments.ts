@@ -5,6 +5,7 @@ import { ensureSubscribed, notifySubscribers } from "./taskSubscribers";
 import { authQuery, authMutation, hasTaskAccess } from "./functions";
 import { extractMentionedUserIds } from "./_mentions/extractMentionedUserIds";
 import { taskCommentFields } from "./validators";
+import { deleteDraftForTarget } from "./_drafts/helpers";
 
 export const DELETED_COMMENT_PLACEHOLDER =
   "This comment has been deleted by the author";
@@ -95,6 +96,9 @@ export const create = authMutation({
       parentId: args.parentId,
       createdAt: Date.now(),
     });
+
+    // Clear the stored draft for this comment surface now that it has been submitted.
+    await deleteDraftForTarget(ctx.db, ctx.userId, args.taskId, args.parentId);
 
     const notifiedUserIds = new Set<string>([ctx.userId]);
     const author = await ctx.db.get(ctx.userId);

@@ -60,6 +60,7 @@ import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { EntityContextUsage } from "@/lib/components/context-usage";
+import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -145,6 +146,19 @@ export function ChatPanel({
     defaultModel,
   });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+
+  const draftSeed = useChatDraftSeed({
+    kind: "sessionChat" as const,
+    sessionId,
+  });
+  const draftBundle = draftSeed.isReady
+    ? {
+        target: { kind: "sessionChat" as const, sessionId },
+        initialDisplay: draftSeed.initialDisplay,
+        mentionMap: draftSeed.mentionMap,
+        skillMap: draftSeed.skillMap,
+      }
+    : undefined;
 
   const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
   useHotkey("Mod+Shift+Tab", (e) => {
@@ -551,6 +565,8 @@ export function ChatPanel({
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}
+        draft={draftBundle}
+        isDraftLoading={!draftSeed.isReady}
       />
       <Dialog
         open={showSummaryModal}

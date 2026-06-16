@@ -1,16 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useMutation } from "convex/react";
-import { Tooltip, TooltipTrigger, TooltipContent, cn } from "@conductor/ui";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import {
-  CommentMentionInput,
-  type CommentMentionInputHandle,
-} from "./CommentMentionInput";
+import { CommentMentionInput } from "./CommentMentionInput";
 import { CommentSendButton } from "./CommentSendButton";
-import { DescriptionMentionEditor } from "./DescriptionMentionEditor";
+import { TaskActivityComposerForm } from "./TaskActivityComposerForm";
 
 interface TaskActivityComposerProps {
   taskId: Id<"agentTasks">;
@@ -23,6 +18,11 @@ interface TaskActivityComposerProps {
   onRequestChangesSubmitted: () => void;
 }
 
+// ---------------------------------------------------------------------------
+// Outer shell — loads the draft, shows a disabled editor while loading,
+// mounts the inner form exactly once when the draft resolves.
+// ---------------------------------------------------------------------------
+
 /** Comment / request-changes input above the task activity timeline. */
 export function TaskActivityComposer({
   taskId,
@@ -34,193 +34,58 @@ export function TaskActivityComposer({
   requestChangesBlockedReason,
   onRequestChangesSubmitted,
 }: TaskActivityComposerProps) {
-  const [commentText, setCommentText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const mentionRef = useRef<CommentMentionInputHandle>(null);
+  const draft = useQuery(api.drafts.getForTarget, {
+    target: { kind: "taskComment", taskId },
+  });
 
-  const createComment = useMutation(api.taskComments.create);
-  const startExecution = useMutation(api.agentTasks.startExecution);
-  const updateStatus = useMutation(api.agentTasks.updateStatus);
-
-  const tokenizeAndReset = (raw: string): string => {
-    const tokenized = mentionRef.current?.tokenize(raw) ?? raw;
-    mentionRef.current?.reset();
-    return tokenized;
-  };
-
-  const handleAddComment = async () => {
-    const text = commentText.trim();
-    if (!text || isSubmitting) return;
-    const content = tokenizeAndReset(text);
-    setCommentText("");
-    setIsSubmitting(true);
-    try {
-      await createComment({ taskId, content });
-    } catch (err) {
-      console.error("Failed to add comment:", err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSubmitRequestChanges = async () => {
-    const text = commentText.trim();
-    if (!text || isSubmitting) return;
-    const content = tokenizeAndReset(text);
-    setCommentText("");
-    setIsSubmitting(true);
-    try {
-      const commentId = await createComment({
-        taskId,
-        content,
-        requestsChanges: true,
-      });
-      if (isProjectTask) {
-        await updateStatus({ id: taskId, status: "todo" });
-      } else {
-        await startExecution({ id: taskId, triggeringCommentId: commentId });
-      }
-      onRequestChangesSubmitted();
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : isProjectTask
-            ? "Failed to queue changes"
-            : "Failed to start execution";
-      setExecutionError(message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const disabledReason = requestChangesBlockedReason;
-  const canRequestChanges = disabledReason === undefined;
-  const effectiveRequestingChanges = canRequestChanges && requestingChanges;
-  const isMakeChangesGated = requestingChanges && !canRequestChanges;
-
-  const clearExecutionError = () => {
-    if (executionError) setExecutionError(null);
-  };
-
-  // Mirror the sessions/sandbox chat composer (PromptInput): a bordered card
-  // wraps a borderless input with a footer row of controls, rather than
-  // floating controls over the textarea.
   const editorClassName =
     "min-h-20 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
 
-  return (
-    <div className="space-y-3 mb-6">
-      {effectiveRequestingChanges && !executionError && (
-        <p className="text-xs text-muted-foreground">
-          {isProjectTask
-            ? "Submitting will add your feedback and move this task to To Do. Use Build Project to run changes in order."
-            : "Submitting will create a comment and re-run Eva with your changes"}
-        </p>
-      )}
-      <div
-        className={cn(
-          "overflow-hidden rounded-surface border border-input bg-card transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-2 focus-within:ring-ring/35",
-          requestingChanges &&
-            "border-primary focus-within:border-primary focus-within:ring-primary/35",
-        )}
-      >
-        {effectiveRequestingChanges ? (
-          <DescriptionMentionEditor
-            ref={mentionRef}
-            value={commentText}
-            onValueChange={(next) => {
-              setCommentText(next);
-              clearExecutionError();
-            }}
-            placeholder="Describe the changes you'd like Eva to make..."
-            ariaLabel="Request changes comment"
-            minHeight="min-h-24"
-            className={cn("overflow-y-auto", editorClassName)}
-          />
-        ) : (
+  // While draft is undefined (query not yet resolved), show a disabled
+  // placeholder using the same chrome so layout doesn't shift.
+  if (draft === undefined) {
+    return (
+      <div className="space-y-3 mb-6">
+        <div className="overflow-hidden rounded-surface border border-input bg-card">
           <CommentMentionInput
-            ref={mentionRef}
-            value={commentText}
-            onValueChange={(next) => {
-              setCommentText(next);
-              clearExecutionError();
-            }}
+            value=""
+            onValueChange={() => undefined}
             placeholder="Add a comment..."
+            disabled
             className={editorClassName}
           />
-        )}
-        <div className="flex items-center justify-between gap-2 px-2 pb-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center gap-2">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={effectiveRequestingChanges}
-                  aria-label="Make changes"
-                  disabled={!canRequestChanges}
-                  onClick={() => {
-                    setRequestingChanges(!requestingChanges);
-                    clearExecutionError();
-                  }}
-                  className={cn(
-                    "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    effectiveRequestingChanges ? "bg-primary" : "bg-muted",
-                    !canRequestChanges && "cursor-not-allowed opacity-50",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute top-0.5 size-5 rounded-full bg-white transition-transform",
-                      effectiveRequestingChanges ? "left-[18px]" : "left-0.5",
-                    )}
-                  />
-                </button>
-                <span
-                  className={cn(
-                    "text-xs select-none",
-                    canRequestChanges
-                      ? "text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  Make changes
-                </span>
+          <div className="flex items-center justify-between gap-2 px-2 pb-2">
+            <span className="flex items-center gap-2">
+              <span className="relative h-6 w-10 shrink-0 rounded-full bg-muted" />
+              <span className="text-xs select-none text-muted-foreground">
+                Make changes
               </span>
-            </TooltipTrigger>
-            {disabledReason !== undefined && (
-              <TooltipContent>{disabledReason}</TooltipContent>
-            )}
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <CommentSendButton
-                  size="icon-sm"
-                  disabled={
-                    !commentText.trim() || isMakeChangesGated || isSubmitting
-                  }
-                  isSubmitting={isSubmitting}
-                  onClick={
-                    effectiveRequestingChanges
-                      ? handleSubmitRequestChanges
-                      : handleAddComment
-                  }
-                  ariaLabel={
-                    effectiveRequestingChanges
-                      ? "Submit changes"
-                      : "Add comment"
-                  }
-                />
-              </span>
-            </TooltipTrigger>
-            {isMakeChangesGated && disabledReason !== undefined && (
-              <TooltipContent>{disabledReason}</TooltipContent>
-            )}
-          </Tooltip>
+            </span>
+            <CommentSendButton
+              size="icon-sm"
+              disabled
+              isSubmitting={false}
+              onClick={() => undefined}
+              ariaLabel="Add comment"
+            />
+          </div>
         </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <TaskActivityComposerForm
+      key="ready"
+      taskId={taskId}
+      isProjectTask={isProjectTask}
+      requestingChanges={requestingChanges}
+      setRequestingChanges={setRequestingChanges}
+      executionError={executionError}
+      setExecutionError={setExecutionError}
+      requestChangesBlockedReason={requestChangesBlockedReason}
+      onRequestChangesSubmitted={onRequestChangesSubmitted}
+      initialContent={draft}
+    />
   );
 }

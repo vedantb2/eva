@@ -7,4 +7,7 @@ import { QuickTasksClient } from "./QuickTasksClient";
 // task is read from the child route params inside QuickTasksClient.
 export const Route = createFileRoute("/_repo/$owner/$repo/quick-tasks")({
   component: QuickTasksClient,
+  validateSearch: (search: Record<string, string>) => ({
+    draft: typeof search.draft === "string" ? search.draft : undefined,
+  }),
 });

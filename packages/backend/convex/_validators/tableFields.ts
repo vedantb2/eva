@@ -464,3 +464,39 @@ export const docVersionDraftFields = {
   authorIds: v.array(v.id("users")),
   updatedAt: v.number(),
 };
+
+// One row per (user, surface target). `kind` names the input surface so the
+// table stays extensible. Exactly one target FK group is set, matching `kind`.
+// Content is stored TOKENIZED (@[Label](id)) so mentions survive reload.
+export const draftFields = {
+  userId: v.id("users"),
+  repoId: v.id("githubRepos"),
+  kind: v.union(
+    v.literal("taskComment"),
+    v.literal("sessionChat"),
+    v.literal("designChat"),
+  ),
+  taskId: v.optional(v.id("agentTasks")),
+  parentCommentId: v.optional(v.id("taskComments")),
+  sessionId: v.optional(v.id("sessions")),
+  designSessionId: v.optional(v.id("designSessions")),
+  content: v.string(),
+  updatedAt: v.number(),
+};
+
+// Discriminated target for get/set — explicit per surface, no field-sniffing.
+export const draftTarget = v.union(
+  v.object({
+    kind: v.literal("taskComment"),
+    taskId: v.id("agentTasks"),
+    parentCommentId: v.optional(v.id("taskComments")),
+  }),
+  v.object({
+    kind: v.literal("sessionChat"),
+    sessionId: v.id("sessions"),
+  }),
+  v.object({
+    kind: v.literal("designChat"),
+    designSessionId: v.id("designSessions"),
+  }),
+);

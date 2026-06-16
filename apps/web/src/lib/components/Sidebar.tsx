@@ -26,6 +26,7 @@ import {
   AutomationsIcon,
   DesignsIcon,
   DocumentsIcon,
+  DraftsIcon,
   InboxIcon,
   ProjectsIcon,
   QuickTasksIcon,
@@ -49,6 +50,7 @@ import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjects
 import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
 import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
 import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomationsBadge";
+import { DraftsCountBadge } from "@/lib/components/sidebar/DraftsCountBadge";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { TeamMembers } from "@/lib/components/sidebar/TeamMembers";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
@@ -78,6 +80,7 @@ const KNOWN_SUB_PAGES = new Set([
   "stats",
   "automations",
   "inbox",
+  "drafts",
 ]);
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
@@ -285,6 +288,11 @@ export function Sidebar() {
             name: "Inbox",
             href: `${repoBasePath}/inbox`,
             icon: InboxIcon,
+          },
+          {
+            name: "Drafts",
+            href: `${repoBasePath}/drafts`,
+            icon: DraftsIcon,
           },
           {
             name: "Automations",
@@ -778,6 +786,13 @@ export function Sidebar() {
                                           )}
                                           {item.name === "Inbox" &&
                                             !collapsed && <UnreadInboxBadge />}
+                                          {item.name === "Drafts" &&
+                                            !collapsed &&
+                                            repo && (
+                                              <DraftsCountBadge
+                                                repoId={repo._id}
+                                              />
+                                            )}
                                           {item.name === "Quick Tasks" &&
                                             !collapsed &&
                                             repo &&

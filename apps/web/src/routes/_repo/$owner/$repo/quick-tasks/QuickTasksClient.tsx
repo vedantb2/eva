@@ -4,7 +4,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
@@ -40,6 +40,13 @@ export function QuickTasksClient() {
     typeof params.taskId === "string" ? params.taskId : undefined;
   const { basePath, repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
+  const { draft: draftParam } = useSearch({
+    from: "/_repo/$owner/$repo/quick-tasks",
+  });
+  const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
+  const initialDraft = draftParam
+    ? drafts?.find((d) => d._id === draftParam)
+    : undefined;
   const [isCreating, setIsCreating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -223,6 +230,35 @@ export function QuickTasksClient() {
     setIsCreating(true);
   });
 
+  const clearDraftParam = () => {
+    navigate({
+      to: ".",
+      search: (prev) => ({ ...prev, draft: undefined }),
+      replace: true,
+    });
+  };
+
+  const handleModalClose = () => {
+    setIsCreating(false);
+    if (draftParam !== undefined) {
+      clearDraftParam();
+    }
+  };
+
+  // If the drafts list has loaded and the param points to a non-existent draft
+  // (deleted or stale link), clean up the URL.
+  useEffect(() => {
+    if (
+      drafts !== undefined &&
+      draftParam !== undefined &&
+      initialDraft === undefined
+    ) {
+      clearDraftParam();
+    }
+    // clearDraftParam is defined inline each render — only run when these values change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drafts, draftParam, initialDraft]);
+
   if (tasks === undefined) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
@@ -391,8 +427,10 @@ export function QuickTasksClient() {
         </div>
       </PageWrapper>
       <QuickTaskModal
-        isOpen={isCreating}
-        onClose={() => setIsCreating(false)}
+        key={initialDraft?._id ?? "new"}
+        isOpen={isCreating || initialDraft !== undefined}
+        initialDraft={initialDraft}
+        onClose={handleModalClose}
         users={users ?? undefined}
         projects={projects ?? undefined}
         allTags={allTags}

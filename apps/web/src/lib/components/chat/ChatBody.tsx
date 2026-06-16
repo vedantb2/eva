@@ -18,6 +18,8 @@ import {
   type PromptInputMessage,
   type ModelOption,
 } from "@conductor/ui";
+import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
+import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import {
   IconPlayerStop,
   IconCode,
@@ -133,6 +135,22 @@ interface ChatBodyProps {
   emptyStateOverride?: React.ReactNode;
   /** Optional formatter for queued message info tooltips. Falls back to none. */
   formatQueuedInfo?: (msg: ChatBodyQueuedMessage) => string | undefined;
+  /**
+   * Draft seed to restore. When provided, the PromptInputProvider is seeded
+   * with the stored draft text and mention maps, and a ChatDraftSync child
+   * saves keystrokes back to Convex.
+   *
+   * IMPORTANT: only pass this once the draft query has resolved — the provider
+   * reads initialInput only at mount, so it must not mount before the data is
+   * available. Use `isDraftLoading` to render a placeholder while waiting.
+   */
+  draft?: ChatDraftSeed;
+  /**
+   * When true, renders a disabled placeholder in place of the real input while
+   * the draft query is in flight. This prevents the PromptInputProvider from
+   * mounting with an empty initial value before the persisted draft is known.
+   */
+  isDraftLoading?: boolean;
 }
 
 export function ChatBody({
@@ -159,6 +177,8 @@ export function ChatBody({
   toolsBefore,
   emptyStateOverride,
   formatQueuedInfo,
+  draft,
+  isDraftLoading,
 }: ChatBodyProps) {
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
@@ -434,45 +454,66 @@ export function ChatBody({
             </div>
           ) : null}
           <div>
-            <PromptInputProvider>
-              <PromptInput onSubmit={handlePromptSubmit}>
-                <MentionTextarea
-                  ref={mentionRef}
-                  repoBasePath={repoBasePath}
-                  docs={docs}
-                  skills={skills}
-                  skillsSettingsHref={`${repoBasePath}/settings/skills`}
-                  placeholder={placeholder}
-                />
-                <PromptInputFooter>
-                  <PromptInputTools>{toolsBefore}</PromptInputTools>
-                  <div className="flex min-w-0 items-center gap-1">
-                    <ModelSelect
-                      value={model}
-                      options={modelOptions}
-                      onValueChange={setModel}
-                      className="max-w-48 truncate sm:max-w-none"
-                    />
-                    <PromptInputSpeech />
-                    {isExecuting ? (
-                      <Button
-                        size="icon-sm"
-                        type="button"
-                        variant="destructive"
-                        onClick={onCancel}
-                        title="Stop Eva"
-                      >
-                        <IconPlayerStop className="size-4" />
-                      </Button>
-                    ) : null}
-                    <ChatBodySubmit
-                      disabled={isInputDisabled}
-                      isExecuting={isExecuting}
-                    />
-                  </div>
-                </PromptInputFooter>
-              </PromptInput>
-            </PromptInputProvider>
+            {isDraftLoading ? (
+              // Placeholder that matches the input group's visual footprint.
+              // Keeps the layout stable while the draft query resolves, and
+              // prevents the PromptInputProvider from mounting with an empty
+              // initialInput before the persisted draft is known.
+              <div
+                aria-busy="true"
+                aria-label="Loading draft..."
+                className="pointer-events-none rounded-surface border border-border shadow-lg bg-background opacity-50 min-h-[4.5rem]"
+              />
+            ) : (
+              <PromptInputProvider initialInput={draft?.initialDisplay}>
+                {draft && (
+                  <ChatDraftSync
+                    target={draft.target}
+                    mentionRef={mentionRef}
+                    initialDisplay={draft.initialDisplay}
+                  />
+                )}
+                <PromptInput onSubmit={handlePromptSubmit}>
+                  <MentionTextarea
+                    ref={mentionRef}
+                    repoBasePath={repoBasePath}
+                    docs={docs}
+                    skills={skills}
+                    skillsSettingsHref={`${repoBasePath}/settings/skills`}
+                    placeholder={placeholder}
+                    initialMentionMap={draft?.mentionMap}
+                    initialSkillMap={draft?.skillMap}
+                  />
+                  <PromptInputFooter>
+                    <PromptInputTools>{toolsBefore}</PromptInputTools>
+                    <div className="flex min-w-0 items-center gap-1">
+                      <ModelSelect
+                        value={model}
+                        options={modelOptions}
+                        onValueChange={setModel}
+                        className="max-w-48 truncate sm:max-w-none"
+                      />
+                      <PromptInputSpeech />
+                      {isExecuting ? (
+                        <Button
+                          size="icon-sm"
+                          type="button"
+                          variant="destructive"
+                          onClick={onCancel}
+                          title="Stop Eva"
+                        >
+                          <IconPlayerStop className="size-4" />
+                        </Button>
+                      ) : null}
+                      <ChatBodySubmit
+                        disabled={isInputDisabled}
+                        isExecuting={isExecuting}
+                      />
+                    </div>
+                  </PromptInputFooter>
+                </PromptInput>
+              </PromptInputProvider>
+            )}
           </div>
         </div>
       )}

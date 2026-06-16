@@ -39,6 +39,7 @@ import {
   docSubscriberFields,
   docVersionFields,
   docVersionDraftFields,
+  draftFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -401,6 +402,14 @@ const schema = defineSchema({
   // App-wide singleton settings (only ever one row). Read/written via the
   // helpers in `sandboxAutoStop.ts`.
   appSettings: defineTable(appSettingsFields),
+
+  // One row per (user, surface target). Persists unsent composer text for task
+  // comments and chat prompts so drafts survive page reloads.
+  drafts: defineTable(draftFields)
+    .index("by_user_and_task", ["userId", "taskId"])
+    .index("by_user_and_session", ["userId", "sessionId"])
+    .index("by_user_and_designSession", ["userId", "designSessionId"])
+    .index("by_user_and_repo", ["userId", "repoId"]),
 });
 
 export default schema;

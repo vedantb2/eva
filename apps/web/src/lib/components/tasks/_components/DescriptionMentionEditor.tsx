@@ -17,6 +17,7 @@ import {
   DocMentionHoverCardBody,
   SkillMentionHoverCardBody,
   isSkillTokenId,
+  isMentionTokenDocId,
 } from "@/lib/components/mentions";
 
 export type DescriptionMentionEditorHandle = MentionEditorHandle;
@@ -39,6 +40,10 @@ interface DescriptionMentionEditorProps {
   minHeight?: string;
   ariaLabel?: string;
   onBlur?: () => void;
+  initialMentionMap?: Map<string, string>;
+  initialSkillMap?: Map<string, string>;
+  /** When true, blocks all input. Used while a draft is loading. */
+  disabled?: boolean;
 }
 
 export const DescriptionMentionEditor = forwardRef<
@@ -53,6 +58,9 @@ export const DescriptionMentionEditor = forwardRef<
     minHeight = "min-h-[120px]",
     ariaLabel,
     onBlur,
+    initialMentionMap,
+    initialSkillMap,
+    disabled,
   },
   ref,
 ) {
@@ -61,7 +69,7 @@ export const DescriptionMentionEditor = forwardRef<
   const docs = useQuery(api.docs.list, { repoId: repo._id }) ?? [];
 
   const handleMentionChipClick = useCallback(
-    (id: Doc<"docs">["_id"]) => {
+    (id: string) => {
       navigate({
         to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
       });
@@ -109,9 +117,12 @@ export const DescriptionMentionEditor = forwardRef<
       slashItems={slashItems}
       onMentionChipClick={handleMentionChipClick}
       onSkillChipClick={handleSkillChipClick}
-      renderMentionChipHoverCard={(id) => (
-        <DocMentionHoverCardBody docId={id} />
-      )}
+      initialMentionMap={initialMentionMap}
+      initialSkillMap={initialSkillMap}
+      disabled={disabled}
+      renderMentionChipHoverCard={(id) =>
+        isMentionTokenDocId(id) ? <DocMentionHoverCardBody docId={id} /> : null
+      }
       renderSkillChipHoverCard={(id) =>
         isSkillTokenId(id) ? <SkillMentionHoverCardBody skillId={id} /> : null
       }

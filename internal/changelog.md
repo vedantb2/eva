@@ -1,5 +1,10 @@
 # Changelog
 
+## Collapsible sidebar nav sections - 2026-06-16
+
+- Repo and settings sidebar groups (BUILD, FIX, GENERAL, etc.) use a chevron header instead of section icons and divider lines — click to collapse/expand each group.
+- Section open/closed state is held in component state; when the main sidebar is icon-collapsed, headers hide and all items stay visible.
+
 ## Drafts: save unsent input across all surfaces - 2026-06-16
 
 - New Drafts page (`/$owner/$repo/drafts`) displays all unsent comment, chat, and quick-task input as cards; clicking a card returns to where the draft was started (task/session/design detail page or quick-tasks with modal).

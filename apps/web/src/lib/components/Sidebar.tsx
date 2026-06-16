@@ -10,16 +10,12 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   IconChevronLeft,
   IconChevronRight,
-  IconHammer,
   IconHome,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
   IconMenu2,
   IconMoon,
-  IconSettings,
   IconSun,
-  IconTestPipe,
-  IconTool,
   IconX,
 } from "@tabler/icons-react";
 import {
@@ -61,6 +57,7 @@ import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSideba
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoSwitcher } from "@/lib/components/RepoSwitcher";
 import { RootSidebarContent } from "@/lib/components/sidebar/RootSidebarContent";
+import { CollapsibleSidebarSection } from "@/lib/components/sidebar/CollapsibleSidebarSection";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -115,7 +112,6 @@ type RepoMainNavItem = {
 
 type RepoMainNavGroup = {
   label: string;
-  groupIcon: RepoMainNavIcon;
   items: RepoMainNavItem[];
   devOnly?: boolean;
 };
@@ -152,6 +148,21 @@ export function Sidebar() {
   });
   const [contextSidebarMode, setContextSidebarMode] =
     useState<ContextSidebarMode>(() => getInitialContextSidebarMode(pathname));
+  const [openNavSections, setOpenNavSections] = useState<
+    Record<string, boolean>
+  >({
+    BUILD: true,
+    FIX: true,
+    TEST: true,
+    SETTINGS: true,
+  });
+
+  const toggleNavSection = (label: string) => {
+    setOpenNavSections((prev) => ({
+      ...prev,
+      [label]: !(prev[label] ?? true),
+    }));
+  };
 
   const repos = useQuery(api.githubRepos.list, {});
 
@@ -230,7 +241,6 @@ export function Sidebar() {
     const allGroups: RepoMainNavGroup[] = [
       {
         label: "BUILD",
-        groupIcon: IconHammer,
         items: [
           {
             name: "Projects",
@@ -247,7 +257,6 @@ export function Sidebar() {
       },
       {
         label: "FIX",
-        groupIcon: IconTool,
         items: [
           {
             name: "Quick Tasks",
@@ -263,7 +272,6 @@ export function Sidebar() {
       },
       {
         label: "TEST",
-        groupIcon: IconTestPipe,
         // devOnly: true,
         items: [
           {
@@ -282,7 +290,6 @@ export function Sidebar() {
       },
       {
         label: "SETTINGS",
-        groupIcon: IconSettings,
         items: [
           {
             name: "Inbox",
@@ -650,21 +657,11 @@ export function Sidebar() {
                           >
                             {repoNavigation.map((group) => (
                               <div key={group.label}>
-                                {!collapsed && (
-                                  <div className="flex items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                                    <group.groupIcon size={12} />
-                                    <span>{group.label}</span>
-                                    <span
-                                      aria-hidden
-                                      className="ml-1 h-px flex-1 bg-sidebar-border/60"
-                                    />
-                                  </div>
-                                )}
-                                <div
-                                  className={cn(
-                                    "space-y-1",
-                                    !collapsed && "pl-2",
-                                  )}
+                                <CollapsibleSidebarSection
+                                  label={group.label}
+                                  open={openNavSections[group.label] ?? true}
+                                  onToggle={() => toggleNavSection(group.label)}
+                                  showHeader={!collapsed}
                                 >
                                   {group.items.map((item) => {
                                     const isActive = pathname.startsWith(
@@ -830,7 +827,7 @@ export function Sidebar() {
 
                                     return linkElement;
                                   })}
-                                </div>
+                                </CollapsibleSidebarSection>
                               </div>
                             ))}
                           </SharedLayoutNav>

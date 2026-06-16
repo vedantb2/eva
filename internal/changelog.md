@@ -1,5 +1,10 @@
 # Changelog
 
+## Editable project status on project detail page - 2026-06-16
+
+- Project status (phase) is now editable via a dropdown in the metadata bar — select from In Progress, Business Review, Code Review, Merged, or Cancelled for quick status changes without leaving the detail view.
+- Draft and Finalized projects keep a read-only badge, as their status is driven by the planning/interview flow, matching the page's existing gating pattern.
+
 ## Collapsible sidebar nav sections - 2026-06-16
 
 - Repo and settings sidebar groups (BUILD, FIX, GENERAL, etc.) use a chevron header instead of section icons and divider lines — click to collapse/expand each group.

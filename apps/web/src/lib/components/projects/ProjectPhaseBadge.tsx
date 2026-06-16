@@ -25,6 +25,16 @@ export const PROJECT_PHASES: ProjectPhase[] = [
   "cancelled",
 ];
 
+/** Phases a user can manually switch to via the status dropdown.
+ *  Excludes draft/finalized — those are driven by the planning/interview flow. */
+export const ACTIVE_PROJECT_PHASES: ProjectPhase[] = [
+  "in_progress",
+  "business_review",
+  "code_review",
+  "completed",
+  "cancelled",
+];
+
 export const phaseConfig: Record<
   ProjectPhase,
   {

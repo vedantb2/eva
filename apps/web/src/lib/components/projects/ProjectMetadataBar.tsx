@@ -46,7 +46,12 @@ import {
 } from "@conductor/shared";
 import { Facehash } from "facehash";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
+import {
+  ProjectPhaseBadge,
+  phaseConfig,
+  ACTIVE_PROJECT_PHASES,
+  type ProjectPhase,
+} from "./ProjectPhaseBadge";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { ProjectTagsPopover } from "./_components/ProjectTagsPopover";
@@ -119,8 +124,17 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
 
   return (
     <div className="flex items-center gap-0.5 px-3 sm:px-4 py-1 overflow-x-auto scrollbar-none">
-      <div className="flex items-center h-8 px-2 shrink-0">
-        <ProjectPhaseBadge phase={project.phase} />
+      <div className="flex items-center h-8 shrink-0">
+        {project.phase === "draft" || project.phase === "finalized" ? (
+          <div className="px-2">
+            <ProjectPhaseBadge phase={project.phase} />
+          </div>
+        ) : (
+          <ProjectPhaseSelect
+            value={project.phase}
+            onChange={(phase) => updateProject({ id: projectId, phase })}
+          />
+        )}
       </div>
       <div className="flex items-center h-8 shrink-0 gap-1.5 px-2 text-[13px] text-muted-foreground">
         <IconGitBranch size={14} />
@@ -318,6 +332,61 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
         <span>{dayjs(project._creationTime).format("DD/MM/YYYY HH:mm")}</span>
       </div>
     </div>
+  );
+}
+
+/**
+ * Editable status (phase) dropdown for the metadata bar. Controlled: the parent
+ * owns the mutation. Only offers active phases (ACTIVE_PROJECT_PHASES) as targets
+ * — draft/finalized are driven by the planning flow and rendered as a read-only
+ * badge by the parent, so `value` here is always one of the offered options.
+ */
+function ProjectPhaseSelect({
+  value,
+  onChange,
+}: {
+  value: ProjectPhase;
+  onChange: (phase: ProjectPhase) => void;
+}) {
+  const config = phaseConfig[value];
+  const Icon = config.icon;
+
+  return (
+    <Select
+      value={value}
+      onValueChange={(val) => {
+        const matched = ACTIVE_PROJECT_PHASES.find((p) => p === val);
+        if (matched) onChange(matched);
+      }}
+    >
+      <SelectTrigger className={GHOST_TRIGGER_CLASS}>
+        <SelectValue>
+          <div className={`flex items-center gap-1.5 ${config.text}`}>
+            <Icon size={14} />
+            <span>{config.label}</span>
+          </div>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          <SelectLabel>Status</SelectLabel>
+          {ACTIVE_PROJECT_PHASES.map((p) => {
+            const phaseOption = phaseConfig[p];
+            const PhaseIcon = phaseOption.icon;
+            return (
+              <SelectItem key={p} value={p}>
+                <div
+                  className={`flex items-center gap-1.5 ${phaseOption.text}`}
+                >
+                  <PhaseIcon size={14} />
+                  <span>{phaseOption.label}</span>
+                </div>
+              </SelectItem>
+            );
+          })}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 }
 

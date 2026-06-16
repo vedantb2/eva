@@ -135,3 +135,7 @@ if the user asks you to run a migration, you need to add a migration function to
 if you are using the agent-browser skill, navigate to `/?agent` to auto sign in as the agent user.
 
 Daytona sandboxes do not support IPv6 — all networking must use IPv4
+
+## Claude Fable: token parsimony
+
+When running as Fable (expensive), plan and review; delegate implementation to subagents (`model: sonnet` for code, `haiku` for mechanical edits/searches), one task per subagent. Trivial single-file edits are fine to do directly.

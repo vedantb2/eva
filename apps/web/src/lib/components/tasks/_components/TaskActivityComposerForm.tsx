@@ -12,7 +12,7 @@ import {
 } from "./CommentMentionInput";
 import { DescriptionMentionEditor } from "./DescriptionMentionEditor";
 import { CommentSendButton } from "./CommentSendButton";
-import { useSingleFlight } from "@/lib/hooks/useSingleFlight";
+import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 
 export interface TaskActivityComposerFormProps {
   taskId: Id<"agentTasks">;
@@ -55,12 +55,11 @@ export function TaskActivityComposerForm({
   const createComment = useMutation(api.taskComments.create);
   const startExecution = useMutation(api.agentTasks.startExecution);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
-  const setDraftMutation = useMutation(api.drafts.set);
 
-  const target = { kind: "taskComment" as const, taskId };
-
-  // Single-flight wrapper: coalesces rapid keystrokes to one in-flight save.
-  const saveDraft = useSingleFlight(setDraftMutation);
+  const { save: saveDraft, clear: clearDraft } = useDraftAutosave(
+    { kind: "taskComment", taskId },
+    mentionRef,
+  );
 
   const clearExecutionError = () => {
     if (executionError) setExecutionError(null);
@@ -69,9 +68,7 @@ export function TaskActivityComposerForm({
   const handleValueChange = (next: string) => {
     setCommentText(next);
     clearExecutionError();
-    // Tokenize at save so stored content carries ids.
-    const tokenized = mentionRef.current?.tokenize(next) ?? next;
-    void saveDraft({ target, content: tokenized });
+    saveDraft(next);
   };
 
   const tokenizeAndReset = (raw: string): string => {
@@ -85,7 +82,7 @@ export function TaskActivityComposerForm({
     if (!text || isSubmitting) return;
     const content = tokenizeAndReset(text);
     setCommentText("");
-    void saveDraft({ target, content: "" });
+    clearDraft();
     setIsSubmitting(true);
     try {
       await createComment({ taskId, content });
@@ -101,7 +98,7 @@ export function TaskActivityComposerForm({
     if (!text || isSubmitting) return;
     const content = tokenizeAndReset(text);
     setCommentText("");
-    void saveDraft({ target, content: "" });
+    clearDraft();
     setIsSubmitting(true);
     try {
       const commentId = await createComment({

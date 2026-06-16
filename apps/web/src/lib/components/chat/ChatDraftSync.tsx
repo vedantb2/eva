@@ -1,8 +1,6 @@
 import { useEffect, useRef } from "react";
-import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
 import { usePromptInputController } from "@conductor/ui";
-import { useSingleFlight } from "@/lib/hooks/useSingleFlight";
+import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import type { ChatDraftTarget } from "./useChatDraftSeed";
 
@@ -31,8 +29,7 @@ export function ChatDraftSync({
   initialDisplay,
 }: ChatDraftSyncProps) {
   const { textInput } = usePromptInputController();
-  const setDraft = useMutation(api.drafts.set);
-  const saveDraft = useSingleFlight(setDraft);
+  const { save } = useDraftAutosave(target, mentionRef);
 
   // Track whether this is the very first render so we can skip the redundant
   // initial save when the input value matches what we seeded from the draft.
@@ -49,15 +46,13 @@ export function ChatDraftSync({
       }
     }
 
-    // Tokenize the display text so mentions are stored as @[Label](id).
-    const content =
-      mentionRef.current?.tokenize(textInput.value) ?? textInput.value;
-
-    void saveDraft({ target, content });
+    // Tokenize + persist via the shared autosave; an empty value deletes the
+    // row server-side (handles clear-on-send and manual clearing alike).
+    save(textInput.value);
   }, [textInput.value]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Intentionally omitting target/mentionRef/saveDraft/initialDisplay from
+  // Intentionally omitting target/mentionRef/save/initialDisplay from
   // the dep array: target is stable (keyed to session id), mentionRef is a ref,
-  // saveDraft identity changes are inconsequential for an autosave effect, and
+  // save identity changes are inconsequential for an autosave effect, and
   // initialDisplay is only needed for the mount-skip guard which uses a ref.
 
   return null;

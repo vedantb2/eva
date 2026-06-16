@@ -12,7 +12,7 @@ import {
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
 import { CommentSendButton } from "./CommentSendButton";
-import { useSingleFlight } from "@/lib/hooks/useSingleFlight";
+import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
 
 interface CommentReplyComposerProps {
   taskId: Id<"agentTasks">;
@@ -48,21 +48,15 @@ function CommentReplyComposerForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const createComment = useMutation(api.taskComments.create);
-  const setDraftMutation = useMutation(api.drafts.set);
 
-  const target = {
-    kind: "taskComment" as const,
-    taskId,
-    parentCommentId: parentId,
-  };
-
-  // Single-flight wrapper: coalesces rapid keystrokes to one in-flight save.
-  const saveDraft = useSingleFlight(setDraftMutation);
+  const { save: saveDraft, clear: clearDraft } = useDraftAutosave(
+    { kind: "taskComment", taskId, parentCommentId: parentId },
+    mentionRef,
+  );
 
   const handleValueChange = (next: string) => {
     setReplyText(next);
-    const tokenized = mentionRef.current?.tokenize(next) ?? next;
-    void saveDraft({ target, content: tokenized });
+    saveDraft(next);
   };
 
   const canSubmit = replyText.trim().length > 0 && !isSubmitting;
@@ -76,7 +70,7 @@ function CommentReplyComposerForm({
       await createComment({ taskId, content, parentId });
       mentionRef.current?.reset();
       setReplyText("");
-      void saveDraft({ target, content: "" });
+      clearDraft();
       // Keep focus so a follow-up reply can be typed without re-clicking.
       mentionRef.current?.focus();
     } catch (err) {

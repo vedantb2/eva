@@ -5,7 +5,6 @@ import {
   sessionStatusValidator,
   evaluationStatusValidator,
   evalFixStatusValidator,
-  evalResultValidator,
   auditSectionValidator,
   notificationTypeValidator,
   snapshotScheduleValidator,
@@ -40,6 +39,7 @@ import {
   docVersionFields,
   docVersionDraftFields,
   draftFields,
+  evaluationReportFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -160,20 +160,7 @@ const schema = defineSchema({
     updatedAt: v.number(),
   }).index("by_user_and_url", ["userId", "pageUrl"]),
 
-  evaluationReports: defineTable({
-    repoId: v.id("githubRepos"),
-    docId: v.id("docs"),
-    status: evaluationStatusValidator,
-    results: v.array(evalResultValidator),
-    summary: v.optional(v.string()),
-    error: v.optional(v.string()),
-    activeWorkflowId: v.optional(v.string()),
-    fixStatus: v.optional(evalFixStatusValidator),
-    fixBranchName: v.optional(v.string()),
-    prUrl: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
+  evaluationReports: defineTable(evaluationReportFields)
     .index("by_repo", ["repoId"])
     .index("by_doc", ["docId"]),
   designPersonas: defineTable({

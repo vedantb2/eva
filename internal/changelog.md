@@ -1,5 +1,11 @@
 # Changelog
 
+## Testing Arena: opt-in eval fixes and safer test runs - 2026-06-16
+
+- Eval fixes are now opt-in per report — "Fix issues" runs only when you click it, instead of auto-starting after every failed test.
+- Fix retries get a fresh branch name; evaluations store the branch they ran against so fixes target the same base.
+- Starting an evaluation is idempotent per doc (no duplicate runs from "test all") and blocked when the doc has no requirements.
+
 ## Editable project status on project detail page - 2026-06-16
 
 - Project status (phase) is now editable via a dropdown in the metadata bar — select from In Progress, Business Review, Code Review, Merged, or Cancelled for quick status changes without leaving the detail view.

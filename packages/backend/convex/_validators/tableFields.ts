@@ -4,6 +4,7 @@ import {
   deploymentStatusValidator,
   errorTypeValidator,
   evaluationStatusValidator,
+  evalFixStatusValidator,
   phaseValidator,
   priorityValidator,
   reactionTargetValidator,
@@ -23,6 +24,7 @@ import {
   automationFindingValidator,
   conversationMessageValidator,
   customThemeValidator,
+  evalResultValidator,
   logEntryValidator,
   terminalPaneValidator,
   variationValidator,
@@ -481,6 +483,23 @@ export const draftFields = {
   sessionId: v.optional(v.id("sessions")),
   designSessionId: v.optional(v.id("designSessions")),
   content: v.string(),
+  updatedAt: v.number(),
+};
+
+export const evaluationReportFields = {
+  repoId: v.id("githubRepos"),
+  docId: v.id("docs"),
+  status: evaluationStatusValidator,
+  results: v.array(evalResultValidator),
+  summary: v.optional(v.string()),
+  error: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
+  fixStatus: v.optional(evalFixStatusValidator),
+  fixBranchName: v.optional(v.string()),
+  prUrl: v.optional(v.string()),
+  // Branch the evaluation ran against, so an opt-in fix uses the same base.
+  branchName: v.optional(v.string()),
+  createdAt: v.number(),
   updatedAt: v.number(),
 };
 

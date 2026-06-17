@@ -7,6 +7,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
 import {
   ActivitySteps,
   Button,
@@ -62,23 +63,9 @@ export const Route = createFileRoute(
   component: TestingArenaDetailRoute,
 });
 
-interface EvalResult {
-  requirement: string;
-  passed: boolean;
-  detail: string;
-}
-
-interface EvaluationReport {
-  _id: Id<"evaluationReports">;
-  status: "pending" | "running" | "completed" | "error";
-  results: EvalResult[];
-  summary?: string;
-  error?: string;
-  fixStatus?: "fixing" | "fix_completed" | "fix_error";
-  fixBranchName?: string;
-  prUrl?: string;
-  createdAt: number;
-}
+type EvaluationReport = FunctionReturnType<
+  typeof api.evaluationReports.listByDoc
+>[number];
 
 function ReportCard({
   report,
@@ -87,9 +74,21 @@ function ReportCard({
   report: EvaluationReport;
   streamingActivity?: string;
 }) {
+  const startFix = useMutation(api.evaluationWorkflow.startFix);
+  const [isStartingFix, setIsStartingFix] = useState(false);
+
   const passed = report.results.filter((r) => r.passed);
   const failed = report.results.filter((r) => !r.passed);
   const total = report.results.length;
+
+  const handleFix = async () => {
+    setIsStartingFix(true);
+    try {
+      await startFix({ reportId: report._id });
+    } finally {
+      setIsStartingFix(false);
+    }
+  };
 
   const summary =
     total > 0
@@ -128,6 +127,12 @@ function ReportCard({
           <TestResultsHeader>
             <TestResultsSummary />
             <div className="flex items-center gap-2">
+              {failed.length > 0 && report.fixStatus === undefined && (
+                <Button size="sm" onClick={handleFix} disabled={isStartingFix}>
+                  <IconTool size={14} />
+                  {isStartingFix ? "Starting..." : "Fix issues"}
+                </Button>
+              )}
               {report.fixStatus === "fixing" && (
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Spinner size="sm" />
@@ -135,10 +140,21 @@ function ReportCard({
                 </span>
               )}
               {report.fixStatus === "fix_error" && (
-                <span className="flex items-center gap-1.5 text-xs text-destructive">
-                  <IconAlertTriangle size={14} />
-                  Fix failed
-                </span>
+                <>
+                  <span className="flex items-center gap-1.5 text-xs text-destructive">
+                    <IconAlertTriangle size={14} />
+                    Fix failed
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleFix}
+                    disabled={isStartingFix}
+                  >
+                    <IconTool size={14} />
+                    {isStartingFix ? "Starting..." : "Retry fix"}
+                  </Button>
+                </>
               )}
               {report.prUrl && (
                 <a
@@ -394,6 +410,11 @@ function TestingArenaDetailRoute() {
   const activeTab = isTestingArenaTab(arenaTab) ? arenaTab : "code";
   const [branch, setBranch] = useQueryState("branch", branchParser);
 
+  const hasActiveRun =
+    reports?.some((r) => r.status === "pending" || r.status === "running") ??
+    false;
+  const hasRequirements = (doc?.requirements?.length ?? 0) > 0;
+
   const handleRunTest = async () => {
     if (!doc) return;
     setIsRunning(true);
@@ -446,24 +467,34 @@ function TestingArenaDetailRoute() {
               <TabsTrigger value="ui" className="text-xs space-x-2">
                 <IconWorld size={14} />
                 <span>UI Testing</span>
+                <span className="rounded-full border border-border px-1.5 text-[10px] font-medium text-muted-foreground">
+                  Soon
+                </span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <div className="flex items-center gap-2">
-            <BranchSelect
-              value={branch}
-              onValueChange={setBranch}
-              className="h-7 text-xs w-24 sm:w-36"
-            />
-            <Button
-              size="sm"
-              onClick={activeTab === "code" ? handleRunTest : undefined}
-              disabled={activeTab === "code" && isRunning}
-            >
-              <IconPlayerPlay size={16} />
-              {isRunning && activeTab === "code" ? "Running..." : "Run Test"}
-            </Button>
-          </div>
+          {activeTab === "code" && (
+            <div className="flex items-center gap-2">
+              <BranchSelect
+                value={branch}
+                onValueChange={setBranch}
+                className="h-7 text-xs w-24 sm:w-36"
+              />
+              <Button
+                size="sm"
+                onClick={handleRunTest}
+                disabled={isRunning || hasActiveRun || !hasRequirements}
+                title={
+                  !hasRequirements
+                    ? "Add requirements to this document to run tests"
+                    : undefined
+                }
+              >
+                <IconPlayerPlay size={16} />
+                {isRunning || hasActiveRun ? "Running..." : "Run Test"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">

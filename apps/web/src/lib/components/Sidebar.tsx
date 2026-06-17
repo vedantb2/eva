@@ -152,9 +152,9 @@ export function Sidebar() {
     Record<string, boolean>
   >({
     BUILD: true,
-    FIX: true,
+    SHIP: true,
     TEST: true,
-    SETTINGS: true,
+    MORE: true,
   });
 
   const toggleNavSection = (label: string) => {
@@ -243,11 +243,6 @@ export function Sidebar() {
         label: "BUILD",
         items: [
           {
-            name: "Projects",
-            href: `${repoBasePath}/projects`,
-            icon: ProjectsIcon,
-          },
-          {
             name: "Designs",
             href: `${repoBasePath}/designs`,
             icon: DesignsIcon,
@@ -256,8 +251,13 @@ export function Sidebar() {
         ],
       },
       {
-        label: "FIX",
+        label: "SHIP",
         items: [
+          {
+            name: "Projects",
+            href: `${repoBasePath}/projects`,
+            icon: ProjectsIcon,
+          },
           {
             name: "Quick Tasks",
             href: `${repoBasePath}/quick-tasks`,
@@ -289,7 +289,7 @@ export function Sidebar() {
         ],
       },
       {
-        label: "SETTINGS",
+        label: "MORE",
         items: [
           {
             name: "Automations",

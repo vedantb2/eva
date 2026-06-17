@@ -408,6 +408,64 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     return () => scrollElement.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
+  // Drag-to-pan: with the scrollbar hidden, pressing on empty canvas and
+  // dragging scrolls the timeline like Linear's roadmap. Bars, the sidebar and
+  // any interactive control opt out via the selector below so their own
+  // click/drag behaviour is preserved.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let panning = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    const isInteractive = (target: EventTarget | null) =>
+      target instanceof Element &&
+      Boolean(
+        target.closest(
+          'button, a, input, textarea, select, [role="button"], [data-gantt-no-pan], [data-roadmap-ui="gantt-sidebar"]',
+        ),
+      );
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || isInteractive(event.target)) return;
+      panning = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      startLeft = el.scrollLeft;
+      startTop = el.scrollTop;
+      el.style.cursor = "grabbing";
+      event.preventDefault();
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!panning) return;
+      el.scrollLeft = startLeft - (event.clientX - startX);
+      el.scrollTop = startTop - (event.clientY - startY);
+    };
+
+    const endPan = () => {
+      if (!panning) return;
+      panning = false;
+      el.style.cursor = "";
+    };
+
+    el.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", endPan);
+    window.addEventListener("pointercancel", endPan);
+
+    return () => {
+      el.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", endPan);
+      window.removeEventListener("pointercancel", endPan);
+    };
+  }, []);
+
   const scrollToFeature = useCallback(
     (feature: GanttFeature) => {
       const scrollElement = scrollRef.current;
@@ -492,7 +550,7 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     >
       <div
         className={cn(
-          "gantt relative isolate grid h-full w-full flex-none select-none overflow-auto rounded-surface border border-border bg-card shadow-sm",
+          "gantt relative isolate grid h-full w-full flex-none select-none overflow-auto scrollbar-none rounded-surface border border-border bg-card shadow-sm",
           range,
           className,
         )}

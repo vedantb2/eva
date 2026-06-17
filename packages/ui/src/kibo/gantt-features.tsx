@@ -52,6 +52,7 @@ export const GanttFeatureDragHelper: FC<GanttFeatureDragHelperProps> = ({
         "group -translate-y-1/2 cursor-col-resize absolute top-1/2 z-[3] h-full w-6 rounded-md outline-none",
         direction === "left" ? "-left-2.5" : "-right-2.5",
       )}
+      data-gantt-no-pan
       ref={setNodeRef}
       {...attributes}
       {...listeners}
@@ -84,12 +85,14 @@ export const GanttFeatureDragHelper: FC<GanttFeatureDragHelperProps> = ({
 export type GanttFeatureItemCardProps = Pick<GanttFeature, "id"> & {
   children?: ReactNode;
   className?: string;
+  onClick?: () => void;
 };
 
 export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
   id,
   children,
   className,
+  onClick,
 }) => {
   const gantt = useGanttContext();
   const { attributes, listeners, setNodeRef } = useDraggable({ id });
@@ -99,6 +102,7 @@ export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
 
   return (
     <div
+      data-gantt-no-pan
       className={cn(
         "relative h-full w-full overflow-hidden border border-border/70 text-xs shadow-sm transition-shadow hover:shadow",
         CONTROL_RADIUS_CLASS,
@@ -112,6 +116,7 @@ export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
         )}
         {...attributes}
         {...listeners}
+        onClick={onClick}
         ref={setNodeRef}
       >
         {children}
@@ -122,12 +127,14 @@ export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
 
 export type GanttFeatureItemProps = GanttFeature & {
   onMove?: (id: string, startDate: Date, endDate: Date | null) => void;
+  onClick?: () => void;
   children?: ReactNode;
   className?: string;
 };
 
 export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
   onMove,
+  onClick,
   children,
   className,
   ...feature
@@ -244,7 +251,7 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
           onDragStart={handleItemDragStart}
           sensors={[mouseSensor]}
         >
-          <GanttFeatureItemCard id={feature.id}>
+          <GanttFeatureItemCard id={feature.id} onClick={onClick}>
             {children ?? (
               <div className="flex h-full w-full items-center bg-muted/40 px-2">
                 <p className="flex-1 truncate text-xs">{feature.name}</p>

@@ -576,6 +576,15 @@
     background: rgb(var(--muted-foreground) / 0.52);
     background-clip: padding-box;
   }
+
+  /* Fully hides the scrollbar while keeping the element scrollable (wheel,
+     drag-to-pan, programmatic). Used by the canvas-style projects timeline. */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ───────────────────────────────────────────────────────────────────

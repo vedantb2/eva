@@ -9,6 +9,7 @@
 - Current month/quarter/day is now highlighted in the axis header; the "Today" line is refined with a solid accent color and centered pill label.
 - Underlying Gantt engine now supports a `scrollToToday()` context method and got a proper card-surface treatment (border, shadow, rounded corners) instead of a tonal background.
 - Backend adds a batched `listTaskProgress({ repoId })` query so the timeline fetches all project progress in one call instead of one request per row.
+- The timeline is now a pannable canvas: drag the empty canvas to scroll the roadmap in any direction with no visible scrollbar, while the project column stays pinned — matching Linear's drag-to-pan interaction. Bars still open on click and drag-to-reschedule.
 
 ## Host Cowork artifacts in eva - 2026-06-17
 

@@ -264,19 +264,17 @@ export function ProjectsTimeline({
                   scheduledProjectMap.get(feature.id)?.phase ?? "draft";
                 return (
                   <div className="flex" key={feature.id}>
-                    <button
+                    <GanttFeatureItem
+                      {...feature}
+                      onMove={handleMove}
                       onClick={() => handleSelectItem(feature.id)}
-                      type="button"
-                      className="contents"
                     >
-                      <GanttFeatureItem {...feature} onMove={handleMove}>
-                        <TimelineBar
-                          name={feature.name}
-                          phase={phase}
-                          progress={progressMap.get(feature.id)}
-                        />
-                      </GanttFeatureItem>
-                    </button>
+                      <TimelineBar
+                        name={feature.name}
+                        phase={phase}
+                        progress={progressMap.get(feature.id)}
+                      />
+                    </GanttFeatureItem>
                   </div>
                 );
               })}

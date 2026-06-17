@@ -519,3 +519,19 @@ export const draftTarget = v.union(
     designSessionId: v.id("designSessions"),
   }),
 );
+
+// A hosted Claude "Cowork" artifact: a self-contained HTML page uploaded to eva
+// that calls the Eva MCP read-only tools via an in-app bridge. boundTeamId scopes
+// listing/visibility only — tool calls target any repo the signed-in user can
+// access (enforced per call). declaredTools is advisory metadata parsed from the
+// artifact's cowork-artifact-meta header; the runtime read-only whitelist is the
+// real gate. New row per upload; manual delete.
+export const artifactFields = {
+  name: v.string(),
+  description: v.optional(v.string()),
+  boundTeamId: v.id("teams"),
+  declaredTools: v.array(v.string()),
+  htmlStorageId: v.id("_storage"),
+  uploadedBy: v.id("users"),
+  createdAt: v.number(),
+};

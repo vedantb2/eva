@@ -43,6 +43,21 @@ export async function hasRepoAccess(
   return membership !== null;
 }
 
+/** Checks if a user has access to a team — i.e. is a member of it. */
+export async function hasTeamAccess(
+  db: GenericDatabaseReader<DataModel>,
+  teamId: Id<"teams">,
+  userId: Id<"users">,
+): Promise<boolean> {
+  const membership = await db
+    .query("teamMembers")
+    .withIndex("by_team_and_user", (q) =>
+      q.eq("teamId", teamId).eq("userId", userId),
+    )
+    .first();
+  return membership !== null;
+}
+
 /** Checks if a user can access a task by verifying access to its parent repo or project. */
 export async function hasTaskAccess(
   db: GenericDatabaseReader<DataModel>,

@@ -131,6 +131,7 @@ import type * as agentTaskChatWorkflow from "../agentTaskChatWorkflow.js";
 import type * as agentTasks from "../agentTasks.js";
 import type * as analytics from "../analytics.js";
 import type * as annotations from "../annotations.js";
+import type * as artifacts from "../artifacts.js";
 import type * as auditCategories from "../auditCategories.js";
 import type * as audits from "../audits.js";
 import type * as auth from "../auth.js";
@@ -368,6 +369,7 @@ declare const fullApi: ApiFromModules<{
   agentTasks: typeof agentTasks;
   analytics: typeof analytics;
   annotations: typeof annotations;
+  artifacts: typeof artifacts;
   auditCategories: typeof auditCategories;
   audits: typeof audits;
   auth: typeof auth;

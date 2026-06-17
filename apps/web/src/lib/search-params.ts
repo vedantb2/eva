@@ -182,7 +182,7 @@ export function isEnvVarScope(s: string): s is EnvVarScope {
   return (envVarScopes as readonly string[]).includes(s);
 }
 
-const teamDetailTabs = ["members", "repos", "env"] as const;
+const teamDetailTabs = ["members", "repos", "env", "artifacts"] as const;
 export type TeamDetailTab = (typeof teamDetailTabs)[number];
 
 export function isTeamDetailTab(s: string): s is TeamDetailTab {

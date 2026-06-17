@@ -30,7 +30,8 @@ const DEFAULTS: ProjectFilters = {
   hiddenPhases: [],
   sortField: "created",
   sortDir: "desc",
-  timelineRange: "monthly",
+  // Weekly grid by default, matching Linear's default timeline zoom.
+  timelineRange: "daily",
   timelineZoom: 100,
 };
 

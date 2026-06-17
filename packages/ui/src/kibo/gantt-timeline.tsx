@@ -32,11 +32,13 @@ export const GanttTimeline: FC<GanttTimelineProps> = ({
 export type GanttColumnsProps = {
   columns: number;
   isColumnSecondary?: (item: number) => boolean;
+  isColumnDivider?: (item: number) => boolean;
 };
 
 export const GanttColumns: FC<GanttColumnsProps> = ({
   columns,
   isColumnSecondary,
+  isColumnDivider,
 }) => {
   const id = useId();
 
@@ -51,6 +53,7 @@ export const GanttColumns: FC<GanttColumnsProps> = ({
         <GanttColumn
           index={index}
           isColumnSecondary={isColumnSecondary}
+          isColumnDivider={isColumnDivider}
           key={`${id}-${index}`}
         />
       ))}
@@ -61,15 +64,22 @@ export const GanttColumns: FC<GanttColumnsProps> = ({
 export type GanttColumnProps = {
   index: number;
   isColumnSecondary?: (item: number) => boolean;
+  isColumnDivider?: (item: number) => boolean;
 };
 
 export const GanttColumn: FC<GanttColumnProps> = ({
   index,
   isColumnSecondary,
+  isColumnDivider,
 }) => (
   <div
     className={cn(
-      "group relative h-full overflow-hidden border-r border-border/40",
+      "group relative h-full overflow-hidden",
+      isColumnDivider
+        ? isColumnDivider(index)
+          ? "border-l border-border/50"
+          : ""
+        : "border-r border-border/40",
       isColumnSecondary?.(index) ? "bg-muted/30" : "",
     )}
   />

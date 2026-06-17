@@ -228,7 +228,12 @@ export function ProjectsTimeline({
       />
 
       {features.length > 0 ? (
-        <GanttProvider range={range} zoom={zoom} className="min-h-0 flex-1">
+        <GanttProvider
+          range={range}
+          zoom={zoom}
+          onZoomChange={onZoomChange}
+          className="min-h-0 flex-1"
+        >
           <GanttTodayBridge targetRef={scrollToTodayRef} />
           <GanttSidebar headerTitle="Projects" headerMeta="Progress">
             {features.map((feature) => {

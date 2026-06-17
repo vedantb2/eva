@@ -270,6 +270,7 @@ export type GanttProviderProps = {
   range?: Range;
   zoom?: number;
   onAddItem?: (date: Date) => void;
+  onZoomChange?: (zoom: number) => void;
   children: ReactNode;
   className?: string;
 };
@@ -278,6 +279,7 @@ export const GanttProvider: FC<GanttProviderProps> = ({
   zoom = 100,
   range = "monthly",
   onAddItem,
+  onZoomChange,
   children,
   className,
 }) => {
@@ -291,7 +293,9 @@ export const GanttProvider: FC<GanttProviderProps> = ({
 
   const headerHeight = 60;
   const rowHeight = 36;
-  let columnWidth = 50;
+  // Daily is rendered as a Linear-style weekly grid (~16px/day → ~112px/week),
+  // so the per-day column is narrow and only week starts are labelled.
+  let columnWidth = 16;
 
   if (range === "monthly") {
     columnWidth = 150;
@@ -310,13 +314,57 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     return vars;
   }, [zoom, columnWidth, sidebarWidth]);
 
+  // Center the canvas on today once the sidebar width is known, matching
+  // Linear's default (today near the middle of the viewport). Runs once.
+  const didCenterRef = useRef(false);
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) {
-      el.scrollLeft = el.scrollWidth / 2 - el.clientWidth / 2;
-      setScrollX(el.scrollLeft);
-    }
-  }, []);
+    if (!el || didCenterRef.current || sidebarWidth === 0) return;
+    const firstYear = timelineData[0]?.year ?? new Date().getFullYear();
+    const offset = getOffset(new Date(), new Date(firstYear, 0, 1), {
+      zoom,
+      range,
+      columnWidth,
+      sidebarWidth,
+      headerHeight,
+      rowHeight,
+      onAddItem,
+      placeholderLength: 2,
+      timelineData,
+      ref: scrollRef,
+      dragging: false,
+      setDragging: () => {},
+      scrollX: 0,
+      setScrollX: () => {},
+    });
+    el.scrollLeft = Math.max(0, sidebarWidth + offset - el.clientWidth / 2);
+    setScrollX(el.scrollLeft);
+    didCenterRef.current = true;
+  }, [sidebarWidth, zoom, range, columnWidth, timelineData, onAddItem]);
+
+  // Ctrl/Cmd + wheel (and trackpad pinch, which sends ctrlKey) zooms the
+  // timeline like Linear, instead of zooming the page. Plain wheel scrolls.
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !onZoomChange) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      event.preventDefault();
+      const direction = event.deltaY < 0 ? 1 : -1;
+      const next = Math.min(
+        200,
+        Math.max(50, zoomRef.current + direction * 10),
+      );
+      if (next !== zoomRef.current) {
+        zoomRef.current = next;
+        onZoomChange(next);
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [onZoomChange]);
 
   useEffect(() => {
     const updateSidebarWidth = () => {

@@ -4,12 +4,15 @@
 
 - Project bars now show task-completion progress as a filled portion (e.g. 72% done) with a per-status tooltip breakdown, replacing the flat single-color bars.
 - Timeline toolbar adds granularity control (Quarter / Month / Week zoom levels), zoom in/out buttons (50–200%), and a "Today" jump button for quick navigation.
-- Sidebar rows display the project's phase icon, lead avatar(s), and completion percentage, making project ownership and progress visible at a glance.
+- Sidebar rows display the project's phase icon, a circular completion ring, and lead avatar(s), making ownership and progress visible at a glance.
 - Unscheduled projects (missing start/end dates) appear in a collapsible "No target date" section with a range picker to schedule them onto the timeline.
 - Current month/quarter/day is now highlighted in the axis header; the "Today" line is refined with a solid accent color and centered pill label.
 - Underlying Gantt engine now supports a `scrollToToday()` context method and got a proper card-surface treatment (border, shadow, rounded corners) instead of a tonal background.
 - Backend adds a batched `listTaskProgress({ repoId })` query so the timeline fetches all project progress in one call instead of one request per row.
 - The timeline is now a pannable canvas: drag the empty canvas to scroll the roadmap in any direction with no visible scrollbar, while the project column stays pinned — matching Linear's drag-to-pan interaction. Bars still open on click and drag-to-reschedule.
+- The default zoom is a Linear-style weekly grid — week-start (Sunday) ticks under month labels, centered on today, with day-accurate bars — instead of coarse month columns.
+- Zoom the timeline with Ctrl/Cmd + scroll (or trackpad pinch), matching Linear's gesture; the Quarter/Month/Week control and zoom buttons still work.
+- Projects whose bars sit off the visible canvas show a clickable "← date" pointer at the edge that scrolls back to them.
 
 ## Host Cowork artifacts in eva - 2026-06-17
 

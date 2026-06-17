@@ -3,7 +3,12 @@
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { AvatarStack } from "@conductor/ui";
+import {
+  AvatarStack,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@conductor/ui";
 import { UserInitials } from "@conductor/shared";
 
 type ProjectProgress = FunctionReturnType<
@@ -20,7 +25,47 @@ interface TimelineSidebarMetaProps {
 
 const MAX_AVATARS = 2;
 
-/** Trailing content for a timeline sidebar row: completion percent + the
+/** Linear-style circular progress ring (donut). Track + accent arc for the
+ *  completed share; an empty track when there are no tasks. */
+function ProgressRing({ pct }: { pct: number }) {
+  const size = 14;
+  const stroke = 2;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="-rotate-90 shrink-0"
+      aria-hidden
+    >
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="rgb(var(--border))"
+        strokeWidth={stroke}
+      />
+      {pct > 0 && (
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgb(var(--primary))"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - pct / 100)}
+        />
+      )}
+    </svg>
+  );
+}
+
+/** Trailing content for a timeline sidebar row: a completion ring + the
  *  lead/member avatars. Presentational; progress is supplied by the parent. */
 export function TimelineSidebarMeta({
   progress,
@@ -45,11 +90,16 @@ export function TimelineSidebarMeta({
 
   return (
     <div className="flex items-center gap-2">
-      {total > 0 && (
-        <span className="w-7 text-right text-[10px] font-semibold tabular-nums text-muted-foreground">
-          {pct}%
-        </span>
-      )}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="flex items-center">
+            <ProgressRing pct={pct} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          {total > 0 ? `${done}/${total} tasks done · ${pct}%` : "No tasks yet"}
+        </TooltipContent>
+      </Tooltip>
       <AvatarStack size={18} className="-space-x-1">
         {shown.map((id) => (
           <UserInitials key={id} userId={id} hideLastSeen />

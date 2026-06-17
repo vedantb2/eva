@@ -13,6 +13,9 @@ export type GanttContentHeaderProps = {
   columns: number;
   /** Marks the column matching "now" so it can be visually emphasised. */
   isColumnCurrent?: (index: number) => boolean;
+  /** When provided, only flagged columns get a left divider (e.g. week starts);
+   *  otherwise every column gets a right divider. */
+  isColumnDivider?: (index: number) => boolean;
 };
 
 export const GanttContentHeader: FC<GanttContentHeaderProps> = ({
@@ -20,6 +23,7 @@ export const GanttContentHeader: FC<GanttContentHeaderProps> = ({
   columns,
   renderHeaderItem,
   isColumnCurrent,
+  isColumnDivider,
 }) => {
   const id = useId();
 
@@ -45,7 +49,12 @@ export const GanttContentHeader: FC<GanttContentHeaderProps> = ({
         {Array.from({ length: columns }).map((_, index) => (
           <div
             className={cn(
-              "shrink-0 border-r border-border/50 py-1 text-center text-xs text-muted-foreground",
+              "shrink-0 py-1 text-center text-xs text-muted-foreground",
+              isColumnDivider
+                ? isColumnDivider(index)
+                  ? "border-l border-border/60"
+                  : ""
+                : "border-r border-border/50",
               isColumnCurrent?.(index) &&
                 "bg-primary/5 font-medium text-foreground",
             )}
@@ -66,42 +75,32 @@ const DailyHeader: FC = () => {
   return gantt.timelineData.map((year) =>
     year.quarters
       .flatMap((quarter) => quarter.months)
-      .map((month, index) => (
-        <div className="relative flex flex-col" key={`${year.year}-${index}`}>
-          <GanttContentHeader
-            columns={month.days}
-            isColumnCurrent={(item) =>
-              now.year() === year.year &&
-              now.month() === index &&
-              now.date() === item + 1
-            }
-            renderHeaderItem={(item: number) => (
-              <div className="flex items-center justify-center gap-1">
-                <p>
-                  {dayjs(new Date(year.year, index, 1))
-                    .add(item, "day")
-                    .format("D")}
-                </p>
-                <p className="text-muted-foreground">
-                  {dayjs(new Date(year.year, index, 1))
-                    .add(item, "day")
-                    .format("dd")}
-                </p>
-              </div>
-            )}
-            title={dayjs(new Date(year.year, index, 1)).format("MMMM YYYY")}
-          />
-          <GanttColumns
-            columns={month.days}
-            isColumnSecondary={(item: number) => {
-              const dayOfWeek = dayjs(new Date(year.year, index, 1))
-                .add(item, "day")
-                .day();
-              return dayOfWeek === 0 || dayOfWeek === 6;
-            }}
-          />
-        </div>
-      )),
+      .map((month, index) => {
+        const monthStart = new Date(year.year, index, 1);
+        // Linear's grid is weekly: label + divide only at week starts (Sundays).
+        const isWeekStart = (item: number) =>
+          dayjs(monthStart).add(item, "day").day() === 0;
+        return (
+          <div className="relative flex flex-col" key={`${year.year}-${index}`}>
+            <GanttContentHeader
+              columns={month.days}
+              isColumnDivider={isWeekStart}
+              isColumnCurrent={(item) =>
+                now.year() === year.year &&
+                now.month() === index &&
+                now.date() === item + 1
+              }
+              renderHeaderItem={(item: number) =>
+                isWeekStart(item) ? (
+                  <span>{dayjs(monthStart).add(item, "day").format("D")}</span>
+                ) : null
+              }
+              title={dayjs(monthStart).format("MMMM YYYY")}
+            />
+            <GanttColumns columns={month.days} isColumnDivider={isWeekStart} />
+          </div>
+        );
+      }),
   );
 };
 

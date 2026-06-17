@@ -100,15 +100,15 @@ export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
   return (
     <div
       className={cn(
-        "h-full w-full bg-muted/40 p-2 text-xs",
+        "relative h-full w-full overflow-hidden border border-border/70 text-xs shadow-sm transition-shadow hover:shadow",
         CONTROL_RADIUS_CLASS,
         className,
       )}
     >
       <div
         className={cn(
-          "flex h-full w-full items-center justify-between gap-2 text-left",
-          isPressed && "cursor-grabbing",
+          "h-full w-full",
+          isPressed ? "cursor-grabbing" : "cursor-grab",
         )}
         {...attributes}
         {...listeners}
@@ -244,12 +244,11 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
           onDragStart={handleItemDragStart}
           sensors={[mouseSensor]}
         >
-          <GanttFeatureItemCard
-            id={feature.id}
-            className={feature.status.color}
-          >
+          <GanttFeatureItemCard id={feature.id}>
             {children ?? (
-              <p className="flex-1 truncate text-xs">{feature.name}</p>
+              <div className="flex h-full w-full items-center bg-muted/40 px-2">
+                <p className="flex-1 truncate text-xs">{feature.name}</p>
+              </div>
             )}
           </GanttFeatureItemCard>
         </DndContext>
@@ -367,7 +366,7 @@ export const GanttFeatureList: FC<GanttFeatureListProps> = ({
   children,
 }) => (
   <div
-    className={cn("absolute top-0 left-0 h-full w-max space-y-4", className)}
+    className={cn("absolute top-0 left-0 h-full w-max", className)}
     style={{ marginTop: "var(--gantt-header-height)" }}
   >
     {children}

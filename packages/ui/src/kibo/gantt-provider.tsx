@@ -77,6 +77,7 @@ export type GanttContextProps = {
   timelineData: TimelineData;
   ref: RefObject<HTMLDivElement | null> | null;
   scrollToFeature?: (feature: GanttFeature) => void;
+  scrollToToday?: () => void;
   dragging: boolean;
   setDragging: (v: boolean) => void;
   scrollX: number;
@@ -95,6 +96,7 @@ export const GanttContext = createContext<GanttContextProps>({
   timelineData: [],
   ref: null,
   scrollToFeature: undefined,
+  scrollToToday: undefined,
   dragging: false,
   setDragging: () => {},
   scrollX: 0,
@@ -436,6 +438,37 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     [timelineData, zoom, range, columnWidth, sidebarWidth, onAddItem],
   );
 
+  const scrollToToday = useCallback(() => {
+    const scrollElement = scrollRef.current;
+    if (!scrollElement) return;
+
+    const firstYear = timelineData[0]?.year ?? new Date().getFullYear();
+    const timelineStartDate = new Date(firstYear, 0, 1);
+
+    const offset = getOffset(new Date(), timelineStartDate, {
+      zoom,
+      range,
+      columnWidth,
+      sidebarWidth,
+      headerHeight,
+      rowHeight,
+      onAddItem,
+      placeholderLength: 2,
+      timelineData,
+      ref: scrollRef,
+      dragging: false,
+      setDragging: () => {},
+      scrollX: 0,
+      setScrollX: () => {},
+    });
+
+    // Centre today in the viewport rather than pinning it to the left edge.
+    scrollElement.scrollTo({
+      left: Math.max(0, offset - scrollElement.clientWidth / 2),
+      behavior: "smooth",
+    });
+  }, [timelineData, zoom, range, columnWidth, sidebarWidth, onAddItem]);
+
   return (
     <GanttContext.Provider
       value={{
@@ -450,6 +483,7 @@ export const GanttProvider: FC<GanttProviderProps> = ({
         placeholderLength: 2,
         ref: scrollRef,
         scrollToFeature,
+        scrollToToday,
         dragging,
         setDragging,
         scrollX,
@@ -458,7 +492,7 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     >
       <div
         className={cn(
-          "gantt relative isolate grid h-full w-full flex-none select-none overflow-auto rounded-sm bg-muted/20",
+          "gantt relative isolate grid h-full w-full flex-none select-none overflow-auto rounded-surface border border-border bg-card shadow-sm",
           range,
           className,
         )}

@@ -94,8 +94,10 @@ export function ProjectsClient() {
   });
   const navigate = useNavigate();
   const [isCreating, setIsCreating] = useState(false);
-  const [{ q, view, hiddenPhases, sortField, sortDir }, setParams] =
-    useProjectFilters();
+  const [
+    { q, view, hiddenPhases, sortField, sortDir, timelineRange, timelineZoom },
+    setParams,
+  ] = useProjectFilters();
   const searchQuery = q;
   // Derive the visible set from the persisted blocklist so new phases show by
   // default and "all visible" is independent of how many phases exist.
@@ -420,6 +422,10 @@ export function ProjectsClient() {
                   <ProjectsTimeline
                     projects={filteredSorted}
                     basePath={basePath}
+                    range={timelineRange}
+                    zoom={timelineZoom}
+                    onRangeChange={(r) => setParams({ timelineRange: r })}
+                    onZoomChange={(z) => setParams({ timelineZoom: z })}
                   />
                 </motion.div>
               ) : view === "table" ? (

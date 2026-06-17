@@ -1,5 +1,15 @@
 # Changelog
 
+## Projects timeline redesigned as Linear-style roadmap - 2026-06-17
+
+- Project bars now show task-completion progress as a filled portion (e.g. 72% done) with a per-status tooltip breakdown, replacing the flat single-color bars.
+- Timeline toolbar adds granularity control (Quarter / Month / Week zoom levels), zoom in/out buttons (50–200%), and a "Today" jump button for quick navigation.
+- Sidebar rows display the project's phase icon, lead avatar(s), and completion percentage, making project ownership and progress visible at a glance.
+- Unscheduled projects (missing start/end dates) appear in a collapsible "No target date" section with a range picker to schedule them onto the timeline.
+- Current month/quarter/day is now highlighted in the axis header; the "Today" line is refined with a solid accent color and centered pill label.
+- Underlying Gantt engine now supports a `scrollToToday()` context method and got a proper card-surface treatment (border, shadow, rounded corners) instead of a tonal background.
+- Backend adds a batched `listTaskProgress({ repoId })` query so the timeline fetches all project progress in one call instead of one request per row.
+
 ## Host Cowork artifacts in eva - 2026-06-17
 
 - Upload Claude "Cowork" artifacts (self-contained HTML dashboards) into eva and open them in-app, so live dashboards can be deployed and shared internally instead of living only in the Cowork host.

@@ -11,23 +11,26 @@ export type GanttContentHeaderProps = {
   renderHeaderItem: (index: number) => ReactNode;
   title: string;
   columns: number;
+  /** Marks the column matching "now" so it can be visually emphasised. */
+  isColumnCurrent?: (index: number) => boolean;
 };
 
 export const GanttContentHeader: FC<GanttContentHeaderProps> = ({
   title,
   columns,
   renderHeaderItem,
+  isColumnCurrent,
 }) => {
   const id = useId();
 
   return (
     <div
-      className="sticky top-0 z-20 grid w-full shrink-0 bg-background/90 backdrop-blur-sm"
+      className="sticky top-0 z-20 grid w-full shrink-0 border-b border-border bg-background/95 backdrop-blur-sm"
       style={{ height: "var(--gantt-header-height)" }}
     >
       <div>
         <div
-          className="sticky inline-flex whitespace-nowrap px-3 py-2 text-muted-foreground text-xs"
+          className="sticky inline-flex whitespace-nowrap px-3 py-2 font-medium text-foreground/70 text-xs"
           style={{ left: "var(--gantt-sidebar-width)" }}
         >
           <p>{title}</p>
@@ -41,7 +44,11 @@ export const GanttContentHeader: FC<GanttContentHeaderProps> = ({
       >
         {Array.from({ length: columns }).map((_, index) => (
           <div
-            className="shrink-0 bg-muted/15 py-1 text-center text-xs"
+            className={cn(
+              "shrink-0 border-r border-border/50 py-1 text-center text-xs text-muted-foreground",
+              isColumnCurrent?.(index) &&
+                "bg-primary/5 font-medium text-foreground",
+            )}
             key={`${id}-${index}`}
           >
             {renderHeaderItem(index)}
@@ -54,6 +61,7 @@ export const GanttContentHeader: FC<GanttContentHeaderProps> = ({
 
 const DailyHeader: FC = () => {
   const gantt = useGanttContext();
+  const now = dayjs();
 
   return gantt.timelineData.map((year) =>
     year.quarters
@@ -62,6 +70,11 @@ const DailyHeader: FC = () => {
         <div className="relative flex flex-col" key={`${year.year}-${index}`}>
           <GanttContentHeader
             columns={month.days}
+            isColumnCurrent={(item) =>
+              now.year() === year.year &&
+              now.month() === index &&
+              now.date() === item + 1
+            }
             renderHeaderItem={(item: number) => (
               <div className="flex items-center justify-center gap-1">
                 <p>
@@ -94,11 +107,15 @@ const DailyHeader: FC = () => {
 
 const MonthlyHeader: FC = () => {
   const gantt = useGanttContext();
+  const now = dayjs();
 
   return gantt.timelineData.map((year) => (
     <div className="relative flex flex-col" key={year.year}>
       <GanttContentHeader
         columns={year.quarters.flatMap((quarter) => quarter.months).length}
+        isColumnCurrent={(item) =>
+          now.year() === year.year && now.month() === item
+        }
         renderHeaderItem={(item: number) => (
           <p>{dayjs(new Date(year.year, item, 1)).format("MMM")}</p>
         )}
@@ -113,6 +130,7 @@ const MonthlyHeader: FC = () => {
 
 const QuarterlyHeader: FC = () => {
   const gantt = useGanttContext();
+  const now = dayjs();
 
   return gantt.timelineData.map((year) =>
     year.quarters.map((quarter, quarterIndex) => (
@@ -122,6 +140,9 @@ const QuarterlyHeader: FC = () => {
       >
         <GanttContentHeader
           columns={quarter.months.length}
+          isColumnCurrent={(item) =>
+            now.year() === year.year && now.month() === quarterIndex * 3 + item
+          }
           renderHeaderItem={(item: number) => (
             <p>
               {dayjs(new Date(year.year, quarterIndex * 3 + item, 1)).format(

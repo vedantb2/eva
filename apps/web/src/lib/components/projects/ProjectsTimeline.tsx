@@ -1,39 +1,53 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useRef, useEffect } from "react";
+import type { MutableRefObject } from "react";
 import type { FunctionReturnType } from "convex/server";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
-import dayjs from "@conductor/shared/dates";
 import {
   GanttProvider,
   GanttSidebar,
-  GanttSidebarGroup,
   GanttSidebarItem,
   GanttTimeline,
   GanttHeader,
   GanttFeatureList,
-  GanttFeatureListGroup,
   GanttFeatureItem,
   GanttToday,
+  useGanttContext,
   type GanttFeature,
   type GanttStatus,
+  type Range,
 } from "@conductor/ui";
 import {
   phaseConfig,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { TimelineBar } from "./_components/TimelineBar";
+import { TimelineSidebarMeta } from "./_components/TimelineSidebarMeta";
+import { TimelineToolbar } from "./_components/TimelineToolbar";
+import { UnscheduledProjectsSection } from "./_components/UnscheduledProjectsSection";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
+type ProjectProgress = FunctionReturnType<
+  typeof api.projects.listTaskProgress
+>[number];
 
 interface ProjectsTimelineProps {
   projects: Project[];
   basePath: string;
+  range: Range;
+  zoom: number;
+  onRangeChange: (range: Range) => void;
+  onZoomChange: (zoom: number) => void;
 }
 
+// status.color is only used by the sidebar dot fallback (we supply a phase icon
+// instead), but GanttFeature requires it, so map phases to their bar colour.
 const phaseStatusMap: Record<ProjectPhase, GanttStatus> = {
   draft: {
     id: "draft",
@@ -68,12 +82,36 @@ const phaseStatusMap: Record<ProjectPhase, GanttStatus> = {
   },
 };
 
+/** Lives inside GanttProvider so it can read scrollToToday from context and
+ *  hand it to the toolbar, which renders outside the provider. */
+function GanttTodayBridge({
+  targetRef,
+}: {
+  targetRef: MutableRefObject<(() => void) | null>;
+}) {
+  const { scrollToToday } = useGanttContext();
+  useEffect(() => {
+    targetRef.current = scrollToToday ?? null;
+    return () => {
+      targetRef.current = null;
+    };
+  }, [scrollToToday, targetRef]);
+  return null;
+}
+
 export function ProjectsTimeline({
   projects,
   basePath,
+  range,
+  zoom,
+  onRangeChange,
+  onZoomChange,
 }: ProjectsTimelineProps) {
   const navigate = useNavigate();
   const { repo } = useRepo();
+  const progressList = useQuery(api.projects.listTaskProgress, {
+    repoId: repo._id,
+  });
   const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
     (localStore, args) => {
       const currentList = localStore.getQuery(api.projects.list, {
@@ -114,16 +152,20 @@ export function ProjectsTimeline({
     },
   );
 
-  const { features, unscheduledCount, projectIdMap, phaseMap } = useMemo(() => {
+  const progressMap = useMemo(() => {
+    const map = new Map<string, ProjectProgress>();
+    for (const entry of progressList ?? []) map.set(entry.projectId, entry);
+    return map;
+  }, [progressList]);
+
+  const { features, scheduledProjectMap, unscheduled } = useMemo(() => {
     const scheduled: GanttFeature[] = [];
-    const idMap = new Map<string, Id<"projects">>();
-    const phases = new Map<string, ProjectPhase>();
-    let unscheduled = 0;
+    const map = new Map<string, Project>();
+    const noDate: Project[] = [];
 
     for (const project of projects) {
       if (project.projectStartDate && project.projectEndDate) {
-        idMap.set(project._id, project._id);
-        phases.set(project._id, project.phase);
+        map.set(project._id, project);
         scheduled.push({
           id: project._id,
           name: project.title,
@@ -132,17 +174,18 @@ export function ProjectsTimeline({
           status: phaseStatusMap[project.phase],
         });
       } else {
-        unscheduled++;
+        noDate.push(project);
       }
     }
 
     return {
       features: scheduled,
-      unscheduledCount: unscheduled,
-      projectIdMap: idMap,
-      phaseMap: phases,
+      scheduledProjectMap: map,
+      unscheduled: noDate,
     };
   }, [projects]);
+
+  const scrollToTodayRef = useRef<(() => void) | null>(null);
 
   const handleSelectItem = useCallback(
     (id: string) => {
@@ -154,84 +197,105 @@ export function ProjectsTimeline({
   const handleMove = useCallback(
     (id: string, startAt: Date, endAt: Date | null) => {
       if (!endAt) return;
-      const projectId = projectIdMap.get(id);
-      if (!projectId) return;
+      const project = scheduledProjectMap.get(id);
+      if (!project) return;
       updateProject({
-        id: projectId,
+        id: project._id,
         projectStartDate: startAt.getTime(),
         projectEndDate: endAt.getTime(),
       });
     },
-    [updateProject, projectIdMap],
+    [updateProject, scheduledProjectMap],
+  );
+
+  const handleSchedule = useCallback(
+    (id: Id<"projects">, start: number, end: number) => {
+      updateProject({ id, projectStartDate: start, projectEndDate: end });
+    },
+    [updateProject],
   );
 
   if (projects.length === 0) return null;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 animate-in fade-in duration-300">
-      {features.length > 0 && (
-        <GanttProvider range="monthly" zoom={100} className="flex-1 min-h-0">
-          <GanttSidebar>
-            <GanttSidebarGroup name="Projects">
-              {features.map((feature) => (
+      <TimelineToolbar
+        range={range}
+        zoom={zoom}
+        onRangeChange={onRangeChange}
+        onZoomChange={onZoomChange}
+        onToday={() => scrollToTodayRef.current?.()}
+      />
+
+      {features.length > 0 ? (
+        <GanttProvider range={range} zoom={zoom} className="min-h-0 flex-1">
+          <GanttTodayBridge targetRef={scrollToTodayRef} />
+          <GanttSidebar headerTitle="Projects" headerMeta="Progress">
+            {features.map((feature) => {
+              const project = scheduledProjectMap.get(feature.id);
+              const phase = project?.phase ?? "draft";
+              const config = phaseConfig[phase];
+              const Icon = config.icon;
+              return (
                 <GanttSidebarItem
                   key={feature.id}
                   feature={feature}
                   onSelectItem={handleSelectItem}
+                  icon={<Icon size={14} className={config.text} />}
+                  meta={
+                    project ? (
+                      <TimelineSidebarMeta
+                        progress={progressMap.get(feature.id)}
+                        lead={project.projectLead}
+                        members={project.members}
+                        fallbackUserId={project.userId}
+                      />
+                    ) : undefined
+                  }
                 />
-              ))}
-            </GanttSidebarGroup>
+              );
+            })}
           </GanttSidebar>
           <GanttTimeline>
             <GanttHeader />
             <GanttFeatureList>
-              <GanttFeatureListGroup>
-                {features.map((feature) => {
-                  const phase = phaseMap.get(feature.id) ?? "draft";
-                  const config = phaseConfig[phase];
-                  const durationDays = Math.max(
-                    1,
-                    dayjs(feature.endAt).diff(dayjs(feature.startAt), "day") +
-                      1,
-                  );
-
-                  return (
-                    <div className="flex" key={feature.id}>
-                      <button
-                        onClick={() => handleSelectItem(feature.id)}
-                        type="button"
-                        className="contents"
-                      >
-                        <GanttFeatureItem {...feature} onMove={handleMove}>
-                          <div
-                            className={`absolute inset-y-0 left-0 w-1 rounded-l-md ${config.bar}`}
-                          />
-                          <p
-                            className={`flex-1 truncate pl-2 text-xs font-medium ${config.text}`}
-                          >
-                            {feature.name}
-                          </p>
-                          <span className="ml-auto rounded bg-background/60 px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70">
-                            {durationDays}d
-                          </span>
-                        </GanttFeatureItem>
-                      </button>
-                    </div>
-                  );
-                })}
-              </GanttFeatureListGroup>
+              {features.map((feature) => {
+                const phase =
+                  scheduledProjectMap.get(feature.id)?.phase ?? "draft";
+                return (
+                  <div className="flex" key={feature.id}>
+                    <button
+                      onClick={() => handleSelectItem(feature.id)}
+                      type="button"
+                      className="contents"
+                    >
+                      <GanttFeatureItem {...feature} onMove={handleMove}>
+                        <TimelineBar
+                          name={feature.name}
+                          phase={phase}
+                          progress={progressMap.get(feature.id)}
+                        />
+                      </GanttFeatureItem>
+                    </button>
+                  </div>
+                );
+              })}
             </GanttFeatureList>
             <GanttToday />
           </GanttTimeline>
         </GanttProvider>
+      ) : (
+        <div className="flex flex-1 items-center justify-center rounded-surface border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          No projects have a start and end date yet. Schedule one below to see
+          it on the timeline.
+        </div>
       )}
 
-      {unscheduledCount > 0 && (
-        <p className="px-1 text-xs text-muted-foreground">
-          {unscheduledCount} unscheduled{" "}
-          {unscheduledCount === 1 ? "project" : "projects"}
-        </p>
-      )}
+      <UnscheduledProjectsSection
+        projects={unscheduled}
+        basePath={basePath}
+        onSchedule={handleSchedule}
+      />
     </div>
   );
 }

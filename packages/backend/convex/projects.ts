@@ -4,6 +4,7 @@ export {
   getActive,
   getTaskCount,
   getTaskProgress,
+  listTaskProgress,
   countBuilding,
   getProjectPrCreationData,
 } from "./_projects/queries";

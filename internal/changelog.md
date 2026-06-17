@@ -1,5 +1,13 @@
 # Changelog
 
+## Testing Arena: public release - 2026-06-17
+
+- Testing Arena is now visible to all users — removed the dev-only gate on its sidebar nav item.
+- `startEvaluation` and the new `startFix` now verify repo access (and that the doc belongs to the target repo), closing a gap where any signed-in user could run evals on any repo.
+- The eval workflow was split so failures no longer auto-fix; "Fix issues" / "Retry fix" buttons start the fix on demand and surface the resulting PR.
+- UI Testing tab now shows an explicit "coming soon" state instead of a non-functional preview, with a "Soon" badge on the tab.
+- "Test all documents" skips docs without requirements, survives an individual failure, and the modal copy/button text were cleaned up.
+
 ## Testing Arena: opt-in eval fixes and safer test runs - 2026-06-16
 
 - Eval fixes are now opt-in per report — "Fix issues" runs only when you click it, instead of auto-starting after every failed test.

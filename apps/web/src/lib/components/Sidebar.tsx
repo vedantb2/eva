@@ -284,7 +284,6 @@ export function Sidebar() {
             name: "Testing Arena",
             href: `${repoBasePath}/testing-arena`,
             icon: TestingArenaIcon,
-            devOnly: true,
           },
         ],
       },

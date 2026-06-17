@@ -64,17 +64,28 @@ export function TestingArenaSidebar({
     return q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : docs;
   }, [docs, searchQuery]);
 
+  // Only docs with requirements can be evaluated; the rest are skipped.
+  const testableDocs = useMemo(
+    () => (docs ?? []).filter((d) => (d.requirements?.length ?? 0) > 0),
+    [docs],
+  );
+
   const handleTestAll = async () => {
-    if (!docs || docs.length === 0) return;
     setShowTestAllModal(false);
+    if (testableDocs.length === 0) return;
     setIsTestingAll(true);
     try {
-      for (const doc of docs) {
-        await startEvaluation({
-          docId: doc._id,
-          repoId,
-          branchName: branch !== "main" ? branch : undefined,
-        });
+      for (const doc of testableDocs) {
+        // One failure should not abort the whole batch.
+        try {
+          await startEvaluation({
+            docId: doc._id,
+            repoId,
+            branchName: branch !== "main" ? branch : undefined,
+          });
+        } catch {
+          // Skip this doc and continue with the rest.
+        }
       }
     } finally {
       setIsTestingAll(false);
@@ -171,21 +182,25 @@ export function TestingArenaSidebar({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Test All Documents</DialogTitle>
+            <DialogTitle>Test all documents</DialogTitle>
           </DialogHeader>
           <p className="text-muted-foreground">
-            Are you sure you want to run tests on all {docs?.length ?? 0}{" "}
-            documents?
+            Run a code evaluation for each of the {testableDocs.length} document
+            {testableDocs.length === 1 ? "" : "s"} with requirements?
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            This will evaluate each document against your codebase sequentially.
+            Each runs against your codebase sequentially. Documents without
+            requirements are skipped.
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowTestAllModal(false)}>
               Cancel
             </Button>
-            <Button onClick={handleTestAll} disabled={isTestingAll}>
-              {isTestingAll ? <Spinner size="sm" /> : "Yes save me Eva"}
+            <Button
+              onClick={handleTestAll}
+              disabled={isTestingAll || testableDocs.length === 0}
+            >
+              {isTestingAll ? <Spinner size="sm" /> : "Run all tests"}
             </Button>
           </DialogFooter>
         </DialogContent>

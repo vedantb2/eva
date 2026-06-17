@@ -625,7 +625,10 @@ export function Sidebar() {
                           className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
                           title="Repo home"
                         >
-                          <IconHome size={16} />
+                          <IconHome
+                            size={16}
+                            className="text-sidebar-primary"
+                          />
                         </Button>
                       )}
                       {!collapsed && (

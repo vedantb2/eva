@@ -729,4 +729,260 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
       });
     },
   );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Eva document tools (the `docs` table — design docs/PRDs stored on Eva)
+  //
+  // NOTE: distinct from `get_document`, which reads a row from a CONNECTED
+  // repo's database. These operate on Eva's own docs.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  server.tool(
+    "create_eva_doc",
+    "Create a design document (PRD) stored on the Eva platform, attached to one of your repos. This is Eva's own document store — NOT a connected repo's database (use get_document for that).",
+    {
+      repoName: z
+        .string()
+        .describe(
+          'Repo to attach the doc to (e.g. "eva" or "vvedantb/eva"). Resolved against your connected repos.',
+        ),
+      title: z.string().describe("Document title"),
+      content: z.string().describe("Document body as markdown"),
+      app: z
+        .string()
+        .optional()
+        .describe(
+          'App name within a monorepo (e.g. "web"). Required when a repo has multiple apps.',
+        ),
+    },
+    async ({ repoName, title, content, app }) => {
+      const { userId } = await getContext();
+      const resolved = await resolveRepoByName(repoName, app, userId);
+      if ("isError" in resolved) return resolved;
+      const { repo } = resolved;
+
+      const docId = await ctx.runAction(internal.mcp.nodeActions.createEvaDoc, {
+        clerkUserId,
+        repoId: repo.id,
+        title,
+        content,
+      });
+
+      return textResult({
+        docId,
+        repo: `${repo.owner}/${repo.name}`,
+        title,
+        status: "created",
+      });
+    },
+  );
+
+  server.tool(
+    "get_eva_doc",
+    "Get a single Eva design document (PRD) by its Eva doc ID. Returns null if it does not exist or you lack access.",
+    {
+      docId: z
+        .string()
+        .describe("The Eva doc ID (from create_eva_doc or list_eva_docs)"),
+    },
+    async ({ docId }) => {
+      // Resolve identity first (ensures the Eva user row exists) so the
+      // as-user query can authenticate.
+      await getContext();
+      const doc = await ctx.runAction(internal.mcp.nodeActions.getEvaDoc, {
+        clerkUserId,
+        docId,
+      });
+      return textResult({ document: doc });
+    },
+  );
+
+  server.tool(
+    "list_eva_docs",
+    "List all Eva design documents (PRDs) attached to one of your repos.",
+    {
+      repoName: z
+        .string()
+        .describe(
+          'Repo whose docs to list (e.g. "eva"). Resolved against your connected repos.',
+        ),
+      app: z
+        .string()
+        .optional()
+        .describe(
+          "App name within a monorepo. Required when a repo has multiple apps.",
+        ),
+    },
+    async ({ repoName, app }) => {
+      const { userId } = await getContext();
+      const resolved = await resolveRepoByName(repoName, app, userId);
+      if ("isError" in resolved) return resolved;
+      const { repo } = resolved;
+
+      const docs = await ctx.runAction(internal.mcp.nodeActions.listEvaDocs, {
+        clerkUserId,
+        repoId: repo.id,
+      });
+      return textResult({ repo: `${repo.owner}/${repo.name}`, docs });
+    },
+  );
+
+  server.tool(
+    "update_eva_doc",
+    "Update an Eva design document (PRD). Only the fields you pass are changed.",
+    {
+      docId: z.string().describe("The Eva doc ID to update"),
+      title: z.string().optional().describe("New title"),
+      content: z.string().optional().describe("New markdown body"),
+      description: z.string().optional().describe("New short description"),
+    },
+    async ({ docId, title, content, description }) => {
+      await getContext();
+      await ctx.runAction(internal.mcp.nodeActions.updateEvaDoc, {
+        clerkUserId,
+        docId,
+        title,
+        content,
+        description,
+      });
+      return textResult({ docId, status: "updated" });
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Team + artifact tools
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  async function getUserTeams(
+    userId: string,
+  ): Promise<{ id: string; name: string }[]> {
+    return ctx.runAction(internal.mcp.nodeActions.listUserTeams, { userId });
+  }
+
+  async function resolveTeam(
+    teamId: string | undefined,
+    userId: string,
+  ): Promise<{ teamId: string } | ReturnType<typeof errorResult>> {
+    const teams = await getUserTeams(userId);
+    if (teams.length === 0) {
+      return errorResult(
+        "You are not a member of any team. Create a team in Eva before saving artifacts.",
+      );
+    }
+
+    let chosen: { id: string; name: string } | undefined;
+    if (teamId) {
+      chosen = teams.find((t) => t.id === teamId);
+      if (!chosen) {
+        const available = teams.map((t) => `${t.name} (${t.id})`).join(", ");
+        return errorResult(
+          `Team "${teamId}" not found or you are not a member. Your teams: ${available}`,
+        );
+      }
+    } else if (teams.length === 1) {
+      chosen = teams[0];
+    } else {
+      const available = teams.map((t) => `${t.name} (${t.id})`).join(", ");
+      return errorResult(
+        `You belong to multiple teams. Pass teamId to choose one (call list_teams). Your teams: ${available}`,
+      );
+    }
+
+    if (!chosen) return errorResult("Could not resolve a team.");
+    return { teamId: chosen.id };
+  }
+
+  server.tool(
+    "list_teams",
+    "List the teams you belong to on Eva. Use this to find a teamId for create_artifact.",
+    {},
+    async () => {
+      const { userId } = await getContext();
+      const teams = await getUserTeams(userId);
+      return textResult(teams);
+    },
+  );
+
+  server.tool(
+    "create_artifact",
+    `Save an HTML artifact to Eva and get back a hosted link to view it.
+
+Provide a self-contained HTML document (inline CSS/JS, or CDN links). Eva stores it and hosts it in a sandboxed iframe at the returned viewUrl. The link is viewable by members of the bound team while signed in to Eva.`,
+    {
+      name: z.string().describe("Artifact name/title"),
+      html: z
+        .string()
+        .describe("The full, self-contained HTML document to host"),
+      description: z.string().optional().describe("Optional short description"),
+      teamId: z
+        .string()
+        .optional()
+        .describe(
+          "Team to bind the artifact to (from list_teams). Optional if you belong to exactly one team.",
+        ),
+      declaredTools: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Optional list of Eva MCP tool names the artifact calls (advisory).",
+        ),
+    },
+    async ({ name, html, description, teamId, declaredTools }) => {
+      const { userId } = await getContext();
+      const resolved = await resolveTeam(teamId, userId);
+      if ("isError" in resolved) return resolved;
+
+      const result = await ctx.runAction(
+        internal.mcp.nodeActions.createArtifact,
+        {
+          clerkUserId,
+          name,
+          html,
+          description,
+          boundTeamId: resolved.teamId,
+          declaredTools: declaredTools ?? [],
+        },
+      );
+
+      return textResult({
+        artifactId: result.artifactId,
+        viewUrl: result.viewUrl,
+        name,
+        status: "created",
+      });
+    },
+  );
+
+  server.tool(
+    "get_artifact",
+    "Get a saved Eva artifact by its ID, including its hosted view URL.",
+    {
+      artifactId: z
+        .string()
+        .describe("The artifact ID (from create_artifact or list_artifacts)"),
+    },
+    async ({ artifactId }) => {
+      await getContext();
+      const result = await ctx.runAction(internal.mcp.nodeActions.getArtifact, {
+        clerkUserId,
+        artifactId,
+      });
+      if (result === null) return textResult({ artifact: null });
+      return textResult(result);
+    },
+  );
+
+  server.tool(
+    "list_artifacts",
+    "List all Eva artifacts across the teams you belong to, each with its hosted view URL.",
+    {},
+    async () => {
+      await getContext();
+      const artifacts = await ctx.runAction(
+        internal.mcp.nodeActions.listArtifacts,
+        { clerkUserId },
+      );
+      return textResult({ artifacts });
+    },
+  );
 }

@@ -339,6 +339,18 @@ function getBootstrapSecret(): string {
   return secret;
 }
 
+/** Eva's own Convex cloud URL (derived from the .convex.site HTTP URL). */
+function getEvaConvexCloudUrl(): string {
+  return getConvexSiteUrl().replace(".convex.site", ".convex.cloud");
+}
+
+/** Deployed web app origin, used to build hosted artifact view links. */
+function getWebAppUrl(): string {
+  const url = process.env.WEB_APP_URL;
+  if (!url) throw new Error("WEB_APP_URL is required");
+  return url.replace(/\/$/, "");
+}
+
 async function getDeployKey(): Promise<string> {
   if (cachedDeployKey && cachedDeployKey.expiresAt > Date.now()) {
     return cachedDeployKey.value;
@@ -443,6 +455,34 @@ async function runMutationAsUser(
 ): Promise<JsonValue> {
   const jwt = await signUserJwt(clerkUserId);
   const response = await fetch(`${convexUrl}/api/mutation`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ path: functionPath, args, format: "json" }),
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+  const json = await response.json();
+  const result = parseConvexResponse(jsonValue.parse(json));
+  return result.value;
+}
+
+/**
+ * Call a Convex query as the given user (mirrors runMutationAsUser but hits
+ * /api/query). Reuses the signed user JWT so the query's authQuery wrapper and
+ * access checks (hasRepoAccess/hasTeamAccess) apply automatically.
+ */
+async function runQueryAsUser(
+  convexUrl: string,
+  clerkUserId: string,
+  functionPath: string,
+  args: Record<string, JsonValue>,
+): Promise<JsonValue> {
+  const jwt = await signUserJwt(clerkUserId);
+  const response = await fetch(`${convexUrl}/api/query`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -841,6 +881,219 @@ export const createTasksBatch = internalAction({
       mutationArgs,
     );
     return result;
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Eva document (docs table) actions
+//
+// These operate on Eva's OWN docs (design docs/PRDs), not a connected repo's
+// database. Reads use runQueryAsUser and writes use runMutationAsUser, so the
+// docs.ts authQuery/authMutation access checks (hasRepoAccess) apply.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const createEvaDoc = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    repoId: v.string(),
+    title: v.string(),
+    content: v.string(),
+  },
+  returns: v.string(),
+  handler: async (_ctx, { clerkUserId, repoId, title, content }) => {
+    const docId = await runMutationAsUser(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      "docs:create",
+      { repoId, title, content },
+    );
+    if (typeof docId !== "string") {
+      throw new Error("Unexpected response from docs:create");
+    }
+    return docId;
+  },
+});
+
+export const getEvaDoc = internalAction({
+  args: { clerkUserId: v.string(), docId: v.string() },
+  returns: v.any(),
+  handler: async (_ctx, { clerkUserId, docId }) => {
+    return runQueryAsUser(getEvaConvexCloudUrl(), clerkUserId, "docs:get", {
+      id: docId,
+    });
+  },
+});
+
+export const listEvaDocs = internalAction({
+  args: { clerkUserId: v.string(), repoId: v.string() },
+  returns: v.any(),
+  handler: async (_ctx, { clerkUserId, repoId }) => {
+    return runQueryAsUser(getEvaConvexCloudUrl(), clerkUserId, "docs:list", {
+      repoId,
+    });
+  },
+});
+
+export const updateEvaDoc = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    docId: v.string(),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+    description: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (
+    _ctx,
+    { clerkUserId, docId, title, content, description },
+  ) => {
+    const mutationArgs: Record<string, JsonValue> = { id: docId };
+    if (title !== undefined) mutationArgs.title = title;
+    if (content !== undefined) mutationArgs.content = content;
+    if (description !== undefined) mutationArgs.description = description;
+    await runMutationAsUser(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      "docs:update",
+      mutationArgs,
+    );
+    return null;
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Team + artifact actions
+// ─────────────────────────────────────────────────────────────────────────────
+
+const teamSchema = z.object({ id: z.string(), name: z.string() });
+
+export const listUserTeams = internalAction({
+  args: { userId: v.string() },
+  returns: v.array(v.object({ id: v.string(), name: v.string() })),
+  handler: async (_ctx, { userId }) => {
+    const deployKey = await getDeployKey();
+    const source = wrapQueryHandler(
+      `const userId = ${JSON.stringify(userId)};
+      const memberships = await ctx.db.query("teamMembers").withIndex("by_user", q => q.eq("userId", userId)).collect();
+      const teams = await Promise.all(memberships.map(m => ctx.db.get(m.teamId)));
+      return teams.filter(Boolean).map(t => ({ id: t._id, name: t.name }));`,
+    );
+    const result = await runTestQueryRemote(
+      getEvaConvexCloudUrl(),
+      deployKey,
+      source,
+    );
+    return z.array(teamSchema).parse(result.value);
+  },
+});
+
+export const createArtifact = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    name: v.string(),
+    html: v.string(),
+    description: v.optional(v.string()),
+    boundTeamId: v.string(),
+    declaredTools: v.array(v.string()),
+  },
+  returns: v.object({ artifactId: v.string(), viewUrl: v.string() }),
+  handler: async (
+    _ctx,
+    { clerkUserId, name, html, description, boundTeamId, declaredTools },
+  ) => {
+    const convexUrl = getEvaConvexCloudUrl();
+
+    // 1. Get a short-lived storage upload URL (as the user).
+    const uploadUrl = await runMutationAsUser(
+      convexUrl,
+      clerkUserId,
+      "artifacts:generateUploadUrl",
+      {},
+    );
+    if (typeof uploadUrl !== "string") {
+      throw new Error("Unexpected response from artifacts:generateUploadUrl");
+    }
+
+    // 2. Upload the HTML bytes to Convex storage.
+    const uploadResponse = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/html" },
+      body: html,
+    });
+    if (!uploadResponse.ok) {
+      throw new Error(`Storage upload failed: HTTP ${uploadResponse.status}`);
+    }
+    const { storageId } = z
+      .object({ storageId: z.string() })
+      .parse(await uploadResponse.json());
+
+    // 3. Create the artifact record (as the user; enforces team membership).
+    const createArgs: Record<string, JsonValue> = {
+      name,
+      boundTeamId,
+      declaredTools,
+      htmlStorageId: storageId,
+    };
+    if (description) createArgs.description = description;
+    const artifactId = await runMutationAsUser(
+      convexUrl,
+      clerkUserId,
+      "artifacts:create",
+      createArgs,
+    );
+    if (typeof artifactId !== "string") {
+      throw new Error("Unexpected response from artifacts:create");
+    }
+
+    return {
+      artifactId,
+      viewUrl: `${getWebAppUrl()}/artifacts/${artifactId}`,
+    };
+  },
+});
+
+export const getArtifact = internalAction({
+  args: { clerkUserId: v.string(), artifactId: v.string() },
+  returns: v.any(),
+  handler: async (_ctx, { clerkUserId, artifactId }) => {
+    const artifact = await runQueryAsUser(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      "artifacts:get",
+      { id: artifactId },
+    );
+    if (artifact === null) return null;
+    return {
+      artifact,
+      viewUrl: `${getWebAppUrl()}/artifacts/${artifactId}`,
+    };
+  },
+});
+
+export const listArtifacts = internalAction({
+  args: { clerkUserId: v.string() },
+  returns: v.any(),
+  handler: async (_ctx, { clerkUserId }) => {
+    const artifacts = await runQueryAsUser(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      "artifacts:listAll",
+      {},
+    );
+    if (!Array.isArray(artifacts)) return [];
+    const webAppUrl = getWebAppUrl();
+    return artifacts.map((artifact) => {
+      const id =
+        artifact !== null &&
+        typeof artifact === "object" &&
+        !Array.isArray(artifact)
+          ? artifact._id
+          : null;
+      return {
+        artifact,
+        viewUrl: typeof id === "string" ? `${webAppUrl}/artifacts/${id}` : null,
+      };
+    });
   },
 });
 

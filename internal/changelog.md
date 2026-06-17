@@ -1,5 +1,12 @@
 # Changelog
 
+## Eva document & artifact MCP tools - 2026-06-17
+
+- External MCP clients (e.g. Claude with the Eva connector) can now create, read, list, and update Eva design documents (PRDs), so docs can be authored and edited without opening the web app.
+- New `create_artifact` tool saves a self-contained HTML artifact built in Claude into Eva and returns a hosted view link, letting artifacts be persisted and shared straight from the conversation.
+- `get_artifact` / `list_artifacts` retrieve saved artifacts with their view links, and `list_teams` surfaces the teams an artifact can be bound to.
+- All new tools act as the calling user and reuse Eva's existing repo/team access checks; the write tools stay out of the read-only hosted-artifact allowlist so sandboxed artifacts can't invoke them.
+
 ## Projects timeline redesigned as Linear-style roadmap - 2026-06-17
 
 - Project bars now show task-completion progress as a filled portion (e.g. 72% done) with a per-status tooltip breakdown, replacing the flat single-color bars.

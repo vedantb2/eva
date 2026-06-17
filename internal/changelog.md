@@ -4,7 +4,7 @@
 
 - Upload Claude "Cowork" artifacts (self-contained HTML dashboards) into eva and open them in-app, so live dashboards can be deployed and shared internally instead of living only in the Cowork host.
 - Each artifact runs in a sandboxed, isolated iframe; an injected bridge resolves its `window.cowork.callMcpTool` calls against eva's read-only MCP tools using the viewer's signed-in session — no OAuth, and the artifact runs unmodified.
-- Tool calls are restricted to the read-only MCP tools (postgres_query, query_table, run_query, get_document, count_table, list_repos) and enforce per-call repo access, so an artifact can only read data the viewer already has access to.
+- Tool calls are restricted to read-only data tools across Postgres, the repo's Convex deployment, and Supabase (each read-only enforced) and re-check repo access per call, so an artifact can only read data the viewer already has access to. Write tools (e.g. task creation) are blocked.
 - Artifacts are reachable from a global Artifacts section and a per-team Artifacts tab; they bind to a team for visibility and can be opened or deleted by any member of that team.
 
 ## Testing Arena: public release - 2026-06-17

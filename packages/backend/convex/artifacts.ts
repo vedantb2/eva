@@ -68,8 +68,11 @@ export const generateUploadUrl = authMutation({
 });
 
 // Tools a hosted artifact is allowed to invoke through the bridge. Read-only
-// only: no task creation or other write tools. This whitelist — not the
-// artifact's declared `mcpTools` — is the runtime gate.
+// only: no task creation or other write tools. This list — not the artifact's
+// declared `mcpTools` — is the runtime gate. Supabase tools are allowed by
+// prefix: eva only ever registers the read-only Supabase subset (its remote is
+// pinned to ?read_only=true and filtered by READ_ONLY_SUPABASE_TOOLS in
+// mcp/supabase.ts), so no write Supabase tool can reach the bridge.
 const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   "postgres_query",
   "query_table",
@@ -77,7 +80,12 @@ const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   "get_document",
   "count_table",
   "list_repos",
+  "list_tables",
 ]);
+
+function isReadOnlyTool(name: string): boolean {
+  return READ_ONLY_TOOLS.has(name) || name.startsWith("supabase_");
+}
 
 /** Records an uploaded artifact against a team. Caller must be a member of that team. */
 export const create = authMutation({
@@ -261,6 +269,71 @@ async function resolveCreds(
   return creds;
 }
 
+// Read-only tools that aren't dispatched directly above — Supabase (discovered
+// dynamically from its remote MCP) and list_tables — are forwarded to eva's MCP
+// server via a single stateless tools/call, the same path the hosted /mcp
+// endpoint uses. This keeps the bridge in sync with the server's tool registry
+// without re-implementing each tool here.
+async function callViaMcpServer(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+  name: string,
+  argsJson: string,
+): Promise<ToolResult> {
+  const clerkUserId = await ctx.runQuery(internal.auth.getUserClerkId, {
+    userId,
+  });
+  if (!clerkUserId) return errorResult("Could not resolve your account.");
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: { name, arguments: JSON.parse(argsJson) },
+  });
+  const res = await ctx.runAction(internal.mcp.nodeActions.handleMcpRequest, {
+    clerkUserId,
+    body,
+  });
+  return parseMcpResponse(res.body);
+}
+
+const mcpContentItem = z
+  .object({ type: z.string(), text: z.string().optional() })
+  .passthrough();
+const mcpRpcResponse = z.object({
+  result: z
+    .object({
+      content: z.array(mcpContentItem).optional(),
+      isError: z.boolean().optional(),
+    })
+    .passthrough()
+    .optional(),
+  error: z.object({ message: z.string() }).passthrough().optional(),
+});
+
+function textItem(text: string): { type: "text"; text: string } {
+  return { type: "text", text };
+}
+
+/** Normalises a JSON-RPC tools/call response into the strict text envelope. */
+function parseMcpResponse(body: string): ToolResult {
+  let rpc: z.infer<typeof mcpRpcResponse>;
+  try {
+    rpc = mcpRpcResponse.parse(JSON.parse(body));
+  } catch {
+    return errorResult("Unexpected response from the MCP server.");
+  }
+  if (rpc.error) return errorResult(rpc.error.message);
+  const items = rpc.result?.content ?? [];
+  const content = items.map((item) =>
+    textItem(typeof item.text === "string" ? item.text : JSON.stringify(item)),
+  );
+  if (content.length === 0) {
+    content.push(textItem(JSON.stringify(rpc.result ?? {})));
+  }
+  return rpc.result?.isError ? { content, isError: true } : { content };
+}
+
 export const callTool = authAction({
   args: { toolName: v.string(), args: v.string() },
   returns: v.object({
@@ -269,7 +342,7 @@ export const callTool = authAction({
   }),
   handler: async (ctx, { toolName, args }): Promise<ToolResult> => {
     const name = bareToolName(toolName);
-    if (!READ_ONLY_TOOLS.has(name)) {
+    if (!isReadOnlyTool(name)) {
       return errorResult(
         `Tool "${name}" is not available in hosted artifacts.`,
       );
@@ -392,9 +465,9 @@ export const callTool = authAction({
         }
 
         default:
-          return errorResult(
-            `Tool "${name}" is not available in hosted artifacts.`,
-          );
+          // Allowed read-only tools not dispatched directly above (Supabase,
+          // list_tables) go through eva's MCP server.
+          return await callViaMcpServer(ctx, userId, name, args);
       }
     } catch (err) {
       return errorResult(err instanceof Error ? err.message : String(err));

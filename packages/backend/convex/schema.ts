@@ -40,12 +40,17 @@ import {
   docVersionDraftFields,
   draftFields,
   evaluationReportFields,
+  artifactFields,
 } from "./validators";
 
 const schema = defineSchema({
   users: defineTable(userFields)
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),
+
+  artifacts: defineTable(artifactFields)
+    .index("by_team", ["boundTeamId"])
+    .index("by_uploader", ["uploadedBy"]),
 
   projects: defineTable(projectFields)
     .index("by_repo", ["repoId"])

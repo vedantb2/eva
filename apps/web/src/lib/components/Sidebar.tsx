@@ -192,6 +192,7 @@ export function Sidebar() {
       "setup",
       "teams",
       "inbox",
+      "artifacts",
       "api",
       "settings",
       "testing",

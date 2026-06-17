@@ -18,6 +18,7 @@ import { Route as GlobalTestingRouteImport } from './routes/_global/testing'
 import { Route as GlobalInboxRouteImport } from './routes/_global/inbox'
 import { Route as GlobalHomeRouteImport } from './routes/_global/home'
 import { Route as GlobalTeamsIndexRouteImport } from './routes/_global/teams/index'
+import { Route as GlobalArtifactsIndexRouteImport } from './routes/_global/artifacts/index'
 import { Route as McpOauthAuthorizeRouteImport } from './routes/mcp/oauth/authorize'
 import { Route as RepoOwnerRepoRouteImport } from './routes/_repo/$owner/$repo'
 import { Route as GlobalSetupIdRouteImport } from './routes/_global/setup/$id'
@@ -26,6 +27,7 @@ import { Route as GlobalSettingsSyncRouteImport } from './routes/_global/setting
 import { Route as GlobalSettingsSandboxesRouteImport } from './routes/_global/settings/sandboxes'
 import { Route as GlobalSettingsPersonalisationRouteImport } from './routes/_global/settings/personalisation'
 import { Route as GlobalSettingsNotificationsRouteImport } from './routes/_global/settings/notifications'
+import { Route as GlobalArtifactsArtifactIdRouteImport } from './routes/_global/artifacts/$artifactId'
 import { Route as GlobalTeamsTeamIdRouteRouteImport } from './routes/_global/teams/$teamId/route'
 import { Route as RepoOwnerRepoIndexRouteImport } from './routes/_repo/$owner/$repo/index'
 import { Route as GlobalTeamsTeamIdIndexRouteImport } from './routes/_global/teams/$teamId/index'
@@ -123,6 +125,11 @@ const GlobalTeamsIndexRoute = GlobalTeamsIndexRouteImport.update({
   path: '/teams/',
   getParentRoute: () => GlobalRoute,
 } as any)
+const GlobalArtifactsIndexRoute = GlobalArtifactsIndexRouteImport.update({
+  id: '/artifacts/',
+  path: '/artifacts/',
+  getParentRoute: () => GlobalRoute,
+} as any)
 const McpOauthAuthorizeRoute = McpOauthAuthorizeRouteImport.update({
   id: '/mcp/oauth/authorize',
   path: '/mcp/oauth/authorize',
@@ -163,6 +170,12 @@ const GlobalSettingsNotificationsRoute =
   GlobalSettingsNotificationsRouteImport.update({
     id: '/settings/notifications',
     path: '/settings/notifications',
+    getParentRoute: () => GlobalRoute,
+  } as any)
+const GlobalArtifactsArtifactIdRoute =
+  GlobalArtifactsArtifactIdRouteImport.update({
+    id: '/artifacts/$artifactId',
+    path: '/artifacts/$artifactId',
     getParentRoute: () => GlobalRoute,
   } as any)
 const GlobalTeamsTeamIdRouteRoute = GlobalTeamsTeamIdRouteRouteImport.update({
@@ -485,6 +498,7 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof GlobalInboxRoute
   '/testing': typeof GlobalTestingRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
+  '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
   '/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
   '/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
@@ -493,6 +507,7 @@ export interface FileRoutesByFullPath {
   '/setup/$id': typeof GlobalSetupIdRoute
   '/$owner/$repo': typeof RepoOwnerRepoRouteWithChildren
   '/mcp/oauth/authorize': typeof McpOauthAuthorizeRoute
+  '/artifacts/': typeof GlobalArtifactsIndexRoute
   '/teams/': typeof GlobalTeamsIndexRoute
   '/$owner/$repo/quick-tasks': typeof RepoOwnerRepoQuickTasksRouteRouteWithChildren
   '/teams/$teamId/$teamTab': typeof GlobalTeamsTeamIdTeamTabRoute
@@ -554,6 +569,7 @@ export interface FileRoutesByTo {
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
   '/testing': typeof GlobalTestingRoute
+  '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
   '/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
   '/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
@@ -561,6 +577,7 @@ export interface FileRoutesByTo {
   '/settings/theme': typeof GlobalSettingsThemeRoute
   '/setup/$id': typeof GlobalSetupIdRoute
   '/mcp/oauth/authorize': typeof McpOauthAuthorizeRoute
+  '/artifacts': typeof GlobalArtifactsIndexRoute
   '/teams': typeof GlobalTeamsIndexRoute
   '/teams/$teamId/$teamTab': typeof GlobalTeamsTeamIdTeamTabRoute
   '/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
@@ -617,6 +634,7 @@ export interface FileRoutesById {
   '/_global/inbox': typeof GlobalInboxRoute
   '/_global/testing': typeof GlobalTestingRoute
   '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
+  '/_global/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
   '/_global/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/_global/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
   '/_global/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
@@ -625,6 +643,7 @@ export interface FileRoutesById {
   '/_global/setup/$id': typeof GlobalSetupIdRoute
   '/_repo/$owner/$repo': typeof RepoOwnerRepoRouteWithChildren
   '/mcp/oauth/authorize': typeof McpOauthAuthorizeRoute
+  '/_global/artifacts/': typeof GlobalArtifactsIndexRoute
   '/_global/teams/': typeof GlobalTeamsIndexRoute
   '/_repo/$owner/$repo/quick-tasks': typeof RepoOwnerRepoQuickTasksRouteRouteWithChildren
   '/_global/teams/$teamId/$teamTab': typeof GlobalTeamsTeamIdTeamTabRoute
@@ -689,6 +708,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/testing'
     | '/teams/$teamId'
+    | '/artifacts/$artifactId'
     | '/settings/notifications'
     | '/settings/personalisation'
     | '/settings/sandboxes'
@@ -697,6 +717,7 @@ export interface FileRouteTypes {
     | '/setup/$id'
     | '/$owner/$repo'
     | '/mcp/oauth/authorize'
+    | '/artifacts/'
     | '/teams/'
     | '/$owner/$repo/quick-tasks'
     | '/teams/$teamId/$teamTab'
@@ -758,6 +779,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/inbox'
     | '/testing'
+    | '/artifacts/$artifactId'
     | '/settings/notifications'
     | '/settings/personalisation'
     | '/settings/sandboxes'
@@ -765,6 +787,7 @@ export interface FileRouteTypes {
     | '/settings/theme'
     | '/setup/$id'
     | '/mcp/oauth/authorize'
+    | '/artifacts'
     | '/teams'
     | '/teams/$teamId/$teamTab'
     | '/$owner/$repo/inbox'
@@ -820,6 +843,7 @@ export interface FileRouteTypes {
     | '/_global/inbox'
     | '/_global/testing'
     | '/_global/teams/$teamId'
+    | '/_global/artifacts/$artifactId'
     | '/_global/settings/notifications'
     | '/_global/settings/personalisation'
     | '/_global/settings/sandboxes'
@@ -828,6 +852,7 @@ export interface FileRouteTypes {
     | '/_global/setup/$id'
     | '/_repo/$owner/$repo'
     | '/mcp/oauth/authorize'
+    | '/_global/artifacts/'
     | '/_global/teams/'
     | '/_repo/$owner/$repo/quick-tasks'
     | '/_global/teams/$teamId/$teamTab'
@@ -957,6 +982,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GlobalTeamsIndexRouteImport
       parentRoute: typeof GlobalRoute
     }
+    '/_global/artifacts/': {
+      id: '/_global/artifacts/'
+      path: '/artifacts'
+      fullPath: '/artifacts/'
+      preLoaderRoute: typeof GlobalArtifactsIndexRouteImport
+      parentRoute: typeof GlobalRoute
+    }
     '/mcp/oauth/authorize': {
       id: '/mcp/oauth/authorize'
       path: '/mcp/oauth/authorize'
@@ -1011,6 +1043,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/notifications'
       fullPath: '/settings/notifications'
       preLoaderRoute: typeof GlobalSettingsNotificationsRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/artifacts/$artifactId': {
+      id: '/_global/artifacts/$artifactId'
+      path: '/artifacts/$artifactId'
+      fullPath: '/artifacts/$artifactId'
+      preLoaderRoute: typeof GlobalArtifactsArtifactIdRouteImport
       parentRoute: typeof GlobalRoute
     }
     '/_global/teams/$teamId': {
@@ -1408,12 +1447,14 @@ interface GlobalRouteChildren {
   GlobalInboxRoute: typeof GlobalInboxRoute
   GlobalTestingRoute: typeof GlobalTestingRoute
   GlobalTeamsTeamIdRouteRoute: typeof GlobalTeamsTeamIdRouteRouteWithChildren
+  GlobalArtifactsArtifactIdRoute: typeof GlobalArtifactsArtifactIdRoute
   GlobalSettingsNotificationsRoute: typeof GlobalSettingsNotificationsRoute
   GlobalSettingsPersonalisationRoute: typeof GlobalSettingsPersonalisationRoute
   GlobalSettingsSandboxesRoute: typeof GlobalSettingsSandboxesRoute
   GlobalSettingsSyncRoute: typeof GlobalSettingsSyncRoute
   GlobalSettingsThemeRoute: typeof GlobalSettingsThemeRoute
   GlobalSetupIdRoute: typeof GlobalSetupIdRoute
+  GlobalArtifactsIndexRoute: typeof GlobalArtifactsIndexRoute
   GlobalTeamsIndexRoute: typeof GlobalTeamsIndexRoute
 }
 
@@ -1422,12 +1463,14 @@ const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalInboxRoute: GlobalInboxRoute,
   GlobalTestingRoute: GlobalTestingRoute,
   GlobalTeamsTeamIdRouteRoute: GlobalTeamsTeamIdRouteRouteWithChildren,
+  GlobalArtifactsArtifactIdRoute: GlobalArtifactsArtifactIdRoute,
   GlobalSettingsNotificationsRoute: GlobalSettingsNotificationsRoute,
   GlobalSettingsPersonalisationRoute: GlobalSettingsPersonalisationRoute,
   GlobalSettingsSandboxesRoute: GlobalSettingsSandboxesRoute,
   GlobalSettingsSyncRoute: GlobalSettingsSyncRoute,
   GlobalSettingsThemeRoute: GlobalSettingsThemeRoute,
   GlobalSetupIdRoute: GlobalSetupIdRoute,
+  GlobalArtifactsIndexRoute: GlobalArtifactsIndexRoute,
   GlobalTeamsIndexRoute: GlobalTeamsIndexRoute,
 }
 

@@ -19,7 +19,7 @@ GitHub Repository
         ↓
 Cloud Sandbox (Daytona)
         ↓
-AI Agent (Claude)
+AI Agent (Claude, Codex, opencode, Cursor)
         ↓
 Code Changes → Diff → Pull Request → Preview
 ```
@@ -222,34 +222,39 @@ Eva supports Convex and Supabase MCP connections. To add these, add your Convex 
 
 ## Sandbox Snapshots
 
-Eva runs agents inside Daytona sandboxes that boot from pre-built snapshots. Snapshots include the OS, dependencies, tooling, and your repo code so sandboxes start fast.
+Eva runs agents inside Daytona sandboxes that boot from pre-built snapshots. Snapshots bundle the OS, system tooling, agent CLIs, your dependencies, and a clone of your repo so sandboxes start fast.
 
 ### How It Works
 
-The repo includes a GitHub Actions workflow (`.github/workflows/rebuild-snapshot.yml`) that:
+Eva builds snapshots itself from the backend — no GitHub Actions workflow is involved. When a build is triggered, `packages/backend/convex/snapshotActions.ts` (`buildSnapshotImage`):
 
-1. Generates a Dockerfile with all required system dependencies (Node.js, Chrome, ripgrep, Claude Code, agent-browser, etc.)
-2. Copies your repo into the image and runs `pnpm install`
-3. Pushes the built image to Daytona as a named snapshot
+1. Defines a Daytona image with all required tooling (see the list below)
+2. Clones your repo at the configured branch using a GitHub installation token, then runs `pnpm install`
+3. Runs any custom build commands you have configured
+4. Pushes the built image to Daytona as a named snapshot, then warms Daytona's cache so the first sandbox starts fast
 
-### Running the Workflow
+`DAYTONA_API_KEY` is read from your team or repo environment variables (see Step 7) — not from a GitHub Actions secret.
 
-1. Go to your repo's **Actions** tab on GitHub
-2. Select **Rebuild Daytona Snapshot** from the workflow list
-3. Click **Run workflow**
-4. Enter a **snapshot name** (this is the name you'll reference in Eva when configuring a repo)
-5. The workflow requires `DAYTONA_API_KEY` to be set as a GitHub Actions secret
+### Rebuilding a Snapshot
 
-### Customizing the Snapshot
+In the Eva dashboard, open your repo's **Settings → Snapshots**:
 
-Edit `.github/workflows/rebuild-snapshot.yml` to customize what gets installed. The default snapshot includes:
+- **Configuration** — set the snapshot name, the branch to clone (**Workflow Branch**, defaults to `main`), a rebuild **Schedule** (a cron expression or `manual`), and **Build Commands** that run after `pnpm install`.
+- **Status** — click **Rebuild Now** to trigger a build on demand.
+- **Builds** — watch progress and read build logs.
+- **Config Files** — upload files (e.g. database seeds) to bake into the image.
 
-- Node.js 20, pnpm, git, curl, jq, ripgrep, fd, gh CLI
-- Chrome + Xvfb + VNC (for browser automation and previews)
-- Claude Code, agent-browser, Convex CLI
-- code-server (VS Code in the browser)
+If a snapshot is missing or in an error state, sandbox creation falls back to a default Daytona snapshot plus a fresh `git clone`, so tasks still run (slower on first setup).
 
-If your project needs additional system packages, language runtimes, or global tools, add them to the Dockerfile generation step in the workflow.
+### What's In the Snapshot
+
+- Node.js 20, pnpm, git, git-lfs, curl, jq, ripgrep, fd, gh CLI
+- Chrome + Xvfb + VNC (for browser automation and desktop/preview mode)
+- Docker Engine (for nested containers, e.g. `supabase start`)
+- Agent CLIs: Claude Code, Codex, opencode, Cursor
+- agent-browser, Convex CLI, Supabase CLI, code-server (VS Code in the browser)
+
+To change the base tooling, edit `buildSnapshotImage()` in `packages/backend/convex/snapshotActions.ts`. For per-project needs, prefer **Build Commands** and **Config Files** in the Snapshots settings over editing the image definition.
 
 ### When to Rebuild
 
@@ -275,6 +280,5 @@ This restriction is not unique to Eva — it's a standard iframe security limita
 
 ## Roadmap
 
-- Codex agent support
 - Testing arena for running and comparing agent strategies
 - Improved project interview UI/UX

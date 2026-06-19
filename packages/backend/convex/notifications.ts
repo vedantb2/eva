@@ -96,7 +96,9 @@ export async function createNotification(
       const baseHref = getRepoHref(repo.owner, repo.name, repo.rootDirectory);
       if (params.docId) {
         href = `${baseHref}/docs/${params.docId}/content`;
-      } else if (params.taskId && !params.projectId) {
+      } else if (params.projectId && params.taskId) {
+        href = `${baseHref}/projects/${params.projectId}/${params.taskId}/activity`;
+      } else if (params.taskId) {
         href = `${baseHref}/quick-tasks/${params.taskId}`;
       } else if (params.projectId) {
         href = `${baseHref}/projects/${params.projectId}`;

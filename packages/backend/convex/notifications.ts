@@ -257,6 +257,7 @@ export const getDigestRecipients = internalQuery({
           href: v.optional(v.string()),
           type: notificationTypeValidator,
           createdAt: v.number(),
+          contextLabel: v.optional(v.string()),
         }),
       ),
     }),
@@ -292,6 +293,7 @@ export const getDigestRecipients = internalQuery({
           href: n.href,
           type: n.type,
           createdAt: n.createdAt,
+          contextLabel: n.contextLabel,
         })),
       });
     }
@@ -320,6 +322,7 @@ export const getUnreadEmailableForUser = internalQuery({
           href: v.optional(v.string()),
           type: notificationTypeValidator,
           createdAt: v.number(),
+          contextLabel: v.optional(v.string()),
         }),
       ),
     }),
@@ -352,6 +355,7 @@ export const getUnreadEmailableForUser = internalQuery({
         href: n.href,
         type: n.type,
         createdAt: n.createdAt,
+        contextLabel: n.contextLabel,
       })),
     };
   },

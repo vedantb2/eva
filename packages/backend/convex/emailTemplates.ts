@@ -11,6 +11,7 @@ export interface DigestNotification {
   href?: string;
   type: string;
   createdAt: number;
+  contextLabel?: string;
 }
 
 export interface DigestEmailOptions {
@@ -130,6 +131,9 @@ export function wrapEmailLayout(opts: {
 
 /** Renders one notification row: title, optional message, date, and optional view link. */
 function renderNotification(n: DigestNotification, appUrl: string): string {
+  const context = n.contextLabel
+    ? `<p style="margin:4px 0 0;font-size:13px;line-height:18px;color:${MUTED};">${escapeHtml(n.contextLabel)}</p>`
+    : "";
   const message = n.message
     ? `<p style="margin:4px 0 0;font-size:14px;line-height:20px;color:${MUTED};">${escapeHtml(n.message)}</p>`
     : "";
@@ -145,6 +149,7 @@ function renderNotification(n: DigestNotification, appUrl: string): string {
             <td align="right" style="font-size:12px;color:${MUTED};white-space:nowrap;padding-left:12px;">${escapeHtml(formatDate(n.createdAt))}</td>
           </tr>
         </table>
+        ${context}
         ${message}
         ${link}
       </td>

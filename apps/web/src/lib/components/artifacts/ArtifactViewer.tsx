@@ -6,7 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { Spinner } from "@conductor/ui";
-import { IconArrowLeft } from "@tabler/icons-react";
+import { IconArrowLeft, IconExternalLink } from "@tabler/icons-react";
 import { ArtifactFrame } from "./ArtifactFrame";
 
 /** Loads an artifact's stored HTML and renders it in the bridged sandbox iframe. */
@@ -53,8 +53,8 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 items-center gap-3">
         <Link
           to="/artifacts"
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -66,14 +66,31 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
         <h1 className="truncate font-medium text-foreground">
           {artifact.name}
         </h1>
+        <button
+          type="button"
+          onClick={() =>
+            window.open(`/artifacts/${artifact._id}`, "_blank", "noopener")
+          }
+          className="ml-auto flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <IconExternalLink size={16} />
+          Open in new tab
+        </button>
       </div>
-      <div className="h-[80vh] w-full overflow-hidden rounded-surface border border-border bg-white shadow-sm">
+      <div className="min-h-0 w-full flex-1 overflow-hidden rounded-surface border border-border bg-white shadow-sm">
         {error ? (
           <Centered>
             <p className="text-sm text-destructive">{error}</p>
           </Centered>
         ) : html === null ? (
-          <Centered>{<Spinner />}</Centered>
+          <Centered>
+            <div className="flex flex-col items-center gap-2">
+              <Spinner />
+              <span className="text-sm text-muted-foreground">
+                Loading dashboard…
+              </span>
+            </div>
+          </Centered>
         ) : (
           <ArtifactFrame html={html} title={artifact.name} />
         )}

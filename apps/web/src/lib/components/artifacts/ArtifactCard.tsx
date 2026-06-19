@@ -1,20 +1,33 @@
 "use client";
 
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
-import { IconLayoutDashboard, IconTrash } from "@tabler/icons-react";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+} from "@conductor/ui";
+import {
+  IconExternalLink,
+  IconLayoutDashboard,
+  IconTrash,
+} from "@tabler/icons-react";
+import { relativeTime } from "./_format";
 
 type ArtifactRow = FunctionReturnType<typeof api.artifacts.listAll>[number];
 
-/** A single artifact tile: opens the viewer on click; trash button deletes it. */
+/** A single artifact tile: left-click opens the viewer; right-click for actions. */
 export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
+  const navigate = useNavigate();
   const remove = useMutation(api.artifacts.remove);
 
-  const onDelete = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const openInNewTab = () =>
+    window.open(`/artifacts/${artifact._id}`, "_blank", "noopener");
+
+  const onDelete = async () => {
     if (!window.confirm(`Delete "${artifact.name}"? This cannot be undone.`)) {
       return;
     }
@@ -22,38 +35,53 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
   };
 
   return (
-    <Link
-      to="/artifacts/$artifactId"
-      params={{ artifactId: artifact._id }}
-      className="group relative flex flex-col gap-2 rounded-surface border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <IconLayoutDashboard
-            size={18}
-            className="shrink-0 text-muted-foreground"
-          />
-          <span className="truncate font-medium text-foreground">
-            {artifact.name}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label="Delete artifact"
-          className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <Link
+          to="/artifacts/$artifactId"
+          params={{ artifactId: artifact._id }}
+          className="flex flex-col gap-2 rounded-surface border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted"
         >
-          <IconTrash size={15} />
-        </button>
-      </div>
-      {artifact.description ? (
-        <p className="line-clamp-2 text-sm text-muted-foreground">
-          {artifact.description}
-        </p>
-      ) : null}
-      <span className="mt-auto text-xs text-muted-foreground">
-        {new Date(artifact.createdAt).toLocaleDateString()}
-      </span>
-    </Link>
+          <div className="flex items-center gap-2">
+            <IconLayoutDashboard
+              size={18}
+              className="shrink-0 text-muted-foreground"
+            />
+            <span className="truncate font-medium text-foreground">
+              {artifact.name}
+            </span>
+          </div>
+          {artifact.description ? (
+            <p className="line-clamp-2 text-sm text-muted-foreground">
+              {artifact.description}
+            </p>
+          ) : null}
+          <span className="mt-auto text-xs text-muted-foreground">
+            {relativeTime(artifact.createdAt)}
+          </span>
+        </Link>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem
+          onClick={() =>
+            navigate({
+              to: "/artifacts/$artifactId",
+              params: { artifactId: artifact._id },
+            })
+          }
+        >
+          <IconLayoutDashboard size={16} />
+          Open
+        </ContextMenuItem>
+        <ContextMenuItem onClick={openInNewTab}>
+          <IconExternalLink size={16} />
+          Open in new tab
+        </ContextMenuItem>
+        <ContextMenuItem className="text-destructive" onClick={onDelete}>
+          <IconTrash size={16} />
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

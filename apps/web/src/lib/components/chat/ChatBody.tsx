@@ -20,6 +20,7 @@ import {
 } from "@conductor/ui";
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
+import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import {
   IconPlayerStop,
   IconCode,
@@ -107,6 +108,8 @@ interface ChatBodyProps {
   repoId: Id<"githubRepos">;
   /** Repo route prefix, e.g. `/owner/repo` or `/owner/repo--app`. */
   repoBasePath: string;
+  /** Conversation id (session / agent task / project) — scopes the typing-presence room. */
+  conversationId: string;
   messages: ChatBodyMessage[];
   queuedMessages: ChatBodyQueuedMessage[];
   streamingActivity?: string;
@@ -156,6 +159,7 @@ interface ChatBodyProps {
 export function ChatBody({
   repoId,
   repoBasePath,
+  conversationId,
   messages,
   queuedMessages,
   streamingActivity,
@@ -182,6 +186,7 @@ export function ChatBody({
 }: ChatBodyProps) {
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
+  const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<MentionTextareaHandle>(null);
   const updateQueuedMessage = useMutation(
     api.queuedMessages.update,
@@ -453,7 +458,7 @@ export function ChatBody({
               </button>
             </div>
           ) : null}
-          <div>
+          <div className="relative">
             {isDraftLoading ? (
               // Placeholder that matches the input group's visual footprint.
               // Keeps the layout stable while the draft query resolves, and
@@ -466,6 +471,10 @@ export function ChatBody({
               />
             ) : (
               <PromptInputProvider initialInput={draft?.initialDisplay}>
+                <ChatTypingLayer
+                  roomId={`typing:chat:${conversationId}`}
+                  userId={currentUserId}
+                />
                 {draft && (
                   <ChatDraftSync
                     target={draft.target}

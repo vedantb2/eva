@@ -1,5 +1,11 @@
 # Changelog
 
+## Live typing indicators in chat - 2026-06-19
+
+- Chat composers now show when another teammate viewing the same conversation is typing ("Alice is typing"), so collaborators can see live activity before a message lands — covering session chat, the quick-task and project sandbox chats, the project discussion chat, and task comments + replies.
+- Built on the existing presence component (the same mechanism as live cursors), so typing state is ephemeral and auto-clears when a teammate stops typing or goes offline — no new tables or cleanup jobs.
+- The indicator shows teammate avatars, names, and an animated pulse, and never reflects your own typing or Eva's responses (the agent's progress is already shown via streaming).
+
 ## Eva document & artifact MCP tools - 2026-06-17
 
 - External MCP clients (e.g. Claude with the Eva connector) can now create, read, list, and update Eva design documents (PRDs), so docs can be authored and edited without opening the web app.

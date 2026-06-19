@@ -13,6 +13,9 @@ import {
 import { DescriptionMentionEditor } from "./DescriptionMentionEditor";
 import { CommentSendButton } from "./CommentSendButton";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useTypingPresence } from "@/lib/hooks/useTypingPresence";
+import { TypingIndicator } from "@/lib/components/chat/TypingIndicator";
 
 export interface TaskActivityComposerFormProps {
   taskId: Id<"agentTasks">;
@@ -56,6 +59,12 @@ export function TaskActivityComposerForm({
   const startExecution = useMutation(api.agentTasks.startExecution);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
 
+  const currentUserId = useQuery(api.auth.me);
+  const { typingUsers, onActivity, stopTyping } = useTypingPresence(
+    `typing:task:${taskId}`,
+    currentUserId,
+  );
+
   const { save: saveDraft, clear: clearDraft } = useDraftAutosave(
     { kind: "taskComment", taskId },
     mentionRef,
@@ -69,6 +78,7 @@ export function TaskActivityComposerForm({
     setCommentText(next);
     clearExecutionError();
     saveDraft(next);
+    onActivity();
   };
 
   const tokenizeAndReset = (raw: string): string => {
@@ -83,6 +93,7 @@ export function TaskActivityComposerForm({
     const content = tokenizeAndReset(text);
     setCommentText("");
     clearDraft();
+    stopTyping();
     setIsSubmitting(true);
     try {
       await createComment({ taskId, content });
@@ -99,6 +110,7 @@ export function TaskActivityComposerForm({
     const content = tokenizeAndReset(text);
     setCommentText("");
     clearDraft();
+    stopTyping();
     setIsSubmitting(true);
     try {
       const commentId = await createComment({
@@ -137,7 +149,11 @@ export function TaskActivityComposerForm({
     "min-h-20 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
 
   return (
-    <div className="space-y-3 mb-6">
+    <div className="relative space-y-3 mb-6">
+      <TypingIndicator
+        users={typingUsers}
+        className="absolute bottom-full left-0 mb-1"
+      />
       {effectiveRequestingChanges && !executionError && (
         <p className="text-xs text-muted-foreground">
           {isProjectTask

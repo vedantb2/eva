@@ -13,6 +13,8 @@ import {
 } from "./CommentMentionInput";
 import { CommentSendButton } from "./CommentSendButton";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
+import { useTypingPresence } from "@/lib/hooks/useTypingPresence";
+import { TypingIndicator } from "@/lib/components/chat/TypingIndicator";
 
 interface CommentReplyComposerProps {
   taskId: Id<"agentTasks">;
@@ -54,9 +56,15 @@ function CommentReplyComposerForm({
     mentionRef,
   );
 
+  const { typingUsers, onActivity, stopTyping } = useTypingPresence(
+    `typing:task-comment:${parentId}`,
+    currentUserId,
+  );
+
   const handleValueChange = (next: string) => {
     setReplyText(next);
     saveDraft(next);
+    onActivity();
   };
 
   const canSubmit = replyText.trim().length > 0 && !isSubmitting;
@@ -64,6 +72,7 @@ function CommentReplyComposerForm({
   const handleSubmit = async () => {
     const trimmed = replyText.trim();
     if (!trimmed || isSubmitting) return;
+    stopTyping();
     const content = mentionRef.current?.tokenize(trimmed) ?? trimmed;
     setIsSubmitting(true);
     try {
@@ -81,7 +90,11 @@ function CommentReplyComposerForm({
   };
 
   return (
-    <div className="flex items-start gap-2">
+    <div className="relative flex items-start gap-2">
+      <TypingIndicator
+        users={typingUsers}
+        className="absolute bottom-full left-0 mb-1"
+      />
       {/* Fixed slot keeps the avatar from shifting the input once it loads;
           h-9 aligns it with the input's first line when multi-line. */}
       <span className="flex h-9 w-4 shrink-0 items-center justify-center">

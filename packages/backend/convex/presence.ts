@@ -90,3 +90,23 @@ export const updateCursor = authMutation({
     });
   },
 });
+
+/**
+ * Flags whether the current user is typing in a room, broadcasting their name
+ * so teammates can show a "X is typing" indicator. Stored on the ephemeral
+ * presence record (not the DB), so it auto-clears when the user goes offline.
+ */
+export const updateTyping = authMutation({
+  args: {
+    roomId: v.string(),
+    isTyping: v.boolean(),
+  },
+  handler: async (ctx, { roomId, isTyping }) => {
+    const user = await ctx.db.get(ctx.userId);
+    if (!user) return;
+    await presence.updateRoomUser(ctx, roomId, ctx.userId, {
+      isTyping,
+      firstName: user.firstName ?? user.fullName ?? "User",
+    });
+  },
+});

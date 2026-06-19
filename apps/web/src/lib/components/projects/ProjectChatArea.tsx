@@ -25,6 +25,9 @@ import {
 } from "@conductor/backend";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import type { ConversationMessage } from "@/lib/components/projects/ProjectChatTab";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useTypingPresence } from "@/lib/hooks/useTypingPresence";
+import { TypingIndicator } from "@/lib/components/chat/TypingIndicator";
 
 interface ProjectChatAreaProps {
   projectId: Id<"projects">;
@@ -41,6 +44,11 @@ export function ProjectChatArea({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isSending, setIsSending] = useState(false);
   const [model, setModel] = useState<AIModel>(DEFAULT_AI_MODEL);
+  const currentUserId = useQuery(api.auth.me);
+  const { typingUsers, onActivity, stopTyping } = useTypingPresence(
+    `typing:project:${projectId}`,
+    currentUserId,
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,6 +57,7 @@ export function ProjectChatArea({
   const handleSubmit = async ({ text }: PromptInputMessage) => {
     const trimmed = text.trim();
     if (!trimmed || isSending) return;
+    stopTyping();
     setIsSending(true);
     try {
       await addMessage({ id: projectId, role: "user", content: trimmed });
@@ -78,7 +87,11 @@ export function ProjectChatArea({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="p-3">
+      <div className="relative p-3">
+        <TypingIndicator
+          users={typingUsers}
+          className="absolute bottom-full left-3 mb-1"
+        />
         <PromptInput onSubmit={handleSubmit}>
           <PromptInputTextarea
             placeholder={
@@ -87,6 +100,7 @@ export function ProjectChatArea({
                 : "Send a message..."
             }
             disabled={isSending}
+            onChange={onActivity}
           />
           <PromptInputFooter>
             <PromptInputTools>

@@ -90,6 +90,12 @@ export const agentTaskFields = {
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
+  // The change-request comment that put this task back to "todo" via "Make
+  // changes". Project-task change runs start later (Build Project), decoupled
+  // from the comment, so the id is parked here and copied onto the run's
+  // `triggeringCommentId` when the run is created, then cleared. Lets the
+  // timeline label project re-runs "made changes" like quick-task re-runs.
+  pendingChangeRequestCommentId: v.optional(v.id("taskComments")),
 };
 
 export const agentRunFields = {

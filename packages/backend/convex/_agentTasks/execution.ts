@@ -100,11 +100,15 @@ export const startExecution = authMutation({
       startedAt: Date.now(),
       mode: args.mode,
       triggeredBy: ctx.userId,
-      triggeringCommentId: args.triggeringCommentId,
+      // Explicit comment (quick-task "Make changes") wins; otherwise consume any
+      // comment parked on the task by an earlier change request.
+      triggeringCommentId:
+        args.triggeringCommentId ?? task.pendingChangeRequestCommentId,
     });
     await ctx.db.patch(args.id, {
       status: "in_progress",
       updatedAt: Date.now(),
+      pendingChangeRequestCommentId: undefined,
     });
     let workflowIdString = "";
     try {

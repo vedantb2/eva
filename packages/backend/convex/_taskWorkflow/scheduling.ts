@@ -136,12 +136,16 @@ export const executeScheduledTask = internalMutation({
       status: "queued",
       logs: [],
       startedAt: now,
+      // Carry through any parked change-request comment so a re-run started via
+      // the scheduler is still labelled "made changes" on the timeline.
+      triggeringCommentId: task.pendingChangeRequestCommentId,
     });
 
     await ctx.db.patch(args.taskId, {
       ...clearSchedule,
       status: "in_progress",
       updatedAt: now,
+      pendingChangeRequestCommentId: undefined,
     });
 
     let branchName: string | undefined;

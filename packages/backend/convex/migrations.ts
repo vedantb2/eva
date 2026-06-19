@@ -13,4 +13,3 @@ export {
   migrateProjectPhases,
   repairStuckProjectPhases,
 } from "./_migrations/projectPhases";
-export { backfillRunTriggeringComments } from "./_migrations/backfillRunTriggeringComments";

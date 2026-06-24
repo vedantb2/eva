@@ -1,5 +1,9 @@
 # Changelog
 
+## Eva product video agent skill - 2026-06-24
+
+- Added an agent skill documenting how to capture real app footage and render Remotion demo videos with the repo's established defaults (720p, beat-sync cuts, agent-browser workflow), so future video work doesn't rediscover the same pitfalls.
+
 ## Archived sandbox restore survives past the 10-minute action limit - 2026-06-24
 
 - Resuming a sandbox that had been archived to cold storage now restores reliably everywhere a sandbox is resumed — session/project/quick-task chat, task and project runs, and the "Start sandbox" buttons — by polling the multi-minute thaw across durable workflow steps instead of one blocking action, so it no longer fails when the restore runs past Convex's 10-minute action limit.

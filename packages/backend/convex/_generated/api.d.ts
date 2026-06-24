@@ -108,7 +108,6 @@ import type * as _sessions_pty from "../_sessions/pty.js";
 import type * as _sessions_queries from "../_sessions/queries.js";
 import type * as _sessions_sandbox from "../_sessions/sandbox.js";
 import type * as _sessions_workflow from "../_sessions/workflow.js";
-import type * as _spike_fix from "../_spike/fix.js";
 import type * as _taskWorkflow_audit from "../_taskWorkflow/audit.js";
 import type * as _taskWorkflow_auditParser from "../_taskWorkflow/auditParser.js";
 import type * as _taskWorkflow_deploymentHelpers from "../_taskWorkflow/deploymentHelpers.js";
@@ -352,7 +351,6 @@ declare const fullApi: ApiFromModules<{
   "_sessions/queries": typeof _sessions_queries;
   "_sessions/sandbox": typeof _sessions_sandbox;
   "_sessions/workflow": typeof _sessions_workflow;
-  "_spike/fix": typeof _spike_fix;
   "_taskWorkflow/audit": typeof _taskWorkflow_audit;
   "_taskWorkflow/auditParser": typeof _taskWorkflow_auditParser;
   "_taskWorkflow/deploymentHelpers": typeof _taskWorkflow_deploymentHelpers;

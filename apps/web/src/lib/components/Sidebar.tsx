@@ -686,12 +686,7 @@ export function Sidebar() {
               </AnimatePresence>
             </div>
 
-            <nav
-              className={cn(
-                "scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto pb-4 pt-3",
-                collapsed ? "lg:px-2 px-3" : "px-3",
-              )}
-            >
+            <nav className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2">
               <div className="space-y-4">
                 {!isRepoRoute && (
                   <RootSidebarContent

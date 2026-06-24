@@ -40,6 +40,7 @@ import type * as _daytona_launch from "../_daytona/launch.js";
 import type * as _daytona_lifecycle from "../_daytona/lifecycle.js";
 import type * as _daytona_prepareSandboxSteps from "../_daytona/prepareSandboxSteps.js";
 import type * as _daytona_previewProxy from "../_daytona/previewProxy.js";
+import type * as _daytona_resumeSandboxSteps from "../_daytona/resumeSandboxSteps.js";
 import type * as _daytona_runDevServer from "../_daytona/runDevServer.js";
 import type * as _daytona_services from "../_daytona/services.js";
 import type * as _daytona_sessions from "../_daytona/sessions.js";
@@ -278,6 +279,7 @@ declare const fullApi: ApiFromModules<{
   "_daytona/lifecycle": typeof _daytona_lifecycle;
   "_daytona/prepareSandboxSteps": typeof _daytona_prepareSandboxSteps;
   "_daytona/previewProxy": typeof _daytona_previewProxy;
+  "_daytona/resumeSandboxSteps": typeof _daytona_resumeSandboxSteps;
   "_daytona/runDevServer": typeof _daytona_runDevServer;
   "_daytona/services": typeof _daytona_services;
   "_daytona/sessions": typeof _daytona_sessions;

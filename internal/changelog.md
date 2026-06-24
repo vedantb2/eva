@@ -1,5 +1,10 @@
 # Changelog
 
+## Archived sandbox restore survives past the 10-minute action limit - 2026-06-24
+
+- Returning to a session, project, or quick-task chat whose sandbox had been archived to cold storage now restores reliably: the multi-minute thaw is polled across durable workflow steps instead of one blocking action, so it no longer fails when the restore runs past Convex's 10-minute action limit.
+- Fast paths are unchanged — an already-running sandbox adds no delay and a merely-stopped one still fast-resumes — and a restore that genuinely stalls fails fast with a clear, retryable message instead of a silent timeout.
+
 ## Live typing indicators in chat - 2026-06-19
 
 - Chat composers now show when another teammate viewing the same conversation is typing ("Alice is typing"), so collaborators can see live activity before a message lands — covering session chat, the quick-task and project sandbox chats, the project discussion chat, and task comments + replies.

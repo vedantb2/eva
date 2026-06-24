@@ -2,14 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
-import { auditSeverityValidator } from "./validators";
-
-const auditFailureValidator = v.object({
-  section: v.string(),
-  requirement: v.string(),
-  detail: v.string(),
-  severity: auditSeverityValidator,
-});
+import { auditFailureValidator } from "./validators";
 
 /**
  * Resumes the audit-fix sandbox as a durable workflow, then launches the fix

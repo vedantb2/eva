@@ -1,17 +1,10 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { auditSeverityValidator } from "../validators";
+import { auditFailureValidator } from "../validators";
 import { authMutation, hasTaskAccess } from "../functions";
 import { resolveTaskBranchName } from "../_taskWorkflow/helpers";
 import { workflow } from "../workflowManager";
-
-const auditFailureValidator = v.object({
-  section: v.string(),
-  requirement: v.string(),
-  detail: v.string(),
-  severity: auditSeverityValidator,
-});
 
 /** Triggers fixes for selected audit failures in the sandbox. */
 export const runSelectedFixes = authMutation({

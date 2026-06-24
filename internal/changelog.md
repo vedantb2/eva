@@ -5,6 +5,7 @@
 - Resuming a sandbox that had been archived to cold storage now restores reliably everywhere a sandbox is resumed — session/project/quick-task chat, task and project runs, and the "Start sandbox" buttons — by polling the multi-minute thaw across durable workflow steps instead of one blocking action, so it no longer fails when the restore runs past Convex's 10-minute action limit.
 - Fast paths are unchanged — an already-running sandbox adds no delay and a merely-stopped one still fast-resumes — and a restore that genuinely stalls fails fast with a clear, retryable message instead of a silent timeout.
 - Audit fixes now run as a durable workflow too, so the task's archived sandbox is thawed and reused across polling steps (falling back to a fresh sandbox only if the restore can't complete) instead of stalling at the action limit.
+- Design-session start now resumes its existing sandbox the same way, instead of rebuilding a fresh one whenever the previous sandbox was stopped or archived.
 
 ## Live typing indicators in chat - 2026-06-19
 

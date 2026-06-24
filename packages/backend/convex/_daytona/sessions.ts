@@ -988,7 +988,14 @@ export const startDesignSandbox = internalAction({
         daytona,
         args.existingSandboxId,
         async (sandbox) => {
-          await exec(sandbox, "echo 1", 5);
+          // Resume the sandbox if it was stopped/archived, matching the session
+          // reuse path (previously this only ran `echo 1`, so a non-running
+          // sandbox fell through to a fresh rebuild). designSandboxStartupWorkflow
+          // pre-thaws archived sandboxes across polling steps first, so this
+          // fast-paths instead of blocking the action on a cold-storage restore.
+          await ensureSandboxRunning(sandbox, {
+            timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+          });
           // Self-heal: rotate the per-sandbox secret + reinstall the helper
           // before any git network op so resumed sandboxes pick up the new
           // credential flow without carrying a stale URL-embedded token.

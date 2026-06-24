@@ -2,6 +2,7 @@ import type { WorkflowCtx } from "@convex-dev/workflow";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { ensureSandboxStartedSteps } from "./resumeSandboxSteps";
 
 type ProgressStep = {
   type: string;
@@ -54,6 +55,20 @@ export async function prepareSandboxSteps(
 ): Promise<string> {
   const completedSteps: Array<ProgressStep> = [];
   const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+
+  // Thaw an archived/stopped existing sandbox across polling steps before the
+  // create/resume action, so a multi-minute cold-storage restore doesn't blow
+  // the per-action 10-minute limit inside createOrResumeSandbox →
+  // ensureSandboxRunning. New sandboxes (no existingSandboxId) have nothing to
+  // thaw. A thaw failure propagates as a sandbox-setup failure, matching how
+  // createOrResumeSandbox failures already surface to the caller.
+  if (args.existingSandboxId) {
+    await ensureSandboxStartedSteps(step, {
+      sandboxId: args.existingSandboxId,
+      repoId: args.repoId,
+      streamingEntityId: args.streamingEntityId,
+    });
+  }
 
   // Step 1: Create/resume the sandbox only.
   // Snapshot-backed quick tasks should start from local refs instead of

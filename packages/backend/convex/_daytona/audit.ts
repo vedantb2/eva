@@ -178,11 +178,32 @@ export const launchSelectedAuditFixes = internalAction({
       let sandboxId = args.sandboxId;
 
       if (sandboxId) {
-        const { healthy } = await ctx.runAction(
-          internal.daytona.validateSandbox,
-          { sandboxId, repoId: args.repoId },
-        );
-        if (!healthy) {
+        // Probe state cheaply first. A cold-storage thaw of an archived sandbox
+        // would block validateSandbox past the 10-minute action cap — and this
+        // is a detached scheduled action, not a workflow, so it can't poll the
+        // thaw across steps the way interactive resume does. Audit fixes
+        // re-check out the pushed branch, so abandoning an archived sandbox for
+        // a fresh one is equivalent and avoids the stall. Only "started"/
+        // "stopped" sandboxes are cheaply resumable; anything else → fresh.
+        let resumable = true;
+        try {
+          const { state } = await ctx.runAction(
+            internal.daytona.pollSandboxStarted,
+            { sandboxId, repoId: args.repoId },
+          );
+          resumable = state === "started" || state === "stopped";
+        } catch {
+          resumable = false; // terminal state / sandbox gone → create fresh
+        }
+        if (resumable) {
+          const { healthy } = await ctx.runAction(
+            internal.daytona.validateSandbox,
+            { sandboxId, repoId: args.repoId },
+          );
+          if (!healthy) {
+            sandboxId = undefined;
+          }
+        } else {
           sandboxId = undefined;
         }
       }

@@ -7,6 +7,7 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { trackProjectWorkflow } from "./workflowWatchdog";
+import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
 import { PROJECT_INTERVIEW_SYSTEM_PROMPT, SPEC_SYSTEM_PROMPT } from "./prompts";
 import {
   clearStreamingActivity,
@@ -133,6 +134,15 @@ export const projectInterviewWorkflow = workflow.define({
     // on the project (otherwise every answer would spawn a fresh sandbox) and
     // the card/sidebar "active" indicator lights up while the interview runs.
     try {
+      if (projectData.sandboxId) {
+        // Thaw an archived/stopped sandbox across polling steps first so a
+        // cold-storage restore can exceed the per-action 10-minute limit; the
+        // surrounding catch handles thaw failures.
+        await ensureSandboxStartedSteps(step, {
+          sandboxId: projectData.sandboxId,
+          repoId: projectData.repoId,
+        });
+      }
       const { sandboxId } = await step.runAction(
         internal.daytona.startProjectPreviewSandbox,
         {
@@ -514,6 +524,15 @@ Based on the interview conversation above, generate an implementation spec with 
 Output ONLY valid JSON.`;
 
     try {
+      if (projectData.sandboxId) {
+        // Thaw an archived/stopped sandbox across polling steps first so a
+        // cold-storage restore can exceed the per-action 10-minute limit; the
+        // surrounding catch handles thaw failures.
+        await ensureSandboxStartedSteps(step, {
+          sandboxId: projectData.sandboxId,
+          repoId: projectData.repoId,
+        });
+      }
       const { sandboxId } = await step.runAction(
         internal.daytona.startProjectPreviewSandbox,
         {

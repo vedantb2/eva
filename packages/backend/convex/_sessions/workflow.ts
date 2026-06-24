@@ -61,6 +61,27 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     repoId: v.id("githubRepos"),
   },
   handler: async (step, args): Promise<void> => {
+    // Thaw an archived/stopped sandbox across polling steps before the start
+    // action, so a multi-minute cold-storage restore doesn't blow the
+    // per-action 10-minute limit inside startSessionSandbox →
+    // ensureSandboxRunning.
+    if (args.existingSandboxId) {
+      try {
+        await ensureSandboxStartedSteps(step, {
+          sandboxId: args.existingSandboxId,
+          repoId: args.repoId,
+        });
+      } catch (error) {
+        await step.runMutation(internal.sessions.sandboxError, {
+          sessionId: args.sessionId,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Sandbox could not be restored from cold storage. Please retry.",
+        });
+        return;
+      }
+    }
     await step.runAction(internal.daytona.startSessionSandbox, {
       sessionId: args.sessionId,
       existingSandboxId: args.existingSandboxId,

@@ -2,8 +2,9 @@
 
 ## Archived sandbox restore survives past the 10-minute action limit - 2026-06-24
 
-- Returning to a session, project, or quick-task chat whose sandbox had been archived to cold storage now restores reliably: the multi-minute thaw is polled across durable workflow steps instead of one blocking action, so it no longer fails when the restore runs past Convex's 10-minute action limit.
+- Resuming a sandbox that had been archived to cold storage now restores reliably everywhere a sandbox is resumed — session/project/quick-task chat, task and project runs, and the "Start sandbox" buttons — by polling the multi-minute thaw across durable workflow steps instead of one blocking action, so it no longer fails when the restore runs past Convex's 10-minute action limit.
 - Fast paths are unchanged — an already-running sandbox adds no delay and a merely-stopped one still fast-resumes — and a restore that genuinely stalls fails fast with a clear, retryable message instead of a silent timeout.
+- The detached audit-fix path, which can't poll across steps, now skips the blocking thaw for an archived sandbox and recreates a fresh one (it re-checks out the pushed branch, so the result is equivalent and faster).
 
 ## Live typing indicators in chat - 2026-06-19
 

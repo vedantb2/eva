@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import { auditSeverityValidator } from "../validators";
 import { authMutation, hasTaskAccess } from "../functions";
 import { resolveTaskBranchName } from "../_taskWorkflow/helpers";
+import { workflow } from "../workflowManager";
 
 const auditFailureValidator = v.object({
   section: v.string(),
@@ -54,7 +55,10 @@ export const runSelectedFixes = authMutation({
 
     const branchName = await resolveTaskBranchName(ctx.db, task);
 
-    await ctx.scheduler.runAfter(0, internal.daytona.launchSelectedAuditFixes, {
+    // Run through a workflow (not a bare scheduled action) so an archived
+    // sandbox can be thawed across polling steps without hitting the 10-minute
+    // action cap; the workflow falls back to a fresh sandbox if the thaw fails.
+    await workflow.start(ctx, internal.auditFixWorkflow.auditFixWorkflow, {
       auditId: args.auditId,
       selectedFailures: args.selectedFailures,
       sandboxId: run.sandboxId,

@@ -134,6 +134,7 @@ import type * as analytics from "../analytics.js";
 import type * as annotations from "../annotations.js";
 import type * as artifacts from "../artifacts.js";
 import type * as auditCategories from "../auditCategories.js";
+import type * as auditFixWorkflow from "../auditFixWorkflow.js";
 import type * as audits from "../audits.js";
 import type * as auth from "../auth.js";
 import type * as automationEmail from "../automationEmail.js";
@@ -373,6 +374,7 @@ declare const fullApi: ApiFromModules<{
   annotations: typeof annotations;
   artifacts: typeof artifacts;
   auditCategories: typeof auditCategories;
+  auditFixWorkflow: typeof auditFixWorkflow;
   audits: typeof audits;
   auth: typeof auth;
   automationEmail: typeof automationEmail;

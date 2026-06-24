@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
 import { aiModelValidator, runModeValidator } from "../validators";
 import {
   resolveTaskWorkflowBaseBranch,
@@ -10,6 +11,36 @@ import {
   buildConflictResolutionPrompt,
 } from "./prompts";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/** Formats a timestamp as a UK-style "DD Month YYYY" date (UTC, deterministic). */
+function formatCommentDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  return `${date.getUTCDate()} ${MONTH_NAMES[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
+/** Resolves a human-readable name for a comment author, falling back to "Reviewer". */
+function userDisplayName(user: Doc<"users"> | null): string {
+  if (!user) return "Reviewer";
+  if (user.fullName?.trim()) return user.fullName.trim();
+  const combined = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+  if (combined) return combined;
+  return user.email ?? "Reviewer";
+}
 
 /** Fetches task, repo, and audit config to build the prompt and sandbox parameters for a run. */
 export const getTaskData = internalQuery({
@@ -103,23 +134,67 @@ export const getTaskData = internalQuery({
         q.eq("taskId", args.taskId).eq("status", "success"),
       )
       .collect();
-    const latestSuccessStartedAt = successfulRuns.reduce<number | undefined>(
+    const latestSuccessfulRun = successfulRuns.reduce<Doc<"agentRuns"> | null>(
       (latest, run) => {
         if (run.startedAt === undefined) return latest;
-        if (latest === undefined || run.startedAt > latest)
-          return run.startedAt;
+        if (
+          latest === null ||
+          latest.startedAt === undefined ||
+          run.startedAt > latest.startedAt
+        ) {
+          return run;
+        }
         return latest;
       },
-      undefined,
+      null,
     );
+    const latestSuccessStartedAt = latestSuccessfulRun?.startedAt;
+    // Surface what the last successful run accomplished so a "Make changes"
+    // re-run has continuity instead of rediscovering prior work from scratch.
+    const previousRunSummary =
+      latestSuccessfulRun?.resultSummary?.trim() || undefined;
     const relevantComments =
       latestSuccessStartedAt !== undefined
         ? comments.filter((c) => c.createdAt > latestSuccessStartedAt)
         : comments;
 
-    const changeRequests = relevantComments
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .map((c) => c.content);
+    const sortedComments = relevantComments.sort(
+      (a, b) => a.createdAt - b.createdAt,
+    );
+
+    // Resolve author names once for the comments we are about to surface.
+    const uniqueAuthorIds = [
+      ...new Set(
+        sortedComments
+          .map((c) => c.authorId)
+          .filter((id): id is Id<"users"> => id !== undefined),
+      ),
+    ];
+    const authors = await Promise.all(
+      uniqueAuthorIds.map((id) => ctx.db.get(id)),
+    );
+    const authorNameById = new Map<string, string>();
+    uniqueAuthorIds.forEach((id, index) => {
+      authorNameById.set(id, userDisplayName(authors[index]));
+    });
+
+    // Resolve any `@` mention tokens (matching how the task description is
+    // prepared), then keep the raw resolved text for the commit subject
+    // separate from the author/date-annotated text shown to the agent — the
+    // annotation must not leak into the edit commit message.
+    const changeRequests = await Promise.all(
+      sortedComments.map(async (c) => {
+        const author = c.authorId
+          ? (authorNameById.get(c.authorId) ?? "Reviewer")
+          : "Reviewer";
+        const resolved =
+          (await resolveDescriptionForPrompt(c.content)) ?? c.content;
+        return {
+          commitText: resolved,
+          promptText: `[${author} · ${formatCommentDate(c.createdAt)}] ${resolved}`,
+        };
+      }),
+    );
 
     const branchName = args.branchName || `eva/task-${args.taskId}`;
 
@@ -154,6 +229,7 @@ export const getTaskData = internalQuery({
             changeRequests.length > 0 ? changeRequests : undefined,
             projectContext,
             repo.systemPrompt,
+            previousRunSummary,
           );
 
     const canonicalRepoId = repo.parentRepoId ?? args.repoId;

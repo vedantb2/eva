@@ -138,7 +138,7 @@ export function TeamsClient() {
                 />
               </div>
               {createDialog.error && (
-                <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3">
+                <div className="rounded-surface border border-destructive/50 bg-destructive/10 p-3">
                   <p className="text-sm text-destructive">
                     {createDialog.error}
                   </p>
@@ -175,7 +175,7 @@ export function TeamsClient() {
               to="/teams/$teamId"
               params={{ teamId: team._id }}
             >
-              <Card className="h-full transition-colors hover:bg-accent/50">
+              <Card className="h-full transition-colors hover:bg-muted/50">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">

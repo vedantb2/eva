@@ -30,6 +30,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../utils/cn";
+import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 
 export type {
   DragEndEvent as KanbanDragEndEvent,
@@ -83,7 +84,8 @@ export const KanbanBoard = ({
   return (
     <div
       className={cn(
-        "flex size-full min-h-40 flex-col overflow-hidden rounded-md bg-accent/15 text-xs transition-colors",
+        "flex size-full min-h-40 flex-col overflow-hidden bg-accent/15 text-xs transition-colors",
+        SURFACE_RADIUS_CLASS,
         isOver && "bg-primary/10",
         className,
       )}
@@ -131,7 +133,8 @@ export const KanbanCard = ({
       ref={setNodeRef}
       onClick={onClick}
       className={cn(
-        "cursor-grab rounded-lg transition-opacity duration-150",
+        "cursor-grab transition-opacity duration-150",
+        SURFACE_RADIUS_CLASS,
         isDragging && "pointer-events-none cursor-grabbing opacity-30",
         className,
       )}

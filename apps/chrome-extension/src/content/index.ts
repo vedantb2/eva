@@ -1,127 +1,123 @@
-import { createElement } from "react";
+import { createElement, Fragment } from "react";
 import { createShadowMount } from "./shadow-root";
-import { sendExtensionMessage } from "../shared/messaging";
 import {
-  activateAnnotation,
-  deactivateAnnotation,
+  AnnotationOverlay,
   setAnnotationsFromRemote,
   clearAllAnnotations,
-  AnnotationOverlay,
+  applyTaskStatuses,
+  getTrackedTaskIds,
 } from "./AnnotationOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
+import { PageToolbar } from "./PageToolbar";
+import { ProjectModal } from "./ProjectModal";
 import {
-  PageToolbar,
   showToolbar,
   hideToolbar,
   setToolbarFeedback,
-} from "./PageToolbar";
+  setMode,
+  setSignedOut,
+  getToolbarState,
+  registerInspectController,
+} from "./toolbar-state";
+import { formatInspectMarkdown, copyToClipboard } from "./inspect-markdown";
+import { getPageUrl } from "./page-url";
+import {
+  requestBackground,
+  type ToolbarVisibilityChangedMessage,
+} from "@/shared/messaging";
 
 type ShadowMount = ReturnType<typeof createShadowMount>;
 
-let annotationMount: ShadowMount | null = null;
+// Persistent overlays: the annotation layer and the toolbar (+ project modal).
+// Both render nothing until activated, so mounting eagerly is cheap.
+const annotationMount = createShadowMount();
+annotationMount.render(createElement(AnnotationOverlay));
+
+const toolbarMount = createShadowMount();
+toolbarMount.render(
+  createElement(
+    Fragment,
+    null,
+    createElement(PageToolbar),
+    createElement(ProjectModal),
+  ),
+);
+
+// Inspect overlay is created on demand and torn down when the mode exits.
 let selectionMount: ShadowMount | null = null;
-let toolbarMount: ShadowMount | null = null;
 
-function ensureAnnotationMount() {
-  if (annotationMount) return;
-  annotationMount = createShadowMount();
-  annotationMount.render(createElement(AnnotationOverlay));
-}
-
-function ensureToolbarMount() {
-  if (toolbarMount) return;
-  toolbarMount = createShadowMount();
-  toolbarMount.render(createElement(PageToolbar));
-}
-
-function destroySelection() {
-  if (!selectionMount) return;
-  selectionMount.unmount();
-  selectionMount = null;
-}
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type === "START_SELECTION") {
-    destroySelection();
+registerInspectController({
+  start() {
+    if (selectionMount) return;
     selectionMount = createShadowMount();
     selectionMount.render(
       createElement(SelectionOverlay, {
         onCapture(context) {
-          chrome.runtime.sendMessage({
-            type: "ELEMENT_CAPTURED",
-            payload: context,
+          void copyToClipboard(formatInspectMarkdown(context)).then((ok) => {
+            setToolbarFeedback(
+              ok ? "Copied to clipboard" : "Copy failed",
+              ok ? "success" : "error",
+            );
           });
+          // Stay active for repeated captures until the mode is toggled off.
         },
         onCancel() {
-          chrome.runtime.sendMessage({ type: "SELECTION_CANCELLED" });
-          destroySelection();
+          setMode(null);
         },
       }),
     );
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (message.type === "STOP_SELECTION") {
-    destroySelection();
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (message.type === "START_ANNOTATION") {
-    ensureAnnotationMount();
-    activateAnnotation();
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (message.type === "STOP_ANNOTATION") {
-    deactivateAnnotation();
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (message.type === "ANNOTATIONS_LOADED") {
-    ensureAnnotationMount();
-    setAnnotationsFromRemote(message.payload.pins);
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (message.type === "SHOW_TOOLBAR") {
-    ensureToolbarMount();
-    showToolbar();
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (message.type === "HIDE_TOOLBAR") {
-    hideToolbar();
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (message.type === "PANEL_CLOSED") {
-    hideToolbar();
-    deactivateAnnotation();
-    clearAllAnnotations();
-    destroySelection();
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (message.type === "TOOLBAR_RESULT" || message.type === "RUN_ALL_RESULT") {
-    setToolbarFeedback(
-      message.payload.message,
-      message.payload.success ? "success" : "error",
-    );
-    sendResponse({ success: true });
-    return true;
-  }
-
-  return false;
+  },
+  stop() {
+    if (!selectionMount) return;
+    selectionMount.unmount();
+    selectionMount = null;
+  },
 });
 
-void sendExtensionMessage({ type: "REQUEST_ANNOTATIONS" });
-ensureToolbarMount();
-void sendExtensionMessage({ type: "REQUEST_TOOLBAR_STATE" });
+async function syncStatusesOnce(): Promise<void> {
+  const ids = getTrackedTaskIds();
+  if (ids.length === 0) return;
+  const res = await requestBackground("SYNC_TASK_STATUSES", { taskIds: ids });
+  if (res.ok) applyTaskStatuses(res.updates);
+}
+
+async function showToolbarAndLoad(): Promise<void> {
+  showToolbar();
+  const res = await requestBackground("LOAD_ANNOTATIONS", {
+    pageUrl: getPageUrl(),
+  });
+  if (res.ok) {
+    setSignedOut(false);
+    setAnnotationsFromRemote(res.pins);
+    void syncStatusesOnce();
+  } else if (res.code === "not_signed_in") {
+    setSignedOut(true);
+  }
+}
+
+// React to the icon-driven visibility toggle from the background.
+chrome.runtime.onMessage.addListener(
+  (message: ToolbarVisibilityChangedMessage, _sender, sendResponse) => {
+    if (message?.type !== "TOOLBAR_VISIBILITY_CHANGED") return false;
+    if (message.payload.visible) {
+      void showToolbarAndLoad();
+    } else {
+      hideToolbar();
+      clearAllAnnotations();
+    }
+    sendResponse({ ok: true });
+    return true;
+  },
+);
+
+// Poll task statuses while the toolbar is visible and tracking tasks.
+setInterval(() => {
+  if (!getToolbarState().visible) return;
+  void syncStatusesOnce();
+}, 15000);
+
+// On load, restore the toolbar if it was left visible for this tab.
+void (async () => {
+  const res = await requestBackground("GET_TOOLBAR_VISIBILITY", undefined);
+  if (res.visible) void showToolbarAndLoad();
+})();

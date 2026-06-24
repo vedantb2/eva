@@ -5,7 +5,8 @@ import {
   existsSync as existsSync6,
   mkdirSync as mkdirSync7,
   readdirSync as readdirSync2,
-  unlinkSync
+  unlinkSync,
+  writeFileSync as writeFileSync10
 } from "fs";
 
 // callback-src/config.ts
@@ -2717,6 +2718,7 @@ function hasToolActivity() {
 
 // callback-src/runtime/cliAttempt.ts
 import { spawn } from "child_process";
+import { writeFileSync as writeFileSync9 } from "fs";
 
 // callback-src/providers/index.ts
 function getProviderAdapter(provider = PROVIDER) {
@@ -2869,6 +2871,12 @@ async function runCliAttempt(options) {
       }
     );
     callbackState.activeAttemptChild = child;
+    if (child.pid) {
+      try {
+        writeFileSync9("/proc/" + String(child.pid) + "/oom_score_adj", "300");
+      } catch {
+      }
+    }
     log(
       options.processLabel + " process spawned after " + String(elapsedAttemptMs()) + "ms pid=" + String(child.pid || "unknown")
     );
@@ -3054,6 +3062,10 @@ process.on("exit", (code) => {
 });
 try {
   unlinkSync(READY_FILE);
+} catch {
+}
+try {
+  writeFileSync10("/proc/self/oom_score_adj", "-600");
 } catch {
 }
 callbackState.accumulatedSteps.push({

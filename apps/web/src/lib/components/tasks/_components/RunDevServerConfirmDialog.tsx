@@ -38,7 +38,7 @@ export function RunDevServerConfirmDialog({
           <p>
             Running it twice can cause port conflicts or duplicate processes.
           </p>
-          <div className="rounded-md bg-muted/50 px-3 py-2">
+          <div className="rounded-surface bg-muted/50 px-3 py-2">
             <p className="text-xs font-medium text-foreground">Command</p>
             <p className="mt-1 font-mono text-xs break-all">
               {devCommandLabel}

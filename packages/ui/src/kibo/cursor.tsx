@@ -42,7 +42,7 @@ export const CursorBody = ({
 }: CursorBodyProps) => (
   <span
     className={cn(
-      "relative ml-3.5 flex flex-col whitespace-nowrap rounded-xl py-1 pr-3 pl-2.5 text-xs",
+      "relative ml-3.5 flex flex-col whitespace-nowrap rounded-lg py-1 pr-3 pl-2.5 text-xs",
       className,
     )}
     {...props}

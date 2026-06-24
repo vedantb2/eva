@@ -9,8 +9,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button, Badge, Spinner } from "@conductor/ui";
-import { IconChecks, IconInbox } from "@tabler/icons-react";
+import { IconCheck, IconChecks, IconInbox } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { inboxFilterParser } from "@/lib/search-params";
 import {
   NotificationIcon,
@@ -187,7 +188,7 @@ export function InboxClient() {
           />
         </div>
       ) : (
-        <div className="rounded-lg bg-muted/40 overflow-hidden">
+        <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
           <AnimatePresence initial={false}>
             {groups!.map((group) => (
               <motion.div
@@ -213,23 +214,46 @@ export function InboxClient() {
                       delay: Math.min(index * 0.02, 0.1),
                     }}
                   >
-                    <button
-                      onClick={() => handleClick(n)}
-                      className={`group flex w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-100 hover:bg-muted/50 focus-visible:outline-none focus-visible:bg-muted/50 sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
-                    >
-                      <div className="flex w-3 items-center justify-center flex-shrink-0">
-                        {!n.read && (
-                          <span className="h-2 w-2 rounded-full bg-primary" />
-                        )}
-                      </div>
-                      <NotificationIcon type={n.type} size="sm" />
-                      <span className="flex-1 min-w-0 text-xs font-medium truncate sm:text-sm">
-                        {n.title}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground tabular-nums flex-shrink-0 sm:text-xs">
-                        {dayjs(n.createdAt).fromNow()}
-                      </span>
-                    </button>
+                    <div className="group relative flex items-center transition-colors duration-100 hover:bg-muted/50">
+                      <button
+                        onClick={() => handleClick(n)}
+                        className={`flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none sm:gap-3 sm:px-4 ${n.read ? "opacity-60" : ""}`}
+                      >
+                        <div className="flex w-3 items-center justify-center flex-shrink-0">
+                          {!n.read && (
+                            <span className="h-2 w-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                        <NotificationIcon type={n.type} size="sm" />
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate text-xs font-medium sm:text-sm">
+                            {n.title}
+                          </span>
+                          {n.contextLabel && (
+                            <span className="truncate text-[10px] text-muted-foreground sm:text-xs">
+                              {n.contextLabel}
+                            </span>
+                          )}
+                        </div>
+                        <RelativeDateTime
+                          at={n.createdAt}
+                          className={`text-[10px] text-muted-foreground tabular-nums flex-shrink-0 sm:text-xs ${n.read ? "" : "group-hover:opacity-0"}`}
+                        />
+                      </button>
+                      {!n.read && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => markAsRead({ id: n._id })}
+                          title="Mark as read"
+                          aria-label="Mark as read"
+                          className="absolute right-2 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-[opacity,background-color] duration-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 sm:right-3"
+                        >
+                          <IconCheck size={14} />
+                          Dismiss
+                        </Button>
+                      )}
+                    </div>
                   </motion.div>
                 ))}
               </motion.div>

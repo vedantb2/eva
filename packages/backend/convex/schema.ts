@@ -2,21 +2,16 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
   activityLogTypeValidator,
-  roleValidator,
   sessionStatusValidator,
   evaluationStatusValidator,
   evalFixStatusValidator,
-  themeValidator,
-  evalResultValidator,
   auditSectionValidator,
-  userFlowValidator,
   notificationTypeValidator,
-  roleUserValidator,
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
+  seededAppResultValidator,
   teamMemberRoleValidator,
-  customThemeValidator,
   webhookEventStatusValidator,
   messageFields,
   automationFields,
@@ -32,30 +27,30 @@ import {
   taskSandboxEventFields,
   taskActivityFields,
   taskCommentFields,
+  taskReactionFields,
+  taskSubscriberFields,
   repoSkillFields,
   sandboxGitCredentialsFields,
+  appSettingsFields,
+  userFields,
+  docFields,
+  docCommentFields,
+  docSubscriberFields,
+  docVersionFields,
+  docVersionDraftFields,
+  draftFields,
+  evaluationReportFields,
+  artifactFields,
 } from "./validators";
 
 const schema = defineSchema({
-  users: defineTable({
-    clerkId: v.optional(v.string()),
-    email: v.optional(v.string()),
-    firstName: v.optional(v.string()),
-    lastName: v.optional(v.string()),
-    fullName: v.optional(v.string()),
-    isAdmin: v.optional(v.boolean()),
-    role: v.optional(roleUserValidator),
-    theme: v.optional(themeValidator),
-    customTheme: v.optional(customThemeValidator),
-    toolbarVisible: v.optional(v.boolean()),
-    customInstructions: v.optional(v.string()),
-    lastSeenAt: v.optional(v.number()),
-    lastSeenPath: v.optional(v.string()),
-    lastChangelogDismissedAt: v.optional(v.number()),
-    emailNotificationsEnabled: v.optional(v.boolean()),
-  })
+  users: defineTable(userFields)
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),
+
+  artifacts: defineTable(artifactFields)
+    .index("by_team", ["boundTeamId"])
+    .index("by_uploader", ["uploadedBy"]),
 
   projects: defineTable(projectFields)
     .index("by_repo", ["repoId"])
@@ -97,6 +92,19 @@ const schema = defineSchema({
 
   taskComments: defineTable(taskCommentFields).index("by_task", ["taskId"]),
 
+  taskReactions: defineTable(taskReactionFields)
+    .index("by_task", ["taskId"])
+    .index("by_target_user_emoji", [
+      "targetType",
+      "targetId",
+      "userId",
+      "emoji",
+    ]),
+
+  taskSubscribers: defineTable(taskSubscriberFields)
+    .index("by_task", ["taskId"])
+    .index("by_task_and_user", ["taskId", "userId"]),
+
   taskProof: defineTable({
     taskId: v.id("agentTasks"),
     storageId: v.optional(v.id("_storage")),
@@ -135,33 +143,21 @@ const schema = defineSchema({
     pendingQuestion: v.optional(v.string()),
     lastUpdatedAt: v.optional(v.number()),
   }).index("by_entity", ["entityId"]),
-  docs: defineTable({
-    repoId: v.id("githubRepos"),
-    sessionId: v.optional(v.id("sessions")),
-    title: v.string(),
-    content: v.string(),
-    description: v.optional(v.string()),
-    userFlows: v.optional(v.array(userFlowValidator)),
-    requirements: v.optional(v.array(v.string())),
-    interviewHistory: v.optional(
-      v.array(
-        v.object({
-          role: roleValidator,
-          content: v.string(),
-          activityLog: v.optional(v.string()),
-          userId: v.optional(v.id("users")),
-        }),
-      ),
-    ),
-    sandboxId: v.optional(v.string()),
-    activeWorkflowId: v.optional(v.string()),
-    testGenStatus: v.optional(evaluationStatusValidator),
-    testPrUrl: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
+  docs: defineTable(docFields)
     .index("by_repo", ["repoId"])
     .index("by_session", ["sessionId"]),
+
+  docComments: defineTable(docCommentFields).index("by_doc", ["docId"]),
+
+  docSubscribers: defineTable(docSubscriberFields)
+    .index("by_doc", ["docId"])
+    .index("by_doc_and_user", ["docId", "userId"]),
+
+  docVersions: defineTable(docVersionFields).index("by_doc", ["docId"]),
+
+  docVersionDrafts: defineTable(docVersionDraftFields).index("by_doc", [
+    "docId",
+  ]),
   annotations: defineTable({
     userId: v.id("users"),
     pageUrl: v.string(),
@@ -169,20 +165,7 @@ const schema = defineSchema({
     updatedAt: v.number(),
   }).index("by_user_and_url", ["userId", "pageUrl"]),
 
-  evaluationReports: defineTable({
-    repoId: v.id("githubRepos"),
-    docId: v.id("docs"),
-    status: evaluationStatusValidator,
-    results: v.array(evalResultValidator),
-    summary: v.optional(v.string()),
-    error: v.optional(v.string()),
-    activeWorkflowId: v.optional(v.string()),
-    fixStatus: v.optional(evalFixStatusValidator),
-    fixBranchName: v.optional(v.string()),
-    prUrl: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
+  evaluationReports: defineTable(evaluationReportFields)
     .index("by_repo", ["repoId"])
     .index("by_doc", ["docId"]),
   designPersonas: defineTable({
@@ -243,6 +226,14 @@ const schema = defineSchema({
     href: v.optional(v.string()),
     repoId: v.optional(v.id("githubRepos")),
     createdAt: v.number(),
+    // Human-readable task/project context shown on the notification card, e.g.
+    // a quick task's title or "Project title: issue title" for project tasks.
+    // Only set for types whose title does not already name the task (mentions,
+    // comment replies); snapshotted at creation, absent otherwise.
+    contextLabel: v.optional(v.string()),
+    // Set once this notification has been included in an email (instant send or
+    // daily digest), so neither path emails the same notification twice.
+    emailedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_read", ["userId", "read"])
@@ -285,6 +276,8 @@ const schema = defineSchema({
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
     retryCount: v.optional(v.number()),
+    // Per-app seeding outcomes captured during Step 5 of the build workflow.
+    seededApps: v.optional(v.array(seededAppResultValidator)),
   })
     .index("by_repo_snapshot", ["repoSnapshotId"])
     .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])
@@ -387,6 +380,18 @@ const schema = defineSchema({
   sandboxGitCredentials: defineTable(sandboxGitCredentialsFields)
     .index("by_sandbox_id", ["sandboxId"])
     .index("by_secret", ["secret"]),
+
+  // App-wide singleton settings (only ever one row). Read/written via the
+  // helpers in `sandboxAutoStop.ts`.
+  appSettings: defineTable(appSettingsFields),
+
+  // One row per (user, surface target). Persists unsent composer text for task
+  // comments and chat prompts so drafts survive page reloads.
+  drafts: defineTable(draftFields)
+    .index("by_user_and_task", ["userId", "taskId"])
+    .index("by_user_and_session", ["userId", "sessionId"])
+    .index("by_user_and_designSession", ["userId", "designSessionId"])
+    .index("by_user_and_repo", ["userId", "repoId"]),
 });
 
 export default schema;

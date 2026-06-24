@@ -1,4 +1,5 @@
 export { cn } from "./utils/cn";
+export { STREAMDOWN_TABLE_RADIUS_CLASS } from "./utils/surface-radius";
 
 export * from "./ui/accordion";
 export * from "./ui/alert";
@@ -10,6 +11,7 @@ export * from "./ui/calendar";
 export * from "./ui/card";
 export * from "./ui/carousel";
 export * from "./ui/checkbox";
+export * from "./ui/clear-input";
 export * from "./ui/collapsible";
 export * from "./ui/command";
 export * from "./ui/context-menu";

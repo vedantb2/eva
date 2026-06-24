@@ -10,6 +10,12 @@ import {
   DialogFooter,
   Input,
   Spinner,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
   Textarea,
 } from "@conductor/ui";
 import {
@@ -202,9 +208,11 @@ export function EnvVarsTable({
   const showTable = (vars && vars.length > 0) || adding;
 
   const renderRow = (v: EnvVar) => (
-    <tr key={v.key} className="last:border-0">
-      <td className="px-2.5 py-2.5 font-mono text-xs sm:px-4">{v.key}</td>
-      <td className="px-2.5 py-2.5 sm:px-4">
+    <TableRow key={v.key}>
+      <TableCell className="px-2.5 py-2.5 font-mono text-xs sm:px-4">
+        {v.key}
+      </TableCell>
+      <TableCell className="px-2.5 py-2.5 sm:px-4">
         {editingKey === v.key ? (
           <Input
             value={editValue}
@@ -222,8 +230,8 @@ export function EnvVarsTable({
             {revealedValues[v.key] ?? v.value}
           </span>
         )}
-      </td>
-      <td className="px-2.5 py-2.5 text-right sm:px-4">
+      </TableCell>
+      <TableCell className="px-2.5 py-2.5 text-right sm:px-4">
         {editingKey === v.key ? (
           <div className="flex items-center justify-end gap-1">
             <Button
@@ -292,7 +300,7 @@ export function EnvVarsTable({
                     }
                   >
                     {v.sandboxExclude ? (
-                      <IconLock size={14} className="text-amber-500" />
+                      <IconLock size={14} className="text-warning" />
                     ) : (
                       <IconLockOpen size={14} />
                     )}
@@ -319,25 +327,23 @@ export function EnvVarsTable({
             )}
           </div>
         )}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 
   const tableHeader = (
-    <thead>
-      <tr className="text-left text-muted-foreground">
-        <th className="px-2.5 py-2.5 font-medium sm:px-4">Key</th>
-        <th className="px-2.5 py-2.5 font-medium sm:px-4">Value</th>
-        <th className="px-2.5 py-2.5 text-right font-medium sm:px-4">
-          Actions
-        </th>
-      </tr>
-    </thead>
+    <TableHeader>
+      <TableRow className="hover:bg-transparent">
+        <TableHead className="px-2.5 sm:px-4">Key</TableHead>
+        <TableHead className="px-2.5 sm:px-4">Value</TableHead>
+        <TableHead className="px-2.5 text-right sm:px-4">Actions</TableHead>
+      </TableRow>
+    </TableHeader>
   );
 
   const addingRow = adding ? (
-    <tr>
-      <td className="px-2.5 py-2.5 sm:px-4">
+    <TableRow>
+      <TableCell className="px-2.5 py-2.5 sm:px-4">
         <Input
           value={keyInput}
           onChange={(e) => setKeyInput(e.target.value)}
@@ -349,8 +355,8 @@ export function EnvVarsTable({
             if (e.key === "Escape") cancelAdd();
           }}
         />
-      </td>
-      <td className="px-2.5 py-2.5 sm:px-4">
+      </TableCell>
+      <TableCell className="px-2.5 py-2.5 sm:px-4">
         <Input
           value={valueInput}
           onChange={(e) => setValueInput(e.target.value)}
@@ -361,8 +367,8 @@ export function EnvVarsTable({
             if (e.key === "Escape") cancelAdd();
           }}
         />
-      </td>
-      <td className="px-2.5 py-2.5 text-right sm:px-4">
+      </TableCell>
+      <TableCell className="px-2.5 py-2.5 text-right sm:px-4">
         <div className="flex items-center justify-end gap-1">
           <Button
             size="icon-sm"
@@ -383,8 +389,8 @@ export function EnvVarsTable({
             <IconX size={14} />
           </Button>
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   ) : null;
 
   return (
@@ -419,39 +425,39 @@ export function EnvVarsTable({
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-lg bg-muted/40 overflow-x-auto">
-            <table className="w-full text-sm min-w-[360px]">
+          <div className="rounded-surface border border-border bg-muted/40">
+            <Table className="min-w-[360px]">
               {tableHeader}
-              <tbody>
+              <TableBody>
                 {addingRow}
                 {sandboxVars.map(renderRow)}
                 {sandboxVars.length === 0 && !adding && (
-                  <tr>
-                    <td
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell
                       colSpan={3}
                       className="px-4 py-6 text-center text-xs text-muted-foreground"
                     >
                       No sandbox variables
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           {excludedVars.length > 0 && (
             <div>
               <div className="mb-2 flex items-center gap-1.5">
-                <IconLock size={14} className="text-amber-500" />
+                <IconLock size={14} className="text-warning" />
                 <p className="text-xs font-medium text-muted-foreground">
                   Excluded from Sandbox
                 </p>
               </div>
-              <div className="rounded-lg bg-muted/40 overflow-x-auto">
-                <table className="w-full text-sm min-w-[360px]">
+              <div className="rounded-surface border border-border bg-muted/40">
+                <Table className="min-w-[360px]">
                   {tableHeader}
-                  <tbody>{excludedVars.map(renderRow)}</tbody>
-                </table>
+                  <TableBody>{excludedVars.map(renderRow)}</TableBody>
+                </Table>
               </div>
             </div>
           )}

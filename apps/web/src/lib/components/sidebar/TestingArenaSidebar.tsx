@@ -21,6 +21,11 @@ import { IconAlertTriangle, IconFileText } from "@tabler/icons-react";
 import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { branchParser, searchParser } from "@/lib/search-params";
+import {
+  SharedLayoutNav,
+  SharedLayoutNavSurface,
+  sidebarNavListItemClass,
+} from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface TestingArenaSidebarProps {
   repoId: Id<"githubRepos">;
@@ -59,17 +64,28 @@ export function TestingArenaSidebar({
     return q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : docs;
   }, [docs, searchQuery]);
 
+  // Only docs with requirements can be evaluated; the rest are skipped.
+  const testableDocs = useMemo(
+    () => (docs ?? []).filter((d) => (d.requirements?.length ?? 0) > 0),
+    [docs],
+  );
+
   const handleTestAll = async () => {
-    if (!docs || docs.length === 0) return;
     setShowTestAllModal(false);
+    if (testableDocs.length === 0) return;
     setIsTestingAll(true);
     try {
-      for (const doc of docs) {
-        await startEvaluation({
-          docId: doc._id,
-          repoId,
-          branchName: branch !== "main" ? branch : undefined,
-        });
+      for (const doc of testableDocs) {
+        // One failure should not abort the whole batch.
+        try {
+          await startEvaluation({
+            docId: doc._id,
+            repoId,
+            branchName: branch !== "main" ? branch : undefined,
+          });
+        } catch {
+          // Skip this doc and continue with the rest.
+        }
       }
     } finally {
       setIsTestingAll(false);
@@ -90,7 +106,7 @@ export function TestingArenaSidebar({
         <Button
           size="icon-sm"
           variant="ghost"
-          className="shrink-0 text-amber-600 dark:text-amber-400"
+          className="shrink-0 text-warning"
           onClick={() => setShowTestAllModal(true)}
           title="Test all documents"
         >
@@ -119,38 +135,42 @@ export function TestingArenaSidebar({
             No matches found
           </div>
         ) : (
-          <div>
+          <SharedLayoutNav layoutId="testing-arena-nav">
             {filteredDocs.map((doc) => {
               const href = `${basePath}/testing-arena/${doc._id}`;
               const isSelected = pathname.startsWith(href);
               return (
-                <Link
+                <SharedLayoutNavSurface
                   key={doc._id}
-                  to={href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "group mx-1 flex items-center rounded-md px-3 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
-                    isSelected
-                      ? "bg-sidebar-accent font-medium text-sidebar-primary"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
-                  )}
+                  itemId={doc._id}
+                  isActive={isSelected}
+                  className="group mx-1"
                 >
-                  <IconFileText size={14} className="mr-2.5 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{doc.title}</span>
-                  <span
+                  <Link
+                    to={href}
+                    onClick={onNavigate}
                     className={cn(
-                      "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
-                      isSelected
-                        ? "max-w-[80px] pl-2 opacity-100"
-                        : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
+                      "flex items-center text-sm",
+                      sidebarNavListItemClass(isSelected),
                     )}
                   >
-                    {compactRelativeTime(doc.updatedAt ?? doc._creationTime)}
-                  </span>
-                </Link>
+                    <IconFileText size={14} className="mr-2.5 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{doc.title}</span>
+                    <span
+                      className={cn(
+                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
+                        isSelected
+                          ? "max-w-[80px] pl-2 opacity-100"
+                          : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
+                      )}
+                    >
+                      {compactRelativeTime(doc.updatedAt ?? doc._creationTime)}
+                    </span>
+                  </Link>
+                </SharedLayoutNavSurface>
               );
             })}
-          </div>
+          </SharedLayoutNav>
         )}
       </div>
 
@@ -162,21 +182,25 @@ export function TestingArenaSidebar({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Test All Documents</DialogTitle>
+            <DialogTitle>Test all documents</DialogTitle>
           </DialogHeader>
           <p className="text-muted-foreground">
-            Are you sure you want to run tests on all {docs?.length ?? 0}{" "}
-            documents?
+            Run a code evaluation for each of the {testableDocs.length} document
+            {testableDocs.length === 1 ? "" : "s"} with requirements?
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            This will evaluate each document against your codebase sequentially.
+            Each runs against your codebase sequentially. Documents without
+            requirements are skipped.
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowTestAllModal(false)}>
               Cancel
             </Button>
-            <Button onClick={handleTestAll} disabled={isTestingAll}>
-              {isTestingAll ? <Spinner size="sm" /> : "Yes save me Eva"}
+            <Button
+              onClick={handleTestAll}
+              disabled={isTestingAll || testableDocs.length === 0}
+            >
+              {isTestingAll ? <Spinner size="sm" /> : "Run all tests"}
             </Button>
           </DialogFooter>
         </DialogContent>

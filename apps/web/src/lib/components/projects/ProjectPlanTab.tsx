@@ -37,7 +37,14 @@ export function ProjectPlanTab({
     (localStore, args) => {
       const current = localStore.getQuery(api.projects.get, { id: projectId });
       if (current !== undefined && current !== null) {
-        const { id: _id, priority, projectLead, ...safeFields } = args;
+        const {
+          id: _id,
+          priority,
+          projectLead,
+          codeReviewer,
+          model,
+          ...safeFields
+        } = args;
         localStore.setQuery(
           api.projects.get,
           { id: projectId },
@@ -50,6 +57,10 @@ export function ProjectPlanTab({
             ...(projectLead !== undefined
               ? { projectLead: projectLead ?? undefined }
               : {}),
+            ...(codeReviewer !== undefined
+              ? { codeReviewer: codeReviewer ?? undefined }
+              : {}),
+            ...(model !== undefined ? { model: model ?? undefined } : {}),
           },
         );
       }
@@ -204,7 +215,7 @@ export function ProjectPlanTab({
           </div>
         )}
         {isLocked && (
-          <div className="p-4 bg-success-bg rounded-lg">
+          <div className="p-4 bg-success-bg rounded-surface">
             <p className="text-sm text-success">
               Development has started on this project. The plan is now locked.
             </p>

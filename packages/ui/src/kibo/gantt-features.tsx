@@ -12,6 +12,10 @@ import type { FC, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "../utils/cn";
 import {
+  CONTROL_RADIUS_CLASS,
+  SURFACE_RADIUS_CLASS,
+} from "../utils/surface-radius";
+import {
   useGanttContext,
   getAddRange,
   getDateByMousePosition,
@@ -48,6 +52,7 @@ export const GanttFeatureDragHelper: FC<GanttFeatureDragHelperProps> = ({
         "group -translate-y-1/2 cursor-col-resize absolute top-1/2 z-[3] h-full w-6 rounded-md outline-none",
         direction === "left" ? "-left-2.5" : "-right-2.5",
       )}
+      data-gantt-no-pan
       ref={setNodeRef}
       {...attributes}
       {...listeners}
@@ -65,7 +70,8 @@ export const GanttFeatureDragHelper: FC<GanttFeatureDragHelperProps> = ({
       {date && (
         <div
           className={cn(
-            "-translate-x-1/2 absolute top-10 hidden whitespace-nowrap rounded-lg bg-background/90 px-2 py-1 text-foreground text-xs backdrop-blur-lg group-hover:block",
+            "-translate-x-1/2 absolute top-10 hidden whitespace-nowrap bg-background/90 px-2 py-1 text-foreground text-xs backdrop-blur-lg group-hover:block",
+            SURFACE_RADIUS_CLASS,
             isPressed && "block",
           )}
         >
@@ -79,12 +85,14 @@ export const GanttFeatureDragHelper: FC<GanttFeatureDragHelperProps> = ({
 export type GanttFeatureItemCardProps = Pick<GanttFeature, "id"> & {
   children?: ReactNode;
   className?: string;
+  onClick?: () => void;
 };
 
 export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
   id,
   children,
   className,
+  onClick,
 }) => {
   const gantt = useGanttContext();
   const { attributes, listeners, setNodeRef } = useDraggable({ id });
@@ -94,18 +102,21 @@ export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
 
   return (
     <div
+      data-gantt-no-pan
       className={cn(
-        "h-full w-full rounded-md bg-muted/40 p-2 text-xs",
+        "relative h-full w-full overflow-hidden border border-border/70 text-xs shadow-sm transition-shadow hover:shadow",
+        CONTROL_RADIUS_CLASS,
         className,
       )}
     >
       <div
         className={cn(
-          "flex h-full w-full items-center justify-between gap-2 text-left",
-          isPressed && "cursor-grabbing",
+          "h-full w-full",
+          isPressed ? "cursor-grabbing" : "cursor-grab",
         )}
         {...attributes}
         {...listeners}
+        onClick={onClick}
         ref={setNodeRef}
       >
         {children}
@@ -116,12 +127,14 @@ export const GanttFeatureItemCard: FC<GanttFeatureItemCardProps> = ({
 
 export type GanttFeatureItemProps = GanttFeature & {
   onMove?: (id: string, startDate: Date, endDate: Date | null) => void;
+  onClick?: () => void;
   children?: ReactNode;
   className?: string;
 };
 
 export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
   onMove,
+  onClick,
   children,
   className,
   ...feature
@@ -146,6 +159,13 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
 
   const addRange = useMemo(() => getAddRange(gantt.range), [gantt.range]);
 
+  // Pixels per day for the active range, so drag deltas map to dates correctly
+  // in every zoom (daily columns are per-day; monthly/quarterly are per-month).
+  const pxPerDay = useMemo(() => {
+    const colW = (gantt.columnWidth * gantt.zoom) / 100;
+    return gantt.range === "daily" ? colW : colW / 30;
+  }, [gantt.columnWidth, gantt.zoom, gantt.range]);
+
   const [previousMouseX, setPreviousMouseX] = useState(0);
   const [previousStartAt, setPreviousStartAt] = useState(startAt);
   const [previousEndAt, setPreviousEndAt] = useState(endAt);
@@ -164,8 +184,7 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
 
   const handleItemDragMove = useCallback(
     (event: { delta: { x: number } }) => {
-      const columnWidth = (gantt.columnWidth * gantt.zoom) / 100;
-      const daysDelta = Math.round(event.delta.x / (columnWidth / 30));
+      const daysDelta = Math.round(event.delta.x / pxPerDay);
       const newStartDate = dayjs(previousStartAt)
         .add(daysDelta, "day")
         .toDate();
@@ -176,7 +195,7 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
       setStartAt(newStartDate);
       setEndAt(newEndDate);
     },
-    [gantt, previousStartAt, previousEndAt],
+    [pxPerDay, previousStartAt, previousEndAt],
   );
 
   const onDragEnd = useCallback(
@@ -186,23 +205,37 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
 
   const handleLeftDragMove = useCallback(
     (event: { delta: { x: number } }) => {
-      const columnWidth = (gantt.columnWidth * gantt.zoom) / 100;
-      const daysDelta = Math.round(event.delta.x / (columnWidth / 30));
+      const daysDelta = Math.round(event.delta.x / pxPerDay);
       const newStartAt = dayjs(feature.startAt).add(daysDelta, "day").toDate();
       setStartAt(newStartAt);
     },
-    [gantt, feature.startAt],
+    [pxPerDay, feature.startAt],
   );
 
   const handleRightDragMove = useCallback(
     (event: { delta: { x: number } }) => {
-      const columnWidth = (gantt.columnWidth * gantt.zoom) / 100;
-      const daysDelta = Math.round(event.delta.x / (columnWidth / 30));
+      const daysDelta = Math.round(event.delta.x / pxPerDay);
       const newEndAt = dayjs(feature.endAt).add(daysDelta, "day").toDate();
       setEndAt(newEndAt);
     },
-    [gantt, feature.endAt],
+    [pxPerDay, feature.endAt],
   );
+
+  // When the bar sits outside the visible canvas, show a clickable date chip
+  // pinned to the viewport edge that scrolls back to it (Linear's "← date").
+  const viewportWidth = gantt.ref?.current?.clientWidth ?? 0;
+  const visibleEnd =
+    gantt.scrollX + Math.max(0, viewportWidth - gantt.sidebarWidth);
+  const roundedOffset = Math.round(offset);
+  const roundedWidth = Math.round(width);
+  const offscreenLeft =
+    viewportWidth > 0 && roundedOffset + roundedWidth < gantt.scrollX;
+  const offscreenRight = viewportWidth > 0 && roundedOffset > visibleEnd;
+  const dateLabel = endAt
+    ? `${dayjs(startAt).format("MMM D")} – ${dayjs(endAt).format("MMM D")}`
+    : dayjs(startAt).format("MMM D");
+  const indicatorClass =
+    "absolute top-1/2 z-[4] flex -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-control border border-border bg-background/95 px-2 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground";
 
   return (
     <div
@@ -238,12 +271,11 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
           onDragStart={handleItemDragStart}
           sensors={[mouseSensor]}
         >
-          <GanttFeatureItemCard
-            id={feature.id}
-            className={feature.status.color}
-          >
+          <GanttFeatureItemCard id={feature.id} onClick={onClick}>
             {children ?? (
-              <p className="flex-1 truncate text-xs">{feature.name}</p>
+              <div className="flex h-full w-full items-center bg-muted/40 px-2">
+                <p className="flex-1 truncate text-xs">{feature.name}</p>
+              </div>
             )}
           </GanttFeatureItemCard>
         </DndContext>
@@ -262,6 +294,35 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
           </DndContext>
         )}
       </div>
+      {offscreenLeft && (
+        <button
+          type="button"
+          data-gantt-no-pan
+          onClick={() => gantt.scrollToFeature?.(feature)}
+          className={indicatorClass}
+          style={{ left: gantt.scrollX + 8 }}
+        >
+          <span aria-hidden>←</span>
+          {dateLabel}
+        </button>
+      )}
+      {offscreenRight && (
+        <button
+          type="button"
+          data-gantt-no-pan
+          onClick={() => gantt.scrollToFeature?.(feature)}
+          className={cn(indicatorClass, "-translate-x-full")}
+          style={{
+            left:
+              gantt.scrollX +
+              Math.max(0, viewportWidth - gantt.sidebarWidth) -
+              8,
+          }}
+        >
+          {dateLabel}
+          <span aria-hidden>→</span>
+        </button>
+      )}
     </div>
   );
 };
@@ -361,7 +422,7 @@ export const GanttFeatureList: FC<GanttFeatureListProps> = ({
   children,
 }) => (
   <div
-    className={cn("absolute top-0 left-0 h-full w-max space-y-4", className)}
+    className={cn("absolute top-0 left-0 h-full w-max", className)}
     style={{ marginTop: "var(--gantt-header-height)" }}
   >
     {children}

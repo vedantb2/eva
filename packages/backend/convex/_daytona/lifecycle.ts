@@ -5,6 +5,15 @@ import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { exec, getSandbox } from "./helpers";
 
+/**
+ * Short wait window for the start kick-off. A stopped→started fast resume
+ * completes inside this window; an archived cold-storage thaw will not, and that
+ * is expected — the thaw continues server-side on Daytona and is then observed
+ * via pollSandboxStarted.
+ */
+const KICKOFF_START_WAIT_SECONDS = 30;
+/** States from which a sandbox can never reach "started" — fail fast on these. */
+const TERMINAL_FAILURE_STATES = ["error", "destroyed", "build_failed"];
 const CALLBACK_LIVENESS_COMMAND = [
   "test -f /tmp/run-design.pid",
   "test ! -f /tmp/run-design.done",
@@ -161,6 +170,58 @@ export const stopSandbox = internalAction({
   },
 });
 
+// Evidence of why a run's callback process died, gathered before the sandbox
+// (and with it /tmp and the kernel log) is destroyed. The dmesg grep directly
+// confirms or rules out OOM kills; a missing done file means the callback was
+// SIGKILLed (its exit handler never ran); the log tail shows its last words.
+const KILL_DIAGNOSTICS_COMMAND = [
+  "echo '--- oom (dmesg) ---'",
+  "(dmesg 2>/dev/null | grep -iE 'out of memory|oom[-_ ]kill|killed process' | tail -n 12) || true",
+  "echo '--- done file ---'",
+  "cat /tmp/run-design.done 2>/dev/null || echo '(missing: callback died without running its exit handler, e.g. SIGKILL/OOM)'",
+  "echo; echo '--- callback log tail ---'",
+  "tail -n 30 /tmp/design.log 2>/dev/null || true",
+].join("; ");
+
+/**
+ * Captures post-mortem diagnostics from a sandbox whose run was killed by the
+ * watchdog, persists them on the run, then stops (not deletes) the sandbox.
+ * Quick-task sandboxes are persistent — the paused filesystem keeps any
+ * uncommitted work and unpushed commits recoverable, and the next run resumes
+ * it. Capture is best-effort — the stop proceeds regardless.
+ */
+export const captureDiagnosticsAndStopSandbox = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    runId: v.id("agentRuns"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      const diagnostics = await exec(sandbox, KILL_DIAGNOSTICS_COMMAND, 15);
+      const trimmed = diagnostics.trim().slice(0, 4000);
+      console.log(
+        `[watchdog][diagnostics] runId=${args.runId} sandboxId=${args.sandboxId}\n${trimmed}`,
+      );
+      await ctx.runMutation(internal.taskWorkflow.appendRunLog, {
+        runId: args.runId,
+        message: `Sandbox diagnostics captured before stop:\n${trimmed}`,
+      });
+    } catch (error) {
+      console.log(
+        `[watchdog][diagnostics] runId=${args.runId} capture failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    await ctx.runAction(internal.daytona.stopSandbox, {
+      sandboxId: args.sandboxId,
+      repoId: args.repoId,
+    });
+    return null;
+  },
+});
+
 /** Deletes a Daytona sandbox, silently ignoring already-deleted sandboxes. */
 export const deleteSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
@@ -214,5 +275,72 @@ export const archiveSandbox = internalAction({
       );
     }
     return null;
+  },
+});
+
+/**
+ * Issues a start request for a sandbox and returns the observed state WITHOUT
+ * blocking on a full cold-storage thaw.
+ *
+ * Archived sandboxes rehydrate from object storage, which can take well over 10
+ * minutes — waiting inline would blow the Convex per-action time limit. So this
+ * fires the start (the thaw then proceeds server-side on Daytona) with only a
+ * short wait window: a stopped→started fast resume completes here and returns
+ * "started"; an archived thaw times out the wait (expected) and returns the
+ * in-progress state so the caller can poll via pollSandboxStarted. Throws only
+ * when the sandbox is in a terminal failure state.
+ */
+export const startSandboxAsyncKickoff = internalAction({
+  args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
+  returns: v.object({ state: v.string() }),
+  handler: async (ctx, args) => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await sandbox.refreshData();
+    if (sandbox.state === "started") {
+      return { state: "started" };
+    }
+    try {
+      // start() POSTs the start request, then waits up to the given window. The
+      // POST returns fast; for a cold thaw the wait times out and throws — the
+      // restore keeps running on Daytona regardless.
+      await sandbox.start(KICKOFF_START_WAIT_SECONDS);
+    } catch (error) {
+      console.log(
+        `[daytona] startSandboxAsyncKickoff: start() did not complete within ${KICKOFF_START_WAIT_SECONDS}s for ${args.sandboxId} (expected for a cold thaw): ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    await sandbox.refreshData();
+    const state = sandbox.state ?? "unknown";
+    if (TERMINAL_FAILURE_STATES.includes(state)) {
+      throw new Error(
+        `Sandbox ${args.sandboxId} is in terminal state "${state}": ${sandbox.errorReason ?? "no reason given"}`,
+      );
+    }
+    console.log(
+      `[daytona] startSandboxAsyncKickoff: sandbox ${args.sandboxId} state after kick-off = ${state}`,
+    );
+    return { state };
+  },
+});
+
+/**
+ * Single poll of a sandbox's state, used by the cold-storage thaw workflow loop
+ * (ensureSandboxStartedSteps). Returns the current state; throws if the sandbox
+ * has reached a terminal failure state so the workflow can stop early instead of
+ * polling all the way to its ceiling.
+ */
+export const pollSandboxStarted = internalAction({
+  args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
+  returns: v.object({ state: v.string() }),
+  handler: async (ctx, args) => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await sandbox.refreshData();
+    const state = sandbox.state ?? "unknown";
+    if (TERMINAL_FAILURE_STATES.includes(state)) {
+      throw new Error(
+        `Sandbox ${args.sandboxId} reached terminal state "${state}" during restore: ${sandbox.errorReason ?? "no reason given"}`,
+      );
+    }
+    return { state };
   },
 });

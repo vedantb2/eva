@@ -18,6 +18,7 @@ import type { Id } from "@conductor/backend";
 import { AuditTimelineItem } from "./AuditTimelineItem";
 import { TaskActivityItem } from "./TaskActivityItem";
 import { TaskActivityComposer } from "./TaskActivityComposer";
+import { TaskSubscribers } from "./TaskSubscribers";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
 import { CommentThread } from "./CommentThread";
 import {
@@ -138,9 +139,6 @@ export function ActivityTimeline({
 }) {
   const [deletingCommentId, setDeletingCommentId] =
     useState<Id<"taskComments"> | null>(null);
-  const [replyingToId, setReplyingToId] = useState<Id<"taskComments"> | null>(
-    null,
-  );
   const [isDeletingComment, setIsDeletingComment] = useState(false);
 
   const removeComment = useMutation(
@@ -178,34 +176,19 @@ export function ActivityTimeline({
     }
   };
 
-  const sortedRuns = [...(runs ?? [])].sort(
-    (a, b) =>
-      (a.startedAt ?? a._creationTime) - (b.startedAt ?? b._creationTime),
-  );
-  const firstRunId = sortedRuns.length > 0 ? sortedRuns[0]._id : null;
-
   const userComments = comments?.filter((c) => c.authorId) ?? [];
   const topLevelComments = getTopLevelComments(userComments);
   const repliesByParentId = buildRepliesByParentId(userComments);
 
+  // Link each run to the change-request comment that actually triggered it,
+  // recorded on the run as `triggeringCommentId`. Runs without one (initial
+  // task runs, Resolve Conflicts, legacy runs) intentionally have no comment.
+  const commentById = new Map(topLevelComments.map((c) => [c._id, c]));
   const runCommentMap = new Map<string, (typeof topLevelComments)[number]>();
-  if (topLevelComments.length > 0 && runs) {
-    const sortedComments = [...topLevelComments].sort(
-      (a, b) => a.createdAt - b.createdAt,
-    );
-    for (const run of sortedRuns) {
-      if (run._id === firstRunId) continue;
-      const runTime = run._creationTime;
-      let matchedComment: (typeof topLevelComments)[number] | undefined;
-      for (const comment of sortedComments) {
-        if (comment.createdAt <= runTime) {
-          matchedComment = comment;
-        }
-      }
-      if (matchedComment) {
-        runCommentMap.set(run._id, matchedComment);
-      }
-    }
+  for (const run of runs ?? []) {
+    if (!run.triggeringCommentId) continue;
+    const comment = commentById.get(run.triggeringCommentId);
+    if (comment) runCommentMap.set(run._id, comment);
   }
 
   const commentsShownWithRuns = new Set(
@@ -249,6 +232,8 @@ export function ActivityTimeline({
 
   return (
     <div className="pt-4">
+      <TaskSubscribers taskId={taskId} users={users} />
+
       <TaskActivityComposer
         taskId={taskId}
         isProjectTask={isProjectTask}
@@ -308,8 +293,6 @@ export function ActivityTimeline({
                   taskId={taskId}
                   users={users}
                   repliesByParentId={repliesByParentId}
-                  replyingToId={replyingToId}
-                  onReplyingToChange={setReplyingToId}
                   onDeleteRequest={setDeletingCommentId}
                 />
               );
@@ -323,7 +306,6 @@ export function ActivityTimeline({
                 <RunTimelineItem
                   run={run}
                   isActiveRun={isActiveRun}
-                  isFirst={index === 0}
                   streaming={streaming}
                   activeRunElapsed={activeRunElapsed}
                   isStopping={isStopping}

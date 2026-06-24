@@ -46,10 +46,31 @@ type Run = NonNullable<
 type Streaming = FunctionReturnType<typeof api.streaming.get>;
 type Users = FunctionReturnType<typeof api.users.listAll>;
 
+/** Human-readable badge label for a run. The error/queued/cancelled labels are
+ * the same everywhere; only running/success vary by run mode and whether the
+ * run was triggered by a change-request comment. */
+function getRunStatusLabel(run: Run, hasRunComment: boolean): string {
+  switch (run.status) {
+    case "cancelled":
+      return "cancelled";
+    case "error":
+      return "error";
+    case "queued":
+      return "queued";
+    case "running":
+      if (run.mode === "resolve_conflicts") return "resolving conflicts";
+      if (hasRunComment) return "making changes";
+      return "running";
+    case "success":
+      if (run.mode === "resolve_conflicts") return "resolved conflicts";
+      if (hasRunComment) return "made changes";
+      return "success";
+  }
+}
+
 export function RunTimelineItem({
   run,
   isActiveRun,
-  isFirst,
   streaming,
   activeRunElapsed,
   isStopping,
@@ -60,7 +81,6 @@ export function RunTimelineItem({
 }: {
   run: Run;
   isActiveRun: boolean;
-  isFirst: boolean;
   streaming: Streaming | undefined;
   activeRunElapsed: number;
   isStopping: boolean;
@@ -70,10 +90,13 @@ export function RunTimelineItem({
   users: Users | undefined;
 }) {
   const hasRunComment = runComment !== undefined;
-  const requester =
-    hasRunComment && runComment.authorId
-      ? users?.find((user) => user._id === runComment.authorId)
-      : undefined;
+  // The run's initiator: the change-request comment's author when the run was
+  // started via "Make changes", otherwise whoever clicked the button. Legacy
+  // runs predating `triggeredBy` show no initiator.
+  const requesterUserId = runComment?.authorId ?? run.triggeredBy;
+  const requester = requesterUserId
+    ? users?.find((user) => user._id === requesterUserId)
+    : undefined;
 
   const runDuration =
     isActiveRun && run.startedAt ? (
@@ -94,18 +117,18 @@ export function RunTimelineItem({
     ) : null;
 
   return (
-    <Accordion
-      type="multiple"
-      defaultValue={isActiveRun || isFirst ? [run._id] : []}
-    >
-      <AccordionItem value={run._id} className="rounded-lg bg-muted/40 px-3">
+    <Accordion type="multiple" defaultValue={[]}>
+      <AccordionItem
+        value={run._id}
+        className="rounded-surface bg-muted/40 px-3"
+      >
         <div className="flex items-center gap-2">
           <AccordionTrigger className="flex-1 min-w-0">
             <div className="flex flex-1 items-center justify-between mr-2 min-w-0 gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-2 flex-wrap">
-                {hasRunComment && runComment.authorId ? (
+                {requesterUserId ? (
                   <UserInitials
-                    userId={runComment.authorId}
+                    userId={requesterUserId}
                     size="sm"
                     hideLastSeen
                   />
@@ -126,29 +149,7 @@ export function RunTimelineItem({
                           : "secondary"
                   }
                 >
-                  {run.mode === "resolve_conflicts"
-                    ? run.status === "running"
-                      ? "resolving conflicts"
-                      : run.status === "success"
-                        ? "resolved conflicts"
-                        : run.status === "error"
-                          ? "error"
-                          : "queued"
-                    : hasRunComment
-                      ? run.status === "running"
-                        ? "making changes"
-                        : run.status === "success"
-                          ? "made changes"
-                          : run.status === "error"
-                            ? "error"
-                            : "queued"
-                      : run.status === "running"
-                        ? "running"
-                        : run.status === "success"
-                          ? "success"
-                          : run.status === "error"
-                            ? "error"
-                            : "queued"}
+                  {getRunStatusLabel(run, hasRunComment)}
                 </Badge>
                 {runDuration}
               </div>
@@ -186,6 +187,18 @@ export function RunTimelineItem({
         </div>
         <AccordionContent>
           <div className="space-y-2">
+            {runComment ? (
+              <div
+                className={`ml-2 space-y-2 border-l-2 border-muted-foreground/25 pl-3 ${RUN_ACCORDION_SCROLL_CLASS}`}
+              >
+                <RunInlineComment comment={runComment} users={users} />
+                {runCommentReplies.map((reply) => (
+                  <div key={reply._id} className="ml-2 pl-2">
+                    <RunInlineComment comment={reply} users={users} />
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {run.status === "running" &&
               streaming?.currentActivity &&
               (() => {
@@ -249,19 +262,7 @@ export function RunTimelineItem({
                   ))}
                 </div>
               </div>
-            )}
-            {runComment ? (
-              <div
-                className={`ml-2 space-y-2 border-l-2 border-muted-foreground/25 pl-3 ${RUN_ACCORDION_SCROLL_CLASS}`}
-              >
-                <RunInlineComment comment={runComment} users={users} />
-                {runCommentReplies.map((reply) => (
-                  <div key={reply._id} className="ml-2 pl-2">
-                    <RunInlineComment comment={reply} users={users} />
-                  </div>
-                ))}
-              </div>
-            ) : null}
+            )}{" "}
           </div>
         </AccordionContent>
       </AccordionItem>

@@ -27,6 +27,7 @@ import {
   IconCalendarClock,
   IconDots,
   IconRefresh,
+  IconServerBolt,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import type { TaskStatus } from "../TaskStatusBadge";
@@ -53,6 +54,7 @@ interface TaskFooterProps {
   isSandboxStopping: boolean;
   isRetryingStartupCommands: boolean;
   isRunningDevServer: boolean;
+  isRunningBackgroundCommands: boolean;
   canCreatePr: boolean;
   isCreatingPr: boolean;
   onCreatePr: () => void;
@@ -61,6 +63,7 @@ interface TaskFooterProps {
   isSandboxViewActive?: boolean;
   onRunStartupCommands: () => void;
   onRunDevServer: () => void;
+  onRunBackgroundCommands: () => void;
   onStartExecution: () => void;
   onResolveConfirm: () => void;
   onRequestChanges: () => void;
@@ -84,6 +87,7 @@ export function TaskFooter({
   isSandboxStopping,
   isRetryingStartupCommands,
   isRunningDevServer,
+  isRunningBackgroundCommands,
   canCreatePr,
   isCreatingPr,
   onCreatePr,
@@ -92,6 +96,7 @@ export function TaskFooter({
   isSandboxViewActive = false,
   onRunStartupCommands,
   onRunDevServer,
+  onRunBackgroundCommands,
   onStartExecution,
   onResolveConfirm,
   onRequestChanges,
@@ -100,7 +105,6 @@ export function TaskFooter({
   const isHeader = variant === "header";
   const buttonSize = isHeader ? "sm" : "default";
   const iconSize = isHeader ? 16 : 18;
-  const outlineButtonClass = isHeader ? "rounded-full" : undefined;
   const showRunButton =
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
@@ -166,11 +170,7 @@ export function TaskFooter({
           {showMoreMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size={buttonSize}
-                  className={outlineButtonClass}
-                >
+                <Button variant="secondary" size={buttonSize}>
                   <IconDots size={iconSize} />
                   <span className="hidden sm:inline">More</span>
                 </Button>
@@ -215,6 +215,19 @@ export function TaskFooter({
                     Run Dev Server
                   </DropdownMenuItem>
                 ) : null}
+                {isSandboxActive && canStartSandbox ? (
+                  <DropdownMenuItem
+                    onClick={onRunBackgroundCommands}
+                    disabled={isRunningBackgroundCommands}
+                  >
+                    {isRunningBackgroundCommands ? (
+                      <IconLoader2 size={14} className="animate-spin" />
+                    ) : (
+                      <IconServerBolt size={14} />
+                    )}
+                    Run Background Commands
+                  </DropdownMenuItem>
+                ) : null}
                 {canCreatePr && (
                   <DropdownMenuItem
                     onClick={onCreatePr}
@@ -254,12 +267,7 @@ export function TaskFooter({
             </DropdownMenu>
           )}
           {latestPrUrl ? (
-            <Button
-              asChild
-              variant="outline"
-              size={buttonSize}
-              className={outlineButtonClass}
-            >
+            <Button asChild variant="secondary" size={buttonSize}>
               <a href={latestPrUrl} target="_blank" rel="noopener noreferrer">
                 <IconGitPullRequest size={iconSize} />
                 <span className="hidden sm:inline">View PR</span>
@@ -272,7 +280,6 @@ export function TaskFooter({
               size={buttonSize}
               onClick={onStopSandbox}
               disabled={isSandboxStopping}
-              className={outlineButtonClass}
             >
               <IconPlayerStop size={iconSize} />
               <span className="hidden sm:inline">Stop Sandbox</span>
@@ -280,14 +287,14 @@ export function TaskFooter({
           ) : null}
           {showViewSandbox && (
             <Button
-              variant="outline"
+              variant="secondary"
               size={buttonSize}
               onClick={onViewSandbox}
               disabled={isSandboxStopping}
               className={
                 isSandboxViewActive || isSandboxActive
-                  ? `border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400 ${outlineButtonClass ?? ""}`
-                  : outlineButtonClass
+                  ? "border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
+                  : undefined
               }
             >
               {(isSandboxStarting && !isSandboxActive) || isSandboxStopping ? (
@@ -296,7 +303,7 @@ export function TaskFooter({
                 <IconTerminal2 size={iconSize} />
               )}
               {isSandboxActive && !isSandboxViewActive && (
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
               )}
               <span className="hidden sm:inline">
                 {isSandboxStopping
@@ -338,7 +345,7 @@ function SplitRunButton({
   const iconSize = size === "sm" ? 16 : 18;
 
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-200 hover:-translate-y-[1px] active:scale-[0.96]">
+    <div className="group/split flex items-center transition-[transform,background-color] duration-200 active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>

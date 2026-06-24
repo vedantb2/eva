@@ -1,16 +1,10 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { auditSeverityValidator } from "../validators";
+import { auditFailureValidator } from "../validators";
 import { authMutation, hasTaskAccess } from "../functions";
 import { resolveTaskBranchName } from "../_taskWorkflow/helpers";
-
-const auditFailureValidator = v.object({
-  section: v.string(),
-  requirement: v.string(),
-  detail: v.string(),
-  severity: auditSeverityValidator,
-});
+import { workflow } from "../workflowManager";
 
 /** Triggers fixes for selected audit failures in the sandbox. */
 export const runSelectedFixes = authMutation({
@@ -54,7 +48,10 @@ export const runSelectedFixes = authMutation({
 
     const branchName = await resolveTaskBranchName(ctx.db, task);
 
-    await ctx.scheduler.runAfter(0, internal.daytona.launchSelectedAuditFixes, {
+    // Run through a workflow (not a bare scheduled action) so an archived
+    // sandbox can be thawed across polling steps without hitting the 10-minute
+    // action cap; the workflow falls back to a fresh sandbox if the thaw fails.
+    await workflow.start(ctx, internal.auditFixWorkflow.auditFixWorkflow, {
       auditId: args.auditId,
       selectedFailures: args.selectedFailures,
       sandboxId: run.sandboxId,

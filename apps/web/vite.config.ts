@@ -71,8 +71,10 @@ export default defineConfig({
   plugins: [
     tanstackRouter({
       routesDirectory: "./src/routes",
-      routeFileIgnorePattern:
-        "(_components|_utils\\.ts|_utils\\/|Client\\.tsx|Panel\\.tsx)",
+      // The generator tests this against each bare directory-entry name (not the
+      // full path), so a plain `_utils` excludes both the `_utils.ts` helper file
+      // and the `_utils/` folder — mirroring how `_components` is matched.
+      routeFileIgnorePattern: "(_components|_utils|Client\\.tsx|Panel\\.tsx)",
       autoCodeSplitting: true,
     }),
     react(),
@@ -106,6 +108,8 @@ export default defineConfig({
       "@clerk/clerk-react",
       "@tiptap/react",
       "@tiptap/core",
+      "@convex-dev/prosemirror-sync",
+      "frimousse",
     ],
   },
   build: {

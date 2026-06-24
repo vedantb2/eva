@@ -13,6 +13,7 @@ import {
   logViewParser,
 } from "@/lib/search-params";
 import { getStartTime } from "@/lib/components/analytics/TimeRangeFilter";
+import { Kpi } from "@/lib/components/analytics/Kpi";
 import { Spinner } from "@conductor/ui";
 import { IconFileOff } from "@tabler/icons-react";
 import { parseResultEvent, groupKeyFor } from "./logs/_utils";
@@ -209,7 +210,7 @@ export function LogsClient() {
         </div>
       ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-          <div className="rounded-xl bg-secondary p-3">
+          <div className="rounded-surface bg-secondary p-3">
             <IconFileOff size={24} />
           </div>
           <p className="text-sm">
@@ -268,21 +269,13 @@ function ProjectSummaryCards({
 
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-      <SummaryStatCard
+      <Kpi
+        layout="row"
         label="Total Project Spending"
         value={`£${(totalCost * 0.74).toFixed(2)}`}
       />
-      <SummaryStatCard label="Projects" value={String(groups.length)} />
-      <SummaryStatCard label="Completions" value={String(totalLogs)} />
-    </div>
-  );
-}
-
-function SummaryStatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-muted/40 p-3 sm:p-4">
-      <p className="text-lg font-bold text-foreground sm:text-2xl">{value}</p>
-      <p className="text-xs text-muted-foreground sm:text-sm">{label}</p>
+      <Kpi layout="row" label="Projects" value={String(groups.length)} />
+      <Kpi layout="row" label="Completions" value={String(totalLogs)} />
     </div>
   );
 }

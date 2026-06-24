@@ -22,6 +22,11 @@ import { IconPlayerPlay, IconPlus } from "@tabler/icons-react";
 import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
 import { searchParser } from "@/lib/search-params";
+import {
+  SharedLayoutNav,
+  SharedLayoutNavSurface,
+  sidebarNavListItemClass,
+} from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface AutomationsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -107,39 +112,34 @@ export function AutomationsSidebar({
             No matches found
           </div>
         ) : (
-          <div>
+          <SharedLayoutNav layoutId="automations-nav">
             {filteredAutomations.map((automation) => {
               const href = `${basePath}/automations/${automation._id}`;
               const isSelected = pathname.startsWith(href);
               return (
-                <div
+                <SharedLayoutNavSurface
                   key={automation._id}
-                  className={cn(
-                    "group mx-1 rounded-md transition-colors",
-                    isSelected
-                      ? "bg-sidebar-accent text-sidebar-primary"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent/70",
-                  )}
+                  itemId={automation._id}
+                  isActive={isSelected}
+                  className="group mx-1"
                 >
                   <Link
                     to={href}
                     onClick={onNavigate}
-                    className="flex items-center px-3 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+                    className={cn(
+                      "flex items-center",
+                      sidebarNavListItemClass(isSelected),
+                    )}
                   >
                     <span
                       className={cn(
                         "mr-2 h-2 w-2 shrink-0 rounded-full",
                         automation.enabled
-                          ? "bg-emerald-500"
+                          ? "bg-success"
                           : "bg-muted-foreground/30",
                       )}
                     />
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 truncate text-sm",
-                        isSelected && "font-medium text-sidebar-primary",
-                      )}
-                    >
+                    <span className="min-w-0 flex-1 truncate text-sm">
                       {automation.title}
                     </span>
                     <span
@@ -153,10 +153,10 @@ export function AutomationsSidebar({
                       {compactRelativeTime(automation._creationTime)}
                     </span>
                   </Link>
-                </div>
+                </SharedLayoutNavSurface>
               );
             })}
-          </div>
+          </SharedLayoutNav>
         )}
       </div>
 

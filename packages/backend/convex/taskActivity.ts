@@ -33,7 +33,9 @@ export const listByTask = authQuery({
 export async function logTaskActivity(
   ctx: MutationCtx,
   taskId: Id<"agentTasks">,
-  userId: Id<"users">,
+  // Undefined for system-driven events (e.g. a GitHub PR webhook), which render
+  // without an actor avatar in the timeline.
+  userId: Id<"users"> | undefined,
   field: Infer<typeof taskActivityFieldValidator>,
   oldValue: string | undefined,
   newValue: string | undefined,

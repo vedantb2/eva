@@ -82,15 +82,15 @@ function FollowOverlayInner({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 cursor-not-allowed ring-[3px] ring-inset ring-blue-500/70" />
+      <div className="fixed inset-0 z-50 cursor-not-allowed ring-[3px] ring-inset ring-primary/70" />
 
       <div className="fixed top-3 left-1/2 z-[60] -translate-x-1/2">
-        <div className="flex items-center gap-2 rounded-full bg-blue-500 px-4 py-1.5 text-sm font-medium text-white shadow-lg">
+        <div className="flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-lg">
           <span>Following {name}</span>
           <Button
             size="icon"
             variant="ghost"
-            className="h-5 w-5 rounded-full text-white/80 hover:bg-blue-600 hover:text-white"
+            className="h-5 w-5 rounded-full text-primary-foreground/80 hover:bg-primary/80 hover:text-primary-foreground"
             onClick={stopFollowing}
           >
             <IconX size={14} />

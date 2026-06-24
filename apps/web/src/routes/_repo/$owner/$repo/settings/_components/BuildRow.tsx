@@ -4,8 +4,21 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconClock,
+  IconLoader2,
   IconX,
 } from "@tabler/icons-react";
+
+type SeededAppResult = {
+  repoId: Id<"githubRepos">;
+  app?: string;
+  status?: "running" | "seeded" | "fallback";
+  seededSnapshotName: string | null;
+};
+
+/** A per-app entry counts as seeded by explicit status, or (legacy rows) by name. */
+function isSeededEntry(a: SeededAppResult): boolean {
+  return a.status ? a.status === "seeded" : a.seededSnapshotName !== null;
+}
 
 export function BuildRow({
   build,
@@ -21,6 +34,7 @@ export function BuildRow({
     error?: string;
     startedAt: number;
     completedAt?: number;
+    seededApps?: SeededAppResult[];
   };
   isExpanded: boolean;
   duration: string;
@@ -49,17 +63,54 @@ export function BuildRow({
         <td className="px-2 py-2 sm:px-4">
           <BuildStatusBadge status={build.status} />
         </td>
+        <td className="px-2 py-2 sm:px-4">
+          <SeededSummary seededApps={build.seededApps} />
+        </td>
       </tr>
       {isExpanded && (
         <tr>
-          <td colSpan={5} className="px-4 py-3">
+          <td colSpan={6} className="px-4 py-3">
             {build.error && (
               <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {build.error}
               </div>
             )}
+            {build.seededApps && build.seededApps.length > 0 && (
+              <div className="mb-2 space-y-1 text-xs">
+                {build.seededApps.map((a) => (
+                  <div key={a.repoId} className="flex items-start gap-2">
+                    {a.status === "running" ? (
+                      <span className="inline-flex items-center gap-1 text-blue-500">
+                        <IconLoader2
+                          size={12}
+                          className="shrink-0 animate-spin"
+                        />
+                        {a.app ?? a.repoId} — seeding…
+                      </span>
+                    ) : a.seededSnapshotName ? (
+                      <>
+                        <span className="inline-flex shrink-0 items-center gap-1 text-green-500">
+                          <IconCheck size={12} className="shrink-0" />
+                          {a.app ?? a.repoId}
+                        </span>
+                        <span className="min-w-0 font-mono break-all text-muted-foreground">
+                          {a.seededSnapshotName}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="inline-flex items-start gap-1 text-muted-foreground">
+                        <IconX size={12} className="mt-0.5 shrink-0" />
+                        <span className="break-words">
+                          {a.app ?? a.repoId} — fell back to base Image
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             {build.logs ? (
-              <pre className="max-h-64 overflow-auto rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap sm:p-3 sm:text-[11px]">
+              <pre className="max-h-64 overflow-y-auto overflow-x-hidden rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap break-all sm:p-3 sm:text-[11px]">
                 {build.logs}
               </pre>
             ) : (
@@ -89,7 +140,7 @@ export function BuildStatusBadge({
   }
   if (status === "success") {
     return (
-      <span className="inline-flex items-center gap-1 text-green-500">
+      <span className="inline-flex items-center gap-1 text-success">
         <IconCheck size={12} />
         Success
       </span>
@@ -99,6 +150,35 @@ export function BuildStatusBadge({
     <span className="inline-flex items-center gap-1 text-destructive">
       <IconX size={12} />
       Error
+    </span>
+  );
+}
+
+/** Compact per-build seeding summary: seeded/total, coloured by completeness. */
+function SeededSummary({ seededApps }: { seededApps?: SeededAppResult[] }) {
+  if (!seededApps || seededApps.length === 0) {
+    return <span className="text-muted-foreground">&mdash;</span>;
+  }
+  const total = seededApps.length;
+  const seeded = seededApps.filter(isSeededEntry).length;
+  // Still seeding: show a spinner with progress so far.
+  if (seededApps.some((a) => a.status === "running")) {
+    return (
+      <span className="inline-flex items-center gap-1 text-blue-500">
+        <IconLoader2 size={12} className="animate-spin" />
+        {seeded}/{total}
+      </span>
+    );
+  }
+  const color =
+    seeded === total
+      ? "text-green-500"
+      : seeded === 0
+        ? "text-destructive"
+        : "text-amber-500";
+  return (
+    <span className={`inline-flex items-center gap-1 ${color}`}>
+      {seeded}/{total}
     </span>
   );
 }

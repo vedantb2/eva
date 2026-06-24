@@ -7,6 +7,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
+import type { FunctionReturnType } from "convex/server";
 import {
   ActivitySteps,
   Button,
@@ -37,7 +38,7 @@ import {
   IconGitPullRequest,
   IconTool,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { UITestingPanel } from "../UITestingPanelClient";
 import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -62,23 +63,9 @@ export const Route = createFileRoute(
   component: TestingArenaDetailRoute,
 });
 
-interface EvalResult {
-  requirement: string;
-  passed: boolean;
-  detail: string;
-}
-
-interface EvaluationReport {
-  _id: Id<"evaluationReports">;
-  status: "pending" | "running" | "completed" | "error";
-  results: EvalResult[];
-  summary?: string;
-  error?: string;
-  fixStatus?: "fixing" | "fix_completed" | "fix_error";
-  fixBranchName?: string;
-  prUrl?: string;
-  createdAt: number;
-}
+type EvaluationReport = FunctionReturnType<
+  typeof api.evaluationReports.listByDoc
+>[number];
 
 function ReportCard({
   report,
@@ -87,9 +74,21 @@ function ReportCard({
   report: EvaluationReport;
   streamingActivity?: string;
 }) {
+  const startFix = useMutation(api.evaluationWorkflow.startFix);
+  const [isStartingFix, setIsStartingFix] = useState(false);
+
   const passed = report.results.filter((r) => r.passed);
   const failed = report.results.filter((r) => !r.passed);
   const total = report.results.length;
+
+  const handleFix = async () => {
+    setIsStartingFix(true);
+    try {
+      await startFix({ reportId: report._id });
+    } finally {
+      setIsStartingFix(false);
+    }
+  };
 
   const summary =
     total > 0
@@ -128,6 +127,12 @@ function ReportCard({
           <TestResultsHeader>
             <TestResultsSummary />
             <div className="flex items-center gap-2">
+              {failed.length > 0 && report.fixStatus === undefined && (
+                <Button size="sm" onClick={handleFix} disabled={isStartingFix}>
+                  <IconTool size={14} />
+                  {isStartingFix ? "Starting..." : "Fix issues"}
+                </Button>
+              )}
               {report.fixStatus === "fixing" && (
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Spinner size="sm" />
@@ -135,10 +140,21 @@ function ReportCard({
                 </span>
               )}
               {report.fixStatus === "fix_error" && (
-                <span className="flex items-center gap-1.5 text-xs text-destructive">
-                  <IconAlertTriangle size={14} />
-                  Fix failed
-                </span>
+                <>
+                  <span className="flex items-center gap-1.5 text-xs text-destructive">
+                    <IconAlertTriangle size={14} />
+                    Fix failed
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleFix}
+                    disabled={isStartingFix}
+                  >
+                    <IconTool size={14} />
+                    {isStartingFix ? "Starting..." : "Retry fix"}
+                  </Button>
+                </>
               )}
               {report.prUrl && (
                 <a
@@ -151,9 +167,10 @@ function ReportCard({
                   View Fix PR
                 </a>
               )}
-              <span className="text-sm text-muted-foreground">
-                {dayjs(report.createdAt).fromNow()}
-              </span>
+              <RelativeDateTime
+                at={report.createdAt}
+                className="text-sm text-muted-foreground"
+              />
             </div>
           </TestResultsHeader>
 
@@ -164,7 +181,7 @@ function ReportCard({
               (() => {
                 const fixSteps = parseActivitySteps(streamingActivity);
                 return fixSteps ? (
-                  <div className="rounded-md border border-primary/20 bg-primary/5 px-4 py-3">
+                  <div className="rounded-surface border border-primary/20 bg-primary/5 px-4 py-3">
                     <div className="flex items-center gap-1.5 mb-2">
                       <IconTool size={14} className="text-primary shrink-0" />
                       <span className="text-xs font-medium text-primary">
@@ -174,7 +191,7 @@ function ReportCard({
                     <ActivitySteps steps={fixSteps} isStreaming />
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2">
+                  <div className="flex items-center gap-2 rounded-surface border border-primary/20 bg-primary/5 px-3 py-2">
                     <IconTool size={14} className="text-primary shrink-0" />
                     <span className="text-sm text-primary">
                       {streamingActivity ||
@@ -269,7 +286,7 @@ function RunListItem({
               {passed}/{total} passed
             </span>
             <span className="text-xs text-muted-foreground">
-              {passRate}% &middot; {dayjs(report.createdAt).fromNow()}
+              {passRate}% &middot; <RelativeDateTime at={report.createdAt} />
               {report.fixStatus === "fixing" && " · Fixing..."}
               {report.prUrl && " · PR created"}
             </span>
@@ -281,9 +298,10 @@ function RunListItem({
           <IconAlertTriangle size={14} className="text-destructive shrink-0" />
           <div className="flex flex-col min-w-0">
             <span className="text-sm text-destructive">Error</span>
-            <span className="text-xs text-muted-foreground">
-              {dayjs(report.createdAt).fromNow()}
-            </span>
+            <RelativeDateTime
+              at={report.createdAt}
+              className="text-xs text-muted-foreground"
+            />
           </div>
         </>
       )}
@@ -292,9 +310,10 @@ function RunListItem({
           <Spinner size="sm" />
           <div className="flex flex-col min-w-0">
             <span className="text-sm text-muted-foreground">Running...</span>
-            <span className="text-xs text-muted-foreground">
-              {dayjs(report.createdAt).fromNow()}
-            </span>
+            <RelativeDateTime
+              at={report.createdAt}
+              className="text-xs text-muted-foreground"
+            />
           </div>
         </>
       )}
@@ -391,6 +410,11 @@ function TestingArenaDetailRoute() {
   const activeTab = isTestingArenaTab(arenaTab) ? arenaTab : "code";
   const [branch, setBranch] = useQueryState("branch", branchParser);
 
+  const hasActiveRun =
+    reports?.some((r) => r.status === "pending" || r.status === "running") ??
+    false;
+  const hasRequirements = (doc?.requirements?.length ?? 0) > 0;
+
   const handleRunTest = async () => {
     if (!doc) return;
     setIsRunning(true);
@@ -443,24 +467,34 @@ function TestingArenaDetailRoute() {
               <TabsTrigger value="ui" className="text-xs space-x-2">
                 <IconWorld size={14} />
                 <span>UI Testing</span>
+                <span className="rounded-full border border-border px-1.5 text-[10px] font-medium text-muted-foreground">
+                  Soon
+                </span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <div className="flex items-center gap-2">
-            <BranchSelect
-              value={branch}
-              onValueChange={setBranch}
-              className="h-7 text-xs w-24 sm:w-36"
-            />
-            <Button
-              size="sm"
-              onClick={activeTab === "code" ? handleRunTest : undefined}
-              disabled={activeTab === "code" && isRunning}
-            >
-              <IconPlayerPlay size={16} />
-              {isRunning && activeTab === "code" ? "Running..." : "Run Test"}
-            </Button>
-          </div>
+          {activeTab === "code" && (
+            <div className="flex items-center gap-2">
+              <BranchSelect
+                value={branch}
+                onValueChange={setBranch}
+                className="h-7 text-xs w-24 sm:w-36"
+              />
+              <Button
+                size="sm"
+                onClick={handleRunTest}
+                disabled={isRunning || hasActiveRun || !hasRequirements}
+                title={
+                  !hasRequirements
+                    ? "Add requirements to this document to run tests"
+                    : undefined
+                }
+              >
+                <IconPlayerPlay size={16} />
+                {isRunning || hasActiveRun ? "Running..." : "Run Test"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">

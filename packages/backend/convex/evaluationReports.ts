@@ -1,26 +1,11 @@
 import { v } from "convex/values";
 import { authQuery, hasRepoAccess } from "./functions";
-import {
-  evaluationStatusValidator,
-  evalResultValidator,
-  evalFixStatusValidator,
-} from "./validators";
+import { evaluationReportFields } from "./validators";
 
 const reportValidator = v.object({
   _id: v.id("evaluationReports"),
   _creationTime: v.number(),
-  repoId: v.id("githubRepos"),
-  docId: v.id("docs"),
-  status: evaluationStatusValidator,
-  results: v.array(evalResultValidator),
-  summary: v.optional(v.string()),
-  error: v.optional(v.string()),
-  activeWorkflowId: v.optional(v.string()),
-  fixStatus: v.optional(evalFixStatusValidator),
-  fixBranchName: v.optional(v.string()),
-  prUrl: v.optional(v.string()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
+  ...evaluationReportFields,
 });
 
 /** Lists all evaluation reports for a document, sorted by most recent first. */

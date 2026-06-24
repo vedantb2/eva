@@ -14,14 +14,21 @@ type Mode = "light" | "dark" | "system";
 export function AppearanceSection({
   currentMode,
   onModeChange,
+  compact = false,
 }: {
   currentMode: Mode;
   onModeChange: (mode: Mode) => void;
+  compact?: boolean;
 }) {
   return (
     <section>
       <SectionLabel>Appearance</SectionLabel>
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div
+        className={cn(
+          "grid grid-cols-3",
+          compact ? "gap-1.5" : "gap-2 sm:gap-3",
+        )}
+      >
         {(["light", "dark", "system"] as const).map((mode) => {
           const isActive = currentMode === mode;
           const Icon =
@@ -38,20 +45,31 @@ export function AppearanceSection({
               key={mode}
               onClick={() => onModeChange(mode)}
               className={cn(
-                "relative flex flex-col items-center gap-2 rounded-xl p-3 text-xs font-medium transition-[background-color,color,box-shadow] sm:gap-3 sm:p-4 sm:text-sm",
+                "relative flex flex-col items-center rounded-surface font-medium transition-[background-color,color]",
+                compact
+                  ? "gap-1 p-2 text-[11px]"
+                  : "gap-2 p-3 text-xs sm:gap-3 sm:p-4 sm:text-sm",
                 isActive
                   ? "bg-primary/8 text-primary ring-1 ring-primary/20"
                   : "bg-card/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
             >
-              {isActive && (
-                <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <IconCheck size={10} strokeWidth={3} />
+              {isActive ? (
+                <span
+                  className={cn(
+                    "absolute flex items-center justify-center rounded-full bg-primary text-primary-foreground",
+                    compact
+                      ? "right-1 top-1 h-3.5 w-3.5"
+                      : "right-2 top-2 h-4 w-4",
+                  )}
+                >
+                  <IconCheck size={compact ? 8 : 10} strokeWidth={3} />
                 </span>
-              )}
+              ) : null}
               <div
                 className={cn(
-                  "flex h-12 w-full items-center justify-center rounded-lg sm:h-16",
+                  "flex w-full items-center justify-center rounded-lg",
+                  compact ? "h-8" : "h-12 sm:h-16",
                   mode === "light"
                     ? "bg-white"
                     : mode === "dark"
@@ -60,7 +78,7 @@ export function AppearanceSection({
                 )}
               >
                 <Icon
-                  size={22}
+                  size={compact ? 14 : 22}
                   className={
                     mode === "light"
                       ? "text-amber-500"

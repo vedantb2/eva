@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, internalQuery } from "./_generated/server";
+import { query } from "./_generated/server";
 import { getCurrentUserId } from "./auth";
 import { authMutation } from "./functions";
 
@@ -51,44 +51,6 @@ export const getLatestChangelog = query({
       show: latestRun.finishedAt > dismissed,
       content: latestRun.resultSummary,
       publishedAt: latestRun.finishedAt,
-    };
-  },
-});
-
-/**
- * Returns a successful changelog run's markdown content for emailing, but only
- * if the run belongs to the "Eva Weekly Changelog" automation. Returns null
- * otherwise so the email action can safely no-op. Internal use only.
- */
-export const getChangelogRunForEmail = internalQuery({
-  args: { runId: v.id("automationRuns") },
-  returns: v.union(
-    v.object({
-      content: v.string(),
-      publishedAt: v.number(),
-      runNumber: v.number(),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.runId);
-    if (!run || run.status !== "success") return null;
-    if (!run.resultSummary || !run.finishedAt) return null;
-    const automation = await ctx.db.get(run.automationId);
-    if (!automation || automation.title !== CHANGELOG_AUTOMATION_TITLE) {
-      return null;
-    }
-    // Edition number = how many successful changelog runs exist (this one included).
-    const successfulRuns = await ctx.db
-      .query("automationRuns")
-      .withIndex("by_automation_and_status", (q) =>
-        q.eq("automationId", automation._id).eq("status", "success"),
-      )
-      .collect();
-    return {
-      content: run.resultSummary,
-      publishedAt: run.finishedAt,
-      runNumber: successfulRuns.length,
     };
   },
 });

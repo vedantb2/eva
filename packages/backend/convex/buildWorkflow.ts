@@ -142,17 +142,21 @@ export const startTaskForBuild = internalMutation({
     }
     const isFirstTaskOnBranch = !hasSuccessfulRun;
 
-    // Create the run
+    // Create the run. When this build picks up a task a reviewer sent back via
+    // "Make changes", link the parked change-request comment so the timeline
+    // labels this run "made changes" rather than a bare "success".
     const runId = await ctx.db.insert("agentRuns", {
       taskId: args.taskId,
       status: "queued",
       logs: [],
       startedAt: Date.now(),
+      triggeringCommentId: task.pendingChangeRequestCommentId,
     });
 
     await ctx.db.patch(args.taskId, {
       status: "in_progress",
       updatedAt: Date.now(),
+      pendingChangeRequestCommentId: undefined,
     });
 
     // Start the task execution workflow

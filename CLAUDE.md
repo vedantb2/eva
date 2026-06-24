@@ -1,35 +1,32 @@
 FOLLOW ALL OF THESE RULES
 
-UI Design System — Tonal Surface Hierarchy:
+UI Design System — HeroUI (border-based):
 
-Shadows:
-
-- No shadows on inline elements (cards, buttons, inputs, tabs, alerts, checkboxes).
-- Only floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) get shadows — they need depth to show layering over content.
-- `shadow-none`/`border-0` on embedded form elements is fine — that's stripping inherited defaults, not adding decoration.
+Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `--card`/`--popover` (surface, elevated) → `--muted` (surface-secondary) → `--secondary` (default). Accent (`--primary`/`--accent`/`--ring`/`--chart-1`/sidebar accent), `--radius`, and `--font-*` are user-defined via theme settings — never hardcode them.
 
 Borders:
 
-- No borders for visual separation between layout regions (sidebar edge, section dividers, header/footer separators). Use background color contrast instead.
-- No borders on cards, accordion items, or content containers. Use `bg-muted/40` or similar tonal shift.
-- No borders on active/selected/hover states. Background color change alone indicates state.
-- Borders allowed only for: form element affordance (inputs, selects) and structural metaphors (e.g. browser-tab in SandboxTabBar).
+- Cards, surfaces, and content containers get a hairline `border border-border`. This is the primary way surfaces are defined (HeroUI look).
+- Layout regions (sidebar edge, list/detail dividers) are separated by a hairline `border-border`/`border-sidebar-border`, not tonal contrast.
+- Active/selected items use a surface fill + `border-border` chip; give inactive items `border border-transparent` to avoid layout shift.
+- Inputs/selects keep their form-affordance border.
+
+Shadows:
+
+- Cards/surfaces may carry a subtle `shadow-sm`. Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) get larger shadows for layering.
 
 Layout & Surface Colors:
 
-- Sidebar is always the darker surface, main content the lighter surface (both light and dark mode).
-- Hierarchy comes from: tonal surface contrast > whitespace > typography weight/size.
+- Sidebar shares the canvas tone (`--sidebar` = `--background`); it is distinguished by the region-divider border, not by being darker.
+- Hierarchy comes from: hairline borders + surface tone steps > whitespace > typography weight/size.
 
 Hover & Interaction States:
 
-- Hover: `hover:bg-*` (background shift). Never `hover:border-*` or `hover:shadow-*`.
-- Active/selected: `bg-*` + `ring-*` if emphasis needed. Never border.
-- Keep transitions to `transition-[transform,background-color]` — no `box-shadow` or `border-color` in transitions.
+- Hover: `hover:bg-*` (background shift). Active/selected: surface fill + `border-border` (and `ring-*` if extra emphasis is needed).
 
 Spacing:
 
-- Use whitespace/padding (Gestalt Law of Proximity) to group related elements, not dividers or `border-t`/`border-b`.
-- Section separation = increased margin (`mt-6`), not a line.
+- Use whitespace/padding (Gestalt Law of Proximity) to group related elements; reach for borders/dividers for structural separation (HeroUI style).
 
 Implementation:
 
@@ -57,6 +54,7 @@ Implementation:
 - Prefer explicit over magical behaviour.
 - All decisions should optimize for long-term maintainability.
 - Do not run any dev / lint / build commands unless the user asks you to
+- If you are creating any plans, then make sure that running /ship skill is the final step (unless the user explicitly says not to)
 
 Convex:
 
@@ -83,14 +81,6 @@ Component Structure:
 - Presentational components (no hooks, no `"use client"`) stay as plain function components
 - Only add `"use client"` to child components that use hooks/interactivity
 - Inline sub-components defined in the same file should be extracted to `_components/`
-
-Next.js:
-
-- This is a client-first app. SSR/SSG is not used. All components are client components.
-- Never use `Link` from `next/link` — it adds prefetching/SSR overhead we don't need. Use `useRouter` from `next/navigation` and `router.push()` instead.
-- Never use `Image` from `next/image` — the image optimization server is unnecessary overhead. Use plain `<img>` tags instead.
-- When using Convex:
-  - Extract interactive/live logic into child Client Components.
 
 TanStack Router (eva web app):
 
@@ -146,3 +136,7 @@ if the user asks you to run a migration, you need to add a migration function to
 if you are using the agent-browser skill, navigate to `/?agent` to auto sign in as the agent user.
 
 Daytona sandboxes do not support IPv6 — all networking must use IPv4
+
+## Claude Fable: token parsimony
+
+When running as Fable (expensive), plan and review; delegate implementation to subagents (`model: sonnet` for code, `haiku` for mechanical edits/searches), one task per subagent. Trivial single-file edits are fine to do directly.

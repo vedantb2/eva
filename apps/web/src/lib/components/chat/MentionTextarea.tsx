@@ -10,6 +10,10 @@ import {
   type MentionEditorHandle,
   type MentionItem,
   type SlashItem,
+  DocMentionHoverCardBody,
+  SkillMentionHoverCardBody,
+  isSkillTokenId,
+  isMentionTokenDocId,
 } from "@/lib/components/mentions";
 
 export type MentionTextareaHandle = MentionEditorHandle;
@@ -36,13 +40,23 @@ interface MentionTextareaProps {
   }>;
   skillsSettingsHref?: string;
   placeholder?: string;
+  initialMentionMap?: Map<string, string>;
+  initialSkillMap?: Map<string, string>;
 }
 
 export const MentionTextarea = forwardRef<
   MentionTextareaHandle,
   MentionTextareaProps
 >(function MentionTextarea(
-  { repoBasePath, docs, skills = [], skillsSettingsHref, placeholder },
+  {
+    repoBasePath,
+    docs,
+    skills = [],
+    skillsSettingsHref,
+    placeholder,
+    initialMentionMap,
+    initialSkillMap,
+  },
   ref,
 ) {
   const navigate = useNavigate();
@@ -50,7 +64,7 @@ export const MentionTextarea = forwardRef<
   const value = controller.textInput.value;
 
   const handleMentionChipClick = useCallback(
-    (id: Doc<"docs">["_id"]) => {
+    (id: string) => {
       navigate({
         to: `${repoBasePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
       });
@@ -88,10 +102,18 @@ export const MentionTextarea = forwardRef<
       slashItems={slashItems}
       onMentionChipClick={handleMentionChipClick}
       onSkillChipClick={handleSkillChipClick}
+      initialMentionMap={initialMentionMap}
+      initialSkillMap={initialSkillMap}
+      renderMentionChipHoverCard={(id) =>
+        isMentionTokenDocId(id) ? <DocMentionHoverCardBody docId={id} /> : null
+      }
+      renderSkillChipHoverCard={(id) =>
+        isSkillTokenId(id) ? <SkillMentionHoverCardBody skillId={id} /> : null
+      }
       placeholder={placeholder}
       ariaLabel={placeholder ?? "Message input"}
       dataSlot="input-group-control"
-      className="min-h-16 max-h-40 self-stretch overflow-y-auto px-3.5 py-3 text-left focus-visible:outline-none"
+      className="min-h-16 max-h-40 self-stretch overflow-y-auto rounded-none px-3.5 py-3 text-left focus-visible:outline-none"
       emptySlashContent={
         skillsSettingsHref ? (
           <span>

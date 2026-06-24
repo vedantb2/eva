@@ -7,7 +7,7 @@ import { api, type Id } from "@conductor/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { Badge, Button, Card, CardContent } from "@conductor/ui";
 import { IconX } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {
   NotificationIcon,
   type Notification,
@@ -133,7 +133,7 @@ export function NotificationToastStream() {
         return (
           <Card
             key={notification._id}
-            className="pointer-events-auto bg-background/95 shadow-lg"
+            className="pointer-events-auto bg-popover shadow-lg"
           >
             <CardContent className="p-3">
               <div className="flex items-start gap-3">
@@ -159,9 +159,10 @@ export function NotificationToastStream() {
                     >
                       {config.label}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {dayjs(notification.createdAt).fromNow()}
-                    </span>
+                    <RelativeDateTime
+                      at={notification.createdAt}
+                      className="text-xs text-muted-foreground"
+                    />
                   </div>
                   <div className="mt-2">
                     <Button

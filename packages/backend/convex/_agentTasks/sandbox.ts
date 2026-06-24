@@ -196,6 +196,39 @@ export const runDevServer = authMutation({
   },
 });
 
+/**
+ * Re-launches the repo's configured background commands (long-running daemons
+ * like `npx convex dev`) in an active preview sandbox. Background commands
+ * already run automatically on every sandbox start/resume; this is for
+ * respawning a daemon that died while the sandbox kept running.
+ */
+export const runBackgroundCommands = authMutation({
+  args: {
+    taskId: v.id("agentTasks"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+
+    if (!task.repoId) throw new Error("Task has no associated repository");
+
+    if (task.reviewTaskSandboxStatus !== "active" || !task.sandboxId) {
+      throw new Error("Start the sandbox before running background commands");
+    }
+
+    const hasAccess = await hasRepoAccess(ctx.db, task.repoId, ctx.userId);
+    if (!hasAccess) throw new Error("No access to repository");
+
+    await ctx.scheduler.runAfter(0, internal.daytona.runBackgroundCommands, {
+      sandboxId: task.sandboxId,
+      repoId: task.repoId,
+    });
+
+    return null;
+  },
+});
+
 /** Persists resolved dev server settings after a manual dev-server rerun. */
 export const patchTaskDevServer = internalMutation({
   args: {

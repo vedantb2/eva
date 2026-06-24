@@ -81,6 +81,30 @@ export const updateRunToRunning = internalMutation({
   },
 });
 
+/** Appends a log entry to a run — used by the watchdog diagnostics capture. */
+export const appendRunLog = internalMutation({
+  args: {
+    runId: v.id("agentRuns"),
+    message: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (!run) return null;
+    await ctx.db.patch(args.runId, {
+      logs: [
+        ...run.logs,
+        {
+          timestamp: Date.now(),
+          level: "info" as const,
+          message: args.message,
+        },
+      ],
+    });
+    return null;
+  },
+});
+
 /** Records a PR URL on a specific run — used by the manual Create PR action
  * when the workflow's auto PR step failed and the user retried later. */
 export const setRunPrUrl = internalMutation({
@@ -203,7 +227,7 @@ export const markTaskSandboxStopped = internalMutation({
 });
 
 /** Clears the sandbox association on a quick task — used when the sandbox is
- * deleted (e.g. stale-run recovery) so the resume button doesn't point at a
+ * deleted (e.g. PR-merge cleanup) so the resume button doesn't point at a
  * dead Daytona sandbox. */
 export const clearTaskSandbox = internalMutation({
   args: {

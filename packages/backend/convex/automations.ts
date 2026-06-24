@@ -7,6 +7,7 @@ export {
   acknowledgeRun,
   countUnreadByRepo,
   getAutomationData,
+  getRunForEmail,
   updateRunStatus,
   clearRunWorkflow,
   cancelRun,

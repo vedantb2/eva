@@ -130,6 +130,7 @@ export function DesignSessionsSidebar({
       createPlaceholder="e.g., Dashboard user management page"
       archiveTitle="Archive Design Session"
       searchPlaceholder="Search design sessions..."
+      layoutId="designs-nav"
     />
   );
 }

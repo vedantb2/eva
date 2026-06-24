@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { Card, CardContent, Button } from "@conductor/ui";
 import { IconBrandGithub } from "@tabler/icons-react";
-import { PLATFORM_SECTIONS } from "./WelcomeBanner";
+import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 
 export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
   const steps = [
@@ -55,7 +55,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
         <div className="relative mb-6 flex items-center justify-center">
           <div className="absolute h-32 w-32 rounded-full bg-primary/5 blur-3xl" />
           <div className="absolute h-20 w-20 rounded-full bg-primary/10 blur-xl" />
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/40 ring-1 ring-primary/15">
+          <div className="relative flex h-14 w-14 items-center justify-center rounded-surface border border-border bg-muted/40 ring-1 ring-primary/15">
             <IconBrandGithub size={26} className="text-primary" />
           </div>
         </div>

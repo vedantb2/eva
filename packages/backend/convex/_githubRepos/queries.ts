@@ -68,6 +68,35 @@ export const get = authQuery({
   },
 });
 
+/** Gets a single GitHub repo from a URL-provided ID string if the current user has access. */
+export const getByIdString = authQuery({
+  args: { repoId: v.string() },
+  returns: v.union(githubRepoValidator, v.null()),
+  handler: async (ctx, args) => {
+    const id = ctx.db.normalizeId("githubRepos", args.repoId);
+    if (!id) return null;
+
+    const repo = await ctx.db.get(id);
+    if (!repo) return null;
+    if (repo.hidden === true) return null;
+
+    if (repo.connectedBy === ctx.userId) return repo;
+
+    const teamId = repo.teamId;
+    if (teamId) {
+      const membership = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_team_and_user", (q) =>
+          q.eq("teamId", teamId).eq("userId", ctx.userId),
+        )
+        .first();
+      if (membership) return repo;
+    }
+
+    return null;
+  },
+});
+
 /** Checks which AI providers (Claude, Codex, Opencode, Cursor) are available for a repo based on configured env vars. */
 export const getProviderAvailability = authQuery({
   args: { repoId: v.id("githubRepos") },

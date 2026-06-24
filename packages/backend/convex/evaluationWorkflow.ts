@@ -3,7 +3,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
-import { authMutation } from "./functions";
+import { authMutation, hasRepoAccess } from "./functions";
 import { evalResultValidator, workflowCompleteValidator } from "./validators";
 import { trackEvaluationWorkflow } from "./workflowWatchdog";
 import {
@@ -33,7 +33,7 @@ const fixCompleteEvent = defineEvent({
 
 // --- Workflow definition ---
 
-/** Runs an evaluation: analyzes the codebase against doc requirements, then auto-fixes failures. */
+/** Runs an evaluation: analyzes the codebase against doc requirements and saves pass/fail results. Fixing failures is opt-in via startFix. */
 export const evaluationWorkflow = workflow.define({
   args: {
     reportId: v.id("evaluationReports"),
@@ -79,97 +79,115 @@ export const evaluationWorkflow = workflow.define({
 
       const result = await step.awaitEvent(evalCompleteEvent);
 
-      const saveResultOutput = await step.runMutation(
-        internal.evaluationWorkflow.saveResult,
-        {
-          reportId: args.reportId,
-          success: result.success,
-          result: result.result,
-          error: result.error,
-        },
-      );
-
-      if (saveResultOutput.hasFailures) {
-        const fixData = await step.runQuery(
-          internal.evaluationWorkflow.getFixData,
-          { reportId: args.reportId, docId: args.docId },
-        );
-
-        const fixBranchName = `eva/eval-fix-${String(args.reportId).slice(-8)}`;
-
-        await step.runMutation(internal.evaluationWorkflow.setFixing, {
-          reportId: args.reportId,
-          fixBranchName,
-        });
-
-        const fixSandboxId = await prepareSandboxSteps(step, {
-          installationId: args.installationId,
-          repoOwner: fixData.repoOwner,
-          repoName: fixData.repoName,
-          ephemeral: true,
-          repoId: fixData.repoId,
-          streamingEntityId,
-          baseBranch: args.branchName ?? FALLBACK_GIT_BASE_BRANCH,
-          branchName: fixBranchName,
-        });
-
-        await step.runAction(internal.daytona.launchOnExistingSandbox, {
-          sandboxId: fixSandboxId,
-          entityId: String(args.reportId),
-          prompt: fixData.prompt,
-          userId: args.userId,
-          completionMutation: "evaluationWorkflow:handleFixCompletion",
-          entityIdField: "reportId",
-          model: "sonnet",
-          allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
-          repoId: fixData.repoId,
-        });
-
-        const fixResult = await step.awaitEvent(fixCompleteEvent);
-
-        if (fixResult.success) {
-          await step.runAction(internal.daytona.pushSandboxBranch, {
-            sandboxId: fixSandboxId,
-            installationId: args.installationId,
-            repoOwner: fixData.repoOwner,
-            repoName: fixData.repoName,
-            repoId: fixData.repoId,
-            branchName: fixBranchName,
-          });
-
-          const prUrl = await step.runAction(
-            internal.taskWorkflowActions.createPullRequest,
-            {
-              installationId: args.installationId,
-              repoOwner: fixData.repoOwner,
-              repoName: fixData.repoName,
-              branchName: fixBranchName,
-              baseBranch: args.branchName ?? FALLBACK_GIT_BASE_BRANCH,
-              title: `Fix: ${fixData.docTitle}`,
-              body: buildPrBody([
-                {
-                  heading: "Fix",
-                  content: fixData.prDescription ?? "No description",
-                },
-              ]),
-              labels: ["eva", "eval-fix"],
-            },
-          );
-
-          await step.runMutation(internal.evaluationWorkflow.saveFixResult, {
-            reportId: args.reportId,
-            prUrl,
-          });
-        } else {
-          await step.runMutation(internal.evaluationWorkflow.saveFixError, {
-            reportId: args.reportId,
-            error: fixResult.error ?? "Fix workflow failed",
-          });
-        }
-      }
+      await step.runMutation(internal.evaluationWorkflow.saveResult, {
+        reportId: args.reportId,
+        success: result.success,
+        result: result.result,
+        error: result.error,
+      });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Evaluation workflow failed";
+      await step.runMutation(internal.evaluationWorkflow.saveWorkflowFailure, {
+        reportId: args.reportId,
+        error: errorMessage,
+      });
+      throw error;
+    }
+  },
+});
+
+/**
+ * Fixes the failing requirements of a completed evaluation: spins up a sandbox
+ * with write access, lets the agent commit, then pushes the branch and opens a
+ * PR. Started on demand by the startFix mutation. The fix branch name is passed
+ * in (not derived inside the handler) so workflow replays stay deterministic.
+ */
+export const fixWorkflow = workflow.define({
+  args: {
+    reportId: v.id("evaluationReports"),
+    docId: v.id("docs"),
+    userId: v.id("users"),
+    installationId: v.number(),
+    baseBranch: v.optional(v.string()),
+    fixBranchName: v.string(),
+  },
+  handler: async (step, args): Promise<void> => {
+    try {
+      const fixData = await step.runQuery(
+        internal.evaluationWorkflow.getFixData,
+        { reportId: args.reportId, docId: args.docId },
+      );
+
+      const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+
+      const fixSandboxId = await prepareSandboxSteps(step, {
+        installationId: args.installationId,
+        repoOwner: fixData.repoOwner,
+        repoName: fixData.repoName,
+        ephemeral: true,
+        repoId: fixData.repoId,
+        streamingEntityId: String(args.reportId),
+        baseBranch,
+        branchName: args.fixBranchName,
+      });
+
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId: fixSandboxId,
+        entityId: String(args.reportId),
+        prompt: fixData.prompt,
+        userId: args.userId,
+        completionMutation: "evaluationWorkflow:handleFixCompletion",
+        entityIdField: "reportId",
+        model: "sonnet",
+        allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
+        repoId: fixData.repoId,
+      });
+
+      const fixResult = await step.awaitEvent(fixCompleteEvent);
+
+      if (fixResult.success) {
+        await step.runAction(internal.daytona.pushSandboxBranch, {
+          sandboxId: fixSandboxId,
+          installationId: args.installationId,
+          repoOwner: fixData.repoOwner,
+          repoName: fixData.repoName,
+          repoId: fixData.repoId,
+          branchName: args.fixBranchName,
+        });
+
+        const prUrl = await step.runAction(
+          internal.taskWorkflowActions.createPullRequest,
+          {
+            installationId: args.installationId,
+            repoOwner: fixData.repoOwner,
+            repoName: fixData.repoName,
+            branchName: args.fixBranchName,
+            baseBranch,
+            title: `Fix: ${fixData.docTitle}`,
+            body: buildPrBody([
+              {
+                heading: "Fix",
+                content: fixData.prDescription ?? "No description",
+              },
+            ]),
+            labels: ["eva", "eval-fix"],
+          },
+        );
+
+        await step.runMutation(internal.evaluationWorkflow.saveFixResult, {
+          reportId: args.reportId,
+          prUrl,
+        });
+      } else {
+        await step.runMutation(internal.evaluationWorkflow.saveFixError, {
+          reportId: args.reportId,
+          error: fixResult.error ?? "Fix workflow failed",
+        });
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Fix workflow failed";
       await step.runMutation(internal.evaluationWorkflow.saveWorkflowFailure, {
         reportId: args.reportId,
         error: errorMessage,
@@ -257,12 +275,12 @@ export const saveResult = internalMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
   },
-  returns: v.object({ hasFailures: v.boolean() }),
+  returns: v.null(),
   handler: async (ctx, args) => {
     await clearStreamingActivity(ctx, String(args.reportId));
 
     const report = await ctx.db.get(args.reportId);
-    if (!report) return { hasFailures: false };
+    if (!report) return null;
 
     if (args.success && args.result) {
       const { json } = llmJson.extract(args.result);
@@ -292,8 +310,6 @@ export const saveResult = internalMutation({
               detail: "No evaluation produced",
             }));
 
-        const hasFailures = results.some((r) => !r.passed);
-
         await ctx.db.patch(args.reportId, {
           status: "completed",
           results,
@@ -301,10 +317,10 @@ export const saveResult = internalMutation({
             typeof parsed.summary === "string"
               ? parsed.summary
               : "Evaluation completed",
-          activeWorkflowId: hasFailures ? report.activeWorkflowId : undefined,
+          activeWorkflowId: undefined,
           updatedAt: Date.now(),
         });
-        return { hasFailures };
+        return null;
       }
     }
 
@@ -314,7 +330,7 @@ export const saveResult = internalMutation({
       activeWorkflowId: undefined,
       updatedAt: Date.now(),
     });
-    return { hasFailures: false };
+    return null;
   },
 });
 
@@ -460,23 +476,6 @@ ${failedResults.map((r) => `- ${r.requirement}: ${r.detail}`).join("\n")}
   },
 });
 
-/** Marks the evaluation report as in the fixing phase with a branch name. */
-export const setFixing = internalMutation({
-  args: {
-    reportId: v.id("evaluationReports"),
-    fixBranchName: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.reportId, {
-      fixStatus: "fixing",
-      fixBranchName: args.fixBranchName,
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
-});
-
 /** Saves the fix result with the PR URL and marks fix as completed. */
 export const saveFixResult = internalMutation({
   args: {
@@ -551,7 +550,9 @@ export const handleFixCompletion = authMutation({
 });
 
 /**
- * Public mutation to start an evaluation workflow from the frontend.
+ * Public mutation to start an evaluation workflow from the frontend. Idempotent
+ * per doc: if an evaluation is already pending or running, returns its report id
+ * instead of starting a duplicate (keeps the "test all" loop safe).
  */
 export const startEvaluation = authMutation({
   args: {
@@ -561,8 +562,30 @@ export const startEvaluation = authMutation({
   },
   returns: v.id("evaluationReports"),
   handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.docId);
+    if (!doc || doc.repoId !== args.repoId) {
+      throw new Error("Document not found");
+    }
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      throw new Error("Document not found");
+    }
+    if ((doc.requirements ?? []).length === 0) {
+      throw new Error(
+        "Add requirements to this document before running a test",
+      );
+    }
+
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
+
+    const existing = await ctx.db
+      .query("evaluationReports")
+      .withIndex("by_doc", (q) => q.eq("docId", args.docId))
+      .collect();
+    const active = existing.find(
+      (r) => r.status === "pending" || r.status === "running",
+    );
+    if (active) return active._id;
 
     const now = Date.now();
     const reportId = await ctx.db.insert("evaluationReports", {
@@ -570,6 +593,7 @@ export const startEvaluation = authMutation({
       docId: args.docId,
       status: "pending",
       results: [],
+      branchName: args.branchName,
       createdAt: now,
       updatedAt: now,
     });
@@ -589,5 +613,65 @@ export const startEvaluation = authMutation({
     await trackEvaluationWorkflow(ctx, reportId, workflowId);
 
     return reportId;
+  },
+});
+
+/**
+ * Public mutation to start an opt-in fix for a completed evaluation that has
+ * failing requirements. Idempotent: returns without starting if a fix is already
+ * running or has completed. Retrying after a fix error uses a fresh branch name.
+ */
+export const startFix = authMutation({
+  args: { reportId: v.id("evaluationReports") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const report = await ctx.db.get(args.reportId);
+    if (!report) throw new Error("Report not found");
+    if (!(await hasRepoAccess(ctx.db, report.repoId, ctx.userId))) {
+      throw new Error("Report not found");
+    }
+    if (report.activeWorkflowId !== undefined) return null;
+    if (report.status !== "completed") {
+      throw new Error("Evaluation is not complete");
+    }
+    if (!report.results.some((r) => !r.passed)) {
+      throw new Error("No failing requirements to fix");
+    }
+    if (report.fixStatus === "fixing" || report.fixStatus === "fix_completed") {
+      return null;
+    }
+
+    const repo = await ctx.db.get(report.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    // Retries need a unique branch — the previous push is not forced, so reusing
+    // the name would fail if the prior attempt already pushed.
+    const base = `eva/eval-fix-${String(args.reportId).slice(-8)}`;
+    const fixBranchName = report.fixBranchName
+      ? `${base}-r${Date.now().toString(36)}`
+      : base;
+
+    await ctx.db.patch(args.reportId, {
+      fixStatus: "fixing",
+      fixBranchName,
+      updatedAt: Date.now(),
+    });
+
+    const workflowId = await workflow.start(
+      ctx,
+      internal.evaluationWorkflow.fixWorkflow,
+      {
+        reportId: args.reportId,
+        docId: report.docId,
+        userId: ctx.userId,
+        installationId: repo.installationId,
+        baseBranch: report.branchName,
+        fixBranchName,
+      },
+    );
+
+    await trackEvaluationWorkflow(ctx, args.reportId, workflowId);
+
+    return null;
   },
 });

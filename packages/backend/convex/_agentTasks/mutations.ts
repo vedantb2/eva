@@ -7,6 +7,7 @@ import {
   priorityValidator,
 } from "../validators";
 import { createNotification } from "../notifications";
+import { ensureSubscribed, notifySubscribers } from "../taskSubscribers";
 import {
   authMutation,
   hasRepoAccess,
@@ -25,6 +26,16 @@ function extractPrNumber(prUrl: string): number | null {
   const match = prUrl.match(/\/pull\/(\d+)/);
   return match ? parseInt(match[1], 10) : null;
 }
+
+// Status transitions that notify subscribers. Mid-run automated transitions
+// (todo/in_progress) are intentionally excluded; those patch status directly
+// elsewhere and never flow through this user-facing mutation anyway.
+const STATUS_CHANGE_NOTIFY: ReadonlySet<string> = new Set([
+  "code_review",
+  "business_review",
+  "done",
+  "cancelled",
+]);
 
 /** Updates editable fields on an agent task and notifies on assignment changes. */
 export const update = authMutation({
@@ -184,6 +195,9 @@ export const update = authMutation({
     }
 
     if (args.assignedTo !== undefined && args.assignedTo !== task.assignedTo) {
+      if (args.assignedTo) {
+        await ensureSubscribed(ctx, args.id, args.assignedTo);
+      }
       if (args.assignedTo && args.assignedTo !== ctx.userId) {
         await createNotification(ctx, {
           userId: args.assignedTo,
@@ -332,33 +346,24 @@ export const updateStatus = authMutation({
       }
     }
 
-    if (args.status === "done") {
-      if (task.createdBy && task.createdBy !== ctx.userId) {
-        await createNotification(ctx, {
-          userId: task.createdBy,
-          type: "task_complete",
-          title: `Completed: "${task.title}"`,
-          repoId: task.repoId,
-          projectId: task.projectId,
-          taskId: args.id,
-          message: buildTaskNotificationMessage(task, "done"),
-        });
-      }
-      if (
-        task.assignedTo &&
-        task.assignedTo !== ctx.userId &&
-        task.assignedTo !== task.createdBy
-      ) {
-        await createNotification(ctx, {
-          userId: task.assignedTo,
-          type: "task_complete",
-          title: `Completed: "${task.title}"`,
-          repoId: task.repoId,
-          projectId: task.projectId,
-          taskId: args.id,
-          message: buildTaskNotificationMessage(task, "done"),
-        });
-      }
+    if (
+      previousStatus !== args.status &&
+      STATUS_CHANGE_NOTIFY.has(args.status)
+    ) {
+      const isDone = args.status === "done";
+      await notifySubscribers(ctx, {
+        taskId: args.id,
+        type: isDone ? "task_complete" : "status_changed",
+        title: isDone
+          ? `Completed: "${task.title}"`
+          : `"${task.title}" moved to ${args.status.replace(/_/g, " ")}`,
+        message: isDone
+          ? buildTaskNotificationMessage(task, "done")
+          : `Status changed to ${args.status.replace(/_/g, " ")}.`,
+        repoId: task.repoId,
+        projectId: task.projectId,
+        actorId: ctx.userId,
+      });
     }
     if (task.projectId) {
       await recomputeProjectPhase(ctx, task.projectId);
@@ -433,6 +438,10 @@ export const createQuickTask = authMutation({
       priority: args.priority,
       screenshotsVideosEnabled: args.screenshotsVideosEnabled,
     });
+    await ensureSubscribed(ctx, taskId, ctx.userId);
+    if (args.assignedTo) {
+      await ensureSubscribed(ctx, taskId, args.assignedTo);
+    }
     if (args.assignedTo && args.assignedTo !== ctx.userId) {
       const task = await ctx.db.get(taskId);
       if (task) {
@@ -482,6 +491,7 @@ export const createQuickTasksBatch = authMutation({
         baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
         model: repo.defaultModel,
       });
+      await ensureSubscribed(ctx, taskId, ctx.userId);
       taskIds.push(taskId);
     }
     return taskIds;
@@ -578,6 +588,7 @@ export const createBatchWithDependencies = authMutation({
         baseBranch,
         model,
       });
+      await ensureSubscribed(ctx, taskId, ctx.userId);
       taskIds.push(taskId);
     }
 

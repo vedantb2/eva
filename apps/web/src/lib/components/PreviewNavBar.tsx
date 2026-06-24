@@ -26,6 +26,7 @@ import {
   IconExternalLink,
   IconMaximize,
 } from "@tabler/icons-react";
+import { stripPreviewGrant, carryPreviewGrant } from "@/lib/utils/previewGrant";
 
 function getPathFromUrl(fullUrl: string): string {
   try {
@@ -47,7 +48,9 @@ export function buildUrlWithPath(baseUrl: string, path: string): string {
     const parsed = new URL(baseUrl);
     if (parsed.protocol === "http:") parsed.protocol = "https:";
     const fullPath = normalizePreviewPath(path);
-    return `${parsed.origin}${fullPath}`;
+    // Carry the preview grant onto the rebuilt URL so the iframe's first load
+    // can establish the proxy session cookie instead of bouncing to sign-in.
+    return carryPreviewGrant(baseUrl, `${parsed.origin}${fullPath}`);
   } catch {
     return baseUrl;
   }
@@ -201,8 +204,11 @@ export function PreviewNavBar({
     }
   }
 
+  // Strip the grant from the shareable "open in new tab" link: opening it is a
+  // top-level navigation that runs the sign-in handshake, and the link must not
+  // carry a bearer token.
   const openInNewTabHref = previewUrl
-    ? buildUrlWithPath(previewUrl, pathInput)
+    ? stripPreviewGrant(buildUrlWithPath(previewUrl, pathInput))
     : undefined;
 
   function toggleFullscreen() {

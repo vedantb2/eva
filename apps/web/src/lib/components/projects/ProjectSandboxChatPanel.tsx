@@ -107,6 +107,7 @@ export function ProjectSandboxChatPanel({
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}
+        conversationId={projectId}
         messages={messages ?? []}
         queuedMessages={queuedMessages ?? []}
         streamingActivity={streaming?.currentActivity}

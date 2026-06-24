@@ -1,9 +1,6 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { SignInButton, SignUpButton } from "@clerk/clerk-react";
-import { Button } from "@conductor/ui";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
-
-const isDev = import.meta.env.DEV;
+import { LandingPage } from "./_components/LandingPage";
 
 const searchSchema = z.object({
   agent: z.boolean().optional(),
@@ -13,71 +10,16 @@ export const Route = createFileRoute("/")({
   validateSearch: searchSchema,
   beforeLoad: ({ context, search }) => {
     if (search.agent) {
-      // Redirect to agent login endpoint
       window.location.href = "/api/auth/agent-login";
     }
     if (context.isSignedIn) {
       throw redirect({ to: "/home" });
     }
   },
-  component: LandingPage,
+  component: RouteComponent,
 });
 
-function LandingPage() {
-  const navigate = useNavigate();
+function RouteComponent() {
   const { agent } = Route.useSearch();
-
-  // Show loading state while redirecting to agent login
-  if (agent) {
-    return <div className="min-h-screen w-full bg-background" />;
-  }
-
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="flex flex-col items-center gap-8">
-        <div className="flex flex-col items-center gap-4">
-          <img
-            src="/icon.svg"
-            alt="Eva"
-            width={80}
-            height={80}
-            className="rounded-2xl outline outline-1 outline-black/10 dark:outline-white/10"
-          />
-          <h1 className="text-3xl font-bold tracking-tight text-foreground text-balance">
-            Eva
-          </h1>
-          <p className="text-center text-sm text-muted-foreground">
-            Your AI Coworker
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <SignInButton mode="modal">
-            <Button size="lg" variant="default">
-              Sign In
-            </Button>
-          </SignInButton>
-          <SignUpButton mode="modal">
-            <Button size="lg" variant="outline">
-              Sign Up
-            </Button>
-          </SignUpButton>
-        </div>
-
-        {isDev && (
-          <div className="flex justify-center">
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={() => {
-                navigate({ to: "/", search: { agent: true } });
-              }}
-            >
-              Sign in as Eva
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <LandingPage agentRedirect={agent === true} />;
 }

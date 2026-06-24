@@ -16,6 +16,7 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import { cn } from "../utils/cn";
+import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 
 type TestStatus = "passed" | "failed" | "skipped" | "running";
 
@@ -53,7 +54,7 @@ export const TestResults = ({
   return (
     <TestResultsContext.Provider value={contextValue}>
       <div
-        className={cn("rounded-lg border bg-background", className)}
+        className={cn("border bg-background", SURFACE_RADIUS_CLASS, className)}
         {...props}
       >
         {children ??
@@ -219,7 +220,10 @@ export const TestSuite = ({
 
   return (
     <TestSuiteContext.Provider value={contextValue}>
-      <Collapsible className={cn("rounded-lg border", className)} {...props}>
+      <Collapsible
+        className={cn("border", SURFACE_RADIUS_CLASS, className)}
+        {...props}
+      >
         {children}
       </Collapsible>
     </TestSuiteContext.Provider>
@@ -420,7 +424,11 @@ export const TestError = ({
   ...props
 }: TestErrorProps) => (
   <div
-    className={cn("mt-2 rounded-lg bg-destructive/10 p-3", className)}
+    className={cn(
+      "mt-2 bg-destructive/10 p-3",
+      SURFACE_RADIUS_CLASS,
+      className,
+    )}
     {...props}
   >
     {children}

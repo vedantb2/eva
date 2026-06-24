@@ -20,17 +20,30 @@ interface CommentMentionInputProps {
   onValueChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  /** Submit on Enter (Shift+Enter inserts a newline). */
+  onEnterSubmit?: () => void;
+  initialMentionMap?: Map<string, string>;
+  initialSkillMap?: Map<string, string>;
+  /** When true, blocks all input. Used while a draft is loading. */
+  disabled?: boolean;
 }
 
-interface UserMentionItem extends MentionItem<Id<"users">> {
-  email: string | undefined;
-}
+type UserMentionItem = MentionItem<Id<"users">>;
 
 export const CommentMentionInput = forwardRef<
   CommentMentionInputHandle,
   CommentMentionInputProps
 >(function CommentMentionInput(
-  { value, onValueChange, placeholder, className },
+  {
+    value,
+    onValueChange,
+    placeholder,
+    className,
+    onEnterSubmit,
+    initialMentionMap,
+    initialSkillMap,
+    disabled,
+  },
   ref,
 ) {
   const { repo } = useRepo();
@@ -43,7 +56,7 @@ export const CommentMentionInput = forwardRef<
     if (!m.user) return [];
     const label = m.user.fullName?.trim() || m.user.email?.trim();
     if (!label) return [];
-    return [{ id: m.user._id, label, email: m.user.email }];
+    return [{ id: m.user._id, label }];
   });
 
   return (
@@ -51,26 +64,23 @@ export const CommentMentionInput = forwardRef<
       ref={ref}
       value={value}
       onValueChange={onValueChange}
+      onEnterSubmit={onEnterSubmit}
       items={items}
       mentionPopupTitle="People"
       mentionChipHoverCard
       placeholder={placeholder}
       ariaLabel={placeholder ?? "Comment input"}
+      initialMentionMap={initialMentionMap}
+      initialSkillMap={initialSkillMap}
+      disabled={disabled}
       className={cn(
-        "min-h-16 max-h-40 overflow-y-auto rounded-md border border-input px-3 py-2 pr-12 focus-visible:ring-2 focus-visible:ring-ring",
+        "min-h-16 max-h-40 overflow-y-auto rounded-control border border-input bg-card px-3 py-2 pr-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35",
         className,
       )}
       renderItem={(item) => (
         <div className="flex w-full min-w-0 items-center gap-2">
           <UserInitials userId={item.id} size="sm" hideLastSeen />
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
-            <span className="truncate">{item.label}</span>
-            {item.email && item.email !== item.label ? (
-              <span className="truncate text-xs text-muted-foreground">
-                {item.email}
-              </span>
-            ) : null}
-          </div>
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
         </div>
       )}
     />

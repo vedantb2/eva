@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +51,7 @@ import {
   DescriptionMentionEditor,
   type DescriptionMentionEditorHandle,
 } from "@/lib/components/tasks/_components/DescriptionMentionEditor";
+import { tokenizedToEditable } from "@/lib/components/mentions";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
 import {
@@ -63,6 +64,9 @@ import { ProjectPicker } from "./_components/ProjectPicker";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
+type QuickTaskDraft = FunctionReturnType<
+  typeof api.agentTasks.listDrafts
+>[number];
 
 interface QuickTaskModalProps {
   isOpen: boolean;
@@ -71,6 +75,8 @@ interface QuickTaskModalProps {
   users?: User[];
   projects?: Project[];
   allTags?: string[];
+  /** Pre-load this draft when the modal opens via a deep link. */
+  initialDraft?: QuickTaskDraft;
 }
 
 export function QuickTaskModal({
@@ -80,25 +86,34 @@ export function QuickTaskModal({
   users,
   projects,
   allTags,
+  initialDraft,
 }: QuickTaskModalProps) {
   const { repo } = useRepo();
   const defaultBranch = repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [baseBranch, setBaseBranch] = useState(defaultBranch);
+  const [title, setTitle] = useState(initialDraft?.title ?? "");
+  const [description, setDescription] = useState(() =>
+    initialDraft
+      ? tokenizedToEditable(initialDraft.description ?? "").displayText
+      : "",
+  );
+  const [baseBranch, setBaseBranch] = useState(
+    initialDraft?.baseBranch ?? defaultBranch,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [activeDraftId, setActiveDraftId] = useState<Id<"agentTasks"> | null>(
-    null,
+    initialDraft?._id ?? null,
   );
   const [confirmDeleteId, setConfirmDeleteId] =
     useState<Id<"agentTasks"> | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<
     Id<"projects"> | undefined
-  >(projectId);
+  >(initialDraft?.projectId ?? projectId);
   const [assignedTo, setAssignedTo] = useState<Id<"users"> | undefined>(
     undefined,
   );
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    initialDraft?.tags ?? [],
+  );
   const [tagSearch, setTagSearch] = useState("");
   const [priority, setPriority] = useState<Priority | undefined>(undefined);
   const [screenshotsVideosEnabled, setScreenshotsVideosEnabled] =
@@ -107,6 +122,21 @@ export function QuickTaskModal({
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
   const editorRef = useRef<DescriptionMentionEditorHandle>(null);
+
+  // Seed the mention/skill maps from the initial draft's tokenized description
+  // so that @-mention and /skill chips render correctly on deep-link open.
+  const initialDescMaps = useMemo(
+    () =>
+      initialDraft
+        ? tokenizedToEditable(initialDraft.description ?? "")
+        : {
+            mentionMap: new Map<string, string>(),
+            skillMap: new Map<string, string>(),
+          },
+    // initialDraft is stable for the lifetime of this mount (key remount on change).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const saveDraft = useMutation(api.agentTasks.saveDraft);
@@ -209,7 +239,7 @@ export function QuickTaskModal({
     }
   };
 
-  const loadDraft = (draft: NonNullable<typeof drafts>[number]) => {
+  const loadDraft = (draft: QuickTaskDraft) => {
     setTitle(draft.title ?? "");
     setDescription(draft.description ?? "");
     setBaseBranch(draft.baseBranch ?? defaultBranch);
@@ -271,14 +301,16 @@ export function QuickTaskModal({
             />
           </div>
 
-          <div className="px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
+          <div className="scrollbar px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
             <DescriptionMentionEditor
               ref={editorRef}
               value={description}
               onValueChange={setDescription}
               placeholder="Add description... @ for docs, / for skills"
               minHeight="min-h-[160px]"
-              className="border-0 px-0 py-2 shadow-none focus-visible:ring-0"
+              className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
+              initialMentionMap={initialDescMaps.mentionMap}
+              initialSkillMap={initialDescMaps.skillMap}
             />
           </div>
 
@@ -393,7 +425,7 @@ export function QuickTaskModal({
                       {tagSearch.trim() ? (
                         <button
                           type="button"
-                          className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent rounded-sm"
+                          className="w-full px-2 py-1.5 text-sm text-left hover:bg-muted rounded-sm"
                           onClick={() => addCustomTag(tagSearch)}
                         >
                           Create &quot;{tagSearch.trim()}&quot;
@@ -461,7 +493,7 @@ export function QuickTaskModal({
                     <div className="px-3 py-2 border-b border-border">
                       <p className="text-sm font-medium">Saved Drafts</p>
                     </div>
-                    <div className="max-h-56 overflow-y-auto">
+                    <div className="scrollbar max-h-56 overflow-y-auto">
                       {drafts.map((draft) => (
                         <div key={draft._id}>
                           {confirmDeleteId === draft._id ? (
@@ -492,7 +524,7 @@ export function QuickTaskModal({
                             <div
                               role="button"
                               tabIndex={0}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors group cursor-pointer"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors group cursor-pointer"
                               onClick={() => loadDraft(draft)}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ")

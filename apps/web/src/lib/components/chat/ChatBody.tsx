@@ -18,6 +18,9 @@ import {
   type PromptInputMessage,
   type ModelOption,
 } from "@conductor/ui";
+import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
+import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
+import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import {
   IconPlayerStop,
   IconCode,
@@ -32,6 +35,7 @@ import { api, type AIModel } from "@conductor/backend";
 import type { Doc, Id } from "@conductor/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
+import { ChatMessageActions } from "@/lib/components/chat/ChatMessageActions";
 import {
   MentionTextarea,
   type MentionTextareaHandle,
@@ -104,6 +108,8 @@ interface ChatBodyProps {
   repoId: Id<"githubRepos">;
   /** Repo route prefix, e.g. `/owner/repo` or `/owner/repo--app`. */
   repoBasePath: string;
+  /** Conversation id (session / agent task / project) — scopes the typing-presence room. */
+  conversationId: string;
   messages: ChatBodyMessage[];
   queuedMessages: ChatBodyQueuedMessage[];
   streamingActivity?: string;
@@ -132,11 +138,28 @@ interface ChatBodyProps {
   emptyStateOverride?: React.ReactNode;
   /** Optional formatter for queued message info tooltips. Falls back to none. */
   formatQueuedInfo?: (msg: ChatBodyQueuedMessage) => string | undefined;
+  /**
+   * Draft seed to restore. When provided, the PromptInputProvider is seeded
+   * with the stored draft text and mention maps, and a ChatDraftSync child
+   * saves keystrokes back to Convex.
+   *
+   * IMPORTANT: only pass this once the draft query has resolved — the provider
+   * reads initialInput only at mount, so it must not mount before the data is
+   * available. Use `isDraftLoading` to render a placeholder while waiting.
+   */
+  draft?: ChatDraftSeed;
+  /**
+   * When true, renders a disabled placeholder in place of the real input while
+   * the draft query is in flight. This prevents the PromptInputProvider from
+   * mounting with an empty initial value before the persisted draft is known.
+   */
+  isDraftLoading?: boolean;
 }
 
 export function ChatBody({
   repoId,
   repoBasePath,
+  conversationId,
   messages,
   queuedMessages,
   streamingActivity,
@@ -158,9 +181,12 @@ export function ChatBody({
   toolsBefore,
   emptyStateOverride,
   formatQueuedInfo,
+  draft,
+  isDraftLoading,
 }: ChatBodyProps) {
   const docs = useQuery(api.docs.list, { repoId }) ?? [];
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
+  const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<MentionTextareaHandle>(null);
   const updateQueuedMessage = useMutation(
     api.queuedMessages.update,
@@ -276,7 +302,7 @@ export function ChatBody({
                       <MessageContent
                         className={
                           message.role === "user"
-                            ? "group rounded-xl bg-secondary text-foreground px-4 py-3"
+                            ? "group rounded-surface bg-secondary text-foreground px-4 py-3"
                             : "px-1 py-2"
                         }
                       >
@@ -344,6 +370,12 @@ export function ChatBody({
                           </>
                         )}
                       </MessageContent>
+                      {message.role === "assistant" && message.content ? (
+                        <ChatMessageActions
+                          copyText={message.content}
+                          className="ml-0.5"
+                        />
+                      ) : null}
                       {message.role === "user" && (
                         <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
                           <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -409,7 +441,7 @@ export function ChatBody({
           />
           {preInputContent}
           {!hintDismissed ? (
-            <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+            <div className="mb-2 flex items-center gap-2 rounded-surface border border-border bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
               <span className="min-w-0 flex-1">
                 <span className="font-medium text-foreground/80">@</span> to
                 mention a doc or PRD ·{" "}
@@ -418,7 +450,7 @@ export function ChatBody({
               </span>
               <button
                 type="button"
-                className="shrink-0 rounded p-0.5 hover:bg-accent hover:text-foreground"
+                className="shrink-0 rounded p-0.5 hover:bg-muted hover:text-foreground"
                 aria-label="Dismiss tip"
                 onClick={() => setHintDismissed(true)}
               >
@@ -426,46 +458,71 @@ export function ChatBody({
               </button>
             </div>
           ) : null}
-          <div>
-            <PromptInputProvider>
-              <PromptInput onSubmit={handlePromptSubmit}>
-                <MentionTextarea
-                  ref={mentionRef}
-                  repoBasePath={repoBasePath}
-                  docs={docs}
-                  skills={skills}
-                  skillsSettingsHref={`${repoBasePath}/settings/skills`}
-                  placeholder={placeholder}
+          <div className="relative">
+            {isDraftLoading ? (
+              // Placeholder that matches the input group's visual footprint.
+              // Keeps the layout stable while the draft query resolves, and
+              // prevents the PromptInputProvider from mounting with an empty
+              // initialInput before the persisted draft is known.
+              <div
+                aria-busy="true"
+                aria-label="Loading draft..."
+                className="pointer-events-none rounded-surface border border-border shadow-lg bg-background opacity-50 min-h-[4.5rem]"
+              />
+            ) : (
+              <PromptInputProvider initialInput={draft?.initialDisplay}>
+                <ChatTypingLayer
+                  roomId={`typing:chat:${conversationId}`}
+                  userId={currentUserId}
                 />
-                <PromptInputFooter>
-                  <PromptInputTools>{toolsBefore}</PromptInputTools>
-                  <div className="flex min-w-0 items-center gap-1">
-                    <ModelSelect
-                      value={model}
-                      options={modelOptions}
-                      onValueChange={setModel}
-                      className="max-w-48 truncate sm:max-w-none"
-                    />
-                    <PromptInputSpeech />
-                    {isExecuting ? (
-                      <Button
-                        size="icon-sm"
-                        type="button"
-                        variant="destructive"
-                        onClick={onCancel}
-                        title="Stop Eva"
-                      >
-                        <IconPlayerStop className="size-4" />
-                      </Button>
-                    ) : null}
-                    <ChatBodySubmit
-                      disabled={isInputDisabled}
-                      isExecuting={isExecuting}
-                    />
-                  </div>
-                </PromptInputFooter>
-              </PromptInput>
-            </PromptInputProvider>
+                {draft && (
+                  <ChatDraftSync
+                    target={draft.target}
+                    mentionRef={mentionRef}
+                    initialDisplay={draft.initialDisplay}
+                  />
+                )}
+                <PromptInput onSubmit={handlePromptSubmit}>
+                  <MentionTextarea
+                    ref={mentionRef}
+                    repoBasePath={repoBasePath}
+                    docs={docs}
+                    skills={skills}
+                    skillsSettingsHref={`${repoBasePath}/settings/skills`}
+                    placeholder={placeholder}
+                    initialMentionMap={draft?.mentionMap}
+                    initialSkillMap={draft?.skillMap}
+                  />
+                  <PromptInputFooter>
+                    <PromptInputTools>{toolsBefore}</PromptInputTools>
+                    <div className="flex min-w-0 items-center gap-1">
+                      <ModelSelect
+                        value={model}
+                        options={modelOptions}
+                        onValueChange={setModel}
+                        className="max-w-48 truncate sm:max-w-none"
+                      />
+                      <PromptInputSpeech />
+                      {isExecuting ? (
+                        <Button
+                          size="icon-sm"
+                          type="button"
+                          variant="destructive"
+                          onClick={onCancel}
+                          title="Stop Eva"
+                        >
+                          <IconPlayerStop className="size-4" />
+                        </Button>
+                      ) : null}
+                      <ChatBodySubmit
+                        disabled={isInputDisabled}
+                        isExecuting={isExecuting}
+                      />
+                    </div>
+                  </PromptInputFooter>
+                </PromptInput>
+              </PromptInputProvider>
+            )}
           </div>
         </div>
       )}

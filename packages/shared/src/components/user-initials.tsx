@@ -13,7 +13,7 @@ import {
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { Facehash } from "facehash";
 import type { ReactNode } from "react";
-import dayjs from "../utils/dates";
+import { compactRelativeTime } from "../utils/dates";
 
 const ONLINE_THRESHOLD_MS = 120_000;
 
@@ -85,7 +85,7 @@ export function UserInitials({
   const tooltip = online
     ? `${name} · Online`
     : user.lastSeenAt
-      ? `${name} · Active ${dayjs(user.lastSeenAt).fromNow()}`
+      ? `${name} · Active ${compactRelativeTime(user.lastSeenAt)}`
       : name;
   const iconSizePx =
     size === "xl" ? 48 : size === "md" ? 24 : size === "lg" ? 32 : 16;
@@ -167,7 +167,7 @@ function getPresence(lastSeenAt?: number | null): {
   if (online) {
     return { label: "Online", online: true };
   }
-  return { label: `Active ${dayjs(lastSeenAt).fromNow()}`, online: false };
+  return { label: `Active ${compactRelativeTime(lastSeenAt)}`, online: false };
 }
 
 function MailIcon({ className }: { className?: string }) {
@@ -191,7 +191,7 @@ function MailIcon({ className }: { className?: string }) {
 /** Floating glass shell shared by every profile-card state. */
 function ProfileCardShell({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-xl bg-popover/95 text-popover-foreground shadow-lg backdrop-blur-md">
+    <div className="overflow-hidden rounded-surface border border-border bg-popover/95 text-popover-foreground shadow-lg backdrop-blur-md">
       {children}
     </div>
   );

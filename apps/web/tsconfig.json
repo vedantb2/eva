@@ -5,6 +5,8 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsgo/web.tsbuildinfo",
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

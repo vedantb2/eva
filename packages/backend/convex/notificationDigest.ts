@@ -26,9 +26,12 @@ export const sendDailyDigests = internalAction({
   returns: v.null(),
   handler: async (ctx) => {
     const appUrl = getEnv("WEB_APP_URL");
+    // Only summarise notifications from the past 24 hours, matching the daily
+    // cadence — older unread items stay in the in-app inbox.
+    const since = Date.now() - 24 * 60 * 60 * 1000;
     const recipients = await ctx.runQuery(
       internal.notifications.getDigestRecipients,
-      {},
+      { since },
     );
 
     let sent = 0;
@@ -39,6 +42,7 @@ export const sendDailyDigests = internalAction({
         recipientName: recipient.name,
         appUrl,
         notifications: recipient.notifications,
+        subtext: "From the past 24 hours",
       });
       try {
         await sendEmail({

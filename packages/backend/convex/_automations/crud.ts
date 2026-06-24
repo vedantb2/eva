@@ -78,6 +78,7 @@ export const update = authMutation({
     readOnly: v.optional(v.boolean()),
     actionsEnabled: v.optional(v.boolean()),
     shared: v.optional(v.boolean()),
+    sendEmail: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -96,6 +97,7 @@ export const update = authMutation({
     if (args.readOnly !== undefined) patch.readOnly = args.readOnly;
     if (args.actionsEnabled !== undefined)
       patch.actionsEnabled = args.actionsEnabled;
+    if (args.sendEmail !== undefined) patch.sendEmail = args.sendEmail;
 
     if (args.shared !== undefined) {
       if (args.contextRepoId === undefined) {

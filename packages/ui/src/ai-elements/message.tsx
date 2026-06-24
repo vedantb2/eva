@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { cn } from "../utils/cn";
+import { STREAMDOWN_TABLE_RADIUS_CLASS } from "../utils/surface-radius";
 import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
@@ -55,7 +56,7 @@ export const MessageContent = ({
   <div
     className={cn(
       "flex min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm",
-      "group-[.is-user]:ml-auto group-[.is-user]:w-fit group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
+      "group-[.is-user]:ml-auto group-[.is-user]:w-fit group-[.is-user]:rounded-surface group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
       "group-[.is-assistant]:w-full group-[.is-assistant]:text-foreground",
       className,
     )}
@@ -328,6 +329,7 @@ export const MessageResponse = memo(
     <Streamdown
       className={cn(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        STREAMDOWN_TABLE_RADIUS_CLASS,
         className,
       )}
       plugins={streamdownPlugins}

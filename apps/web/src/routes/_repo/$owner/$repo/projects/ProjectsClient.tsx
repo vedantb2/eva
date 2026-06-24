@@ -94,10 +94,17 @@ export function ProjectsClient() {
   });
   const navigate = useNavigate();
   const [isCreating, setIsCreating] = useState(false);
-  const [{ q, view, phases, sortField, sortDir }, setParams] =
-    useProjectFilters();
+  const [
+    { q, view, hiddenPhases, sortField, sortDir, timelineRange, timelineZoom },
+    setParams,
+  ] = useProjectFilters();
   const searchQuery = q;
-  const visiblePhases = useMemo(() => new Set<ProjectPhase>(phases), [phases]);
+  // Derive the visible set from the persisted blocklist so new phases show by
+  // default and "all visible" is independent of how many phases exist.
+  const visiblePhases = useMemo(() => {
+    const hidden = new Set<ProjectPhase>(hiddenPhases);
+    return new Set<ProjectPhase>(PROJECT_PHASES.filter((p) => !hidden.has(p)));
+  }, [hiddenPhases]);
   const [projectToDelete, setProjectToDelete] = useState<{
     id: Id<"projects">;
     title: string;
@@ -163,14 +170,15 @@ export function ProjectsClient() {
   };
 
   const handlePhaseToggle = (phase: ProjectPhase) => {
-    const next = new Set(visiblePhases);
-    if (next.has(phase)) {
-      if (next.size === 1) return;
-      next.delete(phase);
+    const hidden = new Set<ProjectPhase>(hiddenPhases);
+    if (hidden.has(phase)) {
+      hidden.delete(phase);
     } else {
-      next.add(phase);
+      // Keep at least one phase visible.
+      if (visiblePhases.size === 1) return;
+      hidden.add(phase);
     }
-    setParams({ phases: [...next] });
+    setParams({ hiddenPhases: [...hidden] });
   };
 
   const handleOpenProject = (id: string) => {
@@ -178,13 +186,11 @@ export function ProjectsClient() {
   };
 
   const hasActiveFilters =
-    visiblePhases.size !== PROJECT_PHASES.length ||
-    sortField !== "created" ||
-    sortDir !== "desc";
+    hiddenPhases.length > 0 || sortField !== "created" || sortDir !== "desc";
 
   const clearAllFilters = () => {
     setParams({
-      phases: [...PROJECT_PHASES],
+      hiddenPhases: [],
       sortField: "created",
       sortDir: "desc",
     });
@@ -192,7 +198,7 @@ export function ProjectsClient() {
 
   const activeFilterLabels = useMemo(() => {
     const labels: Array<{ key: string; label: string }> = [];
-    if (visiblePhases.size !== PROJECT_PHASES.length) {
+    if (hiddenPhases.length > 0) {
       labels.push({
         key: "phases",
         label: `${visiblePhases.size} Phase${visiblePhases.size !== 1 ? "s" : ""}`,
@@ -208,12 +214,12 @@ export function ProjectsClient() {
       labels.push({ key: "sortDir", label: "Ascending" });
     }
     return labels;
-  }, [visiblePhases, sortField, sortDir]);
+  }, [hiddenPhases, visiblePhases, sortField, sortDir]);
 
   const clearFilter = (key: string) => {
     switch (key) {
       case "phases":
-        setParams({ phases: [...PROJECT_PHASES] });
+        setParams({ hiddenPhases: [] });
         break;
       case "sortField":
         setParams({ sortField: "created" });
@@ -232,9 +238,10 @@ export function ProjectsClient() {
         placeholder="Search projects..."
         tooltipLabel="Search projects"
         visible={hasProjects}
+        variant="large"
       />
       {hasProjects && (
-        <div className="flex items-center rounded-lg bg-muted/40 overflow-hidden">
+        <div className="flex items-center rounded-surface border border-border bg-muted/40 overflow-hidden">
           {VIEW_OPTIONS.map((opt) => (
             <Tooltip key={opt.key}>
               <TooltipTrigger asChild>
@@ -415,6 +422,10 @@ export function ProjectsClient() {
                   <ProjectsTimeline
                     projects={filteredSorted}
                     basePath={basePath}
+                    range={timelineRange}
+                    zoom={timelineZoom}
+                    onRangeChange={(r) => setParams({ timelineRange: r })}
+                    onZoomChange={(z) => setParams({ timelineZoom: z })}
                   />
                 </motion.div>
               ) : view === "table" ? (

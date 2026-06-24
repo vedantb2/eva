@@ -7,6 +7,7 @@ import { getSandbox, errorMessage, signAndLaunchScript } from "./helpers";
 import { sessionClaudeUuid } from "./volumes";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 import { buildAuditFixPrompt } from "../_taskWorkflow/prompts";
+import { auditFailureValidator } from "../validators";
 
 const AUDIT_FIRST_EVENT_TIMEOUT_MS = "30000";
 const AUDIT_POST_TEXT_STALL_TIMEOUT_MS = "30000";
@@ -145,19 +146,7 @@ export const launchAuditFix = internalAction({
 export const launchSelectedAuditFixes = internalAction({
   args: {
     auditId: v.id("audits"),
-    selectedFailures: v.array(
-      v.object({
-        section: v.string(),
-        requirement: v.string(),
-        detail: v.string(),
-        severity: v.union(
-          v.literal("critical"),
-          v.literal("high"),
-          v.literal("medium"),
-          v.literal("low"),
-        ),
-      }),
-    ),
+    selectedFailures: v.array(auditFailureValidator),
     sandboxId: v.optional(v.string()),
     taskId: v.id("agentTasks"),
     runId: v.id("agentRuns"),

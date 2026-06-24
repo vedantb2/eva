@@ -4,6 +4,8 @@ import { internal } from "../_generated/api";
 import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
+  seededAppResultValidator,
+  seededAppStatusValidator,
 } from "../validators";
 import { authQuery, authMutation } from "../functions";
 import { workflow } from "../workflowManager";
@@ -27,6 +29,7 @@ export const listBuilds = authQuery({
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
+      seededApps: v.optional(v.array(seededAppResultValidator)),
     }),
   ),
   handler: async (ctx, args) => {
@@ -57,6 +60,7 @@ export const getBuild = authQuery({
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
+      seededApps: v.optional(v.array(seededAppResultValidator)),
     }),
     v.null(),
   ),
@@ -231,6 +235,38 @@ export const appendLogs = internalMutation({
     await ctx.db.patch(args.buildId, {
       logs: build.logs + args.chunk,
     });
+    return null;
+  },
+});
+
+/**
+ * Records a single app's seeding outcome on a build (called during Step 5).
+ * seededSnapshotName is the captured snapshot name on success, or null when the
+ * app fell back to the base Image. Replaces any prior entry for the same repo so
+ * the operation is idempotent under workflow retries.
+ */
+export const recordSeededApp = internalMutation({
+  args: {
+    buildId: v.id("snapshotBuilds"),
+    repoId: v.id("githubRepos"),
+    status: seededAppStatusValidator,
+    seededSnapshotName: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return null;
+    const repo = await ctx.db.get(args.repoId);
+    const seededApps = [
+      ...(build.seededApps ?? []).filter((a) => a.repoId !== args.repoId),
+      {
+        repoId: args.repoId,
+        app: repo?.rootDirectory,
+        status: args.status,
+        seededSnapshotName: args.seededSnapshotName,
+      },
+    ];
+    await ctx.db.patch(args.buildId, { seededApps });
     return null;
   },
 });

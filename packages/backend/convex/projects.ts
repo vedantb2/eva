@@ -4,6 +4,7 @@ export {
   getActive,
   getTaskCount,
   getTaskProgress,
+  listTaskProgress,
   countBuilding,
   getProjectPrCreationData,
 } from "./_projects/queries";
@@ -29,6 +30,7 @@ export {
   startProjectSandbox,
   stopProjectSandbox,
   retryProjectStartupCommands,
+  runProjectBackgroundCommands,
   resolveProjectConflicts,
   projectSandboxAllocated,
   projectSandboxStarting,

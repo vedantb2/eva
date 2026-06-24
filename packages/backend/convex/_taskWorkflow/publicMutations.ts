@@ -324,9 +324,8 @@ export const cancelExecution = authMutation({
 
     if (run) {
       await ctx.db.patch(run._id, {
-        status: "error",
+        status: "cancelled",
         finalizingAt: undefined,
-        error: "Cancelled by user",
         finishedAt: Date.now(),
       });
       await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(run._id));

@@ -15,6 +15,9 @@ export const runStatusValidator = v.union(
   v.literal("running"),
   v.literal("success"),
   v.literal("error"),
+  // User-initiated cancellation. Distinct from "error" so cancelled runs are
+  // not flagged as failures (no red card border, neutral timeline badge).
+  v.literal("cancelled"),
 );
 
 export const logLevelValidator = v.union(
@@ -24,6 +27,14 @@ export const logLevelValidator = v.union(
 );
 
 export const roleValidator = v.union(v.literal("user"), v.literal("assistant"));
+
+// What a reaction is attached to within a task. `comment` targets a
+// `taskComments` doc (targetId = commentId); `description` targets the task's
+// own description field (targetId = taskId).
+export const reactionTargetValidator = v.union(
+  v.literal("comment"),
+  v.literal("description"),
+);
 
 export const sessionModeValidator = v.union(
   v.literal("edit"),
@@ -90,7 +101,9 @@ export const notificationTypeValidator = v.union(
   v.literal("export_ready"),
   v.literal("task_complete"),
   v.literal("task_assigned"),
+  v.literal("status_changed"),
   v.literal("comment_added"),
+  v.literal("changes_requested"),
   v.literal("comment_reply"),
   v.literal("mention"),
   v.literal("run_completed"),
@@ -229,4 +242,7 @@ export const taskActivityFieldValidator = v.union(
   v.literal("tags"),
   v.literal("model"),
   v.literal("baseBranch"),
+  // GitHub PR merged/closed event. newValue is "merged" or "closed"; the
+  // resulting task status (done/cancelled) is implied and rendered client-side.
+  v.literal("pr"),
 );

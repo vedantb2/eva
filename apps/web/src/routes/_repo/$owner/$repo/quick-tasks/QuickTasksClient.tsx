@@ -4,7 +4,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
@@ -14,8 +14,11 @@ import {
   ImportLinearModal,
 } from "@/lib/components/quick-tasks";
 import { QuickTasksKanbanBoard } from "@/lib/components/quick-tasks/QuickTasksKanbanBoard";
-import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { QuickTasksTableView } from "@/lib/components/quick-tasks/QuickTasksTableView";
+import { QuickTasksListSplit } from "./_components/QuickTasksListSplit";
+import { QuickTaskDetailShell } from "./_components/QuickTaskDetailShell";
+import { QuickTaskTaskPageContent } from "./_components/QuickTaskTaskPageContent";
+import { useQuickTaskRouteState } from "./_utils/useQuickTaskRouteState";
 import { IconChecklist } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
@@ -29,8 +32,21 @@ import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 
 export function QuickTasksClient() {
   const navigate = useNavigate();
+  // The open task (if any) comes from the child route params, read here at the
+  // layout level so the list stays mounted while the detail changes.
+  const params = useParams({ strict: false });
+  const routeState = useQuickTaskRouteState();
+  const selectedTaskId =
+    typeof params.taskId === "string" ? params.taskId : undefined;
   const { basePath, repo } = useRepo();
   const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
+  const { draft: draftParam } = useSearch({
+    from: "/_repo/$owner/$repo/quick-tasks",
+  });
+  const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
+  const initialDraft = draftParam
+    ? drafts?.find((d) => d._id === draftParam)
+    : undefined;
   const [isCreating, setIsCreating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -140,8 +156,8 @@ export function QuickTasksClient() {
           ? "Unassigned"
           : (users?.find((u) => u._id === assignee)?.fullName ??
             users?.find((u) => u._id === assignee)?.firstName ??
-            "Assignee");
-      labels.push({ key: "assignee", label: `Assigned to: ${name}` });
+            "Code Reviewer");
+      labels.push({ key: "assignee", label: `Code reviewer: ${name}` });
     }
     if (statuses.length !== TASK_STATUSES.length) {
       labels.push({
@@ -214,11 +230,60 @@ export function QuickTasksClient() {
     setIsCreating(true);
   });
 
+  const clearDraftParam = () => {
+    navigate({
+      to: ".",
+      search: (prev) => ({ ...prev, draft: undefined }),
+      replace: true,
+    });
+  };
+
+  const handleModalClose = () => {
+    setIsCreating(false);
+    if (draftParam !== undefined) {
+      clearDraftParam();
+    }
+  };
+
+  // If the drafts list has loaded and the param points to a non-existent draft
+  // (deleted or stale link), clean up the URL.
+  useEffect(() => {
+    if (
+      drafts !== undefined &&
+      draftParam !== undefined &&
+      initialDraft === undefined
+    ) {
+      clearDraftParam();
+    }
+    // clearDraftParam is defined inline each render — only run when these values change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drafts, draftParam, initialDraft]);
+
   if (tasks === undefined) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
         <Spinner />
       </div>
+    );
+  }
+
+  // Kanban and table keep the dedicated full-page detail when a task is open.
+  // List view instead renders the master/detail split further down.
+  if (selectedTaskId && routeState && view !== "list") {
+    return (
+      <QuickTaskDetailShell
+        taskId={selectedTaskId}
+        detailTab={routeState.detailTab}
+        navSurface={routeState.surface}
+        sandboxTab={
+          routeState.surface === "sandbox" ? routeState.sandboxTab : undefined
+        }
+      >
+        <QuickTaskTaskPageContent
+          taskId={selectedTaskId}
+          routeState={routeState}
+        />
+      </QuickTaskDetailShell>
     );
   }
 
@@ -231,9 +296,14 @@ export function QuickTasksClient() {
         headerRight={
           <QuickTasksToolbar
             view={view}
-            onViewChange={(v: "kanban" | "list" | "table") =>
-              setParams({ view: v })
-            }
+            onViewChange={(v: "kanban" | "list" | "table") => {
+              setParams({ view: v });
+              // Only list view renders an open task inline (master/detail
+              // split); kanban/table show the board, so close the task.
+              if (selectedTaskId && v !== "list") {
+                navigate({ to: `${basePath}/quick-tasks` });
+              }
+            }}
             searchQuery={q}
             onSearchChange={(v) => setParams({ q: v ?? "" })}
             hasQuickTasks={hasAnyTasks}
@@ -260,7 +330,7 @@ export function QuickTasksClient() {
             />
           )}
           <AnimatePresence mode="wait">
-            {!hasQuickTasks ? (
+            {!hasQuickTasks && !(view === "list" && selectedTaskId) ? (
               <motion.div
                 key="quick-tasks-empty"
                 initial={{ opacity: 0, y: 8 }}
@@ -326,13 +396,21 @@ export function QuickTasksClient() {
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.2 }}
               >
-                <QuickTasksListView
+                <QuickTasksListSplit
                   tasks={quickTasks}
                   projectNames={projectNames}
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
                   onOpenTask={handleOpenTask}
+                  selectedTaskId={selectedTaskId}
+                  detailTab={routeState?.detailTab}
+                  sandboxTab={
+                    routeState?.surface === "sandbox"
+                      ? routeState.sandboxTab
+                      : undefined
+                  }
+                  navSurface={routeState?.surface ?? "detail"}
                 />
               </motion.div>
             )}
@@ -349,8 +427,10 @@ export function QuickTasksClient() {
         </div>
       </PageWrapper>
       <QuickTaskModal
-        isOpen={isCreating}
-        onClose={() => setIsCreating(false)}
+        key={initialDraft?._id ?? "new"}
+        isOpen={isCreating || initialDraft !== undefined}
+        initialDraft={initialDraft}
+        onClose={handleModalClose}
         users={users ?? undefined}
         projects={projects ?? undefined}
         allTags={allTags}

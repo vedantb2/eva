@@ -1,0 +1,130 @@
+import type {
+  GenericDatabaseReader,
+  GenericDatabaseWriter,
+} from "convex/server";
+import { hasRepoAccess } from "../functions";
+import type { DataModel, Doc, Id } from "../_generated/dataModel";
+import type { Infer } from "convex/values";
+import { draftTarget } from "../validators";
+
+type DraftTarget = Infer<typeof draftTarget>;
+
+/** Result returned by resolveTarget: the repoId for this surface and a function to find any existing draft row. */
+type ResolvedTarget = {
+  repoId: Id<"githubRepos">;
+  findExisting: () => Promise<Doc<"drafts"> | null>;
+};
+
+/**
+ * Validates that the surface doc exists, the user has repo access, and returns
+ * the repoId plus a query helper to locate the matching draft row.
+ *
+ * Throws if the surface doc is missing or the user lacks access.
+ */
+export async function resolveTarget(
+  db: GenericDatabaseReader<DataModel>,
+  userId: Id<"users">,
+  target: DraftTarget,
+): Promise<ResolvedTarget> {
+  if (target.kind === "taskComment") {
+    const task = await db.get(target.taskId);
+    if (!task) throw new Error("Task not found");
+
+    // Tasks may be repo-scoped or project-scoped; find the repoId either way.
+    let repoId: Id<"githubRepos">;
+    if (task.repoId) {
+      repoId = task.repoId;
+    } else if (task.projectId) {
+      const project = await db.get(task.projectId);
+      if (!project) throw new Error("Project not found");
+      repoId = project.repoId;
+    } else {
+      throw new Error("Task has no repo or project");
+    }
+
+    if (!(await hasRepoAccess(db, repoId, userId))) {
+      throw new Error("Not authorized");
+    }
+
+    const taskId = target.taskId;
+    const parentCommentId = target.parentCommentId;
+
+    return {
+      repoId,
+      findExisting: async () => {
+        const rows = await db
+          .query("drafts")
+          .withIndex("by_user_and_task", (q) =>
+            q.eq("userId", userId).eq("taskId", taskId),
+          )
+          .collect();
+        return rows.find((d) => d.parentCommentId === parentCommentId) ?? null;
+      },
+    };
+  }
+
+  if (target.kind === "sessionChat") {
+    const session = await db.get(target.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (!(await hasRepoAccess(db, session.repoId, userId))) {
+      throw new Error("Not authorized");
+    }
+    const { repoId } = session;
+    const sessionId = target.sessionId;
+    return {
+      repoId,
+      findExisting: async () => {
+        const rows = await db
+          .query("drafts")
+          .withIndex("by_user_and_session", (q) =>
+            q.eq("userId", userId).eq("sessionId", sessionId),
+          )
+          .collect();
+        return rows[0] ?? null;
+      },
+    };
+  }
+
+  // target.kind === "designChat"
+  const designSession = await db.get(target.designSessionId);
+  if (!designSession) throw new Error("Design session not found");
+  if (!(await hasRepoAccess(db, designSession.repoId, userId))) {
+    throw new Error("Not authorized");
+  }
+  const { repoId } = designSession;
+  const designSessionId = target.designSessionId;
+  return {
+    repoId,
+    findExisting: async () => {
+      const rows = await db
+        .query("drafts")
+        .withIndex("by_user_and_designSession", (q) =>
+          q.eq("userId", userId).eq("designSessionId", designSessionId),
+        )
+        .collect();
+      return rows[0] ?? null;
+    },
+  };
+}
+
+/**
+ * Deletes the draft row for a task comment, if one exists.
+ * Called after a comment is successfully inserted so the draft is cleared.
+ */
+export async function deleteDraftForTarget(
+  db: GenericDatabaseWriter<DataModel>,
+  userId: Id<"users">,
+  taskId: Id<"agentTasks">,
+  parentCommentId?: Id<"taskComments">,
+): Promise<void> {
+  const rows = await db
+    .query("drafts")
+    .withIndex("by_user_and_task", (q) =>
+      q.eq("userId", userId).eq("taskId", taskId),
+    )
+    .collect();
+  const row = rows.find((d) => d.parentCommentId === parentCommentId);
+  if (row) {
+    await db.delete(row._id);
+  }
+}

@@ -49,6 +49,8 @@ import {
   MentionTextarea,
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
+import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
+import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 
 type QueuedDesignMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -133,6 +135,11 @@ export function DesignChatPanel({
 
   const { model, setModel } = useSessionSettings(designSessionId);
   const { options: modelOptions } = useAvailableAiModels(repoId, model);
+
+  const draftSeed = useChatDraftSeed({
+    kind: "designChat" as const,
+    designSessionId,
+  });
 
   const messagesList = messages ?? [];
   const lastMessage = messagesList[messagesList.length - 1];
@@ -286,7 +293,7 @@ export function DesignChatPanel({
                       <MessageContent
                         className={
                           message.role === "user"
-                            ? "rounded-xl bg-secondary text-foreground px-4 py-3"
+                            ? "rounded-surface bg-secondary text-foreground px-4 py-3"
                             : "px-1 py-2"
                         }
                       >
@@ -361,76 +368,94 @@ export function DesignChatPanel({
                 await deleteQueuedMessage({ id });
               }}
             />
-            <PromptInputProvider>
-              <PromptInput onSubmit={handlePromptSubmit}>
-                <MentionTextarea
-                  ref={mentionRef}
-                  repoBasePath={basePath}
-                  docs={docs}
-                  placeholder={
-                    !isSandboxActive
-                      ? "Start the sandbox to begin designing..."
-                      : "Describe the design you want..."
-                  }
+            {!draftSeed.isReady ? (
+              // Placeholder that matches the input group's visual footprint.
+              // Keeps layout stable while the draft query resolves, preventing
+              // the PromptInputProvider from mounting with an empty initialInput.
+              <div
+                aria-busy="true"
+                aria-label="Loading draft..."
+                className="pointer-events-none rounded-surface border border-border shadow-lg bg-background opacity-50 min-h-[4.5rem]"
+              />
+            ) : (
+              <PromptInputProvider initialInput={draftSeed.initialDisplay}>
+                <ChatDraftSync
+                  target={{ kind: "designChat" as const, designSessionId }}
+                  mentionRef={mentionRef}
+                  initialDisplay={draftSeed.initialDisplay}
                 />
-                <PromptInputFooter>
-                  <PromptInputTools>
-                    <ModelSelect
-                      value={model}
-                      options={modelOptions}
-                      onValueChange={setModel}
-                      disabled={!isSandboxActive}
-                    />
-                    <PersonaDropdown
-                      repoId={repoId}
-                      value={selectedPersonaId}
-                      onChange={setSelectedPersonaId}
-                    />
-                  </PromptInputTools>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <span>Designs:</span>
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setNumDesigns(n)}
+                <PromptInput onSubmit={handlePromptSubmit}>
+                  <MentionTextarea
+                    ref={mentionRef}
+                    repoBasePath={basePath}
+                    docs={docs}
+                    placeholder={
+                      !isSandboxActive
+                        ? "Start the sandbox to begin designing..."
+                        : "Describe the design you want..."
+                    }
+                    initialMentionMap={draftSeed.mentionMap}
+                    initialSkillMap={draftSeed.skillMap}
+                  />
+                  <PromptInputFooter>
+                    <PromptInputTools>
+                      <ModelSelect
+                        value={model}
+                        options={modelOptions}
+                        onValueChange={setModel}
                         disabled={!isSandboxActive}
-                        className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
-                          numDesigns === n
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-accent"
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <PromptInputSpeech disabled={!isSandboxActive} />
-                    {isExecuting ? (
-                      <Button
-                        size="icon-sm"
-                        type="button"
-                        variant="destructive"
-                        onClick={handleCancel}
-                        title="Stop Eva"
-                      >
-                        <IconPlayerStop className="size-4" />
-                      </Button>
-                    ) : null}
-                    <PromptInputSubmit
-                      status={
-                        isSending && !parentIsExecuting
-                          ? "submitted"
-                          : undefined
-                      }
-                      disabled={!isSandboxActive}
-                      title={isExecuting ? "Queue message" : "Send message"}
-                    />
-                  </div>
-                </PromptInputFooter>
-              </PromptInput>
-            </PromptInputProvider>
+                      />
+                      <PersonaDropdown
+                        repoId={repoId}
+                        value={selectedPersonaId}
+                        onChange={setSelectedPersonaId}
+                      />
+                    </PromptInputTools>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <span>Designs:</span>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setNumDesigns(n)}
+                          disabled={!isSandboxActive}
+                          className={`w-5 h-5 rounded text-xs font-medium transition-colors disabled:opacity-40 ${
+                            numDesigns === n
+                              ? "bg-primary text-primary-foreground"
+                              : "hover:bg-muted"
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <PromptInputSpeech disabled={!isSandboxActive} />
+                      {isExecuting ? (
+                        <Button
+                          size="icon-sm"
+                          type="button"
+                          variant="destructive"
+                          onClick={handleCancel}
+                          title="Stop Eva"
+                        >
+                          <IconPlayerStop className="size-4" />
+                        </Button>
+                      ) : null}
+                      <PromptInputSubmit
+                        status={
+                          isSending && !parentIsExecuting
+                            ? "submitted"
+                            : undefined
+                        }
+                        disabled={!isSandboxActive}
+                        title={isExecuting ? "Queue message" : "Send message"}
+                      />
+                    </div>
+                  </PromptInputFooter>
+                </PromptInput>
+              </PromptInputProvider>
+            )}
           </div>
         )}
       </ChatPageWrapper>

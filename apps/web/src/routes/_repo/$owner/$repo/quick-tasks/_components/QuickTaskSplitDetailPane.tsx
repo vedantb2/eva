@@ -1,0 +1,91 @@
+"use client";
+
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { useRepo } from "@/lib/contexts/RepoContext";
+import { EntityContextUsage } from "@/lib/components/context-usage";
+import { QuickTaskHeaderActionsSlot } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
+import { QuickTaskTaskPageContent } from "./QuickTaskTaskPageContent";
+import { useQuickTaskNeighbors } from "../_utils/useQuickTaskNeighbors";
+import type { QuickTaskRouteState } from "../_utils/useQuickTaskRouteState";
+import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
+import type { TaskRouteSandboxTab } from "@/lib/search-params";
+
+interface QuickTaskSplitDetailPaneProps {
+  taskId: string;
+  detailTab: TaskDetailTab;
+  sandboxTab?: TaskRouteSandboxTab;
+  navSurface: "detail" | "sandbox";
+}
+
+/**
+ * Right pane of the list-view master/detail split: a slim header carrying the
+ * task label, context usage, the portaled action buttons, and prev/next
+ * stepping, above the shared task detail body. Mirrors the chrome the full-page
+ * `QuickTaskDetailShell` puts in the page header, relocated into the pane.
+ */
+export function QuickTaskSplitDetailPane({
+  taskId,
+  detailTab,
+  sandboxTab,
+  navSurface,
+}: QuickTaskSplitDetailPaneProps) {
+  const { repo } = useRepo();
+  const {
+    selectedTask,
+    prevTaskId,
+    nextTaskId,
+    handleNavigatePrev,
+    handleNavigateNext,
+  } = useQuickTaskNeighbors({ taskId, navSurface, detailTab, sandboxTab });
+
+  const routeState: QuickTaskRouteState =
+    navSurface === "sandbox" && sandboxTab
+      ? { surface: "sandbox", sandboxTab, detailTab: "activity" }
+      : { surface: "detail", detailTab };
+
+  const taskLabel = [
+    selectedTask?.taskNumber ? `#${selectedTask.taskNumber}` : null,
+    selectedTask?.title ?? null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        {taskLabel ? (
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+            {taskLabel}
+          </span>
+        ) : (
+          <span className="flex-1" />
+        )}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <EntityContextUsage repoId={repo._id} entityId={taskId} />
+          <QuickTaskHeaderActionsSlot />
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={handleNavigatePrev}
+              disabled={!prevTaskId}
+              className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
+              title="Previous task"
+            >
+              <IconChevronLeft size={16} />
+            </button>
+            <button
+              onClick={handleNavigateNext}
+              disabled={!nextTaskId}
+              className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
+              title="Next task"
+            >
+              <IconChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <QuickTaskTaskPageContent taskId={taskId} routeState={routeState} />
+      </div>
+    </div>
+  );
+}

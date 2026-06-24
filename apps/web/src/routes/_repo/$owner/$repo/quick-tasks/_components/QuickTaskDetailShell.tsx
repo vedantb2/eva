@@ -1,16 +1,12 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
-import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@conductor/backend";
-import type { Id } from "@conductor/backend";
+import { type ReactNode } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useNavigate } from "@tanstack/react-router";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@conductor/ui";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import { EntityContextUsage } from "@/lib/components/context-usage";
-import { useFilteredQuickTasks, useQuickTaskFilters } from "../_utils";
+import { useQuickTaskNeighbors } from "../_utils/useQuickTaskNeighbors";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import {
@@ -34,68 +30,16 @@ export function QuickTaskDetailShell({
   sandboxTab,
   children,
 }: QuickTaskDetailShellProps) {
-  const navigate = useNavigate();
-  const { basePath, repo } = useRepo();
-  const [{ view }] = useQuickTaskFilters();
-  const typedTaskId = taskId as Id<"agentTasks">;
-
-  const tasks = useQuery(api.agentTasks.getAllTasks, { repoId: repo._id });
-
-  const selectedTask = useMemo(() => {
-    if (!tasks) return undefined;
-    return tasks.find((t) => t._id === typedTaskId);
-  }, [typedTaskId, tasks]);
-
-  const orderedTasks = useFilteredQuickTasks(tasks, {
-    groupByStatus: view === "kanban",
-  });
-
-  const { prevTaskId, nextTaskId } = useMemo(() => {
-    if (orderedTasks.length === 0) {
-      return { prevTaskId: null, nextTaskId: null };
-    }
-    const idx = orderedTasks.findIndex((t) => t._id === typedTaskId);
-    if (idx === -1) return { prevTaskId: null, nextTaskId: null };
-    return {
-      prevTaskId: idx > 0 ? orderedTasks[idx - 1]._id : null,
-      nextTaskId:
-        idx < orderedTasks.length - 1 ? orderedTasks[idx + 1]._id : null,
-    };
-  }, [typedTaskId, orderedTasks]);
-
-  const handleBack = () => {
-    navigate({ to: `${basePath}/quick-tasks` });
-  };
-
-  const handleNavigatePrev = () => {
-    if (!prevTaskId) {
-      return;
-    }
-    if (navSurface === "sandbox" && sandboxTab) {
-      navigate({
-        to: `${basePath}/quick-tasks/${prevTaskId}/sandbox/${sandboxTab}`,
-      });
-      return;
-    }
-    navigate({
-      to: `${basePath}/quick-tasks/${prevTaskId}/${detailTab}`,
-    });
-  };
-
-  const handleNavigateNext = () => {
-    if (!nextTaskId) {
-      return;
-    }
-    if (navSurface === "sandbox" && sandboxTab) {
-      navigate({
-        to: `${basePath}/quick-tasks/${nextTaskId}/sandbox/${sandboxTab}`,
-      });
-      return;
-    }
-    navigate({
-      to: `${basePath}/quick-tasks/${nextTaskId}/${detailTab}`,
-    });
-  };
+  const { repo } = useRepo();
+  const {
+    tasks,
+    selectedTask,
+    prevTaskId,
+    nextTaskId,
+    handleNavigatePrev,
+    handleNavigateNext,
+    handleBack,
+  } = useQuickTaskNeighbors({ taskId, navSurface, detailTab, sandboxTab });
 
   if (tasks === undefined) {
     return (

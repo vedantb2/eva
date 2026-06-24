@@ -33,7 +33,7 @@ export function TerminalPaneTabs({
           <div
             key={id}
             className={cn(
-              "group flex h-8 shrink-0 items-center rounded-md transition-[transform,background-color]",
+              "group flex h-8 shrink-0 items-center rounded-lg transition-[transform,background-color]",
               selected ? "bg-card" : "hover:bg-muted/80",
             )}
           >
@@ -42,7 +42,7 @@ export function TerminalPaneTabs({
               role="tab"
               aria-selected={selected}
               className={cn(
-                "flex h-full min-w-24 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-[transform,background-color] active:scale-[0.96]",
+                "flex h-full min-w-24 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-[transform,background-color] active:scale-[0.96]",
                 selected
                   ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground",

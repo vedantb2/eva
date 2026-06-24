@@ -5,6 +5,7 @@ import { createContext, useContext, useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "../utils/cn";
+import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 
 interface CodeBlockContextValue {
   code: string;
@@ -26,7 +27,7 @@ export const CodeBlock = ({
 }: CodeBlockProps) => (
   <CodeBlockContext.Provider value={{ code }}>
     <div
-      className={cn("relative rounded-lg bg-secondary", className)}
+      className={cn("relative bg-secondary", SURFACE_RADIUS_CLASS, className)}
       {...props}
     >
       {children ?? (

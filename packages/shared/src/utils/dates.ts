@@ -10,10 +10,6 @@ export function formatExactDateTime(date: number | string | Date): string {
   return dayjs(date).format(EXACT_DATETIME_FORMAT);
 }
 
-export function formatRelativeTime(date: number | string | Date): string {
-  return dayjs(date).fromNow();
-}
-
 export function compactRelativeTime(date: number | string | Date): string {
   const now = dayjs();
   const then = dayjs(date);

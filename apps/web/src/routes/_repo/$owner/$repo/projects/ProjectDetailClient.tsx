@@ -48,6 +48,7 @@ import {
   IconRefresh,
   IconFileText,
   IconMessage,
+  IconServerBolt,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
 import { useNavigate } from "@tanstack/react-router";
@@ -118,6 +119,8 @@ export function ProjectDetailClient({
     handleStopSandbox,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
+    handleRunBackgroundCommands,
+    isRunningBackgroundCommands,
   } = useProjectSandbox(
     typedProjectId,
     project?.phase,
@@ -205,6 +208,7 @@ export function ProjectDetailClient({
     (project.phase === "business_review" || project.phase === "in_progress");
   const showRetryStartupCommands =
     canStartSandbox && !isSandboxStarting && !isSandboxStopping;
+  const showRunBackgroundCommands = isSandboxActive;
   const showResolveConflicts =
     Boolean(project.prUrl) &&
     !project.activeBuildWorkflowId &&
@@ -222,6 +226,7 @@ export function ProjectDetailClient({
     canCreatePr ||
     hasDeployedPreview ||
     showRetryStartupCommands ||
+    showRunBackgroundCommands ||
     showResolveConflicts ||
     hasPlanContext;
 
@@ -314,11 +319,7 @@ export function ProjectDetailClient({
               {showMoreMenu && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full"
-                    >
+                    <Button variant="secondary" size="sm">
                       <IconDots size={16} />
                       <span className="hidden sm:inline">More</span>
                     </Button>
@@ -348,6 +349,19 @@ export function ProjectDetailClient({
                           <IconRefresh size={14} />
                         )}
                         Run Startup Commands
+                      </DropdownMenuItem>
+                    )}
+                    {showRunBackgroundCommands && (
+                      <DropdownMenuItem
+                        onClick={handleRunBackgroundCommands}
+                        disabled={isRunningBackgroundCommands}
+                      >
+                        {isRunningBackgroundCommands ? (
+                          <IconLoader2 size={14} className="animate-spin" />
+                        ) : (
+                          <IconServerBolt size={14} />
+                        )}
+                        Run Background Commands
                       </DropdownMenuItem>
                     )}
                     {canCreatePr && (
@@ -400,12 +414,7 @@ export function ProjectDetailClient({
                 </DropdownMenu>
               )}
               {project.prUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                  asChild
-                >
+                <Button variant="secondary" size="sm" asChild>
                   <a
                     href={project.prUrl}
                     target="_blank"
@@ -422,7 +431,6 @@ export function ProjectDetailClient({
                   size="sm"
                   onClick={handleStopSandbox}
                   disabled={isSandboxStopping}
-                  className="rounded-full"
                 >
                   <IconPlayerStop size={16} />
                   <span className="hidden sm:inline">Stop Sandbox</span>
@@ -430,14 +438,14 @@ export function ProjectDetailClient({
               ) : null}
               {canStartSandbox ? (
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={toggleProjectSandboxView}
                   disabled={isSandboxStopping}
                   className={
                     isSandboxSurface || isSandboxActive
-                      ? "rounded-full border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400"
-                      : "rounded-full"
+                      ? "border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
+                      : undefined
                   }
                 >
                   {(isSandboxStarting && !isSandboxActive) ||
@@ -447,7 +455,7 @@ export function ProjectDetailClient({
                     <IconTerminal2 size={16} />
                   )}
                   {isSandboxActive && !isSandboxSurface && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                   )}
                   <span className="hidden sm:inline">
                     {isSandboxStopping
@@ -664,7 +672,7 @@ function SplitBuildButton({
   const isScheduled = scheduledBuildAt !== undefined;
 
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-200 hover:-translate-y-[1px] active:scale-[0.96]">
+    <div className="group/split flex items-center transition-[transform,background-color] duration-200 active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>

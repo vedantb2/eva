@@ -25,6 +25,7 @@ import {
   getTimelineWindow,
 } from "./_utils";
 import { StatCard } from "./_components/StatCard";
+import { Widget } from "@/lib/components/Widget";
 
 export function RepoHomeClient() {
   const { repo } = useRepo();
@@ -68,26 +69,24 @@ export function RepoHomeClient() {
 
   return (
     <div className="flex h-full items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-3xl space-y-4">
-        <div className="ui-surface p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 w-max">
-                <img
-                  src="/icon.svg"
-                  alt="Eva"
-                  width={30}
-                  height={30}
-                  className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
-                />
-                <span className="text-xl tracking-tight font-semibold text-primary">
-                  Eva's Stats
-                </span>
-              </div>
-              <p className="mt-2 text-sm font-medium text-muted-foreground">
-                {repo.owner}/{repo.name}
-              </p>
+      <div className="w-full max-w-3xl">
+        <Widget
+          title={
+            <div className="flex w-max items-center gap-2">
+              <img
+                src="/icon.svg"
+                alt="Eva"
+                width={30}
+                height={30}
+                className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
+              />
+              <span className="text-xl tracking-tight font-semibold text-primary">
+                Eva's Stats
+              </span>
             </div>
+          }
+          subtitle={`${repo.owner}/${repo.name}`}
+          actions={
             <Select
               value={statsRange}
               onValueChange={(value) => {
@@ -107,44 +106,46 @@ export function RepoHomeClient() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        </div>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Spinner />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <StatCard
-              icon={IconGitPullRequest}
-              label="PRs Shipped"
-              value={impactStats.prsShipped}
-              trendValues={prsTrend}
-              trendToneClassName="text-chart-1"
-            />
-            <StatCard
-              icon={IconPercentage}
-              label="Cook Rate"
-              value={impactStats.shipRate + "%"}
-              trendValues={shipRateTrend}
-              trendToneClassName="text-chart-2"
-            />
-            <StatCard
-              icon={IconUsers}
-              label="Cookers Now"
-              value={activeUsers.count}
-              trendValues={activeUsersTrend}
-              trendToneClassName="text-chart-3"
-            />
-            <StatCard
-              icon={IconChecklist}
-              label="Tasks Done"
-              value={impactStats.tasksCompleted}
-              trendValues={tasksDoneTrend}
-              trendToneClassName="text-chart-4"
-            />
-          </div>
-        )}
+          }
+          contentClassName="overflow-hidden p-0"
+        >
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2">
+              <StatCard
+                icon={IconGitPullRequest}
+                label="PRs Shipped"
+                value={impactStats.prsShipped}
+                trendValues={prsTrend}
+                trendToneClassName="text-chart-1"
+              />
+              <StatCard
+                icon={IconPercentage}
+                label="Cook Rate"
+                value={impactStats.shipRate + "%"}
+                trendValues={shipRateTrend}
+                trendToneClassName="text-chart-2"
+              />
+              <StatCard
+                icon={IconUsers}
+                label="Cookers Now"
+                value={activeUsers.count}
+                trendValues={activeUsersTrend}
+                trendToneClassName="text-chart-3"
+              />
+              <StatCard
+                icon={IconChecklist}
+                label="Tasks Done"
+                value={impactStats.tasksCompleted}
+                trendValues={tasksDoneTrend}
+                trendToneClassName="text-chart-4"
+              />
+            </div>
+          )}
+        </Widget>
       </div>
     </div>
   );

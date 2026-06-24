@@ -112,7 +112,7 @@ export function SidebarLayoutWrapper({
           )}
         >
           <div className="h-full">
-            <div className="flex h-full flex-col overflow-hidden bg-sidebar lg:bg-sidebar/95">
+            <div className="flex h-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar lg:bg-sidebar/95">
               <div
                 className={`bg-sidebar-accent/30 px-4 py-3 flex items-center ${collapsed ? "justify-center" : ""}`}
               >

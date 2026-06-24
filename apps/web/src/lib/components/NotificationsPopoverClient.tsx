@@ -16,7 +16,7 @@ import {
   AvatarFallback,
 } from "@conductor/ui";
 import { IconBell, IconChecks, IconBellOff } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { Link } from "@tanstack/react-router";
 import {
   typeConfig,
@@ -140,6 +140,11 @@ export function NotificationsPopoverClient() {
                     <p className="truncate text-sm font-medium">
                       {notification.title}
                     </p>
+                    {notification.contextLabel && (
+                      <p className="truncate text-xs font-medium text-muted-foreground">
+                        {notification.contextLabel}
+                      </p>
+                    )}
                     {notification.message && (
                       <p className="mt-1 break-words text-xs text-muted-foreground">
                         {notification.message}
@@ -152,9 +157,10 @@ export function NotificationsPopoverClient() {
                       >
                         {typeConfig[notification.type].label}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {dayjs(notification.createdAt).fromNow()}
-                      </span>
+                      <RelativeDateTime
+                        at={notification.createdAt}
+                        className="text-xs text-muted-foreground"
+                      />
                     </div>
                   </div>
                   {!notification.read && (

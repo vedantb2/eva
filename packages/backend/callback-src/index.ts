@@ -66,6 +66,17 @@ try {
   /* ignore */
 }
 
+// Bias the kernel OOM killer away from this callback. If the sandbox runs out
+// of memory during a heavy tool step (e.g. `npx tsc`), the CLI subtree should
+// die — not the process responsible for heartbeats and failure reporting.
+// Lowering our own score requires privilege, so this is best-effort; the CLI
+// child's score is raised at spawn time in cliAttempt.ts as the portable half.
+try {
+  writeFileSync("/proc/self/oom_score_adj", "-600");
+} catch {
+  /* unprivileged or non-Linux — ignore */
+}
+
 S.accumulatedSteps.push({
   type: "thinking",
   label:

@@ -282,6 +282,7 @@ export function QuickTasksListView({
                                     name={task.title}
                                     index={index}
                                     parent={status}
+                                    className="pb-1.5"
                                   >
                                     <QuickTaskCard
                                       id={task._id}

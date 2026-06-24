@@ -14,6 +14,7 @@ import {
 } from "@conductor/ui";
 import type { Activity } from "@conductor/ui";
 import { IconFlame } from "@tabler/icons-react";
+import { Widget } from "@/lib/components/Widget";
 
 interface ActivityHeatmapProps {
   data: Array<{ date: string; count: number }>;
@@ -109,7 +110,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
     }, [data]);
 
   return (
-    <div className="w-full">
+    <Widget contentClassName="p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
         <div>
           <p className="text-3xl font-bold tabular-nums text-foreground">
@@ -145,7 +146,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
           totalCount={totalCount}
           className="w-full max-w-full"
         >
-          <ContributionGraphCalendar className="rounded-xl bg-muted/40 p-3 sm:p-4">
+          <ContributionGraphCalendar className="w-full">
             {({ activity, dayIndex, weekIndex }) => (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -172,6 +173,6 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
           </ContributionGraphFooter>
         </ContributionGraph>
       </TooltipProvider>
-    </div>
+    </Widget>
   );
 }

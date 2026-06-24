@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api, normalizeAIModel, type AIModel } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -14,6 +15,11 @@ import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 export function ConfigClient() {
   const { repo, repoId, owner, name } = useRepo();
   const appName = repo.rootDirectory?.split("/").pop();
+  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
+  const isMonorepo =
+    repo.parentRepoId !== undefined || (siblingApps?.length ?? 0) > 0;
+  const appLabel = appName ?? name;
+
   const updateConfig = useMutation(
     api.githubRepos.updateConfig,
   ).withOptimisticUpdate((localStore, args) => {
@@ -49,10 +55,21 @@ export function ConfigClient() {
   );
 
   return (
-    <PageWrapper title="Config" comfortable>
+    <PageWrapper title="Repository" comfortable>
       <div className="space-y-4">
         <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-          <h3 className="text-sm font-medium">Repository Configuration</h3>
+          <div>
+            <h3 className="text-sm font-medium">Repository</h3>
+            {isMonorepo ? (
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Applies to all apps in{" "}
+                <span className="font-medium text-foreground">
+                  {owner}/{name}
+                </span>
+                .
+              </p>
+            ) : null}
+          </div>
 
           <div className="grid gap-4">
             <div>
@@ -135,7 +152,28 @@ export function ConfigClient() {
               </p>
             </div>
 
-            <div className="rounded-surface border border-border bg-card p-3 space-y-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Proof Capture Model
+              </label>
+              <ModelSelect
+                value={proofModel}
+                options={proofOptions}
+                onValueChange={(nextModel: AIModel) => {
+                  updateConfig({
+                    repoId,
+                    proofModel: normalizeAIModel(nextModel),
+                  });
+                }}
+                className="h-8 text-xs"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Used when proof capture is enabled. Defaults to the task model
+                when unset.
+              </p>
+            </div>
+
+            <div className="space-y-4 border-t border-border pt-4">
               <div className="flex items-start gap-3">
                 <Checkbox
                   checked={repo.prRecapsEnabled ?? false}
@@ -154,9 +192,6 @@ export function ConfigClient() {
                     Auto-generate a recap doc and GitHub comment on each PR
                     update. Uses your team Claude Code subscription (
                     <code>CLAUDE_CODE_OAUTH_TOKEN</code>).
-                    {repo.parentRepoId
-                      ? " Shared across all apps in this repository."
-                      : null}
                   </p>
                   {!claudeAvailable ? (
                     <p className="mt-1 text-[11px] text-destructive">
@@ -187,51 +222,41 @@ export function ConfigClient() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
 
-            <div className="rounded-surface border border-border bg-card p-3 space-y-4">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  checked={repo.screenshotsVideosEnabled ?? false}
-                  onCheckedChange={(value) =>
-                    updateConfig({
-                      repoId,
-                      screenshotsVideosEnabled: value === true,
-                    })
-                  }
-                  className="mt-0.5"
-                />
-                <div className="min-w-0">
-                  <p className="text-xs font-medium">Screenshots and Videos</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Use agent browser to record walkthroughs, verify its work,
-                    etc.
-                  </p>
-                </div>
-              </div>
+        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
+          <div>
+            <h3 className="text-sm font-medium">This app</h3>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Settings for{" "}
+              <span className="font-medium text-foreground">{appLabel}</span>{" "}
+              only.
+            </p>
+          </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Proof Capture Model
-                </label>
-                <ModelSelect
-                  value={proofModel}
-                  options={proofOptions}
-                  onValueChange={(nextModel: AIModel) => {
-                    updateConfig({
-                      repoId,
-                      proofModel: normalizeAIModel(nextModel),
-                    });
-                  }}
-                  className="h-8 text-xs"
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Used when proof capture is enabled. Defaults to the task model
-                  when unset.
+          <div className="grid gap-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                checked={repo.screenshotsVideosEnabled ?? false}
+                onCheckedChange={(value) =>
+                  updateConfig({
+                    repoId,
+                    screenshotsVideosEnabled: value === true,
+                  })
+                }
+                className="mt-0.5"
+              />
+              <div className="min-w-0">
+                <p className="text-xs font-medium">Screenshots and Videos</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  Use agent browser to record walkthroughs, verify its work,
+                  etc.
                 </p>
               </div>
             </div>
 
-            {repo.parentRepoId && (
+            {repo.rootDirectory ? (
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                   Deployment Project Name
@@ -255,11 +280,11 @@ export function ConfigClient() {
                   correct preview deployment in monorepos.
                 </p>
               </div>
-            )}
+            ) : null}
+
+            <DomainsSection />
           </div>
         </div>
-
-        <DomainsSection />
       </div>
     </PageWrapper>
   );
@@ -312,10 +337,12 @@ function DomainsSection() {
   };
 
   return (
-    <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
+    <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-medium">Domains</h3>
-        <p className="mt-1 text-[11px] text-muted-foreground">
+        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+          Domains
+        </label>
+        <p className="text-[11px] text-muted-foreground">
           Hostnames where this app is deployed. The Chrome extension will
           auto-select this repo when browsing these domains.
         </p>

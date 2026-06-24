@@ -85,7 +85,7 @@ export function AppClient() {
   return (
     <PageWrapper title="App" comfortable>
       <div className="space-y-4">
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
           <div>
             <h3 className="text-sm font-medium">System Prompt</h3>
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -98,12 +98,12 @@ export function AppClient() {
             key={`system-prompt-${repoId}`}
             defaultValue={repo.systemPrompt ?? ""}
             onBlur={handleSystemPromptBlur}
-            className="w-full h-32 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full h-32 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
             placeholder="e.g. run pnpm migrate after making backend changes"
           />
         </div>
 
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
           <div>
             <h3 className="text-sm font-medium">Dev Server</h3>
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -147,7 +147,7 @@ export function AppClient() {
           </div>
         </div>
 
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
           <h3 className="text-sm font-medium">Startup Commands</h3>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -157,7 +157,7 @@ export function AppClient() {
               key={`startup-${repoId}`}
               defaultValue={startupCommands}
               onBlur={handleStartupCommandsBlur}
-              className="w-full h-48 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full h-48 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /home/eva/sandbox-config/seed.sql"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -170,7 +170,7 @@ export function AppClient() {
           </div>
         </div>
 
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
           <h3 className="text-sm font-medium">Background Commands</h3>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -180,15 +180,16 @@ export function AppClient() {
               key={`background-${repoId}`}
               defaultValue={backgroundCommands}
               onBlur={handleBackgroundCommandsBlur}
-              className="w-full h-32 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full h-32 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder="npx convex dev"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              One command per line. Each is launched detached (
-              <code>nohup ... &amp;</code>) and respawned every time the sandbox
-              starts or resumes — so this is where services that must come back
-              up on a warm start belong (e.g. <code>supabase start</code>,{" "}
-              <code>npx convex dev</code>). Runs before startup commands. Output
+              One command per line, each written as a plain foreground command.
+              The platform launches every line detached for you (
+              <code>nohup ... &amp;</code>), so there is no need to add your own{" "}
+              <code>nohup</code>, trailing <code>&amp;</code>, or output
+              redirect. Commands respawn every time the sandbox starts or
+              resumes. Use for daemons like <code>npx convex dev</code>. Output
               is written to <code>/tmp/bg-&lt;index&gt;.log</code>.
             </p>
           </div>

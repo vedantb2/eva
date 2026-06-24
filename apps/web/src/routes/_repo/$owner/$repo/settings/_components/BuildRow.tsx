@@ -140,7 +140,7 @@ export function BuildStatusBadge({
   }
   if (status === "success") {
     return (
-      <span className="inline-flex items-center gap-1 text-green-500">
+      <span className="inline-flex items-center gap-1 text-success">
         <IconCheck size={12} />
         Success
       </span>

@@ -4,8 +4,11 @@ export {
   killSandboxProcess,
   stopSandbox,
   deleteSandbox,
+  captureDiagnosticsAndStopSandbox,
   archiveSandbox,
   verifySandboxLiveness,
+  startSandboxAsyncKickoff,
+  pollSandboxStarted,
 } from "./_daytona/lifecycle";
 
 export {

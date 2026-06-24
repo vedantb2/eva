@@ -55,7 +55,7 @@ export function LatestRun({
 
   if (!run) {
     return (
-      <div className="rounded-lg bg-muted/40 p-8 text-center">
+      <div className="rounded-surface border border-border bg-card p-8 text-center">
         <p className="text-sm text-muted-foreground">
           No runs yet. Enable the automation and wait for the cron schedule to
           trigger, or click &quot;Run Now&quot;.
@@ -99,7 +99,7 @@ export function RunHistory({
 
   if (runs.length === 0) {
     return (
-      <div className="rounded-lg bg-muted/40 p-8 text-center">
+      <div className="rounded-surface border border-border bg-card p-8 text-center">
         <p className="text-sm text-muted-foreground">
           No runs yet. Enable the automation and wait for the cron schedule to
           trigger, or click &quot;Run Now&quot;.
@@ -175,7 +175,7 @@ function RunAccordion({
     : null;
 
   return (
-    <div className="rounded-lg bg-muted/40 overflow-hidden">
+    <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
       <button
         type="button"
         onClick={() => {
@@ -245,7 +245,7 @@ function RunAccordion({
             </Button>
           )}
         {run.acknowledged && (
-          <span className="shrink-0 text-xs text-emerald-600">Read</span>
+          <span className="shrink-0 text-xs text-success">Read</span>
         )}
       </button>
       {expanded && (
@@ -264,12 +264,12 @@ function RunAccordion({
                 run.resultSummary &&
                 !run.findings &&
                 run.status === "success" && (
-                  <div className="flex items-center gap-2 rounded-lg bg-yellow-500/10 px-3 py-2">
+                  <div className="flex items-center gap-2 rounded-surface bg-warning/10 px-3 py-2">
                     <IconAlertTriangle
                       size={14}
-                      className="shrink-0 text-yellow-600"
+                      className="shrink-0 text-warning"
                     />
-                    <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                    <p className="text-xs text-warning">
                       Could not parse findings from report
                     </p>
                   </div>
@@ -288,8 +288,8 @@ function RunAccordion({
           )}
           {run.error && (
             <div>
-              <p className="text-xs font-medium text-red-500 mb-1">Error</p>
-              <p className="text-sm text-red-600 whitespace-pre-wrap">
+              <p className="text-xs font-medium text-destructive mb-1">Error</p>
+              <p className="text-sm text-destructive whitespace-pre-wrap">
                 {run.error}
               </p>
             </div>

@@ -43,6 +43,17 @@ export function buildWorkflowRunNotificationMessage(params: {
   return `Run failed for this ${scopeLabel}.`;
 }
 
+/**
+ * A reviewer change request prepared for a re-run prompt.
+ * `commitText` is the mention-resolved request used for the edit commit subject;
+ * `promptText` is the author/date-annotated version shown to the agent. Keeping
+ * them separate stops the `[author · date]` annotation leaking into commits.
+ */
+export type ChangeRequestPromptInput = {
+  commitText: string;
+  promptText: string;
+};
+
 /** Builds the full implementation prompt sent to the AI agent in the sandbox. */
 export function buildImplementationPrompt(
   task: { title: string; description?: string; taskNumber?: number },
@@ -52,15 +63,16 @@ export function buildImplementationPrompt(
   screenshotsVideosEnabled: boolean,
   repoOwner: string,
   repoName: string,
-  changeRequests?: string[],
+  changeRequests?: ChangeRequestPromptInput[],
   projectContext?: { title: string; description?: string },
   systemPrompt?: string,
+  previousRunSummary?: string,
 ): string {
   const commitScope = isQuickTask
     ? "feat"
     : `feat(task-${task.taskNumber ?? task.title})`;
   const latestChangeRequest =
-    changeRequests?.[changeRequests.length - 1]?.trim();
+    changeRequests?.[changeRequests.length - 1]?.commitText.trim();
   const editCommitTitle = latestChangeRequest
     ? latestChangeRequest
         .replace(/\s+/g, " ")
@@ -72,12 +84,15 @@ export function buildImplementationPrompt(
     : `${commitScope}: ${task.title}`;
   const typecheckCommand = buildTypecheckCommand(rootDirectory);
 
+  const previousRunSection = previousRunSummary
+    ? `\n\n### What the previous run completed:\n${previousRunSummary}`
+    : "";
   const changeRequestSection =
     changeRequests && changeRequests.length > 0
       ? `\n## Change Requests (from reviewer):
-${changeRequests.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+${changeRequests.map((r, i) => `${i + 1}. ${r.promptText}`).join("\n")}
 
-IMPORTANT: This task was already implemented. The branch "${branchName}" has commits from a previous run. Focus ONLY on addressing the change requests above. Do NOT redo work that was already completed successfully.\n`
+IMPORTANT: This task was already implemented. The branch "${branchName}" has commits from a previous run. Focus ONLY on addressing the change requests above. Do NOT redo work that was already completed successfully.${previousRunSection}\n`
       : "";
   const proofOfCompletionSection = screenshotsVideosEnabled
     ? `

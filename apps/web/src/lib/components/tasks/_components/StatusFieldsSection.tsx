@@ -61,6 +61,7 @@ import {
   SCREENSHOTS_INHERIT_VALUE,
   SCREENSHOTS_ON_VALUE,
   SCREENSHOTS_OFF_VALUE,
+  canEditTaskModel,
 } from "./task-detail-constants";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -226,12 +227,13 @@ export function StatusFieldsSection({
   const assignedDisplayName = assignedUser
     ? getUserDisplayName(assignedUser)
     : "Unnamed User";
+  const reviewers = (users ?? []).filter((u) => u.role === "dev");
   const currentModel = normalizeAIModel(task?.model);
   const { options: modelOptions } = useAvailableAiModels(
     task?.repoId,
     currentModel,
   );
-  const canEditModel = status === "todo" || requestingChanges;
+  const canEditModel = canEditTaskModel(status);
 
   return (
     <div className="space-y-0.5">
@@ -483,15 +485,17 @@ export function StatusFieldsSection({
               ) : (
                 <IconUserPlus size={14} className="text-muted-foreground" />
               )}
-              <span>{task?.assignedTo ? assignedDisplayName : "Assignee"}</span>
+              <span>
+                {task?.assignedTo ? assignedDisplayName : "Code Reviewer"}
+              </span>
             </div>
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectLabel>Assignee</SelectLabel>
+            <SelectLabel>Code Reviewer</SelectLabel>
             <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
-            {(users ?? []).map((user) => (
+            {reviewers.map((user) => (
               <SelectItem key={user._id} value={user._id}>
                 <div className="flex items-center gap-1.5">
                   <Facehash
@@ -508,7 +512,7 @@ export function StatusFieldsSection({
       </Select>
 
       <div
-        className="group/tags flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1 flex-wrap cursor-text"
+        className="group/tags flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1 flex-wrap cursor-text"
         onClick={() => tagDraftRef.current?.focus()}
       >
         <IconTags size={14} className="text-muted-foreground shrink-0" />
@@ -581,7 +585,7 @@ export function StatusFieldsSection({
         )}
       </div>
 
-      <div className="flex items-center min-h-[40px] rounded-md px-2 transition-colors hover:bg-muted/50">
+      <div className="flex items-center min-h-[40px] rounded-lg px-2 transition-colors hover:bg-muted/50">
         <ModelSelect
           value={currentModel}
           options={modelOptions}
@@ -600,14 +604,14 @@ export function StatusFieldsSection({
               />
             </TooltipTrigger>
             <TooltipContent>
-              Cannot be modified after task has run
+              Locked when the task is done or cancelled
             </TooltipContent>
           </Tooltip>
         ) : null}
       </div>
 
       {!task?.projectId && (
-        <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2">
+        <div className="flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2">
           {status === "todo" ? (
             <BranchSelect
               value={baseBranch}
@@ -638,7 +642,7 @@ export function StatusFieldsSection({
       )}
 
       {latestDeployment?.deploymentStatus && (
-        <div className="flex items-center h-10 rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+        <div className="flex items-center h-10 rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
           <IconBrandVercelFilled
             size={14}
             className={

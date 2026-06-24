@@ -124,14 +124,31 @@ export function isSnapshotSettingsTab(s: string): s is SnapshotSettingsTab {
   return (snapshotSettingsTabs as readonly string[]).includes(s);
 }
 
-const docViewerTabs = ["content", "requirements", "user-flows"] as const;
+const docViewerTabs = [
+  "description",
+  "content",
+  "requirements",
+  "user-flows",
+] as const;
 export type DocViewerTab = (typeof docViewerTabs)[number];
 
 export function isDocViewerTab(s: string): s is DocViewerTab {
   return (docViewerTabs as readonly string[]).includes(s);
 }
 
-export const DOC_VIEWER_DEFAULT_TAB: DocViewerTab = "content";
+export const DOC_VIEWER_DEFAULT_TAB: DocViewerTab = "description";
+
+const docModes = ["editing", "suggesting", "viewing"] as const;
+export type DocMode = (typeof docModes)[number];
+export const docModeParser = parseAsStringLiteral(docModes)
+  .withDefault("editing")
+  .withOptions(searchOptions);
+
+const docCommentFilters = ["open", "resolved"] as const;
+export type DocCommentFilter = (typeof docCommentFilters)[number];
+export const docCommentFilterParser = parseAsStringLiteral(docCommentFilters)
+  .withDefault("open")
+  .withOptions(searchOptions);
 
 const automationTabs = ["latest", "run-history", "settings"] as const;
 export type AutomationTab = (typeof automationTabs)[number];
@@ -165,7 +182,7 @@ export function isEnvVarScope(s: string): s is EnvVarScope {
   return (envVarScopes as readonly string[]).includes(s);
 }
 
-const teamDetailTabs = ["members", "repos", "env"] as const;
+const teamDetailTabs = ["members", "repos", "env", "artifacts"] as const;
 export type TeamDetailTab = (typeof teamDetailTabs)[number];
 
 export function isTeamDetailTab(s: string): s is TeamDetailTab {

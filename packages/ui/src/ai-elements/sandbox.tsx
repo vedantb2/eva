@@ -6,6 +6,7 @@ import { Badge } from "../ui/badge";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { cn } from "../utils/cn";
+import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 
 type SandboxState = "pending" | "running" | "completed" | "error";
 
@@ -41,7 +42,7 @@ export const Sandbox = ({
 }: SandboxProps) => (
   <SandboxContext.Provider value={{ state }}>
     <div
-      className={cn("rounded-lg border bg-background", className)}
+      className={cn("border bg-background", SURFACE_RADIUS_CLASS, className)}
       {...props}
     >
       {children}

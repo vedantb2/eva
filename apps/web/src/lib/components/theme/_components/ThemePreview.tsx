@@ -31,7 +31,7 @@ export function ThemePreview({
   return (
     <section>
       <SectionLabel>Preview</SectionLabel>
-      <div className="rounded-xl bg-muted/40 p-3 sm:p-5">
+      <div className="rounded-surface border border-border bg-card p-3 sm:p-5">
         <div className="mb-4 flex items-start gap-2">
           <div
             className="mt-1 h-3 w-3 shrink-0 rounded-full"
@@ -48,7 +48,7 @@ export function ThemePreview({
           <button className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90">
             Primary button
           </button>
-          <button className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent">
+          <button className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
             Secondary button
           </button>
           <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">

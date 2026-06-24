@@ -115,6 +115,9 @@ export function useTaskDetail(
     api.agentTasks.retryStartupCommands,
   );
   const runDevServerMutation = useMutation(api.agentTasks.runDevServer);
+  const runBackgroundCommandsMutation = useMutation(
+    api.agentTasks.runBackgroundCommands,
+  );
   const createTaskPrAction = useAction(api.taskWorkflowActions.createTaskPr);
 
   const [baseBranch, setBaseBranch] = useState(FALLBACK_GIT_BASE_BRANCH);
@@ -124,6 +127,8 @@ export function useTaskDetail(
   const [isRetryingStartupCommands, setIsRetryingStartupCommands] =
     useState(false);
   const [isRunningDevServer, setIsRunningDevServer] = useState(false);
+  const [isRunningBackgroundCommands, setIsRunningBackgroundCommands] =
+    useState(false);
   const [showRunDevServerConfirm, setShowRunDevServerConfirm] = useState(false);
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -290,6 +295,21 @@ export function useTaskDetail(
     }
   }, [runDevServerMutation, taskId, setExecutionError]);
 
+  const handleRunBackgroundCommands = useCallback(async () => {
+    setIsRunningBackgroundCommands(true);
+    try {
+      await runBackgroundCommandsMutation({ taskId });
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to run background commands";
+      setExecutionError(message);
+    } finally {
+      setIsRunningBackgroundCommands(false);
+    }
+  }, [runBackgroundCommandsMutation, taskId, setExecutionError]);
+
   const devServerCommandLabel = (() => {
     const fromTask = task?.devCommand?.trim();
     if (fromTask) return fromTask;
@@ -434,6 +454,8 @@ export function useTaskDetail(
     isRetryingStartupCommands,
     handleRunDevServer,
     isRunningDevServer,
+    handleRunBackgroundCommands,
+    isRunningBackgroundCommands,
     devServerCommandLabel,
     sandboxId: task?.sandboxId,
     reviewTaskSandboxStatus: task?.reviewTaskSandboxStatus,

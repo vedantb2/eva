@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@conductor/backend";
+import { api, normalizeAIModel } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -23,6 +23,7 @@ import {
   PopoverContent,
   Calendar,
   Spinner,
+  ModelSelect,
 } from "@conductor/ui";
 import {
   IconExternalLink,
@@ -30,15 +31,21 @@ import {
   IconCalendar,
   IconFlag,
   IconUser,
+  IconUserPlus,
   IconCalendarEvent,
   IconCalendarDue,
 } from "@tabler/icons-react";
 import dayjs from "@conductor/shared/dates";
+import { getUserInitials } from "@conductor/shared";
+import { Facehash } from "facehash";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 import { ProjectProgressBar } from "./ProjectProgressBar";
+import { ProjectTagsPopover } from "./_components/ProjectTagsPopover";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 const GHOST_TRIGGER_CLASS =
-  "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-md text-[13px] [&>svg:last-child]:hidden";
+  "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden";
 
 interface ProjectDetailInlineProps {
   projectId: Id<"projects">;
@@ -56,7 +63,14 @@ export function ProjectDetailInline({
     (localStore, args) => {
       const current = localStore.getQuery(api.projects.get, { id: projectId });
       if (current !== undefined && current !== null) {
-        const { id: _id, priority, projectLead, ...safeFields } = args;
+        const {
+          id: _id,
+          priority,
+          projectLead,
+          codeReviewer,
+          model,
+          ...safeFields
+        } = args;
         localStore.setQuery(
           api.projects.get,
           { id: projectId },
@@ -69,6 +83,10 @@ export function ProjectDetailInline({
             ...(projectLead !== undefined
               ? { projectLead: projectLead ?? undefined }
               : {}),
+            ...(codeReviewer !== undefined
+              ? { codeReviewer: codeReviewer ?? undefined }
+              : {}),
+            ...(model !== undefined ? { model: model ?? undefined } : {}),
           },
         );
       }
@@ -80,6 +98,12 @@ export function ProjectDetailInline({
     [user.firstName, user.lastName].filter(Boolean).join(" ") ||
     "Unnamed User";
 
+  const currentModel = normalizeAIModel(project?.model);
+  const { options: modelOptions } = useAvailableAiModels(
+    project?.repoId,
+    currentModel,
+  );
+
   if (!project) {
     return (
       <div className="flex flex-1 items-center justify-center min-h-[300px]">
@@ -87,6 +111,11 @@ export function ProjectDetailInline({
       </div>
     );
   }
+
+  const reviewers = (users ?? []).filter((u) => u.role === "dev");
+  const reviewerUser = project.codeReviewer
+    ? users?.find((u) => u._id === project.codeReviewer)
+    : undefined;
 
   return (
     <div className="flex flex-1 min-h-0 overflow-y-auto scrollbar">
@@ -102,18 +131,18 @@ export function ProjectDetailInline({
           </div>
 
           <div className="pl-0 sm:pl-6 space-y-0.5">
-            <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+            <div className="flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
               <IconCalendar
                 size={14}
                 className="text-muted-foreground shrink-0"
               />
               <span>{dayjs(project._creationTime).format("MMM D, YYYY")}</span>
               <span className="text-muted-foreground">
-                ({dayjs(project._creationTime).fromNow()})
+                (<RelativeDateTime at={project._creationTime} />)
               </span>
             </div>
 
-            <div className="flex items-center min-h-[40px] rounded-md hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+            <div className="flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
               <IconFlag size={14} className="text-muted-foreground shrink-0" />
               <ProjectPhaseBadge phase={project.phase} />
             </div>
@@ -123,8 +152,7 @@ export function ProjectDetailInline({
               onValueChange={(val) =>
                 updateProject({
                   id: projectId,
-                  projectLead:
-                    val === "none" ? undefined : (val as Id<"users">),
+                  projectLead: val === "none" ? null : (val as Id<"users">),
                 })
               }
             >
@@ -160,10 +188,64 @@ export function ProjectDetailInline({
               </SelectContent>
             </Select>
 
+            <Select
+              value={project.codeReviewer ?? "none"}
+              onValueChange={(val) =>
+                updateProject({
+                  id: projectId,
+                  codeReviewer: val === "none" ? null : (val as Id<"users">),
+                })
+              }
+            >
+              <SelectTrigger className={GHOST_TRIGGER_CLASS}>
+                <SelectValue>
+                  <div
+                    className={`flex items-center gap-1.5 ${!project.codeReviewer ? "text-muted-foreground" : ""}`}
+                  >
+                    {reviewerUser ? (
+                      <Facehash
+                        size={16}
+                        name={getUserInitials(reviewerUser)}
+                        enableBlink
+                      />
+                    ) : (
+                      <IconUserPlus
+                        size={14}
+                        className="text-muted-foreground"
+                      />
+                    )}
+                    <span>
+                      {reviewerUser
+                        ? displayName(reviewerUser)
+                        : "Code Reviewer"}
+                    </span>
+                  </div>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Code Reviewer</SelectLabel>
+                  <SelectItem value="none">Unassigned</SelectItem>
+                  {reviewers.map((user) => (
+                    <SelectItem key={user._id} value={user._id}>
+                      <div className="flex items-center gap-1.5">
+                        <Facehash
+                          size={16}
+                          name={getUserInitials(user)}
+                          enableBlink
+                        />
+                        <span>{displayName(user)}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className={`flex items-center w-full min-h-[40px] rounded-md hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] ${!project.members?.length ? "text-muted-foreground" : ""}`}
+                  className={`flex items-center w-full min-h-[40px] rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] ${!project.members?.length ? "text-muted-foreground" : ""}`}
                 >
                   <IconUsers
                     size={14}
@@ -198,6 +280,22 @@ export function ProjectDetailInline({
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <ProjectTagsPopover
+              tags={project.tags}
+              onUpdate={(tags) => updateProject({ id: projectId, tags })}
+            />
+
+            <div className="flex items-center min-h-[40px] rounded-lg px-2 transition-colors hover:bg-muted/50">
+              <ModelSelect
+                value={currentModel}
+                options={modelOptions}
+                onValueChange={(nextModel) =>
+                  updateProject({ id: projectId, model: nextModel })
+                }
+                className="px-0"
+              />
+            </div>
 
             <DatePickerField
               label="Start Date"
@@ -255,7 +353,7 @@ function DatePickerField({
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className={`flex items-center w-full min-h-[40px] rounded-md hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] ${!selected ? "text-muted-foreground" : ""}`}
+          className={`flex items-center w-full min-h-[40px] rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] ${!selected ? "text-muted-foreground" : ""}`}
         >
           <Icon
             size={14}

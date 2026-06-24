@@ -43,8 +43,8 @@ export function MentionPickerPopup<TItem extends { id: string }>({
       role="listbox"
       aria-label={title}
       className={
-        "fixed z-50 flex flex-col overflow-hidden rounded-lg border border-border/70 " +
-        "bg-popover/95 text-popover-foreground shadow-lg backdrop-blur-sm " +
+        "fixed z-50 flex flex-col overflow-hidden rounded-surface border border-border " +
+        "bg-popover text-popover-foreground shadow-lg " +
         "animate-in fade-in-0 zoom-in-95 duration-150 " +
         slideClass
       }
@@ -80,7 +80,7 @@ export function MentionPickerPopup<TItem extends { id: string }>({
                   onSelectItem(item);
                 }}
                 className={
-                  "mx-1 flex w-[calc(100%-0.5rem)] min-w-0 items-center rounded-md px-2 py-1.5 text-left text-sm " +
+                  "mx-1 flex w-[calc(100%-0.5rem)] min-w-0 items-center rounded-lg px-2 py-1.5 text-left text-sm " +
                   "transition-[background-color] " +
                   (isSelected
                     ? "bg-primary/15 font-medium text-foreground dark:bg-primary/25"

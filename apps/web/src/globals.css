@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* transitions-dev — modal / input-clear / tabs motion tokens
+ * (see .agents/skills/transitions-dev/) */
+:root {
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --modal-scale: 0.96;
+  --modal-scale-close: 0.96;
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --clear-dur: 1000ms;
+  --clear-out-dur: 400ms;
+  --clear-in-dur: 400ms;
+  --clear-out-fly: 12px;
+  --clear-in-fly: 12px;
+  --clear-out-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --clear-in-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --clear-blur: 2px;
+  --glow-delay: 50ms;
+  --glow-peak-at: 0.15;
+  --glow-opacity: 0.85;
+  --glow-spread: 1.5;
+  --tabs-dur: 200ms;
+  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @font-face {
   font-family: "Geist Sans";
   font-style: normal;
@@ -13,41 +37,39 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 255 255 255;
-    --app-shell: 235 239 238;
-    --foreground: 28 33 35;
-    --shell-gradient-start: 246 249 248;
-    --shell-gradient-mid: 239 244 243;
-    --shell-gradient-end: 232 238 236;
-    --ambient-1: 18 165 148;
-    --ambient-2: 37 99 235;
-    --grid-line: 125 138 145;
+    /* Neutral/surface tokens follow the HeroUI palette (oklch→sRGB).
+     * Accent tokens (--primary, --accent, --ring, --chart-1, sidebar
+     * accent/primary) and --radius/--font-* are user-defined via the
+     * theme settings, so they are left untouched here. */
+    --background: 244 245 246;
+    --app-shell: 244 245 246;
+    --foreground: 24 24 25;
     --card: 255 255 255;
-    --card-foreground: 24 28 31;
+    --card-foreground: 24 24 25;
     --popover: 255 255 255;
-    --popover-foreground: 24 28 31;
-    --primary: 13 132 120;
+    --popover-foreground: 24 24 25;
+    --primary: 8 145 178;
     --primary-foreground: 255 255 255;
-    --secondary: 242 246 245;
-    --secondary-foreground: 35 47 45;
-    --muted: 239 244 243;
-    --muted-foreground: 102 112 118;
-    --accent: 224 240 236;
-    --accent-foreground: 10 90 81;
-    --destructive: 220 38 38;
-    --destructive-foreground: 255 255 255;
-    --success: 15 130 58;
-    --success-foreground: 255 255 255;
-    --warning: 170 90 4;
-    --warning-foreground: 255 255 255;
-    --border: 199 209 207;
-    --input: 199 209 207;
-    --ring: 13 132 120;
-    --chart-1: 13 132 120;
-    --chart-2: 20 184 166;
-    --chart-3: 170 90 4;
-    --chart-4: 225 29 72;
-    --chart-5: 5 150 105;
+    --secondary: 234 235 236;
+    --secondary-foreground: 23 25 27;
+    --muted: 239 239 240;
+    --muted-foreground: 113 114 116;
+    --accent: 207 250 254;
+    --accent-foreground: 22 78 99;
+    --destructive: 255 55 60;
+    --destructive-foreground: 252 252 252;
+    --success: 21 201 100;
+    --success-foreground: 22 25 23;
+    --warning: 245 165 35;
+    --warning-foreground: 26 24 21;
+    --border: 221 222 223;
+    --input: 221 222 223;
+    --ring: 8 145 178;
+    --chart-1: 8 145 178;
+    --chart-2: 56 189 248;
+    --chart-3: 129 140 248;
+    --chart-4: 167 139 250;
+    --chart-5: 6 182 212;
     --warning-bg: 255 247 237;
     --success-bg: 240 253 244;
     --status-progress: 161 98 7;
@@ -70,34 +92,30 @@
     --status-cancelled-bg: 229 231 235;
     --status-cancelled-subtle: 249 250 251;
     --status-cancelled-bar: 156 163 175;
-    --sidebar: 242 246 245;
-    --sidebar-foreground: 24 28 31;
-    --sidebar-primary: 13 132 120;
+    --sidebar: 244 245 246;
+    --sidebar-foreground: 24 24 25;
+    --sidebar-primary: 8 145 178;
     --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 255 255 255;
-    --sidebar-accent-foreground: 10 90 81;
-    --sidebar-border: 214 223 221;
-    --sidebar-ring: 13 132 120;
+    --sidebar-accent: 233 234 236;
+    --sidebar-accent-foreground: 22 78 99;
+    --sidebar-border: 221 222 223;
+    --sidebar-ring: 8 145 178;
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-mono: Menlo, monospace;
-    --radius: 0.5rem;
-    --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 8% / 0.09);
-    --shadow-xs: 0px 2px 6px -2px hsl(0 0% 8% / 0.12);
+    --radius: 1rem;
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-sm:
-      0px 4px 14px -6px hsl(0 0% 8% / 0.22), 0px 2px 4px -2px hsl(0 0% 8% / 0.1);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
     --shadow:
-      0px 8px 24px -14px hsl(0 0% 8% / 0.28),
-      0px 4px 8px -4px hsl(0 0% 8% / 0.14);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
     --shadow-md:
-      0px 14px 30px -16px hsl(0 0% 8% / 0.34),
-      0px 6px 14px -8px hsl(0 0% 8% / 0.18);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
     --shadow-lg:
-      0px 20px 40px -20px hsl(0 0% 8% / 0.42),
-      0px 10px 20px -12px hsl(0 0% 8% / 0.2);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
     --shadow-xl:
-      0px 26px 52px -24px hsl(0 0% 8% / 0.46),
-      0px 14px 28px -18px hsl(0 0% 8% / 0.22);
-    --shadow-2xl: 0px 36px 64px -30px hsl(0 0% 8% / 0.52);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
     --tracking-normal: -0.012em;
     --motion-fast: 150ms;
     --motion-base: 220ms;
@@ -108,41 +126,40 @@
 
   .dark {
     color-scheme: dark;
-    --background: 22 25 27;
-    --app-shell: 9 12 13;
-    --foreground: 227 232 231;
-    --shell-gradient-start: 8 10 11;
-    --shell-gradient-mid: 11 14 15;
-    --shell-gradient-end: 15 19 20;
-    --ambient-1: 52 199 181;
-    --ambient-2: 59 130 246;
-    --grid-line: 74 83 89;
-    --card: 24 27 28;
-    --card-foreground: 227 232 231;
-    --popover: 22 25 26;
-    --popover-foreground: 227 232 231;
-    --primary: 52 199 181;
-    --primary-foreground: 8 23 20;
-    --secondary: 30 34 35;
-    --secondary-foreground: 214 222 220;
-    --muted: 27 31 32;
-    --muted-foreground: 148 162 160;
-    --accent: 34 47 44;
-    --accent-foreground: 214 233 228;
-    --destructive: 248 113 113;
-    --destructive-foreground: 255 255 255;
-    --success: 74 222 128;
-    --success-foreground: 8 20 13;
-    --warning: 251 191 36;
-    --warning-foreground: 26 19 4;
-    --border: 54 62 64;
-    --input: 54 62 64;
-    --ring: 52 199 181;
-    --chart-1: 52 199 181;
-    --chart-2: 20 184 166;
-    --chart-3: 251 191 36;
-    --chart-4: 251 113 133;
-    --chart-5: 45 212 191;
+    /* Neutral/surface tokens map 1:1 to the HeroUI dark palette (oklch→sRGB):
+     * --background = HeroUI background, --card/--popover = surface/overlay,
+     * --muted = surface-secondary, --secondary = default. app-shell/sidebar
+     * reuse HeroUI background as the deepest frame so the sidebar stays
+     * darker than content. Accent and font/radius stay user-defined. */
+    --background: 5 6 6;
+    --app-shell: 5 6 6;
+    --foreground: 251 252 253;
+    --card: 23 24 26;
+    --card-foreground: 251 252 253;
+    --popover: 23 24 26;
+    --popover-foreground: 251 252 253;
+    --primary: 34 211 238;
+    --primary-foreground: 4 26 34;
+    --secondary: 39 39 40;
+    --secondary-foreground: 252 252 252;
+    --muted: 34 35 36;
+    --muted-foreground: 159 160 162;
+    --accent: 12 54 70;
+    --accent-foreground: 165 243 252;
+    --destructive: 219 59 62;
+    --destructive-foreground: 252 252 252;
+    --success: 21 201 100;
+    --success-foreground: 22 25 23;
+    --warning: 247 183 80;
+    --warning-foreground: 26 24 21;
+    --border: 40 41 42;
+    --input: 40 41 42;
+    --ring: 34 211 238;
+    --chart-1: 34 211 238;
+    --chart-2: 56 189 248;
+    --chart-3: 129 140 248;
+    --chart-4: 167 139 250;
+    --chart-5: 6 182 212;
     --warning-bg: 47 35 20;
     --success-bg: 18 44 30;
     --status-progress: 250 204 21;
@@ -165,35 +182,30 @@
     --status-cancelled-bg: 55 65 81;
     --status-cancelled-subtle: 31 41 55;
     --status-cancelled-bar: 107 114 128;
-    --sidebar: 9 11 12;
-    --sidebar-foreground: 207 216 214;
-    --sidebar-primary: 52 199 181;
-    --sidebar-primary-foreground: 8 23 20;
-    --sidebar-accent: 28 33 34;
-    --sidebar-accent-foreground: 228 242 238;
-    --sidebar-border: 47 55 57;
-    --sidebar-ring: 52 199 181;
+    --sidebar: 5 6 6;
+    --sidebar-foreground: 251 252 253;
+    --sidebar-primary: 34 211 238;
+    --sidebar-primary-foreground: 4 26 34;
+    --sidebar-accent: 39 39 42;
+    --sidebar-accent-foreground: 165 243 252;
+    --sidebar-border: 40 41 42;
+    --sidebar-ring: 34 211 238;
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-mono: Menlo, monospace;
-    --radius: 0.5rem;
-    --shadow-2xs: 0px 2px 6px -2px hsl(0 0% 0% / 0.24);
-    --shadow-xs: 0px 4px 10px -4px hsl(0 0% 0% / 0.28);
+    --radius: 1rem;
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-sm:
-      0px 10px 24px -14px hsl(0 0% 0% / 0.55),
-      0px 5px 10px -8px hsl(0 0% 0% / 0.35);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
     --shadow:
-      0px 18px 34px -20px hsl(0 0% 0% / 0.65),
-      0px 8px 14px -10px hsl(0 0% 0% / 0.4);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
     --shadow-md:
-      0px 24px 42px -24px hsl(0 0% 0% / 0.7),
-      0px 12px 20px -14px hsl(0 0% 0% / 0.48);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
     --shadow-lg:
-      0px 30px 54px -26px hsl(0 0% 0% / 0.75),
-      0px 16px 26px -16px hsl(0 0% 0% / 0.55);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
     --shadow-xl:
-      0px 38px 64px -28px hsl(0 0% 0% / 0.82),
-      0px 20px 32px -18px hsl(0 0% 0% / 0.6);
-    --shadow-2xl: 0px 48px 80px -32px hsl(0 0% 0% / 0.92);
+      0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   }
   * {
     @apply border-border;
@@ -209,56 +221,6 @@
     isolation: isolate;
     background-color: rgb(var(--background));
   }
-  body::before {
-    content: "";
-    pointer-events: none;
-    position: fixed;
-    inset: -20% -10%;
-    z-index: -2;
-    background:
-      radial-gradient(
-        48rem 38rem at 6% 2%,
-        rgb(var(--ambient-1) / 0.18),
-        transparent 65%
-      ),
-      radial-gradient(
-        36rem 32rem at 94% 0%,
-        rgb(var(--ambient-2) / 0.16),
-        transparent 64%
-      ),
-      linear-gradient(
-        180deg,
-        rgb(var(--shell-gradient-start)) 0%,
-        rgb(var(--shell-gradient-mid)) 46%,
-        rgb(var(--shell-gradient-end)) 100%
-      );
-  }
-  body::after {
-    content: "";
-    pointer-events: none;
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    opacity: 0.32;
-    background-image:
-      linear-gradient(
-        to right,
-        rgb(var(--grid-line) / 0.12) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        to bottom,
-        rgb(var(--grid-line) / 0.12) 1px,
-        transparent 1px
-      );
-    background-size: 28px 28px;
-    mask-image: linear-gradient(
-      180deg,
-      rgb(0 0 0 / 0.5) 0%,
-      rgb(0 0 0 / 0.16) 40%,
-      transparent 100%
-    );
-  }
   main {
     position: relative;
   }
@@ -266,24 +228,149 @@
     background: rgb(var(--primary) / 0.22);
     color: rgb(var(--foreground));
   }
+
+  /* Cap radius on form controls when theme radius is "full" (9999px). */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="hidden"]
+    ):not([type="file"]),
+  textarea,
+  select {
+    border-radius: min(var(--radius), 1.25rem);
+  }
+
+  [contenteditable="true"][role="textbox"] {
+    border-radius: min(var(--radius), 1.25rem);
+  }
 }
 
 @layer components {
   .ui-surface {
-    @apply rounded-lg border border-border/65 bg-card/80 shadow-sm;
+    @apply rounded-surface border border-border bg-card shadow-sm;
   }
   .ui-surface-strong {
-    @apply rounded-lg border border-border/80 bg-card/95 shadow-md;
+    @apply rounded-surface border border-border bg-card shadow-sm;
   }
   .ui-surface-interactive {
-    @apply ui-surface motion-base hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md;
+    @apply ui-surface motion-base hover:bg-muted/60;
   }
   .ui-panel {
-    @apply ui-surface p-4 md:p-5;
+    @apply ui-surface p-5 md:p-6;
+  }
+
+  /* transitions.dev — modal open / close. The dialog is always centered, so
+   * .t-modal owns the centering transform (translate -50%) plus scale/fade. */
+  .t-modal {
+    transform-origin: center;
+    transform: translate(-50%, -50%) scale(var(--modal-scale));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--modal-open-dur) var(--modal-ease),
+      opacity var(--modal-open-dur) var(--modal-ease);
+    will-change: transform, opacity;
+  }
+  .t-modal.is-open {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .t-modal.is-closing {
+    transform: translate(-50%, -50%) scale(var(--modal-scale-close));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--modal-close-dur) var(--modal-ease),
+      opacity var(--modal-close-dur) var(--modal-ease);
+    /* Radix Presence waits on animationend, not transitionend */
+    animation: t-modal-presence-wait var(--modal-close-dur) linear forwards;
+  }
+
+  @keyframes t-modal-presence-wait {
+    from {
+      clip-path: inset(0);
+    }
+    to {
+      clip-path: inset(0);
+    }
+  }
+
+  /* transitions.dev — input clear with dissolve */
+  .t-clear {
+    position: relative;
+    overflow: hidden;
+  }
+  .t-clear-mirror,
+  .t-clear-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    z-index: 2;
+  }
+  .t-clear-mirror {
+    opacity: 0;
+  }
+  .t-clear.has-value .t-clear-mirror,
+  .t-clear.is-clearing .t-clear-mirror {
+    opacity: 1;
+  }
+  .t-clear.has-value > input,
+  .t-clear.is-clearing > input {
+    -webkit-text-fill-color: transparent;
+  }
+  .t-clear.has-value .t-clear-placeholder {
+    opacity: 0;
+  }
+  .t-clear-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 3;
+    mix-blend-mode: multiply;
+  }
+  .dark .t-clear-glow,
+  [data-theme="dark"] .t-clear-glow {
+    mix-blend-mode: screen;
+  }
+
+  /* transitions.dev — tabs sliding pill. Carries the active tab's card
+   * background (bg-card/shadow-sm via the span) so it glides between tabs
+   * instead of the background snapping. */
+  .t-tabs-pill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 0;
+    width: 0;
+    transform: translateX(0);
+    transition:
+      transform var(--tabs-dur) var(--tabs-ease),
+      width var(--tabs-dur) var(--tabs-ease),
+      top var(--tabs-dur) var(--tabs-ease),
+      height var(--tabs-dur) var(--tabs-ease);
+    z-index: 0;
+    pointer-events: none;
+    will-change: transform, width;
   }
 }
 
 @layer utilities {
+  .rounded-surface {
+    border-radius: clamp(0.75rem, var(--radius), 1.25rem);
+  }
+
+  .rounded-menu-item {
+    border-radius: min(var(--radius), 0.75rem);
+  }
+
+  .rounded-control {
+    border-radius: min(var(--radius), 1.25rem);
+  }
+
   .bg-app-shell {
     background-color: rgb(var(--app-shell));
   }
@@ -305,6 +392,164 @@
     transition-property: transform;
     transition-duration: var(--motion-fast);
     transition-timing-function: var(--motion-ease-out);
+  }
+
+  .landing-atmosphere {
+    background-color: rgb(var(--background));
+    background-image:
+      radial-gradient(
+        ellipse 90% 55% at 50% -12%,
+        rgb(var(--primary) / 0.13),
+        transparent 58%
+      ),
+      radial-gradient(
+        ellipse 45% 35% at 100% 100%,
+        rgb(var(--primary) / 0.05),
+        transparent 55%
+      ),
+      linear-gradient(rgb(var(--foreground) / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--foreground) / 0.04) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      100% 100%,
+      56px 56px,
+      56px 56px;
+  }
+
+  .dark .landing-atmosphere {
+    background-image:
+      radial-gradient(
+        ellipse 90% 55% at 50% -12%,
+        rgb(var(--primary) / 0.09),
+        transparent 58%
+      ),
+      radial-gradient(
+        ellipse 45% 35% at 100% 100%,
+        rgb(var(--primary) / 0.04),
+        transparent 55%
+      ),
+      linear-gradient(rgb(var(--foreground) / 0.055) 1px, transparent 1px),
+      linear-gradient(
+        90deg,
+        rgb(var(--foreground) / 0.055) 1px,
+        transparent 1px
+      );
+  }
+
+  .landing-grain::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    opacity: 0.4;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+
+  .dark .landing-grain::after {
+    opacity: 0.22;
+    mix-blend-mode: overlay;
+  }
+
+  .landing-display {
+    font-family: "Geist Sans", var(--font-sans);
+  }
+
+  .landing-headline-emphasis {
+    background: linear-gradient(
+      128deg,
+      rgb(var(--primary)),
+      rgb(var(--primary) / 0.62)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .landing-mock-stage {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .landing-mock-stage::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: -8% -6% -4%;
+    z-index: -1;
+    background: radial-gradient(
+      ellipse 70% 55% at 50% 42%,
+      rgb(var(--primary) / 0.14),
+      transparent 68%
+    );
+  }
+
+  .landing-mock-float {
+    animation: landing-mock-float 8s ease-in-out infinite;
+  }
+
+  @keyframes landing-mock-float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(-0.35deg);
+    }
+    50% {
+      transform: translateY(-8px) rotate(0.35deg);
+    }
+  }
+
+  .landing-beam::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    top: -20%;
+    right: -5%;
+    width: 42%;
+    height: 70%;
+    transform: rotate(-18deg);
+    background: linear-gradient(
+      165deg,
+      rgb(var(--primary) / 0.07),
+      transparent 62%
+    );
+  }
+
+  .landing-orb {
+    animation: landing-orb-breathe 6s ease-in-out infinite;
+  }
+
+  @keyframes landing-orb-breathe {
+    0%,
+    100% {
+      opacity: 0.75;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.08);
+    }
+  }
+
+  .landing-mock-body {
+    max-height: min(32rem, 72vh);
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, black 88%, transparent 100%);
+  }
+
+  .landing-pulse-dot {
+    animation: landing-pulse-dot 2.4s ease-in-out infinite;
+  }
+
+  @keyframes landing-pulse-dot {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.15);
+    }
   }
 
   .scrollbar {
@@ -331,6 +576,46 @@
     background: rgb(var(--muted-foreground) / 0.52);
     background-clip: padding-box;
   }
+
+  /* Fully hides the scrollbar while keeping the element scrollable (wheel,
+     drag-to-pan, programmatic). Used by the canvas-style projects timeline. */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * Segmented tabs — opt in with `tabs-segmented` on a Radix Tabs.List.
+ * Renders a recessed neutral trough with a lighter, raised active pill,
+ * correct in BOTH light and dark.
+ *
+ * Why plain CSS here instead of Tailwind `dark:` utilities:
+ *  1. --card and --secondary swap lightness between modes (light: card is
+ *     lightest; dark: secondary is lightest), so the active pill cannot be
+ *     expressed as a single utility — it needs a per-mode value.
+ *  2. New utility classes added under packages/ui are not recompiled by the
+ *     running dev server without a full restart; these CSS-variable rules
+ *     hot-reload reliably. Placed after `@tailwind utilities`, so they win
+ *     over the list's own bg utility at equal specificity.
+ * ─────────────────────────────────────────────────────────────────── */
+.tabs-segmented {
+  background-color: rgb(var(--secondary)); /* light: grey trough */
+}
+.tabs-segmented [role="tab"][data-state="active"] {
+  background-color: rgb(
+    var(--card)
+  ); /* light: white pill (lighter than trough) */
+}
+.dark .tabs-segmented {
+  background-color: rgb(var(--card)); /* dark: card-grey trough */
+}
+.dark .tabs-segmented [role="tab"][data-state="active"] {
+  background-color: rgb(
+    var(--secondary)
+  ); /* dark: lighter pill (lighter than trough) */
 }
 
 /* Animated border for in-progress quick task cards */
@@ -879,3 +1164,84 @@
   }
 }
 */
+
+/* ───────────────────────────────────────────────────────────────────
+ * Eva logo draw-on (used by <LogoMark/> — plays on mount, replays on
+ * hover via React remount). Each half strokes its outline, then fills.
+ * ─────────────────────────────────────────────────────────────────── */
+@keyframes logo-draw-stroke {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  55%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes logo-draw-fill {
+  0%,
+  50% {
+    fill-opacity: 0;
+  }
+  72%,
+  100% {
+    fill-opacity: 1;
+  }
+}
+.logo-draw-poly {
+  stroke-width: 10;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  fill-opacity: 0;
+  animation:
+    logo-draw-stroke 1.8s ease forwards,
+    logo-draw-fill 1.8s ease forwards;
+}
+
+/* Unlayered — streamdown table-wrapper uses rounded-lg; inner scroll div uses rounded-md. */
+[data-streamdown="table-wrapper"],
+[data-streamdown="table-wrapper"] > div:has([data-streamdown="table"]) {
+  border-radius: clamp(0.75rem, var(--radius), 1.25rem);
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * Suggestion mode (track changes) marks in the doc editor. The data-id
+ * gate means only tracked-change marks are styled, never stray <ins>/<del>.
+ * Insertions read as green additions, deletions as red strike-throughs,
+ * modifications as a dotted-underline tint. Whole-block changes get node
+ * decorations (data-node-*) from the suggest-changes plugin.
+ * ─────────────────────────────────────────────────────────────────── */
+.tiptap ins[data-id] {
+  background-color: rgb(var(--success) / 0.16);
+  color: rgb(var(--success));
+  text-decoration: none;
+  border-radius: 2px;
+}
+.tiptap del[data-id] {
+  color: rgb(var(--destructive));
+  background-color: rgb(var(--destructive) / 0.1);
+  text-decoration: line-through;
+}
+.tiptap span[data-type="modification"] {
+  background-color: rgb(var(--warning) / 0.16);
+  text-decoration: underline dotted;
+}
+.tiptap [data-node-deletion="true"] {
+  background-color: rgb(var(--destructive) / 0.08);
+}
+.tiptap [data-node-insertion="true"] {
+  background-color: rgb(var(--success) / 0.08);
+}
+
+/* Anchored-comment highlights. Driven by DocCommentHighlight decorations, not
+ * the mark itself, so resolved threads lose their tint without editing the doc.
+ * Amber keeps them distinct from the green/red suggestion marks. */
+.doc-comment-highlight {
+  background-color: rgb(var(--warning) / 0.18);
+  border-bottom: 1.5px solid rgb(var(--warning) / 0.55);
+  cursor: pointer;
+}
+.doc-comment-highlight-active {
+  background-color: rgb(var(--warning) / 0.34);
+}

@@ -58,7 +58,7 @@ export function SkillsClient() {
         </Button>
       }
     >
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
         <div>
           <h3 className="text-sm font-medium">Repo Skills</h3>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -68,17 +68,17 @@ export function SkillsClient() {
         </div>
 
         {syncSummary ? (
-          <p className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <p className="rounded-surface border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             {syncSummary}
           </p>
         ) : null}
         {error ? (
-          <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <p className="rounded-surface bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error}
           </p>
         ) : null}
         {warnings.length > 0 ? (
-          <div className="rounded-md bg-muted/40 px-3 py-2">
+          <div className="rounded-surface border border-border bg-muted/40 px-3 py-2">
             <p className="text-xs font-medium">Sync warnings</p>
             <div className="mt-1 grid gap-1 text-[11px] text-muted-foreground">
               {warnings.map((warning) => (

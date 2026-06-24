@@ -1,4 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useSyncExternalStore,
+} from "react";
 import {
   extractReactTree,
   isReactAvailable,
@@ -10,19 +16,12 @@ import {
   countFiberHooks,
   countFiberProps,
 } from "./react-extractor";
+import { subscribeDark, getDark } from "./theme";
 import type { ElementInfo, ExtractedContext } from "@/shared/types";
 
 interface SelectionOverlayProps {
   onCapture: (context: ExtractedContext) => void;
   onCancel: () => void;
-}
-
-function loadTheme(): Promise<"light" | "dark"> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(["theme"], (result) => {
-      resolve(result.theme === "light" ? "light" : "dark");
-    });
-  });
 }
 
 function getComponentInfo(element: HTMLElement): string {
@@ -83,7 +82,6 @@ export function SelectionOverlay({
   onCapture,
   onCancel,
 }: SelectionOverlayProps) {
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [hoverRect, setHoverRect] = useState<{
     top: number;
     left: number;
@@ -105,11 +103,7 @@ export function SelectionOverlay({
   const overlayRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
 
-  const dark = theme === "dark";
-
-  useEffect(() => {
-    loadTheme().then(setTheme);
-  }, []);
+  const dark = useSyncExternalStore(subscribeDark, getDark);
 
   useEffect(() => {
     document.body.style.cursor = "crosshair";

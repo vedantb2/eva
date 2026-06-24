@@ -14,10 +14,18 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import { cn } from "../utils/cn";
+import {
+  MENU_ITEM_RADIUS_CLASS,
+  SURFACE_RADIUS_CLASS,
+} from "../utils/surface-radius";
 
 export const Queue = ({ className, ...props }: ComponentProps<"div">) => (
   <div
-    className={cn("rounded-2xl bg-secondary/60 p-2 sm:p-3", className)}
+    className={cn(
+      "bg-secondary/60 p-2 sm:p-3",
+      SURFACE_RADIUS_CLASS,
+      className,
+    )}
     {...props}
   />
 );
@@ -37,7 +45,8 @@ export const QueueSectionTrigger = ({
   <CollapsibleTrigger asChild>
     <button
       className={cn(
-        "flex w-full items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-left text-sm text-foreground transition-[background-color,transform] hover:bg-accent",
+        "flex w-full items-center justify-between gap-3 px-2 py-1.5 text-left text-sm text-foreground transition-[background-color,transform] hover:bg-accent",
+        "rounded-lg",
         className,
       )}
       type="button"
@@ -87,7 +96,8 @@ export const QueueList = ({ className, ...props }: ComponentProps<"ul">) => (
 export const QueueItem = ({ className, ...props }: ComponentProps<"li">) => (
   <li
     className={cn(
-      "flex items-start gap-3 rounded-xl bg-background/70 px-3 py-2 text-sm text-foreground",
+      "flex items-start gap-3 bg-background/70 px-3 py-2 text-sm text-foreground",
+      MENU_ITEM_RADIUS_CLASS,
       className,
     )}
     {...props}

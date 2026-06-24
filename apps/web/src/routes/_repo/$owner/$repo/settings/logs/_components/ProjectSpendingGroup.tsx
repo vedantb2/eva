@@ -35,7 +35,7 @@ interface ProjectSpendingGroupProps {
 function LogRow({ log }: { log: LogEntry }) {
   const evt = parseResultEvent(log.rawResultEvent);
   return (
-    <div className="motion-base rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/25">
+    <div className="motion-base rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/25">
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {(() => {

@@ -60,6 +60,7 @@ import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { EntityContextUsage } from "@/lib/components/context-usage";
+import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 
 type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
@@ -145,6 +146,19 @@ export function ChatPanel({
     defaultModel,
   });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
+
+  const draftSeed = useChatDraftSeed({
+    kind: "sessionChat" as const,
+    sessionId,
+  });
+  const draftBundle = draftSeed.isReady
+    ? {
+        target: { kind: "sessionChat" as const, sessionId },
+        initialDisplay: draftSeed.initialDisplay,
+        mentionMap: draftSeed.mentionMap,
+        skillMap: draftSeed.skillMap,
+      }
+    : undefined;
 
   const AVAILABLE_MODES: SessionMode[] = ["edit", "plan"];
   useHotkey("Mod+Shift+Tab", (e) => {
@@ -438,7 +452,7 @@ export function ChatPanel({
   }, [showSummaryStreaming, hasSummary, summaryStreamingActivity, summary]);
 
   const startupStreamingNode = (
-    <div className="rounded-lg bg-secondary p-4">
+    <div className="rounded-surface bg-secondary p-4">
       <StreamingActivityDisplay
         activity={startupStreamingActivity}
         thinkingLabel="Starting sandbox..."
@@ -480,7 +494,7 @@ export function ChatPanel({
   const toolsBefore = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50">
+        <button className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50">
           <SelectedModeIcon className="size-3.5" />
           {selectedModeOption.label}
         </button>
@@ -530,6 +544,7 @@ export function ChatPanel({
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}
+        conversationId={sessionId}
         messages={messages}
         queuedMessages={queuedMessages}
         streamingActivity={streamingActivity}
@@ -551,6 +566,8 @@ export function ChatPanel({
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}
+        draft={draftBundle}
+        isDraftLoading={!draftSeed.isReady}
       />
       <Dialog
         open={showSummaryModal}
@@ -712,7 +729,7 @@ export function ChatPanel({
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: 0.1 }}
-                  className="rounded-lg bg-success/10 p-4 text-center"
+                  className="rounded-surface bg-success/10 p-4 text-center"
                 >
                   <IconCircleCheck
                     size={24}

@@ -180,7 +180,7 @@ export function SnapshotsClient({
           )}
 
           {snapshot && (
-            <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+            <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-medium">Enabled</h3>
@@ -199,7 +199,7 @@ export function SnapshotsClient({
                   }
                   className={cn(
                     "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    isEnabled ? "bg-emerald-500" : "bg-muted-foreground/30",
+                    isEnabled ? "bg-primary" : "bg-muted-foreground/30",
                   )}
                 >
                   <span
@@ -219,7 +219,7 @@ export function SnapshotsClient({
             allowManual
           />
 
-          <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+          <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
             <h3 className="text-sm font-medium">Clone Branch</h3>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -240,7 +240,7 @@ export function SnapshotsClient({
 
           {snapshot && <RebuildRequiredWarning />}
 
-          <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+          <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
             <h3 className="text-sm font-medium">Build Commands</h3>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -250,7 +250,7 @@ export function SnapshotsClient({
                 key={`build-${snapshot?._id ?? "none"}`}
                 defaultValue={buildCommandsText}
                 onBlur={handleBuildCommandsBlur}
-                className="w-full h-48 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full h-48 rounded-control border border-input bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
                 placeholder="pnpm convex codegen&#10;pnpm build"
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
@@ -271,7 +271,7 @@ export function SnapshotsClient({
         <TabsContent value="status" className="space-y-6">
           {snapshot ? (
             <>
-              <div className="rounded-lg bg-muted/40 p-4 space-y-3">
+              <div className="rounded-surface border border-border bg-card p-4 space-y-3">
                 <h3 className="text-sm font-medium">Current Status</h3>
                 <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 sm:gap-4">
                   <div>
@@ -389,7 +389,7 @@ export function SnapshotsClient({
               </div>
             </>
           ) : (
-            <div className="rounded-lg bg-muted/40 p-8 text-center">
+            <div className="rounded-surface border border-border bg-card p-8 text-center">
               <p className="text-sm text-muted-foreground">
                 No snapshot configured yet. Configure one in the Configuration
                 tab.
@@ -400,7 +400,7 @@ export function SnapshotsClient({
 
         <TabsContent value="builds" className="space-y-6">
           {snapshot && builds && builds.length > 0 ? (
-            <div className="rounded-lg bg-muted/40 overflow-hidden">
+            <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
               <div className="px-4 py-3">
                 <h3 className="text-sm font-medium">Build History</h3>
               </div>
@@ -450,7 +450,7 @@ export function SnapshotsClient({
               </p>
             </div>
           ) : (
-            <div className="rounded-lg bg-muted/40 p-8 text-center">
+            <div className="rounded-surface border border-border bg-card p-8 text-center">
               <p className="text-sm text-muted-foreground">
                 No snapshot configured yet. Configure one in the Configuration
                 tab.
@@ -597,7 +597,7 @@ function ConfigFilesSection({
     <div className="space-y-4">
       <RebuildRequiredWarning />
 
-      <div className="rounded-lg bg-muted/40 p-4 space-y-4">
+      <div className="rounded-surface border border-border bg-card p-4 space-y-4">
         <div>
           <h3 className="text-sm font-medium">Sandbox Config Files</h3>
           <p className="mt-1 text-xs text-muted-foreground">

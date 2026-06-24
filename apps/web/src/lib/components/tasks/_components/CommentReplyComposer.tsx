@@ -2,71 +2,86 @@
 
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { Button } from "@conductor/ui";
-import { IconArrowUp } from "@tabler/icons-react";
-import type { FunctionReturnType } from "convex/server";
-import { formatMentionToken } from "@/lib/components/mentions/mentionToken";
-import { getUserDisplayName } from "./task-detail-constants";
+import { UserInitials } from "@conductor/shared";
+import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   CommentMentionInput,
   type CommentMentionInputHandle,
 } from "./CommentMentionInput";
-
-type Users = FunctionReturnType<typeof api.users.listAll>;
+import { CommentSendButton } from "./CommentSendButton";
+import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
+import { useTypingPresence } from "@/lib/hooks/useTypingPresence";
+import { TypingIndicator } from "@/lib/components/chat/TypingIndicator";
 
 interface CommentReplyComposerProps {
   taskId: Id<"agentTasks">;
   parentId: Id<"taskComments">;
-  parentAuthorId: Id<"users"> | undefined;
-  users: Users | undefined;
-  onCancel: () => void;
 }
 
-function resolveAuthorLabel(
-  users: Users | undefined,
-  authorId: Id<"users"> | undefined,
-): string {
-  if (!authorId) return "User";
-  const author = users?.find((user) => user._id === authorId);
-  if (!author) return "User";
-  return getUserDisplayName(author);
+// ---------------------------------------------------------------------------
+// Inner form — mounts only once the draft has resolved.
+// ---------------------------------------------------------------------------
+
+interface CommentReplyComposerFormProps extends CommentReplyComposerProps {
+  initialContent: string | null;
 }
 
-export function CommentReplyComposer({
+function CommentReplyComposerForm({
   taskId,
   parentId,
-  parentAuthorId,
-  users,
-  onCancel,
-}: CommentReplyComposerProps) {
+  initialContent,
+}: CommentReplyComposerFormProps) {
+  const currentUserId = useQuery(api.auth.me);
   const mentionRef = useRef<CommentMentionInputHandle>(null);
-  const [replyText, setReplyText] = useState(() => {
-    const label = resolveAuthorLabel(users, parentAuthorId);
-    return `@${label} `;
-  });
+
+  // Seed text + maps from draft via useState initializer (no hydration useEffect).
+  const [
+    {
+      displayText: initialText,
+      mentionMap: initialMentionMap,
+      skillMap: initialSkillMap,
+    },
+  ] = useState(() => tokenizedToEditable(initialContent ?? ""));
+
+  const [replyText, setReplyText] = useState(initialText);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const createComment = useMutation(api.taskComments.create);
 
+  const { save: saveDraft, clear: clearDraft } = useDraftAutosave(
+    { kind: "taskComment", taskId, parentCommentId: parentId },
+    mentionRef,
+  );
+
+  const { typingUsers, onActivity, stopTyping } = useTypingPresence(
+    `typing:task-comment:${parentId}`,
+    currentUserId,
+  );
+
+  const handleValueChange = (next: string) => {
+    setReplyText(next);
+    saveDraft(next);
+    onActivity();
+  };
+
+  const canSubmit = replyText.trim().length > 0 && !isSubmitting;
+
   const handleSubmit = async () => {
     const trimmed = replyText.trim();
-    if (!trimmed) return;
-    let content = mentionRef.current?.tokenize(trimmed) ?? trimmed;
-    if (parentAuthorId) {
-      const label = resolveAuthorLabel(users, parentAuthorId);
-      const visible = `@${label}`;
-      const token = formatMentionToken(label, parentAuthorId);
-      if (content.includes(visible) && !content.includes(token)) {
-        content = content.replace(visible, token);
-      }
-    }
+    if (!trimmed || isSubmitting) return;
+    stopTyping();
+    const content = mentionRef.current?.tokenize(trimmed) ?? trimmed;
     setIsSubmitting(true);
     try {
       await createComment({ taskId, content, parentId });
       mentionRef.current?.reset();
-      onCancel();
+      setReplyText("");
+      clearDraft();
+      // Keep focus so a follow-up reply can be typed without re-clicking.
+      mentionRef.current?.focus();
     } catch (err) {
       console.error("Failed to post reply:", err);
     } finally {
@@ -75,37 +90,83 @@ export function CommentReplyComposer({
   };
 
   return (
-    <div className="mt-2 space-y-2">
-      <div className="relative">
+    <div className="relative flex items-start gap-2">
+      <TypingIndicator
+        users={typingUsers}
+        className="absolute bottom-full left-0 mb-1"
+      />
+      {/* Fixed slot keeps the avatar from shifting the input once it loads;
+          h-9 aligns it with the input's first line when multi-line. */}
+      <span className="flex h-9 w-4 shrink-0 items-center justify-center">
+        {currentUserId ? (
+          <UserInitials userId={currentUserId} size="sm" hideLastSeen />
+        ) : null}
+      </span>
+      <div className="relative flex-1">
         <CommentMentionInput
           ref={mentionRef}
           value={replyText}
-          onValueChange={setReplyText}
-          placeholder="Write a reply..."
-          className="min-h-16 max-h-36"
+          onValueChange={handleValueChange}
+          onEnterSubmit={handleSubmit}
+          placeholder="Leave a reply"
+          initialMentionMap={initialMentionMap}
+          initialSkillMap={initialSkillMap}
+          className="min-h-0 max-h-36 rounded-none border-0 bg-transparent transition-[background-color] hover:bg-muted/50"
         />
-        <Button
-          type="button"
-          size="icon"
-          className="absolute right-2 bottom-2 h-8 w-8 rounded-full"
-          disabled={!replyText.trim() || isSubmitting}
+        <CommentSendButton
+          className="absolute right-1.5 bottom-1.5"
+          disabled={!canSubmit}
+          isSubmitting={isSubmitting}
           onClick={handleSubmit}
-          aria-label="Post reply"
-        >
-          <IconArrowUp size={16} />
-        </Button>
-      </div>
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={onCancel}
-          disabled={isSubmitting}
-        >
-          Cancel
-        </Button>
+          ariaLabel="Post reply"
+        />
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Outer shell — loads the draft, shows a disabled editor while loading.
+// ---------------------------------------------------------------------------
+
+/**
+ * Persistent thread reply input, Linear-style: the current user's avatar, a
+ * single-line "Leave a reply" field that grows as you type, and an always-
+ * visible send button. Enter submits; Shift+Enter inserts a newline.
+ */
+export function CommentReplyComposer({
+  taskId,
+  parentId,
+}: CommentReplyComposerProps) {
+  const draft = useQuery(api.drafts.getForTarget, {
+    target: { kind: "taskComment", taskId, parentCommentId: parentId },
+  });
+
+  // While the draft query is pending, render a disabled placeholder with the
+  // same layout so there is no shift when the form mounts.
+  if (draft === undefined) {
+    return (
+      <div className="flex items-start gap-2">
+        <span className="flex h-9 w-4 shrink-0 items-center justify-center" />
+        <div className="relative flex-1">
+          <CommentMentionInput
+            value=""
+            onValueChange={() => undefined}
+            placeholder="Leave a reply"
+            disabled
+            className="min-h-0 max-h-36 rounded-none border-0 bg-transparent transition-[background-color]"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <CommentReplyComposerForm
+      key="ready"
+      taskId={taskId}
+      parentId={parentId}
+      initialContent={draft}
+    />
   );
 }

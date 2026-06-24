@@ -1,7 +1,11 @@
 import { Icon as TablerIcon } from "@tabler/icons-react";
-import { Card, CardContent } from "@conductor/ui";
 import { Sparkline } from "./Sparkline";
 
+/**
+ * A single metric cell with an inline sparkline. Renders bare (no card) so a
+ * row of these can be divided inside a single elevated surface (e.g. a Widget),
+ * matching the HeroUI "Widget with KPIs" pattern.
+ */
 export function StatCard({
   icon: Icon,
   label,
@@ -16,19 +20,17 @@ export function StatCard({
   trendToneClassName: string;
 }) {
   return (
-    <Card className="ui-surface-interactive h-full">
-      <CardContent className="flex h-full items-center justify-between gap-2 p-3 sm:gap-3 sm:p-5">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Icon size={20} className="text-primary sm:size-6 shrink-0" />
-          <div>
-            <p className="text-xl font-semibold text-foreground tabular-nums sm:text-2xl">
-              {value}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">{label}</p>
-          </div>
+    <div className="flex h-full items-center justify-between gap-2 bg-card p-4 transition-colors hover:bg-muted/40 sm:gap-3 sm:p-5">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Icon size={20} className="text-primary sm:size-6 shrink-0" />
+        <div>
+          <p className="text-xl font-semibold text-foreground tabular-nums sm:text-2xl">
+            {value}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">{label}</p>
         </div>
-        <Sparkline values={trendValues} toneClassName={trendToneClassName} />
-      </CardContent>
-    </Card>
+      </div>
+      <Sparkline values={trendValues} toneClassName={trendToneClassName} />
+    </div>
   );
 }

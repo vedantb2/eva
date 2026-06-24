@@ -182,14 +182,20 @@ export async function cleanUpStaleRun(
       repoId: params.repoId,
     });
     if (!params.isProjectTask) {
-      // Stale runs mean the workflow died mid-execution — sandbox state is
-      // suspect, so delete (don't stop) and force a fresh sandbox on next run.
-      // Clear `task.sandboxId` too so reviewer Start Sandbox doesn't point at
-      // a deleted Daytona sandbox.
-      await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
-        sandboxId: params.sandboxId,
-        repoId: params.repoId,
-      });
+      // Quick-task sandboxes are persistent: stop (don't delete) so any
+      // uncommitted work or unpushed commits stay recoverable and the next
+      // run resumes the same filesystem. Diagnostics (dmesg OOM lines, done
+      // file, callback log tail) are captured onto the run first, while the
+      // sandbox is still running.
+      await ctx.scheduler.runAfter(
+        0,
+        internal.daytona.captureDiagnosticsAndStopSandbox,
+        {
+          sandboxId: params.sandboxId,
+          repoId: params.repoId,
+          runId: params.runId,
+        },
+      );
     }
   }
 
@@ -205,16 +211,20 @@ export async function cleanUpStaleRun(
     activeWorkflowId: undefined;
     updatedAt: number;
     status?: "todo";
-    sandboxId?: undefined;
-    reviewTaskSandboxStatus?: undefined;
+    sandboxId?: string;
+    reviewTaskSandboxStatus?: "closed";
   } = {
     activeWorkflowId: undefined,
     updatedAt: Date.now(),
     ...(params.taskStatus === "in_progress" ? { status: "todo" as const } : {}),
   };
   if (!params.isProjectTask && params.sandboxId) {
-    taskPatch.sandboxId = undefined;
-    taskPatch.reviewTaskSandboxStatus = undefined;
+    // Keep the sandbox reference on the task (the run may have died before
+    // saveTaskSandboxId ran, which would otherwise orphan the stopped
+    // sandbox) and mark it closed so the reviewer UI shows a resumable,
+    // stopped sandbox.
+    taskPatch.sandboxId = params.sandboxId;
+    taskPatch.reviewTaskSandboxStatus = "closed";
   }
   await ctx.db.patch(params.taskId, taskPatch);
 

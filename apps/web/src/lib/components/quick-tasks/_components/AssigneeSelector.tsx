@@ -34,6 +34,8 @@ export function AssigneeSelector({
     ? users?.find((u) => u._id === assignedTo)
     : undefined;
 
+  const reviewers = (users ?? []).filter((u) => u.role === "dev");
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -51,7 +53,7 @@ export function AssigneeSelector({
           ) : (
             <>
               <IconUserPlus size={14} />
-              <span>Assignee</span>
+              <span>Code Reviewer</span>
             </>
           )}
         </button>
@@ -70,7 +72,7 @@ export function AssigneeSelector({
                 Unassigned
                 {!assignedTo && <IconCheck size={14} className="ml-auto" />}
               </CommandItem>
-              {(users ?? []).map((user) => (
+              {reviewers.map((user) => (
                 <CommandItem
                   key={user._id}
                   value={getUserDisplayName(user)}

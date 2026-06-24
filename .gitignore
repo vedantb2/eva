@@ -8,3 +8,5 @@ screenshots
 dist
 tsconfig.buildinfo
 packages/backend/callback-src/.build
+mcp.json
+video

@@ -19,6 +19,7 @@ import {
 import { IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { AutomationDeleteDialog } from "./_components/AutomationDeleteDialog";
+import { SettingToggle } from "./_components/SettingToggle";
 import { LatestRun, RunHistory } from "./_components/RunAccordion";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -66,7 +67,7 @@ export function AutomationClient({
             }
             className={cn(
               "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              automation.enabled ? "bg-emerald-500" : "bg-muted-foreground/30",
+              automation.enabled ? "bg-primary" : "bg-muted-foreground/30",
             )}
           >
             <span
@@ -176,6 +177,7 @@ function SettingsForm({
     automation.actionsEnabled === true,
   );
   const [shared, setShared] = useState(automation.shared === true);
+  const [sendEmail, setSendEmail] = useState(automation.sendEmail === true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -201,7 +203,8 @@ function SettingsForm({
     model !== savedModel ||
     readOnly !== (automation.readOnly === true) ||
     actionsEnabled !== (automation.actionsEnabled === true) ||
-    shared !== (automation.shared === true);
+    shared !== (automation.shared === true) ||
+    sendEmail !== (automation.sendEmail === true);
 
   const sharedChanged = shared !== (automation.shared === true);
 
@@ -219,6 +222,7 @@ function SettingsForm({
         model,
         readOnly,
         actionsEnabled: readOnly ? actionsEnabled : false,
+        sendEmail,
       });
     } finally {
       setIsSaving(false);
@@ -229,7 +233,7 @@ function SettingsForm({
     <div className="space-y-4">
       <CronScheduleCard value={cronSchedule} onChange={setCronSchedule} />
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Description</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -259,88 +263,46 @@ function SettingsForm({
       </div>
 
       {isMonorepo && (
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium">Share across apps</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Show and run this automation from every app in the monorepo
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShared(!shared)}
-              className={cn(
-                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                shared ? "bg-emerald-500" : "bg-muted-foreground/30",
-              )}
-            >
-              <span
-                className={cn(
-                  "pointer-events-none block h-5 w-5 rounded-full bg-white transition-transform",
-                  shared ? "translate-x-5" : "translate-x-0",
-                )}
-              />
-            </button>
-          </div>
+        <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
+          <SettingToggle
+            title="Share across apps"
+            description="Show and run this automation from every app in the monorepo"
+            checked={shared}
+            onChange={setShared}
+          />
         </div>
       )}
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-medium">Report Only</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Analyze and report without making code changes, branches, or PRs
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setReadOnly(!readOnly)}
-            className={cn(
-              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              readOnly ? "bg-emerald-500" : "bg-muted-foreground/30",
-            )}
-          >
-            <span
-              className={cn(
-                "pointer-events-none block h-5 w-5 rounded-full bg-white transition-transform",
-                readOnly ? "translate-x-5" : "translate-x-0",
-              )}
-            />
-          </button>
-        </div>
+      <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
+        <SettingToggle
+          title="Report Only"
+          description="Analyze and report without making code changes, branches, or PRs"
+          checked={readOnly}
+          onChange={setReadOnly}
+        />
       </div>
 
       {readOnly && (
-        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium">Actions</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Parse findings into actionable items you can convert to tasks
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActionsEnabled(!actionsEnabled)}
-              className={cn(
-                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                actionsEnabled ? "bg-emerald-500" : "bg-muted-foreground/30",
-              )}
-            >
-              <span
-                className={cn(
-                  "pointer-events-none block h-5 w-5 rounded-full bg-white transition-transform",
-                  actionsEnabled ? "translate-x-5" : "translate-x-0",
-                )}
-              />
-            </button>
-          </div>
+        <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
+          <SettingToggle
+            title="Actions"
+            description="Parse findings into actionable items you can convert to tasks"
+            checked={actionsEnabled}
+            onChange={setActionsEnabled}
+          />
         </div>
       )}
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
+        <SettingToggle
+          title="Send email"
+          description="Email this automation's run summary to all users when a run succeeds"
+          checked={sendEmail}
+          onChange={setSendEmail}
+        />
+      </div>
+
+      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Model</h3>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -361,7 +323,7 @@ function SettingsForm({
         </Button>
       </div>
 
-      <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+      <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium text-destructive">

@@ -90,6 +90,9 @@ export const themeExtend = {
     "2xl": "var(--shadow-2xl)",
   },
   borderRadius: {
+    surface: "clamp(0.75rem, var(--radius), 1.25rem)",
+    control: "min(var(--radius), 1.25rem)",
+    "menu-item": "min(var(--radius), 0.75rem)",
     "2xl": "calc(var(--radius) + 8px)",
     xl: "calc(var(--radius) + 4px)",
     lg: "var(--radius)",

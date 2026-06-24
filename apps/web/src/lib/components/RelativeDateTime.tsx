@@ -1,8 +1,8 @@
 "use client";
 
 import {
+  compactRelativeTime,
   formatExactDateTime,
-  formatRelativeTime,
 } from "@conductor/shared/dates";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@conductor/ui";
 
@@ -13,7 +13,7 @@ interface RelativeDateTimeProps {
   className?: string;
 }
 
-/** Relative time (e.g. "2 minutes ago") with exact datetime in a hover tooltip. */
+/** Abbreviated relative time ("15m", "2d") with the exact datetime in a hover tooltip. */
 export function RelativeDateTime({
   at,
   emptyLabel = "Queued",
@@ -36,7 +36,7 @@ export function RelativeDateTime({
             className,
           )}
         >
-          {formatRelativeTime(at)}
+          {compactRelativeTime(at)}
         </span>
       </TooltipTrigger>
       <TooltipContent>{formatExactDateTime(at)}</TooltipContent>

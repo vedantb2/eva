@@ -103,7 +103,14 @@ export function ProjectCard({
     (localStore, args) => {
       const current = localStore.getQuery(api.projects.get, { id: projectId });
       if (current !== undefined && current !== null) {
-        const { id: _id, priority, projectLead, ...safeFields } = args;
+        const {
+          id: _id,
+          priority,
+          projectLead,
+          codeReviewer,
+          model,
+          ...safeFields
+        } = args;
         localStore.setQuery(
           api.projects.get,
           { id: projectId },
@@ -116,6 +123,10 @@ export function ProjectCard({
             ...(projectLead !== undefined
               ? { projectLead: projectLead ?? undefined }
               : {}),
+            ...(codeReviewer !== undefined
+              ? { codeReviewer: codeReviewer ?? undefined }
+              : {}),
+            ...(model !== undefined ? { model: model ?? undefined } : {}),
           },
         );
       }
@@ -140,10 +151,10 @@ export function ProjectCard({
 
   const cardContent = (
     <div
-      className={`group relative shrink-0 overflow-hidden rounded-lg transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] ${
+      className={`group relative shrink-0 overflow-hidden rounded-surface border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] ${
         isActive
-          ? "bg-primary/5 ring-1 ring-primary/30"
-          : "bg-card/88 hover:-translate-y-0.5 hover:bg-card hover:z-10"
+          ? "border-primary/30 bg-primary/5 ring-1 ring-primary/30"
+          : "border-border bg-card shadow-sm hover:bg-muted/40"
       }`}
     >
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />

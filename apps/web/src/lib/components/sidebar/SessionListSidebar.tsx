@@ -33,7 +33,12 @@ import {
   IconPencil,
   IconPlus,
 } from "@tabler/icons-react";
-import dayjs from "@conductor/shared/dates";
+import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
+import {
+  SharedLayoutNav,
+  SharedLayoutNavSurface,
+  sidebarNavListItemClass,
+} from "@/lib/components/sidebar/SharedLayoutNav";
 
 type SessionStatus = "active" | "starting" | "stopping" | "closed";
 
@@ -68,6 +73,7 @@ interface SessionListSidebarProps<T extends SessionItem> {
   archiveTitle: string;
   archiveDescription?: string;
   searchPlaceholder: string;
+  layoutId?: string;
 }
 
 export function SessionListSidebar<T extends SessionItem>({
@@ -89,6 +95,7 @@ export function SessionListSidebar<T extends SessionItem>({
   archiveTitle,
   archiveDescription,
   searchPlaceholder,
+  layoutId = "session-list-nav",
 }: SessionListSidebarProps<T>) {
   const navigate = useNavigate();
 
@@ -212,7 +219,7 @@ export function SessionListSidebar<T extends SessionItem>({
             </p>
           </div>
         ) : (
-          <div>
+          <SharedLayoutNav layoutId={layoutId}>
             <AnimatePresence initial={false}>
               {filteredSessions.map((session) => {
                 const isSelected = currentSessionId === session._id;
@@ -224,25 +231,25 @@ export function SessionListSidebar<T extends SessionItem>({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
                         transition={{ duration: 0.18 }}
-                        className={cn(
-                          "group mx-1 rounded-md px-3 py-2 transition-colors duration-200",
-                          isSelected
-                            ? "bg-sidebar-accent text-sidebar-primary"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent/70",
-                        )}
                       >
-                        <SidebarSessionItem
-                          href={`${baseUrl}/${session._id}`}
-                          title={session.title}
-                          userId={session.userId}
-                          createdAt={session._creationTime}
-                          updatedAt={session.updatedAt}
-                          status={session.status}
-                          isSelected={isSelected}
-                          onNavigate={onNavigate}
-                          prUrl={session.prUrl}
-                          prState={session.prState}
-                        />
+                        <SharedLayoutNavSurface
+                          itemId={session._id}
+                          isActive={isSelected}
+                          className="group mx-1 rounded-menu-item px-3 py-1.5"
+                        >
+                          <SidebarSessionItem
+                            href={`${baseUrl}/${session._id}`}
+                            title={session.title}
+                            userId={session.userId}
+                            createdAt={session._creationTime}
+                            updatedAt={session.updatedAt}
+                            status={session.status}
+                            isSelected={isSelected}
+                            onNavigate={onNavigate}
+                            prUrl={session.prUrl}
+                            prState={session.prState}
+                          />
+                        </SharedLayoutNavSurface>
                       </motion.div>
                     </ContextMenuTrigger>
                     <ContextMenuContent onClick={(e) => e.stopPropagation()}>
@@ -307,102 +314,110 @@ export function SessionListSidebar<T extends SessionItem>({
                 );
               })}
             </AnimatePresence>
-          </div>
-        )}
 
-        {filteredArchivedSessions.length > 0 && (
-          <div className="mt-4 pt-4">
-            <button
-              onClick={() => setIsArchiveOpen((prev) => !prev)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-sidebar-foreground transition-colors"
-            >
-              <IconChevronDown
-                size={14}
-                className={cn(
-                  "transition-transform duration-200",
-                  !isArchiveOpen && "-rotate-90",
-                )}
-              />
-              <IconArchive size={14} />
-              Archived ({filteredArchivedSessions.length})
-            </button>
-            <AnimatePresence initial={false}>
-              {isArchiveOpen &&
-                filteredArchivedSessions.map((session) => {
-                  const isSelected = currentSessionId === session._id;
-                  return (
-                    <ContextMenu key={session._id}>
-                      <ContextMenuTrigger asChild>
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.15 }}
-                        >
-                          <DynamicLink
-                            to={`${baseUrl}/${session._id}`}
-                            onClick={onNavigate}
-                            className={cn(
-                              "group mx-1 block rounded-md px-3 py-2 transition-colors duration-200",
-                              isSelected
-                                ? "bg-sidebar-accent text-sidebar-primary"
-                                : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50",
-                            )}
-                          >
-                            <h3 className="truncate text-sm">
-                              {session.title}
-                            </h3>
-                            <span
-                              className={cn(
-                                "text-xs text-muted-foreground/60 transition-opacity",
-                                isSelected
-                                  ? "opacity-100"
-                                  : "opacity-0 group-hover:opacity-100",
-                              )}
+            {filteredArchivedSessions.length > 0 && (
+              <div className="mt-4 pt-4">
+                <button
+                  onClick={() => setIsArchiveOpen((prev) => !prev)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-sidebar-foreground"
+                >
+                  <IconChevronDown
+                    size={14}
+                    className={cn(
+                      "transition-transform duration-200",
+                      !isArchiveOpen && "-rotate-90",
+                    )}
+                  />
+                  <IconArchive size={14} />
+                  Archived ({filteredArchivedSessions.length})
+                </button>
+                <AnimatePresence initial={false}>
+                  {isArchiveOpen &&
+                    filteredArchivedSessions.map((session) => {
+                      const isSelected = currentSessionId === session._id;
+                      return (
+                        <ContextMenu key={session._id}>
+                          <ContextMenuTrigger asChild>
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.15 }}
                             >
-                              {dayjs(
-                                session.updatedAt ?? session._creationTime,
-                              ).fromNow()}
-                            </span>
-                          </DynamicLink>
-                        </motion.div>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-                        {onUnarchive && (
-                          <ContextMenuItem
-                            onSelect={() => {
-                              void onUnarchive(session);
-                            }}
+                              <SharedLayoutNavSurface
+                                itemId={`archived-${session._id}`}
+                                isActive={isSelected}
+                                className="group mx-1 rounded-menu-item"
+                              >
+                                <DynamicLink
+                                  to={`${baseUrl}/${session._id}`}
+                                  onClick={onNavigate}
+                                  className={cn(
+                                    "block",
+                                    sidebarNavListItemClass(isSelected),
+                                    !isSelected && "text-sidebar-foreground/60",
+                                  )}
+                                >
+                                  <h3 className="truncate text-sm">
+                                    {session.title}
+                                  </h3>
+                                  <RelativeDateTime
+                                    at={
+                                      session.updatedAt ?? session._creationTime
+                                    }
+                                    className={cn(
+                                      "text-xs text-muted-foreground/60 transition-opacity",
+                                      isSelected
+                                        ? "opacity-100"
+                                        : "opacity-0 group-hover:opacity-100",
+                                    )}
+                                  />
+                                </DynamicLink>
+                              </SharedLayoutNavSurface>
+                            </motion.div>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <IconArchiveOff size={16} />
-                            Unarchive
-                          </ContextMenuItem>
-                        )}
-                        <ContextMenuItem
-                          onSelect={() => {
-                            void navigator.clipboard.writeText(session.title);
-                          }}
-                        >
-                          <IconClipboard size={16} />
-                          Copy title
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onSelect={() => {
-                            void navigator.clipboard.writeText(
-                              window.location.origin +
-                                `${baseUrl}/${session._id}`,
-                            );
-                          }}
-                        >
-                          <IconLink size={16} />
-                          Copy link
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  );
-                })}
-            </AnimatePresence>
-          </div>
+                            {onUnarchive && (
+                              <ContextMenuItem
+                                onSelect={() => {
+                                  void onUnarchive(session);
+                                }}
+                              >
+                                <IconArchiveOff size={16} />
+                                Unarchive
+                              </ContextMenuItem>
+                            )}
+                            <ContextMenuItem
+                              onSelect={() => {
+                                void navigator.clipboard.writeText(
+                                  session.title,
+                                );
+                              }}
+                            >
+                              <IconClipboard size={16} />
+                              Copy title
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onSelect={() => {
+                                void navigator.clipboard.writeText(
+                                  window.location.origin +
+                                    `${baseUrl}/${session._id}`,
+                                );
+                              }}
+                            >
+                              <IconLink size={16} />
+                              Copy link
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
+                      );
+                    })}
+                </AnimatePresence>
+              </div>
+            )}
+          </SharedLayoutNav>
         )}
       </div>
 

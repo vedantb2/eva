@@ -1,5 +1,5 @@
-import { IconSearch, IconX } from "@tabler/icons-react";
-import { Input } from "./input";
+import { IconSearch } from "@tabler/icons-react";
+import { ClearInput } from "./clear-input";
 import { cn } from "../utils/cn";
 
 interface SearchInputProps {
@@ -20,27 +20,24 @@ function SearchInput({
   inputClassName,
 }: SearchInputProps) {
   return (
-    <div className={cn("relative w-full max-w-sm", className)}>
-      <IconSearch
-        size={15}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-      />
-      <Input
-        placeholder={placeholder}
-        className={cn("h-9 pl-8 pr-8 text-sm", inputClassName)}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      {value && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="motion-press absolute right-3 top-1/2 -translate-y-1/2 rounded-sm text-muted-foreground hover:scale-105 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-        >
-          <IconX size={14} />
-        </button>
-      )}
-    </div>
+    <ClearInput
+      value={value}
+      onChange={(next) => {
+        onChange(next);
+        if (next.length === 0) {
+          onClear();
+        }
+      }}
+      placeholder={placeholder}
+      wrapperClassName={cn("w-full max-w-sm", className)}
+      className={cn("h-9 pl-8 text-sm", inputClassName)}
+      leading={
+        <IconSearch
+          size={15}
+          className="pointer-events-none absolute left-3 top-1/2 z-[3] -translate-y-1/2 text-muted-foreground"
+        />
+      }
+    />
   );
 }
 

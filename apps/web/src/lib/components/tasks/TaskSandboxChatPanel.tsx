@@ -109,6 +109,7 @@ export function TaskSandboxChatPanel({
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}
+        conversationId={taskId}
         messages={messages ?? []}
         queuedMessages={queuedMessages ?? []}
         streamingActivity={streaming?.currentActivity}

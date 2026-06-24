@@ -5,16 +5,7 @@ import { api, PERSONALISATION_PRESETS } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Textarea, Button, Spinner } from "@conductor/ui";
 import { useCallback, useEffect, useRef } from "react";
-import { cn } from "@conductor/ui";
-import { IconBriefcase, IconCode, IconBrush } from "@tabler/icons-react";
-
-const PRESET_ICONS = {
-  business: IconBriefcase,
-  dev: IconCode,
-  designer: IconBrush,
-} as const;
-
-const PRESET_KEYS = ["business", "dev", "designer"] as const;
+import { RolePresetPicker } from "./RolePresetPicker";
 
 export function PersonalisationClient() {
   const personalisation = useQuery(api.auth.getPersonalisation);
@@ -89,38 +80,13 @@ export function PersonalisationClient() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {PRESET_KEYS.map((key) => {
-              const preset = PERSONALISATION_PRESETS[key];
-              const Icon = PRESET_ICONS[key];
-              const isActive = activeRole === key;
-
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setRole({ role: isActive ? null : key })}
-                  className={cn(
-                    "rounded-lg p-3 text-left transition-colors cursor-pointer",
-                    isActive
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-muted/40 text-muted-foreground hover:bg-muted/60",
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon size={14} />
-                    <span className="text-xs font-medium">{preset.label}</span>
-                  </div>
-                  <p className="mt-1 text-[11px] opacity-80">
-                    {preset.description}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
+          <RolePresetPicker
+            activeRole={activeRole}
+            onSelect={(role) => setRole({ role })}
+          />
 
           {activeRole ? (
-            <div className="rounded-lg bg-muted/40 p-3">
+            <div className="rounded-surface border border-border bg-card p-3">
               <p className="mb-2 text-[11px] font-medium text-muted-foreground">
                 Active preset prompt
               </p>

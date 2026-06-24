@@ -3,28 +3,26 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { decodeRepoParam, repoHref as repoHrefUtil } from "@/lib/utils/repoUrl";
-import { UserButton, useUser } from "@clerk/clerk-react";
+import { useUser } from "@clerk/clerk-react";
 import { useMemo, useState, type ComponentType } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { AnimatePresence, motion } from "motion/react";
 import {
   IconChevronLeft,
   IconChevronRight,
-  IconHammer,
+  IconHome,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftCollapseFilled,
   IconMenu2,
   IconMoon,
-  IconSettings,
   IconSun,
-  IconTestPipe,
-  IconTool,
   IconX,
 } from "@tabler/icons-react";
 import {
   AutomationsIcon,
   DesignsIcon,
   DocumentsIcon,
+  DraftsIcon,
   InboxIcon,
   ProjectsIcon,
   QuickTasksIcon,
@@ -33,6 +31,7 @@ import {
   StatsIcon,
   TestingArenaIcon,
 } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
+import { LogoMark } from "@/lib/components/LogoMark";
 import { api } from "@conductor/backend";
 import {
   Button,
@@ -47,9 +46,10 @@ import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjects
 import { ActiveCountBadge } from "@/lib/components/sidebar/ActiveCountBadge";
 import { UnreadInboxBadge } from "@/lib/components/sidebar/UnreadInboxBadge";
 import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomationsBadge";
+import { DraftsCountBadge } from "@/lib/components/sidebar/DraftsCountBadge";
 import { SettingsSidebar } from "@/lib/components/sidebar/SettingsSidebar";
 import { TeamMembers } from "@/lib/components/sidebar/TeamMembers";
-import { SidebarSearchButton } from "@/lib/components/sidebar/SidebarSearchButton";
+import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { DesignSessionsSidebar } from "@/lib/components/sidebar/DesignSessionsSidebar";
 import { DocsSidebar } from "@/lib/components/sidebar/DocsSidebar";
 import { SessionsSidebar } from "@/lib/components/sidebar/SessionsSidebar";
@@ -57,6 +57,12 @@ import { TestingArenaSidebar } from "@/lib/components/sidebar/TestingArenaSideba
 import { AutomationsSidebar } from "@/lib/components/sidebar/AutomationsSidebar";
 import { RepoSwitcher } from "@/lib/components/RepoSwitcher";
 import { RootSidebarContent } from "@/lib/components/sidebar/RootSidebarContent";
+import { CollapsibleSidebarSection } from "@/lib/components/sidebar/CollapsibleSidebarSection";
+import {
+  SharedLayoutNav,
+  SharedLayoutNavSurface,
+  sidebarNavLinkClass,
+} from "@/lib/components/sidebar/SharedLayoutNav";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
@@ -71,6 +77,7 @@ const KNOWN_SUB_PAGES = new Set([
   "stats",
   "automations",
   "inbox",
+  "drafts",
 ]);
 
 const CONTEXT_SIDEBAR_BY_NAV_NAME = {
@@ -105,7 +112,6 @@ type RepoMainNavItem = {
 
 type RepoMainNavGroup = {
   label: string;
-  groupIcon: RepoMainNavIcon;
   items: RepoMainNavItem[];
   devOnly?: boolean;
 };
@@ -142,6 +148,21 @@ export function Sidebar() {
   });
   const [contextSidebarMode, setContextSidebarMode] =
     useState<ContextSidebarMode>(() => getInitialContextSidebarMode(pathname));
+  const [openNavSections, setOpenNavSections] = useState<
+    Record<string, boolean>
+  >({
+    BUILD: true,
+    SHIP: true,
+    TEST: true,
+    MORE: true,
+  });
+
+  const toggleNavSection = (label: string) => {
+    setOpenNavSections((prev) => ({
+      ...prev,
+      [label]: !(prev[label] ?? true),
+    }));
+  };
 
   const repos = useQuery(api.githubRepos.list, {});
 
@@ -164,15 +185,6 @@ export function Sidebar() {
     }
     const o = segments[0];
     const n = segments[1];
-    if (segments.length >= 3 && !KNOWN_SUB_PAGES.has(segments[2])) {
-      return {
-        repoBasePath: `/${o}/${n}/${segments[2]}`,
-        owner: o,
-        repoName: n,
-        appName: segments[2],
-        isRepoRoute: true,
-      };
-    }
     const nonRepoRoutes = new Set([
       "home",
       "sign-in",
@@ -180,16 +192,30 @@ export function Sidebar() {
       "setup",
       "teams",
       "inbox",
+      "artifacts",
       "api",
       "settings",
+      "testing",
     ]);
-    if (nonRepoRoutes.has(segments[0])) {
+    // Guard non-repo routes before the repo-route heuristic below, otherwise
+    // sub-paths like /teams/{id}/members are misread as /owner/repo/appName
+    // (because "members" isn't a KNOWN_SUB_PAGE) and the repo nav renders.
+    if (nonRepoRoutes.has(o)) {
       return {
         repoBasePath: null,
         owner: null,
         repoName: null,
         appName: undefined,
         isRepoRoute: false,
+      };
+    }
+    if (segments.length >= 3 && !KNOWN_SUB_PAGES.has(segments[2])) {
+      return {
+        repoBasePath: `/${o}/${n}/${segments[2]}`,
+        owner: o,
+        repoName: n,
+        appName: segments[2],
+        isRepoRoute: true,
       };
     }
     const decoded = decodeRepoParam(n);
@@ -216,13 +242,7 @@ export function Sidebar() {
     const allGroups: RepoMainNavGroup[] = [
       {
         label: "BUILD",
-        groupIcon: IconHammer,
         items: [
-          {
-            name: "Projects",
-            href: `${repoBasePath}/projects`,
-            icon: ProjectsIcon,
-          },
           {
             name: "Designs",
             href: `${repoBasePath}/designs`,
@@ -232,9 +252,13 @@ export function Sidebar() {
         ],
       },
       {
-        label: "FIX",
-        groupIcon: IconTool,
+        label: "SHIP",
         items: [
+          {
+            name: "Projects",
+            href: `${repoBasePath}/projects`,
+            icon: ProjectsIcon,
+          },
           {
             name: "Quick Tasks",
             href: `${repoBasePath}/quick-tasks`,
@@ -249,7 +273,6 @@ export function Sidebar() {
       },
       {
         label: "TEST",
-        groupIcon: IconTestPipe,
         // devOnly: true,
         items: [
           {
@@ -262,19 +285,12 @@ export function Sidebar() {
             name: "Testing Arena",
             href: `${repoBasePath}/testing-arena`,
             icon: TestingArenaIcon,
-            devOnly: true,
           },
         ],
       },
       {
-        label: "SETTINGS",
-        groupIcon: IconSettings,
+        label: "MORE",
         items: [
-          {
-            name: "Inbox",
-            href: `${repoBasePath}/inbox`,
-            icon: InboxIcon,
-          },
           {
             name: "Automations",
             href: `${repoBasePath}/automations`,
@@ -303,6 +319,22 @@ export function Sidebar() {
       .filter((g) => g.items.length > 0);
   }, [repoBasePath, isRepoRoute, isDev]);
 
+  const repoTopNavItems = useMemo((): RepoMainNavItem[] => {
+    if (!isRepoRoute || !repoBasePath) return [];
+    return [
+      {
+        name: "Inbox",
+        href: `${repoBasePath}/inbox`,
+        icon: InboxIcon,
+      },
+      {
+        name: "Drafts",
+        href: `${repoBasePath}/drafts`,
+        icon: DraftsIcon,
+      },
+    ];
+  }, [repoBasePath, isRepoRoute]);
+
   const { theme, toggleTheme } = useThemeContext();
 
   const handleRepoSwitch = (
@@ -319,13 +351,123 @@ export function Sidebar() {
   };
 
   const navItemClass = (isActive: boolean) =>
-    cn(
-      "group motion-base flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
-      collapsed && "lg:justify-center lg:px-0",
-      isActive
-        ? "bg-sidebar-primary/10 text-sidebar-primary"
-        : "text-sidebar-foreground/80 hover:-translate-y-[1px] hover:bg-sidebar-accent/85 hover:text-sidebar-foreground",
+    sidebarNavLinkClass(isActive, collapsed);
+
+  const closeMobileSidebar = () => setMobileOpen(false);
+
+  const renderRepoNavItem = (item: RepoMainNavItem) => {
+    const isActive = pathname.startsWith(item.href);
+    const contextMode =
+      CONTEXT_SIDEBAR_BY_NAV_NAME[
+        item.name as keyof typeof CONTEXT_SIDEBAR_BY_NAV_NAME
+      ];
+
+    if (contextMode && !collapsed) {
+      const showActiveCount =
+        (item.name === "Sessions" || item.name === "Designs") && repo;
+      return (
+        <SharedLayoutNavSurface
+          key={item.name}
+          itemId={item.name}
+          isActive={isActive}
+          className="group relative"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setContextSidebarMode(contextMode);
+            }}
+            className={cn(navItemClass(isActive), "w-full pr-9")}
+          >
+            <item.icon
+              size={19}
+              className={cn(
+                "shrink-0",
+                isActive ? "text-sidebar-primary" : "text-muted-foreground",
+              )}
+            />
+            <span className="truncate">{item.name}</span>
+            {showActiveCount && (
+              <ActiveCountBadge
+                repoId={repo._id}
+                type={item.name === "Sessions" ? "sessions" : "designs"}
+              />
+            )}
+            {item.name === "Automations" && repo && (
+              <UnreadAutomationsBadge repoId={repo._id} />
+            )}
+          </button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground after:absolute after:inset-[-8px]"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setContextSidebarMode(contextMode);
+            }}
+            title={`Open ${item.name.toLowerCase()} sidebar`}
+          >
+            <IconChevronRight size={14} className="text-muted-foreground" />
+          </Button>
+        </SharedLayoutNavSurface>
+      );
+    }
+
+    const linkElement = (
+      <SharedLayoutNavSurface
+        key={item.name}
+        itemId={item.name}
+        isActive={isActive}
+      >
+        <Link
+          to={item.href}
+          onClick={() => {
+            if (contextMode) {
+              setContextSidebarMode(contextMode);
+            }
+            if (!contextMode) {
+              closeMobileSidebar();
+            }
+          }}
+          className={navItemClass(isActive)}
+        >
+          <item.icon
+            size={19}
+            className={cn(
+              "shrink-0",
+              isActive ? "text-sidebar-primary" : "text-muted-foreground",
+            )}
+          />
+          {!collapsed && <span className="truncate">{item.name}</span>}
+          {item.name === "Inbox" && !collapsed && <UnreadInboxBadge />}
+          {item.name === "Drafts" && !collapsed && repo && (
+            <DraftsCountBadge repoId={repo._id} />
+          )}
+          {item.name === "Quick Tasks" &&
+            !collapsed &&
+            repo &&
+            repoBasePath && (
+              <ActiveTasksBadge repoId={repo._id} basePath={repoBasePath} />
+            )}
+          {item.name === "Projects" && !collapsed && repo && repoBasePath && (
+            <BuildingProjectsBadge repoId={repo._id} basePath={repoBasePath} />
+          )}
+        </Link>
+      </SharedLayoutNavSurface>
     );
+
+    if (collapsed) {
+      return (
+        <Tooltip key={item.name}>
+          <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
+          <TooltipContent side="right">{item.name}</TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return linkElement;
+  };
 
   const contextSidebarTitle =
     contextSidebarMode === "designs"
@@ -341,8 +483,6 @@ export function Sidebar() {
               : contextSidebarMode === "automations"
                 ? "Automations"
                 : "";
-
-  const closeMobileSidebar = () => setMobileOpen(false);
 
   return (
     <>
@@ -362,15 +502,9 @@ export function Sidebar() {
         ) : (
           <Link
             to="/home"
-            className="mx-auto flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5"
+            className="mx-auto flex items-center gap-2 rounded-surface border border-border bg-muted/40 px-2.5 py-1.5"
           >
-            <img
-              src="/icon.svg"
-              alt="Eva"
-              width={22}
-              height={22}
-              className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
-            />
+            <LogoMark size={26} />
             <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
               Eva
             </span>
@@ -408,10 +542,10 @@ export function Sidebar() {
         )}
       >
         <div className="h-full">
-          <div className="flex h-full flex-col overflow-hidden bg-sidebar lg:bg-sidebar/92">
+          <div className="flex h-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar">
             <div
               className={cn(
-                "flex h-16 items-center bg-sidebar-accent/20",
+                "flex h-16 items-center",
                 collapsed ? "px-2" : "px-3",
               )}
             >
@@ -484,15 +618,18 @@ export function Sidebar() {
                     </>
                   ) : (
                     <>
-                      {!collapsed && isRepoRoute && (
+                      {!collapsed && repoBasePath && (
                         <Button
                           size="icon-sm"
                           variant="ghost"
-                          onClick={() => navigate({ to: "/home" })}
+                          onClick={() => navigate({ to: repoBasePath })}
                           className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
-                          title="Back to home"
+                          title="Repo home"
                         >
-                          <IconChevronLeft size={16} />
+                          <IconHome
+                            size={16}
+                            className="text-sidebar-primary"
+                          />
                         </Button>
                       )}
                       {!collapsed && (
@@ -500,13 +637,7 @@ export function Sidebar() {
                           to="/home"
                           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sidebar-foreground"
                         >
-                          <img
-                            src="/icon.svg"
-                            alt="Eva"
-                            width={20}
-                            height={20}
-                            className="shrink-0 rounded outline outline-1 outline-black/10 dark:outline-white/10"
-                          />
+                          <LogoMark size={24} className="shrink-0" />
                           <span className="text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
                             Eva
                           </span>
@@ -555,17 +686,11 @@ export function Sidebar() {
               </AnimatePresence>
             </div>
 
-            <nav
-              className={cn(
-                "scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto pb-4 pt-3",
-                collapsed ? "lg:px-2 px-3" : "px-3",
-              )}
-            >
+            <nav className="scrollbar flex min-h-0 flex-1 flex-col justify-between overflow-y-auto py-3 px-2">
               <div className="space-y-4">
                 {!isRepoRoute && (
                   <RootSidebarContent
                     collapsed={collapsed}
-                    navItemClass={navItemClass}
                     onNavigate={closeMobileSidebar}
                   />
                 )}
@@ -644,177 +769,26 @@ export function Sidebar() {
                             />
                           )}
 
-                          <div className="space-y-4">
+                          <SharedLayoutNav
+                            layoutId="repo-main-nav"
+                            className="space-y-4"
+                          >
+                            <div className="space-y-1">
+                              {repoTopNavItems.map(renderRepoNavItem)}
+                            </div>
                             {repoNavigation.map((group) => (
                               <div key={group.label}>
-                                {!collapsed && (
-                                  <div className="flex items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                                    <group.groupIcon size={12} />
-                                    <span>{group.label}</span>
-                                    <span
-                                      aria-hidden
-                                      className="ml-1 h-px flex-1 bg-sidebar-border/60"
-                                    />
-                                  </div>
-                                )}
-                                <div
-                                  className={cn(
-                                    "space-y-1",
-                                    !collapsed && "pl-2",
-                                  )}
+                                <CollapsibleSidebarSection
+                                  label={group.label}
+                                  open={openNavSections[group.label] ?? true}
+                                  onToggle={() => toggleNavSection(group.label)}
+                                  showHeader={!collapsed}
                                 >
-                                  {group.items.map((item) => {
-                                    const isActive = pathname.startsWith(
-                                      item.href,
-                                    );
-                                    const contextMode =
-                                      CONTEXT_SIDEBAR_BY_NAV_NAME[
-                                        item.name as keyof typeof CONTEXT_SIDEBAR_BY_NAV_NAME
-                                      ];
-
-                                    if (contextMode && !collapsed) {
-                                      const showActiveCount =
-                                        (item.name === "Sessions" ||
-                                          item.name === "Designs") &&
-                                        repo;
-                                      return (
-                                        <div
-                                          key={item.name}
-                                          className="group relative"
-                                        >
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setContextSidebarMode(
-                                                contextMode,
-                                              );
-                                            }}
-                                            className={cn(
-                                              navItemClass(isActive),
-                                              "w-full pr-9",
-                                            )}
-                                          >
-                                            <item.icon
-                                              size={19}
-                                              className={cn(
-                                                "shrink-0",
-                                                isActive
-                                                  ? "text-sidebar-primary"
-                                                  : "text-muted-foreground",
-                                              )}
-                                            />
-                                            <span className="truncate">
-                                              {item.name}
-                                            </span>
-                                            {showActiveCount && (
-                                              <ActiveCountBadge
-                                                repoId={repo._id}
-                                                type={
-                                                  item.name === "Sessions"
-                                                    ? "sessions"
-                                                    : "designs"
-                                                }
-                                              />
-                                            )}
-                                            {item.name === "Automations" &&
-                                              repo && (
-                                                <UnreadAutomationsBadge
-                                                  repoId={repo._id}
-                                                />
-                                              )}
-                                          </button>
-                                          <Button
-                                            size="icon-sm"
-                                            variant="ghost"
-                                            className="absolute right-2 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground after:absolute after:inset-[-8px]"
-                                            onClick={(event) => {
-                                              event.preventDefault();
-                                              event.stopPropagation();
-                                              setContextSidebarMode(
-                                                contextMode,
-                                              );
-                                            }}
-                                            title={`Open ${item.name.toLowerCase()} sidebar`}
-                                          >
-                                            <IconChevronRight
-                                              size={14}
-                                              className="text-muted-foreground"
-                                            />
-                                          </Button>
-                                        </div>
-                                      );
-                                    }
-
-                                    const linkElement = (
-                                      <Link
-                                        key={item.name}
-                                        to={item.href}
-                                        onClick={() => {
-                                          if (contextMode) {
-                                            setContextSidebarMode(contextMode);
-                                          }
-                                          if (!contextMode) {
-                                            closeMobileSidebar();
-                                          }
-                                        }}
-                                        className={navItemClass(isActive)}
-                                      >
-                                        <item.icon
-                                          size={19}
-                                          className={cn(
-                                            "shrink-0",
-                                            isActive
-                                              ? "text-sidebar-primary"
-                                              : "text-muted-foreground",
-                                          )}
-                                        />
-                                        {!collapsed && (
-                                          <span className="truncate">
-                                            {item.name}
-                                          </span>
-                                        )}
-                                        {item.name === "Inbox" &&
-                                          !collapsed && <UnreadInboxBadge />}
-                                        {item.name === "Quick Tasks" &&
-                                          !collapsed &&
-                                          repo &&
-                                          repoBasePath && (
-                                            <ActiveTasksBadge
-                                              repoId={repo._id}
-                                              basePath={repoBasePath}
-                                            />
-                                          )}
-                                        {item.name === "Projects" &&
-                                          !collapsed &&
-                                          repo &&
-                                          repoBasePath && (
-                                            <BuildingProjectsBadge
-                                              repoId={repo._id}
-                                              basePath={repoBasePath}
-                                            />
-                                          )}
-                                      </Link>
-                                    );
-
-                                    if (collapsed) {
-                                      return (
-                                        <Tooltip key={item.name}>
-                                          <TooltipTrigger asChild>
-                                            {linkElement}
-                                          </TooltipTrigger>
-                                          <TooltipContent side="right">
-                                            {item.name}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      );
-                                    }
-
-                                    return linkElement;
-                                  })}
-                                </div>
+                                  {group.items.map(renderRepoNavItem)}
+                                </CollapsibleSidebarSection>
                               </div>
                             ))}
-                          </div>
+                          </SharedLayoutNav>
                         </div>
                       )}
                     </motion.div>
@@ -823,48 +797,14 @@ export function Sidebar() {
               </div>
             </nav>
 
-            <div
-              className={cn(
-                "bg-sidebar-accent/32",
-                collapsed ? "px-2 py-3" : "px-3 py-3",
-              )}
-            >
+            <div className={cn(collapsed ? "px-2 py-3" : "px-3 py-3")}>
               <TeamMembers collapsed={collapsed} />
-              <div
-                className={cn(
-                  "flex items-center",
-                  collapsed ? "flex-col gap-2" : "gap-2 pr-2",
-                )}
-              >
-                <UserButton
-                  appearance={{
-                    elements: {
-                      avatarBox: "h-6 w-6",
-                    },
-                  }}
-                />
-
-                {!collapsed && (
-                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-sidebar-foreground">
-                    {user?.fullName || user?.firstName || "User"}
-                  </p>
-                )}
-                {isRepoRoute && <SidebarSearchButton />}
-
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-muted-foreground hover:text-sidebar-foreground"
-                  title="Toggle theme"
-                  onClick={toggleTheme}
-                >
-                  {theme === "dark" ? (
-                    <IconSun size={16} />
-                  ) : (
-                    <IconMoon size={16} />
-                  )}
-                </Button>
-              </div>
+              <SidebarUserMenu
+                collapsed={collapsed}
+                name={user?.fullName || user?.firstName || "User"}
+                email={user?.primaryEmailAddress?.emailAddress}
+                showSearch={isRepoRoute}
+              />
             </div>
           </div>
         </div>

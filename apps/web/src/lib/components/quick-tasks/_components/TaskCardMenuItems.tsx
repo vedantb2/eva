@@ -44,6 +44,7 @@ import {
   TASK_STATUSES,
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
+import { canEditTaskModel } from "@/lib/components/tasks/_components/task-detail-constants";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 type GroupedCodebase = FunctionReturnType<
@@ -220,7 +221,7 @@ export function TaskCardMenuItems({
       <Sub>
         <SubTrigger>
           <IconUserPlus size={16} />
-          Assignee
+          Code Reviewer
         </SubTrigger>
         <SubContent>
           <RadioGroup
@@ -242,17 +243,19 @@ export function TaskCardMenuItems({
             )}
             <MenuSeparator />
             <RadioItem value="unassigned">Unassigned</RadioItem>
-            {users?.map((user) => (
-              <RadioItem key={user._id} value={user._id}>
-                {user.fullName ?? user.firstName ?? "Unknown"}
-              </RadioItem>
-            ))}
+            {(users ?? [])
+              .filter((user) => user.role === "dev")
+              .map((user) => (
+                <RadioItem key={user._id} value={user._id}>
+                  {user.fullName ?? user.firstName ?? "Unknown"}
+                </RadioItem>
+              ))}
           </RadioGroup>
         </SubContent>
       </Sub>
 
       <Sub>
-        <SubTrigger disabled={status !== "todo"}>
+        <SubTrigger disabled={!canEditTaskModel(status)}>
           <IconBrain size={16} />
           Model
         </SubTrigger>

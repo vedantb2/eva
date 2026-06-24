@@ -32,6 +32,7 @@ export {
   stopTaskSandbox,
   retryStartupCommands,
   runDevServer,
+  runBackgroundCommands,
   taskSandboxReady,
   taskSandboxError,
 } from "./_agentTasks/sandbox";

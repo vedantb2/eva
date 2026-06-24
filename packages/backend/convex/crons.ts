@@ -11,4 +11,14 @@ crons.cron(
   {},
 );
 
+// Check every 15 minutes whether the configured daily sandbox auto-stop time
+// has been reached and, if so, stop every active sandbox. The action itself is
+// a no-op when auto-stop is disabled or already ran for today's occurrence.
+crons.interval(
+  "sandbox auto-stop sweep",
+  { minutes: 15 },
+  internal.sandboxAutoStop.run,
+  {},
+);
+
 export default crons;

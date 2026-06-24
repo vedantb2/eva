@@ -30,6 +30,14 @@ export const auditSectionValidator = v.object({
   results: v.array(evalResultValidator),
 });
 
+/** A single failed audit requirement selected for the fix flow. */
+export const auditFailureValidator = v.object({
+  section: v.string(),
+  requirement: v.string(),
+  detail: v.string(),
+  severity: auditSeverityValidator,
+});
+
 export const userFlowValidator = v.object({
   name: v.string(),
   steps: v.array(v.string()),
@@ -81,3 +89,18 @@ export const automationFindingValidator = v.object({
   suggestedFix: v.optional(v.string()),
   taskId: v.optional(v.id("agentTasks")),
 });
+
+// Task-count breakdown for a project, used by both the single-project
+// (getTaskProgress) and batched (listTaskProgress) queries. Defined once so the
+// two return shapes never drift apart.
+export const taskProgressFields = {
+  total: v.number(),
+  todo: v.number(),
+  in_progress: v.number(),
+  code_review: v.number(),
+  business_review: v.number(),
+  done: v.number(),
+  cancelled: v.number(),
+};
+
+export const taskProgressValidator = v.object(taskProgressFields);

@@ -77,6 +77,7 @@ export type GanttContextProps = {
   timelineData: TimelineData;
   ref: RefObject<HTMLDivElement | null> | null;
   scrollToFeature?: (feature: GanttFeature) => void;
+  scrollToToday?: () => void;
   dragging: boolean;
   setDragging: (v: boolean) => void;
   scrollX: number;
@@ -95,6 +96,7 @@ export const GanttContext = createContext<GanttContextProps>({
   timelineData: [],
   ref: null,
   scrollToFeature: undefined,
+  scrollToToday: undefined,
   dragging: false,
   setDragging: () => {},
   scrollX: 0,
@@ -268,6 +270,7 @@ export type GanttProviderProps = {
   range?: Range;
   zoom?: number;
   onAddItem?: (date: Date) => void;
+  onZoomChange?: (zoom: number) => void;
   children: ReactNode;
   className?: string;
 };
@@ -276,6 +279,7 @@ export const GanttProvider: FC<GanttProviderProps> = ({
   zoom = 100,
   range = "monthly",
   onAddItem,
+  onZoomChange,
   children,
   className,
 }) => {
@@ -289,7 +293,9 @@ export const GanttProvider: FC<GanttProviderProps> = ({
 
   const headerHeight = 60;
   const rowHeight = 36;
-  let columnWidth = 50;
+  // Daily is rendered as a Linear-style weekly grid (~16px/day → ~112px/week),
+  // so the per-day column is narrow and only week starts are labelled.
+  let columnWidth = 16;
 
   if (range === "monthly") {
     columnWidth = 150;
@@ -308,13 +314,57 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     return vars;
   }, [zoom, columnWidth, sidebarWidth]);
 
+  // Center the canvas on today once the sidebar width is known, matching
+  // Linear's default (today near the middle of the viewport). Runs once.
+  const didCenterRef = useRef(false);
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) {
-      el.scrollLeft = el.scrollWidth / 2 - el.clientWidth / 2;
-      setScrollX(el.scrollLeft);
-    }
-  }, []);
+    if (!el || didCenterRef.current || sidebarWidth === 0) return;
+    const firstYear = timelineData[0]?.year ?? new Date().getFullYear();
+    const offset = getOffset(new Date(), new Date(firstYear, 0, 1), {
+      zoom,
+      range,
+      columnWidth,
+      sidebarWidth,
+      headerHeight,
+      rowHeight,
+      onAddItem,
+      placeholderLength: 2,
+      timelineData,
+      ref: scrollRef,
+      dragging: false,
+      setDragging: () => {},
+      scrollX: 0,
+      setScrollX: () => {},
+    });
+    el.scrollLeft = Math.max(0, sidebarWidth + offset - el.clientWidth / 2);
+    setScrollX(el.scrollLeft);
+    didCenterRef.current = true;
+  }, [sidebarWidth, zoom, range, columnWidth, timelineData, onAddItem]);
+
+  // Ctrl/Cmd + wheel (and trackpad pinch, which sends ctrlKey) zooms the
+  // timeline like Linear, instead of zooming the page. Plain wheel scrolls.
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !onZoomChange) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      event.preventDefault();
+      const direction = event.deltaY < 0 ? 1 : -1;
+      const next = Math.min(
+        200,
+        Math.max(50, zoomRef.current + direction * 10),
+      );
+      if (next !== zoomRef.current) {
+        zoomRef.current = next;
+        onZoomChange(next);
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [onZoomChange]);
 
   useEffect(() => {
     const updateSidebarWidth = () => {
@@ -406,6 +456,64 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     return () => scrollElement.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
+  // Drag-to-pan: with the scrollbar hidden, pressing on empty canvas and
+  // dragging scrolls the timeline like Linear's roadmap. Bars, the sidebar and
+  // any interactive control opt out via the selector below so their own
+  // click/drag behaviour is preserved.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let panning = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    const isInteractive = (target: EventTarget | null) =>
+      target instanceof Element &&
+      Boolean(
+        target.closest(
+          'button, a, input, textarea, select, [role="button"], [data-gantt-no-pan], [data-roadmap-ui="gantt-sidebar"]',
+        ),
+      );
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || isInteractive(event.target)) return;
+      panning = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      startLeft = el.scrollLeft;
+      startTop = el.scrollTop;
+      el.style.cursor = "grabbing";
+      event.preventDefault();
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!panning) return;
+      el.scrollLeft = startLeft - (event.clientX - startX);
+      el.scrollTop = startTop - (event.clientY - startY);
+    };
+
+    const endPan = () => {
+      if (!panning) return;
+      panning = false;
+      el.style.cursor = "";
+    };
+
+    el.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", endPan);
+    window.addEventListener("pointercancel", endPan);
+
+    return () => {
+      el.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", endPan);
+      window.removeEventListener("pointercancel", endPan);
+    };
+  }, []);
+
   const scrollToFeature = useCallback(
     (feature: GanttFeature) => {
       const scrollElement = scrollRef.current;
@@ -436,6 +544,37 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     [timelineData, zoom, range, columnWidth, sidebarWidth, onAddItem],
   );
 
+  const scrollToToday = useCallback(() => {
+    const scrollElement = scrollRef.current;
+    if (!scrollElement) return;
+
+    const firstYear = timelineData[0]?.year ?? new Date().getFullYear();
+    const timelineStartDate = new Date(firstYear, 0, 1);
+
+    const offset = getOffset(new Date(), timelineStartDate, {
+      zoom,
+      range,
+      columnWidth,
+      sidebarWidth,
+      headerHeight,
+      rowHeight,
+      onAddItem,
+      placeholderLength: 2,
+      timelineData,
+      ref: scrollRef,
+      dragging: false,
+      setDragging: () => {},
+      scrollX: 0,
+      setScrollX: () => {},
+    });
+
+    // Centre today in the viewport rather than pinning it to the left edge.
+    scrollElement.scrollTo({
+      left: Math.max(0, offset - scrollElement.clientWidth / 2),
+      behavior: "smooth",
+    });
+  }, [timelineData, zoom, range, columnWidth, sidebarWidth, onAddItem]);
+
   return (
     <GanttContext.Provider
       value={{
@@ -450,6 +589,7 @@ export const GanttProvider: FC<GanttProviderProps> = ({
         placeholderLength: 2,
         ref: scrollRef,
         scrollToFeature,
+        scrollToToday,
         dragging,
         setDragging,
         scrollX,
@@ -458,7 +598,7 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     >
       <div
         className={cn(
-          "gantt relative isolate grid h-full w-full flex-none select-none overflow-auto rounded-sm bg-muted/20",
+          "gantt relative isolate grid h-full w-full flex-none select-none overflow-auto scrollbar-none rounded-surface border border-border bg-card shadow-sm",
           range,
           className,
         )}

@@ -102,11 +102,8 @@ export function SetupBanner() {
       <DialogContent>
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500/10">
-              <IconAlertTriangle
-                size={20}
-                className="text-yellow-600 dark:text-yellow-500"
-              />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning/10">
+              <IconAlertTriangle size={20} className="text-warning" />
             </div>
             <DialogTitle>Setup Required</DialogTitle>
           </div>
@@ -118,7 +115,7 @@ export function SetupBanner() {
             enable Codex, sign in locally with Codex once, then paste the saved
             auth JSON into `CODEX_AUTH_JSON`.
           </p>
-          <div className="rounded-lg bg-muted/40 p-4">
+          <div className="rounded-surface border border-border bg-card p-4">
             <p className="mb-2 text-xs font-medium text-muted-foreground">
               Missing Variables:
             </p>
@@ -133,11 +130,11 @@ export function SetupBanner() {
                       {entry.keys.join(" or ")}
                     </code>
                     {entry.required ? (
-                      <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400">
+                      <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
                         Required
                       </span>
                     ) : (
-                      <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] font-medium text-yellow-600 dark:text-yellow-500">
+                      <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-warning">
                         Optional
                       </span>
                     )}

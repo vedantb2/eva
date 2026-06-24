@@ -32,11 +32,13 @@ export const GanttTimeline: FC<GanttTimelineProps> = ({
 export type GanttColumnsProps = {
   columns: number;
   isColumnSecondary?: (item: number) => boolean;
+  isColumnDivider?: (item: number) => boolean;
 };
 
 export const GanttColumns: FC<GanttColumnsProps> = ({
   columns,
   isColumnSecondary,
+  isColumnDivider,
 }) => {
   const id = useId();
 
@@ -51,6 +53,7 @@ export const GanttColumns: FC<GanttColumnsProps> = ({
         <GanttColumn
           index={index}
           isColumnSecondary={isColumnSecondary}
+          isColumnDivider={isColumnDivider}
           key={`${id}-${index}`}
         />
       ))}
@@ -61,16 +64,23 @@ export const GanttColumns: FC<GanttColumnsProps> = ({
 export type GanttColumnProps = {
   index: number;
   isColumnSecondary?: (item: number) => boolean;
+  isColumnDivider?: (item: number) => boolean;
 };
 
 export const GanttColumn: FC<GanttColumnProps> = ({
   index,
   isColumnSecondary,
+  isColumnDivider,
 }) => (
   <div
     className={cn(
       "group relative h-full overflow-hidden",
-      isColumnSecondary?.(index) ? "bg-muted/25" : "",
+      isColumnDivider
+        ? isColumnDivider(index)
+          ? "border-l border-border/50"
+          : ""
+        : "border-r border-border/40",
+      isColumnSecondary?.(index) ? "bg-muted/30" : "",
     )}
   />
 );
@@ -116,16 +126,16 @@ export const GanttToday: FC<GanttTodayProps> = ({ className }) => {
     >
       <div
         className={cn(
-          "group pointer-events-auto sticky top-0 flex select-auto flex-col flex-nowrap items-center justify-center whitespace-nowrap rounded-b-md bg-primary/10 px-2 py-1 text-primary text-xs",
+          "group pointer-events-auto sticky top-0 z-[1] flex select-auto flex-col flex-nowrap items-center justify-center whitespace-nowrap rounded-b-md bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground shadow-sm",
           className,
         )}
       >
         Today
-        <span className="max-h-[0] overflow-hidden opacity-80 transition-all group-hover:max-h-[2rem]">
+        <span className="max-h-0 overflow-hidden opacity-90 transition-all group-hover:max-h-[2rem]">
           {dayjs(date).format("MMM DD, YYYY")}
         </span>
       </div>
-      <div className={cn("h-full w-px bg-primary/40", className)} />
+      <div className={cn("h-full w-px bg-primary/70", className)} />
     </div>
   );
 };

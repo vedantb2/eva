@@ -3,8 +3,12 @@ import { aiModelValidator } from "./aiModels";
 import {
   deploymentStatusValidator,
   errorTypeValidator,
+  evaluationStatusValidator,
+  evalFixStatusValidator,
   phaseValidator,
   priorityValidator,
+  reactionTargetValidator,
+  roleUserValidator,
   roleValidator,
   runModeValidator,
   runStatusValidator,
@@ -14,14 +18,36 @@ import {
   taskSandboxEventValidator,
   taskSandboxStatusValidator,
   taskStatusValidator,
+  themeValidator,
 } from "./enums";
 import {
   automationFindingValidator,
   conversationMessageValidator,
+  customThemeValidator,
+  evalResultValidator,
   logEntryValidator,
   terminalPaneValidator,
   variationValidator,
 } from "./shapes";
+
+export const userFields = {
+  clerkId: v.optional(v.string()),
+  email: v.optional(v.string()),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  fullName: v.optional(v.string()),
+  isAdmin: v.optional(v.boolean()),
+  role: v.optional(roleUserValidator),
+  theme: v.optional(themeValidator),
+  customTheme: v.optional(customThemeValidator),
+  toolbarVisible: v.optional(v.boolean()),
+  customInstructions: v.optional(v.string()),
+  lastSeenAt: v.optional(v.number()),
+  lastSeenPath: v.optional(v.string()),
+  lastChangelogDismissedAt: v.optional(v.number()),
+  onboardingCompletedAt: v.optional(v.number()),
+  emailNotificationsEnabled: v.optional(v.boolean()),
+};
 
 export const agentTaskFields = {
   title: v.string(),
@@ -34,7 +60,7 @@ export const agentTaskFields = {
   priority: v.optional(priorityValidator),
   createdAt: v.number(),
   updatedAt: v.number(),
-  createdBy: v.optional(v.id("users")),
+  createdBy: v.id("users"),
   assignedTo: v.optional(v.id("users")),
   model: v.optional(aiModelValidator),
   baseBranch: v.optional(v.string()),
@@ -64,6 +90,12 @@ export const agentTaskFields = {
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
+  // The change-request comment that put this task back to "todo" via "Make
+  // changes". Project-task change runs start later (Build Project), decoupled
+  // from the comment, so the id is parked here and copied onto the run's
+  // `triggeringCommentId` when the run is created, then cleared. Lets the
+  // timeline label project re-runs "made changes" like quick-task re-runs.
+  pendingChangeRequestCommentId: v.optional(v.id("taskComments")),
 };
 
 export const agentRunFields = {
@@ -85,6 +117,13 @@ export const agentRunFields = {
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
   mode: v.optional(runModeValidator),
+  // Who started this run (button click or "Make changes" submit). Absent on
+  // runs created before this field existed.
+  triggeredBy: v.optional(v.id("users")),
+  // The change-request comment that started this run, set only for "Make
+  // changes" runs. Lets the timeline link a run to its comment explicitly
+  // rather than guessing by timestamp.
+  triggeringCommentId: v.optional(v.id("taskComments")),
 };
 
 export const sessionFields = {
@@ -236,6 +275,9 @@ export const projectFields = {
   // Set when chat or other queue helpers touch the project. Mirrors
   // `sessions.updatedAt` so the same queue/list helpers work uniformly.
   updatedAt: v.optional(v.number()),
+  codeReviewer: v.optional(v.id("users")),
+  tags: v.optional(v.array(v.string())),
+  model: v.optional(aiModelValidator),
 };
 
 export const projectDetailsFields = {
@@ -254,6 +296,9 @@ export const automationFields = {
   readOnly: v.optional(v.boolean()),
   actionsEnabled: v.optional(v.boolean()),
   shared: v.optional(v.boolean()),
+  // When true, a successful run broadcasts its result summary by email to every
+  // user with email notifications enabled (see automationEmail.sendAutomationEmail).
+  sendEmail: v.optional(v.boolean()),
   cronJobId: v.optional(v.string()),
   createdBy: v.id("users"),
   createdAt: v.number(),
@@ -341,13 +386,184 @@ export const taskCommentFields = {
   createdAt: v.number(),
 };
 
+// One row per (target, user, emoji). Polymorphic within a task: `targetType`
+// + `targetId` identify what is reacted to (a comment or the description).
+// `targetId` is a string because it spans tables (commentId vs taskId), and is
+// never used with `db.get` — access is always gated by the real `taskId`.
+export const taskReactionFields = {
+  taskId: v.id("agentTasks"),
+  targetType: reactionTargetValidator,
+  targetId: v.string(),
+  emoji: v.string(),
+  userId: v.id("users"),
+  createdAt: v.number(),
+};
+
+// One row per (task, user). `subscribed: false` is a sticky opt-out tombstone —
+// it stops auto-subscribe triggers (commenting, being mentioned) from silently
+// re-adding a user who explicitly unsubscribed. Absence of a row = never involved.
+export const taskSubscriberFields = {
+  taskId: v.id("agentTasks"),
+  userId: v.id("users"),
+  subscribed: v.boolean(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
 // Per-sandbox bearer secret the in-sandbox git credential helper presents to
 // /api/git-credentials to receive a freshly minted GitHub App installation
 // token. One row per Daytona sandbox; rotated every time the helper is
 // reinstalled.
+// App-wide singleton settings (a single row). Currently holds the daily
+// sandbox auto-stop schedule: a wall-clock time + IANA timezone at which the
+// `sandboxAutoStop` cron stops every active sandbox so none are left running
+// overnight. `sandboxAutoStopLastRunDate` is the once-per-day dedup guard
+// (the local date "YYYY-MM-DD" of the last occurrence that was swept).
+export const appSettingsFields = {
+  sandboxAutoStopEnabled: v.boolean(),
+  sandboxAutoStopTime: v.string(),
+  sandboxAutoStopTimeZone: v.string(),
+  sandboxAutoStopLastRunDate: v.optional(v.string()),
+};
+
 export const sandboxGitCredentialsFields = {
   sandboxId: v.string(),
   installationId: v.number(),
   secret: v.string(),
+  createdAt: v.number(),
+};
+
+export const docFields = {
+  repoId: v.id("githubRepos"),
+  sessionId: v.optional(v.id("sessions")),
+  title: v.string(),
+  content: v.string(),
+  description: v.optional(v.string()),
+  userFlows: v.optional(
+    v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
+  ),
+  requirements: v.optional(v.array(v.string())),
+  interviewHistory: v.optional(
+    v.array(
+      v.object({
+        role: roleValidator,
+        content: v.string(),
+        activityLog: v.optional(v.string()),
+        userId: v.optional(v.id("users")),
+      }),
+    ),
+  ),
+  sandboxId: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
+  testGenStatus: v.optional(evaluationStatusValidator),
+  testPrUrl: v.optional(v.string()),
+  contentUpdatedAt: v.optional(v.number()),
+  lastParsedAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
+export const docCommentFields = {
+  docId: v.id("docs"),
+  content: v.string(),
+  authorId: v.optional(v.id("users")),
+  parentId: v.optional(v.id("docComments")),
+  anchorId: v.optional(v.string()),
+  anchorText: v.optional(v.string()),
+  resolvedAt: v.optional(v.number()),
+  resolvedBy: v.optional(v.id("users")),
+  deletedAt: v.optional(v.number()),
+  createdAt: v.number(),
+};
+
+export const docSubscriberFields = {
+  docId: v.id("docs"),
+  userId: v.id("users"),
+  subscribed: v.boolean(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
+export const docVersionFields = {
+  docId: v.id("docs"),
+  title: v.string(),
+  content: v.string(),
+  pmContent: v.string(),
+  authorIds: v.array(v.id("users")),
+  createdAt: v.number(),
+};
+
+export const docVersionDraftFields = {
+  docId: v.id("docs"),
+  authorIds: v.array(v.id("users")),
+  updatedAt: v.number(),
+};
+
+// One row per (user, surface target). `kind` names the input surface so the
+// table stays extensible. Exactly one target FK group is set, matching `kind`.
+// Content is stored TOKENIZED (@[Label](id)) so mentions survive reload.
+export const draftFields = {
+  userId: v.id("users"),
+  repoId: v.id("githubRepos"),
+  kind: v.union(
+    v.literal("taskComment"),
+    v.literal("sessionChat"),
+    v.literal("designChat"),
+  ),
+  taskId: v.optional(v.id("agentTasks")),
+  parentCommentId: v.optional(v.id("taskComments")),
+  sessionId: v.optional(v.id("sessions")),
+  designSessionId: v.optional(v.id("designSessions")),
+  content: v.string(),
+  updatedAt: v.number(),
+};
+
+export const evaluationReportFields = {
+  repoId: v.id("githubRepos"),
+  docId: v.id("docs"),
+  status: evaluationStatusValidator,
+  results: v.array(evalResultValidator),
+  summary: v.optional(v.string()),
+  error: v.optional(v.string()),
+  activeWorkflowId: v.optional(v.string()),
+  fixStatus: v.optional(evalFixStatusValidator),
+  fixBranchName: v.optional(v.string()),
+  prUrl: v.optional(v.string()),
+  // Branch the evaluation ran against, so an opt-in fix uses the same base.
+  branchName: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
+// Discriminated target for get/set — explicit per surface, no field-sniffing.
+export const draftTarget = v.union(
+  v.object({
+    kind: v.literal("taskComment"),
+    taskId: v.id("agentTasks"),
+    parentCommentId: v.optional(v.id("taskComments")),
+  }),
+  v.object({
+    kind: v.literal("sessionChat"),
+    sessionId: v.id("sessions"),
+  }),
+  v.object({
+    kind: v.literal("designChat"),
+    designSessionId: v.id("designSessions"),
+  }),
+);
+
+// A hosted Claude "Cowork" artifact: a self-contained HTML page uploaded to eva
+// that calls the Eva MCP read-only tools via an in-app bridge. boundTeamId scopes
+// listing/visibility only — tool calls target any repo the signed-in user can
+// access (enforced per call). declaredTools is advisory metadata parsed from the
+// artifact's cowork-artifact-meta header; the runtime read-only whitelist is the
+// real gate. New row per upload; manual delete.
+export const artifactFields = {
+  name: v.string(),
+  description: v.optional(v.string()),
+  boundTeamId: v.id("teams"),
+  declaredTools: v.array(v.string()),
+  htmlStorageId: v.id("_storage"),
+  uploadedBy: v.id("users"),
   createdAt: v.number(),
 };

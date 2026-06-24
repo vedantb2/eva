@@ -330,7 +330,7 @@ export const deleteRepoStep = internalMutation({
   },
 });
 
-/** Schedules deletion of all repos not owned by "evalucom" (or vedantb2/eva). */
+/** Schedules deletion of all repos not owned by "evalucom" (or vvedantb/eva). */
 export const deleteNonEvalucomRepos = internalMutation({
   args: {},
   returns: v.object({ reposScheduled: v.number() }),
@@ -338,7 +338,7 @@ export const deleteNonEvalucomRepos = internalMutation({
     const allRepos = await ctx.db.query("githubRepos").collect();
     const targets = allRepos.filter(
       (r) =>
-        r.owner !== "evalucom" && !(r.owner === "vedantb2" && r.name === "eva"),
+        r.owner !== "evalucom" && !(r.owner === "vvedantb" && r.name === "eva"),
     );
 
     console.log(
@@ -358,7 +358,7 @@ export const deleteNonEvalucomRepos = internalMutation({
   },
 });
 
-/** Schedules deletion of all repos owned by "evalucom" (or vedantb2/eva). */
+/** Schedules deletion of all repos owned by "evalucom" (or vvedantb/eva). */
 export const deleteEvalucomRepos = internalMutation({
   args: {},
   returns: v.object({ reposScheduled: v.number() }),
@@ -366,7 +366,7 @@ export const deleteEvalucomRepos = internalMutation({
     const allRepos = await ctx.db.query("githubRepos").collect();
     const targets = allRepos.filter(
       (r) =>
-        r.owner === "evalucom" || (r.owner === "vedantb2" && r.name === "eva"),
+        r.owner === "evalucom" || (r.owner === "vvedantb" && r.name === "eva"),
     );
 
     console.log(

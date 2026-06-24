@@ -222,7 +222,7 @@ function OwnerGroup({
   const sorted = [...repos].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="rounded-lg bg-muted/40 p-3 sm:p-4">
+    <div className="rounded-surface border border-border bg-card p-3 sm:p-4">
       <label className="flex cursor-pointer items-center gap-2.5 pb-3">
         <Checkbox
           checked={allEnabled ? true : someEnabled ? "indeterminate" : false}
@@ -240,7 +240,7 @@ function OwnerGroup({
           return (
             <label
               key={repo.name}
-              className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60"
+              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60"
             >
               <Checkbox
                 checked={enabled}

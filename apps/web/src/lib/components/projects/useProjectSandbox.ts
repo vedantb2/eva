@@ -27,10 +27,15 @@ export function useProjectSandbox(
   const retryStartupCommandsMutation = useMutation(
     api.projects.retryProjectStartupCommands,
   );
+  const runBackgroundCommandsMutation = useMutation(
+    api.projects.runProjectBackgroundCommands,
+  );
 
   const [isStartingLocal, setIsStartingLocal] = useState(false);
   const [isStoppingLocal, setIsStoppingLocal] = useState(false);
   const [isRetryingStartupCommands, setIsRetryingStartupCommands] =
+    useState(false);
+  const [isRunningBackgroundCommands, setIsRunningBackgroundCommands] =
     useState(false);
 
   const canStartSandbox =
@@ -79,6 +84,17 @@ export function useProjectSandbox(
     }
   }, [retryStartupCommandsMutation, projectId]);
 
+  const handleRunBackgroundCommands = useCallback(async () => {
+    setIsRunningBackgroundCommands(true);
+    try {
+      await runBackgroundCommandsMutation({ projectId });
+    } catch (err) {
+      console.error("Failed to run project background commands:", err);
+    } finally {
+      setIsRunningBackgroundCommands(false);
+    }
+  }, [runBackgroundCommandsMutation, projectId]);
+
   return {
     canStartSandbox,
     isSandboxActive,
@@ -90,5 +106,7 @@ export function useProjectSandbox(
     handleStopSandbox,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
+    handleRunBackgroundCommands,
+    isRunningBackgroundCommands,
   };
 }

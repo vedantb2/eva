@@ -1,0 +1,6 @@
+# Reject a stray lone "@" line, which usually means a PowerShell here-string
+# (@'...'@) was run in a bash shell, leaking "@" as the subject and last line.
+if grep -qxF '@' "$1"; then
+  echo "commit-msg: stray '@' line in commit message (mis-quoted here-string?). Aborting." >&2
+  exit 1
+fi

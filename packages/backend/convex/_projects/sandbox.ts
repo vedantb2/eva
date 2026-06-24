@@ -137,6 +137,35 @@ export const retryProjectStartupCommands = authMutation({
 });
 
 /**
+ * Re-launches the repo's configured background commands (long-running daemons
+ * like `npx convex dev`) in an active project preview sandbox. Background
+ * commands already run automatically on every sandbox start/resume; this is for
+ * respawning a daemon that died while the sandbox kept running.
+ */
+export const runProjectBackgroundCommands = authMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await getProjectWithAccess(
+      ctx.db,
+      args.projectId,
+      ctx.userId,
+    );
+
+    if (project.reviewProjectSandboxStatus !== "active" || !project.sandboxId) {
+      throw new Error("Start the sandbox before running background commands");
+    }
+
+    await ctx.scheduler.runAfter(0, internal.daytona.runBackgroundCommands, {
+      sandboxId: project.sandboxId,
+      repoId: project.repoId,
+    });
+
+    return null;
+  },
+});
+
+/**
  * Spawns an agent run on the project branch with the resolve_conflicts prompt.
  * Reuses the project's persistent sandbox and the existing task workflow
  * machinery. Picks the project's most recently updated non-draft task as the

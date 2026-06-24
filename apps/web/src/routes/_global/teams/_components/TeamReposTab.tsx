@@ -188,7 +188,7 @@ export function TeamReposTab({
                   </Select>
                 </div>
                 {dialog.error && (
-                  <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3">
+                  <div className="rounded-surface border border-destructive/50 bg-destructive/10 p-3">
                     <p className="text-sm text-destructive">{dialog.error}</p>
                   </div>
                 )}

@@ -84,7 +84,7 @@ export function ScheduleDateTimePicker({
             type="time"
             value={time}
             onChange={(e) => onTimeChange(e.target.value)}
-            className="flex-1 rounded-md border bg-background px-2 py-1 text-sm"
+            className="flex-1 rounded-control border border-input bg-background px-2 py-1 text-sm"
           />
         </label>
         {showPreview && timestamp && (

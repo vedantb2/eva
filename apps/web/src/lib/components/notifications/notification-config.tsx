@@ -12,6 +12,8 @@ import {
   IconMessageReply,
   IconAt,
   IconPlayerPlay,
+  IconProgress,
+  IconPencil,
 } from "@tabler/icons-react";
 import { Avatar, AvatarFallback } from "@conductor/ui";
 import type { BadgeProps } from "@conductor/ui";
@@ -60,12 +62,26 @@ export const typeConfig: Record<
     iconBg: "bg-warning/10",
     iconColor: "text-warning",
   },
+  status_changed: {
+    icon: IconProgress,
+    label: "Status",
+    badgeVariant: "secondary",
+    iconBg: "bg-secondary",
+    iconColor: "text-secondary-foreground",
+  },
   comment_added: {
     icon: IconMessage,
     label: "Comment",
     badgeVariant: "default",
     iconBg: "bg-primary/10",
     iconColor: "text-primary",
+  },
+  changes_requested: {
+    icon: IconPencil,
+    label: "Changes",
+    badgeVariant: "warning",
+    iconBg: "bg-warning/10",
+    iconColor: "text-warning",
   },
   comment_reply: {
     icon: IconMessageReply,

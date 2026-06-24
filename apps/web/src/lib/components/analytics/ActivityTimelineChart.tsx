@@ -11,7 +11,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Card, CardContent } from "@conductor/ui";
+import { Widget } from "@/lib/components/Widget";
 import dayjs from "@conductor/shared/dates";
 import { cssColor } from "@/lib/utils/cssColor";
 
@@ -62,22 +62,35 @@ export function ActivityTimelineChart({
   const options = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {
-      legend: { position: "bottom" as const, labels: { usePointStyle: true } },
-    },
+    plugins: { legend: { display: false } },
     scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
   };
 
   return (
-    <Card className="shadow-none bg-muted/40">
-      <CardContent className="p-3 sm:p-4">
-        <h3 className="text-sm font-semibold text-foreground mb-3 sm:mb-4 text-balance">
-          Activity Over Time
-        </h3>
-        <div className="h-48 sm:h-64">
-          <Line data={chartData} options={options} />
+    <Widget
+      title="Activity Over Time"
+      actions={
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: cssColor("chart-2") }}
+            />
+            Sessions
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: cssColor("chart-4") }}
+            />
+            Runs
+          </span>
         </div>
-      </CardContent>
-    </Card>
+      }
+    >
+      <div className="h-48 sm:h-64">
+        <Line data={chartData} options={options} />
+      </div>
+    </Widget>
   );
 }

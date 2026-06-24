@@ -3,6 +3,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
+import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
@@ -228,6 +229,31 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       return;
     }
 
+    const streamingEntityId = `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`;
+
+    // Bring an archived/stopped sandbox back to "started" via durable polling
+    // steps before validating, so a multi-minute cold-storage thaw doesn't blow
+    // the per-action 10-minute limit. Once started, validate hits its fast path.
+    try {
+      await ensureSandboxStartedSteps(step, {
+        sandboxId: data.sandboxId,
+        repoId: data.repoId,
+        streamingEntityId,
+      });
+    } catch (error) {
+      await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
+        taskId: args.taskId,
+        success: false,
+        result: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Task sandbox could not be restored from cold storage. Please retry.",
+        activityLog: null,
+      });
+      return;
+    }
+
     const validation = await step.runAction(
       internal.daytona.validateSandbox,
       { sandboxId: data.sandboxId, repoId: data.repoId },
@@ -245,8 +271,6 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       });
       return;
     }
-
-    const streamingEntityId = `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`;
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
       sandboxId: data.sandboxId,

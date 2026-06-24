@@ -20,5 +20,6 @@
       "Skill(code-review:code-review)"
     ]
   },
-  "prefersReducedMotion": true
+  "prefersReducedMotion": true,
+  "enabledMcpjsonServers": ["figma", "linear", "sentry", "posthog"]
 }

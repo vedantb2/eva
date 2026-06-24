@@ -13,7 +13,11 @@ import { resolveTaskWorkflowBaseBranch } from "../_taskWorkflow/resolveBaseBranc
 
 /** Starts task execution by creating a run and launching the workflow. */
 export const startExecution = authMutation({
-  args: { id: v.id("agentTasks"), mode: v.optional(runModeValidator) },
+  args: {
+    id: v.id("agentTasks"),
+    mode: v.optional(runModeValidator),
+    triggeringCommentId: v.optional(v.id("taskComments")),
+  },
   returns: v.object({
     runId: v.id("agentRuns"),
     taskId: v.id("agentTasks"),
@@ -95,10 +99,16 @@ export const startExecution = authMutation({
       logs: [],
       startedAt: Date.now(),
       mode: args.mode,
+      triggeredBy: ctx.userId,
+      // Explicit comment (quick-task "Make changes") wins; otherwise consume any
+      // comment parked on the task by an earlier change request.
+      triggeringCommentId:
+        args.triggeringCommentId ?? task.pendingChangeRequestCommentId,
     });
     await ctx.db.patch(args.id, {
       status: "in_progress",
       updatedAt: Date.now(),
+      pendingChangeRequestCommentId: undefined,
     });
     let workflowIdString = "";
     try {

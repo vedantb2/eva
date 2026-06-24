@@ -1,8 +1,9 @@
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { createNotification } from "./notifications";
-import type { Doc, Id } from "./_generated/dataModel";
+import { notifySubscribers } from "./taskSubscribers";
+import { logTaskActivity } from "./taskActivity";
+import type { Doc } from "./_generated/dataModel";
 import { buildProjectBranchName } from "./_projects/helpers";
 import {
   deriveProjectPhaseFromPrEvent,
@@ -209,36 +210,31 @@ export const handlePrClosed = internalMutation({
         });
       }
 
-      const notifyUsers = new Set(
-        [t.createdBy, t.assignedTo].filter(
-          (id): id is Id<"users"> => id !== undefined,
-        ),
-      );
       const notificationTitle = args.merged
         ? `PR merged — "${t.title}" moved to done`
         : `PR closed — "${t.title}" moved to cancelled`;
       const notificationMessage = args.merged
         ? `GitHub merged ${args.prUrl}. Task moved to done.`
         : `GitHub closed ${args.prUrl} without merge. Task moved to cancelled.`;
-      for (const userId of notifyUsers) {
-        await createNotification(ctx, {
-          userId,
-          type: args.merged ? "task_complete" : "system",
-          title: notificationTitle,
-          message: notificationMessage,
-          repoId: t.repoId,
-          projectId: t.projectId,
-          taskId: t._id,
-        });
-      }
-
-      const commentText = args.merged
-        ? "PR was merged on GitHub. Task moved to done."
-        : "PR was closed without merging on GitHub. Task moved to cancelled.";
-      await ctx.runMutation(internal.taskComments.createSystemComment, {
+      await notifySubscribers(ctx, {
         taskId: t._id,
-        content: commentText,
+        type: args.merged ? "task_complete" : "system",
+        title: notificationTitle,
+        message: notificationMessage,
+        repoId: t.repoId,
+        projectId: t.projectId,
       });
+
+      // Record the PR event on the task's activity timeline so the merge/close
+      // is visible there, not just as a notification. System-driven, so no actor.
+      await logTaskActivity(
+        ctx,
+        t._id,
+        undefined,
+        "pr",
+        undefined,
+        args.merged ? "merged" : "closed",
+      );
     }
 
     if (task.projectId) {

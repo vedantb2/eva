@@ -20,6 +20,9 @@
       "@types/react-dom": "19.0.4",
       "convex-helpers": "0.1.114"
     },
+    "patchedDependencies": {
+      "@convex-dev/presence@0.3.0": "patches/@convex-dev__presence@0.3.0.patch"
+    },
     "onlyBuiltDependencies": [
       "@swc/core"
     ],

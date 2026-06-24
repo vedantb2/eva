@@ -165,7 +165,7 @@ function AuditResults({ auditData }: { auditData: AuditDoc }) {
                 <AccordionItem
                   key={section.name}
                   value={section.name}
-                  className="rounded-lg bg-muted/40 px-3"
+                  className="rounded-surface border border-border bg-card px-3"
                 >
                   <AccordionTrigger>
                     <div className="flex items-center gap-2">

@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import type { Sandbox } from "@daytonaio/sdk";
 import { action, internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import {
@@ -30,6 +30,8 @@ import {
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 import { ensurePreviewNavigationProxy } from "./previewProxy";
+import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
+import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
 
 const sessionPersistenceKindValidator = v.union(
   v.literal("sessions"),
@@ -223,7 +225,12 @@ export const runBackgroundCommands = internalAction({
       const logPath = `/tmp/bg-${i}.log`;
       // Escape single quotes for the bash -lc payload.
       const escaped = command.replace(/'/g, "'\\''");
-      const launchCmd = `nohup bash -lc '${escaped}' > ${logPath} 2>&1 &`;
+      // setsid + </dev/null fully detaches the daemon into its own session, so
+      // it survives the exec session teardown even when the user's command
+      // self-backgrounds. A trailing `&` would otherwise let bash -lc exit
+      // immediately, letting a process-group SIGTERM reach the daemon (nohup
+      // only blocks SIGHUP).
+      const launchCmd = `setsid nohup bash -lc '${escaped}' </dev/null > ${logPath} 2>&1 &`;
       console.log(
         `[daytona] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
       );
@@ -316,6 +323,14 @@ export const getPreviewUrl = action({
       throw new Error("Not authenticated");
     }
 
+    // Authorize: the caller must have access to the repo this sandbox belongs to.
+    // `githubRepos.get` returns the repo only for the connector or a team member,
+    // otherwise null — so a null result means the user is not allowed to preview it.
+    const repo = await ctx.runQuery(api.githubRepos.get, { id: args.repoId });
+    if (!repo) {
+      throw new Error("Not authorized to access this repository");
+    }
+
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
     let ready = true;
     if (args.checkReady) {
@@ -332,10 +347,23 @@ export const getPreviewUrl = action({
       }
     }
 
+    // Always front the dev server with the in-sandbox proxy (not just when
+    // navigationSync is set) so the auth gate covers every preview surface —
+    // dev server, code-server editor, VNC desktop, design preview. When no
+    // grant key is configured the proxy runs in legacy pass-through mode.
+    // `navigationSync` now only decides whether the HTML nav-sync script is
+    // injected.
+    const previewPublicJwk = getPreviewGrantPublicJwk();
     let signedPort = args.port;
-    if (ready && args.navigationSync) {
+    if (ready) {
       try {
-        signedPort = await ensurePreviewNavigationProxy(sandbox, args.port);
+        signedPort = await ensurePreviewNavigationProxy(sandbox, args.port, {
+          publicKeyJwk: previewPublicJwk,
+          sandboxId: args.sandboxId,
+          repoId: args.repoId,
+          webAppUrl: process.env.WEB_APP_URL ?? "",
+          inject: args.navigationSync === true,
+        });
       } catch (e) {
         console.warn(
           `[daytona] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "proxy startup failed")}`,
@@ -346,6 +374,20 @@ export const getPreviewUrl = action({
     const signedPreview = await sandbox.getSignedPreviewUrl(signedPort, 86400);
     const parsedUrl = new URL(signedPreview.url);
     parsedUrl.protocol = "https:";
+
+    // Append a fresh short-lived grant so the in-app iframe (and the authed
+    // user's "open in new tab") loads without a login round-trip. The proxy
+    // exchanges it for a session cookie on first load. Only when gating is
+    // configured — otherwise the URL stays a plain proxied URL.
+    if (previewPublicJwk && ready) {
+      const grant = await signPreviewGrant({
+        sandboxId: args.sandboxId,
+        port: args.port,
+        sub: identity.subject,
+      });
+      parsedUrl.searchParams.set(PREVIEW_GRANT_PARAM, grant);
+    }
+
     const url = parsedUrl.toString();
     return { url, port: args.port, ready };
   },

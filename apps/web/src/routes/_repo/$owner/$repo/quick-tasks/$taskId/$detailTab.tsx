@@ -17,6 +17,7 @@ export const Route = createFileRoute(
           taskId: params.taskId,
           detailTab: TASK_DETAIL_TABS[0],
         },
+        search: { draft: undefined },
       });
     }
   },

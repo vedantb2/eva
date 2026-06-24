@@ -1,7 +1,7 @@
 [] get rid of edit/prd mode, merge into one, plan/prd should always output in plan.md to be viewable in the prd tab add to system prompt
-[ ] ask zs if extension is being used or not
+[] ask zs if extension is being used or not
 [x] ask kg for eva account with lph permissions
-[] add emails for daily notifications, tell user to mark as read otherwise emails will keep confirming
+[x] add emails for daily notifications, tell user to mark as read otherwise emails will keep confirming
 [] add cycle demo
 [x] move the view sandbox to the footer
 [x] tell zs im gonna remove vercel logo from quick task card
@@ -17,23 +17,23 @@
 [x] Move this to a modal in ext which shows current repo selected
 [x] Design sessions id tabs like chrome tabs
 [x] Add response style on user profile page
-[] add team roles and description of roles, then if eva has a question she knows who to ask the question to, and this can be done through the teams bot then. e.g. if its a design question -> check team members -> check designers -> message designer on teams with question
+[x] add team roles and description of roles, then if eva has a question she knows who to ask the question to, and this can be done through the teams bot then. e.g. if its a design question -> check team members -> check designers -> message designer on teams with question
 [x] get chrome extension updated with new features
 [x] fix chrome ext issues/errors/warnings
 [x] add posted via Assist, store the origin of msg send
 [] figure out chrome distribution policy
 [] improve extension toolbar
 
-[] auto open chrome in vnc
+[x] auto open chrome in vnc
 [x] fix agent browser connecting to chrome
 [x] add planning / think before execution
 [] add human readable id's for the sessions etc
 [] add num of design options in design input
 [] add checkpoint in messages so you can rewind
 [] add state/version history for designs and sessions
-[] make app more interactive, so user icon on active page
+[x] make app more interactive, so user icon on active page
 [] need a way to effectively rollback changes in a file post git commit, like undo
-[] need a way to effectively sync data from prod onto an agents db so its always up to date and almost live
+[x] need a way to effectively sync data from prod onto an agents db so its always up to date and almost live
 
 [x] verify task grouped into project create just 1 pr
 [x] improve streaming log - add more detail
@@ -85,18 +85,18 @@ second thing is why do we have an isPersonal field for the teams? is this needed
 [x] Create snapshots based on repo
 [x] Contact simran and aimilia for their thoughts
 [x] unstash project timeline and fix it
-[x]fix type error in web, also move the view pr button in sessions id page to the header
-[x]store env variables per repo
-[]install carepulse repo
-[x]install docker in snapshot to run convex locally + setup seed file to run that stores data in snapshot- automate this
+[x] fix type error in web, also move the view pr button in sessions id page to the header
+[x] store env variables per repo
+[x] install carepulse repo
+[x] install docker in snapshot to run convex locally + setup seed file to run that stores data in snapshot- automate this
 
 [x]refactor designs to use sessions
-[]install figma, linear, clickup plugins + figure out how to auth through figma plugin
-[]figure out how to detect claude session usage limit and auto switch/show limit/set schedule
+[x] install figma, linear, clickup plugins + figure out how to auth through figma plugin
+[x] figure out how to detect claude session usage limit and auto switch/show limit/set schedule
 
 [x]add "Upload PRD button" to docs page
-[]add generate tests to docs page or to testing arena I guess?
-[]Add build project to docs page, add generate test project to testing arena
+[] add generate tests to docs page or to testing arena I guess?
+[] Add build project to docs page, add generate test project to testing arena
 
 [x]after confirming send for dev review, it opens a multi step modal that shows auditing progress, then shows result in final step with just a banner saying this information has automatically been sent to the dev team.
 
@@ -127,11 +127,11 @@ Have timeline page to view project status and durations
 
 [] Check if we have any use case for https://v0.app/docs/api/platform/packages/react or no
 
-[] Create a plan to install agent-browser in the snapshot which I can use in sandboxes, I want this so I can ask it to control the browser in prompts in the sessions page.
+[x] Create a plan to install agent-browser in the snapshot which I can use in sandboxes, I want this so I can ask it to control the browser in prompts in the sessions page.
 
 [] Create a plan for the chrome extension codebase to improve the toolbar and make it slightly bigger, make more like vercel toolbar in terms of design and add run all button,
 
-[] Create plan to add this to the Quick tasks so that when Eva creates a deployment, she can get the status of the deployment and show it in the card details.
+[x] Create plan to add this to the Quick tasks so that when Eva creates a deployment, she can get the status of the deployment and show it in the card details.
 
 - https://docs.vercel.com/docs/rest-api/reference/examples/deployments-automation
 - https://docs.vercel.com/docs/rest-api/reference/examples/logs-monitoring

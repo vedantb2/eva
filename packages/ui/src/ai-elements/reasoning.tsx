@@ -9,6 +9,7 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import { cn } from "../utils/cn";
+import { STREAMDOWN_TABLE_RADIUS_CLASS } from "../utils/surface-radius";
 import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
@@ -221,7 +222,12 @@ export const ReasoningContent = memo(
       )}
       {...props}
     >
-      <Streamdown plugins={streamdownPlugins}>{children}</Streamdown>
+      <Streamdown
+        className={STREAMDOWN_TABLE_RADIUS_CLASS}
+        plugins={streamdownPlugins}
+      >
+        {children}
+      </Streamdown>
     </CollapsibleContent>
   ),
 );

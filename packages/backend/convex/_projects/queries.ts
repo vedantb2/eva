@@ -3,6 +3,11 @@ import { authQuery, hasRepoAccess } from "../functions";
 import { internalQuery } from "../_generated/server";
 import { taskSandboxStatusValidator } from "../_validators/enums";
 import {
+  taskProgressValidator,
+  taskProgressFields,
+} from "../_validators/shapes";
+import type { Doc } from "../_generated/dataModel";
+import {
   projectWithDetailsValidator,
   projectListItemValidator,
   resolveProjectPlanningMode,
@@ -181,47 +186,62 @@ export const getProjectPrCreationData = internalQuery({
   },
 });
 
+/** Reduces a project's tasks into a status-count breakdown. Shared by the
+ *  single-project and batched progress queries so the shape stays in sync. */
+function computeTaskProgress(tasks: Doc<"agentTasks">[]) {
+  return {
+    total: tasks.length,
+    todo: tasks.filter((t) => t.status === "todo").length,
+    in_progress: tasks.filter((t) => t.status === "in_progress").length,
+    code_review: tasks.filter((t) => t.status === "code_review").length,
+    business_review: tasks.filter((t) => t.status === "business_review").length,
+    done: tasks.filter((t) => t.status === "done").length,
+    cancelled: tasks.filter((t) => t.status === "cancelled").length,
+  };
+}
+
 /** Returns a breakdown of task counts by status for a project. */
 export const getTaskProgress = authQuery({
   args: { projectId: v.id("projects") },
-  returns: v.object({
-    total: v.number(),
-    todo: v.number(),
-    in_progress: v.number(),
-    code_review: v.number(),
-    business_review: v.number(),
-    done: v.number(),
-    cancelled: v.number(),
-  }),
+  returns: taskProgressValidator,
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (
       !project ||
       !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))
     ) {
-      return {
-        total: 0,
-        todo: 0,
-        in_progress: 0,
-        code_review: 0,
-        business_review: 0,
-        done: 0,
-        cancelled: 0,
-      };
+      return computeTaskProgress([]);
     }
     const tasks = await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
-    return {
-      total: tasks.length,
-      todo: tasks.filter((t) => t.status === "todo").length,
-      in_progress: tasks.filter((t) => t.status === "in_progress").length,
-      code_review: tasks.filter((t) => t.status === "code_review").length,
-      business_review: tasks.filter((t) => t.status === "business_review")
-        .length,
-      done: tasks.filter((t) => t.status === "done").length,
-      cancelled: tasks.filter((t) => t.status === "cancelled").length,
-    };
+    return computeTaskProgress(tasks);
+  },
+});
+
+/** Returns task-progress breakdowns for every project in a repo in a single
+ *  query, so the timeline can render per-project progress without issuing one
+ *  request per row. */
+export const listTaskProgress = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(
+    v.object({ projectId: v.id("projects"), ...taskProgressFields }),
+  ),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .collect();
+    return await Promise.all(
+      projects.map(async (project) => {
+        const tasks = await ctx.db
+          .query("agentTasks")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect();
+        return { projectId: project._id, ...computeTaskProgress(tasks) };
+      }),
+    );
   },
 });

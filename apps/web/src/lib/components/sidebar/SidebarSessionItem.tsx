@@ -72,13 +72,15 @@ export function SidebarSessionItem({
     <DynamicLink
       to={href}
       onClick={onNavigate}
-      className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+      className="block rounded-menu-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
     >
       <div className="flex items-center justify-between gap-2">
         <h3
           className={cn(
-            "truncate text-sm font-medium transition-colors duration-200",
-            isSelected ? "text-sidebar-primary" : "text-sidebar-foreground",
+            "truncate text-sm transition-colors duration-200",
+            isSelected
+              ? "font-medium text-sidebar-primary"
+              : "text-sidebar-foreground",
           )}
         >
           {title}

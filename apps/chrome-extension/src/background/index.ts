@@ -1,109 +1,110 @@
-import { createClerkClient } from "@clerk/chrome-extension/background";
-import { sendExtensionMessage, sendTabMessage } from "../shared/messaging";
+import {
+  type AnyBgRequest,
+  type AnyBgResponse,
+  type ToolbarVisibilityChangedMessage,
+  BG_REQUEST_TYPES,
+} from "../shared/messaging";
+import {
+  loadAnnotations,
+  saveAnnotations,
+  createAnnotationTask,
+  runAnnotationTask,
+  runAllAnnotations,
+  listProjects,
+  addToProject,
+  syncTaskStatuses,
+  openEva,
+} from "./handlers";
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+/* ------------------------------ toolbar visibility ------------------------- *
+ * Visibility is per-tab and kept in `chrome.storage.session` so it survives
+ * worker restarts and page navigations within a tab, and clears when the
+ * browser session ends (toolbar then defaults to hidden).
+ * --------------------------------------------------------------------------- */
 
-if (typeof PUBLISHABLE_KEY === "string" && PUBLISHABLE_KEY.length > 0) {
-  void createClerkClient({ publishableKey: PUBLISHABLE_KEY });
+function visKey(tabId: number): string {
+  return `toolbarVisible:${tabId}`;
 }
 
-let capturedContext: unknown = null;
-
-function forwardRuntimeMessage(msg: { type: string; payload?: unknown }): void {
-  void chrome.runtime.sendMessage(msg).catch(() => {});
+async function getVisibility(tabId: number | undefined): Promise<boolean> {
+  if (tabId === undefined) return false;
+  const key = visKey(tabId);
+  const stored = await chrome.storage.session.get(key);
+  return stored[key] === true;
 }
 
-chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== "sidepanel") return;
-  port.onDisconnect.addListener(() => {
-    chrome.tabs.query({}, (tabs) => {
-      for (const tab of tabs) {
-        if (tab.id) {
-          sendTabMessage(tab.id, { type: "PANEL_CLOSED" });
-        }
-      }
-    });
-  });
-});
+/** Green dot badge on the icon so the user knows the toolbar is active here. */
+function applyBadge(tabId: number, visible: boolean): void {
+  if (visible) {
+    void chrome.action.setBadgeText({ tabId, text: "●" });
+    void chrome.action.setBadgeBackgroundColor({ tabId, color: "#00000000" });
+    void chrome.action.setBadgeTextColor({ tabId, color: "#22c55e" });
+  } else {
+    void chrome.action.setBadgeText({ tabId, text: "" });
+  }
+}
 
+async function setVisibility(tabId: number, visible: boolean): Promise<void> {
+  await chrome.storage.session.set({ [visKey(tabId)]: visible });
+  applyBadge(tabId, visible);
+}
+
+// Clicking the icon toggles the toolbar for the current tab.
 chrome.action.onClicked.addListener(async (tab) => {
-  if (tab.id) {
-    await chrome.sidePanel.open({ tabId: tab.id });
+  if (tab.id === undefined) return;
+  const tabId = tab.id;
+  const current = await getVisibility(tabId);
+  const next = !current;
+  await setVisibility(tabId, next);
+  const message: ToolbarVisibilityChangedMessage = {
+    type: "TOOLBAR_VISIBILITY_CHANGED",
+    payload: { visible: next },
+  };
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+  } catch {
+    // No content script on this page (chrome://, web store, etc.) — revert so
+    // the badge and stored state don't drift from reality.
+    await setVisibility(tabId, current);
   }
 });
 
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void chrome.storage.session.remove(visKey(tabId));
+});
 
-interface ExtensionMessage {
-  type: string;
-  payload?: unknown;
+/* --------------------------------- router --------------------------------- */
+
+function handleRequest(
+  message: AnyBgRequest,
+  sender: chrome.runtime.MessageSender,
+): Promise<AnyBgResponse> {
+  switch (message.type) {
+    case "GET_TOOLBAR_VISIBILITY":
+      return getVisibility(sender.tab?.id).then((visible) => ({ visible }));
+    case "LOAD_ANNOTATIONS":
+      return loadAnnotations(message.payload);
+    case "SAVE_ANNOTATIONS":
+      return saveAnnotations(message.payload);
+    case "CREATE_ANNOTATION_TASK":
+      return createAnnotationTask(message.payload);
+    case "RUN_ANNOTATION_TASK":
+      return runAnnotationTask(message.payload);
+    case "RUN_ALL_ANNOTATIONS":
+      return runAllAnnotations(message.payload);
+    case "LIST_PROJECTS":
+      return listProjects(message.payload);
+    case "ADD_TO_PROJECT":
+      return addToProject(message.payload);
+    case "SYNC_TASK_STATUSES":
+      return syncTaskStatuses(message.payload);
+    case "OPEN_EVA":
+      return openEva(message.payload);
+  }
 }
 
-chrome.runtime.onMessage.addListener(
-  (
-    message: ExtensionMessage,
-    _sender: chrome.runtime.MessageSender,
-    sendResponse: (response?: unknown) => void,
-  ) => {
-    switch (message.type) {
-      case "ELEMENT_CAPTURED": {
-        capturedContext = message.payload ?? null;
-        sendResponse({ success: true });
-        break;
-      }
-
-      case "SELECTION_CANCELLED": {
-        sendResponse({ success: true });
-        break;
-      }
-
-      case "GET_CAPTURED_CONTEXT": {
-        sendResponse({ context: capturedContext });
-        break;
-      }
-
-      case "CLEAR_CONTEXT": {
-        capturedContext = null;
-        sendResponse({ success: true });
-        break;
-      }
-
-      case "ANNOTATIONS_CHANGED": {
-        forwardRuntimeMessage({
-          type: "ANNOTATIONS_CHANGED",
-          payload: message.payload,
-        });
-        sendResponse({ success: true });
-        break;
-      }
-
-      case "STOP_ANNOTATION": {
-        void sendExtensionMessage({ type: "STOP_ANNOTATION" });
-        sendResponse({ success: true });
-        break;
-      }
-
-      case "REQUEST_ANNOTATIONS": {
-        void sendExtensionMessage({ type: "REQUEST_ANNOTATIONS" });
-        sendResponse({ success: true });
-        break;
-      }
-
-      case "REQUEST_TOOLBAR_STATE":
-      case "TOOLBAR_ADD_QUICK_TASKS":
-      case "TOOLBAR_ADD_TO_PROJECT":
-      case "RUN_ALL_ANNOTATIONS": {
-        forwardRuntimeMessage({
-          type: message.type,
-          payload: message.payload,
-        });
-        sendResponse({ success: true });
-        break;
-      }
-
-      default:
-        sendResponse({ success: false, error: "Unknown message type" });
-    }
-    return true;
-  },
-);
+chrome.runtime.onMessage.addListener((message: AnyBgRequest, sender, reply) => {
+  if (!message || !BG_REQUEST_TYPES.has(message.type)) return false;
+  void handleRequest(message, sender).then(reply);
+  return true; // async response
+});

@@ -16,7 +16,7 @@ export function SkillRow({ skill }: { skill: Skill }) {
     <>
       <div
         className={
-          "rounded-md p-3 " +
+          "rounded-surface p-3 " +
           (skill.available ? "bg-muted/40" : "bg-muted/30 opacity-70")
         }
       >

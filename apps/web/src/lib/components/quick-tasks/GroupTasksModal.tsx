@@ -255,7 +255,7 @@ export function GroupTasksModal({
                     className={`w-full rounded-lg p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
                       selectedProjectId === project._id
                         ? "ring-2 ring-primary bg-accent"
-                        : "bg-muted hover:bg-accent/70"
+                        : "bg-muted hover:bg-muted/70"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">

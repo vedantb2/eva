@@ -7,10 +7,10 @@
   "permissions": [
     "activeTab",
     "storage",
-    "sidePanel",
     "scripting",
     "tabs",
-    "cookies"
+    "cookies",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -21,9 +21,6 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "side_panel": {
-    "default_path": "sidepanel.html"
-  },
   "action": {
     "default_icon": {
       "16": "icons/icon.png",
@@ -31,7 +28,7 @@
       "48": "icons/icon.png",
       "128": "icons/icon.png"
     },
-    "default_title": "Open Eva Assist"
+    "default_title": "Toggle Eva toolbar"
   },
   "icons": {
     "16": "icons/icon.png",

@@ -22,6 +22,7 @@ import {
 } from "@tabler/icons-react";
 import { ensureHttps } from "@/lib/utils/ensureHttps";
 import { dismissDaytonaWarning } from "@/lib/utils/dismissDaytonaWarning";
+import { stripPreviewGrant } from "@/lib/utils/previewGrant";
 
 type ServiceState = "idle" | "starting" | "running" | "error";
 
@@ -137,7 +138,9 @@ export function SandboxIframeService({
       const finalUrl = transformUrl ? transformUrl(rawUrl) : rawUrl;
       setUrl(finalUrl);
       setState("running");
-      setCachedUrl(finalUrl);
+      // Cache the grant-free URL; the iframe still loads `finalUrl` (with grant)
+      // for its first paint, which sets the proxy session cookie.
+      setCachedUrl(stripPreviewGrant(finalUrl));
       onReady?.(finalUrl);
     },
     [setCachedUrl, transformUrl, onReady],
@@ -324,7 +327,11 @@ export function SandboxIframeService({
               <IconMaximize className="w-4 h-4" />
             </Button>
             <Button size="icon" variant="ghost" className="size-8" asChild>
-              <a href={url} target="_blank" rel="noopener noreferrer">
+              <a
+                href={stripPreviewGrant(url)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <IconExternalLink className="w-4 h-4" />
               </a>
             </Button>
@@ -338,7 +345,7 @@ export function SandboxIframeService({
             </Button>
           </div>
           {!warningHintDismissed ? (
-            <div className="flex items-start gap-2 bg-orange-500/10 px-3 py-2 text-xs text-orange-700 dark:text-orange-300">
+            <div className="flex items-start gap-2 bg-warning/10 px-3 py-2 text-xs text-warning">
               <IconAlertTriangle size={14} className="mt-0.5 shrink-0" />
               <p className="flex-1 leading-relaxed">
                 If you see a preview warning, click Accept, then click the
@@ -347,7 +354,7 @@ export function SandboxIframeService({
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-5 w-5 shrink-0 text-orange-700/70 hover:bg-orange-500/20 hover:text-orange-700 dark:text-orange-300/70 dark:hover:text-orange-300"
+                className="h-5 w-5 shrink-0 text-warning/70 hover:bg-warning/20 hover:text-warning"
                 onClick={() => setWarningHintDismissed(true)}
               >
                 <IconX size={12} />
@@ -365,7 +372,7 @@ export function SandboxIframeService({
         )}
         {state === "error" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 p-4">
-            <pre className="text-sm text-destructive whitespace-pre-wrap max-w-full max-h-48 overflow-auto bg-destructive/5 p-3 rounded-md">
+            <pre className="text-sm text-destructive whitespace-pre-wrap max-w-full max-h-48 overflow-auto rounded-surface bg-destructive/5 p-3">
               {error}
             </pre>
             <Button size="sm" variant="secondary" onClick={start}>

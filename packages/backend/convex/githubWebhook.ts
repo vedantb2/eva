@@ -11,6 +11,7 @@ import {
 } from "./_projects/prSync";
 import { workflow } from "./workflowManager";
 import { trackDocWorkflow } from "./workflowWatchdog";
+import { resolveCodebaseDocsRepoId } from "./_githubRepos/helpers";
 
 const QUICK_TASK_BRANCH_PREFIX = "eva/task-";
 const PROJECT_BRANCH_PREFIX = "eva/project-";
@@ -297,15 +298,30 @@ export const handlePrRecapEvent = internalMutation({
       return null;
     }
 
-    const repo = await ctx.runQuery(
-      internal.githubRepos.findParentRepoByOwnerAndName,
-      { owner: args.owner, name: args.name },
+    const siblings = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", args.owner).eq("name", args.name),
+      )
+      .collect();
+
+    if (!siblings.some((repo) => repo.prRecapsEnabled === true)) return null;
+
+    const connectedRepo = siblings.find(
+      (repo) => repo.connectedBy !== undefined,
     );
-    if (!repo || repo.prRecapsEnabled !== true) return null;
-    if (!repo.connectedBy) return null;
+    if (!connectedRepo?.connectedBy) return null;
+
+    const docsRepoId = await resolveCodebaseDocsRepoId(
+      ctx.db,
+      connectedRepo._id,
+    );
+    const workflowRepo =
+      siblings.find((repo) => repo.rootDirectory === undefined) ??
+      connectedRepo;
 
     const docId = await ctx.runMutation(internal.docs.upsertPrRecapDoc, {
-      repoId: repo._id,
+      repoId: docsRepoId,
       prUrl: args.prUrl,
       prNumber: args.prNumber,
       title: `PR #${args.prNumber} — ${args.prTitle}`,
@@ -319,9 +335,9 @@ export const handlePrRecapEvent = internalMutation({
       internal.prRecapWorkflow.prRecapWorkflow,
       {
         docId,
-        repoId: repo._id,
-        installationId: repo.installationId,
-        userId: repo.connectedBy,
+        repoId: workflowRepo._id,
+        installationId: workflowRepo.installationId,
+        userId: connectedRepo.connectedBy,
         prNumber: args.prNumber,
         prUrl: args.prUrl,
         prTitle: args.prTitle,

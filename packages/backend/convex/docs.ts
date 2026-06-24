@@ -10,6 +10,11 @@ import {
 import { docFields } from "./validators";
 import { prosemirrorSync } from "./prosemirrorSync";
 import { markdownToDocJson } from "./_docEditor/markdown";
+import {
+  findAllSiblingRepoIds,
+  hasCodebaseRepoAccess,
+  resolveCodebaseDocsRepoId,
+} from "./_githubRepos/helpers";
 
 const interviewMessageValidator = v.object({
   role: roleValidator,
@@ -24,26 +29,52 @@ const docValidator = v.object({
   ...docFields,
 });
 
-/** Lists all docs for a given repo, filtered by user access. */
+/** Lists all docs for a given repo, filtered by user access. PR recaps are shared across monorepo apps. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(docValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    return await ctx.db
-      .query("docs")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
+
+    const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
+    const seen = new Set<string>();
+    const docs = [];
+
+    for (const siblingId of siblingIds) {
+      const siblingDocs = await ctx.db
+        .query("docs")
+        .withIndex("by_repo", (q) => q.eq("repoId", siblingId))
+        .collect();
+
+      for (const doc of siblingDocs) {
+        if (seen.has(doc._id)) continue;
+        const isCurrentRepo = siblingId === args.repoId;
+        const isSharedRecap = doc.kind === "pr-recap";
+        if (!isCurrentRepo && !isSharedRecap) continue;
+        seen.add(doc._id);
+        docs.push(doc);
+      }
+    }
+
+    return docs;
   },
 });
 
-/** Fetches a single doc by ID, with access control. */
+/** Fetches a single doc by ID, with access control. PR recaps allow any sibling app repo access. */
 export const get = authQuery({
   args: { id: v.id("docs") },
   returns: v.union(docValidator, v.null()),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.id);
     if (!doc) return null;
+
+    if (doc.kind === "pr-recap") {
+      if (!(await hasCodebaseRepoAccess(ctx.db, doc.repoId, ctx.userId))) {
+        return null;
+      }
+      return doc;
+    }
+
     if (!(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId))) return null;
     return doc;
   },
@@ -292,7 +323,7 @@ export const clearInterview = authMutation({
   },
 });
 
-/** Looks up a PR recap doc by stable GitHub PR URL within a repo. */
+/** Looks up a PR recap doc by stable GitHub PR URL within a codebase. */
 export const getByPrUrl = internalQuery({
   args: {
     repoId: v.id("githubRepos"),
@@ -300,10 +331,11 @@ export const getByPrUrl = internalQuery({
   },
   returns: v.union(docValidator, v.null()),
   handler: async (ctx, args) => {
+    const docsRepoId = await resolveCodebaseDocsRepoId(ctx.db, args.repoId);
     return await ctx.db
       .query("docs")
       .withIndex("by_repo_and_pr_url", (q) =>
-        q.eq("repoId", args.repoId).eq("prUrl", args.prUrl),
+        q.eq("repoId", docsRepoId).eq("prUrl", args.prUrl),
       )
       .first();
   },
@@ -325,10 +357,11 @@ export const upsertPrRecapDoc = internalMutation({
   returns: v.id("docs"),
   handler: async (ctx, args) => {
     const now = Date.now();
+    const docsRepoId = await resolveCodebaseDocsRepoId(ctx.db, args.repoId);
     const existing = await ctx.db
       .query("docs")
       .withIndex("by_repo_and_pr_url", (q) =>
-        q.eq("repoId", args.repoId).eq("prUrl", args.prUrl),
+        q.eq("repoId", docsRepoId).eq("prUrl", args.prUrl),
       )
       .first();
 
@@ -363,7 +396,7 @@ export const upsertPrRecapDoc = internalMutation({
     }
 
     const docId = await ctx.db.insert("docs", {
-      repoId: args.repoId,
+      repoId: docsRepoId,
       kind: "pr-recap",
       title: args.title,
       content: args.content,

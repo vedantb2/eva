@@ -9,6 +9,7 @@ import { Checkbox } from "@conductor/ui";
 import { IconTrash } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import { AddCategoryForm } from "./audits/_components/AddCategoryForm";
+import { isAppRepo } from "./_utils";
 
 type Category = FunctionReturnType<
   typeof api.auditCategories.listByRepo
@@ -51,7 +52,7 @@ export function AuditsClient() {
   if (!categories) return null;
 
   const repoCategories = categories.filter((c) => c.appId === undefined);
-  const isApp = repo.parentRepoId !== undefined;
+  const isApp = isAppRepo(repo);
   const appCategories = isApp
     ? categories.filter((c) => c.appId === repoId)
     : [];

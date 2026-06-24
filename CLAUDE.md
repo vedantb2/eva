@@ -54,6 +54,7 @@ Implementation:
 - Prefer explicit over magical behaviour.
 - All decisions should optimize for long-term maintainability.
 - Do not run any dev / lint / build commands unless the user asks you to
+- If you are creating any plans, then make sure that running /ship skill is the final step (unless the user explicitly says not to)
 
 Convex:
 

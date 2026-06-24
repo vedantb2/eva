@@ -1,25 +1,44 @@
 import { Composition } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Inter";
 import { QuickTasksDemo } from "./QuickTasksDemo";
+import { EvaHero, TOTAL_FRAMES } from "./EvaHero";
+import { SessionsDemo, SESSIONS_TOTAL_FRAMES } from "./SessionsDemo";
 
-// Load Inter font
 loadFont();
 
-// Timings (in frames at 30fps)
-// 7 transitions × 15f overlap = 105f total overlap
-// Scene durations: 120+180+90+210+90+195+165+120 = 1170 − 105 = 1065f ≈ 35.5s
-const TOTAL_FRAMES = 1065;
+// Legacy 720p Quick Tasks demo timings.
+const QUICK_TASKS_FRAMES = 1065;
 
 export function Root() {
   return (
-    <Composition
-      id="QuickTasksDemo"
-      component={QuickTasksDemo}
-      durationInFrames={TOTAL_FRAMES}
-      fps={30}
-      width={1280}
-      height={720}
-      defaultProps={{}}
-    />
+    <>
+      <Composition
+        id="EvaHero"
+        component={EvaHero}
+        durationInFrames={TOTAL_FRAMES}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={{}}
+      />
+      <Composition
+        id="SessionsDemo"
+        component={SessionsDemo}
+        durationInFrames={SESSIONS_TOTAL_FRAMES}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={{}}
+      />
+      <Composition
+        id="QuickTasksDemo"
+        component={QuickTasksDemo}
+        durationInFrames={QUICK_TASKS_FRAMES}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={{}}
+      />
+    </>
   );
 }

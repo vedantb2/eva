@@ -48,11 +48,10 @@
     "@types/node": "^22.18.5",
     "@types/pg": "^8.20.0",
     "@types/shell-quote": "^1.7.5",
-    "@typescript/native-preview": "7.0.0-dev.20260424.1",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "esbuild": "^0.25.0",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "7.0.1-rc"
   }
 }

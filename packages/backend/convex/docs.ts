@@ -1,7 +1,12 @@
 import { v } from "convex/values";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { components } from "./_generated/api";
-import { evaluationStatusValidator, roleValidator } from "./validators";
+import {
+  evaluationStatusValidator,
+  prRecapStatusValidator,
+  roleValidator,
+} from "./validators";
 import { docFields } from "./validators";
 import { prosemirrorSync } from "./prosemirrorSync";
 import { markdownToDocJson } from "./_docEditor/markdown";
@@ -283,6 +288,137 @@ export const clearInterview = authMutation({
       interviewHistory: undefined,
       sandboxId: undefined,
     });
+    return null;
+  },
+});
+
+/** Looks up a PR recap doc by stable GitHub PR URL within a repo. */
+export const getByPrUrl = internalQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    prUrl: v.string(),
+  },
+  returns: v.union(docValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("docs")
+      .withIndex("by_repo_and_pr_url", (q) =>
+        q.eq("repoId", args.repoId).eq("prUrl", args.prUrl),
+      )
+      .first();
+  },
+});
+
+/** Creates or updates a system-owned PR recap doc and resets its ProseMirror content. */
+export const upsertPrRecapDoc = internalMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    prUrl: v.string(),
+    prNumber: v.number(),
+    title: v.string(),
+    headSha: v.string(),
+    content: v.string(),
+    prRecapStatus: prRecapStatusValidator,
+    prRecapError: v.optional(v.string()),
+  },
+  returns: v.id("docs"),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("docs")
+      .withIndex("by_repo_and_pr_url", (q) =>
+        q.eq("repoId", args.repoId).eq("prUrl", args.prUrl),
+      )
+      .first();
+
+    const markdownJson = markdownToDocJson(args.content);
+
+    if (existing) {
+      const snapshot = await ctx.runQuery(
+        components.prosemirrorSync.lib.getSnapshot,
+        { id: existing._id },
+      );
+      if (snapshot.content !== null) {
+        await ctx.runMutation(components.prosemirrorSync.lib.deleteDocument, {
+          id: existing._id,
+        });
+      }
+      await prosemirrorSync.create(ctx, existing._id, markdownJson);
+      await ctx.db.patch(existing._id, {
+        title: args.title,
+        content: args.content,
+        contentUpdatedAt: now,
+        updatedAt: now,
+        kind: "pr-recap",
+        prUrl: args.prUrl,
+        prNumber: args.prNumber,
+        headSha: args.headSha,
+        prRecapStatus: args.prRecapStatus,
+        prRecapError:
+          args.prRecapStatus === "ready" ? undefined : args.prRecapError,
+      });
+      return existing._id;
+    }
+
+    const docId = await ctx.db.insert("docs", {
+      repoId: args.repoId,
+      kind: "pr-recap",
+      title: args.title,
+      content: args.content,
+      prUrl: args.prUrl,
+      prNumber: args.prNumber,
+      headSha: args.headSha,
+      prRecapStatus: args.prRecapStatus,
+      prRecapError: args.prRecapError,
+      contentUpdatedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await prosemirrorSync.create(ctx, docId, markdownJson);
+    return docId;
+  },
+});
+
+/** Patches PR recap status fields without rewriting ProseMirror content. */
+export const patchPrRecapStatus = internalMutation({
+  args: {
+    docId: v.id("docs"),
+    prRecapStatus: prRecapStatusValidator,
+    prRecapError: v.optional(v.string()),
+    headSha: v.optional(v.string()),
+    activeWorkflowId: v.optional(v.union(v.string(), v.null())),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.docId);
+    if (!doc) return null;
+
+    const patch: {
+      prRecapStatus: typeof args.prRecapStatus;
+      prRecapError?: string;
+      headSha?: string;
+      activeWorkflowId?: string;
+      updatedAt: number;
+    } = {
+      prRecapStatus: args.prRecapStatus,
+      updatedAt: Date.now(),
+    };
+
+    if (args.prRecapError !== undefined) {
+      patch.prRecapError = args.prRecapError;
+    }
+    if (args.headSha !== undefined) {
+      patch.headSha = args.headSha;
+    }
+    if (args.activeWorkflowId !== undefined) {
+      if (args.activeWorkflowId === null) {
+        patch.activeWorkflowId = undefined;
+      } else {
+        patch.activeWorkflowId = args.activeWorkflowId;
+      }
+    }
+
+    await ctx.db.patch(args.docId, patch);
     return null;
   },
 });

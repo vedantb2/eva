@@ -1,5 +1,10 @@
 # Changelog
 
+## PR recaps as Eva docs - 2026-06-24
+
+- PR visual recaps now live as first-party Eva docs (`kind: pr-recap`) under the existing docs route, generated on PR open/sync via the Eva GitHub webhook instead of Agent-Native or per-repo GitHub Actions.
+- Recaps use the same Claude Code OAuth subscription and configurable model as the rest of the platform — no Anthropic API key — with a sticky GitHub comment linking to the Eva doc.
+
 ## Eva product video agent skill - 2026-06-24
 
 - Added an agent skill documenting how to capture real app footage and render Remotion demo videos with the repo's established defaults (720p, beat-sync cuts, agent-browser workflow), so future video work doesn't rediscover the same pitfalls.

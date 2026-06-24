@@ -320,6 +320,12 @@ function getBoolean(obj: Record<string, unknown>, key: string): boolean | null {
   return typeof val === "boolean" ? val : null;
 }
 
+/** Safely extracts a number value from an object by key, returning null if not a number. */
+function getNumber(obj: Record<string, unknown>, key: string): number | null {
+  const val = obj[key];
+  return typeof val === "number" ? val : null;
+}
+
 /** Verifies a GitHub webhook HMAC-SHA256 signature against the shared secret. */
 async function verifyWebhookSignature(
   body: string,
@@ -428,6 +434,46 @@ http.route({
           merged,
           branchName: branchName ?? undefined,
         });
+      }
+
+      const RECAP_ACTIONS = new Set([
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review",
+      ]);
+      if (RECAP_ACTIONS.has(action)) {
+        const repository = payload["repository"];
+        const prNumber = getNumber(pullRequest, "number");
+        const prTitle = getString(pullRequest, "title");
+        const headSha = isRecord(head) ? getString(head, "sha") : null;
+        const user = pullRequest["user"];
+        const authorLogin = isRecord(user) ? getString(user, "login") : null;
+
+        if (isRecord(repository) && prNumber !== null && prTitle && headSha) {
+          const repoName = getString(repository, "name");
+          const ownerRecord = repository["owner"];
+          const owner = isRecord(ownerRecord)
+            ? getString(ownerRecord, "login")
+            : null;
+
+          if (repoName && owner) {
+            await ctx.scheduler.runAfter(
+              0,
+              internal.githubWebhook.handlePrRecapEvent,
+              {
+                owner,
+                name: repoName,
+                prUrl,
+                prNumber,
+                prTitle,
+                headSha,
+                draft: draft ?? undefined,
+                authorLogin: authorLogin ?? undefined,
+              },
+            );
+          }
+        }
       }
     }
 

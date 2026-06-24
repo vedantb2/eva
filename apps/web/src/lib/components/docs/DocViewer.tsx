@@ -59,6 +59,7 @@ export function DocViewer({
 function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
   const navigate = useNavigate();
   const { basePath } = useRepo();
+  const isPrRecap = doc.kind === "pr-recap";
   const streaming = useQuery(api.streaming.get, { entityId: doc._id });
   const streamingSteps = parseActivitySteps(streaming?.currentActivity);
   // Cached query — shares the panel's listByDoc fetch. Count unresolved
@@ -162,16 +163,25 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
   const isGeneratingTests =
     doc.testGenStatus === "running" || isTriggeringTestGen;
 
+  const isRecapPending = isPrRecap && doc.prRecapStatus === "pending";
+  const isRecapErrored = isPrRecap && doc.prRecapStatus === "error";
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
-        <input
-          value={doc.title}
-          onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
-          className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0 min-w-0 w-auto cursor-text placeholder:text-muted-foreground"
-          placeholder="Document title"
-          size={Math.max(doc.title.length, 12)}
-        />
+        {isPrRecap ? (
+          <h1 className="text-lg font-semibold min-w-0 truncate">
+            {doc.title}
+          </h1>
+        ) : (
+          <input
+            value={doc.title}
+            onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
+            className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0 min-w-0 w-auto cursor-text placeholder:text-muted-foreground"
+            placeholder="Document title"
+            size={Math.max(doc.title.length, 12)}
+          />
+        )}
         <div className="ml-auto flex items-center gap-2 shrink-0">
           <DocPresenceFacepile docId={doc._id} />
           {isGeneratingTests && (
@@ -184,7 +194,7 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
             at={doc.updatedAt}
             className="text-xs text-muted-foreground whitespace-nowrap"
           />
-          <DocModeSwitcher />
+          {!isPrRecap ? <DocModeSwitcher /> : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -209,32 +219,36 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
                 ) : (
                   <IconCopy size={16} />
                 )}
-                Copy PRD
+                Copy {isPrRecap ? "recap" : "PRD"}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setInterviewOpen(true)}>
-                <IconMessageChatbot size={16} />
-                Interview Me
-              </DropdownMenuItem>
-              {doc.testGenStatus === "completed" && doc.testPrUrl ? (
-                <DropdownMenuItem asChild>
-                  <a
-                    href={doc.testPrUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <IconExternalLink size={16} />
-                    View Tests PR
-                  </a>
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  onClick={() => setTestGenConfirmOpen(true)}
-                  disabled={isGeneratingTests}
-                >
-                  <IconTestPipe size={16} />
-                  Generate Tests
-                </DropdownMenuItem>
-              )}
+              {!isPrRecap ? (
+                <>
+                  <DropdownMenuItem onClick={() => setInterviewOpen(true)}>
+                    <IconMessageChatbot size={16} />
+                    Interview Me
+                  </DropdownMenuItem>
+                  {doc.testGenStatus === "completed" && doc.testPrUrl ? (
+                    <DropdownMenuItem asChild>
+                      <a
+                        href={doc.testPrUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <IconExternalLink size={16} />
+                        View Tests PR
+                      </a>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onClick={() => setTestGenConfirmOpen(true)}
+                      disabled={isGeneratingTests}
+                    >
+                      <IconTestPipe size={16} />
+                      Generate Tests
+                    </DropdownMenuItem>
+                  )}
+                </>
+              ) : null}
               <DropdownMenuItem onClick={toggleHistory}>
                 <IconHistory size={16} />
                 Version History
@@ -265,36 +279,62 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
         onOpenChange={setTestGenConfirmOpen}
         onConfirm={handleGenerateTests}
       />
-      {streaming && (
+      {isPrRecap && (doc.prUrl || doc.headSha) ? (
+        <div className="mx-3 mb-2 rounded-surface border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground sm:mx-4">
+          <span>Auto-generated recap</span>
+          {doc.headSha ? (
+            <span className="ml-2 font-mono">{doc.headSha.slice(0, 7)}</span>
+          ) : null}
+          {doc.prUrl ? (
+            <a
+              href={doc.prUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-2 inline-flex items-center gap-1 text-foreground hover:underline"
+            >
+              View on GitHub
+              <IconExternalLink size={12} />
+            </a>
+          ) : null}
+          {isRecapErrored && doc.prRecapError ? (
+            <p className="mt-1 text-destructive">{doc.prRecapError}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {(streaming || isRecapPending) && (
         <div className="px-4 pb-3">
           <div className="rounded-surface border border-border bg-card p-3 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
               <span className="flex-1">
-                {isGeneratingTests
-                  ? "Generating tests..."
-                  : "Processing PRD..."}
+                {isPrRecap
+                  ? "Generating recap..."
+                  : isGeneratingTests
+                    ? "Generating tests..."
+                    : "Processing PRD..."}
               </span>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="h-6 px-2 text-xs"
-                onClick={handleStopTestGen}
-                disabled={isStopping}
-              >
-                {isStopping ? (
-                  <Spinner size="sm" />
-                ) : (
-                  <IconPlayerStop size={14} />
-                )}
-                Stop
-              </Button>
+              {!isPrRecap ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={handleStopTestGen}
+                  disabled={isStopping}
+                >
+                  {isStopping ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <IconPlayerStop size={14} />
+                  )}
+                  Stop
+                </Button>
+              ) : null}
             </div>
             {streamingSteps ? (
               <ActivitySteps steps={streamingSteps} isStreaming />
             ) : (
               <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                {streaming.currentActivity}
+                {streaming?.currentActivity ?? "Generating recap..."}
               </p>
             )}
           </div>
@@ -308,20 +348,24 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
       >
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
-            <TabsTrigger value="description">Description</TabsTrigger>
+            {!isPrRecap ? (
+              <>
+                <TabsTrigger value="description">Description</TabsTrigger>
+                <TabsTrigger value="requirements">
+                  Requirements
+                  <span className="ml-1.5 text-muted-foreground">
+                    {doc.requirements?.length ?? 0}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="user-flows">
+                  User Flows
+                  <span className="ml-1.5 text-muted-foreground">
+                    {doc.userFlows?.length ?? 0}
+                  </span>
+                </TabsTrigger>
+              </>
+            ) : null}
             <TabsTrigger value="content">Content</TabsTrigger>
-            <TabsTrigger value="requirements">
-              Requirements
-              <span className="ml-1.5 text-muted-foreground">
-                {doc.requirements?.length ?? 0}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="user-flows">
-              User Flows
-              <span className="ml-1.5 text-muted-foreground">
-                {doc.userFlows?.length ?? 0}
-              </span>
-            </TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-1">
             {activeTab === "content" && (
@@ -356,9 +400,10 @@ function DocEditor({ doc, activeTab }: { doc: Doc; activeTab: DocViewerTab }) {
                 </Button>
               </>
             )}
-            {(activeTab === "requirements" || activeTab === "user-flows") && (
+            {!isPrRecap &&
+            (activeTab === "requirements" || activeTab === "user-flows") ? (
               <DocReExtractButton doc={doc} />
-            )}
+            ) : null}
           </div>
         </div>
 

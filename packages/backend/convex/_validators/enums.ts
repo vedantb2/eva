@@ -67,6 +67,17 @@ export const indexingStatusValidator = v.union(
   v.literal("error"),
 );
 
+export const prRecapStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("ready"),
+  v.literal("error"),
+);
+
+export const docKindValidator = v.union(
+  v.literal("document"),
+  v.literal("pr-recap"),
+);
+
 export const evaluationStatusValidator = v.union(
   v.literal("pending"),
   v.literal("running"),

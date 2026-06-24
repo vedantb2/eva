@@ -145,7 +145,8 @@ const schema = defineSchema({
   }).index("by_entity", ["entityId"]),
   docs: defineTable(docFields)
     .index("by_repo", ["repoId"])
-    .index("by_session", ["sessionId"]),
+    .index("by_session", ["sessionId"])
+    .index("by_repo_and_pr_url", ["repoId", "prUrl"]),
 
   docComments: defineTable(docCommentFields).index("by_doc", ["docId"]),
 

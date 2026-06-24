@@ -40,6 +40,13 @@ export function ConfigClient() {
     repoId,
     repo.proofModel ?? repo.defaultModel ?? "sonnet",
   );
+  const { options: prRecapOptions, model: prRecapModel } = useAvailableAiModels(
+    repoId,
+    repo.prRecapModel ?? repo.defaultModel ?? "sonnet",
+  );
+  const claudeAvailable = prRecapOptions.some(
+    (option) => option.provider === "claude",
+  );
 
   return (
     <PageWrapper title="Config" comfortable>
@@ -127,6 +134,58 @@ export function ConfigClient() {
                 stronger code generation.
               </p>
             </div>
+
+            {!repo.parentRepoId ? (
+              <div className="rounded-surface border border-border bg-card p-3 space-y-4">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    checked={repo.prRecapsEnabled ?? false}
+                    disabled={!claudeAvailable}
+                    onCheckedChange={(value) =>
+                      updateConfig({
+                        repoId,
+                        prRecapsEnabled: value === true,
+                      })
+                    }
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium">PR recaps</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Auto-generate a recap doc and GitHub comment on each PR
+                      update. Uses your team Claude Code subscription (
+                      <code>CLAUDE_CODE_OAUTH_TOKEN</code>).
+                    </p>
+                    {!claudeAvailable ? (
+                      <p className="mt-1 text-[11px] text-destructive">
+                        Add CLAUDE_CODE_OAUTH_TOKEN in team env vars to enable.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                    PR Recap Model
+                  </label>
+                  <ModelSelect
+                    value={prRecapModel}
+                    options={prRecapOptions}
+                    disabled={!claudeAvailable}
+                    onValueChange={(nextModel: AIModel) => {
+                      updateConfig({
+                        repoId,
+                        prRecapModel: normalizeAIModel(nextModel),
+                      });
+                    }}
+                    className="h-8 text-xs"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Model used when generating PR recap documents.
+                  </p>
+                </div>
+              </div>
+            ) : null}
 
             <div className="rounded-surface border border-border bg-card p-3 space-y-4">
               <div className="flex items-start gap-3">

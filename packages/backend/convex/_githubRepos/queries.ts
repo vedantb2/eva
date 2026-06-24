@@ -282,6 +282,25 @@ export const getAppSlug = authQuery({
 });
 
 /** Gets a GitHub repo by ID without access control (internal use only). */
+export const findParentRepoByOwnerAndName = internalQuery({
+  args: {
+    owner: v.string(),
+    name: v.string(),
+  },
+  returns: v.union(githubRepoValidator, v.null()),
+  handler: async (ctx, args) => {
+    const repos = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", args.owner).eq("name", args.name),
+      )
+      .collect();
+    const parent = repos.find((repo) => !repo.rootDirectory);
+    return parent ?? repos[0] ?? null;
+  },
+});
+
+/** Gets a GitHub repo by ID without access control (internal use only). */
 export const getInternal = internalQuery({
   args: { id: v.id("githubRepos") },
   returns: v.union(githubRepoValidator, v.null()),

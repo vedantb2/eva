@@ -9,6 +9,8 @@ import {
   deriveProjectPhaseFromPrEvent,
   isProjectReviewPhase,
 } from "./_projects/prSync";
+import { workflow } from "./workflowManager";
+import { trackDocWorkflow } from "./workflowWatchdog";
 
 const QUICK_TASK_BRANCH_PREFIX = "eva/task-";
 const PROJECT_BRANCH_PREFIX = "eva/project-";
@@ -266,6 +268,68 @@ export const handlePrClosed = internalMutation({
       taskId: task._id,
     });
 
+    return null;
+  },
+});
+
+const RECAP_BOT_LOGIN_PREFIXES = ["dependabot", "renovate"];
+
+/** Starts or refreshes a PR recap doc + workflow when a pull request is updated. */
+export const handlePrRecapEvent = internalMutation({
+  args: {
+    owner: v.string(),
+    name: v.string(),
+    prUrl: v.string(),
+    prNumber: v.number(),
+    prTitle: v.string(),
+    headSha: v.string(),
+    draft: v.optional(v.boolean()),
+    authorLogin: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (args.draft === true) return null;
+
+    const authorLogin = args.authorLogin?.toLowerCase() ?? "";
+    if (
+      RECAP_BOT_LOGIN_PREFIXES.some((prefix) => authorLogin.startsWith(prefix))
+    ) {
+      return null;
+    }
+
+    const repo = await ctx.runQuery(
+      internal.githubRepos.findParentRepoByOwnerAndName,
+      { owner: args.owner, name: args.name },
+    );
+    if (!repo || repo.prRecapsEnabled !== true) return null;
+    if (!repo.connectedBy) return null;
+
+    const docId = await ctx.runMutation(internal.docs.upsertPrRecapDoc, {
+      repoId: repo._id,
+      prUrl: args.prUrl,
+      prNumber: args.prNumber,
+      title: `PR #${args.prNumber} — ${args.prTitle}`,
+      headSha: args.headSha,
+      content: "_Generating recap…_",
+      prRecapStatus: "pending",
+    });
+
+    const workflowId = await workflow.start(
+      ctx,
+      internal.prRecapWorkflow.prRecapWorkflow,
+      {
+        docId,
+        repoId: repo._id,
+        installationId: repo.installationId,
+        userId: repo.connectedBy,
+        prNumber: args.prNumber,
+        prUrl: args.prUrl,
+        prTitle: args.prTitle,
+        headSha: args.headSha,
+      },
+    );
+
+    await trackDocWorkflow(ctx, docId, workflowId);
     return null;
   },
 });

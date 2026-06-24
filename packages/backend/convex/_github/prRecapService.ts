@@ -1,18 +1,15 @@
 "use node";
 
 import { v } from "convex/values";
-import { internalAction } from "./_generated/server";
-import { getInstallationOctokit } from "./githubAuth";
-import { resolveEnvVars } from "./envVarResolver";
+import { internalAction } from "../_generated/server";
+import { getInstallationOctokit } from "../githubAuth";
+import { resolveEnvVars } from "../envVarResolver";
 import {
   getAIProviderAvailability,
   getAIModelProvider,
-} from "./_validators/aiModels";
-import { aiModelValidator } from "./validators";
-import {
-  PR_RECAP_COMMENT_MARKER,
-  buildPrRecapCommentBody,
-} from "./_github/prComments";
+} from "../_validators/aiModels";
+import { aiModelValidator } from "../validators";
+import { PR_RECAP_COMMENT_MARKER } from "./prComments";
 
 const MAX_DIFF_BYTES = 500_000;
 const MAX_FILES = 100;
@@ -167,5 +164,3 @@ export const checkProviderAuth = internalAction({
     return { ok: true, message: "" };
   },
 });
-
-export { buildPrRecapCommentBody };

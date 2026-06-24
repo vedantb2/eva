@@ -320,6 +320,7 @@ export const upsertPrRecapDoc = internalMutation({
     content: v.string(),
     prRecapStatus: prRecapStatusValidator,
     prRecapError: v.optional(v.string()),
+    clearActiveWorkflowId: v.optional(v.boolean()),
   },
   returns: v.id("docs"),
   handler: async (ctx, args) => {
@@ -356,6 +357,7 @@ export const upsertPrRecapDoc = internalMutation({
         prRecapStatus: args.prRecapStatus,
         prRecapError:
           args.prRecapStatus === "ready" ? undefined : args.prRecapError,
+        ...(args.clearActiveWorkflowId ? { activeWorkflowId: undefined } : {}),
       });
       return existing._id;
     }

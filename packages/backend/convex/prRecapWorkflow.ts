@@ -5,7 +5,6 @@ import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator, aiModelValidator } from "./validators";
-import { trackDocWorkflow } from "./workflowWatchdog";
 import {
   clearStreamingActivity,
   recordCompletionLog,
@@ -13,8 +12,7 @@ import {
 } from "./_taskWorkflow/helpers";
 import { prepareSandboxSteps } from "./_daytona/prepareSandboxSteps";
 import { buildPrRecapPrompt } from "./_prRecapWorkflow/prompts";
-import { buildPrRecapCommentBody } from "./_github/prComments";
-import { buildEvaDocUrl } from "./_taskWorkflow/urls";
+import { finalizePrRecapOutcome } from "./_prRecapWorkflow/finalizeOutcome";
 import { normalizeAIModel } from "./_validators/aiModels";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
@@ -47,38 +45,21 @@ export const prRecapWorkflow = workflow.define({
     );
 
     const authCheck = await step.runAction(
-      internal.githubPrRecapActions.checkProviderAuth,
+      internal._github.prRecapService.checkProviderAuth,
       { repoId: args.repoId, model },
     );
     if (!authCheck.ok) {
-      await step.runMutation(internal.docs.patchPrRecapStatus, {
-        docId: args.docId,
-        prRecapStatus: "error",
-        prRecapError: authCheck.message,
-        activeWorkflowId: null,
-      });
-      await step.runAction(internal.githubPrRecapActions.upsertPrRecapComment, {
-        installationId: args.installationId,
-        owner: repoData.repoOwner,
-        repo: repoData.repoName,
-        prNumber: args.prNumber,
-        body: buildPrRecapCommentBody({
-          evaDocUrl: buildEvaDocUrl(
-            repoData.repoOwner,
-            repoData.repoName,
-            String(args.docId),
-          ),
-          prNumber: args.prNumber,
-          headSha: args.headSha,
-          status: "error",
-          message: authCheck.message,
-        }),
+      await finalizePrRecapOutcome(step, {
+        ...args,
+        repoOwner: repoData.repoOwner,
+        repoName: repoData.repoName,
+        outcome: { kind: "error", message: authCheck.message },
       });
       return;
     }
 
     const diff = await step.runAction(
-      internal.githubPrRecapActions.fetchPrDiff,
+      internal._github.prRecapService.fetchPrDiff,
       {
         installationId: args.installationId,
         owner: repoData.repoOwner,
@@ -88,29 +69,11 @@ export const prRecapWorkflow = workflow.define({
     );
 
     if (diff.additions + diff.deletions < MIN_DIFF_LINES) {
-      const skipMessage = "Diff too small to recap";
-      await step.runMutation(internal.docs.patchPrRecapStatus, {
-        docId: args.docId,
-        prRecapStatus: "error",
-        prRecapError: skipMessage,
-        activeWorkflowId: null,
-      });
-      await step.runAction(internal.githubPrRecapActions.upsertPrRecapComment, {
-        installationId: args.installationId,
-        owner: repoData.repoOwner,
-        repo: repoData.repoName,
-        prNumber: args.prNumber,
-        body: buildPrRecapCommentBody({
-          evaDocUrl: buildEvaDocUrl(
-            repoData.repoOwner,
-            repoData.repoName,
-            String(args.docId),
-          ),
-          prNumber: args.prNumber,
-          headSha: args.headSha,
-          status: "skipped",
-          message: skipMessage,
-        }),
+      await finalizePrRecapOutcome(step, {
+        ...args,
+        repoOwner: repoData.repoOwner,
+        repoName: repoData.repoName,
+        outcome: { kind: "skipped", message: "Diff too small to recap" },
       });
       return;
     }
@@ -155,62 +118,24 @@ export const prRecapWorkflow = workflow.define({
 
     const result = await step.awaitEvent(prRecapCompleteEvent);
 
-    const evaDocUrl = buildEvaDocUrl(
-      repoData.repoOwner,
-      repoData.repoName,
-      String(args.docId),
-    );
-
     if (result.success && result.result) {
-      await step.runMutation(internal.docs.upsertPrRecapDoc, {
-        repoId: args.repoId,
-        prUrl: args.prUrl,
-        prNumber: args.prNumber,
-        title: `PR #${args.prNumber} — ${args.prTitle}`,
-        headSha: args.headSha,
-        content: result.result.trim(),
-        prRecapStatus: "ready",
-        prRecapError: undefined,
-      });
-      await step.runMutation(internal.docs.patchPrRecapStatus, {
-        docId: args.docId,
-        prRecapStatus: "ready",
-        activeWorkflowId: null,
-      });
-      await step.runAction(internal.githubPrRecapActions.upsertPrRecapComment, {
-        installationId: args.installationId,
-        owner: repoData.repoOwner,
-        repo: repoData.repoName,
-        prNumber: args.prNumber,
-        body: buildPrRecapCommentBody({
-          evaDocUrl,
-          prNumber: args.prNumber,
-          headSha: args.headSha,
-          status: "ready",
-        }),
+      await finalizePrRecapOutcome(step, {
+        ...args,
+        repoOwner: repoData.repoOwner,
+        repoName: repoData.repoName,
+        outcome: { kind: "ready", content: result.result.trim() },
       });
       return;
     }
 
-    const errorMessage = result.error ?? "Recap generation failed";
-    await step.runMutation(internal.docs.patchPrRecapStatus, {
-      docId: args.docId,
-      prRecapStatus: "error",
-      prRecapError: errorMessage,
-      activeWorkflowId: null,
-    });
-    await step.runAction(internal.githubPrRecapActions.upsertPrRecapComment, {
-      installationId: args.installationId,
-      owner: repoData.repoOwner,
-      repo: repoData.repoName,
-      prNumber: args.prNumber,
-      body: buildPrRecapCommentBody({
-        evaDocUrl,
-        prNumber: args.prNumber,
-        headSha: args.headSha,
-        status: "error",
-        message: errorMessage,
-      }),
+    await finalizePrRecapOutcome(step, {
+      ...args,
+      repoOwner: repoData.repoOwner,
+      repoName: repoData.repoName,
+      outcome: {
+        kind: "error",
+        message: result.error ?? "Recap generation failed",
+      },
     });
   },
 });

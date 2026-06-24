@@ -63,6 +63,7 @@ import type * as _github_api from "../_github/api.js";
 import type * as _github_helpers from "../_github/helpers.js";
 import type * as _github_prComments from "../_github/prComments.js";
 import type * as _github_prFlow from "../_github/prFlow.js";
+import type * as _github_prRecapService from "../_github/prRecapService.js";
 import type * as _github_sync from "../_github/sync.js";
 import type * as _logs_resolveProjectId from "../_logs/resolveProjectId.js";
 import type * as _mcp_redirectUri from "../_mcp/redirectUri.js";
@@ -81,6 +82,7 @@ import type * as _migrations_projectInterview from "../_migrations/projectInterv
 import type * as _migrations_projectPhases from "../_migrations/projectPhases.js";
 import type * as _migrations_repoSkills from "../_migrations/repoSkills.js";
 import type * as _migrations_sessionModes from "../_migrations/sessionModes.js";
+import type * as _prRecapWorkflow_finalizeOutcome from "../_prRecapWorkflow/finalizeOutcome.js";
 import type * as _prRecapWorkflow_prompts from "../_prRecapWorkflow/prompts.js";
 import type * as _projects_chatPrompt from "../_projects/chatPrompt.js";
 import type * as _projects_development from "../_projects/development.js";
@@ -168,7 +170,6 @@ import type * as fixEnvVars from "../fixEnvVars.js";
 import type * as functions from "../functions.js";
 import type * as github from "../github.js";
 import type * as githubAuth from "../githubAuth.js";
-import type * as githubPrRecapActions from "../githubPrRecapActions.js";
 import type * as githubPrivateKeyFormat from "../githubPrivateKeyFormat.js";
 import type * as githubRepos from "../githubRepos.js";
 import type * as githubWebhook from "../githubWebhook.js";
@@ -307,6 +308,7 @@ declare const fullApi: ApiFromModules<{
   "_github/helpers": typeof _github_helpers;
   "_github/prComments": typeof _github_prComments;
   "_github/prFlow": typeof _github_prFlow;
+  "_github/prRecapService": typeof _github_prRecapService;
   "_github/sync": typeof _github_sync;
   "_logs/resolveProjectId": typeof _logs_resolveProjectId;
   "_mcp/redirectUri": typeof _mcp_redirectUri;
@@ -325,6 +327,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/projectPhases": typeof _migrations_projectPhases;
   "_migrations/repoSkills": typeof _migrations_repoSkills;
   "_migrations/sessionModes": typeof _migrations_sessionModes;
+  "_prRecapWorkflow/finalizeOutcome": typeof _prRecapWorkflow_finalizeOutcome;
   "_prRecapWorkflow/prompts": typeof _prRecapWorkflow_prompts;
   "_projects/chatPrompt": typeof _projects_chatPrompt;
   "_projects/development": typeof _projects_development;
@@ -412,7 +415,6 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   github: typeof github;
   githubAuth: typeof githubAuth;
-  githubPrRecapActions: typeof githubPrRecapActions;
   githubPrivateKeyFormat: typeof githubPrivateKeyFormat;
   githubRepos: typeof githubRepos;
   githubWebhook: typeof githubWebhook;

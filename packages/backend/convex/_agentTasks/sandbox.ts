@@ -351,6 +351,14 @@ export const markTaskSandboxClosed = internalMutation({
       errorDetail: args.error,
       createdAt: Date.now(),
     });
+    await ctx.db.insert("messages", {
+      parentId: args.taskId,
+      role: "assistant",
+      content: args.error ? "Failed to stop sandbox" : "Sandbox stopped",
+      timestamp: Date.now(),
+      isSystemAlert: true,
+      errorDetail: args.error,
+    });
     await ctx.db.patch(args.taskId, {
       reviewTaskSandboxStatus: "closed",
       updatedAt: Date.now(),
@@ -376,10 +384,18 @@ export const taskSandboxReady = internalMutation({
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
 
+    const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
     await ctx.db.insert("taskSandboxEvents", {
       taskId: args.taskId,
       event: args.isNew ? "started" : "reconnected",
       createdAt: Date.now(),
+    });
+    await ctx.db.insert("messages", {
+      parentId: args.taskId,
+      role: "assistant",
+      content,
+      timestamp: Date.now(),
+      isSystemAlert: true,
     });
 
     await ctx.db.patch(args.taskId, {
@@ -413,6 +429,14 @@ export const taskSandboxError = internalMutation({
       event: "failed",
       errorDetail: args.error,
       createdAt: Date.now(),
+    });
+    await ctx.db.insert("messages", {
+      parentId: args.taskId,
+      role: "assistant",
+      content: "Failed to start sandbox",
+      timestamp: Date.now(),
+      isSystemAlert: true,
+      errorDetail: args.error,
     });
 
     await ctx.db.patch(args.taskId, {

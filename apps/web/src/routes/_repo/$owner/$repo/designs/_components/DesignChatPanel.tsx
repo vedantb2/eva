@@ -281,6 +281,7 @@ export function DesignChatPanel({
                     key={message._id}
                     content={message.content ?? ""}
                     errorDetail={message.errorDetail}
+                    timestamp={message.timestamp}
                   />
                 ) : (
                   <motion.div

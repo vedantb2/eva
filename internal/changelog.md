@@ -1,5 +1,10 @@
 # Changelog
 
+## Sandbox start/stop events in project and task sandbox chat - 2026-06-25
+
+- Project preview and quick-task sandbox chats now show the same "Sandbox started/stopped" system dividers as session chat, so sandbox lifecycle is visible in the conversation instead of only in status badges or the task activity timeline.
+- System alert dividers in chat now include relative timestamps everywhere `ChatBody` renders them.
+
 ## PR recaps as Eva docs - 2026-06-24
 
 - PR visual recaps now live as first-party Eva docs (`kind: pr-recap`) under the existing docs route, generated on PR open/sync via the Eva GitHub webhook instead of Agent-Native or per-repo GitHub Actions.

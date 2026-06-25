@@ -41,7 +41,7 @@ import {
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
-  sidebarNavListItemClass,
+  sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface DocsSidebarProps {
@@ -303,7 +303,7 @@ export function DocsSidebar({
             No matches found
           </div>
         ) : (
-          <SharedLayoutNav layoutId="docs-nav">
+          <SharedLayoutNav layoutId="docs-nav" className="space-y-1">
             {filteredDocs.map((doc) => {
               const href = `${basePath}/docs/${doc._id}/${defaultDocTab(doc.kind)}`;
               const isSelected = pathname.startsWith(href);
@@ -313,24 +313,26 @@ export function DocsSidebar({
                     <SharedLayoutNavSurface
                       itemId={doc._id}
                       isActive={isSelected}
-                      className="group mx-1"
+                      className="group"
                     >
                       <Link
                         to={href}
                         search={(prev) => prev}
                         onClick={onNavigate}
-                        className={cn(
-                          "flex items-center gap-1.5",
-                          sidebarNavListItemClass(isSelected),
-                        )}
+                        className={sidebarNavLinkClass(isSelected)}
                       >
                         {doc.kind === "pr-recap" ? (
                           <IconGitMerge
-                            size={14}
-                            className="shrink-0 text-muted-foreground"
+                            size={16}
+                            className={cn(
+                              "shrink-0",
+                              isSelected
+                                ? "text-sidebar-primary"
+                                : "text-muted-foreground",
+                            )}
                           />
                         ) : null}
-                        <span className="min-w-0 flex-1 truncate text-sm">
+                        <span className="min-w-0 flex-1 truncate">
                           {doc.title}
                         </span>
                         <span

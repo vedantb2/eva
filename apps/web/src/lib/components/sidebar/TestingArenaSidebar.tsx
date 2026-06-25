@@ -24,7 +24,7 @@ import { branchParser, searchParser } from "@/lib/search-params";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
-  sidebarNavListItemClass,
+  sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface TestingArenaSidebarProps {
@@ -135,7 +135,7 @@ export function TestingArenaSidebar({
             No matches found
           </div>
         ) : (
-          <SharedLayoutNav layoutId="testing-arena-nav">
+          <SharedLayoutNav layoutId="testing-arena-nav" className="space-y-1">
             {filteredDocs.map((doc) => {
               const href = `${basePath}/testing-arena/${doc._id}`;
               const isSelected = pathname.startsWith(href);
@@ -144,17 +144,22 @@ export function TestingArenaSidebar({
                   key={doc._id}
                   itemId={doc._id}
                   isActive={isSelected}
-                  className="group mx-1"
+                  className="group"
                 >
                   <Link
                     to={href}
                     onClick={onNavigate}
-                    className={cn(
-                      "flex items-center text-sm",
-                      sidebarNavListItemClass(isSelected),
-                    )}
+                    className={sidebarNavLinkClass(isSelected)}
                   >
-                    <IconFileText size={14} className="mr-2.5 shrink-0" />
+                    <IconFileText
+                      size={16}
+                      className={cn(
+                        "shrink-0",
+                        isSelected
+                          ? "text-sidebar-primary"
+                          : "text-muted-foreground",
+                      )}
+                    />
                     <span className="min-w-0 flex-1 truncate">{doc.title}</span>
                     <span
                       className={cn(

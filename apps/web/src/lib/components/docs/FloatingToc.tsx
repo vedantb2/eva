@@ -8,109 +8,87 @@ import {
   type RefObject,
 } from "react";
 import { cn } from "@conductor/ui";
-
-// Which heading levels to surface in the table of contents. Deeper headings
-// (h4+) are intentionally omitted to keep the rail readable for long PRDs.
-const HEADING_SELECTOR = "h1, h2, h3";
-
-interface TocItem {
-  id: string;
-  text: string;
-  level: number;
-}
-
-// Turn heading text into a DOM-safe, human-readable id fragment.
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
+import { assignHeadingIds, type TocItem } from "./_utils/tocUtils";
 
 interface FloatingTocProps {
-  // Scroll container holding the rendered markdown headings. Doubles as the
-  // IntersectionObserver root so active-section tracking respects its scroll.
+  // Scroll container holding the rendered headings. Doubles as the scroll root
+  // for active-section tracking.
   containerRef: RefObject<HTMLElement | null>;
-  // Re-scan headings whenever the rendered markdown changes.
+  // Re-scan headings whenever the document content changes.
   content: string;
   className?: string;
+  /** When set (e.g. from editor cursor), takes precedence over scroll spy. */
+  preferredActiveId?: string | null;
 }
 
 /**
- * Scroll-spy "On this page" navigation for rendered markdown (PRDs/docs).
+ * Scroll-spy "On this page" navigation for doc content.
  *
- * Streamdown owns the heading nodes, so rather than parse markdown ourselves we
- * scan the rendered DOM after paint, assign stable ids, and build the section
- * list from what is actually on screen. An IntersectionObserver rooted on the
- * scroll container highlights the section nearest the top, and clicking an item
- * smooth-scrolls to it. Renders nothing when there are too few headings to be
- * worth a TOC.
+ * Scans the rendered DOM after paint, assigns stable ids, and builds the
+ * section list from what is actually on screen. Highlights the section under
+ * the cursor when provided, otherwise the section nearest the scroll top.
  */
 export function FloatingToc({
   containerRef,
   content,
   className,
+  preferredActiveId,
 }: FloatingTocProps) {
   const [items, setItems] = useState<TocItem[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  // Suppress observer-driven highlight changes during a click-scroll so the
-  // clicked item stays active until the smooth scroll settles.
+  const [scrollActiveId, setScrollActiveId] = useState<string | null>(null);
+  const [clickActiveId, setClickActiveId] = useState<string | null>(null);
   const clickScrollingRef = useRef(false);
 
-  // Scan rendered headings, assign ids, build the section list.
+  const activeId =
+    clickActiveId ??
+    preferredActiveId ??
+    scrollActiveId ??
+    items[0]?.id ??
+    null;
+
+  // Scan rendered headings whenever content changes.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Wait for Streamdown to paint this content before scanning.
-    const raf = requestAnimationFrame(() => {
-      const headings = Array.from(
-        container.querySelectorAll<HTMLHeadingElement>(HEADING_SELECTOR),
-      );
-      const seen = new Map<string, number>();
-      const next: TocItem[] = headings.map((el) => {
-        const text = el.textContent?.trim() ?? "";
-        const base = slugify(text) || "section";
-        const count = seen.get(base) ?? 0;
-        seen.set(base, count + 1);
-        const id = count === 0 ? base : `${base}-${count}`;
-        el.id = id;
-        return { id, text, level: Number(el.tagName.slice(1)) };
-      });
+    const scan = () => {
+      const next = assignHeadingIds(container);
       setItems(next);
-    });
+      if (next.length > 0) {
+        setScrollActiveId((current) => current ?? next[0].id);
+      }
+    };
+
+    const raf = requestAnimationFrame(scan);
     return () => cancelAnimationFrame(raf);
   }, [containerRef, content]);
 
-  // Highlight whichever section sits nearest the top of the scroll container.
+  // Highlight whichever section sits nearest the top while scrolling.
   useEffect(() => {
     const container = containerRef.current;
     if (!container || items.length === 0) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (clickScrollingRef.current) return;
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        const topId = visible[0]?.target.id;
-        if (topId) setActiveId(topId);
-      },
-      {
-        root: container,
-        // Activate a heading once it crosses into the top third of the view.
-        rootMargin: "0px 0px -66% 0px",
-        threshold: 0,
-      },
-    );
+    const updateFromScroll = () => {
+      if (clickScrollingRef.current) return;
 
-    for (const item of items) {
-      const el = container.querySelector(`#${CSS.escape(item.id)}`);
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
+      const containerTop = container.getBoundingClientRect().top;
+      let best: { id: string; top: number } | null = null;
+
+      for (const item of items) {
+        const el = container.querySelector(`#${CSS.escape(item.id)}`);
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top - containerTop;
+        if (top <= 96 && (!best || top > best.top)) {
+          best = { id: item.id, top };
+        }
+      }
+
+      setScrollActiveId(best?.id ?? items[0]?.id ?? null);
+    };
+
+    updateFromScroll();
+    container.addEventListener("scroll", updateFromScroll, { passive: true });
+    return () => container.removeEventListener("scroll", updateFromScroll);
   }, [containerRef, items]);
 
   const handleClick = useCallback(
@@ -120,11 +98,11 @@ export function FloatingToc({
       );
       if (!el) return;
       clickScrollingRef.current = true;
-      setActiveId(id);
+      setClickActiveId(id);
       el.scrollIntoView({ behavior: "smooth", block: "start" });
-      // Re-enable observer-driven highlighting after the scroll settles.
       window.setTimeout(() => {
         clickScrollingRef.current = false;
+        setClickActiveId(null);
       }, 600);
     },
     [containerRef],

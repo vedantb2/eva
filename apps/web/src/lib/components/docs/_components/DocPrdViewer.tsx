@@ -295,6 +295,7 @@ export function DocPrdViewer({
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
             <TabsTrigger value="description">Description</TabsTrigger>
+            <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="requirements">
               Requirements
               <span className="ml-1.5 text-muted-foreground">
@@ -307,7 +308,6 @@ export function DocPrdViewer({
                 {doc.userFlows?.length ?? 0}
               </span>
             </TabsTrigger>
-            <TabsTrigger value="content">Content</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-1">
             {activeTab === "content" && (

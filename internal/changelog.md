@@ -1,5 +1,10 @@
 # Changelog
 
+## Doc content outline tracks cursor and tab order - 2026-06-25
+
+- The "On this page" outline now follows the editor cursor and scroll position, and highlights the active section, by scanning live TipTap content instead of stale `doc.content`.
+- PRD doc tabs show Content second (after Description) so the primary editor is one click from the summary.
+
 ## Sandbox start/stop events in project and task sandbox chat - 2026-06-25
 
 - Project preview and quick-task sandbox chats now show the same "Sandbox started/stopped" system dividers as session chat, so sandbox lifecycle is visible in the conversation instead of only in status badges or the task activity timeline.

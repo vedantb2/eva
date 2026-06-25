@@ -18,6 +18,7 @@ import { nanoid } from "nanoid";
 import { Button, Spinner } from "@conductor/ui";
 import { IconMessage } from "@tabler/icons-react";
 import { FloatingToc } from "../FloatingToc";
+import { activeTocIdAtPosition } from "../_utils/tocUtils";
 import { DocCommentsPanel } from "./DocCommentsPanel";
 import { DocHistoryPanel } from "./DocHistoryPanel";
 import { DocSuggestionsPanel } from "./DocSuggestionsPanel";
@@ -127,6 +128,8 @@ export function DocContentTab({
   }, [comments, composingAnchorId]);
 
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tocContent, setTocContent] = useState(doc.content);
+  const [cursorActiveId, setCursorActiveId] = useState<string | null>(null);
   const lastTouchDraftRef = useRef<number>(0);
   const editCountRef = useRef<number>(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -187,6 +190,31 @@ export function DocContentTab({
   useEffect(() => {
     onSuggestionCount(suggestionCount);
   }, [suggestionCount, onSuggestionCount]);
+
+  // Keep the outline in sync with live editor content and cursor position.
+  useEffect(() => {
+    if (!editor) return;
+
+    const syncTocContent = () => {
+      setTocContent(editor.getMarkdown());
+    };
+    const syncCursorHeading = () => {
+      const id = activeTocIdAtPosition(
+        editor.state.doc,
+        editor.state.selection.from,
+      );
+      setCursorActiveId(id);
+    };
+
+    syncTocContent();
+    syncCursorHeading();
+    editor.on("update", syncTocContent);
+    editor.on("selectionUpdate", syncCursorHeading);
+    return () => {
+      editor.off("update", syncTocContent);
+      editor.off("selectionUpdate", syncCursorHeading);
+    };
+  }, [editor]);
 
   // Version snapshot tracking
   useEffect(() => {
@@ -362,10 +390,11 @@ export function DocContentTab({
             {!commentsOpen &&
               !historyOpen &&
               !suggestionsOpen &&
-              doc.content.trim().length > 0 && (
+              tocContent.trim().length > 0 && (
                 <FloatingToc
                   containerRef={contentScrollRef}
-                  content={doc.content}
+                  content={tocContent}
+                  preferredActiveId={cursorActiveId}
                   className="hidden w-52 shrink-0 py-1 lg:block"
                 />
               )}

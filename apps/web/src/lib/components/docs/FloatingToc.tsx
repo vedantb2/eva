@@ -17,34 +17,40 @@ interface FloatingTocProps {
   // Re-scan headings whenever the document content changes.
   content: string;
   className?: string;
-  /** When set (e.g. from editor cursor), takes precedence over scroll spy. */
-  preferredActiveId?: string | null;
+}
+
+/** Offset from the top of the scroll container when picking / scrolling to a section. */
+const SCROLL_SPY_OFFSET = 96;
+
+function headingTopInContainer(
+  el: HTMLElement,
+  container: HTMLElement,
+): number {
+  return (
+    el.getBoundingClientRect().top -
+    container.getBoundingClientRect().top +
+    container.scrollTop
+  );
 }
 
 /**
  * Scroll-spy "On this page" navigation for doc content.
  *
  * Scans the rendered DOM after paint, assigns stable ids, and builds the
- * section list from what is actually on screen. Highlights the section under
- * the cursor when provided, otherwise the section nearest the scroll top.
+ * section list from what is actually on screen. Highlights the section at the
+ * viewport top while scrolling; clicking a section scrolls it into view.
  */
 export function FloatingToc({
   containerRef,
   content,
   className,
-  preferredActiveId,
 }: FloatingTocProps) {
   const [items, setItems] = useState<TocItem[]>([]);
   const [scrollActiveId, setScrollActiveId] = useState<string | null>(null);
   const [clickActiveId, setClickActiveId] = useState<string | null>(null);
   const clickScrollingRef = useRef(false);
 
-  const activeId =
-    clickActiveId ??
-    preferredActiveId ??
-    scrollActiveId ??
-    items[0]?.id ??
-    null;
+  const activeId = clickActiveId ?? scrollActiveId ?? items[0]?.id ?? null;
 
   // Scan rendered headings whenever content changes.
   useEffect(() => {
@@ -63,7 +69,7 @@ export function FloatingToc({
     return () => cancelAnimationFrame(raf);
   }, [containerRef, content]);
 
-  // Highlight whichever section sits nearest the top while scrolling.
+  // Highlight the last heading that has scrolled past the top of the viewport.
   useEffect(() => {
     const container = containerRef.current;
     if (!container || items.length === 0) return;
@@ -71,39 +77,52 @@ export function FloatingToc({
     const updateFromScroll = () => {
       if (clickScrollingRef.current) return;
 
-      const containerTop = container.getBoundingClientRect().top;
-      let best: { id: string; top: number } | null = null;
+      const marker = container.scrollTop + SCROLL_SPY_OFFSET;
+      let active = items[0]?.id ?? null;
 
       for (const item of items) {
-        const el = container.querySelector(`#${CSS.escape(item.id)}`);
+        const el = container.querySelector<HTMLElement>(
+          `#${CSS.escape(item.id)}`,
+        );
         if (!el) continue;
-        const top = el.getBoundingClientRect().top - containerTop;
-        if (top <= 96 && (!best || top > best.top)) {
-          best = { id: item.id, top };
+        if (headingTopInContainer(el, container) <= marker) {
+          active = item.id;
         }
       }
 
-      setScrollActiveId(best?.id ?? items[0]?.id ?? null);
+      setScrollActiveId(active);
     };
 
     updateFromScroll();
     container.addEventListener("scroll", updateFromScroll, { passive: true });
-    return () => container.removeEventListener("scroll", updateFromScroll);
+    const resizeObserver = new ResizeObserver(updateFromScroll);
+    resizeObserver.observe(container);
+    return () => {
+      container.removeEventListener("scroll", updateFromScroll);
+      resizeObserver.disconnect();
+    };
   }, [containerRef, items]);
 
   const handleClick = useCallback(
     (id: string) => {
-      const el = containerRef.current?.querySelector<HTMLElement>(
-        `#${CSS.escape(id)}`,
-      );
+      const container = containerRef.current;
+      if (!container) return;
+      const el = container.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
       if (!el) return;
+
       clickScrollingRef.current = true;
       setClickActiveId(id);
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      const top = headingTopInContainer(el, container) - SCROLL_SPY_OFFSET;
+      container.scrollTo({
+        top: Math.max(0, top),
+        behavior: "smooth",
+      });
+
       window.setTimeout(() => {
         clickScrollingRef.current = false;
         setClickActiveId(null);
-      }, 600);
+      }, 800);
     },
     [containerRef],
   );

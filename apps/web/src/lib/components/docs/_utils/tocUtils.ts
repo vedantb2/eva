@@ -1,5 +1,3 @@
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-
 export interface TocItem {
   id: string;
   text: string;
@@ -46,36 +44,13 @@ export function assignHeadingIds(
   );
   for (let i = 0; i < items.length; i++) {
     const heading = headings[i];
-    if (heading) heading.id = items[i].id;
+    if (heading) {
+      heading.id = items[i].id;
+      heading.style.scrollMarginTop = `${SCROLL_MARGIN_TOP_PX}px`;
+    }
   }
   return items;
 }
 
-function headingLevel(node: ProseMirrorNode): number | null {
-  if (node.type.name !== "heading") return null;
-  const level = node.attrs.level;
-  return typeof level === "number" ? level : null;
-}
-
-/** Heading section the cursor sits in (last heading at or above `pos`). */
-export function activeTocIdAtPosition(
-  doc: ProseMirrorNode,
-  pos: number,
-): string | null {
-  const collected: Array<{ text: string; level: number }> = [];
-  let activeIndex = -1;
-
-  doc.descendants((node, nodePos) => {
-    const level = headingLevel(node);
-    if (level === null) return;
-    const index = collected.length;
-    collected.push({ text: node.textContent, level });
-    if (nodePos <= pos) {
-      activeIndex = index;
-    }
-  });
-
-  if (activeIndex < 0) return null;
-  const items = buildTocItems(collected);
-  return items[activeIndex]?.id ?? null;
-}
+/** Matches FloatingToc scroll offset so click-scroll lands below sticky chrome. */
+const SCROLL_MARGIN_TOP_PX = 96;

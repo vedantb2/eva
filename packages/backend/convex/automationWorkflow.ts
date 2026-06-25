@@ -78,6 +78,8 @@ export const automationExecutionWorkflow = workflow.define({
         baseBranch: data.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
         branchName: isReadOnly ? undefined : args.branchName,
         createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
+        // Ephemeral agent runs only need checkout + Claude; skip repo setup daemons.
+        skipStartupCommands: true,
       });
 
       await step.runMutation(internal.automations.updateRunStatus, {

@@ -2,7 +2,7 @@
 
 ## PR recap sandbox prep and workflow finalize fix - 2026-06-25
 
-- PR recap sandboxes skip repo startup and background commands (read-only ephemeral agent, like interview) so pushes no longer spend minutes on supabase seeding before Claude runs.
+- PR recap and automation sandboxes skip repo startup and background commands (ephemeral agent runs only need checkout + Claude) so runs no longer spend minutes on supabase/convex setup before the agent starts.
 - Fixed recap workflows crashing after the agent finished because finalize built the GitHub comment URL with `process.env` inside the workflow isolate.
 
 ## Doc content outline tracks cursor and tab order - 2026-06-25

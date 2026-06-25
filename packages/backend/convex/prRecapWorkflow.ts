@@ -101,6 +101,8 @@ export const prRecapWorkflow = workflow.define({
       streamingEntityId: `pr-recap:${String(args.docId)}`,
       baseBranch: repoData.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
       createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
+      // Recap agents only read the diff in-repo; no convex import / dev daemons.
+      skipStartupCommands: true,
     });
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {

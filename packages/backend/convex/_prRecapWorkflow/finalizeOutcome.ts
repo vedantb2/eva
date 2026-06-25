@@ -1,8 +1,6 @@
 import type { WorkflowCtx } from "@convex-dev/workflow";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
-import { buildPrRecapCommentBody } from "../_github/prComments";
-import { buildEvaDocUrl } from "../_taskWorkflow/urls";
 
 export type PrRecapOutcome =
   | { kind: "ready"; content: string }
@@ -27,12 +25,6 @@ export async function finalizePrRecapOutcome(
   step: WorkflowCtx,
   params: FinalizePrRecapOutcomeParams,
 ): Promise<void> {
-  const evaDocUrl = buildEvaDocUrl(
-    params.repoOwner,
-    params.repoName,
-    String(params.docId),
-  );
-
   if (params.outcome.kind === "ready") {
     await step.runMutation(internal.docs.upsertPrRecapDoc, {
       repoId: params.repoId,
@@ -68,12 +60,9 @@ export async function finalizePrRecapOutcome(
     owner: params.repoOwner,
     repo: params.repoName,
     prNumber: params.prNumber,
-    body: buildPrRecapCommentBody({
-      evaDocUrl,
-      prNumber: params.prNumber,
-      headSha: params.headSha,
-      status: commentStatus,
-      message: commentMessage,
-    }),
+    docId: String(params.docId),
+    headSha: params.headSha,
+    status: commentStatus,
+    message: commentMessage,
   });
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## PR recap sandbox prep and workflow finalize fix - 2026-06-25
+
+- PR recap sandboxes skip repo startup and background commands (read-only ephemeral agent, like interview) so pushes no longer spend minutes on supabase seeding before Claude runs.
+- Fixed recap workflows crashing after the agent finished because finalize built the GitHub comment URL with `process.env` inside the workflow isolate.
+
 ## Doc content outline tracks cursor and tab order - 2026-06-25
 
 - The "On this page" outline now follows the editor cursor and scroll position, and highlights the active section, by scanning live TipTap content instead of stale `doc.content`.

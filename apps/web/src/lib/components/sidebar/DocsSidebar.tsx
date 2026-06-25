@@ -333,12 +333,6 @@ export function DocsSidebar({
                         <span className="min-w-0 flex-1 truncate text-sm">
                           {doc.title}
                         </span>
-                        {doc.kind === "pr-recap" &&
-                        doc.prNumber !== undefined ? (
-                          <span className="shrink-0 rounded-surface border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            PR #{doc.prNumber}
-                          </span>
-                        ) : null}
                         <span
                           className={cn(
                             "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",

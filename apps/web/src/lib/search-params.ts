@@ -164,6 +164,14 @@ export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
 
+const docListFilters = ["all", "documents", "pr-recaps"] as const;
+export type DocListFilter = (typeof docListFilters)[number];
+export const docListFilterParser = parseAsStringLiteral(docListFilters)
+  .withDefault("all")
+  .withOptions(searchOptions);
+
+export const DOC_RECAP_DEFAULT_TAB: DocViewerTab = "content";
+
 const projectViews = ["kanban", "timeline", "list", "table"] as const;
 export const projectViewParser = parseAsStringLiteral(projectViews)
   .withDefault("kanban")

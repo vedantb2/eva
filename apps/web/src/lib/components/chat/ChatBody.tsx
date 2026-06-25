@@ -290,6 +290,7 @@ export function ChatBody({
                     key={message._id}
                     content={message.content ?? ""}
                     errorDetail={message.errorDetail}
+                    timestamp={message.timestamp}
                   />
                 ) : (
                   <motion.div

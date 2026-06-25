@@ -2,10 +2,12 @@ import { v } from "convex/values";
 import { aiModelValidator } from "./aiModels";
 import {
   deploymentStatusValidator,
+  docKindValidator,
   errorTypeValidator,
   evaluationStatusValidator,
   evalFixStatusValidator,
   phaseValidator,
+  prRecapStatusValidator,
   priorityValidator,
   reactionTargetValidator,
   roleUserValidator,
@@ -232,6 +234,8 @@ export const githubRepoFields = {
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   systemPrompt: v.optional(v.string()),
+  prRecapsEnabled: v.optional(v.boolean()),
+  prRecapModel: v.optional(aiModelValidator),
 };
 
 export const projectFields = {
@@ -435,9 +439,15 @@ export const sandboxGitCredentialsFields = {
 
 export const docFields = {
   repoId: v.id("githubRepos"),
+  kind: v.optional(docKindValidator),
   sessionId: v.optional(v.id("sessions")),
   title: v.string(),
   content: v.string(),
+  prUrl: v.optional(v.string()),
+  prNumber: v.optional(v.number()),
+  headSha: v.optional(v.string()),
+  prRecapStatus: v.optional(prRecapStatusValidator),
+  prRecapError: v.optional(v.string()),
   description: v.optional(v.string()),
   userFlows: v.optional(
     v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),

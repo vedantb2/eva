@@ -15,6 +15,20 @@
 - Gate per-app seeding on a base-image propagation probe so seeding only starts once the freshly built snapshot is actually bootable, fixing "No available runners" failures and silent fallbacks to the base image.
 - Surface per-app seeding outcomes in snapshot settings: the status tab shows each app's current state (seeded with snapshot name, or using the base image), and build history shows per-build results as a seeded/total count with per-app detail on expand.
 - Removed the snapshot-cache warmup pass (now redundant with the propagation probe, which also warms the runner cache) and cleared its orphaned fields from existing build records.
+## Sandbox start/stop events in project and task sandbox chat - 2026-06-25
+
+- Project preview and quick-task sandbox chats now show the same "Sandbox started/stopped" system dividers as session chat, so sandbox lifecycle is visible in the conversation instead of only in status badges or the task activity timeline.
+- System alert dividers in chat now include relative timestamps everywhere `ChatBody` renders them.
+
+## PR recaps as Eva docs - 2026-06-24
+
+- PR visual recaps now live as first-party Eva docs (`kind: pr-recap`) under the existing docs route, generated on PR open/sync via the Eva GitHub webhook instead of Agent-Native or per-repo GitHub Actions.
+- Recaps use the same Claude Code OAuth subscription and configurable model as the rest of the platform — no Anthropic API key — with a sticky GitHub comment linking to the Eva doc.
+
+## Eva product video agent skill - 2026-06-24
+
+- Added an agent skill documenting how to capture real app footage and render Remotion demo videos with the repo's established defaults (720p, beat-sync cuts, agent-browser workflow), so future video work doesn't rediscover the same pitfalls.
+
 ## Archived sandbox restore survives past the 10-minute action limit - 2026-06-24
 
 - Resuming a sandbox that had been archived to cold storage now restores reliably everywhere a sandbox is resumed — session/project/quick-task chat, task and project runs, and the "Start sandbox" buttons — by polling the multi-minute thaw across durable workflow steps instead of one blocking action, so it no longer fails when the restore runs past Convex's 10-minute action limit.

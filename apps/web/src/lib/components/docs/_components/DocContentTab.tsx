@@ -70,6 +70,8 @@ export function DocContentTab({
   onSuggestionCount: (count: number) => void;
 }) {
   const [mode] = useQueryState("mode", docModeParser);
+  const isPrRecap = doc.kind === "pr-recap";
+  const effectiveMode: DocMode = isPrRecap ? "viewing" : mode;
   const ensureSyncDoc = useMutation(api.docs.ensureSyncDoc);
   const touchDraft = useMutation(api.docVersions.touchDraft);
   const saveVersion = useMutation(api.docVersions.saveVersion);
@@ -144,7 +146,7 @@ export function DocContentTab({
     {
       extensions: sync.extension ? [...extensions, sync.extension] : extensions,
       content: sync.initialContent ?? undefined,
-      editable: mode !== "viewing",
+      editable: effectiveMode !== "viewing",
       immediatelyRender: false,
       editorProps: {
         attributes: {
@@ -159,17 +161,21 @@ export function DocContentTab({
   // Update editable when mode changes
   useEffect(() => {
     if (editor) {
-      editor.setEditable(mode !== "viewing");
+      editor.setEditable(effectiveMode !== "viewing");
     }
-  }, [editor, mode]);
+  }, [editor, effectiveMode]);
 
   // Toggle suggestion tracking with the mode. Editing/Viewing apply edits
   // directly; Suggesting converts them into tracked-change marks.
   useEffect(() => {
     if (!editor) return;
-    if (mode === "suggesting") enableSuggesting(editor);
+    if (isPrRecap) {
+      disableSuggesting(editor);
+      return;
+    }
+    if (effectiveMode === "suggesting") enableSuggesting(editor);
     else disableSuggesting(editor);
-  }, [editor, mode]);
+  }, [editor, effectiveMode, isPrRecap]);
 
   // Surface the pending-suggestion count so the header toggle can show it.
   const suggestionCount =

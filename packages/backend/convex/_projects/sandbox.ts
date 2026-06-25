@@ -337,30 +337,46 @@ export const finalizeStopProjectSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    let stopError: string | undefined;
     try {
       await ctx.runAction(internal.daytona.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });
-    } finally {
-      await ctx.runMutation(
-        internal._projects.sandbox.markProjectSandboxClosed,
-        { projectId: args.projectId },
-      );
+    } catch (err) {
+      stopError = err instanceof Error ? err.message : String(err);
     }
+    await ctx.runMutation(internal._projects.sandbox.markProjectSandboxClosed, {
+      projectId: args.projectId,
+      error: stopError,
+    });
     return null;
   },
 });
 
-/** Internal: flips project sandbox status from `"stopping"` to `"closed"` after Daytona stop completes. */
+/**
+ * Internal: flips project sandbox status from `"stopping"` to `"closed"` after
+ * Daytona stop completes, and posts a sandbox stop divider to the chat.
+ */
 export const markProjectSandboxClosed = internalMutation({
-  args: { projectId: v.id("projects") },
+  args: {
+    projectId: v.id("projects"),
+    error: v.optional(v.string()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
     // Only flip if still stopping — don't overwrite a fresh start.
     if (project.reviewProjectSandboxStatus !== "stopping") return null;
+    await ctx.db.insert("messages", {
+      parentId: args.projectId,
+      role: "assistant",
+      content: args.error ? "Failed to stop sandbox" : "Sandbox stopped",
+      timestamp: Date.now(),
+      isSystemAlert: true,
+      errorDetail: args.error,
+    });
     await ctx.db.patch(args.projectId, {
       reviewProjectSandboxStatus: "closed",
     });
@@ -382,6 +398,14 @@ export const projectSandboxReady = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
 
+    const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
+    await ctx.db.insert("messages", {
+      parentId: args.projectId,
+      role: "assistant",
+      content,
+      timestamp: Date.now(),
+      isSystemAlert: true,
+    });
     await ctx.db.patch(args.projectId, {
       sandboxId: args.sandboxId,
       reviewProjectSandboxStatus: "active",
@@ -443,6 +467,14 @@ export const projectSandboxError = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
 
+    await ctx.db.insert("messages", {
+      parentId: args.projectId,
+      role: "assistant",
+      content: "Failed to start sandbox",
+      timestamp: Date.now(),
+      isSystemAlert: true,
+      errorDetail: args.error,
+    });
     await ctx.db.patch(args.projectId, {
       reviewProjectSandboxStatus: "closed",
     });

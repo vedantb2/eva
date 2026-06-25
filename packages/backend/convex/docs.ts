@@ -1,10 +1,20 @@
 import { v } from "convex/values";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { components } from "./_generated/api";
-import { evaluationStatusValidator, roleValidator } from "./validators";
+import {
+  evaluationStatusValidator,
+  prRecapStatusValidator,
+  roleValidator,
+} from "./validators";
 import { docFields } from "./validators";
 import { prosemirrorSync } from "./prosemirrorSync";
 import { markdownToDocJson } from "./_docEditor/markdown";
+import {
+  findAllSiblingRepoIds,
+  hasCodebaseRepoAccess,
+  resolveCodebaseDocsRepoId,
+} from "./_githubRepos/helpers";
 
 const interviewMessageValidator = v.object({
   role: roleValidator,
@@ -19,26 +29,52 @@ const docValidator = v.object({
   ...docFields,
 });
 
-/** Lists all docs for a given repo, filtered by user access. */
+/** Lists all docs for a given repo, filtered by user access. PR recaps are shared across monorepo apps. */
 export const list = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.array(docValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    return await ctx.db
-      .query("docs")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
+
+    const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
+    const seen = new Set<string>();
+    const docs = [];
+
+    for (const siblingId of siblingIds) {
+      const siblingDocs = await ctx.db
+        .query("docs")
+        .withIndex("by_repo", (q) => q.eq("repoId", siblingId))
+        .collect();
+
+      for (const doc of siblingDocs) {
+        if (seen.has(doc._id)) continue;
+        const isCurrentRepo = siblingId === args.repoId;
+        const isSharedRecap = doc.kind === "pr-recap";
+        if (!isCurrentRepo && !isSharedRecap) continue;
+        seen.add(doc._id);
+        docs.push(doc);
+      }
+    }
+
+    return docs;
   },
 });
 
-/** Fetches a single doc by ID, with access control. */
+/** Fetches a single doc by ID, with access control. PR recaps allow any sibling app repo access. */
 export const get = authQuery({
   args: { id: v.id("docs") },
   returns: v.union(docValidator, v.null()),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.id);
     if (!doc) return null;
+
+    if (doc.kind === "pr-recap") {
+      if (!(await hasCodebaseRepoAccess(ctx.db, doc.repoId, ctx.userId))) {
+        return null;
+      }
+      return doc;
+    }
+
     if (!(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId))) return null;
     return doc;
   },
@@ -283,6 +319,141 @@ export const clearInterview = authMutation({
       interviewHistory: undefined,
       sandboxId: undefined,
     });
+    return null;
+  },
+});
+
+/** Looks up a PR recap doc by stable GitHub PR URL within a codebase. */
+export const getByPrUrl = internalQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    prUrl: v.string(),
+  },
+  returns: v.union(docValidator, v.null()),
+  handler: async (ctx, args) => {
+    const docsRepoId = await resolveCodebaseDocsRepoId(ctx.db, args.repoId);
+    return await ctx.db
+      .query("docs")
+      .withIndex("by_repo_and_pr_url", (q) =>
+        q.eq("repoId", docsRepoId).eq("prUrl", args.prUrl),
+      )
+      .first();
+  },
+});
+
+/** Creates or updates a system-owned PR recap doc and resets its ProseMirror content. */
+export const upsertPrRecapDoc = internalMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    prUrl: v.string(),
+    prNumber: v.number(),
+    title: v.string(),
+    headSha: v.string(),
+    content: v.string(),
+    prRecapStatus: prRecapStatusValidator,
+    prRecapError: v.optional(v.string()),
+    clearActiveWorkflowId: v.optional(v.boolean()),
+  },
+  returns: v.id("docs"),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const docsRepoId = await resolveCodebaseDocsRepoId(ctx.db, args.repoId);
+    const existing = await ctx.db
+      .query("docs")
+      .withIndex("by_repo_and_pr_url", (q) =>
+        q.eq("repoId", docsRepoId).eq("prUrl", args.prUrl),
+      )
+      .first();
+
+    const markdownJson = markdownToDocJson(args.content);
+
+    if (existing) {
+      const snapshot = await ctx.runQuery(
+        components.prosemirrorSync.lib.getSnapshot,
+        { id: existing._id },
+      );
+      if (snapshot.content !== null) {
+        await ctx.runMutation(components.prosemirrorSync.lib.deleteDocument, {
+          id: existing._id,
+        });
+      }
+      await prosemirrorSync.create(ctx, existing._id, markdownJson);
+      await ctx.db.patch(existing._id, {
+        title: args.title,
+        content: args.content,
+        contentUpdatedAt: now,
+        updatedAt: now,
+        kind: "pr-recap",
+        prUrl: args.prUrl,
+        prNumber: args.prNumber,
+        headSha: args.headSha,
+        prRecapStatus: args.prRecapStatus,
+        prRecapError:
+          args.prRecapStatus === "ready" ? undefined : args.prRecapError,
+        ...(args.clearActiveWorkflowId ? { activeWorkflowId: undefined } : {}),
+      });
+      return existing._id;
+    }
+
+    const docId = await ctx.db.insert("docs", {
+      repoId: docsRepoId,
+      kind: "pr-recap",
+      title: args.title,
+      content: args.content,
+      prUrl: args.prUrl,
+      prNumber: args.prNumber,
+      headSha: args.headSha,
+      prRecapStatus: args.prRecapStatus,
+      prRecapError: args.prRecapError,
+      contentUpdatedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await prosemirrorSync.create(ctx, docId, markdownJson);
+    return docId;
+  },
+});
+
+/** Patches PR recap status fields without rewriting ProseMirror content. */
+export const patchPrRecapStatus = internalMutation({
+  args: {
+    docId: v.id("docs"),
+    prRecapStatus: prRecapStatusValidator,
+    prRecapError: v.optional(v.string()),
+    headSha: v.optional(v.string()),
+    activeWorkflowId: v.optional(v.union(v.string(), v.null())),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.docId);
+    if (!doc) return null;
+
+    const patch: {
+      prRecapStatus: typeof args.prRecapStatus;
+      prRecapError?: string;
+      headSha?: string;
+      activeWorkflowId?: string;
+      updatedAt: number;
+    } = {
+      prRecapStatus: args.prRecapStatus,
+      updatedAt: Date.now(),
+    };
+
+    if (args.prRecapError !== undefined) {
+      patch.prRecapError = args.prRecapError;
+    }
+    if (args.headSha !== undefined) {
+      patch.headSha = args.headSha;
+    }
+    if (args.activeWorkflowId !== undefined) {
+      if (args.activeWorkflowId === null) {
+        patch.activeWorkflowId = undefined;
+      } else {
+        patch.activeWorkflowId = args.activeWorkflowId;
+      }
+    }
+
+    await ctx.db.patch(args.docId, patch);
     return null;
   },
 });

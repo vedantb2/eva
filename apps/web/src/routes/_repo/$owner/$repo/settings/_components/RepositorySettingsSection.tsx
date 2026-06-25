@@ -1,0 +1,151 @@
+"use client";
+
+import { normalizeAIModel, type AIModel, type Id } from "@conductor/backend";
+import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { BranchSelect } from "@/lib/components/BranchSelect";
+import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
+import { ConfigModelField } from "./ConfigModelField";
+import { PrRecapSettingsSection } from "./PrRecapSettingsSection";
+
+type RepoConfigFields = {
+  defaultBaseBranch?: string;
+  defaultModel?: string;
+  auditReviewModel?: string;
+  auditFixModel?: string;
+  proofModel?: string;
+  prRecapsEnabled?: boolean;
+  prRecapModel?: string;
+};
+
+type UpdateRepoConfig = (args: {
+  repoId: Id<"githubRepos">;
+  defaultBaseBranch?: string;
+  defaultModel?: AIModel;
+  auditReviewModel?: AIModel;
+  auditFixModel?: AIModel;
+  proofModel?: AIModel;
+  prRecapsEnabled?: boolean;
+  prRecapModel?: AIModel;
+}) => void;
+
+export function RepositorySettingsSection({
+  repoId,
+  owner,
+  name,
+  repo,
+  isMonorepo,
+  updateConfig,
+}: {
+  repoId: Id<"githubRepos">;
+  owner: string;
+  name: string;
+  repo: RepoConfigFields;
+  isMonorepo: boolean;
+  updateConfig: UpdateRepoConfig;
+}) {
+  const defaultModels = useAvailableAiModels(repoId, repo.defaultModel);
+  const auditReviewModels = useAvailableAiModels(
+    repoId,
+    repo.auditReviewModel ?? "haiku",
+  );
+  const auditFixModels = useAvailableAiModels(
+    repoId,
+    repo.auditFixModel ?? "sonnet",
+  );
+  const proofModels = useAvailableAiModels(
+    repoId,
+    repo.proofModel ?? repo.defaultModel ?? "sonnet",
+  );
+
+  return (
+    <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
+      <div>
+        <h3 className="text-sm font-medium">Repository</h3>
+        {isMonorepo ? (
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Applies to all apps in{" "}
+            <span className="font-medium text-foreground">
+              {owner}/{name}
+            </span>
+            .
+          </p>
+        ) : null}
+      </div>
+
+      <div className="grid gap-4">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            Default Base Branch
+          </label>
+          <BranchSelect
+            value={repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH}
+            onValueChange={(val) =>
+              updateConfig({ repoId, defaultBaseBranch: val || undefined })
+            }
+            className="h-8 text-xs"
+            placeholder="Select a branch"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            The default branch used when creating quick tasks. Defaults to{" "}
+            <code>main</code> if not set.
+          </p>
+        </div>
+
+        <ConfigModelField
+          label="Default Model"
+          description="The default provider and model used when creating new tasks."
+          state={defaultModels}
+          onValueChange={(nextModel) => {
+            updateConfig({
+              repoId,
+              defaultModel: normalizeAIModel(nextModel),
+            });
+          }}
+        />
+
+        <ConfigModelField
+          label="Audit Review Model"
+          description="Used to review task and session changes during an audit. Defaults to Haiku for fast, cheap review."
+          state={auditReviewModels}
+          onValueChange={(nextModel) => {
+            updateConfig({
+              repoId,
+              auditReviewModel: normalizeAIModel(nextModel),
+            });
+          }}
+        />
+
+        <ConfigModelField
+          label="Audit Fix Model"
+          description="Used to fix issues found during an audit. Defaults to Sonnet for stronger code generation."
+          state={auditFixModels}
+          onValueChange={(nextModel) => {
+            updateConfig({
+              repoId,
+              auditFixModel: normalizeAIModel(nextModel),
+            });
+          }}
+        />
+
+        <ConfigModelField
+          label="Proof Capture Model"
+          description="Used when proof capture is enabled. Defaults to the task model when unset."
+          state={proofModels}
+          onValueChange={(nextModel) => {
+            updateConfig({
+              repoId,
+              proofModel: normalizeAIModel(nextModel),
+            });
+          }}
+        />
+
+        <PrRecapSettingsSection
+          repoId={repoId}
+          prRecapsEnabled={repo.prRecapsEnabled}
+          prRecapModel={repo.prRecapModel ?? repo.defaultModel ?? "sonnet"}
+          updateConfig={updateConfig}
+        />
+      </div>
+    </div>
+  );
+}

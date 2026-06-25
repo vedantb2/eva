@@ -53,7 +53,7 @@ export function SettingsSidebar({
     {
       label: "GENERAL",
       items: [
-        { name: "Config", href: `${baseUrl}/config`, icon: IconSettings2 },
+        { name: "Repository", href: `${baseUrl}/config`, icon: IconSettings2 },
         { name: "Skills", href: `${baseUrl}/skills`, icon: IconSparkles },
         { name: "Monorepo", href: `${baseUrl}/monorepo`, icon: IconFolders },
       ],

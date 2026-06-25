@@ -80,6 +80,7 @@ export function DocRecapViewer({
       if (!isDocViewerTab(value)) return;
       navigate({
         to: `${basePath}/docs/${doc._id}/${value}`,
+        search: (prev) => prev,
       });
     },
     [basePath, doc._id, navigate],

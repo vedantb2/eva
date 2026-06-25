@@ -11,6 +11,7 @@ export const Route = createFileRoute("/_repo/$owner/$repo/docs/$id/")({
         id: params.id,
         docTab: DOC_VIEWER_DEFAULT_TAB,
       },
+      search: (prev) => prev,
     });
   },
 });

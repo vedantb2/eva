@@ -127,7 +127,10 @@ export function DocsSidebar({
       });
       setNewDocTitle("");
       setIsCreateDialogOpen(false);
-      navigate({ to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}` });
+      navigate({
+        to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
+        search: (prev) => prev,
+      });
       onNavigate?.();
     } finally {
       setIsCreating(false);
@@ -174,7 +177,10 @@ export function DocsSidebar({
       setShowUploadSection(false);
       setPastedPrdContent("");
       setNewDocTitle("");
-      navigate({ to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}` });
+      navigate({
+        to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
+        search: (prev) => prev,
+      });
       onNavigate?.();
       await startPrdParse({ docId: id });
     } catch (error) {
@@ -219,7 +225,7 @@ export function DocsSidebar({
       await removeDoc({ id: docToDelete.id });
       setDocToDelete(null);
       if (isViewing) {
-        navigate({ to: `${basePath}/docs` });
+        navigate({ to: `${basePath}/docs`, search: (prev) => prev });
         onNavigate?.();
       }
     } finally {
@@ -311,6 +317,7 @@ export function DocsSidebar({
                     >
                       <Link
                         to={href}
+                        search={(prev) => prev}
                         onClick={onNavigate}
                         className={cn(
                           "flex items-center gap-1.5",

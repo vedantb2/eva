@@ -5,12 +5,15 @@ import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 
 const THROTTLE_MS = 50;
+/** Hide remote cursors that have not moved recently (presence can lag behind tab close). */
+const CURSOR_ACTIVE_MS = 45_000;
 
 interface CursorData {
   x: number;
   y: number;
   firstName: string;
   accentColor: string;
+  updatedAt: number;
 }
 
 function isCursorData(data: object): data is CursorData {
@@ -19,10 +22,12 @@ function isCursorData(data: object): data is CursorData {
     "y" in data &&
     "firstName" in data &&
     "accentColor" in data &&
+    "updatedAt" in data &&
     typeof data.x === "number" &&
     typeof data.y === "number" &&
     typeof data.firstName === "string" &&
-    typeof data.accentColor === "string"
+    typeof data.accentColor === "string" &&
+    typeof data.updatedAt === "number"
   );
 }
 
@@ -53,6 +58,8 @@ export function useLiveCursors(
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
+      if (document.visibilityState !== "visible") return;
+
       const x = (e.clientX / window.innerWidth) * 100;
       const y = (e.clientY / window.innerHeight) * 100;
       const now = Date.now();
@@ -91,6 +98,7 @@ export function useLiveCursors(
 
   return useMemo(() => {
     if (!presenceState) return [];
+    const now = Date.now();
     const cursors: RemoteCursor[] = [];
     for (const member of presenceState) {
       if (member.userId === userId) continue;
@@ -98,6 +106,7 @@ export function useLiveCursors(
       const d = member.data;
       if (typeof d !== "object" || d === null) continue;
       if (!isCursorData(d)) continue;
+      if (now - d.updatedAt > CURSOR_ACTIVE_MS) continue;
       cursors.push({
         userId: member.userId,
         x: d.x,

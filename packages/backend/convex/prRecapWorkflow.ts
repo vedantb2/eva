@@ -15,6 +15,10 @@ import { buildPrRecapPrompt } from "./_prRecapWorkflow/prompts";
 import { finalizePrRecapOutcome } from "./_prRecapWorkflow/finalizeOutcome";
 import { normalizeAIModel } from "./_validators/aiModels";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import {
+  findSiblingRepos,
+  pickDefaultVisibleAppRepo,
+} from "./_githubRepos/helpers";
 
 const prRecapCompleteEvent = defineEvent({
   name: "prRecapComplete",
@@ -53,6 +57,7 @@ export const prRecapWorkflow = workflow.define({
         ...args,
         repoOwner: repoData.repoOwner,
         repoName: repoData.repoName,
+        linkRootDirectory: repoData.linkRootDirectory,
         outcome: { kind: "error", message: authCheck.message },
       });
       return;
@@ -73,6 +78,7 @@ export const prRecapWorkflow = workflow.define({
         ...args,
         repoOwner: repoData.repoOwner,
         repoName: repoData.repoName,
+        linkRootDirectory: repoData.linkRootDirectory,
         outcome: { kind: "skipped", message: "Diff too small to recap" },
       });
       return;
@@ -125,6 +131,7 @@ export const prRecapWorkflow = workflow.define({
         ...args,
         repoOwner: repoData.repoOwner,
         repoName: repoData.repoName,
+        linkRootDirectory: repoData.linkRootDirectory,
         outcome: { kind: "ready", content: result.result.trim() },
       });
       return;
@@ -134,6 +141,7 @@ export const prRecapWorkflow = workflow.define({
       ...args,
       repoOwner: repoData.repoOwner,
       repoName: repoData.repoName,
+      linkRootDirectory: repoData.linkRootDirectory,
       outcome: {
         kind: "error",
         message: result.error ?? "Recap generation failed",
@@ -151,16 +159,20 @@ export const getRepoData = internalQuery({
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(aiModelValidator),
     prRecapModel: v.optional(aiModelValidator),
+    linkRootDirectory: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
+    const siblings = await findSiblingRepos(ctx.db, args.repoId);
+    const linkRepo = pickDefaultVisibleAppRepo(siblings);
     return {
       repoOwner: repo.owner,
       repoName: repo.name,
       defaultBaseBranch: repo.defaultBaseBranch,
       defaultModel: repo.defaultModel,
       prRecapModel: repo.prRecapModel,
+      linkRootDirectory: linkRepo?.rootDirectory,
     };
   },
 });

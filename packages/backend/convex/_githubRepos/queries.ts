@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { authQuery } from "../functions";
-import { githubRepoValidator } from "./helpers";
+import { githubRepoValidator, pickDefaultVisibleAppRepo } from "./helpers";
 import { getAIProviderAvailability } from "../validators";
 
 /** Lists all GitHub repos accessible to the current user across their teams. */
@@ -175,11 +175,15 @@ export const getByOwnerAndName = authQuery({
       )
       .collect();
 
-    const repo = args.appName
+    let repo = args.appName
       ? candidates.find(
           (r) => r.rootDirectory?.split("/").pop() === args.appName,
         )
-      : candidates.find((r) => !r.rootDirectory);
+      : candidates.find((r) => !r.rootDirectory && r.hidden !== true);
+
+    if (!repo && !args.appName) {
+      repo = pickDefaultVisibleAppRepo(candidates);
+    }
 
     if (!repo) return null;
     if (repo.hidden === true) return null;

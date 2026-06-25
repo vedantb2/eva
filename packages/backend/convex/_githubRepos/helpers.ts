@@ -18,6 +18,25 @@ export async function resolveCanonicalRepoId(
   return repoId;
 }
 
+/** Default visible monorepo app row for bare owner/name URLs and external links. */
+export function pickDefaultVisibleAppRepo(
+  siblings: Array<Doc<"githubRepos">>,
+): Doc<"githubRepos"> | undefined {
+  const visible = siblings.filter(
+    (repo) => repo.rootDirectory !== undefined && repo.hidden !== true,
+  );
+  const webApp = visible.find(
+    (repo) =>
+      repo.rootDirectory === "web" || repo.rootDirectory?.endsWith("/web"),
+  );
+  if (webApp) return webApp;
+
+  const connected = visible.find((repo) => repo.connectedBy !== undefined);
+  if (connected) return connected;
+
+  return visible[0];
+}
+
 /** Stable repo id for codebase-wide docs (PR recaps). Prefers root row, else first connected sibling. */
 export async function resolveCodebaseDocsRepoId(
   db: GenericDatabaseReader<DataModel>,

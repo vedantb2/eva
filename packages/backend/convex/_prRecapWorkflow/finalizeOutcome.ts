@@ -13,6 +13,7 @@ type FinalizePrRecapOutcomeParams = {
   installationId: number;
   repoOwner: string;
   repoName: string;
+  linkRootDirectory?: string;
   prNumber: number;
   prUrl: string;
   prTitle: string;
@@ -64,5 +65,6 @@ export async function finalizePrRecapOutcome(
     headSha: params.headSha,
     status: commentStatus,
     message: commentMessage,
+    rootDirectory: params.linkRootDirectory,
   });
 }

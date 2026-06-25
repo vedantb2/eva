@@ -6,6 +6,13 @@ export interface TocItem {
 
 export const TOC_HEADING_SELECTOR = "h1, h2, h3";
 
+export function getHeadingElements(
+  container: HTMLElement,
+  selector = TOC_HEADING_SELECTOR,
+): HTMLHeadingElement[] {
+  return Array.from(container.querySelectorAll<HTMLHeadingElement>(selector));
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -33,9 +40,7 @@ export function assignHeadingIds(
   container: HTMLElement,
   selector = TOC_HEADING_SELECTOR,
 ): TocItem[] {
-  const headings = Array.from(
-    container.querySelectorAll<HTMLHeadingElement>(selector),
-  );
+  const headings = getHeadingElements(container, selector);
   const items = buildTocItems(
     headings.map((el) => ({
       text: el.textContent?.trim() ?? "",

@@ -8,7 +8,11 @@ import {
   type RefObject,
 } from "react";
 import { cn } from "@conductor/ui";
-import { assignHeadingIds, type TocItem } from "./_utils/tocUtils";
+import {
+  assignHeadingIds,
+  getHeadingElements,
+  type TocItem,
+} from "./_utils/tocUtils";
 
 interface FloatingTocProps {
   // Scroll container holding the rendered headings. Doubles as the scroll root
@@ -80,13 +84,12 @@ export function FloatingToc({
       const marker = container.scrollTop + SCROLL_SPY_OFFSET;
       let active = items[0]?.id ?? null;
 
-      for (const item of items) {
-        const el = container.querySelector<HTMLElement>(
-          `#${CSS.escape(item.id)}`,
-        );
+      const headings = getHeadingElements(container);
+      for (let i = 0; i < items.length; i++) {
+        const el = headings[i];
         if (!el) continue;
         if (headingTopInContainer(el, container) <= marker) {
-          active = item.id;
+          active = items[i].id;
         }
       }
 
@@ -107,7 +110,9 @@ export function FloatingToc({
     (id: string) => {
       const container = containerRef.current;
       if (!container) return;
-      const el = container.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+      const index = items.findIndex((item) => item.id === id);
+      if (index < 0) return;
+      const el = getHeadingElements(container)[index];
       if (!el) return;
 
       clickScrollingRef.current = true;

@@ -349,6 +349,17 @@ export function DocContentTab({
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 gap-6 overflow-hidden">
+            {!commentsOpen &&
+              !historyOpen &&
+              !suggestionsOpen &&
+              tocContent.trim().length > 0 && (
+                <FloatingToc
+                  containerRef={contentScrollRef}
+                  content={tocContent}
+                  className="hidden w-52 shrink-0 border-r border-border py-1 lg:block"
+                />
+              )}
+
             <div
               ref={contentScrollRef}
               className="scrollbar min-h-0 flex-1 overflow-y-auto"
@@ -374,17 +385,6 @@ export function DocContentTab({
                 </BubbleMenu>
               )}
             </div>
-
-            {!commentsOpen &&
-              !historyOpen &&
-              !suggestionsOpen &&
-              tocContent.trim().length > 0 && (
-                <FloatingToc
-                  containerRef={contentScrollRef}
-                  content={tocContent}
-                  className="hidden w-52 shrink-0 py-1 lg:block"
-                />
-              )}
           </div>
         )}
       </div>
@@ -392,6 +392,7 @@ export function DocContentTab({
       {commentsOpen && (
         <DocCommentsPanel
           docId={doc._id}
+          allowAskEva={isPrRecap}
           activeAnchorId={activeAnchorId}
           onAnchorClick={handleAnchorActivate}
           onClose={onToggleComments}
@@ -406,6 +407,7 @@ export function DocContentTab({
       {historyOpen && (
         <DocHistoryPanel
           docId={doc._id}
+          docKind={doc.kind}
           selectedVersionId={selectedVersionId}
           onSelectVersion={(id) => setSelectedVersionId(id)}
           onClose={onToggleHistory}

@@ -10,12 +10,14 @@ export function DocNewCommentComposer({
   docId,
   anchorId,
   anchorText,
+  allowAskEva = false,
   onCancel,
   onCreated,
 }: {
   docId: Id<"docs">;
   anchorId: string;
   anchorText: string;
+  allowAskEva?: boolean;
   onCancel: () => void;
   onCreated: () => void;
 }) {
@@ -23,22 +25,26 @@ export function DocNewCommentComposer({
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = useCallback(async () => {
-    if (!content.trim()) return;
-    setIsSubmitting(true);
-    try {
-      await createComment({
-        docId,
-        content: content.trim(),
-        anchorId,
-        anchorText,
-      });
-      setContent("");
-      onCreated();
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [content, docId, anchorId, anchorText, createComment, onCreated]);
+  const submit = useCallback(
+    async (resolutionTarget?: "agent" | "human") => {
+      if (!content.trim()) return;
+      setIsSubmitting(true);
+      try {
+        await createComment({
+          docId,
+          content: content.trim(),
+          anchorId,
+          anchorText,
+          resolutionTarget,
+        });
+        setContent("");
+        onCreated();
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [content, docId, anchorId, anchorText, createComment, onCreated],
+  );
 
   return (
     <div>
@@ -50,7 +56,11 @@ export function DocNewCommentComposer({
       <Textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        placeholder="Add a comment..."
+        placeholder={
+          allowAskEva
+            ? "Comment or ask Eva to revise the recap..."
+            : "Add a comment..."
+        }
         rows={3}
         className="text-sm"
         autoFocus
@@ -65,11 +75,22 @@ export function DocNewCommentComposer({
         >
           Cancel
         </Button>
+        {allowAskEva ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-6 text-xs"
+            disabled={!content.trim() || isSubmitting}
+            onClick={() => submit("agent")}
+          >
+            Ask Eva
+          </Button>
+        ) : null}
         <Button
           size="sm"
           className="h-6 text-xs"
           disabled={!content.trim() || isSubmitting}
-          onClick={handleSubmit}
+          onClick={() => submit(allowAskEva ? "human" : undefined)}
         >
           Comment
         </Button>

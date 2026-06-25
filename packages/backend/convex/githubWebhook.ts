@@ -9,9 +9,6 @@ import {
   deriveProjectPhaseFromPrEvent,
   isProjectReviewPhase,
 } from "./_projects/prSync";
-import { workflow } from "./workflowManager";
-import { trackDocWorkflow } from "./workflowWatchdog";
-import { resolveCodebaseDocsRepoId } from "./_githubRepos/helpers";
 
 const QUICK_TASK_BRANCH_PREFIX = "eva/task-";
 const PROJECT_BRANCH_PREFIX = "eva/project-";
@@ -312,40 +309,22 @@ export const handlePrRecapEvent = internalMutation({
     );
     if (!connectedRepo?.connectedBy) return null;
 
-    const docsRepoId = await resolveCodebaseDocsRepoId(
-      ctx.db,
-      connectedRepo._id,
-    );
     const workflowRepo =
       siblings.find((repo) => repo.rootDirectory === undefined) ??
       connectedRepo;
 
-    const docId = await ctx.runMutation(internal.docs.upsertPrRecapDoc, {
-      repoId: docsRepoId,
+    await ctx.runMutation(internal.docs.startPrRecap, {
+      repoId: workflowRepo._id,
+      userId: connectedRepo.connectedBy,
+      installationId: workflowRepo.installationId,
+      owner: args.owner,
+      name: args.name,
       prUrl: args.prUrl,
       prNumber: args.prNumber,
-      title: `PR #${args.prNumber} — ${args.prTitle}`,
+      prTitle: args.prTitle,
       headSha: args.headSha,
-      content: "_Generating recap…_",
-      prRecapStatus: "pending",
     });
 
-    const workflowId = await workflow.start(
-      ctx,
-      internal.prRecapWorkflow.prRecapWorkflow,
-      {
-        docId,
-        repoId: workflowRepo._id,
-        installationId: workflowRepo.installationId,
-        userId: connectedRepo.connectedBy,
-        prNumber: args.prNumber,
-        prUrl: args.prUrl,
-        prTitle: args.prTitle,
-        headSha: args.headSha,
-      },
-    );
-
-    await trackDocWorkflow(ctx, docId, workflowId);
     return null;
   },
 });

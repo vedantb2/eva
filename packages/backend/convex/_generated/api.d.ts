@@ -84,6 +84,7 @@ import type * as _migrations_repoSkills from "../_migrations/repoSkills.js";
 import type * as _migrations_sessionModes from "../_migrations/sessionModes.js";
 import type * as _prRecapWorkflow_finalizeOutcome from "../_prRecapWorkflow/finalizeOutcome.js";
 import type * as _prRecapWorkflow_prompts from "../_prRecapWorkflow/prompts.js";
+import type * as _prRecapWorkflow_start from "../_prRecapWorkflow/start.js";
 import type * as _projects_chatPrompt from "../_projects/chatPrompt.js";
 import type * as _projects_development from "../_projects/development.js";
 import type * as _projects_helpers from "../_projects/helpers.js";
@@ -329,6 +330,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/sessionModes": typeof _migrations_sessionModes;
   "_prRecapWorkflow/finalizeOutcome": typeof _prRecapWorkflow_finalizeOutcome;
   "_prRecapWorkflow/prompts": typeof _prRecapWorkflow_prompts;
+  "_prRecapWorkflow/start": typeof _prRecapWorkflow_start;
   "_projects/chatPrompt": typeof _projects_chatPrompt;
   "_projects/development": typeof _projects_development;
   "_projects/helpers": typeof _projects_helpers;

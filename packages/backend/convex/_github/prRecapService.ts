@@ -23,6 +23,42 @@ const prDiffResultValidator = v.object({
   truncated: v.boolean(),
 });
 
+const prMetadataValidator = v.object({
+  prUrl: v.string(),
+  prNumber: v.number(),
+  prTitle: v.string(),
+  headSha: v.string(),
+  draft: v.boolean(),
+  authorLogin: v.optional(v.string()),
+});
+
+/** Fetches PR metadata for MCP-triggered recaps. */
+export const fetchPrMetadata = internalAction({
+  args: {
+    installationId: v.number(),
+    owner: v.string(),
+    repo: v.string(),
+    prNumber: v.number(),
+  },
+  returns: prMetadataValidator,
+  handler: async (_ctx, args) => {
+    const octokit = await getInstallationOctokit(args.installationId);
+    const { data: pr } = await octokit.rest.pulls.get({
+      owner: args.owner,
+      repo: args.repo,
+      pull_number: args.prNumber,
+    });
+    return {
+      prUrl: pr.html_url,
+      prNumber: pr.number,
+      prTitle: pr.title,
+      headSha: pr.head.sha,
+      draft: pr.draft ?? false,
+      authorLogin: pr.user?.login,
+    };
+  },
+});
+
 /** Fetches a bounded PR diff for recap generation. */
 export const fetchPrDiff = internalAction({
   args: {

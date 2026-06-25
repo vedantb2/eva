@@ -142,9 +142,9 @@ export function UserInitials({
 type UserProfile = NonNullable<FunctionReturnType<typeof api.users.get>>;
 
 function getRoleLabel(role: UserProfile["role"]): string | null {
-  if (role === "business" || role === "dev" || role === "designer") {
-    return PERSONALISATION_PRESETS[role].label;
-  }
+  if (role === "business") return PERSONALISATION_PRESETS.business.label;
+  if (role === "dev") return PERSONALISATION_PRESETS.dev.label;
+  if (role === "designer") return PERSONALISATION_PRESETS.designer.label;
   return null;
 }
 

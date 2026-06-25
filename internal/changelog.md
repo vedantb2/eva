@@ -1,5 +1,11 @@
 # Changelog
 
+## PR recap version history, agent comments, and MCP tools - 2026-06-24
+
+- PR recaps now snapshot prior ready content on each regeneration so reviewers can browse version history with head SHA context, matching how other Eva docs evolve.
+- Comments on recaps can target Eva ("Ask Eva"); queued feedback drives a manual "Revise recap" workflow that regenerates with reviewer notes and auto-resolves consumed agent comments.
+- MCP exposes trigger/get/publish PR recap tools plus a kind filter on list_eva_docs so agents can orchestrate recaps without the web UI.
+
 ## PR recap sandbox prep and workflow finalize fix - 2026-06-25
 
 - PR recap and automation sandboxes skip repo startup and background commands (ephemeral agent runs only need checkout + Claude) so runs no longer spend minutes on supabase/convex setup before the agent starts.

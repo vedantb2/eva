@@ -17,6 +17,7 @@ type DocComment = FunctionReturnType<typeof api.docComments.listByDoc>[number];
 
 export function DocCommentsPanel({
   docId,
+  allowAskEva = false,
   activeAnchorId,
   onAnchorClick,
   onClose,
@@ -27,6 +28,7 @@ export function DocCommentsPanel({
   presentAnchorIds,
 }: {
   docId: Id<"docs">;
+  allowAskEva?: boolean;
   activeAnchorId: string | null;
   onAnchorClick: (anchorId: string) => void;
   onClose: () => void;
@@ -106,6 +108,7 @@ export function DocCommentsPanel({
               docId={docId}
               anchorId={composingAnchorId}
               anchorText={composingAnchorText ?? ""}
+              allowAskEva={allowAskEva}
               onCancel={onCancelCompose}
               onCreated={onCommentCreated}
             />

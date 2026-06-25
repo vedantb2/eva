@@ -27,6 +27,11 @@ const prRecapCompleteEvent = defineEvent({
 
 const MIN_DIFF_LINES = 3;
 
+const reviewerFeedbackItemValidator = v.object({
+  anchorText: v.optional(v.string()),
+  content: v.string(),
+});
+
 /** Runs PR recap generation: fetch diff, Claude Code in sandbox, save doc, upsert GitHub comment. */
 export const prRecapWorkflow = workflow.define({
   args: {
@@ -38,6 +43,8 @@ export const prRecapWorkflow = workflow.define({
     prUrl: v.string(),
     prTitle: v.string(),
     headSha: v.string(),
+    reviewerFeedback: v.optional(v.array(reviewerFeedbackItemValidator)),
+    consumeAgentCommentIds: v.optional(v.array(v.id("docComments"))),
   },
   handler: async (step, args): Promise<void> => {
     const repoData = await step.runQuery(internal.prRecapWorkflow.getRepoData, {
@@ -96,6 +103,7 @@ export const prRecapWorkflow = workflow.define({
         changedFiles: diff.changedFiles,
         truncated: diff.truncated,
       },
+      reviewerFeedback: args.reviewerFeedback,
     });
 
     const sandboxId = await prepareSandboxSteps(step, {
@@ -134,6 +142,16 @@ export const prRecapWorkflow = workflow.define({
         linkRootDirectory: repoData.linkRootDirectory,
         outcome: { kind: "ready", content: result.result.trim() },
       });
+      if (
+        args.consumeAgentCommentIds &&
+        args.consumeAgentCommentIds.length > 0
+      ) {
+        await step.runMutation(internal.docComments.resolveRecapAgentComments, {
+          docId: args.docId,
+          commentIds: args.consumeAgentCommentIds,
+          resolvedBy: args.userId,
+        });
+      }
       return;
     }
 

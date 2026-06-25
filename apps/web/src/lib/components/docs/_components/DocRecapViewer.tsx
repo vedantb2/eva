@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -57,7 +58,15 @@ export function DocRecapViewer({
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
+  const [isRevising, setIsRevising] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reviseRecap = useMutation(api.docs.reviseRecapFromFeedback);
+
+  const pendingAgentFeedbackCount = doc.pendingAgentCommentIds?.length ?? 0;
+  const canReviseRecap =
+    pendingAgentFeedbackCount > 0 &&
+    !doc.activeWorkflowId &&
+    doc.prRecapStatus !== "pending";
 
   const toggleComments = useCallback(() => {
     setCommentsOpen((v) => !v);
@@ -101,6 +110,15 @@ export function DocRecapViewer({
 
   const isRecapPending = doc.prRecapStatus === "pending";
   const isRecapErrored = doc.prRecapStatus === "error";
+
+  const handleReviseRecap = useCallback(async () => {
+    setIsRevising(true);
+    try {
+      await reviseRecap({ docId: doc._id });
+    } finally {
+      setIsRevising(false);
+    }
+  }, [doc._id, reviseRecap]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -164,6 +182,29 @@ export function DocRecapViewer({
           ) : null}
           {isRecapErrored && doc.prRecapError ? (
             <p className="mt-1 text-destructive">{doc.prRecapError}</p>
+          ) : null}
+          {canReviseRecap ? (
+            <div className="mt-2 flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7"
+                disabled={isRevising}
+                onClick={handleReviseRecap}
+              >
+                {isRevising ? (
+                  <>
+                    <Spinner size="sm" />
+                    Revising…
+                  </>
+                ) : (
+                  `Revise recap (${pendingAgentFeedbackCount})`
+                )}
+              </Button>
+              <span className="text-muted-foreground">
+                Queued Ask Eva feedback
+              </span>
+            </div>
           ) : null}
         </div>
       ) : null}

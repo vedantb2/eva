@@ -13,6 +13,7 @@
     "build:callback": "node scripts/build-callback-script.mjs",
     "test:callback": "node --import tsx --test callback-src/tests/createSessionStore.test.ts callback-src/tests/evaluateAttemptHealth.test.ts callback-src/tests/canonical.test.ts",
     "test:skill-markdown": "node --import tsx --test tests/skillMarkdown.test.ts",
+    "test:ui-task-prompt": "node --import tsx --test tests/uiTaskPrompt.test.ts",
     "predeploy": "node scripts/build-callback-script.mjs",
     "deploy": "convex deploy"
   },

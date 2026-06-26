@@ -1,5 +1,10 @@
 # Changelog
 
+## UI task authoring and agent targeting - 2026-06-24
+
+- Task descriptions can include Route, Control, and Acceptance via an "Add UI details" scaffold so authors point agents at the right page and control instead of title-only UI tasks.
+- Implementation prompts for UI-looking tasks now require locating the exact control (grep visible labels, disambiguate filters vs modals) and forbid false "no routes changed" summaries when frontend files were edited.
+
 ## PR recap version history, agent comments, and MCP tools - 2026-06-24
 
 - PR recaps now snapshot prior ready content on each regeneration so reviewers can browse version history with head SHA context, matching how other Eva docs evolve.

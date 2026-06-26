@@ -106,65 +106,82 @@ export const prRecapWorkflow = workflow.define({
       reviewerFeedback: args.reviewerFeedback,
     });
 
-    const sandboxId = await prepareSandboxSteps(step, {
-      installationId: args.installationId,
-      repoOwner: repoData.repoOwner,
-      repoName: repoData.repoName,
-      repoId: args.repoId,
-      ephemeral: true,
-      streamingEntityId: `pr-recap:${String(args.docId)}`,
-      baseBranch: repoData.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
-      createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
-      // Recap agents only read the diff in-repo; no convex import / dev daemons.
-      skipStartupCommands: true,
-    });
+    let sandboxId: string | undefined;
+    try {
+      sandboxId = await prepareSandboxSteps(step, {
+        installationId: args.installationId,
+        repoOwner: repoData.repoOwner,
+        repoName: repoData.repoName,
+        repoId: args.repoId,
+        ephemeral: true,
+        streamingEntityId: `pr-recap:${String(args.docId)}`,
+        baseBranch: repoData.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
+        createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
+        // Recap agents only read the diff in-repo; no convex import / dev daemons.
+        skipStartupCommands: true,
+      });
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
-      sandboxId,
-      entityId: String(args.docId),
-      streamingEntityId: `pr-recap:${String(args.docId)}`,
-      prompt,
-      userId: args.userId,
-      completionMutation: "prRecapWorkflow:handleCompletion",
-      entityIdField: "docId",
-      model,
-      allowedTools: "",
-      repoId: args.repoId,
-    });
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId,
+        entityId: String(args.docId),
+        streamingEntityId: `pr-recap:${String(args.docId)}`,
+        prompt,
+        userId: args.userId,
+        completionMutation: "prRecapWorkflow:handleCompletion",
+        entityIdField: "docId",
+        model,
+        allowedTools: "",
+        repoId: args.repoId,
+      });
 
-    const result = await step.awaitEvent(prRecapCompleteEvent);
+      const result = await step.awaitEvent(prRecapCompleteEvent);
 
-    if (result.success && result.result) {
+      if (result.success && result.result) {
+        await finalizePrRecapOutcome(step, {
+          ...args,
+          repoOwner: repoData.repoOwner,
+          repoName: repoData.repoName,
+          linkRootDirectory: repoData.linkRootDirectory,
+          outcome: { kind: "ready", content: result.result.trim() },
+        });
+        if (
+          args.consumeAgentCommentIds &&
+          args.consumeAgentCommentIds.length > 0
+        ) {
+          await step.runMutation(
+            internal.docComments.resolveRecapAgentComments,
+            {
+              docId: args.docId,
+              commentIds: args.consumeAgentCommentIds,
+              resolvedBy: args.userId,
+            },
+          );
+        }
+        return;
+      }
+
       await finalizePrRecapOutcome(step, {
         ...args,
         repoOwner: repoData.repoOwner,
         repoName: repoData.repoName,
         linkRootDirectory: repoData.linkRootDirectory,
-        outcome: { kind: "ready", content: result.result.trim() },
+        outcome: {
+          kind: "error",
+          message: result.error ?? "Recap generation failed",
+        },
       });
-      if (
-        args.consumeAgentCommentIds &&
-        args.consumeAgentCommentIds.length > 0
-      ) {
-        await step.runMutation(internal.docComments.resolveRecapAgentComments, {
-          docId: args.docId,
-          commentIds: args.consumeAgentCommentIds,
-          resolvedBy: args.userId,
-        });
+    } finally {
+      if (sandboxId) {
+        try {
+          await step.runAction(internal.daytona.deleteSandbox, {
+            sandboxId,
+            repoId: args.repoId,
+          });
+        } catch (cleanupError) {
+          console.error("Failed to cleanup PR recap sandbox:", cleanupError);
+        }
       }
-      return;
     }
-
-    await finalizePrRecapOutcome(step, {
-      ...args,
-      repoOwner: repoData.repoOwner,
-      repoName: repoData.repoName,
-      linkRootDirectory: repoData.linkRootDirectory,
-      outcome: {
-        kind: "error",
-        message: result.error ?? "Recap generation failed",
-      },
-    });
   },
 });
 

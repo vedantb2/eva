@@ -38,6 +38,9 @@ import {
   setCommentHighlightState,
   scrollToAnchor,
 } from "../_utils/docCommentAnchors";
+import { EvaBlock } from "../_blocks/EvaBlock";
+import { editorDocToMarkdown } from "../_blocks/pmJsonToMarkdown";
+import { DocBlockMenu } from "./DocBlockMenu";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -87,13 +90,14 @@ export function DocContentTab({
   const extensions = useMemo(
     () => [
       ...baseEditorExtensions,
+      EvaBlock.configure({ docId: doc._id }),
       SuggestChangesKit.configure({ getUserId: () => userIdRef.current }),
       DocCommentMark,
       DocCommentHighlight.configure({
         onAnchorClick: (anchorId) => anchorClickRef.current(anchorId),
       }),
     ],
-    [],
+    [doc._id],
   );
 
   const sync = useTiptapSync(api.prosemirrorSync, doc._id);
@@ -194,7 +198,7 @@ export function DocContentTab({
     if (!editor) return;
 
     const syncTocContent = () => {
-      setTocContent(editor.getMarkdown());
+      setTocContent(editorDocToMarkdown(editor.state.doc.toJSON()));
     };
 
     syncTocContent();
@@ -227,7 +231,7 @@ export function DocContentTab({
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       idleTimerRef.current = setTimeout(() => {
         if (editCountRef.current > 0 && editor) {
-          const markdown = editor.getMarkdown();
+          const markdown = editorDocToMarkdown(editor.state.doc.toJSON());
           const pmContent = JSON.stringify(editor.state.doc.toJSON());
           saveVersion({
             docId: doc._id,
@@ -312,7 +316,7 @@ export function DocContentTab({
       // (dedupe in saveVersion makes this free when nothing changed).
       saveVersion({
         docId: doc._id,
-        content: editor.getMarkdown(),
+        content: editorDocToMarkdown(editor.state.doc.toJSON()),
         pmContent: JSON.stringify(editor.state.doc.toJSON()),
       });
       try {
@@ -348,42 +352,47 @@ export function DocContentTab({
             />
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 gap-6 overflow-hidden">
-            {!commentsOpen &&
-              !historyOpen &&
-              !suggestionsOpen &&
-              tocContent.trim().length > 0 && (
-                <FloatingToc
-                  containerRef={contentScrollRef}
-                  content={tocContent}
-                  className="hidden w-52 shrink-0 border-r border-border py-1 lg:block"
-                />
-              )}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {effectiveMode !== "viewing" && editor ? (
+              <DocBlockMenu editor={editor} />
+            ) : null}
+            <div className="flex min-h-0 flex-1 gap-6 overflow-hidden">
+              {!commentsOpen &&
+                !historyOpen &&
+                !suggestionsOpen &&
+                tocContent.trim().length > 0 && (
+                  <FloatingToc
+                    containerRef={contentScrollRef}
+                    content={tocContent}
+                    className="hidden w-52 shrink-0 border-r border-border py-1 lg:block"
+                  />
+                )}
 
-            <div
-              ref={contentScrollRef}
-              className="scrollbar min-h-0 flex-1 overflow-y-auto"
-            >
-              <EditorContent
-                editor={editor}
-                className="[&_.tiptap]:min-h-[12rem] [&_.tiptap]:outline-none"
-              />
-              {editor && (
-                <BubbleMenu
+              <div
+                ref={contentScrollRef}
+                className="scrollbar min-h-0 flex-1 overflow-y-auto"
+              >
+                <EditorContent
                   editor={editor}
-                  className="rounded-menu-item border border-border bg-popover p-1 shadow-md"
-                >
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-xs"
-                    onClick={handleStartComment}
+                  className="[&_.tiptap]:min-h-[12rem] [&_.tiptap]:outline-none"
+                />
+                {editor && (
+                  <BubbleMenu
+                    editor={editor}
+                    className="rounded-menu-item border border-border bg-popover p-1 shadow-md"
                   >
-                    <IconMessage size={14} />
-                    Comment
-                  </Button>
-                </BubbleMenu>
-              )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={handleStartComment}
+                    >
+                      <IconMessage size={14} />
+                      Comment
+                    </Button>
+                  </BubbleMenu>
+                )}
+              </div>
             </div>
           </div>
         )}

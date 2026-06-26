@@ -5,6 +5,7 @@ import {
   internalMutation,
   internalQuery,
   type MutationCtx,
+  type DatabaseReader,
 } from "./_generated/server";
 import { components } from "./_generated/api";
 import { internal } from "./_generated/api";
@@ -17,6 +18,7 @@ import {
 import { docFields } from "./validators";
 import { prosemirrorSync } from "./prosemirrorSync";
 import { markdownToDocJson } from "./_docEditor/markdown";
+import { collectSuggestionsFromPmJson } from "./_docEditor/collectSuggestionsFromPmJson";
 import { workflow } from "./workflowManager";
 import { trackDocWorkflow } from "./workflowWatchdog";
 import {
@@ -676,5 +678,245 @@ export const reviseRecapFromFeedback = authMutation({
     });
 
     return null;
+  },
+});
+
+async function canAccessDocByKind(
+  db: DatabaseReader,
+  doc: { repoId: Id<"githubRepos">; kind?: "document" | "pr-recap" },
+  userId: Id<"users">,
+): Promise<boolean> {
+  if (doc.kind === "pr-recap") {
+    return hasCodebaseRepoAccess(db, doc.repoId, userId);
+  }
+  return hasRepoAccess(db, doc.repoId, userId);
+}
+
+function authorDisplayName(user: {
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+}): string {
+  const fromParts = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+  if (fromParts) return fromParts;
+  if (user.fullName?.trim()) return user.fullName.trim();
+  if (user.email?.trim()) return user.email.trim();
+  return "Unknown";
+}
+
+const feedbackAuthorValidator = v.object({
+  id: v.union(v.id("users"), v.null()),
+  displayName: v.string(),
+});
+
+const feedbackCommentValidator = v.object({
+  _id: v.id("docComments"),
+  content: v.string(),
+  anchorId: v.optional(v.string()),
+  anchorText: v.optional(v.string()),
+  resolutionTarget: v.optional(v.union(v.literal("agent"), v.literal("human"))),
+  resolvedAt: v.optional(v.number()),
+  createdAt: v.number(),
+  author: feedbackAuthorValidator,
+  replies: v.array(
+    v.object({
+      _id: v.id("docComments"),
+      content: v.string(),
+      createdAt: v.number(),
+      author: feedbackAuthorValidator,
+    }),
+  ),
+});
+
+const feedbackSuggestionValidator = v.object({
+  id: v.string(),
+  kind: v.union(
+    v.literal("insertion"),
+    v.literal("deletion"),
+    v.literal("modification"),
+  ),
+  text: v.string(),
+  createdAt: v.union(v.number(), v.null()),
+  author: feedbackAuthorValidator,
+});
+
+/** Returns threaded comments and tracked-change suggestions for agent review pull. */
+export const getFeedback = authQuery({
+  args: {
+    id: v.id("docs"),
+    includeResolved: v.optional(v.boolean()),
+    resolutionTarget: v.optional(
+      v.union(v.literal("agent"), v.literal("human")),
+    ),
+  },
+  returns: v.object({
+    comments: v.array(feedbackCommentValidator),
+    suggestions: v.array(feedbackSuggestionValidator),
+  }),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.id);
+    if (!doc) {
+      return { comments: [], suggestions: [] };
+    }
+    if (!(await canAccessDocByKind(ctx.db, doc, ctx.userId))) {
+      return { comments: [], suggestions: [] };
+    }
+
+    const rows = await ctx.db
+      .query("docComments")
+      .withIndex("by_doc", (q) => q.eq("docId", args.id))
+      .collect();
+
+    const activeRows = rows.filter((row) => row.deletedAt === undefined);
+    const authorIds = new Set<Id<"users">>();
+    for (const row of activeRows) {
+      if (row.authorId) authorIds.add(row.authorId);
+    }
+
+    const authorNameById = new Map<Id<"users">, string>();
+    for (const authorId of authorIds) {
+      const user = await ctx.db.get(authorId);
+      authorNameById.set(authorId, user ? authorDisplayName(user) : "Unknown");
+    }
+
+    const replyMap = new Map<Id<"docComments">, typeof activeRows>();
+    for (const row of activeRows) {
+      if (!row.parentId) continue;
+      const existing = replyMap.get(row.parentId) ?? [];
+      existing.push(row);
+      replyMap.set(row.parentId, existing);
+    }
+
+    const includeResolved = args.includeResolved === true;
+    const roots = activeRows
+      .filter((row) => !row.parentId)
+      .filter((row) => includeResolved || row.resolvedAt === undefined)
+      .filter((row) => {
+        if (args.resolutionTarget === undefined) return true;
+        return row.resolutionTarget === args.resolutionTarget;
+      })
+      .sort((a, b) => a.createdAt - b.createdAt);
+
+    const comments = roots.map((root) => {
+      const replies = (replyMap.get(root._id) ?? [])
+        .filter((reply) => reply.deletedAt === undefined)
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .map((reply) => ({
+          _id: reply._id,
+          content: reply.content,
+          createdAt: reply.createdAt,
+          author: {
+            id: reply.authorId ?? null,
+            displayName: reply.authorId
+              ? (authorNameById.get(reply.authorId) ?? "Unknown")
+              : "Unknown",
+          },
+        }));
+
+      return {
+        _id: root._id,
+        content: root.content,
+        anchorId: root.anchorId,
+        anchorText: root.anchorText,
+        resolutionTarget: root.resolutionTarget,
+        resolvedAt: root.resolvedAt,
+        createdAt: root.createdAt,
+        author: {
+          id: root.authorId ?? null,
+          displayName: root.authorId
+            ? (authorNameById.get(root.authorId) ?? "Unknown")
+            : "Unknown",
+        },
+        replies,
+      };
+    });
+
+    const snapshot = await ctx.runQuery(
+      components.prosemirrorSync.lib.getSnapshot,
+      { id: args.id },
+    );
+
+    const suggestions: Array<{
+      id: string;
+      kind: "insertion" | "deletion" | "modification";
+      text: string;
+      createdAt: number | null;
+      author: { id: Id<"users"> | null; displayName: string };
+    }> = [];
+
+    if (snapshot.content !== null) {
+      const pmContent = JSON.stringify(snapshot.content);
+      try {
+        const parsed = JSON.parse(pmContent);
+        if (
+          parsed !== null &&
+          typeof parsed === "object" &&
+          !Array.isArray(parsed) &&
+          "type" in parsed &&
+          typeof parsed.type === "string"
+        ) {
+          const extracted = collectSuggestionsFromPmJson({
+            type: parsed.type,
+            content: Array.isArray(parsed.content) ? parsed.content : undefined,
+          });
+          for (const item of extracted) {
+            let displayName = "Unknown";
+            let authorId: Id<"users"> | null = null;
+            if (item.userId) {
+              const normalized = ctx.db.normalizeId("users", item.userId);
+              if (normalized) {
+                authorId = normalized;
+                const user = await ctx.db.get(normalized);
+                if (user) displayName = authorDisplayName(user);
+              }
+            }
+            suggestions.push({
+              id: item.id,
+              kind: item.kind,
+              text: item.text,
+              createdAt: item.createdAt,
+              author: { id: authorId, displayName },
+            });
+          }
+        }
+      } catch {
+        // ignore malformed snapshots
+      }
+    }
+
+    return { comments, suggestions };
+  },
+});
+
+/** Upload URL for doc image blocks (repo access required). */
+export const generateUploadUrl = authMutation({
+  args: { docId: v.id("docs") },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.docId);
+    if (!doc) throw new Error("Document not found");
+    if (!(await canAccessDocByKind(ctx.db, doc, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Resolves a doc image storage id to a signed URL. */
+export const getImageUrl = authQuery({
+  args: {
+    docId: v.id("docs"),
+    storageId: v.string(),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.docId);
+    if (!doc) return null;
+    if (!(await canAccessDocByKind(ctx.db, doc, ctx.userId))) {
+      return null;
+    }
+    if (!args.storageId) return null;
+    return await ctx.storage.getUrl(args.storageId);
   },
 });

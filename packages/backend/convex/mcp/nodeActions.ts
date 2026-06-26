@@ -967,6 +967,34 @@ export const getEvaDoc = internalAction({
   },
 });
 
+export const getEvaDocFeedback = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    docId: v.string(),
+    includeResolved: v.optional(v.boolean()),
+    resolutionTarget: v.optional(
+      v.union(v.literal("agent"), v.literal("human")),
+    ),
+  },
+  returns: v.any(),
+  handler: async (
+    _ctx,
+    { clerkUserId, docId, includeResolved, resolutionTarget },
+  ) => {
+    const args: Record<string, boolean | string> = { id: docId };
+    if (includeResolved !== undefined) args.includeResolved = includeResolved;
+    if (resolutionTarget !== undefined) {
+      args.resolutionTarget = resolutionTarget;
+    }
+    return runQueryAsUser(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      "docs:getFeedback",
+      args,
+    );
+  },
+});
+
 export const listEvaDocs = internalAction({
   args: {
     clerkUserId: v.string(),

@@ -1,0 +1,77 @@
+.eva-wireframe {
+  --wf-bg: var(--card);
+  --wf-border: var(--border);
+  --wf-text: var(--foreground);
+  --wf-muted: var(--muted-foreground);
+  --wf-primary: var(--primary);
+  --wf-radius: var(--radius);
+  --wf-surface: var(--muted);
+}
+
+.eva-wireframe .wf-card {
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-bg);
+  padding: 0.75rem 1rem;
+}
+
+.eva-wireframe .wf-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--wf-border);
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--wf-muted);
+}
+
+.eva-wireframe .wf-muted {
+  color: var(--wf-muted);
+  font-size: 0.875rem;
+}
+
+.eva-wireframe button.primary {
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-primary);
+  color: var(--primary-foreground);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.eva-wireframe-frame {
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-surface);
+  padding: 0.75rem;
+}
+
+.eva-wireframe-frame--browser {
+  padding-top: 2rem;
+  position: relative;
+}
+
+.eva-wireframe-frame--browser::before {
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  left: 0.75rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--wf-muted);
+  box-shadow:
+    0.75rem 0 0 var(--wf-muted),
+    1.5rem 0 0 var(--wf-muted);
+}
+
+.eva-wireframe-frame--mobile {
+  max-width: 20rem;
+  margin-inline: auto;
+}
+
+.eva-wireframe.skeleton * {
+  color: transparent !important;
+  background: color-mix(in oklab, var(--wf-muted) 25%, transparent);
+  border-radius: 0.25rem;
+}

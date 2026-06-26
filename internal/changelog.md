@@ -1,5 +1,10 @@
 # Changelog
 
+## Read-only automation deliverable extraction - 2026-06-24
+
+- Read-only automations now require a `<!-- DELIVERABLE -->` marker in the agent prompt; only text after the marker is stored in `resultSummary` and emailed, so reasoning and preamble no longer leak into user-facing output.
+- Applies to every read-only automation (not write-mode or actionable-with-findings), with a fallback to the full result when the marker is absent for legacy runs.
+
 ## Interface feel polish (hit targets, motion, typography) - 2026-06-24
 
 - Added shared `hit-target`, `media-outline`, and `CrossfadeIcon` utilities so small controls meet 40px tap targets, images get neutral edge rings, and icon toggles cross-fade instead of swapping instantly.

@@ -1,4 +1,5 @@
 import { buildRootDirectoryInstruction } from "../prompts/shared";
+import { READ_ONLY_DELIVERABLE_MARKER } from "./deliverable";
 
 const WORKSPACE_DIR = "/tmp/repo";
 
@@ -62,10 +63,19 @@ export function buildReadOnlyPrompt(
 ## Steps:
 1. Read and analyze the codebase to answer the prompt
 2. You may run read-only commands (e.g. grep, find, cat, ls, git log, git diff, npm test) to gather information
-3. Write a detailed report/analysis as your final output
+3. Do all reasoning silently — use tools and file reads, not user-visible narration
+4. Output the final deliverable after the marker below (see Deliverable section)
 
-## Report (REQUIRED):
-Provide a clear, structured report answering the prompt. This is the only output — no code changes.
+## Deliverable (REQUIRED):
+Your answer to the Prompt must appear on its own line immediately after this marker. Eva stores and emails ONLY the text after the marker — everything before it is discarded.
+
+${READ_ONLY_DELIVERABLE_MARKER}
+
+Deliverable rules:
+- Output only what the Prompt asks for (report, summary, changelog, analysis, etc.)
+- No preamble, introduction, date math, methodology, or "here is..." framing
+- Follow every formatting rule in the Prompt exactly (headings, bullets, word limits, etc.)
+- No code changes
 
 ## Rules:
 - Do NOT edit, write, or create any files

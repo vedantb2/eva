@@ -451,7 +451,7 @@ export function ChatBody({
               </span>
               <button
                 type="button"
-                className="shrink-0 rounded p-0.5 hover:bg-muted hover:text-foreground"
+                className="hit-target motion-press shrink-0 rounded p-0.5 active:scale-[0.96] hover:bg-muted hover:text-foreground"
                 aria-label="Dismiss tip"
                 onClick={() => setHintDismissed(true)}
               >

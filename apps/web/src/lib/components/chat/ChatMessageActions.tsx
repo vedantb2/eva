@@ -77,7 +77,7 @@ export function ChatMessageActions({
           label="Copy message"
           size="icon-xs"
           onClick={handleCopy}
-          className="text-muted-foreground hover:text-foreground"
+          className="hit-target text-muted-foreground hover:text-foreground"
         >
           {copied ? <IconCheck className="text-success" /> : <IconCopy />}
         </MessageAction>
@@ -92,7 +92,7 @@ export function ChatMessageActions({
           disabled={action.disabled}
           aria-pressed={action.active}
           className={cn(
-            "text-muted-foreground hover:text-foreground",
+            "hit-target text-muted-foreground hover:text-foreground",
             action.active && "text-foreground",
           )}
         >

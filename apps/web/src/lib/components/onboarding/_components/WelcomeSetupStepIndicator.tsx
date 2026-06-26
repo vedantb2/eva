@@ -26,7 +26,7 @@ export function WelcomeSetupStepIndicator({
           <div key={label} className="flex items-center gap-2">
             <div
               className={cn(
-                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-[background-color,color]",
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums transition-[background-color,color]",
                 isActive
                   ? "bg-primary text-primary-foreground"
                   : isComplete

@@ -38,10 +38,10 @@ export function DeploymentErrorFallback({ error }: { error: Error }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="text-center">
-        <h1 className="text-lg font-semibold text-foreground">
+        <h1 className="text-balance text-lg font-semibold text-foreground">
           Something went wrong
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-pretty text-sm text-muted-foreground">
           Please refresh the page to try again.
         </p>
         <button

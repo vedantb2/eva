@@ -394,6 +394,20 @@
     transition-timing-function: var(--motion-ease-out);
   }
 
+  /* Extends sub-40px controls to a 40×40px tap target without changing layout. */
+  .hit-target {
+    position: relative;
+  }
+  .hit-target::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+
+  .media-outline {
+    @apply ring-1 ring-black/10 dark:ring-white/10;
+  }
+
   .landing-atmosphere {
     background-color: rgb(var(--background));
     background-image:

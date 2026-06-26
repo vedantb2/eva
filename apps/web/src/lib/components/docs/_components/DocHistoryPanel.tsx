@@ -28,9 +28,9 @@ export function DocHistoryPanel({
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
         <span className="text-sm font-medium">Version History</span>
         <Button
-          size="icon"
+          size="icon-sm"
           variant="ghost"
-          className="size-6"
+          className="hit-target"
           onClick={onClose}
         >
           <IconX size={14} />

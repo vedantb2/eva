@@ -123,7 +123,9 @@ export function DocRecapViewer({
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
-        <h1 className="text-lg font-semibold min-w-0 truncate">{doc.title}</h1>
+        <h1 className="min-w-0 truncate text-balance text-lg font-semibold">
+          {doc.title}
+        </h1>
         <div className="ml-auto flex items-center gap-2 shrink-0">
           <DocPresenceFacepile docId={doc._id} />
           <RelativeDateTime

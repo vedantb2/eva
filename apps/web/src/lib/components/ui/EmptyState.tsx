@@ -25,11 +25,11 @@ export function EmptyState({
       <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary">
         {icon}
       </div>
-      <p className="text-base font-semibold tracking-[-0.01em] text-foreground">
+      <p className="text-balance text-base font-semibold tracking-[-0.01em] text-foreground">
         {title}
       </p>
       {description && (
-        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+        <p className="mt-2 max-w-sm text-pretty text-sm text-muted-foreground">
           {description}
         </p>
       )}

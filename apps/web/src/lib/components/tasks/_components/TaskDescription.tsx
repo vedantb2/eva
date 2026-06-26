@@ -140,7 +140,7 @@ export function TaskDescription({
             />
             <button
               type="button"
-              className="mt-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="hit-target mt-1 inline-flex min-h-10 items-center text-xs text-muted-foreground transition-colors hover:text-foreground"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() =>
                 setEditValue(insertUiTaskDescriptionTemplate(editValue))

@@ -57,7 +57,7 @@ export function ScreenshotPreview({ url }: { url: string }) {
         <img
           src={url}
           alt="Screenshot"
-          className="rounded-surface max-w-full border cursor-pointer hover:opacity-90 transition-opacity"
+          className="media-outline rounded-surface max-w-full cursor-pointer transition-opacity hover:opacity-90"
         />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -77,7 +77,7 @@ export function ScreenshotPreview({ url }: { url: string }) {
           <img
             src={url}
             alt="Screenshot"
-            className="w-full h-full object-contain"
+            className="media-outline h-full w-full object-contain"
           />
         </DialogContent>
       </Dialog>

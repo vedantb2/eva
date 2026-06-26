@@ -318,7 +318,7 @@ export function QuickTaskModal({
             />
             <button
               type="button"
-              className="mb-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="hit-target inline-flex min-h-10 items-center text-xs text-muted-foreground transition-colors hover:text-foreground"
               onClick={() =>
                 setDescription(insertUiTaskDescriptionTemplate(description))
               }

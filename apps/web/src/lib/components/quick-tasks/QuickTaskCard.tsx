@@ -169,7 +169,7 @@ export function QuickTaskCard({
               : "bg-card hover:bg-muted/40"
       } ${isSelected ? "ring-2 ring-primary/40" : ""} ${isActive ? "ring-1 ring-primary/30" : ""} ${
         onClick
-          ? "cursor-pointer active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          ? "motion-press cursor-pointer active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           : ""
       }`}
       onClick={(e) => {
@@ -208,7 +208,7 @@ export function QuickTaskCard({
           )}
           <h4 className="min-w-0 flex-1 line-clamp-1 text-sm font-medium leading-5 text-foreground">
             {taskNumber !== undefined && (
-              <span className="text-muted-foreground/70 font-mono text-xs mr-1.5">
+              <span className="mr-1.5 font-mono text-xs tabular-nums text-muted-foreground/70">
                 #{taskNumber}
               </span>
             )}

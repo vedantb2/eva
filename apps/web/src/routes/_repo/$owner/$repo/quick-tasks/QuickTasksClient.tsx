@@ -329,7 +329,7 @@ export function QuickTasksClient() {
               onClearAll={clearAllFilters}
             />
           )}
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" initial={false}>
             {!hasQuickTasks && !(view === "list" && selectedTaskId) ? (
               <motion.div
                 key="quick-tasks-empty"

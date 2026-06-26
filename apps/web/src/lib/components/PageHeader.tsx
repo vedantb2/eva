@@ -2,6 +2,7 @@
 
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useLocation } from "@tanstack/react-router";
+import { Button } from "@conductor/ui";
 
 interface PageHeaderProps {
   title?: string;
@@ -24,15 +25,18 @@ export function PageHeader({
   return (
     <div className="motion-base flex items-center gap-2 p-3 sm:gap-3 sm:px-4">
       {showBack && (
-        <button
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
           onClick={onBack ?? (() => window.history.back())}
-          className="flex-shrink-0 rounded-surface border border-border bg-card p-1.5 transition-[background-color] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+          className="flex-shrink-0 rounded-surface"
         >
           <IconArrowLeft size={18} className="text-muted-foreground" />
-        </button>
+        </Button>
       )}
       {title && (
-        <h1 className="truncate text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg">
+        <h1 className="min-w-0 flex-1 truncate text-balance text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg">
           {title}
         </h1>
       )}

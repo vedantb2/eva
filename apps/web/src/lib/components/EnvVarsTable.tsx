@@ -32,6 +32,7 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
+import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { parseEnvVars } from "./_utils/parseEnvVars";
 
 interface EnvVar {
@@ -266,11 +267,14 @@ export function EnvVarsTable({
                   : "Reveal value"
               }
             >
-              {revealedValues[v.key] !== undefined ? (
-                <IconEyeOff size={14} />
-              ) : (
-                <IconEye size={14} />
-              )}
+              <CrossfadeIcon
+                show={revealedValues[v.key] !== undefined}
+                trueKey="hide"
+                falseKey="reveal"
+                className="relative flex size-3.5 items-center justify-center"
+                whenTrue={<IconEyeOff size={14} />}
+                whenFalse={<IconEye size={14} />}
+              />
             </Button>
             <Button
               size="icon-sm"
@@ -278,11 +282,14 @@ export function EnvVarsTable({
               onClick={() => copyValue(v.key)}
               title={copiedKey === v.key ? "Copied!" : "Copy value"}
             >
-              {copiedKey === v.key ? (
-                <IconCheck size={14} className="text-primary" />
-              ) : (
-                <IconCopy size={14} />
-              )}
+              <CrossfadeIcon
+                show={copiedKey === v.key}
+                trueKey="copied"
+                falseKey="copy"
+                className="relative flex size-3.5 items-center justify-center"
+                whenTrue={<IconCheck size={14} className="text-primary" />}
+                whenFalse={<IconCopy size={14} />}
+              />
             </Button>
             {!readOnly && (
               <>

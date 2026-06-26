@@ -1,5 +1,10 @@
 # Changelog
 
+## Eva doc visual blocks and MCP feedback pull - 2026-06-24
+
+- Docs now support typed `evaBlock` nodes (callout, diff, file-tree, diagram, wireframe, image) with markdown `eva:` fence round-trip so LLM/MCP consumers and version history stay in sync with the live editor.
+- Agents can pull threaded doc comments and tracked-change suggestions via `get_eva_doc_feedback` MCP, complementing the in-app Ask Eva revise flow.
+
 ## PR recap version history, agent comments, and MCP tools - 2026-06-24
 
 - PR recaps now snapshot prior ready content on each regeneration so reviewers can browse version history with head SHA context, matching how other Eva docs evolve.

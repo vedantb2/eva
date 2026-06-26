@@ -798,6 +798,35 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
   );
 
   server.tool(
+    "get_eva_doc_feedback",
+    "Get all comments and tracked-change suggestions on an Eva doc (authors + dates) so you can act on the review feedback.",
+    {
+      docId: z.string().describe("The Eva doc ID"),
+      includeResolved: z
+        .boolean()
+        .optional()
+        .describe("Include resolved comment threads (default false)"),
+      resolutionTarget: z
+        .enum(["agent", "human"])
+        .optional()
+        .describe("Filter root comments by resolution target"),
+    },
+    async ({ docId, includeResolved, resolutionTarget }) => {
+      await getContext();
+      const feedback = await ctx.runAction(
+        internal.mcp.nodeActions.getEvaDocFeedback,
+        {
+          clerkUserId,
+          docId,
+          includeResolved,
+          resolutionTarget,
+        },
+      );
+      return textResult({ feedback: feedback ?? null });
+    },
+  );
+
+  server.tool(
     "list_eva_docs",
     "List all Eva design documents (PRDs) attached to one of your repos.",
     {

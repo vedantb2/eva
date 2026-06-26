@@ -1,6 +1,7 @@
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown, MarkdownManager } from "@tiptap/markdown";
 import type { JSONContent } from "@tiptap/core";
+import { convertEvaFencesInDocJson } from "./evaBlocks";
 
 const EMPTY_DOC: JSONContent = {
   type: "doc",
@@ -35,5 +36,5 @@ export function markdownToDocJson(markdown: string): JSONContent {
   // A doc node must have at least one block child; fall back if parsing yielded
   // nothing usable.
   if (!json.content || json.content.length === 0) return EMPTY_DOC;
-  return json;
+  return convertEvaFencesInDocJson(json);
 }

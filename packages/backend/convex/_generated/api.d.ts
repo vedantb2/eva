@@ -51,6 +51,8 @@ import type * as _designSessions_mutations from "../_designSessions/mutations.js
 import type * as _designSessions_queries from "../_designSessions/queries.js";
 import type * as _designSessions_sandbox from "../_designSessions/sandbox.js";
 import type * as _designSessions_workflow from "../_designSessions/workflow.js";
+import type * as _docEditor_collectSuggestionsFromPmJson from "../_docEditor/collectSuggestionsFromPmJson.js";
+import type * as _docEditor_evaBlocks from "../_docEditor/evaBlocks.js";
 import type * as _docEditor_markdown from "../_docEditor/markdown.js";
 import type * as _drafts_helpers from "../_drafts/helpers.js";
 import type * as _drafts_mutations from "../_drafts/mutations.js";
@@ -297,6 +299,8 @@ declare const fullApi: ApiFromModules<{
   "_designSessions/queries": typeof _designSessions_queries;
   "_designSessions/sandbox": typeof _designSessions_sandbox;
   "_designSessions/workflow": typeof _designSessions_workflow;
+  "_docEditor/collectSuggestionsFromPmJson": typeof _docEditor_collectSuggestionsFromPmJson;
+  "_docEditor/evaBlocks": typeof _docEditor_evaBlocks;
   "_docEditor/markdown": typeof _docEditor_markdown;
   "_drafts/helpers": typeof _drafts_helpers;
   "_drafts/mutations": typeof _drafts_mutations;

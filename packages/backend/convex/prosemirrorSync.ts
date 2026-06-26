@@ -3,6 +3,7 @@ import type { DataModel } from "./_generated/dataModel";
 import { ProsemirrorSync } from "@convex-dev/prosemirror-sync";
 import { getCurrentUserId } from "./auth";
 import { hasRepoAccess } from "./functions";
+import { evaBlockToMarkdown } from "./_docEditor/evaBlocks";
 
 const prosemirrorSync = new ProsemirrorSync(components.prosemirrorSync);
 
@@ -14,6 +15,17 @@ interface PMNode {
   content?: PMNode[];
   text?: string;
   marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
+}
+
+function readEvaBlockData(value: unknown): Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  const record: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    record[key] = entry;
+  }
+  return record;
 }
 
 function pmJsonToMarkdown(node: PMNode, depth?: number): string {
@@ -62,6 +74,11 @@ function pmJsonToMarkdown(node: PMNode, depth?: number): string {
     case "codeBlock": {
       const lang = String(node.attrs?.language ?? "");
       return "```" + lang + "\n" + children + "```\n\n";
+    }
+    case "evaBlock": {
+      const blockType = String(node.attrs?.blockType ?? "callout");
+      const data = readEvaBlockData(node.attrs?.data);
+      return evaBlockToMarkdown(blockType, data);
     }
     case "blockquote":
       return (

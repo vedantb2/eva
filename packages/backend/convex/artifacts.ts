@@ -81,6 +81,7 @@ const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   "count_table",
   "list_repos",
   "list_tables",
+  "get_eva_doc_feedback",
 ]);
 
 function isReadOnlyTool(name: string): boolean {

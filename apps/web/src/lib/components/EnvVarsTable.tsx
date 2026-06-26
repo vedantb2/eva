@@ -259,6 +259,7 @@ export function EnvVarsTable({
             <Button
               size="icon-sm"
               variant="ghost"
+              className="hit-target"
               onClick={() => toggleReveal(v.key)}
               disabled={revealingKey === v.key}
               title={
@@ -279,6 +280,7 @@ export function EnvVarsTable({
             <Button
               size="icon-sm"
               variant="ghost"
+              className="hit-target"
               onClick={() => copyValue(v.key)}
               title={copiedKey === v.key ? "Copied!" : "Copy value"}
             >

@@ -4,6 +4,7 @@
 
 - Added shared `hit-target`, `media-outline`, and `CrossfadeIcon` utilities so small controls meet 40px tap targets, images get neutral edge rings, and icon toggles cross-fade instead of swapping instantly.
 - Tightened motion and typography across quick tasks, sidebars, env vars, and empty states: no `transition-all`, `AnimatePresence initial={false}` everywhere, tabular task numbers, and `text-balance`/`text-pretty` on headings and descriptions.
+- Second pass: landing mock concentric radius, chat copy crossfade, theme menu icon animation, env-var hit targets, appearance picker press feedback.
 
 ## UI task authoring and agent targeting - 2026-06-24
 

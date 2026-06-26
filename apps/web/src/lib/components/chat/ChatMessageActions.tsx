@@ -9,6 +9,7 @@ import {
 } from "react";
 import { MessageActions, MessageAction, cn } from "@conductor/ui";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
+import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 
 export interface ChatMessageActionItem {
   // Stable identity for the action button.
@@ -79,7 +80,14 @@ export function ChatMessageActions({
           onClick={handleCopy}
           className="hit-target text-muted-foreground hover:text-foreground"
         >
-          {copied ? <IconCheck className="text-success" /> : <IconCopy />}
+          <CrossfadeIcon
+            show={copied}
+            trueKey="copied"
+            falseKey="copy"
+            className="relative flex size-4 items-center justify-center"
+            whenTrue={<IconCheck className="text-success" />}
+            whenFalse={<IconCopy />}
+          />
         </MessageAction>
       ) : null}
       {actions.map((action) => (

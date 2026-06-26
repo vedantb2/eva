@@ -28,6 +28,7 @@ import {
 } from "@tabler/icons-react";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
+import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 
 interface SidebarUserMenuProps {
   collapsed?: boolean;
@@ -134,11 +135,14 @@ export function SidebarUserMenu({
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onSelect={() => toggleTheme()}>
-            {theme === "dark" ? (
-              <IconSun size={16} className="mr-2" />
-            ) : (
-              <IconMoon size={16} className="mr-2" />
-            )}
+            <CrossfadeIcon
+              show={theme === "dark"}
+              trueKey="sun"
+              falseKey="moon"
+              className="relative mr-2 flex size-4 items-center justify-center"
+              whenTrue={<IconSun size={16} />}
+              whenFalse={<IconMoon size={16} />}
+            />
             {theme === "dark" ? "Light mode" : "Dark mode"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />

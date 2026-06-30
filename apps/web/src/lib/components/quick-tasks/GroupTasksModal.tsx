@@ -72,7 +72,7 @@ function SortableTaskItem({ task, index }: { task: Task; index: number }) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 rounded-lg px-3 py-2 bg-muted/40 ${
+      className={`group flex items-center gap-2 rounded-lg px-3 py-2 bg-muted/40 ${
         isDragging ? "opacity-50" : ""
       }`}
     >

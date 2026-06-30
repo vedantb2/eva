@@ -681,13 +681,18 @@
   transition: transform var(--motion-base) var(--motion-ease-out); /* return ease on leave */
   will-change: transform;
 }
-.mq-host[data-mq-overflow="true"]:hover .mq-inner {
+/* Reveal on hover of the label itself OR of any ancestor card/row marked with
+ * Tailwind's `group` — so hovering anywhere on a task card / list row scrolls its
+ * title, not only a direct hover over the text. */
+.mq-host[data-mq-overflow="true"]:hover .mq-inner,
+.group:hover .mq-host[data-mq-overflow="true"] .mq-inner {
   max-width: none; /* let the text spill to its full width; the host clips it */
   transform: translateX(calc(-1 * var(--mq-shift, 0px)));
   transition: transform var(--mq-dur, 0s) linear var(--mq-delay, 400ms);
 }
 @media (prefers-reduced-motion: reduce) {
-  .mq-host:hover .mq-inner {
+  .mq-host:hover .mq-inner,
+  .group:hover .mq-host .mq-inner {
     transform: none;
     transition: none;
   }

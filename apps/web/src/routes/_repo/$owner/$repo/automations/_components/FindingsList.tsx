@@ -141,7 +141,7 @@ function FindingRow({
         "rounded-surface border border-border bg-muted/40 overflow-hidden",
       )}
     >
-      <div className="flex items-center gap-3 px-3 py-2.5">
+      <div className="group flex items-center gap-3 px-3 py-2.5">
         <Checkbox
           checked={hasTaskCreated ? true : selected}
           disabled={hasTaskCreated}

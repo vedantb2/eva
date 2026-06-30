@@ -54,7 +54,7 @@ export function DocHistoryPanel({
               onSelectVersion(ver._id === selectedVersionId ? null : ver._id)
             }
             className={cn(
-              "w-full border-b border-border px-3 py-2.5 text-left transition-colors hover:bg-accent/50",
+              "group w-full border-b border-border px-3 py-2.5 text-left transition-colors hover:bg-accent/50",
               ver._id === selectedVersionId && "bg-accent",
             )}
           >

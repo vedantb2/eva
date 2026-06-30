@@ -1,5 +1,10 @@
 # Changelog
 
+## Marquee-on-hover for truncated labels - 2026-06-30
+
+- Truncated single-line labels (task card titles, sidebar session/arena items, search results, project and automation titles, leaderboard names) now scroll their hidden tail into view on hover and ease back on leave, so the full text is readable without a tooltip.
+- Added a reusable `MarqueeOnHover` component that shows a plain ellipsis at rest, only animates when the text actually overflows, drives hover entirely in CSS (no re-renders), exposes the full text via a native tooltip for touch, and respects reduced-motion.
+
 ## Read-only automation deliverable extraction - 2026-06-24
 
 - Read-only automations now require a `<!-- DELIVERABLE -->` marker in the agent prompt; only text after the marker is stored in `resultSummary` and emailed, so reasoning and preamble no longer leak into user-facing output.

@@ -41,6 +41,7 @@ import {
   Spinner,
 } from "@conductor/ui";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { IconGripVertical } from "@tabler/icons-react";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
@@ -86,7 +87,7 @@ function SortableTaskItem({ task, index }: { task: Task; index: number }) {
       <span className="text-xs font-mono text-muted-foreground w-5 text-right shrink-0">
         {index + 1}
       </span>
-      <span className="text-sm truncate">{task.title}</span>
+      <MarqueeOnHover className="min-w-0 text-sm">{task.title}</MarqueeOnHover>
     </div>
   );
 }

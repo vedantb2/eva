@@ -31,6 +31,7 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { DEPLOYMENT_STATUS_CONFIG } from "@/lib/components/tasks/_components/task-detail-constants";
 import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import {
   PRIORITY_LABELS,
   type Priority,
@@ -206,14 +207,14 @@ export function QuickTaskCard({
               className="mt-0.5 flex-shrink-0"
             />
           )}
-          <h4 className="min-w-0 flex-1 line-clamp-1 text-sm font-medium leading-5 text-foreground">
+          <MarqueeOnHover className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground">
             {taskNumber !== undefined && (
               <span className="mr-1.5 font-mono text-xs tabular-nums text-muted-foreground/70">
                 #{taskNumber}
               </span>
             )}
             {title}
-          </h4>
+          </MarqueeOnHover>
 
           <div className="flex shrink-0 items-center gap-1">
             {priority ? (
@@ -297,9 +298,9 @@ export function QuickTaskCard({
               <>
                 <UserInitials user={createdByUser} size="sm" />
                 {creatorFirstName ? (
-                  <span className="truncate text-[10px] text-muted-foreground/70">
+                  <MarqueeOnHover className="min-w-0 text-[10px] text-muted-foreground/70">
                     {creatorFirstName}
-                  </span>
+                  </MarqueeOnHover>
                 ) : null}
               </>
             ) : null}

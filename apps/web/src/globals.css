@@ -657,6 +657,43 @@
 }
 
 /* ───────────────────────────────────────────────────────────────────
+ * Marquee-on-hover for truncated single-line labels (<MarqueeOnHover/>).
+ * Idle = plain ellipsis. On hover (only when the text overflows), the inner
+ * span scrolls left to reveal its hidden tail and holds, then eases back on
+ * leave. JS sets --mq-shift / --mq-dur per element and toggles
+ * data-mq-overflow; --mq-delay defaults here so the dwell is a CSS concern.
+ * Unlayered + after `@tailwind utilities` so these win at equal specificity
+ * and hot-reload reliably (see the tabs-segmented note above).
+ * ─────────────────────────────────────────────────────────────────── */
+.mq-host {
+  display: block;
+  overflow: hidden;
+  padding: 0; /* keep clientWidth == content box so the overflow measurement is honest */
+}
+.mq-inner {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transform: translateX(0);
+  transition: transform var(--motion-base) var(--motion-ease-out); /* return ease on leave */
+  will-change: transform;
+}
+.mq-host[data-mq-overflow="true"]:hover .mq-inner {
+  max-width: none; /* let the text spill to its full width; the host clips it */
+  transform: translateX(calc(-1 * var(--mq-shift, 0px)));
+  transition: transform var(--mq-dur, 0s) linear var(--mq-delay, 400ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mq-host:hover .mq-inner {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────
  * Animated sidebar nav icons
  * Each icon's parent <a/button> has the `group` class, so we drive
  * animation on the SVG sub-shapes via `.group:hover .nav-icon-*`.

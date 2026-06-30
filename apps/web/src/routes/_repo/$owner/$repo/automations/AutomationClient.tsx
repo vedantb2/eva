@@ -23,6 +23,7 @@ import { SettingToggle } from "./_components/SettingToggle";
 import { LatestRun, RunHistory } from "./_components/RunAccordion";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { isAutomationTab, type AutomationTab } from "@/lib/search-params";
 
 type Automation = Doc<"automations">;
@@ -56,7 +57,9 @@ export function AutomationClient({
       comfortable
       title={
         <div className="flex items-center gap-2 sm:gap-3">
-          <span className="truncate">{automation.title}</span>
+          <MarqueeOnHover className="min-w-0">
+            {automation.title}
+          </MarqueeOnHover>
           <button
             type="button"
             onClick={() =>

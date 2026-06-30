@@ -6,6 +6,7 @@ import type { Id } from "@conductor/backend";
 import { Button, cn } from "@conductor/ui";
 import { IconX } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 export function DocHistoryPanel({
   docId,
@@ -58,7 +59,9 @@ export function DocHistoryPanel({
             )}
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium truncate">{ver.title}</span>
+              <MarqueeOnHover className="min-w-0 text-sm font-medium">
+                {ver.title}
+              </MarqueeOnHover>
               {isRecap && ver.headSha ? (
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                   {ver.headSha.slice(0, 7)}

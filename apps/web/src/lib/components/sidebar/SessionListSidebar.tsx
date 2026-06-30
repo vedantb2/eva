@@ -39,6 +39,7 @@ import {
   SharedLayoutNavSurface,
   sidebarNavListItemClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 type SessionStatus = "active" | "starting" | "stopping" | "closed";
 
@@ -358,9 +359,9 @@ export function SessionListSidebar<T extends SessionItem>({
                                     !isSelected && "text-sidebar-foreground/60",
                                   )}
                                 >
-                                  <h3 className="truncate text-sm">
+                                  <MarqueeOnHover className="text-sm">
                                     {session.title}
-                                  </h3>
+                                  </MarqueeOnHover>
                                   <RelativeDateTime
                                     at={
                                       session.updatedAt ?? session._creationTime

@@ -8,6 +8,7 @@ import {
   IconChevronRight,
   IconExternalLink,
 } from "@tabler/icons-react";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 type AutomationRun = Doc<"automationRuns">;
 type Finding = NonNullable<AutomationRun["findings"]>[number];
@@ -170,7 +171,9 @@ function FindingRow({
           >
             {finding.severity}
           </span>
-          <span className="text-sm font-medium truncate">{finding.title}</span>
+          <MarqueeOnHover className="min-w-0 text-sm font-medium">
+            {finding.title}
+          </MarqueeOnHover>
         </button>
         {hasTaskCreated && taskUrl && (
           <a

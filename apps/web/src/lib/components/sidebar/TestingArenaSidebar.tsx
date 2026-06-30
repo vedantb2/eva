@@ -26,6 +26,7 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 interface TestingArenaSidebarProps {
   repoId: Id<"githubRepos">;
@@ -160,7 +161,9 @@ export function TestingArenaSidebar({
                           : "text-muted-foreground",
                       )}
                     />
-                    <span className="min-w-0 flex-1 truncate">{doc.title}</span>
+                    <MarqueeOnHover className="min-w-0 flex-1">
+                      {doc.title}
+                    </MarqueeOnHover>
                     <span
                       className={cn(
                         "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-150",

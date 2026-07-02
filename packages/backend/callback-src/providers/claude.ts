@@ -90,15 +90,7 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
       "thinking" in block &&
       block.thinking
     ) {
-      events.push({
-        kind: "push_step",
-        step: {
-          type: "thinking",
-          label: "Thinking...",
-          detail: String(block.thinking),
-          status: "active",
-        },
-      });
+      events.push({ kind: "update_reasoning", text: String(block.thinking) });
       added = true;
     } else if (block.type === "text" && "text" in block && block.text) {
       events.push({ kind: "append_text", text: String(block.text) });

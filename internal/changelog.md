@@ -6,6 +6,7 @@
 - Thinking and question steps show as plain narration lines; the active task auto-expands with a spinner while streaming and collapses on completion, with a compact live-timer header above.
 - Added reusable `Task`/`TaskTrigger`/`TaskContent`/`TaskItem`/`TaskItemFile` primitives (ai-sdk Task pattern) and retired `ActivitySteps` in favour of the drop-in `ActivityTasks` across all chat, task, doc, automation, and design surfaces.
 - Grouping is a pure frontend transform over the existing step JSON, so all historical runs render in the new style with no callback or schema changes.
+- The callback now captures the agent's actual reasoning and streamed response text into `reasoning`/`response` steps, so the activity flow shows the real words (reasoning as muted text, responses as markdown) instead of generic "Thought"/"Streamed response" labels; the trailing response is de-duplicated against the final chat message.
 
 ## Marquee-on-hover for truncated labels - 2026-06-30
 

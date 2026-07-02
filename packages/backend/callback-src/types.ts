@@ -32,6 +32,7 @@ export type CanonicalEvent =
   | { kind: "complete_tool"; trackingId?: string }
   | { kind: "mark_last_complete" }
   | { kind: "append_text"; text: string }
+  | { kind: "update_reasoning"; text: string }
   | { kind: "set_pending_question"; data: string }
   | { kind: "set_codex_thread"; threadId: string }
   | { kind: "mark_first_assistant" };

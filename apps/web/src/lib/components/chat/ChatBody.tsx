@@ -309,11 +309,6 @@ export function ChatBody({
                       >
                         {message.role === "assistant" && !message.content ? (
                           <>
-                            {streamingContent ? (
-                              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                                {streamingContent}
-                              </MessageResponse>
-                            ) : null}
                             <StreamingActivityDisplay
                               activity={streamingActivity}
                               name="Eva"

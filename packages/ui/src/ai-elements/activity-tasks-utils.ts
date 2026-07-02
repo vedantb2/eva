@@ -75,6 +75,8 @@ const titleBuilders: Record<
       ? `Using ${n} ${pluralize(n, "tool", "tools")}`
       : `Used ${n} ${pluralize(n, "tool", "tools")}`,
   thinking: () => "",
+  reasoning: () => "",
+  response: () => "",
   question: () => "",
 };
 

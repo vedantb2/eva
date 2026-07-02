@@ -30,6 +30,8 @@ export interface ActivityStep {
     | "subtask"
     | "notebook"
     | "thinking"
+    | "reasoning"
+    | "response"
     | "question"
     | "tool";
   label: string;
@@ -61,6 +63,8 @@ export const stepConfig = {
   subtask: { icon: WorkflowIcon, defaultLabel: "Ran agent" },
   notebook: { icon: BookOpenIcon, defaultLabel: "Edited notebook" },
   thinking: { icon: EvaThinkingIcon, defaultLabel: "Thinking..." },
+  reasoning: { icon: EvaThinkingIcon, defaultLabel: "Thinking..." },
+  response: { icon: MessageSquareIcon, defaultLabel: "Response" },
   question: { icon: MessageSquareIcon, defaultLabel: "Asked a question" },
   tool: { icon: WrenchIcon, defaultLabel: "Used tool" },
 };

@@ -1354,15 +1354,7 @@ function claudeParseLine(event) {
       }
       added = true;
     } else if (block.type === "thinking" && "thinking" in block && block.thinking) {
-      events.push({
-        kind: "push_step",
-        step: {
-          type: "thinking",
-          label: "Thinking...",
-          detail: String(block.thinking),
-          status: "active"
-        }
-      });
+      events.push({ kind: "update_reasoning", text: String(block.thinking) });
       added = true;
     } else if (block.type === "text" && "text" in block && block.text) {
       events.push({ kind: "append_text", text: String(block.text) });
@@ -2018,6 +2010,35 @@ function updateThinkingStep(label, detail) {
   });
   callbackState.lastStepType = "thinking";
 }
+var STREAMED_DETAIL_MAX_CHARS = 2e4;
+function capDetail(text) {
+  return text.length > STREAMED_DETAIL_MAX_CHARS ? text.slice(text.length - STREAMED_DETAIL_MAX_CHARS) : text;
+}
+function updateTextStep(type, label, text) {
+  const lastStep = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
+  if (lastStep && lastStep.type === type && lastStep.status === "active") {
+    const existing = lastStep.detail ?? "";
+    lastStep.detail = capDetail(
+      text.startsWith(existing) ? text : existing + text
+    );
+    callbackState.lastStepType = "thinking";
+    return;
+  }
+  markLastComplete();
+  callbackState.accumulatedSteps.push({
+    type,
+    label,
+    detail: capDetail(text),
+    status: "active"
+  });
+  callbackState.lastStepType = "thinking";
+}
+function updateResponseStep(text) {
+  updateTextStep("response", "Streaming response...", text);
+}
+function updateReasoningStep(text) {
+  updateTextStep("reasoning", "Thinking...", text);
+}
 function parseToCanonical(event, provider = PROVIDER) {
   if (provider === "cursor") return cursorParseLine(event);
   if (provider === "opencode") return opencodeParseLine(event);
@@ -2054,7 +2075,10 @@ function applyCanonicalEvents(events) {
         break;
       case "append_text":
         appendStreamedContent(ev.text);
-        updateThinkingStep("Streaming response...", "Receiving reply...");
+        updateResponseStep(ev.text);
+        break;
+      case "update_reasoning":
+        updateReasoningStep(ev.text);
         break;
       case "set_pending_question":
         callbackState.pendingQuestionData = ev.data;
@@ -3173,6 +3197,14 @@ try {
         finalTimedOutForZombie
       )
     );
+  }
+  const finalResultText = (finalResultEvent?.result ?? "").trim();
+  const lastAccumulatedStep = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
+  if (lastAccumulatedStep && lastAccumulatedStep.type === "response" && finalResultText) {
+    const detail = (lastAccumulatedStep.detail ?? "").trim();
+    if (detail && (finalResultText === detail || finalResultText.startsWith(detail) || detail.startsWith(finalResultText))) {
+      callbackState.accumulatedSteps.pop();
+    }
   }
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(callbackState.accumulatedSteps);

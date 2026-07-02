@@ -5,6 +5,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "../utils/cn";
 import { Spinner } from "../ui/spinner";
 import { Shimmer } from "./shimmer";
+import { MessageResponse } from "./message";
 import {
   type ActivityStep,
   stepConfig,
@@ -55,6 +56,51 @@ function ActivityBlockRow({ block }: { block: ActivityBlock }) {
         ) : (
           <span>{lastItem.label}</span>
         )}
+      </div>
+    );
+  }
+
+  // Reasoning: the model's raw thinking text, rendered as plain muted lines
+  // (not markdown — reasoning traces aren't meant to be formatted output).
+  if (block.type === "reasoning") {
+    const Icon = config.icon;
+    return (
+      <div className="flex items-start gap-2 text-muted-foreground text-sm">
+        {isActive ? (
+          <Spinner size="sm" className="mt-0.5 shrink-0" />
+        ) : (
+          <Icon className="mt-0.5 size-4 shrink-0" />
+        )}
+        <div className="space-y-1">
+          {block.items.map((item, i) =>
+            isActive && i === block.items.length - 1 ? (
+              <Shimmer key={i} as="p" duration={2.5} spread={1.5}>
+                {item.detail ?? item.label}
+              </Shimmer>
+            ) : (
+              <p key={i} className="whitespace-pre-wrap">
+                {item.detail ?? item.label}
+              </p>
+            ),
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Response: the agent's actual streamed message text, rendered as markdown
+  // inline in the activity flow (no accordion — this is the real reply).
+  if (block.type === "response") {
+    return (
+      <div className="space-y-1 text-sm text-foreground">
+        {block.items.map((item, i) => (
+          <MessageResponse
+            key={i}
+            className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+          >
+            {item.detail ?? item.label}
+          </MessageResponse>
+        ))}
       </div>
     );
   }

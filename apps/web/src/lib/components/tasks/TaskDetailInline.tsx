@@ -160,8 +160,9 @@ export function TaskDetailInline({
     setEmbeddedSandboxTab(tab);
   };
 
-  const isSandboxInactive =
-    !isSandboxActive && !isSandboxStarting && !isSandboxStopping;
+  // The startup shimmer must only show while the sandbox is actually
+  // starting/stopping — tasks that have never had a sandbox (e.g. todo
+  // status, where canStartSandbox is false) get an honest empty state.
   const sandboxRightPanel =
     isSandboxActive && sandboxId && task?.repoId ? (
       <TaskSandboxPanel
@@ -175,19 +176,7 @@ export function TaskDetailInline({
         activeTab={activeSandboxTab}
         onTabChange={handleSandboxTabChange}
       />
-    ) : isSandboxInactive && canViewSandbox ? (
-      <div className="flex h-full items-center justify-center p-8">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <p className="text-sm text-muted-foreground">
-            Sandbox is not running
-          </p>
-          <Button onClick={handleStartSandbox}>
-            <IconPlayerPlay size={16} />
-            Start Sandbox
-          </Button>
-        </div>
-      </div>
-    ) : (
+    ) : isSandboxStarting || isSandboxStopping ? (
       <div className="flex h-full items-center justify-center">
         <div className="w-full max-w-md px-4">
           <StreamingActivityDisplay
@@ -196,6 +185,22 @@ export function TaskDetailInline({
               isSandboxStopping ? "Stopping sandbox..." : "Starting sandbox..."
             }
           />
+        </div>
+      </div>
+    ) : (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className="text-sm text-muted-foreground">
+            {canViewSandbox
+              ? "Sandbox is not running"
+              : "No sandbox for this task yet — it becomes available once the task has run"}
+          </p>
+          {canViewSandbox ? (
+            <Button onClick={handleStartSandbox}>
+              <IconPlayerPlay size={16} />
+              Start Sandbox
+            </Button>
+          ) : null}
         </div>
       </div>
     );

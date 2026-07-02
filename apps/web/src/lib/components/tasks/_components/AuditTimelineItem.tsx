@@ -7,7 +7,7 @@ import {
   AccordionTrigger,
   AccordionContent,
   Badge,
-  ActivitySteps,
+  ActivityTasks,
   formatElapsed,
 } from "@conductor/ui";
 import dayjs from "@conductor/shared/dates";
@@ -91,7 +91,7 @@ export function AuditTimelineItem({
                       auditStreaming.currentActivity,
                     );
                     return steps ? (
-                      <ActivitySteps steps={steps} isStreaming name="Fixing" />
+                      <ActivityTasks steps={steps} isStreaming name="Fixing" />
                     ) : null;
                   })()}
                 {!isFixStreaming && audit.runId && (
@@ -170,7 +170,7 @@ export function AuditTimelineItem({
                     auditStreaming.currentActivity,
                   );
                   return steps ? (
-                    <ActivitySteps steps={steps} isStreaming name="Auditing" />
+                    <ActivityTasks steps={steps} isStreaming name="Auditing" />
                   ) : null;
                 })()}
               {!isAuditStreaming && audit.runId && (

@@ -127,6 +127,7 @@ export function DocContentTab({
   }, [comments, composingAnchorId]);
 
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tocContent, setTocContent] = useState(doc.content);
   const lastTouchDraftRef = useRef<number>(0);
   const editCountRef = useRef<number>(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -187,6 +188,21 @@ export function DocContentTab({
   useEffect(() => {
     onSuggestionCount(suggestionCount);
   }, [suggestionCount, onSuggestionCount]);
+
+  // Keep the outline in sync with live editor content.
+  useEffect(() => {
+    if (!editor) return;
+
+    const syncTocContent = () => {
+      setTocContent(editor.getMarkdown());
+    };
+
+    syncTocContent();
+    editor.on("update", syncTocContent);
+    return () => {
+      editor.off("update", syncTocContent);
+    };
+  }, [editor]);
 
   // Version snapshot tracking
   useEffect(() => {
@@ -333,6 +349,17 @@ export function DocContentTab({
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 gap-6 overflow-hidden">
+            {!commentsOpen &&
+              !historyOpen &&
+              !suggestionsOpen &&
+              tocContent.trim().length > 0 && (
+                <FloatingToc
+                  containerRef={contentScrollRef}
+                  content={tocContent}
+                  className="hidden w-52 shrink-0 border-r border-border py-1 lg:block"
+                />
+              )}
+
             <div
               ref={contentScrollRef}
               className="scrollbar min-h-0 flex-1 overflow-y-auto"
@@ -358,17 +385,6 @@ export function DocContentTab({
                 </BubbleMenu>
               )}
             </div>
-
-            {!commentsOpen &&
-              !historyOpen &&
-              !suggestionsOpen &&
-              doc.content.trim().length > 0 && (
-                <FloatingToc
-                  containerRef={contentScrollRef}
-                  content={doc.content}
-                  className="hidden w-52 shrink-0 py-1 lg:block"
-                />
-              )}
           </div>
         )}
       </div>
@@ -376,6 +392,7 @@ export function DocContentTab({
       {commentsOpen && (
         <DocCommentsPanel
           docId={doc._id}
+          allowAskEva={isPrRecap}
           activeAnchorId={activeAnchorId}
           onAnchorClick={handleAnchorActivate}
           onClose={onToggleComments}
@@ -390,6 +407,7 @@ export function DocContentTab({
       {historyOpen && (
         <DocHistoryPanel
           docId={doc._id}
+          docKind={doc.kind}
           selectedVersionId={selectedVersionId}
           onSelectVersion={(id) => setSelectedVersionId(id)}
           onClose={onToggleHistory}

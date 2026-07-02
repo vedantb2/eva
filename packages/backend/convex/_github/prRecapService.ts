@@ -9,7 +9,8 @@ import {
   getAIModelProvider,
 } from "../_validators/aiModels";
 import { aiModelValidator } from "../validators";
-import { PR_RECAP_COMMENT_MARKER } from "./prComments";
+import { PR_RECAP_COMMENT_MARKER, buildPrRecapCommentBody } from "./prComments";
+import { buildEvaDocUrl } from "../_taskWorkflow/urls";
 
 const MAX_DIFF_BYTES = 500_000;
 const MAX_FILES = 100;
@@ -20,6 +21,42 @@ const prDiffResultValidator = v.object({
   deletions: v.number(),
   changedFiles: v.number(),
   truncated: v.boolean(),
+});
+
+const prMetadataValidator = v.object({
+  prUrl: v.string(),
+  prNumber: v.number(),
+  prTitle: v.string(),
+  headSha: v.string(),
+  draft: v.boolean(),
+  authorLogin: v.optional(v.string()),
+});
+
+/** Fetches PR metadata for MCP-triggered recaps. */
+export const fetchPrMetadata = internalAction({
+  args: {
+    installationId: v.number(),
+    owner: v.string(),
+    repo: v.string(),
+    prNumber: v.number(),
+  },
+  returns: prMetadataValidator,
+  handler: async (_ctx, args) => {
+    const octokit = await getInstallationOctokit(args.installationId);
+    const { data: pr } = await octokit.rest.pulls.get({
+      owner: args.owner,
+      repo: args.repo,
+      pull_number: args.prNumber,
+    });
+    return {
+      prUrl: pr.html_url,
+      prNumber: pr.number,
+      prTitle: pr.title,
+      headSha: pr.head.sha,
+      draft: pr.draft ?? false,
+      authorLogin: pr.user?.login,
+    };
+  },
 });
 
 /** Fetches a bounded PR diff for recap generation. */
@@ -84,10 +121,39 @@ export const upsertPrRecapComment = internalAction({
     owner: v.string(),
     repo: v.string(),
     prNumber: v.number(),
-    body: v.string(),
+    body: v.optional(v.string()),
+    docId: v.optional(v.string()),
+    headSha: v.optional(v.string()),
+    status: v.optional(
+      v.union(v.literal("ready"), v.literal("error"), v.literal("skipped")),
+    ),
+    message: v.optional(v.string()),
+    rootDirectory: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (_ctx, args) => {
+    let body = args.body;
+    if (!body) {
+      if (!args.docId || !args.headSha || !args.status) {
+        throw new Error(
+          "upsertPrRecapComment requires body or doc recap fields",
+        );
+      }
+      body = buildPrRecapCommentBody({
+        evaDocUrl: buildEvaDocUrl(
+          args.owner,
+          args.repo,
+          args.docId,
+          "content",
+          args.rootDirectory,
+        ),
+        prNumber: args.prNumber,
+        headSha: args.headSha,
+        status: args.status,
+        message: args.message,
+      });
+    }
+
     const octokit = await getInstallationOctokit(args.installationId);
     const comments = await octokit.paginate(octokit.rest.issues.listComments, {
       owner: args.owner,
@@ -105,7 +171,7 @@ export const upsertPrRecapComment = internalAction({
         owner: args.owner,
         repo: args.repo,
         comment_id: existing.id,
-        body: args.body,
+        body,
       });
       return null;
     }
@@ -114,7 +180,7 @@ export const upsertPrRecapComment = internalAction({
       owner: args.owner,
       repo: args.repo,
       issue_number: args.prNumber,
-      body: args.body,
+      body,
     });
     return null;
   },

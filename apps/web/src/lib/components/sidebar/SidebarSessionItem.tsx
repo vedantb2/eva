@@ -9,6 +9,7 @@ import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 function prStateIconColor(
   state: "draft" | "open" | "merged" | "closed" | undefined,
@@ -75,16 +76,16 @@ export function SidebarSessionItem({
       className="block rounded-menu-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
     >
       <div className="flex items-center justify-between gap-2">
-        <h3
+        <MarqueeOnHover
           className={cn(
-            "truncate text-sm transition-colors duration-200",
+            "min-w-0 text-sm transition-colors duration-200",
             isSelected
               ? "font-medium text-sidebar-primary"
               : "text-sidebar-foreground",
           )}
         >
           {title}
-        </h3>
+        </MarqueeOnHover>
         <div className="flex items-center gap-1.5 shrink-0">
           {prUrl && (
             <IconGitPullRequest

@@ -17,5 +17,7 @@ export * from "./test-results";
 export * from "./code-block";
 export * from "./sandbox";
 export * from "./chain-of-thought";
-export * from "./activity-steps";
+export * from "./activity-shared";
+export * from "./activity-tasks";
+export * from "./task";
 export * from "./context";

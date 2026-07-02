@@ -15,6 +15,57 @@
 - Gate per-app seeding on a base-image propagation probe so seeding only starts once the freshly built snapshot is actually bootable, fixing "No available runners" failures and silent fallbacks to the base image.
 - Surface per-app seeding outcomes in snapshot settings: the status tab shows each app's current state (seeded with snapshot name, or using the base image), and build history shows per-build results as a seeded/total count with per-app detail on expand.
 - Removed the snapshot-cache warmup pass (now redundant with the propagation probe, which also warms the runner cache) and cleared its orphaned fields from existing build records.
+## Sandbox chats surface in the sessions sidebar - 2026-07-02
+
+- Project sandbox chats and quick-task sandbox chats now appear in the sessions sidebar as virtual entries whenever they have at least one message, interleaved with real sessions by last activity, so ongoing conversations are reachable from one place instead of buried in project/task pages.
+- Entries are derived on read by the new `sessions.listChatEntries` query (no new tables or duplicated state) and deep-link to the existing project/task sandbox page, staying highlighted on any tab there; right-click offers Copy title/Copy link only since they are not real sessions.
+- Extracted the per-session row (`SidebarSessionRow`) out of `SessionListSidebar` to keep it within the component-size guideline.
+
+## Cursor-style grouped activity tasks - 2026-07-02
+
+- Agent run activity now renders as Cursor/Claude-style task lines inline in chat ("Read 5 files", "Ran 3 commands"), each with its own accordion revealing the files or commands, replacing the single accordion that hid all steps behind one toggle.
+- Thinking and question steps show as plain narration lines; the active task auto-expands with a spinner while streaming and collapses on completion, with a compact live-timer header above.
+- Added reusable `Task`/`TaskTrigger`/`TaskContent`/`TaskItem`/`TaskItemFile` primitives (ai-sdk Task pattern) and retired `ActivitySteps` in favour of the drop-in `ActivityTasks` across all chat, task, doc, automation, and design surfaces.
+- Grouping is a pure frontend transform over the existing step JSON, so all historical runs render in the new style with no callback or schema changes.
+- The callback now captures the agent's actual reasoning and streamed response text into `reasoning`/`response` steps, so the activity flow shows the real words (reasoning as muted text, responses as markdown) instead of generic "Thought"/"Streamed response" labels; the trailing response is de-duplicated against the final chat message.
+
+## Marquee-on-hover for truncated labels - 2026-06-30
+
+- Truncated single-line labels (task card titles, sidebar session/arena items, search results, project and automation titles, leaderboard names) now scroll their hidden tail into view on hover and ease back on leave, so the full text is readable without a tooltip.
+- Added a reusable `MarqueeOnHover` component that shows a plain ellipsis at rest, only animates when the text actually overflows, drives hover entirely in CSS (no re-renders), exposes the full text via a native tooltip for touch, and respects reduced-motion.
+
+## Read-only automation deliverable extraction - 2026-06-24
+
+- Read-only automations now require a `<!-- DELIVERABLE -->` marker in the agent prompt; only text after the marker is stored in `resultSummary` and emailed, so reasoning and preamble no longer leak into user-facing output.
+- Applies to every read-only automation (not write-mode or actionable-with-findings), with a fallback to the full result when the marker is absent for legacy runs.
+
+## Interface feel polish (hit targets, motion, typography) - 2026-06-24
+
+- Added shared `hit-target`, `media-outline`, and `CrossfadeIcon` utilities so small controls meet 40px tap targets, images get neutral edge rings, and icon toggles cross-fade instead of swapping instantly.
+- Tightened motion and typography across quick tasks, sidebars, env vars, and empty states: no `transition-all`, `AnimatePresence initial={false}` everywhere, tabular task numbers, and `text-balance`/`text-pretty` on headings and descriptions.
+- Second pass: landing mock concentric radius, chat copy crossfade, theme menu icon animation, env-var hit targets, appearance picker press feedback.
+
+## UI task authoring and agent targeting - 2026-06-24
+
+- Task descriptions can include Route, Control, and Acceptance via an "Add UI details" scaffold so authors point agents at the right page and control instead of title-only UI tasks.
+- Implementation prompts for UI-looking tasks now require locating the exact control (grep visible labels, disambiguate filters vs modals) and forbid false "no routes changed" summaries when frontend files were edited.
+
+## PR recap version history, agent comments, and MCP tools - 2026-06-24
+
+- PR recaps now snapshot prior ready content on each regeneration so reviewers can browse version history with head SHA context, matching how other Eva docs evolve.
+- Comments on recaps can target Eva ("Ask Eva"); queued feedback drives a manual "Revise recap" workflow that regenerates with reviewer notes and auto-resolves consumed agent comments.
+- MCP exposes trigger/get/publish PR recap tools plus a kind filter on list_eva_docs so agents can orchestrate recaps without the web UI.
+
+## PR recap sandbox prep and workflow finalize fix - 2026-06-25
+
+- PR recap and automation sandboxes skip repo startup and background commands (ephemeral agent runs only need checkout + Claude) so runs no longer spend minutes on supabase/convex setup before the agent starts.
+- Fixed recap workflows crashing after the agent finished because finalize built the GitHub comment URL with `process.env` inside the workflow isolate.
+
+## Doc content outline tracks cursor and tab order - 2026-06-25
+
+- The "On this page" outline now follows the editor cursor and scroll position, and highlights the active section, by scanning live TipTap content instead of stale `doc.content`.
+- PRD doc tabs show Content second (after Description) so the primary editor is one click from the summary.
+
 ## Sandbox start/stop events in project and task sandbox chat - 2026-06-25
 
 - Project preview and quick-task sandbox chats now show the same "Sandbox started/stopped" system dividers as session chat, so sandbox lifecycle is visible in the conversation instead of only in status badges or the task activity timeline.

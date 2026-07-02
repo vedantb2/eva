@@ -3,6 +3,7 @@ import { aiModelValidator } from "./aiModels";
 import {
   deploymentStatusValidator,
   docKindValidator,
+  docVersionSourceValidator,
   errorTypeValidator,
   evaluationStatusValidator,
   evalFixStatusValidator,
@@ -448,6 +449,7 @@ export const docFields = {
   headSha: v.optional(v.string()),
   prRecapStatus: v.optional(prRecapStatusValidator),
   prRecapError: v.optional(v.string()),
+  pendingAgentCommentIds: v.optional(v.array(v.id("docComments"))),
   description: v.optional(v.string()),
   userFlows: v.optional(
     v.array(v.object({ name: v.string(), steps: v.array(v.string()) })),
@@ -480,6 +482,7 @@ export const docCommentFields = {
   parentId: v.optional(v.id("docComments")),
   anchorId: v.optional(v.string()),
   anchorText: v.optional(v.string()),
+  resolutionTarget: v.optional(v.union(v.literal("agent"), v.literal("human"))),
   resolvedAt: v.optional(v.number()),
   resolvedBy: v.optional(v.id("users")),
   deletedAt: v.optional(v.number()),
@@ -500,6 +503,8 @@ export const docVersionFields = {
   content: v.string(),
   pmContent: v.string(),
   authorIds: v.array(v.id("users")),
+  headSha: v.optional(v.string()),
+  source: v.optional(docVersionSourceValidator),
   createdAt: v.number(),
 };
 

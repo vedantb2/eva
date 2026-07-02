@@ -8,7 +8,8 @@
     "./dates": "./src/utils/dates.ts",
     "./duration": "./src/utils/duration.ts",
     "./parseActivitySteps": "./src/utils/parseActivitySteps.ts",
-    "./typeGuards": "./src/utils/typeGuards.ts"
+    "./typeGuards": "./src/utils/typeGuards.ts",
+    "./uiTaskPrompt": "./src/uiTaskPrompt.ts"
   },
   "peerDependencies": {
     "@conductor/backend": "workspace:*",

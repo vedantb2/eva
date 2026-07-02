@@ -7,7 +7,7 @@ import { api } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
 import {
-  ActivitySteps,
+  ActivityTasks,
   Button,
   Dialog,
   DialogContent,
@@ -237,7 +237,7 @@ export function DocInterviewDialog({
                 if (!m.content) {
                   const steps = parseActivitySteps(streaming?.currentActivity);
                   return steps ? (
-                    <ActivitySteps key={`msg-${i}`} steps={steps} isStreaming />
+                    <ActivityTasks key={`msg-${i}`} steps={steps} isStreaming />
                   ) : (
                     <ChatMessage
                       key={`msg-${i}`}

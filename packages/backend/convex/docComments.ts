@@ -1,10 +1,13 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import type { DatabaseReader } from "./_generated/server";
 import { createNotification } from "./notifications";
 import { ensureDocSubscribed, notifyDocSubscribers } from "./docSubscribers";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import { internalMutation } from "./_generated/server";
 import { extractMentionedUserIds } from "./_mentions/extractMentionedUserIds";
 import { docCommentFields } from "./validators";
+import { hasCodebaseRepoAccess } from "./_githubRepos/helpers";
 
 export const DELETED_DOC_COMMENT_PLACEHOLDER =
   "This comment has been deleted by the author";
@@ -23,14 +26,24 @@ function buildDocCommentNotificationMessage(content: string): string {
   return `New comment on this document: "${summary}"`;
 }
 
+async function canAccessDoc(
+  db: DatabaseReader,
+  userId: Id<"users">,
+  doc: { repoId: Id<"githubRepos">; kind?: "document" | "pr-recap" },
+): Promise<boolean> {
+  if (doc.kind === "pr-recap") {
+    return hasCodebaseRepoAccess(db, doc.repoId, userId);
+  }
+  return hasRepoAccess(db, doc.repoId, userId);
+}
+
 /** Lists all comments for a doc, sorted oldest first. */
 export const listByDoc = authQuery({
   args: { docId: v.id("docs") },
   returns: v.array(docCommentValidator),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.docId);
-    if (!doc || !(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId)))
-      return [];
+    if (!doc || !(await canAccessDoc(ctx.db, ctx.userId, doc))) return [];
     const comments = await ctx.db
       .query("docComments")
       .withIndex("by_doc", (q) => q.eq("docId", args.docId))
@@ -47,12 +60,22 @@ export const create = authMutation({
     parentId: v.optional(v.id("docComments")),
     anchorId: v.optional(v.string()),
     anchorText: v.optional(v.string()),
+    resolutionTarget: v.optional(
+      v.union(v.literal("agent"), v.literal("human")),
+    ),
   },
   returns: v.id("docComments"),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.docId);
-    if (!doc || !(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId))) {
+    if (!doc || !(await canAccessDoc(ctx.db, ctx.userId, doc))) {
       throw new Error("Document not found");
+    }
+
+    const isAgentTarget =
+      args.resolutionTarget === "agent" && doc.kind === "pr-recap";
+
+    if (isAgentTarget && args.parentId) {
+      throw new Error("Agent-targeted comments must be root threads");
     }
 
     if (args.parentId) {
@@ -69,8 +92,19 @@ export const create = authMutation({
       parentId: args.parentId,
       anchorId: args.anchorId,
       anchorText: args.anchorText,
+      resolutionTarget: args.resolutionTarget,
       createdAt: Date.now(),
     });
+
+    if (isAgentTarget) {
+      const pending = doc.pendingAgentCommentIds ?? [];
+      await ctx.db.patch(args.docId, {
+        pendingAgentCommentIds: [...pending, commentId],
+        updatedAt: Date.now(),
+      });
+      await ensureDocSubscribed(ctx, args.docId, ctx.userId);
+      return commentId;
+    }
 
     const notifiedUserIds = new Set<string>([ctx.userId]);
     const author = await ctx.db.get(ctx.userId);
@@ -157,7 +191,7 @@ export const update = authMutation({
     if (comment.authorId !== ctx.userId)
       throw new Error("Only the comment author can edit");
     const doc = await ctx.db.get(comment.docId);
-    if (!doc || !(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId)))
+    if (!doc || !(await canAccessDoc(ctx.db, ctx.userId, doc)))
       throw new Error("Comment not found");
     await ctx.db.patch(args.id, { content: args.content });
     return null;
@@ -174,7 +208,7 @@ export const remove = authMutation({
     if (comment.authorId !== ctx.userId)
       throw new Error("Only the comment author can delete");
     const doc = await ctx.db.get(comment.docId);
-    if (!doc || !(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId)))
+    if (!doc || !(await canAccessDoc(ctx.db, ctx.userId, doc)))
       throw new Error("Comment not found");
     if (comment.deletedAt !== undefined)
       throw new Error("Comment already deleted");
@@ -198,7 +232,7 @@ export const setResolved = authMutation({
     if (!comment) throw new Error("Comment not found");
     if (comment.parentId) throw new Error("Only root comments can be resolved");
     const doc = await ctx.db.get(comment.docId);
-    if (!doc || !(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId)))
+    if (!doc || !(await canAccessDoc(ctx.db, ctx.userId, doc)))
       throw new Error("Comment not found");
 
     if (args.resolved) {
@@ -212,6 +246,33 @@ export const setResolved = authMutation({
         resolvedBy: undefined,
       });
     }
+    return null;
+  },
+});
+
+/** Auto-resolves agent feedback comments after a successful recap revision. */
+export const resolveRecapAgentComments = internalMutation({
+  args: {
+    docId: v.id("docs"),
+    commentIds: v.array(v.id("docComments")),
+    resolvedBy: v.id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    for (const commentId of args.commentIds) {
+      const comment = await ctx.db.get(commentId);
+      if (!comment || comment.docId !== args.docId) continue;
+      if (comment.resolvedAt !== undefined) continue;
+      await ctx.db.patch(commentId, {
+        resolvedAt: now,
+        resolvedBy: args.resolvedBy,
+      });
+    }
+    await ctx.db.patch(args.docId, {
+      pendingAgentCommentIds: [],
+      updatedAt: now,
+    });
     return null;
   },
 });

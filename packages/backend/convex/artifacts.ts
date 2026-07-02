@@ -352,10 +352,15 @@ export const callTool = authAction({
     try {
       switch (name) {
         case "list_repos": {
-          const repos = await ctx.runAction(
-            internal.mcp.nodeActions.listUserRepos,
-            { userId },
-          );
+          const repos: Array<{
+            id: string;
+            owner: string;
+            name: string;
+            rootDirectory: string | null;
+            mcpRootPrompt: string | null;
+          }> = await ctx.runAction(internal.mcp.nodeActions.listUserRepos, {
+            userId,
+          });
           const replicaIds = new Set(
             await ctx.runQuery(internal.mcp.queries.reposWithPostgresReplica, {
               repoIds: repos.map((r) => r.id),

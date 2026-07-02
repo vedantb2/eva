@@ -55,7 +55,7 @@ export function PreviewPaneTabs({
             {index > 0 ? (
               <button
                 type="button"
-                className="mr-1 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-70 transition-[transform,background-color,opacity] hover:bg-muted hover:text-foreground hover:opacity-100 active:scale-[0.96] group-hover:opacity-100"
+                className="hit-target motion-press mr-1 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-70 transition-[transform,background-color,opacity] hover:bg-muted hover:text-foreground hover:opacity-100 active:scale-[0.96] group-hover:opacity-100"
                 aria-label={`Close ${paneLabel(index)}`}
                 onClick={(event) => {
                   event.stopPropagation();

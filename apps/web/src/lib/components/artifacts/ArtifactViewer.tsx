@@ -63,7 +63,7 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
           Artifacts
         </Link>
         <span className="text-muted-foreground">/</span>
-        <h1 className="truncate font-medium text-foreground">
+        <h1 className="min-w-0 truncate text-balance font-medium text-foreground">
           {artifact.name}
         </h1>
         <button

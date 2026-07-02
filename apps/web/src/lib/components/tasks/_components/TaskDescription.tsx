@@ -5,6 +5,7 @@ import { cn } from "@conductor/ui";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { UI_TASK_DESCRIPTION_HINT } from "@conductor/shared";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { MarkdownMentionText } from "@/lib/components/chat/MarkdownMentionText";
 import {
@@ -14,6 +15,7 @@ import {
 import { ReactionBar } from "./ReactionBar";
 import { EmojiReactionPicker } from "./EmojiReactionPicker";
 import { useReactions } from "./TaskReactionsProvider";
+import { insertUiTaskDescriptionTemplate } from "../_utils/insertUiTaskDescription";
 
 /**
  * Descriptions are authored and stored as Markdown. Legacy/imported content can
@@ -126,15 +128,27 @@ export function TaskDescription({
         )}
       >
         {isEditing ? (
-          <DescriptionMentionEditor
-            ref={mentionRef}
-            value={editValue}
-            onValueChange={setEditValue}
-            onBlur={handleSave}
-            placeholder="Add description..."
-            minHeight="min-h-[160px]"
-            className="rounded-none border-0 px-0 py-0 shadow-none focus-visible:ring-0"
-          />
+          <div>
+            <DescriptionMentionEditor
+              ref={mentionRef}
+              value={editValue}
+              onValueChange={setEditValue}
+              onBlur={handleSave}
+              placeholder={`Add description... ${UI_TASK_DESCRIPTION_HINT}`}
+              minHeight="min-h-[160px]"
+              className="rounded-none border-0 px-0 py-0 shadow-none focus-visible:ring-0"
+            />
+            <button
+              type="button"
+              className="hit-target mt-1 inline-flex min-h-10 items-center text-xs text-muted-foreground transition-colors hover:text-foreground"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() =>
+                setEditValue(insertUiTaskDescriptionTemplate(editValue))
+              }
+            >
+              Add UI details
+            </button>
+          </div>
         ) : desc ? (
           <MarkdownMentionText
             text={desc}

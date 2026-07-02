@@ -1,6 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { createClerkClient } from "@clerk/backend";
 import { jwtVerify, SignJWT, importJWK } from "jose";
@@ -342,6 +343,48 @@ function getBootstrapSecret(): string {
 /** Eva's own Convex cloud URL (derived from the .convex.site HTTP URL). */
 function getEvaConvexCloudUrl(): string {
   return getConvexSiteUrl().replace(".convex.site", ".convex.cloud");
+}
+
+function isGithubRepoId(value: string): value is Id<"githubRepos"> {
+  return value.length > 0;
+}
+
+function isDocId(value: string): value is Id<"docs"> {
+  return value.length > 0;
+}
+
+function parsePrRecapDocForPublish(doc: JsonValue): {
+  docId: Id<"docs">;
+  repoId: Id<"githubRepos">;
+  prUrl: string;
+  prNumber: number;
+  title: string;
+} | null {
+  if (typeof doc !== "object" || doc === null) return null;
+  if (!("kind" in doc) || doc.kind !== "pr-recap") return null;
+  if (!("_id" in doc) || typeof doc._id !== "string" || !isDocId(doc._id)) {
+    return null;
+  }
+  if (
+    !("repoId" in doc) ||
+    typeof doc.repoId !== "string" ||
+    !isGithubRepoId(doc.repoId)
+  ) {
+    return null;
+  }
+  if (!("prUrl" in doc) || typeof doc.prUrl !== "string") return null;
+  if (!("prNumber" in doc) || typeof doc.prNumber !== "number") return null;
+  const title =
+    "title" in doc && typeof doc.title === "string"
+      ? doc.title
+      : `PR #${doc.prNumber}`;
+  return {
+    docId: doc._id,
+    repoId: doc.repoId,
+    prUrl: doc.prUrl,
+    prNumber: doc.prNumber,
+    title,
+  };
 }
 
 /** Deployed web app origin, used to build hosted artifact view links. */
@@ -925,12 +968,21 @@ export const getEvaDoc = internalAction({
 });
 
 export const listEvaDocs = internalAction({
-  args: { clerkUserId: v.string(), repoId: v.string() },
+  args: {
+    clerkUserId: v.string(),
+    repoId: v.string(),
+    kind: v.optional(v.union(v.literal("document"), v.literal("pr-recap"))),
+  },
   returns: v.any(),
-  handler: async (_ctx, { clerkUserId, repoId }) => {
-    return runQueryAsUser(getEvaConvexCloudUrl(), clerkUserId, "docs:list", {
-      repoId,
-    });
+  handler: async (_ctx, { clerkUserId, repoId, kind }) => {
+    const args: Record<string, string> = { repoId };
+    if (kind !== undefined) args.kind = kind;
+    return runQueryAsUser(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      "docs:list",
+      args,
+    );
   },
 });
 
@@ -958,6 +1010,173 @@ export const updateEvaDoc = internalAction({
       mutationArgs,
     );
     return null;
+  },
+});
+
+export const triggerPrRecap = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    repoId: v.string(),
+    prNumber: v.number(),
+  },
+  returns: v.object({
+    docId: v.string(),
+    workflowId: v.string(),
+    status: v.literal("pending"),
+  }),
+  handler: async (
+    ctx,
+    { clerkUserId, repoId, prNumber },
+  ): Promise<{ docId: string; workflowId: string; status: "pending" }> => {
+    const user = await ctx.runQuery(internal.mcp.queries.getUserByClerkId, {
+      clerkUserId,
+    });
+    if (!user) {
+      throw new Error("Eva user not found");
+    }
+
+    const gate = await ctx.runQuery(
+      internal._prRecapWorkflow.start.getRecapSiblingsGate,
+      { repoId },
+    );
+    if (!gate) {
+      throw new Error("PR recaps are not enabled for this repository");
+    }
+
+    const metadata = await ctx.runAction(
+      internal._github.prRecapService.fetchPrMetadata,
+      {
+        installationId: gate.installationId,
+        owner: gate.owner,
+        repo: gate.name,
+        prNumber,
+      },
+    );
+
+    if (metadata.draft) {
+      throw new Error("Draft pull requests are not recapped");
+    }
+
+    const authorLogin = metadata.authorLogin?.toLowerCase() ?? "";
+    if (
+      authorLogin.startsWith("dependabot") ||
+      authorLogin.startsWith("renovate")
+    ) {
+      throw new Error("Bot-authored pull requests are not recapped");
+    }
+
+    const result: { docId: string; workflowId: string } = await ctx.runMutation(
+      internal.docs.startPrRecap,
+      {
+        repoId: gate.workflowRepoId,
+        userId: user._id,
+        installationId: gate.installationId,
+        owner: gate.owner,
+        name: gate.name,
+        prUrl: metadata.prUrl,
+        prNumber: metadata.prNumber,
+        prTitle: metadata.prTitle,
+        headSha: metadata.headSha,
+      },
+    );
+
+    return {
+      docId: String(result.docId),
+      workflowId: result.workflowId,
+      status: "pending",
+    };
+  },
+});
+
+export const getPrRecap = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    docId: v.optional(v.string()),
+    repoId: v.optional(v.string()),
+    prUrl: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (_ctx, { clerkUserId, docId, repoId, prUrl }) => {
+    if (docId) {
+      return runQueryAsUser(getEvaConvexCloudUrl(), clerkUserId, "docs:get", {
+        id: docId,
+      });
+    }
+    if (repoId && prUrl) {
+      return runQueryAsUser(
+        getEvaConvexCloudUrl(),
+        clerkUserId,
+        "docs:getRecapByPrUrl",
+        { repoId, prUrl },
+      );
+    }
+    throw new Error("Provide docId or repoId + prUrl");
+  },
+});
+
+export const publishPrRecap = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    docId: v.string(),
+    content: v.string(),
+    headSha: v.string(),
+    status: v.union(v.literal("ready"), v.literal("error")),
+    errorMessage: v.optional(v.string()),
+  },
+  returns: v.object({
+    docId: v.string(),
+    status: v.union(v.literal("ready"), v.literal("error")),
+  }),
+  handler: async (ctx, args) => {
+    const doc = await runQueryAsUser(
+      getEvaConvexCloudUrl(),
+      args.clerkUserId,
+      "docs:get",
+      { id: args.docId },
+    );
+
+    const recapDoc = parsePrRecapDocForPublish(doc);
+    if (!recapDoc) {
+      throw new Error("PR recap doc not found or access denied");
+    }
+
+    const titleMatch = recapDoc.title.match(/^PR #\d+ — (.+)$/);
+    const prTitle = titleMatch ? titleMatch[1] : recapDoc.title;
+
+    await ctx.runMutation(internal.docs.upsertPrRecapDoc, {
+      repoId: recapDoc.repoId,
+      prUrl: recapDoc.prUrl,
+      prNumber: recapDoc.prNumber,
+      title: recapDoc.title.includes("PR #")
+        ? recapDoc.title
+        : `PR #${recapDoc.prNumber} — ${prTitle}`,
+      headSha: args.headSha,
+      content: args.content,
+      prRecapStatus: args.status,
+      prRecapError: args.status === "error" ? args.errorMessage : undefined,
+      clearActiveWorkflowId: true,
+    });
+
+    const publishContext = await ctx.runQuery(
+      internal._prRecapWorkflow.start.getPublishContext,
+      { docId: recapDoc.docId },
+    );
+
+    const commentStatus = args.status === "ready" ? "ready" : "error";
+
+    await ctx.runAction(internal._github.prRecapService.upsertPrRecapComment, {
+      installationId: publishContext.installationId,
+      owner: publishContext.repoOwner,
+      repo: publishContext.repoName,
+      prNumber: publishContext.prNumber,
+      docId: args.docId,
+      headSha: args.headSha,
+      status: commentStatus,
+      message: args.status === "error" ? args.errorMessage : undefined,
+      rootDirectory: publishContext.linkRootDirectory,
+    });
+
+    return { docId: args.docId, status: args.status };
   },
 });
 

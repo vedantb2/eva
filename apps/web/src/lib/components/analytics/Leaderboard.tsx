@@ -6,6 +6,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@conductor/backend";
 import { ScoreBar } from "./ScoreBar";
 import { StatusChip } from "./StatusChip";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 type LeaderboardEntry = FunctionReturnType<
   typeof api.analytics.getLeaderboard
@@ -42,14 +43,14 @@ export function Leaderboard({ entries }: LeaderboardProps) {
             const isTop = index === 0;
             return (
               <div key={entry.clerkId} className="space-y-2">
-                <div className="flex items-center gap-3">
+                <div className="group flex items-center gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
                     <IconUser size={16} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">
+                    <MarqueeOnHover className="text-sm font-medium text-foreground">
                       {entry.fullName || "Unknown User"}
-                    </p>
+                    </MarqueeOnHover>
                     <p className="text-xs text-muted-foreground">
                       {entry.prsCreated} PRs · {entry.tasksCompleted} tasks
                     </p>

@@ -5,7 +5,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-  ActivitySteps,
+  ActivityTasks,
   Badge,
   Button,
   Separator,
@@ -66,7 +66,7 @@ export function LandingTaskDetailMock() {
             {LANDING_MOCK_REPO}
           </span>
           <span className="text-muted-foreground/40">·</span>
-          <span className="truncate font-mono text-[10px] text-muted-foreground/80">
+          <span className="truncate font-mono text-[10px] tabular-nums text-muted-foreground/80">
             QT-{LANDING_MOCK_TASK_NUMBER}
           </span>
         </div>
@@ -81,15 +81,15 @@ export function LandingTaskDetailMock() {
         </div>
       </div>
 
-      <div className="landing-mock-body space-y-4 rounded-surface bg-background p-4 sm:p-5">
+      <div className="landing-mock-body space-y-4 rounded-lg bg-background p-4 sm:p-5">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
+            <h2 className="text-balance text-base font-semibold tracking-tight text-foreground sm:text-lg">
               {LANDING_MOCK_TASK_TITLE}
             </h2>
             <TaskStatusBadge status="code_review" />
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-pretty text-xs text-muted-foreground">
             Branch{" "}
             <span className="font-mono text-foreground/80">
               fix/checkout-postcode
@@ -153,7 +153,7 @@ export function LandingTaskDetailMock() {
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <ActivitySteps
+                  <ActivityTasks
                     steps={LANDING_MOCK_RUN_STEPS}
                     name="Eva"
                     duration="4m 12s"

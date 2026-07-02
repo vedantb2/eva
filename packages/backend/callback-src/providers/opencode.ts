@@ -21,6 +21,19 @@ export function opencodeParseLine(event: JsonObject): CanonicalEvent[] {
     });
     return events;
   }
+  // Reasoning parts carry the model's actual thinking text (reasoning-capable
+  // models only); previously these events were ignored.
+  if (
+    event.type === "reasoning" &&
+    event.part &&
+    typeof event.part === "object" &&
+    !Array.isArray(event.part) &&
+    typeof event.part.text === "string" &&
+    event.part.text
+  ) {
+    events.push({ kind: "update_reasoning", text: event.part.text });
+    return events;
+  }
   if (
     event.type === "text" &&
     event.part &&

@@ -1,5 +1,11 @@
 import type { Id } from "../_generated/dataModel";
 import {
+  buildImplementationSteps,
+  buildSummarySection,
+  buildUiProofCaptureHint,
+  detectUiImplementationTask,
+} from "./uiImplementationPrompt";
+import {
   buildRootDirectoryInstruction,
   buildSystemPromptBlock,
 } from "../prompts";
@@ -83,6 +89,10 @@ export function buildImplementationPrompt(
     ? `edit: ${editCommitTitle}`
     : `${commitScope}: ${task.title}`;
   const typecheckCommand = buildTypecheckCommand(rootDirectory);
+  const uiTask = detectUiImplementationTask({
+    title: task.title,
+    description: task.description,
+  });
 
   const previousRunSection = previousRunSummary
     ? `\n\n### What the previous run completed:\n${previousRunSummary}`
@@ -106,6 +116,7 @@ Do NOT mention proof capture in your response or commit message.
 - Think about which page/route your changes affect. If you edited a settings form, navigate to /settings. If you changed a dashboard widget, go to /dashboard.
 - Look at the files you modified — map them to the routes/pages they render.
 - Always navigate to the SPECIFIC page that demonstrates your change, never just screenshot the homepage or a random page.
+${buildUiProofCaptureHint(uiTask)}
 
 ### Steps (default: video):
 1. Run \`agent-browser set viewport 1920 1080\`
@@ -132,14 +143,9 @@ ${projectSection}## Task: ${task.title}
 ${changeRequestSection}
 
 ## Steps:
-1. Read the files you plan to modify before editing them — understand existing code first
-2. Implement changes by editing source code files
-3. Run \`${typecheckCommand}\` to verify no type errors. If errors occur, read the error output carefully, fix every issue, and re-run. Repeat until it passes (max 3 attempts). Type checking MUST pass before you commit — type errors cause deployment failures. Do NOT run a full build command (\`pnpm build\`, \`npm run build\`) — it uses too much memory.
-4. Run: git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git commit -m "${commitMessage}"
-5. Do NOT push. The platform publishes branch "${branchName}" after you finish successfully.
+${buildImplementationSteps(typecheckCommand, commitMessage, branchName, uiTask)}
 
-## Summary (REQUIRED):
-After committing, output 3–5 bullet lines for a non-technical reader (plain text, each line starting with "- "). Max ~12 words per line. Outcomes only — no headings, code, jargon, file paths, or function names. Say what users can do differently, not how it was built. If user-facing routes changed, one bullet naming them (e.g. "/settings/billing — manage billing"). If none (backend-only, schema, cron, etc.), one bullet: "No user-facing routes changed."
+${buildSummarySection(uiTask)}
 ${proofOfCompletionSection}
 
 ## Rules:

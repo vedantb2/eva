@@ -244,6 +244,29 @@ try {
     );
   }
 
+  // The final result text is delivered separately (rendered as the chat
+  // message via `result`/`resultSummary`). If the last accumulated step is a
+  // streamed "response" step whose detail is essentially the same text,
+  // drop that trailing step so the response isn't shown twice. Intermediate
+  // response steps (earlier turns before a tool call, etc.) are untouched.
+  const finalResultText = (finalResultEvent?.result ?? "").trim();
+  const lastAccumulatedStep = S.accumulatedSteps[S.accumulatedSteps.length - 1];
+  if (
+    lastAccumulatedStep &&
+    lastAccumulatedStep.type === "response" &&
+    finalResultText
+  ) {
+    const detail = (lastAccumulatedStep.detail ?? "").trim();
+    if (
+      detail &&
+      (finalResultText === detail ||
+        finalResultText.startsWith(detail) ||
+        detail.startsWith(finalResultText))
+    ) {
+      S.accumulatedSteps.pop();
+    }
+  }
+
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(S.accumulatedSteps);
 

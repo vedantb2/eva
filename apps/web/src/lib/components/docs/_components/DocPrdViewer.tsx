@@ -9,7 +9,7 @@ import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { isDocViewerTab, type DocViewerTab } from "@/lib/search-params";
 import {
-  ActivitySteps,
+  ActivityTasks,
   Button,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -94,6 +94,7 @@ export function DocPrdViewer({
       if (!isDocViewerTab(value)) return;
       navigate({
         to: `${basePath}/docs/${doc._id}/${value}`,
+        search: (prev) => prev,
       });
     },
     [basePath, doc._id, navigate],
@@ -281,7 +282,7 @@ export function DocPrdViewer({
               </Button>
             </div>
             {streamingSteps ? (
-              <ActivitySteps steps={streamingSteps} isStreaming />
+              <ActivityTasks steps={streamingSteps} isStreaming />
             ) : null}
           </div>
         </div>
@@ -295,6 +296,7 @@ export function DocPrdViewer({
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 sm:px-4">
           <TabsList>
             <TabsTrigger value="description">Description</TabsTrigger>
+            <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="requirements">
               Requirements
               <span className="ml-1.5 text-muted-foreground">
@@ -307,7 +309,6 @@ export function DocPrdViewer({
                 {doc.userFlows?.length ?? 0}
               </span>
             </TabsTrigger>
-            <TabsTrigger value="content">Content</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-1">
             {activeTab === "content" && (

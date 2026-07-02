@@ -49,13 +49,6 @@ export function QuickTaskDetailShell({
     );
   }
 
-  const taskLabel = [
-    selectedTask?.taskNumber ? `#${selectedTask.taskNumber}` : null,
-    selectedTask?.title ?? null,
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(" ");
-
   return (
     <QuickTaskHeaderActionsSlotProvider>
       <PageWrapper
@@ -73,9 +66,14 @@ export function QuickTaskDetailShell({
                 className="text-muted-foreground/50 shrink-0"
               />
             </div>
-            {taskLabel ? (
+            {selectedTask?.taskNumber !== undefined || selectedTask?.title ? (
               <span className="min-w-0 truncate font-semibold">
-                {taskLabel}
+                {selectedTask?.taskNumber !== undefined ? (
+                  <span className="mr-1 font-mono tabular-nums text-muted-foreground">
+                    #{selectedTask.taskNumber}
+                  </span>
+                ) : null}
+                {selectedTask?.title}
               </span>
             ) : null}
             <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">

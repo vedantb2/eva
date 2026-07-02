@@ -50,7 +50,7 @@ function TrendBadge({
 
   if (diff === 0) {
     return (
-      <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
         <IconMinus size={12} />
         0%
       </span>
@@ -60,7 +60,7 @@ function TrendBadge({
   const isPositive = diff > 0;
   return (
     <span
-      className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+      className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
         isPositive
           ? "bg-success/10 text-success"
           : "bg-destructive/10 text-destructive"

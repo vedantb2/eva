@@ -15,6 +15,10 @@ import { buildPrRecapPrompt } from "./_prRecapWorkflow/prompts";
 import { finalizePrRecapOutcome } from "./_prRecapWorkflow/finalizeOutcome";
 import { normalizeAIModel } from "./_validators/aiModels";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import {
+  findSiblingRepos,
+  pickDefaultVisibleAppRepo,
+} from "./_githubRepos/helpers";
 
 const prRecapCompleteEvent = defineEvent({
   name: "prRecapComplete",
@@ -22,6 +26,11 @@ const prRecapCompleteEvent = defineEvent({
 });
 
 const MIN_DIFF_LINES = 3;
+
+const reviewerFeedbackItemValidator = v.object({
+  anchorText: v.optional(v.string()),
+  content: v.string(),
+});
 
 /** Runs PR recap generation: fetch diff, Claude Code in sandbox, save doc, upsert GitHub comment. */
 export const prRecapWorkflow = workflow.define({
@@ -34,6 +43,8 @@ export const prRecapWorkflow = workflow.define({
     prUrl: v.string(),
     prTitle: v.string(),
     headSha: v.string(),
+    reviewerFeedback: v.optional(v.array(reviewerFeedbackItemValidator)),
+    consumeAgentCommentIds: v.optional(v.array(v.id("docComments"))),
   },
   handler: async (step, args): Promise<void> => {
     const repoData = await step.runQuery(internal.prRecapWorkflow.getRepoData, {
@@ -53,6 +64,7 @@ export const prRecapWorkflow = workflow.define({
         ...args,
         repoOwner: repoData.repoOwner,
         repoName: repoData.repoName,
+        linkRootDirectory: repoData.linkRootDirectory,
         outcome: { kind: "error", message: authCheck.message },
       });
       return;
@@ -73,6 +85,7 @@ export const prRecapWorkflow = workflow.define({
         ...args,
         repoOwner: repoData.repoOwner,
         repoName: repoData.repoName,
+        linkRootDirectory: repoData.linkRootDirectory,
         outcome: { kind: "skipped", message: "Diff too small to recap" },
       });
       return;
@@ -90,53 +103,85 @@ export const prRecapWorkflow = workflow.define({
         changedFiles: diff.changedFiles,
         truncated: diff.truncated,
       },
+      reviewerFeedback: args.reviewerFeedback,
     });
 
-    const sandboxId = await prepareSandboxSteps(step, {
-      installationId: args.installationId,
-      repoOwner: repoData.repoOwner,
-      repoName: repoData.repoName,
-      repoId: args.repoId,
-      ephemeral: true,
-      streamingEntityId: `pr-recap:${String(args.docId)}`,
-      baseBranch: repoData.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
-      createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
-    });
+    let sandboxId: string | undefined;
+    try {
+      sandboxId = await prepareSandboxSteps(step, {
+        installationId: args.installationId,
+        repoOwner: repoData.repoOwner,
+        repoName: repoData.repoName,
+        repoId: args.repoId,
+        ephemeral: true,
+        streamingEntityId: `pr-recap:${String(args.docId)}`,
+        baseBranch: repoData.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
+        createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
+        // Recap agents only read the diff in-repo; no convex import / dev daemons.
+        skipStartupCommands: true,
+      });
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
-      sandboxId,
-      entityId: String(args.docId),
-      streamingEntityId: `pr-recap:${String(args.docId)}`,
-      prompt,
-      userId: args.userId,
-      completionMutation: "prRecapWorkflow:handleCompletion",
-      entityIdField: "docId",
-      model,
-      allowedTools: "",
-      repoId: args.repoId,
-    });
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId,
+        entityId: String(args.docId),
+        streamingEntityId: `pr-recap:${String(args.docId)}`,
+        prompt,
+        userId: args.userId,
+        completionMutation: "prRecapWorkflow:handleCompletion",
+        entityIdField: "docId",
+        model,
+        allowedTools: "",
+        repoId: args.repoId,
+      });
 
-    const result = await step.awaitEvent(prRecapCompleteEvent);
+      const result = await step.awaitEvent(prRecapCompleteEvent);
 
-    if (result.success && result.result) {
+      if (result.success && result.result) {
+        await finalizePrRecapOutcome(step, {
+          ...args,
+          repoOwner: repoData.repoOwner,
+          repoName: repoData.repoName,
+          linkRootDirectory: repoData.linkRootDirectory,
+          outcome: { kind: "ready", content: result.result.trim() },
+        });
+        if (
+          args.consumeAgentCommentIds &&
+          args.consumeAgentCommentIds.length > 0
+        ) {
+          await step.runMutation(
+            internal.docComments.resolveRecapAgentComments,
+            {
+              docId: args.docId,
+              commentIds: args.consumeAgentCommentIds,
+              resolvedBy: args.userId,
+            },
+          );
+        }
+        return;
+      }
+
       await finalizePrRecapOutcome(step, {
         ...args,
         repoOwner: repoData.repoOwner,
         repoName: repoData.repoName,
-        outcome: { kind: "ready", content: result.result.trim() },
+        linkRootDirectory: repoData.linkRootDirectory,
+        outcome: {
+          kind: "error",
+          message: result.error ?? "Recap generation failed",
+        },
       });
-      return;
+    } finally {
+      if (sandboxId) {
+        try {
+          await step.runAction(internal.daytona.deleteSandbox, {
+            sandboxId,
+            repoId: args.repoId,
+          });
+        } catch (cleanupError) {
+          console.error("Failed to cleanup PR recap sandbox:", cleanupError);
+        }
+      }
     }
-
-    await finalizePrRecapOutcome(step, {
-      ...args,
-      repoOwner: repoData.repoOwner,
-      repoName: repoData.repoName,
-      outcome: {
-        kind: "error",
-        message: result.error ?? "Recap generation failed",
-      },
-    });
   },
 });
 
@@ -149,16 +194,20 @@ export const getRepoData = internalQuery({
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(aiModelValidator),
     prRecapModel: v.optional(aiModelValidator),
+    linkRootDirectory: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
+    const siblings = await findSiblingRepos(ctx.db, args.repoId);
+    const linkRepo = pickDefaultVisibleAppRepo(siblings);
     return {
       repoOwner: repo.owner,
       repoName: repo.name,
       defaultBaseBranch: repo.defaultBaseBranch,
       defaultModel: repo.defaultModel,
       prRecapModel: repo.prRecapModel,
+      linkRootDirectory: linkRepo?.rootDirectory,
     };
   },
 });

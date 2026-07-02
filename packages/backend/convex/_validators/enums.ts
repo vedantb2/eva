@@ -78,6 +78,11 @@ export const docKindValidator = v.union(
   v.literal("pr-recap"),
 );
 
+export const docVersionSourceValidator = v.union(
+  v.literal("recap-regeneration"),
+  v.literal("manual"),
+);
+
 export const evaluationStatusValidator = v.union(
   v.literal("pending"),
   v.literal("running"),

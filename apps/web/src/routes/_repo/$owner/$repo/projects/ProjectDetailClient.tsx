@@ -32,6 +32,7 @@ import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 import {
   IconGitPullRequest,
@@ -302,7 +303,9 @@ export function ProjectDetailClient({
             size={14}
             className="text-muted-foreground/50 flex-shrink-0"
           />
-          <span className="truncate font-semibold">{project.title}</span>
+          <MarqueeOnHover className="min-w-0 font-semibold">
+            {project.title}
+          </MarqueeOnHover>
         </div>
       }
       fillHeight

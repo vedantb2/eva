@@ -394,6 +394,20 @@
     transition-timing-function: var(--motion-ease-out);
   }
 
+  /* Extends sub-40px controls to a 40×40px tap target without changing layout. */
+  .hit-target {
+    position: relative;
+  }
+  .hit-target::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+
+  .media-outline {
+    @apply ring-1 ring-black/10 dark:ring-white/10;
+  }
+
   .landing-atmosphere {
     background-color: rgb(var(--background));
     background-image:
@@ -640,6 +654,48 @@
     rgb(var(--status-progress-bar) / 0.85) 12%,
     transparent 25%
   );
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * Marquee-on-hover for truncated single-line labels (<MarqueeOnHover/>).
+ * Idle = plain ellipsis. On hover (only when the text overflows), the inner
+ * span scrolls left to reveal its hidden tail and holds, then eases back on
+ * leave. JS sets --mq-shift / --mq-dur per element and toggles
+ * data-mq-overflow; --mq-delay defaults here so the dwell is a CSS concern.
+ * Unlayered + after `@tailwind utilities` so these win at equal specificity
+ * and hot-reload reliably (see the tabs-segmented note above).
+ * ─────────────────────────────────────────────────────────────────── */
+.mq-host {
+  display: block;
+  overflow: hidden;
+  padding: 0; /* keep clientWidth == content box so the overflow measurement is honest */
+}
+.mq-inner {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transform: translateX(0);
+  transition: transform var(--motion-base) var(--motion-ease-out); /* return ease on leave */
+  will-change: transform;
+}
+/* Reveal on hover of the label itself OR of any ancestor card/row marked with
+ * Tailwind's `group` — so hovering anywhere on a task card / list row scrolls its
+ * title, not only a direct hover over the text. */
+.mq-host[data-mq-overflow="true"]:hover .mq-inner,
+.group:hover .mq-host[data-mq-overflow="true"] .mq-inner {
+  max-width: none; /* let the text spill to its full width; the host clips it */
+  transform: translateX(calc(-1 * var(--mq-shift, 0px)));
+  transition: transform var(--mq-dur, 0s) linear var(--mq-delay, 400ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mq-host:hover .mq-inner,
+  .group:hover .mq-host .mq-inner {
+    transform: none;
+    transition: none;
+  }
 }
 
 /* ───────────────────────────────────────────────────────────────────

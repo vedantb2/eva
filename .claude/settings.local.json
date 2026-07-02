@@ -17,9 +17,15 @@
       "mcp__claude_ai_Eva__run_query",
       "mcp__claude_ai_Eva__list_tables",
       "mcp__claude_ai_Eva__list_repos",
-      "Skill(code-review:code-review)"
+      "Skill(code-review:code-review)",
+      "mcp__6bff8141-d7ef-4676-8f3e-61732a94faaf__list_repos",
+      "mcp__6bff8141-d7ef-4676-8f3e-61732a94faaf__run_query"
     ]
   },
-  "prefersReducedMotion": true,
-  "enabledMcpjsonServers": ["figma", "linear", "sentry", "posthog"]
+  "enabledMcpjsonServers": [
+    "figma",
+    "linear",
+    "sentry",
+    "posthog"
+  ],
 }

@@ -41,7 +41,7 @@ import {
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
-  sidebarNavListItemClass,
+  sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface DocsSidebarProps {
@@ -127,7 +127,10 @@ export function DocsSidebar({
       });
       setNewDocTitle("");
       setIsCreateDialogOpen(false);
-      navigate({ to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}` });
+      navigate({
+        to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
+        search: (prev) => prev,
+      });
       onNavigate?.();
     } finally {
       setIsCreating(false);
@@ -174,7 +177,10 @@ export function DocsSidebar({
       setShowUploadSection(false);
       setPastedPrdContent("");
       setNewDocTitle("");
-      navigate({ to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}` });
+      navigate({
+        to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
+        search: (prev) => prev,
+      });
       onNavigate?.();
       await startPrdParse({ docId: id });
     } catch (error) {
@@ -219,7 +225,7 @@ export function DocsSidebar({
       await removeDoc({ id: docToDelete.id });
       setDocToDelete(null);
       if (isViewing) {
-        navigate({ to: `${basePath}/docs` });
+        navigate({ to: `${basePath}/docs`, search: (prev) => prev });
         onNavigate?.();
       }
     } finally {
@@ -297,7 +303,7 @@ export function DocsSidebar({
             No matches found
           </div>
         ) : (
-          <SharedLayoutNav layoutId="docs-nav">
+          <SharedLayoutNav layoutId="docs-nav" className="space-y-1">
             {filteredDocs.map((doc) => {
               const href = `${basePath}/docs/${doc._id}/${defaultDocTab(doc.kind)}`;
               const isSelected = pathname.startsWith(href);
@@ -307,34 +313,31 @@ export function DocsSidebar({
                     <SharedLayoutNavSurface
                       itemId={doc._id}
                       isActive={isSelected}
-                      className="group mx-1"
+                      className="group"
                     >
                       <Link
                         to={href}
+                        search={(prev) => prev}
                         onClick={onNavigate}
-                        className={cn(
-                          "flex items-center gap-1.5",
-                          sidebarNavListItemClass(isSelected),
-                        )}
+                        className={sidebarNavLinkClass(isSelected)}
                       >
                         {doc.kind === "pr-recap" ? (
                           <IconGitMerge
-                            size={14}
-                            className="shrink-0 text-muted-foreground"
+                            size={16}
+                            className={cn(
+                              "shrink-0",
+                              isSelected
+                                ? "text-sidebar-primary"
+                                : "text-muted-foreground",
+                            )}
                           />
                         ) : null}
-                        <span className="min-w-0 flex-1 truncate text-sm">
+                        <span className="min-w-0 flex-1 truncate">
                           {doc.title}
                         </span>
-                        {doc.kind === "pr-recap" &&
-                        doc.prNumber !== undefined ? (
-                          <span className="shrink-0 rounded-surface border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            PR #{doc.prNumber}
-                          </span>
-                        ) : null}
                         <span
                           className={cn(
-                            "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
+                            "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-150",
                             isSelected
                               ? "max-w-[80px] pl-2 opacity-100"
                               : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",

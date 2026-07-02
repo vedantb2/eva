@@ -1,5 +1,11 @@
 # Changelog
 
+## Sandbox chats surface in the sessions sidebar - 2026-07-02
+
+- Project sandbox chats and quick-task sandbox chats now appear in the sessions sidebar as virtual entries whenever they have at least one message, interleaved with real sessions by last activity, so ongoing conversations are reachable from one place instead of buried in project/task pages.
+- Entries are derived on read by the new `sessions.listChatEntries` query (no new tables or duplicated state) and deep-link to the existing project/task sandbox page, staying highlighted on any tab there; right-click offers Copy title/Copy link only since they are not real sessions.
+- Extracted the per-session row (`SidebarSessionRow`) out of `SessionListSidebar` to keep it within the component-size guideline.
+
 ## Cursor-style grouped activity tasks - 2026-07-02
 
 - Agent run activity now renders as Cursor/Claude-style task lines inline in chat ("Read 5 files", "Ran 3 commands"), each with its own accordion revealing the files or commands, replacing the single accordion that hid all steps behind one toggle.

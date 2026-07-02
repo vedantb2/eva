@@ -9,7 +9,7 @@ import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { isDocViewerTab, type DocViewerTab } from "@/lib/search-params";
 import {
-  ActivitySteps,
+  ActivityTasks,
   Button,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -282,7 +282,7 @@ export function DocPrdViewer({
               </Button>
             </div>
             {streamingSteps ? (
-              <ActivitySteps steps={streamingSteps} isStreaming />
+              <ActivityTasks steps={streamingSteps} isStreaming />
             ) : null}
           </div>
         </div>

@@ -9,7 +9,7 @@ import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { isDocViewerTab, type DocViewerTab } from "@/lib/search-params";
 import {
-  ActivitySteps,
+  ActivityTasks,
   Button,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -218,7 +218,7 @@ export function DocRecapViewer({
               <span className="flex-1">Generating recap...</span>
             </div>
             {streamingSteps ? (
-              <ActivitySteps steps={streamingSteps} isStreaming />
+              <ActivityTasks steps={streamingSteps} isStreaming />
             ) : (
               <p className="text-xs text-muted-foreground whitespace-pre-wrap">
                 {streaming?.currentActivity ?? "Generating recap..."}

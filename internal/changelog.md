@@ -1,5 +1,12 @@
 # Changelog
 
+## Cursor-style grouped activity tasks - 2026-07-02
+
+- Agent run activity now renders as Cursor/Claude-style task lines inline in chat ("Read 5 files", "Ran 3 commands"), each with its own accordion revealing the files or commands, replacing the single accordion that hid all steps behind one toggle.
+- Thinking and question steps show as plain narration lines; the active task auto-expands with a spinner while streaming and collapses on completion, with a compact live-timer header above.
+- Added reusable `Task`/`TaskTrigger`/`TaskContent`/`TaskItem`/`TaskItemFile` primitives (ai-sdk Task pattern) and retired `ActivitySteps` in favour of the drop-in `ActivityTasks` across all chat, task, doc, automation, and design surfaces.
+- Grouping is a pure frontend transform over the existing step JSON, so all historical runs render in the new style with no callback or schema changes.
+
 ## Marquee-on-hover for truncated labels - 2026-06-30
 
 - Truncated single-line labels (task card titles, sidebar session/arena items, search results, project and automation titles, leaderboard names) now scroll their hidden tail into view on hover and ease back on leave, so the full text is readable without a tooltip.

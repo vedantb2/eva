@@ -13,7 +13,7 @@ import {
   Reasoning,
   ReasoningTrigger,
   ReasoningContent,
-  ActivitySteps,
+  ActivityTasks,
   formatElapsed,
 } from "@conductor/ui";
 import { IconLoader2, IconPlayerStop } from "@tabler/icons-react";
@@ -204,7 +204,7 @@ export function RunTimelineItem({
               (() => {
                 const steps = parseActivitySteps(streaming.currentActivity);
                 return steps ? (
-                  <ActivitySteps steps={steps} isStreaming />
+                  <ActivityTasks steps={steps} isStreaming />
                 ) : (
                   <Reasoning isStreaming defaultOpen>
                     <ReasoningTrigger

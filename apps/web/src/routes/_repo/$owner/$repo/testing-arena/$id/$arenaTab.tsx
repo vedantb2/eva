@@ -9,7 +9,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import type { Id } from "@conductor/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
-  ActivitySteps,
+  ActivityTasks,
   Button,
   Tabs,
   TabsList,
@@ -102,7 +102,7 @@ function ReportCard({
           const steps = parseActivitySteps(streamingActivity);
           return steps ? (
             <div className="px-4 py-3">
-              <ActivitySteps steps={steps} isStreaming />
+              <ActivityTasks steps={steps} isStreaming />
             </div>
           ) : (
             <div className="flex items-center gap-3 px-4 py-3">
@@ -188,7 +188,7 @@ function ReportCard({
                         Fixing issues...
                       </span>
                     </div>
-                    <ActivitySteps steps={fixSteps} isStreaming />
+                    <ActivityTasks steps={fixSteps} isStreaming />
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 rounded-surface border border-primary/20 bg-primary/5 px-3 py-2">

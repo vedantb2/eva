@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import {
-  ActivitySteps,
+  ActivityTasks,
   Reasoning,
   ReasoningTrigger,
   CollapsibleContent,
@@ -26,7 +26,7 @@ export function StreamingActivityDisplay({
   const steps = parseActivitySteps(activity);
 
   return (
-    <ActivitySteps
+    <ActivityTasks
       steps={
         steps ?? [{ type: "thinking", label: thinkingLabel, status: "active" }]
       }
@@ -57,7 +57,7 @@ export function ActivityLogDisplay({
 
   if (steps) {
     return (
-      <ActivitySteps
+      <ActivityTasks
         steps={steps}
         name={name}
         icon={icon}

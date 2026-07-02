@@ -5,7 +5,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-  ActivitySteps,
+  ActivityTasks,
   Badge,
   Button,
   Separator,
@@ -153,7 +153,7 @@ export function LandingTaskDetailMock() {
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <ActivitySteps
+                  <ActivityTasks
                     steps={LANDING_MOCK_RUN_STEPS}
                     name="Eva"
                     duration="4m 12s"

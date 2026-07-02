@@ -128,6 +128,58 @@ test("applyCanonicalEvents update_reasoning routes to a reasoning step", () => {
   resetStateForTests();
 });
 
+test("parseToCanonical codex reasoning item routes to update_reasoning", () => {
+  resetStateForTests();
+  const started = parseToCanonical(
+    {
+      type: "item.started",
+      item: { id: "item_0", type: "reasoning" },
+    },
+    "codex",
+  );
+  assert.equal(started.length, 0);
+  const completed = parseToCanonical(
+    {
+      type: "item.completed",
+      item: { id: "item_0", type: "reasoning", text: "**Exploring repo**" },
+    },
+    "codex",
+  );
+  assert.equal(completed.length, 1);
+  assert.deepEqual(completed[0], {
+    kind: "update_reasoning",
+    text: "**Exploring repo**",
+  });
+});
+
+test("parseToCanonical opencode reasoning part routes to update_reasoning", () => {
+  const events = parseToCanonical(
+    { type: "reasoning", part: { text: "weighing options" } },
+    "opencode",
+  );
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0], {
+    kind: "update_reasoning",
+    text: "weighing options",
+  });
+});
+
+test("parseToCanonical cursor thinking block routes to update_reasoning", () => {
+  resetStateForTests();
+  const events = parseToCanonical(
+    {
+      type: "assistant",
+      message: { content: [{ type: "thinking", thinking: "hmm let me see" }] },
+    },
+    "cursor",
+  );
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0], {
+    kind: "update_reasoning",
+    text: "hmm let me see",
+  });
+});
+
 test("applyCanonicalEvents append_text routes to a response step", () => {
   resetStateForTests();
   applyCanonicalEvents([{ kind: "append_text", text: "hi there" }]);

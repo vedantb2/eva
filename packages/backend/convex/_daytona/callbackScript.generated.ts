@@ -1600,6 +1600,12 @@ function codexParseLine(event) {
     });
     return events;
   }
+  if ((event.type === "item.started" || event.type === "item.updated" || event.type === "item.completed") && event.item && typeof event.item === "object" && !Array.isArray(event.item) && event.item.type === "reasoning") {
+    if (typeof event.item.text === "string" && event.item.text.trim()) {
+      events.push({ kind: "update_reasoning", text: event.item.text });
+    }
+    return events;
+  }
   if (event.type === "item.started" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message") {
     const step = codexItemToStep(event.item);
     const trackingId = step.type !== "thinking" && typeof event.item.id === "string" ? event.item.id : void 0;
@@ -1764,6 +1770,9 @@ function cursorParseLine(event) {
       if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && block.text) {
         events.push({ kind: "append_text", text: block.text });
         added = true;
+      } else if (block && typeof block === "object" && !Array.isArray(block) && block.type === "thinking" && typeof block.thinking === "string" && block.thinking) {
+        events.push({ kind: "update_reasoning", text: block.thinking });
+        added = true;
       }
     }
     if (!added && callbackState.lastStepType !== "thinking") {
@@ -1912,6 +1921,10 @@ function opencodeParseLine(event) {
         status: "active"
       }
     });
+    return events;
+  }
+  if (event.type === "reasoning" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {
+    events.push({ kind: "update_reasoning", text: event.part.text });
     return events;
   }
   if (event.type === "text" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {

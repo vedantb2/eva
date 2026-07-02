@@ -2,10 +2,21 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@conductor/backend";
 import { api } from "@conductor/backend";
 import { SessionListSidebar } from "@/lib/components/sidebar/SessionListSidebar";
 import { IconTerminal2 } from "@tabler/icons-react";
+
+type ChatEntry = FunctionReturnType<
+  typeof api.sessions.listChatEntries
+>[number];
+
+/** Chat entry annotated with the sidebar-computed link + selection state. */
+export type SidebarChatEntry = ChatEntry & {
+  href: string;
+  isSelected: boolean;
+};
 
 interface SessionsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -24,6 +35,7 @@ export function SessionsSidebar({
 }: SessionsSidebarProps) {
   const sessions = useQuery(api.sessions.list, { repoId });
   const archivedSessions = useQuery(api.sessions.listArchived, { repoId });
+  const rawChatEntries = useQuery(api.sessions.listChatEntries, { repoId });
   const createSession = useMutation(api.sessions.create);
   const archiveSession = useMutation(api.sessions.archive).withOptimisticUpdate(
     (localStore, args) => {
@@ -90,10 +102,29 @@ export function SessionsSidebar({
     },
   );
 
+  // Deep link into the existing project/task sandbox page (defaulting to the
+  // "preview" tab) and stay highlighted for any tab under that sandbox.
+  const chatEntries: SidebarChatEntry[] | undefined = rawChatEntries?.map(
+    (entry) => {
+      const entryBasePath =
+        entry.kind === "project"
+          ? `${basePath}/projects/${entry.id}`
+          : `${basePath}/quick-tasks/${entry.id}`;
+      const isSelected =
+        pathname === entryBasePath || pathname.startsWith(`${entryBasePath}/`);
+      return {
+        ...entry,
+        href: `${entryBasePath}/sandbox/preview`,
+        isSelected,
+      };
+    },
+  );
+
   return (
     <SessionListSidebar
       sessions={sessions}
       archivedSessions={archivedSessions}
+      chatEntries={chatEntries}
       baseUrl={`${basePath}/sessions`}
       pathname={pathname}
       onNavigate={onNavigate}

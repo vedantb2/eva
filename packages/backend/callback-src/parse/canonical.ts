@@ -49,6 +49,54 @@ export function updateThinkingStep(label: string, detail?: string): void {
   S.lastStepType = "thinking";
 }
 
+/** Max chars kept in a streamed "response"/"reasoning" step detail. Older
+ * text is dropped from the head so the tail (most recent content) survives. */
+const STREAMED_DETAIL_MAX_CHARS = 20000;
+
+function capDetail(text: string): string {
+  return text.length > STREAMED_DETAIL_MAX_CHARS
+    ? text.slice(text.length - STREAMED_DETAIL_MAX_CHARS)
+    : text;
+}
+
+/** Merges incoming text into an accumulated step of the given `type`,
+ * de-duping cumulative-snapshot providers from delta-streaming ones (mirrors
+ * `appendStreamedContent`'s prefix logic). Creates a new active step if the
+ * last accumulated step isn't already an active step of this type. */
+function updateTextStep(
+  type: "response" | "reasoning",
+  label: string,
+  text: string,
+): void {
+  const lastStep = S.accumulatedSteps[S.accumulatedSteps.length - 1];
+  if (lastStep && lastStep.type === type && lastStep.status === "active") {
+    const existing = lastStep.detail ?? "";
+    lastStep.detail = capDetail(
+      text.startsWith(existing) ? text : existing + text,
+    );
+    S.lastStepType = "thinking";
+    return;
+  }
+  markLastComplete();
+  S.accumulatedSteps.push({
+    type,
+    label,
+    detail: capDetail(text),
+    status: "active",
+  });
+  S.lastStepType = "thinking";
+}
+
+/** Updates or adds the streamed response-text step. */
+export function updateResponseStep(text: string): void {
+  updateTextStep("response", "Streaming response...", text);
+}
+
+/** Updates or adds the streamed reasoning-text step. */
+export function updateReasoningStep(text: string): void {
+  updateTextStep("reasoning", "Thinking...", text);
+}
+
 /** Provider-specific canonical events via adapter parseLine. */
 export function parseToCanonical(
   event: JsonObject,
@@ -91,7 +139,10 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         break;
       case "append_text":
         appendStreamedContent(ev.text);
-        updateThinkingStep("Streaming response...", "Receiving reply...");
+        updateResponseStep(ev.text);
+        break;
+      case "update_reasoning":
+        updateReasoningStep(ev.text);
         break;
       case "set_pending_question":
         S.pendingQuestionData = ev.data;

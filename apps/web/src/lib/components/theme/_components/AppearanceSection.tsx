@@ -45,7 +45,7 @@ export function AppearanceSection({
               key={mode}
               onClick={() => onModeChange(mode)}
               className={cn(
-                "relative flex flex-col items-center rounded-surface font-medium transition-[background-color,color]",
+                "relative flex flex-col items-center rounded-surface font-medium motion-press transition-[background-color,color,transform] active:scale-[0.96]",
                 compact
                   ? "gap-1 p-2 text-[11px]"
                   : "gap-2 p-3 text-xs sm:gap-3 sm:p-4 sm:text-sm",

@@ -25,7 +25,7 @@ import { searchParser } from "@/lib/search-params";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
-  sidebarNavListItemClass,
+  sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface AutomationsSidebarProps {
@@ -112,7 +112,7 @@ export function AutomationsSidebar({
             No matches found
           </div>
         ) : (
-          <SharedLayoutNav layoutId="automations-nav">
+          <SharedLayoutNav layoutId="automations-nav" className="space-y-1">
             {filteredAutomations.map((automation) => {
               const href = `${basePath}/automations/${automation._id}`;
               const isSelected = pathname.startsWith(href);
@@ -121,30 +121,27 @@ export function AutomationsSidebar({
                   key={automation._id}
                   itemId={automation._id}
                   isActive={isSelected}
-                  className="group mx-1"
+                  className="group"
                 >
                   <Link
                     to={href}
                     onClick={onNavigate}
-                    className={cn(
-                      "flex items-center",
-                      sidebarNavListItemClass(isSelected),
-                    )}
+                    className={sidebarNavLinkClass(isSelected)}
                   >
                     <span
                       className={cn(
-                        "mr-2 h-2 w-2 shrink-0 rounded-full",
+                        "h-2 w-2 shrink-0 rounded-full",
                         automation.enabled
                           ? "bg-success"
                           : "bg-muted-foreground/30",
                       )}
                     />
-                    <span className="min-w-0 flex-1 truncate text-sm">
+                    <span className="min-w-0 flex-1 truncate">
                       {automation.title}
                     </span>
                     <span
                       className={cn(
-                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
+                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-150",
                         isSelected
                           ? "max-w-[80px] pl-2 opacity-100"
                           : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",

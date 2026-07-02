@@ -1,19 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, normalizeAIModel, type AIModel } from "@conductor/backend";
+import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Input, Button, Checkbox, ModelSelect } from "@conductor/ui";
-import { BranchSelect } from "@/lib/components/BranchSelect";
-import { IconPlus, IconX } from "@tabler/icons-react";
-import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { isMonorepoCodebase } from "./_utils";
+import { AppSettingsSection } from "./_components/AppSettingsSection";
+import { RepositorySettingsSection } from "./_components/RepositorySettingsSection";
 
 export function ConfigClient() {
   const { repo, repoId, owner, name } = useRepo();
   const appName = repo.rootDirectory?.split("/").pop();
+  const siblingApps = useQuery(api.githubRepos.listSiblingApps, { repoId });
+  const isMonorepo = isMonorepoCodebase(repo, siblingApps?.length ?? 0);
+  const appLabel = appName ?? name;
+
   const updateConfig = useMutation(
     api.githubRepos.updateConfig,
   ).withOptimisticUpdate((localStore, args) => {
@@ -31,277 +33,25 @@ export function ConfigClient() {
       });
     }
   });
-  const { options, model } = useAvailableAiModels(repoId, repo.defaultModel);
-  const { options: auditReviewOptions, model: auditReviewModel } =
-    useAvailableAiModels(repoId, repo.auditReviewModel ?? "haiku");
-  const { options: auditFixOptions, model: auditFixModel } =
-    useAvailableAiModels(repoId, repo.auditFixModel ?? "sonnet");
-  const { options: proofOptions, model: proofModel } = useAvailableAiModels(
-    repoId,
-    repo.proofModel ?? repo.defaultModel ?? "sonnet",
-  );
 
   return (
-    <PageWrapper title="Config" comfortable>
+    <PageWrapper title="Repository" comfortable>
       <div className="space-y-4">
-        <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-          <h3 className="text-sm font-medium">Repository Configuration</h3>
-
-          <div className="grid gap-4">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Default Base Branch
-              </label>
-              <BranchSelect
-                value={repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH}
-                onValueChange={(val) =>
-                  updateConfig({ repoId, defaultBaseBranch: val || undefined })
-                }
-                className="h-8 text-xs"
-                placeholder="Select a branch"
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                The default branch used when creating quick tasks. Defaults to{" "}
-                <code>main</code> if not set.
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Default Model
-              </label>
-              <ModelSelect
-                value={model}
-                options={options}
-                onValueChange={(nextModel: AIModel) => {
-                  updateConfig({
-                    repoId,
-                    defaultModel: normalizeAIModel(nextModel),
-                  });
-                }}
-                className="h-8 text-xs"
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                The default provider and model used when creating new tasks.
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Audit Review Model
-              </label>
-              <ModelSelect
-                value={auditReviewModel}
-                options={auditReviewOptions}
-                onValueChange={(nextModel: AIModel) => {
-                  updateConfig({
-                    repoId,
-                    auditReviewModel: normalizeAIModel(nextModel),
-                  });
-                }}
-                className="h-8 text-xs"
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Used to review task and session changes during an audit.
-                Defaults to Haiku for fast, cheap review.
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Audit Fix Model
-              </label>
-              <ModelSelect
-                value={auditFixModel}
-                options={auditFixOptions}
-                onValueChange={(nextModel: AIModel) => {
-                  updateConfig({
-                    repoId,
-                    auditFixModel: normalizeAIModel(nextModel),
-                  });
-                }}
-                className="h-8 text-xs"
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Used to fix issues found during an audit. Defaults to Sonnet for
-                stronger code generation.
-              </p>
-            </div>
-
-            <div className="rounded-surface border border-border bg-card p-3 space-y-4">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  checked={repo.screenshotsVideosEnabled ?? false}
-                  onCheckedChange={(value) =>
-                    updateConfig({
-                      repoId,
-                      screenshotsVideosEnabled: value === true,
-                    })
-                  }
-                  className="mt-0.5"
-                />
-                <div className="min-w-0">
-                  <p className="text-xs font-medium">Screenshots and Videos</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Use agent browser to record walkthroughs, verify its work,
-                    etc.
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Proof Capture Model
-                </label>
-                <ModelSelect
-                  value={proofModel}
-                  options={proofOptions}
-                  onValueChange={(nextModel: AIModel) => {
-                    updateConfig({
-                      repoId,
-                      proofModel: normalizeAIModel(nextModel),
-                    });
-                  }}
-                  className="h-8 text-xs"
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Used when proof capture is enabled. Defaults to the task model
-                  when unset.
-                </p>
-              </div>
-            </div>
-
-            {repo.parentRepoId && (
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Deployment Project Name
-                </label>
-                <Input
-                  className="h-8 text-xs"
-                  placeholder="e.g. my-vercel-project"
-                  defaultValue={repo.deploymentProjectName ?? ""}
-                  onBlur={(e) => {
-                    const val = e.target.value.trim();
-                    if (val !== (repo.deploymentProjectName ?? "")) {
-                      updateConfig({
-                        repoId,
-                        deploymentProjectName: val || undefined,
-                      });
-                    }
-                  }}
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Vercel or Netlify project name for this app. Used to match the
-                  correct preview deployment in monorepos.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <DomainsSection />
+        <RepositorySettingsSection
+          repoId={repoId}
+          owner={owner}
+          name={name}
+          repo={repo}
+          isMonorepo={isMonorepo}
+          updateConfig={updateConfig}
+        />
+        <AppSettingsSection
+          repoId={repoId}
+          appLabel={appLabel}
+          repo={repo}
+          updateConfig={updateConfig}
+        />
       </div>
     </PageWrapper>
-  );
-}
-
-function extractHostname(raw: string): string {
-  try {
-    const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
-    return url.hostname;
-  } catch {
-    return raw;
-  }
-}
-
-function DomainsSection() {
-  const { repo, repoId, owner, name } = useRepo();
-  const appName = repo.rootDirectory?.split("/").pop();
-  const updateConfig = useMutation(
-    api.githubRepos.updateConfig,
-  ).withOptimisticUpdate((localStore, args) => {
-    const queryArgs = { owner, name, appName };
-    const current = localStore.getQuery(
-      api.githubRepos.getByOwnerAndName,
-      queryArgs,
-    );
-    if (current !== undefined && current !== null) {
-      const { repoId: _id, devPort, ...safeFields } = args;
-      localStore.setQuery(api.githubRepos.getByOwnerAndName, queryArgs, {
-        ...current,
-        ...safeFields,
-        ...(devPort !== undefined ? { devPort: devPort ?? undefined } : {}),
-      });
-    }
-  });
-  const [newDomain, setNewDomain] = useState("");
-
-  const domains = repo.domains ?? [];
-
-  const addDomain = () => {
-    const raw = newDomain.trim().toLowerCase();
-    if (!raw) return;
-    const hostname = extractHostname(raw);
-    if (domains.includes(hostname)) return;
-    updateConfig({ repoId, domains: [...domains, hostname] });
-    setNewDomain("");
-  };
-
-  const removeDomain = (domain: string) => {
-    updateConfig({ repoId, domains: domains.filter((d) => d !== domain) });
-  };
-
-  return (
-    <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
-      <div>
-        <h3 className="text-sm font-medium">Domains</h3>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Hostnames where this app is deployed. The Chrome extension will
-          auto-select this repo when browsing these domains.
-        </p>
-      </div>
-
-      {domains.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {domains.map((domain) => (
-            <span
-              key={domain}
-              className="inline-flex items-center gap-1 rounded-lg bg-muted/50 px-2 py-1 text-xs"
-            >
-              {domain}
-              <button
-                type="button"
-                onClick={() => removeDomain(domain)}
-                className="ml-0.5 rounded hover:bg-muted-foreground/20 p-0.5"
-              >
-                <IconX size={12} />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        <Input
-          className="h-8 text-xs flex-1"
-          placeholder="e.g. myapp.com or localhost:3000"
-          value={newDomain}
-          onChange={(e) => setNewDomain(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") addDomain();
-          }}
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8"
-          onClick={addDomain}
-          disabled={!newDomain.trim()}
-        >
-          <IconPlus size={14} />
-          Add
-        </Button>
-      </div>
-    </div>
   );
 }

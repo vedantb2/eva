@@ -52,6 +52,7 @@ import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 
 interface ProjectCardProps {
@@ -182,9 +183,9 @@ export function ProjectCard({
         }}
       >
         <div className="flex min-w-0 items-start gap-1.5">
-          <h3 className="min-w-0 flex-1 line-clamp-1 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
+          <MarqueeOnHover className="min-w-0 flex-1 text-sm font-semibold leading-5 text-foreground transition-colors duration-200 group-hover:text-primary">
             {title}
-          </h3>
+          </MarqueeOnHover>
           {sandboxStatus ? (
             <Tooltip>
               <TooltipTrigger asChild>

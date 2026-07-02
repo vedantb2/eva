@@ -70,7 +70,7 @@ export function BasicLandingPage({ agentRedirect }: BasicLandingPageProps) {
                   <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-primary">
                     Eva
                   </p>
-                  <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                  <h1 className="text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                     Your AI coworker
                   </h1>
                 </div>

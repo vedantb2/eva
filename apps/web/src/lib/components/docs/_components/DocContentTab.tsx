@@ -70,6 +70,8 @@ export function DocContentTab({
   onSuggestionCount: (count: number) => void;
 }) {
   const [mode] = useQueryState("mode", docModeParser);
+  const isPrRecap = doc.kind === "pr-recap";
+  const effectiveMode: DocMode = isPrRecap ? "viewing" : mode;
   const ensureSyncDoc = useMutation(api.docs.ensureSyncDoc);
   const touchDraft = useMutation(api.docVersions.touchDraft);
   const saveVersion = useMutation(api.docVersions.saveVersion);
@@ -125,6 +127,7 @@ export function DocContentTab({
   }, [comments, composingAnchorId]);
 
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tocContent, setTocContent] = useState(doc.content);
   const lastTouchDraftRef = useRef<number>(0);
   const editCountRef = useRef<number>(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -144,7 +147,7 @@ export function DocContentTab({
     {
       extensions: sync.extension ? [...extensions, sync.extension] : extensions,
       content: sync.initialContent ?? undefined,
-      editable: mode !== "viewing",
+      editable: effectiveMode !== "viewing",
       immediatelyRender: false,
       editorProps: {
         attributes: {
@@ -159,17 +162,21 @@ export function DocContentTab({
   // Update editable when mode changes
   useEffect(() => {
     if (editor) {
-      editor.setEditable(mode !== "viewing");
+      editor.setEditable(effectiveMode !== "viewing");
     }
-  }, [editor, mode]);
+  }, [editor, effectiveMode]);
 
   // Toggle suggestion tracking with the mode. Editing/Viewing apply edits
   // directly; Suggesting converts them into tracked-change marks.
   useEffect(() => {
     if (!editor) return;
-    if (mode === "suggesting") enableSuggesting(editor);
+    if (isPrRecap) {
+      disableSuggesting(editor);
+      return;
+    }
+    if (effectiveMode === "suggesting") enableSuggesting(editor);
     else disableSuggesting(editor);
-  }, [editor, mode]);
+  }, [editor, effectiveMode, isPrRecap]);
 
   // Surface the pending-suggestion count so the header toggle can show it.
   const suggestionCount =
@@ -181,6 +188,21 @@ export function DocContentTab({
   useEffect(() => {
     onSuggestionCount(suggestionCount);
   }, [suggestionCount, onSuggestionCount]);
+
+  // Keep the outline in sync with live editor content.
+  useEffect(() => {
+    if (!editor) return;
+
+    const syncTocContent = () => {
+      setTocContent(editor.getMarkdown());
+    };
+
+    syncTocContent();
+    editor.on("update", syncTocContent);
+    return () => {
+      editor.off("update", syncTocContent);
+    };
+  }, [editor]);
 
   // Version snapshot tracking
   useEffect(() => {
@@ -327,6 +349,17 @@ export function DocContentTab({
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 gap-6 overflow-hidden">
+            {!commentsOpen &&
+              !historyOpen &&
+              !suggestionsOpen &&
+              tocContent.trim().length > 0 && (
+                <FloatingToc
+                  containerRef={contentScrollRef}
+                  content={tocContent}
+                  className="hidden w-52 shrink-0 border-r border-border py-1 lg:block"
+                />
+              )}
+
             <div
               ref={contentScrollRef}
               className="scrollbar min-h-0 flex-1 overflow-y-auto"
@@ -352,17 +385,6 @@ export function DocContentTab({
                 </BubbleMenu>
               )}
             </div>
-
-            {!commentsOpen &&
-              !historyOpen &&
-              !suggestionsOpen &&
-              doc.content.trim().length > 0 && (
-                <FloatingToc
-                  containerRef={contentScrollRef}
-                  content={doc.content}
-                  className="hidden w-52 shrink-0 py-1 lg:block"
-                />
-              )}
           </div>
         )}
       </div>
@@ -370,6 +392,7 @@ export function DocContentTab({
       {commentsOpen && (
         <DocCommentsPanel
           docId={doc._id}
+          allowAskEva={isPrRecap}
           activeAnchorId={activeAnchorId}
           onAnchorClick={handleAnchorActivate}
           onClose={onToggleComments}
@@ -384,6 +407,7 @@ export function DocContentTab({
       {historyOpen && (
         <DocHistoryPanel
           docId={doc._id}
+          docKind={doc.kind}
           selectedVersionId={selectedVersionId}
           onSelectVersion={(id) => setSelectedVersionId(id)}
           onClose={onToggleHistory}

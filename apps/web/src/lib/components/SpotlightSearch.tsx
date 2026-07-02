@@ -9,6 +9,7 @@ import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import { useSearch } from "@/lib/contexts/SearchContext";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import {
   IconSearch,
   IconLayoutKanban,
@@ -21,7 +22,7 @@ import {
 } from "@tabler/icons-react";
 
 const itemClass =
-  "mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors data-[selected=true]:bg-accent/80 data-[selected=true]:text-primary";
+  "group mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors data-[selected=true]:bg-accent/80 data-[selected=true]:text-primary";
 
 const headingClass =
   "[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase";
@@ -149,7 +150,9 @@ export function SpotlightSearch() {
                     }
                   >
                     <IconLayoutKanban size={16} className="flex-shrink-0" />
-                    <span className="flex-1 truncate">{p.title}</span>
+                    <MarqueeOnHover className="min-w-0 flex-1">
+                      {p.title}
+                    </MarqueeOnHover>
                     <span className="text-xs text-muted-foreground">
                       {p.phase}
                     </span>
@@ -168,7 +171,9 @@ export function SpotlightSearch() {
                     onSelect={() => handleSelect(`${basePath}/quick-tasks`)}
                   >
                     <IconChecklist size={16} className="flex-shrink-0" />
-                    <span className="flex-1 truncate">{t.title}</span>
+                    <MarqueeOnHover className="min-w-0 flex-1">
+                      {t.title}
+                    </MarqueeOnHover>
                     <span className="text-xs text-muted-foreground">
                       {t.status}
                     </span>
@@ -189,7 +194,9 @@ export function SpotlightSearch() {
                     }
                   >
                     <IconTerminal2 size={16} className="flex-shrink-0" />
-                    <span className="flex-1 truncate">{s.title}</span>
+                    <MarqueeOnHover className="min-w-0 flex-1">
+                      {s.title}
+                    </MarqueeOnHover>
                     <span className="text-xs text-muted-foreground">
                       {s.status}
                     </span>
@@ -212,7 +219,9 @@ export function SpotlightSearch() {
                     }
                   >
                     <IconFileText size={16} className="flex-shrink-0" />
-                    <span className="flex-1 truncate">{d.title}</span>
+                    <MarqueeOnHover className="min-w-0 flex-1">
+                      {d.title}
+                    </MarqueeOnHover>
                     <span className="text-xs text-muted-foreground">Doc</span>
                   </Command.Item>
                 ))}
@@ -231,7 +240,9 @@ export function SpotlightSearch() {
                     }
                   >
                     <IconFlask size={16} className="flex-shrink-0" />
-                    <span className="flex-1 truncate">{d.title}</span>
+                    <MarqueeOnHover className="min-w-0 flex-1">
+                      {d.title}
+                    </MarqueeOnHover>
                     <span className="text-xs text-muted-foreground">Test</span>
                   </Command.Item>
                 ))}

@@ -24,8 +24,9 @@ import { branchParser, searchParser } from "@/lib/search-params";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
-  sidebarNavListItemClass,
+  sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 interface TestingArenaSidebarProps {
   repoId: Id<"githubRepos">;
@@ -135,7 +136,7 @@ export function TestingArenaSidebar({
             No matches found
           </div>
         ) : (
-          <SharedLayoutNav layoutId="testing-arena-nav">
+          <SharedLayoutNav layoutId="testing-arena-nav" className="space-y-1">
             {filteredDocs.map((doc) => {
               const href = `${basePath}/testing-arena/${doc._id}`;
               const isSelected = pathname.startsWith(href);
@@ -144,21 +145,28 @@ export function TestingArenaSidebar({
                   key={doc._id}
                   itemId={doc._id}
                   isActive={isSelected}
-                  className="group mx-1"
+                  className="group"
                 >
                   <Link
                     to={href}
                     onClick={onNavigate}
-                    className={cn(
-                      "flex items-center text-sm",
-                      sidebarNavListItemClass(isSelected),
-                    )}
+                    className={sidebarNavLinkClass(isSelected)}
                   >
-                    <IconFileText size={14} className="mr-2.5 shrink-0" />
-                    <span className="min-w-0 flex-1 truncate">{doc.title}</span>
+                    <IconFileText
+                      size={16}
+                      className={cn(
+                        "shrink-0",
+                        isSelected
+                          ? "text-sidebar-primary"
+                          : "text-muted-foreground",
+                      )}
+                    />
+                    <MarqueeOnHover className="min-w-0 flex-1">
+                      {doc.title}
+                    </MarqueeOnHover>
                     <span
                       className={cn(
-                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
+                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-150",
                         isSelected
                           ? "max-w-[80px] pl-2 opacity-100"
                           : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",

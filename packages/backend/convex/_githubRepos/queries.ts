@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { authQuery } from "../functions";
-import { githubRepoValidator } from "./helpers";
+import { githubRepoValidator, pickDefaultVisibleAppRepo } from "./helpers";
 import { getAIProviderAvailability } from "../validators";
 
 /** Lists all GitHub repos accessible to the current user across their teams. */
@@ -175,11 +175,15 @@ export const getByOwnerAndName = authQuery({
       )
       .collect();
 
-    const repo = args.appName
+    let repo = args.appName
       ? candidates.find(
           (r) => r.rootDirectory?.split("/").pop() === args.appName,
         )
-      : candidates.find((r) => !r.rootDirectory);
+      : candidates.find((r) => !r.rootDirectory && r.hidden !== true);
+
+    if (!repo && !args.appName) {
+      repo = pickDefaultVisibleAppRepo(candidates);
+    }
 
     if (!repo) return null;
     if (repo.hidden === true) return null;
@@ -278,6 +282,25 @@ export const getAppSlug = authQuery({
       throw new Error("GITHUB_APP_SLUG is not set in Convex env");
     }
     return slug;
+  },
+});
+
+/** Gets a GitHub repo by ID without access control (internal use only). */
+export const findParentRepoByOwnerAndName = internalQuery({
+  args: {
+    owner: v.string(),
+    name: v.string(),
+  },
+  returns: v.union(githubRepoValidator, v.null()),
+  handler: async (ctx, args) => {
+    const repos = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", args.owner).eq("name", args.name),
+      )
+      .collect();
+    const parent = repos.find((repo) => !repo.rootDirectory);
+    return parent ?? repos[0] ?? null;
   },
 });
 

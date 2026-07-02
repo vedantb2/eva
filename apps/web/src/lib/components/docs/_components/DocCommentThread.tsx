@@ -68,6 +68,11 @@ export function DocCommentThread({
           &ldquo;{root.anchorText}&rdquo;
         </div>
       )}
+      {root.resolutionTarget === "agent" && !isResolved ? (
+        <div className="mb-2 inline-flex rounded border border-border bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+          For Eva
+        </div>
+      ) : null}
       {isOrphaned && (
         <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-warning">
           Original text deleted

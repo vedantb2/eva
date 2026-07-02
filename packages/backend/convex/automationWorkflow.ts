@@ -11,6 +11,7 @@ import {
   buildActionableReportPrompt,
 } from "./_automationWorkflow/prompts";
 import { parseFindingsFromResult } from "./_automationWorkflow/findings";
+import { extractReadOnlyDeliverable } from "./_automationWorkflow/deliverable";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 
 /** Runs an automation: prepares sandbox, executes the prompt, optionally creates a PR, and cleans up. */
@@ -78,6 +79,8 @@ export const automationExecutionWorkflow = workflow.define({
         baseBranch: data.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
         branchName: isReadOnly ? undefined : args.branchName,
         createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
+        // Ephemeral agent runs only need checkout + Claude; skip repo setup daemons.
+        skipStartupCommands: true,
       });
 
       await step.runMutation(internal.automations.updateRunStatus, {
@@ -147,16 +150,23 @@ export const automationExecutionWorkflow = workflow.define({
         );
       }
 
+      const rawResult = result.result ?? "";
       const findings =
         isActionable && result.success
-          ? parseFindingsFromResult(result.result ?? "")
+          ? parseFindingsFromResult(rawResult)
           : null;
+      const resultSummary =
+        result.success && rawResult
+          ? isReadOnly && !isActionable
+            ? extractReadOnlyDeliverable(rawResult)
+            : rawResult
+          : undefined;
 
       await step.runMutation(internal.automations.updateRunStatus, {
         runId: args.runId,
         status: result.success ? "success" : "error",
         error: result.success ? undefined : (result.error ?? "Unknown error"),
-        resultSummary: result.result ?? undefined,
+        resultSummary,
         prUrl: completionPrUrl ?? undefined,
         activityLog: result.activityLog ?? undefined,
         findings: findings ?? undefined,

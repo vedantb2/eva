@@ -23,14 +23,25 @@ import {
   Textarea,
   cn,
 } from "@conductor/ui";
-import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
+import {
+  IconFile,
+  IconGitMerge,
+  IconPlus,
+  IconTrash,
+  IconUpload,
+} from "@tabler/icons-react";
 import { compactRelativeTime } from "@conductor/shared/dates";
 import { useQueryState } from "nuqs";
-import { searchParser, DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import {
+  searchParser,
+  DOC_VIEWER_DEFAULT_TAB,
+  DOC_RECAP_DEFAULT_TAB,
+  docListFilterParser,
+} from "@/lib/search-params";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
-  sidebarNavListItemClass,
+  sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface DocsSidebarProps {
@@ -66,6 +77,10 @@ export function DocsSidebar({
   const startPrdParse = useMutation(api.docPrdWorkflow.startPrdParse);
 
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
+  const [docListFilter, setDocListFilter] = useQueryState(
+    "docFilter",
+    docListFilterParser,
+  );
   const [docToDelete, setDocToDelete] = useState<{
     id: Id<"docs">;
     title: string;
@@ -89,9 +104,17 @@ export function DocsSidebar({
 
   const filteredDocs = useMemo(() => {
     if (!docs) return [];
+    const byKind = docs.filter((doc) => {
+      if (docListFilter === "documents") return doc.kind !== "pr-recap";
+      if (docListFilter === "pr-recaps") return doc.kind === "pr-recap";
+      return true;
+    });
     const q = searchQuery.toLowerCase().trim();
-    return q ? docs.filter((d) => d.title.toLowerCase().includes(q)) : docs;
-  }, [docs, searchQuery]);
+    return q ? byKind.filter((d) => d.title.toLowerCase().includes(q)) : byKind;
+  }, [docs, searchQuery, docListFilter]);
+
+  const defaultDocTab = (kind: string | undefined) =>
+    kind === "pr-recap" ? DOC_RECAP_DEFAULT_TAB : DOC_VIEWER_DEFAULT_TAB;
 
   const handleCreateDoc = async () => {
     if (!newDocTitle.trim()) return;
@@ -104,7 +127,10 @@ export function DocsSidebar({
       });
       setNewDocTitle("");
       setIsCreateDialogOpen(false);
-      navigate({ to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}` });
+      navigate({
+        to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
+        search: (prev) => prev,
+      });
       onNavigate?.();
     } finally {
       setIsCreating(false);
@@ -151,7 +177,10 @@ export function DocsSidebar({
       setShowUploadSection(false);
       setPastedPrdContent("");
       setNewDocTitle("");
-      navigate({ to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}` });
+      navigate({
+        to: `${basePath}/docs/${id}/${DOC_VIEWER_DEFAULT_TAB}`,
+        search: (prev) => prev,
+      });
       onNavigate?.();
       await startPrdParse({ docId: id });
     } catch (error) {
@@ -196,7 +225,7 @@ export function DocsSidebar({
       await removeDoc({ id: docToDelete.id });
       setDocToDelete(null);
       if (isViewing) {
-        navigate({ to: `${basePath}/docs` });
+        navigate({ to: `${basePath}/docs`, search: (prev) => prev });
         onNavigate?.();
       }
     } finally {
@@ -223,15 +252,37 @@ export function DocsSidebar({
           className="min-w-0 flex-1"
           inputClassName="border-sidebar-border/80 bg-sidebar/70 text-sidebar-foreground placeholder:text-muted-foreground"
         />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="shrink-0 text-sidebar-primary"
-          onClick={() => setIsCreateDialogOpen(true)}
-          title="New document"
-        >
-          <IconPlus size={16} />
-        </Button>
+        {docListFilter !== "pr-recaps" ? (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="shrink-0 text-sidebar-primary"
+            onClick={() => setIsCreateDialogOpen(true)}
+            title="New document"
+          >
+            <IconPlus size={16} />
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="flex gap-1 px-2 pb-2">
+        {(
+          [
+            ["all", "All"],
+            ["documents", "Documents"],
+            ["pr-recaps", "PR recaps"],
+          ] as const
+        ).map(([value, label]) => (
+          <Button
+            key={value}
+            size="sm"
+            variant={docListFilter === value ? "secondary" : "ghost"}
+            className="h-7 flex-1 px-2 text-xs"
+            onClick={() => setDocListFilter(value)}
+          >
+            {label}
+          </Button>
+        ))}
       </div>
 
       <div className="flex-1">
@@ -252,9 +303,9 @@ export function DocsSidebar({
             No matches found
           </div>
         ) : (
-          <SharedLayoutNav layoutId="docs-nav">
+          <SharedLayoutNav layoutId="docs-nav" className="space-y-1">
             {filteredDocs.map((doc) => {
-              const href = `${basePath}/docs/${doc._id}/${DOC_VIEWER_DEFAULT_TAB}`;
+              const href = `${basePath}/docs/${doc._id}/${defaultDocTab(doc.kind)}`;
               const isSelected = pathname.startsWith(href);
               return (
                 <ContextMenu key={doc._id}>
@@ -262,22 +313,31 @@ export function DocsSidebar({
                     <SharedLayoutNavSurface
                       itemId={doc._id}
                       isActive={isSelected}
-                      className="group mx-1"
+                      className="group"
                     >
                       <Link
                         to={href}
+                        search={(prev) => prev}
                         onClick={onNavigate}
-                        className={cn(
-                          "flex items-center",
-                          sidebarNavListItemClass(isSelected),
-                        )}
+                        className={sidebarNavLinkClass(isSelected)}
                       >
-                        <span className="min-w-0 flex-1 truncate text-sm">
+                        {doc.kind === "pr-recap" ? (
+                          <IconGitMerge
+                            size={16}
+                            className={cn(
+                              "shrink-0",
+                              isSelected
+                                ? "text-sidebar-primary"
+                                : "text-muted-foreground",
+                            )}
+                          />
+                        ) : null}
+                        <span className="min-w-0 flex-1 truncate">
                           {doc.title}
                         </span>
                         <span
                           className={cn(
-                            "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-all duration-150",
+                            "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-150",
                             isSelected
                               ? "max-w-[80px] pl-2 opacity-100"
                               : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
@@ -291,15 +351,17 @@ export function DocsSidebar({
                     </SharedLayoutNavSurface>
                   </ContextMenuTrigger>
                   <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-                    <ContextMenuItem
-                      className="text-destructive"
-                      onClick={() =>
-                        setDocToDelete({ id: doc._id, title: doc.title })
-                      }
-                    >
-                      <IconTrash size={16} />
-                      Delete
-                    </ContextMenuItem>
+                    {doc.kind !== "pr-recap" ? (
+                      <ContextMenuItem
+                        className="text-destructive"
+                        onClick={() =>
+                          setDocToDelete({ id: doc._id, title: doc.title })
+                        }
+                      >
+                        <IconTrash size={16} />
+                        Delete
+                      </ContextMenuItem>
+                    ) : null}
                   </ContextMenuContent>
                 </ContextMenu>
               );

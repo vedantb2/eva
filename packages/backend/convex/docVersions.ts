@@ -1,7 +1,50 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import { internalMutation } from "./_generated/server";
+import { docVersionSourceValidator } from "./validators";
 
 const VERSION_CAP = 100;
+
+/** Prunes oldest versions when a doc exceeds the cap. */
+async function pruneOldVersions(
+  ctx: MutationCtx,
+  docId: Id<"docs">,
+): Promise<void> {
+  const allVersions = await ctx.db
+    .query("docVersions")
+    .withIndex("by_doc", (q) => q.eq("docId", docId))
+    .order("asc")
+    .collect();
+  if (allVersions.length > VERSION_CAP) {
+    const toDelete = allVersions.slice(0, allVersions.length - VERSION_CAP);
+    for (const ver of toDelete) {
+      await ctx.db.delete(ver._id);
+    }
+  }
+}
+
+const versionListItemValidator = v.object({
+  _id: v.id("docVersions"),
+  title: v.string(),
+  authorIds: v.array(v.id("users")),
+  headSha: v.optional(v.string()),
+  source: v.optional(docVersionSourceValidator),
+  createdAt: v.number(),
+});
+
+const versionDetailValidator = v.object({
+  _id: v.id("docVersions"),
+  docId: v.id("docs"),
+  title: v.string(),
+  content: v.string(),
+  pmContent: v.string(),
+  authorIds: v.array(v.id("users")),
+  headSha: v.optional(v.string()),
+  source: v.optional(docVersionSourceValidator),
+  createdAt: v.number(),
+});
 
 /** Upserts a draft entry, tracking who has edited since the last saved version. */
 export const touchDraft = authMutation({
@@ -65,6 +108,7 @@ export const saveVersion = authMutation({
       content: args.content,
       pmContent: args.pmContent,
       authorIds,
+      source: "manual",
       createdAt: Date.now(),
     });
 
@@ -72,17 +116,45 @@ export const saveVersion = authMutation({
       await ctx.db.delete(draft._id);
     }
 
-    const allVersions = await ctx.db
+    await pruneOldVersions(ctx, args.docId);
+
+    return null;
+  },
+});
+
+/**
+ * Saves a PR recap snapshot before server-side content overwrite (per-push
+ * history). Called from upsertPrRecapDoc, not from the client editor.
+ */
+export const saveRecapSnapshot = internalMutation({
+  args: {
+    docId: v.id("docs"),
+    title: v.string(),
+    content: v.string(),
+    pmContent: v.string(),
+    headSha: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
       .query("docVersions")
       .withIndex("by_doc", (q) => q.eq("docId", args.docId))
-      .order("asc")
-      .collect();
-    if (allVersions.length > VERSION_CAP) {
-      const toDelete = allVersions.slice(0, allVersions.length - VERSION_CAP);
-      for (const ver of toDelete) {
-        await ctx.db.delete(ver._id);
-      }
-    }
+      .order("desc")
+      .first();
+    if (existing && existing.pmContent === args.pmContent) return null;
+
+    await ctx.db.insert("docVersions", {
+      docId: args.docId,
+      title: args.title,
+      content: args.content,
+      pmContent: args.pmContent,
+      authorIds: [],
+      headSha: args.headSha,
+      source: "recap-regeneration",
+      createdAt: Date.now(),
+    });
+
+    await pruneOldVersions(ctx, args.docId);
 
     return null;
   },
@@ -91,14 +163,7 @@ export const saveVersion = authMutation({
 /** Lists versions (lightweight, no content fields). */
 export const list = authQuery({
   args: { docId: v.id("docs") },
-  returns: v.array(
-    v.object({
-      _id: v.id("docVersions"),
-      title: v.string(),
-      authorIds: v.array(v.id("users")),
-      createdAt: v.number(),
-    }),
-  ),
+  returns: v.array(versionListItemValidator),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.docId);
     if (!doc || !(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId)))
@@ -108,11 +173,13 @@ export const list = authQuery({
       .withIndex("by_doc", (q) => q.eq("docId", args.docId))
       .order("desc")
       .collect();
-    return versions.map((v) => ({
-      _id: v._id,
-      title: v.title,
-      authorIds: v.authorIds,
-      createdAt: v.createdAt,
+    return versions.map((ver) => ({
+      _id: ver._id,
+      title: ver.title,
+      authorIds: ver.authorIds,
+      headSha: ver.headSha,
+      source: ver.source,
+      createdAt: ver.createdAt,
     }));
   },
 });
@@ -120,18 +187,7 @@ export const list = authQuery({
 /** Fetches a full version by ID. */
 export const get = authQuery({
   args: { id: v.id("docVersions") },
-  returns: v.union(
-    v.object({
-      _id: v.id("docVersions"),
-      docId: v.id("docs"),
-      title: v.string(),
-      content: v.string(),
-      pmContent: v.string(),
-      authorIds: v.array(v.id("users")),
-      createdAt: v.number(),
-    }),
-    v.null(),
-  ),
+  returns: v.union(versionDetailValidator, v.null()),
   handler: async (ctx, args) => {
     const version = await ctx.db.get(args.id);
     if (!version) return null;
@@ -145,6 +201,8 @@ export const get = authQuery({
       content: version.content,
       pmContent: version.pmContent,
       authorIds: version.authorIds,
+      headSha: version.headSha,
+      source: version.source,
       createdAt: version.createdAt,
     };
   },

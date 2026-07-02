@@ -13,6 +13,7 @@
     "build:callback": "node scripts/build-callback-script.mjs",
     "test:callback": "node --import tsx --test callback-src/tests/createSessionStore.test.ts callback-src/tests/evaluateAttemptHealth.test.ts callback-src/tests/canonical.test.ts",
     "test:skill-markdown": "node --import tsx --test tests/skillMarkdown.test.ts",
+    "test:ui-task-prompt": "node --import tsx --test tests/uiTaskPrompt.test.ts",
     "predeploy": "node scripts/build-callback-script.mjs",
     "deploy": "convex deploy"
   },
@@ -48,11 +49,10 @@
     "@types/node": "^22.18.5",
     "@types/pg": "^8.20.0",
     "@types/shell-quote": "^1.7.5",
-    "@typescript/native-preview": "7.0.0-dev.20260424.1",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "esbuild": "^0.25.0",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "7.0.1-rc"
   }
 }

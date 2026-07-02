@@ -32,7 +32,10 @@ import {
   type AIModel,
 } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import {
+  FALLBACK_GIT_BASE_BRANCH,
+  UI_TASK_DESCRIPTION_HINT,
+} from "@conductor/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
@@ -61,6 +64,7 @@ import {
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { AssigneeSelector } from "./_components/AssigneeSelector";
 import { ProjectPicker } from "./_components/ProjectPicker";
+import { insertUiTaskDescriptionTemplate } from "@/lib/components/tasks/_utils/insertUiTaskDescription";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
@@ -306,12 +310,21 @@ export function QuickTaskModal({
               ref={editorRef}
               value={description}
               onValueChange={setDescription}
-              placeholder="Add description... @ for docs, / for skills"
+              placeholder={`Add description... @ for docs, / for skills. ${UI_TASK_DESCRIPTION_HINT}`}
               minHeight="min-h-[160px]"
               className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
               initialMentionMap={initialDescMaps.mentionMap}
               initialSkillMap={initialDescMaps.skillMap}
             />
+            <button
+              type="button"
+              className="hit-target inline-flex min-h-10 items-center text-xs text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() =>
+                setDescription(insertUiTaskDescriptionTemplate(description))
+              }
+            >
+              Add UI details
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">

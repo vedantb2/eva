@@ -1,5 +1,5 @@
 {
-  "typescriptCompiler": "tsgo",
+  "typescriptCompiler": "tsc",
   "node": {
     "externalPackages": [
       "@daytonaio/sdk",

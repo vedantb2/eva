@@ -32,6 +32,23 @@ export function codexParseLine(event: JsonObject): CanonicalEvent[] {
     });
     return events;
   }
+  // Reasoning items carry the model's actual thinking text. Skip on start
+  // (no tool step) and route the text on completion; without this they'd be
+  // misclassified as a generic "Using reasoning..." tool step.
+  if (
+    (event.type === "item.started" ||
+      event.type === "item.updated" ||
+      event.type === "item.completed") &&
+    event.item &&
+    typeof event.item === "object" &&
+    !Array.isArray(event.item) &&
+    event.item.type === "reasoning"
+  ) {
+    if (typeof event.item.text === "string" && event.item.text.trim()) {
+      events.push({ kind: "update_reasoning", text: event.item.text });
+    }
+    return events;
+  }
   if (
     event.type === "item.started" &&
     event.item &&

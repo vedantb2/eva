@@ -61,7 +61,9 @@ export function TaskHeader({
   return (
     <div className="flex items-center gap-2">
       {taskNumber && (
-        <span className="text-muted-foreground font-mono">#{taskNumber}</span>
+        <span className="font-mono tabular-nums text-muted-foreground">
+          #{taskNumber}
+        </span>
       )}
       {isEditingTitle ? (
         <Input

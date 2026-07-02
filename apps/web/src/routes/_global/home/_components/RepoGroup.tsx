@@ -25,7 +25,7 @@ export function RepoGroup({
 
   return (
     <div>
-      <h2 className="mb-3 text-sm font-semibold text-foreground">
+      <h2 className="mb-3 text-balance text-sm font-semibold text-foreground">
         {groupName}
       </h2>
       <div className="space-y-4">

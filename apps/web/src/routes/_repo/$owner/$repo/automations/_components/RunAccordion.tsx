@@ -4,7 +4,7 @@ import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Doc } from "@conductor/backend";
 import {
-  ActivitySteps,
+  ActivityTasks,
   Badge,
   Button,
   useElapsedSeconds,
@@ -251,10 +251,10 @@ function RunAccordion({
       {expanded && (
         <div className="px-4 py-3 space-y-3">
           {isActive && liveSteps && (
-            <ActivitySteps steps={liveSteps} isStreaming />
+            <ActivityTasks steps={liveSteps} isStreaming />
           )}
           {!isActive && completedSteps && (
-            <ActivitySteps steps={completedSteps} />
+            <ActivityTasks steps={completedSteps} />
           )}
           {actionsEnabled && run.findings && run.findings.length > 0 ? (
             <FindingsList run={run} repoOwner={repoOwner} repoName={repoName} />

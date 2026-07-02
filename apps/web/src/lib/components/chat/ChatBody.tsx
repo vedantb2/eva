@@ -290,6 +290,7 @@ export function ChatBody({
                     key={message._id}
                     content={message.content ?? ""}
                     errorDetail={message.errorDetail}
+                    timestamp={message.timestamp}
                   />
                 ) : (
                   <motion.div
@@ -308,11 +309,6 @@ export function ChatBody({
                       >
                         {message.role === "assistant" && !message.content ? (
                           <>
-                            {streamingContent ? (
-                              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-                                {streamingContent}
-                              </MessageResponse>
-                            ) : null}
                             <StreamingActivityDisplay
                               activity={streamingActivity}
                               name="Eva"
@@ -450,7 +446,7 @@ export function ChatBody({
               </span>
               <button
                 type="button"
-                className="shrink-0 rounded p-0.5 hover:bg-muted hover:text-foreground"
+                className="hit-target motion-press shrink-0 rounded p-0.5 active:scale-[0.96] hover:bg-muted hover:text-foreground"
                 aria-label="Dismiss tip"
                 onClick={() => setHintDismissed(true)}
               >

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useLocation } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
 import { decodeRepoParam } from "@/lib/utils/repoUrl";
 import type { FunctionReturnType } from "convex/server";
@@ -38,6 +38,7 @@ export function RepoProvider({
   const { name, appName } = decodeRepoParam(repoParam);
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   const repo = useQuery(api.githubRepos.getByOwnerAndName, {
     owner,
@@ -51,8 +52,28 @@ export function RepoProvider({
     }
   }, [repo, navigate]);
 
-  const basePath = appName
-    ? `/${owner}/${name}--${appName}`
+  // Bare /owner/repo URLs for monorepos without a visible root row resolve to an
+  // app repo — canonicalize the path so links and basePath stay consistent.
+  useEffect(() => {
+    if (!repo?.rootDirectory || appName) return;
+    const appSegment = repo.rootDirectory.split("/").pop();
+    if (!appSegment) return;
+
+    const barePrefix = `/${owner}/${repoParam}`;
+    const canonicalPrefix = `/${owner}/${name}--${appSegment}`;
+    if (!location.pathname.startsWith(barePrefix)) return;
+    if (barePrefix === canonicalPrefix) return;
+
+    navigate({
+      to: `${canonicalPrefix}${location.pathname.slice(barePrefix.length)}`,
+      search: (prev) => prev,
+      replace: true,
+    });
+  }, [repo, appName, owner, name, repoParam, location.pathname, navigate]);
+
+  const resolvedAppName = appName ?? repo?.rootDirectory?.split("/").pop();
+  const basePath = resolvedAppName
+    ? `/${owner}/${name}--${resolvedAppName}`
     : `/${owner}/${name}`;
 
   const value = useMemo(() => {

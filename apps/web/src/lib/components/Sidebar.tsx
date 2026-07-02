@@ -32,6 +32,7 @@ import {
   TestingArenaIcon,
 } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
 import { LogoMark } from "@/lib/components/LogoMark";
+import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { api } from "@conductor/backend";
 import {
   Button,
@@ -510,12 +511,20 @@ export function Sidebar() {
             </span>
           </Link>
         )}
-        <Button size="icon" variant="ghost" onClick={toggleTheme}>
-          {theme === "dark" ? (
-            <IconSun size={18} className="text-muted-foreground" />
-          ) : (
-            <IconMoon size={18} className="text-muted-foreground" />
-          )}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+        >
+          <CrossfadeIcon
+            show={theme === "dark"}
+            trueKey="sun"
+            falseKey="moon"
+            className="relative flex size-[18px] items-center justify-center"
+            whenTrue={<IconSun size={18} className="text-muted-foreground" />}
+            whenFalse={<IconMoon size={18} className="text-muted-foreground" />}
+          />
         </Button>
       </header>
 

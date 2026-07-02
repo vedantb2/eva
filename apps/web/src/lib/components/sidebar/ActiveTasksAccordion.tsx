@@ -50,7 +50,7 @@ export function ActiveTasksAccordion({
               <span className="text-sm font-medium text-foreground">
                 Active Tasks
               </span>
-              <span className="ml-auto rounded-full bg-sidebar-accent/50 px-1.5 py-0.5 text-xs text-muted-foreground">
+              <span className="ml-auto rounded-full bg-sidebar-accent/50 px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
                 {tasks.length}
               </span>
             </div>
@@ -69,7 +69,7 @@ export function ActiveTasksAccordion({
                         {task.title}
                       </p>
                       {task.taskNumber && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs tabular-nums text-muted-foreground">
                           Task #{task.taskNumber}
                         </p>
                       )}

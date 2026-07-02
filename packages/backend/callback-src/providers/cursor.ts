@@ -38,6 +38,18 @@ export function cursorParseLine(event: JsonObject): CanonicalEvent[] {
       ) {
         events.push({ kind: "append_text", text: block.text });
         added = true;
+      } else if (
+        block &&
+        typeof block === "object" &&
+        !Array.isArray(block) &&
+        block.type === "thinking" &&
+        typeof block.thinking === "string" &&
+        block.thinking
+      ) {
+        // Cursor's stream-json mirrors Claude's; capture thinking blocks as
+        // real reasoning text when the model emits them.
+        events.push({ kind: "update_reasoning", text: block.thinking });
+        added = true;
       }
     }
     if (!added && S.lastStepType !== "thinking") {

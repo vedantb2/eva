@@ -3,6 +3,7 @@
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { Button } from "@conductor/ui";
+import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 
 export function ThemeToggleClient() {
   const { theme, toggleTheme, mounted } = useThemeContext();
@@ -18,12 +19,19 @@ export function ThemeToggleClient() {
   const isDark = theme === "dark";
 
   return (
-    <Button variant="ghost" size="icon" onClick={toggleTheme}>
-      {isDark ? (
-        <IconSun className="size-5 text-muted-foreground" />
-      ) : (
-        <IconMoon className="size-5 text-muted-foreground" />
-      )}
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleTheme}
+      aria-label="Toggle theme"
+    >
+      <CrossfadeIcon
+        show={isDark}
+        trueKey="sun"
+        falseKey="moon"
+        whenTrue={<IconSun className="size-5 text-muted-foreground" />}
+        whenFalse={<IconMoon className="size-5 text-muted-foreground" />}
+      />
     </Button>
   );
 }

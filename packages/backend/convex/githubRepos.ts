@@ -8,6 +8,7 @@ export {
   listByTeam,
   listSiblingApps,
   getInternal,
+  findParentRepoByOwnerAndName,
   listGroupedByCodebase,
   getAppSlug,
 } from "./_githubRepos/queries";

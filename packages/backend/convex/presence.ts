@@ -87,6 +87,7 @@ export const updateCursor = authMutation({
       y,
       firstName: user.firstName ?? user.fullName ?? "User",
       accentColor: user.customTheme?.accentColor ?? "cyan",
+      updatedAt: Date.now(),
     });
   },
 });

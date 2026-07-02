@@ -163,6 +163,8 @@ export const updateConfig = authMutation({
     auditReviewModel: v.optional(aiModelValidator),
     auditFixModel: v.optional(aiModelValidator),
     proofModel: v.optional(aiModelValidator),
+    prRecapsEnabled: v.optional(v.boolean()),
+    prRecapModel: v.optional(aiModelValidator),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
     deploymentProjectName: v.optional(v.string()),
@@ -205,6 +207,10 @@ export const updateConfig = authMutation({
     if (args.auditFixModel !== undefined)
       sharedPatch.auditFixModel = args.auditFixModel;
     if (args.proofModel !== undefined) sharedPatch.proofModel = args.proofModel;
+    if (args.prRecapsEnabled !== undefined)
+      sharedPatch.prRecapsEnabled = args.prRecapsEnabled;
+    if (args.prRecapModel !== undefined)
+      sharedPatch.prRecapModel = args.prRecapModel;
     if (args.sessionsVncEnabled !== undefined)
       sharedPatch.sessionsVncEnabled = args.sessionsVncEnabled;
     if (args.sessionsVscodeEnabled !== undefined)

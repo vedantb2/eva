@@ -43,19 +43,17 @@ export function QuickTaskSplitDetailPane({
       ? { surface: "sandbox", sandboxTab, detailTab: "activity" }
       : { surface: "detail", detailTab };
 
-  const taskLabel = [
-    selectedTask?.taskNumber ? `#${selectedTask.taskNumber}` : null,
-    selectedTask?.title ?? null,
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(" ");
-
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-        {taskLabel ? (
+        {selectedTask?.title || selectedTask?.taskNumber !== undefined ? (
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {taskLabel}
+            {selectedTask?.taskNumber !== undefined ? (
+              <span className="mr-1 font-mono tabular-nums text-muted-foreground">
+                #{selectedTask.taskNumber}
+              </span>
+            ) : null}
+            {selectedTask?.title}
           </span>
         ) : (
           <span className="flex-1" />
@@ -67,7 +65,7 @@ export function QuickTaskSplitDetailPane({
             <button
               onClick={handleNavigatePrev}
               disabled={!prevTaskId}
-              className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
+              className="hit-target motion-press rounded p-1 active:scale-[0.96] transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
               title="Previous task"
             >
               <IconChevronLeft size={16} />
@@ -75,7 +73,7 @@ export function QuickTaskSplitDetailPane({
             <button
               onClick={handleNavigateNext}
               disabled={!nextTaskId}
-              className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
+              className="hit-target motion-press rounded p-1 active:scale-[0.96] transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
               title="Next task"
             >
               <IconChevronRight size={16} />

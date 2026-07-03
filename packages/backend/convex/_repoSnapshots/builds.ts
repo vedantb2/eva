@@ -4,7 +4,6 @@ import { internal } from "../_generated/api";
 import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
-  snapshotWarmupStatusValidator,
   seededAppResultValidator,
   seededAppStatusValidator,
 } from "../validators";
@@ -30,8 +29,6 @@ export const listBuilds = authQuery({
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
-      warmupStatus: v.optional(snapshotWarmupStatusValidator),
-      warmupError: v.optional(v.string()),
       seededApps: v.optional(v.array(seededAppResultValidator)),
     }),
   ),
@@ -63,8 +60,6 @@ export const getBuild = authQuery({
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
-      warmupStatus: v.optional(snapshotWarmupStatusValidator),
-      warmupError: v.optional(v.string()),
       seededApps: v.optional(v.array(seededAppResultValidator)),
     }),
     v.null(),

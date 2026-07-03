@@ -11,6 +11,7 @@ import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
   snapshotWarmupStatusValidator,
+  seededAppResultValidator,
   teamMemberRoleValidator,
   webhookEventStatusValidator,
   messageFields,
@@ -279,16 +280,8 @@ const schema = defineSchema({
     retryCount: v.optional(v.number()),
     warmupStatus: v.optional(snapshotWarmupStatusValidator),
     warmupError: v.optional(v.string()),
-    seededApps: v.optional(
-      v.array(
-        v.object({
-          app: v.string(),
-          repoId: v.id("githubRepos"),
-          seededSnapshotName: v.union(v.string(), v.null()),
-          status: v.optional(v.string()),
-        }),
-      ),
-    ),
+    // Per-app seeding outcomes captured during Step 5 of the build workflow.
+    seededApps: v.optional(v.array(seededAppResultValidator)),
   })
     .index("by_repo_snapshot", ["repoSnapshotId"])
     .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])

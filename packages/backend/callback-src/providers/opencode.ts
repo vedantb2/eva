@@ -77,14 +77,7 @@ export function opencodeParseLine(event: JsonObject): CanonicalEvent[] {
         ? event.part.reason
         : "";
     if (reason === "stop") {
-      events.push({
-        kind: "push_step",
-        step: {
-          type: "thinking",
-          label: "Finalizing response...",
-          status: "active",
-        },
-      });
+      events.push({ kind: "mark_last_complete" });
     }
     return events;
   }

@@ -98,14 +98,7 @@ export function codexParseLine(event: JsonObject): CanonicalEvent[] {
     return events;
   }
   if (event.type === "turn.completed") {
-    events.push({
-      kind: "push_step",
-      step: {
-        type: "thinking",
-        label: "Finalizing response...",
-        status: "active",
-      },
-    });
+    events.push({ kind: "mark_last_complete" });
     return events;
   }
   return events;

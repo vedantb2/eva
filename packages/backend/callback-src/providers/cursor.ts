@@ -26,7 +26,6 @@ export function cursorParseLine(event: JsonObject): CanonicalEvent[] {
         : null;
     const contentBlocks =
       message && Array.isArray(message.content) ? message.content : [];
-    let added = false;
     for (const block of contentBlocks) {
       if (
         block &&
@@ -37,7 +36,6 @@ export function cursorParseLine(event: JsonObject): CanonicalEvent[] {
         block.text
       ) {
         events.push({ kind: "append_text", text: block.text });
-        added = true;
       } else if (
         block &&
         typeof block === "object" &&
@@ -49,18 +47,7 @@ export function cursorParseLine(event: JsonObject): CanonicalEvent[] {
         // Cursor's stream-json mirrors Claude's; capture thinking blocks as
         // real reasoning text when the model emits them.
         events.push({ kind: "update_reasoning", text: block.thinking });
-        added = true;
       }
-    }
-    if (!added && S.lastStepType !== "thinking") {
-      events.push({
-        kind: "push_step",
-        step: {
-          type: "thinking",
-          label: "Generating response...",
-          status: "active",
-        },
-      });
     }
     return events;
   }
@@ -79,14 +66,7 @@ export function cursorParseLine(event: JsonObject): CanonicalEvent[] {
     return events;
   }
   if (event.type === "result") {
-    events.push({
-      kind: "push_step",
-      step: {
-        type: "thinking",
-        label: "Finalizing response...",
-        status: "active",
-      },
-    });
+    events.push({ kind: "mark_last_complete" });
     return events;
   }
   return events;

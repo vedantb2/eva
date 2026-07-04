@@ -245,25 +245,28 @@ try {
   }
 
   // The final result text is delivered separately (rendered as the chat
-  // message via `result`/`resultSummary`). If the last accumulated step is a
-  // streamed "response" step whose detail is essentially the same text,
-  // drop that trailing step so the response isn't shown twice. Intermediate
+  // message via `result`/`resultSummary`). If the last streamed "response"
+  // step carries essentially the same text, drop it so the response isn't
+  // shown twice. Trailing thinking steps are skipped when locating it (a
+  // status step may have been pushed after the response). Intermediate
   // response steps (earlier turns before a tool call, etc.) are untouched.
   const finalResultText = (finalResultEvent?.result ?? "").trim();
-  const lastAccumulatedStep = S.accumulatedSteps[S.accumulatedSteps.length - 1];
-  if (
-    lastAccumulatedStep &&
-    lastAccumulatedStep.type === "response" &&
-    finalResultText
-  ) {
-    const detail = (lastAccumulatedStep.detail ?? "").trim();
-    if (
-      detail &&
-      (finalResultText === detail ||
-        finalResultText.startsWith(detail) ||
-        detail.startsWith(finalResultText))
-    ) {
-      S.accumulatedSteps.pop();
+  if (finalResultText) {
+    let lastIdx = S.accumulatedSteps.length - 1;
+    while (lastIdx >= 0 && S.accumulatedSteps[lastIdx].type === "thinking") {
+      lastIdx--;
+    }
+    const candidate = lastIdx >= 0 ? S.accumulatedSteps[lastIdx] : undefined;
+    if (candidate && candidate.type === "response") {
+      const detail = (candidate.detail ?? "").trim();
+      if (
+        detail &&
+        (finalResultText === detail ||
+          finalResultText.startsWith(detail) ||
+          detail.startsWith(finalResultText))
+      ) {
+        S.accumulatedSteps.splice(lastIdx, 1);
+      }
     }
   }
 

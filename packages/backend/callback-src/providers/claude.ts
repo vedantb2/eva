@@ -50,7 +50,6 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
   if (S.waitingForFirstAssistantEvent) {
     events.push({ kind: "mark_first_assistant" });
   }
-  let added = false;
   const message =
     event.message &&
     typeof event.message === "object" &&
@@ -84,28 +83,15 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
           data: JSON.stringify(block.input),
         });
       }
-      added = true;
     } else if (
       block.type === "thinking" &&
       "thinking" in block &&
       block.thinking
     ) {
       events.push({ kind: "update_reasoning", text: String(block.thinking) });
-      added = true;
     } else if (block.type === "text" && "text" in block && block.text) {
       events.push({ kind: "append_text", text: String(block.text) });
-      added = true;
     }
-  }
-  if (!added && S.lastStepType !== "thinking") {
-    events.push({
-      kind: "push_step",
-      step: {
-        type: "thinking",
-        label: "Generating response...",
-        status: "active",
-      },
-    });
   }
   return events;
 }

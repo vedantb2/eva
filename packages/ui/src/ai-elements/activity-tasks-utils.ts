@@ -7,6 +7,19 @@ export interface ActivityBlock {
 }
 
 /**
+ * Status-filler thinking labels emitted by older callback versions (and by
+ * prod until the current callback deploys). The response/reasoning text is
+ * shown directly, so these narration rows are pure noise — hide them.
+ */
+const LEGACY_NOISE_LABELS = new Set([
+  "Generating response...",
+  "Generated response",
+  "Streaming response...",
+  "Streamed response",
+  "Finalizing response...",
+]);
+
+/**
  * Walks steps in order and groups consecutive steps of the same type into a
  * single block (Cursor/Claude-style task grouping). A block is "active" iff
  * its last item is active.
@@ -15,6 +28,9 @@ export function groupSteps(steps: ActivityStep[]): ActivityBlock[] {
   const blocks: ActivityBlock[] = [];
 
   for (const step of steps) {
+    if (step.type === "thinking" && LEGACY_NOISE_LABELS.has(step.label)) {
+      continue;
+    }
     const previous = blocks[blocks.length - 1];
     if (previous && previous.type === step.type) {
       previous.items.push(step);

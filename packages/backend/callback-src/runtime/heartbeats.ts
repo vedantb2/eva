@@ -3,7 +3,6 @@ import {
   HEARTBEAT_FATAL_BURST,
   HEARTBEAT_FATAL_SLOW_COUNT,
   HEARTBEAT_FATAL_SLOW_WINDOW_MS,
-  PROVIDER,
   READY_FILE,
   SCRIPT_STARTED_AT,
   STREAMING_ENTITY_ID,
@@ -245,21 +244,9 @@ export async function stopStreamingLoops(): Promise<void> {
 }
 
 export async function setFinalizingState(): Promise<void> {
+  // No "Finalizing response..." step — status filler isn't shown in the
+  // activity flow; the response text itself is the signal.
   markLastComplete();
-  S.accumulatedSteps.push({
-    type: "thinking",
-    label: "Finalizing response...",
-    detail: S.resultEventSeen
-      ? "Syncing response and saved session..."
-      : PROVIDER === "codex"
-        ? "Codex finished. Sending completion..."
-        : PROVIDER === "opencode"
-          ? "Opencode finished. Sending completion..."
-          : PROVIDER === "cursor"
-            ? "Cursor finished. Sending completion..."
-            : "Claude finished. Sending completion...",
-    status: "active",
-  });
   S.lastStepType = "thinking";
   try {
     await sendStreamingHeartbeatUpdate(buildStreamingPayload());

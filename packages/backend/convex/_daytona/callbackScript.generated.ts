@@ -1334,7 +1334,6 @@ function claudeParseLine(event) {
   if (callbackState.waitingForFirstAssistantEvent) {
     events.push({ kind: "mark_first_assistant" });
   }
-  let added = false;
   const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
   const content = message && Array.isArray(message.content) ? message.content : [];
   for (const block of content) {
@@ -1352,24 +1351,11 @@ function claudeParseLine(event) {
           data: JSON.stringify(block.input)
         });
       }
-      added = true;
     } else if (block.type === "thinking" && "thinking" in block && block.thinking) {
       events.push({ kind: "update_reasoning", text: String(block.thinking) });
-      added = true;
     } else if (block.type === "text" && "text" in block && block.text) {
       events.push({ kind: "append_text", text: String(block.text) });
-      added = true;
     }
-  }
-  if (!added && callbackState.lastStepType !== "thinking") {
-    events.push({
-      kind: "push_step",
-      step: {
-        type: "thinking",
-        label: "Generating response...",
-        status: "active"
-      }
-    });
   }
   return events;
 }
@@ -1630,14 +1616,7 @@ function codexParseLine(event) {
     return events;
   }
   if (event.type === "turn.completed") {
-    events.push({
-      kind: "push_step",
-      step: {
-        type: "thinking",
-        label: "Finalizing response...",
-        status: "active"
-      }
-    });
+    events.push({ kind: "mark_last_complete" });
     return events;
   }
   return events;
@@ -1765,25 +1744,12 @@ function cursorParseLine(event) {
   if (event.type === "assistant") {
     const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
     const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
-    let added = false;
     for (const block of contentBlocks) {
       if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && block.text) {
         events.push({ kind: "append_text", text: block.text });
-        added = true;
       } else if (block && typeof block === "object" && !Array.isArray(block) && block.type === "thinking" && typeof block.thinking === "string" && block.thinking) {
         events.push({ kind: "update_reasoning", text: block.thinking });
-        added = true;
       }
-    }
-    if (!added && callbackState.lastStepType !== "thinking") {
-      events.push({
-        kind: "push_step",
-        step: {
-          type: "thinking",
-          label: "Generating response...",
-          status: "active"
-        }
-      });
     }
     return events;
   }
@@ -1796,14 +1762,7 @@ function cursorParseLine(event) {
     return events;
   }
   if (event.type === "result") {
-    events.push({
-      kind: "push_step",
-      step: {
-        type: "thinking",
-        label: "Finalizing response...",
-        status: "active"
-      }
-    });
+    events.push({ kind: "mark_last_complete" });
     return events;
   }
   return events;
@@ -1947,14 +1906,7 @@ function opencodeParseLine(event) {
   if (event.type === "step_finish") {
     const reason = event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.reason === "string" ? event.part.reason : "";
     if (reason === "stop") {
-      events.push({
-        kind: "push_step",
-        step: {
-          type: "thinking",
-          label: "Finalizing response...",
-          status: "active"
-        }
-      });
+      events.push({ kind: "mark_last_complete" });
     }
     return events;
   }
@@ -2333,12 +2285,6 @@ async function stopStreamingLoops() {
 }
 async function setFinalizingState() {
   markLastComplete();
-  callbackState.accumulatedSteps.push({
-    type: "thinking",
-    label: "Finalizing response...",
-    detail: callbackState.resultEventSeen ? "Syncing response and saved session..." : PROVIDER === "codex" ? "Codex finished. Sending completion..." : PROVIDER === "opencode" ? "Opencode finished. Sending completion..." : PROVIDER === "cursor" ? "Cursor finished. Sending completion..." : "Claude finished. Sending completion...",
-    status: "active"
-  });
   callbackState.lastStepType = "thinking";
   try {
     await sendStreamingHeartbeatUpdate(buildStreamingPayload());
@@ -3212,11 +3158,17 @@ try {
     );
   }
   const finalResultText = (finalResultEvent?.result ?? "").trim();
-  const lastAccumulatedStep = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
-  if (lastAccumulatedStep && lastAccumulatedStep.type === "response" && finalResultText) {
-    const detail = (lastAccumulatedStep.detail ?? "").trim();
-    if (detail && (finalResultText === detail || finalResultText.startsWith(detail) || detail.startsWith(finalResultText))) {
-      callbackState.accumulatedSteps.pop();
+  if (finalResultText) {
+    let lastIdx = callbackState.accumulatedSteps.length - 1;
+    while (lastIdx >= 0 && callbackState.accumulatedSteps[lastIdx].type === "thinking") {
+      lastIdx--;
+    }
+    const candidate = lastIdx >= 0 ? callbackState.accumulatedSteps[lastIdx] : void 0;
+    if (candidate && candidate.type === "response") {
+      const detail = (candidate.detail ?? "").trim();
+      if (detail && (finalResultText === detail || finalResultText.startsWith(detail) || detail.startsWith(finalResultText))) {
+        callbackState.accumulatedSteps.splice(lastIdx, 1);
+      }
     }
   }
   for (const step of callbackState.accumulatedSteps) step.status = "complete";

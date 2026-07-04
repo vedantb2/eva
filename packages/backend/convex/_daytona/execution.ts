@@ -170,11 +170,20 @@ export const runStartupCommands = internalAction({
       }
     }
 
-    // Create marker file to prevent re-running on sandbox resume
-    try {
-      await exec(sandbox, "touch /tmp/.startup-commands-done", 5);
-    } catch {
-      // Non-fatal
+    // Create the marker only when every command succeeded. Writing it after a
+    // failed run permanently branded the sandbox as seeded: every resume then
+    // marker-skipped the seed and the DB stayed empty forever. Leaving the
+    // marker absent lets the next resume retry the full startup sequence.
+    if (errors.length === 0) {
+      try {
+        await exec(sandbox, "touch /tmp/.startup-commands-done", 5);
+      } catch {
+        // Non-fatal
+      }
+    } else {
+      console.error(
+        `[daytona] runStartupCommands: ${errors.length}/${commands.length} command(s) failed — NOT writing marker so the next resume retries`,
+      );
     }
 
     return { ran: true, commandCount: commands.length, errors };

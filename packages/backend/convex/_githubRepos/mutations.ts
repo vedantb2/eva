@@ -356,6 +356,29 @@ export const updateMcpRootPrompt = authMutation({
   },
 });
 
+/**
+ * Sets an app repo's stop commands directly (internal, CLI/ops use). Stop
+ * commands gate seeded-snapshot builds (findSeedableAppRepos), and updateConfig
+ * is auth+ownership-checked so it cannot be driven from `npx convex run` when a
+ * deployment's config needs backfilling (e.g. prod after a dev-only setup).
+ */
+export const setStopCommandsInternal = internalMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    stopCommands: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+    await ctx.db.patch(args.repoId, {
+      stopCommands:
+        args.stopCommands.length > 0 ? args.stopCommands : undefined,
+    });
+    return null;
+  },
+});
+
 /** Deletes a GitHub repo entry by ID (internal use only). */
 export const deleteInternal = internalMutation({
   args: { id: v.id("githubRepos") },

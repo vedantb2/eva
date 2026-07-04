@@ -109,17 +109,38 @@ export const snapshotBuildWorkflow = workflow.define({
         : "pending";
     const prepSandboxIds: Array<string | null> = await Promise.all(
       apps.map(async (app) => {
-        if (currentImageState !== "active") return null;
+        // Prefer booting from the app's PREVIOUS seeded snapshot over the bare
+        // image: it already contains the pulled service docker images (supabase
+        // ~1-2GB) and the convex local backend, skipping a 4-8 min cold-pull
+        // tax on every rebuild. Fresh data still lands because seed:sql resets
+        // the DB and convex import runs --replace-all. Falls back to the
+        // current image, then to the new image (in the chain) when neither
+        // source exists.
+        const prevSeededName = `seeded-${app.repoId}`;
+        const prevSeededState = await step.runAction(
+          internal.snapshotActions.pollSeededSnapshotState,
+          { repoId: app.repoId, seededName: prevSeededName },
+        );
+        const source =
+          prevSeededState === "active"
+            ? prevSeededName
+            : currentImageState === "active"
+              ? config.snapshotName
+              : null;
+        if (!source) return null;
         try {
           const created = await step.runAction(
             internal.snapshotActions.createSeedPrepSandbox,
-            { repoId: app.repoId, imageSnapshot: config.snapshotName },
+            { repoId: app.repoId, imageSnapshot: source },
             { retry: { maxAttempts: 2, initialBackoffMs: 10000, base: 2 } },
+          );
+          console.log(
+            `[snapshot] pre-created seed sandbox for ${app.repoId} from ${source}`,
           );
           return created.sandboxId;
         } catch (e) {
           console.error(
-            `[snapshot] pre-create from current image failed for ${app.repoId} — will fall back to the new image: ${
+            `[snapshot] pre-create from ${source} failed for ${app.repoId} — will fall back to the new image: ${
               e instanceof Error ? e.message : String(e)
             }`,
           );

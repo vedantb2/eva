@@ -24,6 +24,11 @@ import type { Id } from "./_generated/dataModel";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
 
+// Bump when buildSnapshotImage's content changes (new tools, base image, or
+// layer commands) so existing image fingerprints invalidate and the next build
+// rebuilds the Image even though repo/config inputs are unchanged.
+const IMAGE_DEF_VERSION = 1;
+
 // "eva ALL=(ALL) NOPASSWD: ALL\n" — base64-encoded to avoid parentheses breaking Dockerfile RUN
 const EVA_SUDOERS_B64 = "ZXZhIEFMTD0oQUxMKSBOT1BBU1NXRDogQUxMCg==";
 
@@ -507,6 +512,84 @@ export const deleteDaytonaSnapshot = internalAction({
     const daytona = getDaytona(daytonaApiKey);
     await deleteSnapshotByName(daytona, args.snapshotName);
     return null;
+  },
+});
+
+/**
+ * Fingerprint of the Image inputs: the dependency lockfile's blob sha on the
+ * build branch, the build commands, the config-file blobs baked into the image,
+ * and IMAGE_DEF_VERSION. When this matches the value stored at the last
+ * successful Image build, the workflow skips the ~11-15m rebuild — the output
+ * would be byte-identical (sandboxes fetch fresh branches at boot, so a repo
+ * checkout that is a few commits stale costs nothing; node_modules only drift
+ * when the lockfile changes, which changes this fingerprint). Returns null when
+ * the inputs cannot be determined (e.g. lockfile lookup fails) — callers must
+ * treat null as "always rebuild".
+ */
+export const getImageFingerprint = internalAction({
+  args: { repoSnapshotId: v.id("repoSnapshots") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args): Promise<string | null> => {
+    const config = await ctx.runQuery(
+      internal.repoSnapshots.getRepoSnapshotInternal,
+      { repoSnapshotId: args.repoSnapshotId },
+    );
+    if (!config) return null;
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: config.repoId,
+    });
+    if (!repo) return null;
+    const branch = config.workflowRef ?? "main";
+    let lockfileSha: string | null = null;
+    try {
+      const token = await getInstallationToken(repo.installationId);
+      for (const lockfile of [
+        "pnpm-lock.yaml",
+        "package-lock.json",
+        "yarn.lock",
+      ]) {
+        const resp = await fetch(
+          `https://api.github.com/repos/${repo.owner}/${repo.name}/contents/${lockfile}?ref=${encodeURIComponent(branch)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/vnd.github+json",
+            },
+          },
+        );
+        if (resp.ok) {
+          const data: unknown = await resp.json();
+          if (isRecord(data) && typeof data["sha"] === "string") {
+            lockfileSha = data["sha"];
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.error(
+        `[snapshot] image fingerprint: lockfile lookup failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return null;
+    }
+    if (!lockfileSha) return null;
+    const fileKeys: string[] = await ctx.runQuery(
+      internal.sandboxConfigFiles.getConfigFileKeys,
+      { repoId: config.repoId },
+    );
+    const payload = JSON.stringify({
+      v: IMAGE_DEF_VERSION,
+      branch,
+      lockfileSha,
+      buildCommands: config.buildCommands ?? [],
+      files: fileKeys,
+    });
+    let hash = 5381;
+    for (let i = 0; i < payload.length; i++) {
+      hash = (hash * 33) ^ payload.charCodeAt(i);
+    }
+    return `img-${(hash >>> 0).toString(36)}-${payload.length}`;
   },
 });
 

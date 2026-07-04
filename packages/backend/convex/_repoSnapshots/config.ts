@@ -312,6 +312,7 @@ export const getRepoSnapshotInternal = internalQuery({
       snapshotName: v.string(),
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
+      imageFingerprint: v.optional(v.string()),
     }),
     v.null(),
   ),
@@ -323,7 +324,23 @@ export const getRepoSnapshotInternal = internalQuery({
       snapshotName: doc.snapshotName,
       workflowRef: doc.workflowRef,
       buildCommands: doc.buildCommands,
+      imageFingerprint: doc.imageFingerprint,
     };
+  },
+});
+
+/** Stores the image-input fingerprint after a successful Image build. */
+export const setImageFingerprint = internalMutation({
+  args: {
+    repoSnapshotId: v.id("repoSnapshots"),
+    imageFingerprint: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.repoSnapshotId, {
+      imageFingerprint: args.imageFingerprint ?? undefined,
+    });
+    return null;
   },
 });
 

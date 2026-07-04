@@ -10,6 +10,7 @@ export {
   getSeededAppStatus,
   setSeededSnapshotName,
   getSeedFingerprint,
+  setImageFingerprint,
 } from "./_repoSnapshots/config";
 
 export {

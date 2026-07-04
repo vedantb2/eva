@@ -103,13 +103,25 @@ export const snapshotBuildWorkflow = workflow.define({
     // runners, so creates succeed immediately (no probe / propagation wait).
     // A miss (no current image, or create failure) leaves null — that app's
     // chain falls back to waiting for the new image below.
-    const currentImageState =
-      apps.length > 0
-        ? await step.runAction(
-            internal.snapshotActions.pollSeededSnapshotState,
-            { repoId: config.repoId, seededName: config.snapshotName },
-          )
-        : "pending";
+    const currentImageState = await step.runAction(
+      internal.snapshotActions.pollSeededSnapshotState,
+      { repoId: config.repoId, seededName: config.snapshotName },
+    );
+
+    // Fingerprint the Image inputs (lockfile sha, build commands, config-file
+    // blobs, image definition version). When unchanged since the last
+    // successful build AND the current image is active, the rebuild is skipped
+    // entirely — its output would be byte-identical, and the ~11-15m rebuild
+    // was the dominant cost of every no-op nightly build. null (inputs
+    // undeterminable) always rebuilds.
+    const imageFingerprint = await step.runAction(
+      internal.snapshotActions.getImageFingerprint,
+      { repoSnapshotId: args.repoSnapshotId },
+    );
+    const imageUnchanged =
+      imageFingerprint !== null &&
+      config.imageFingerprint === imageFingerprint &&
+      currentImageState === "active";
     // Fingerprint the seed inputs per app. When unchanged since the last
     // successful capture AND that snapshot still exists, the app is SKIPPED
     // outright: re-seeding identical data only produces an identical snapshot
@@ -173,38 +185,54 @@ export const snapshotBuildWorkflow = workflow.define({
       }),
     );
 
-    // Step 2: Delete existing snapshot and wait for removal to finish
-    await step.runAction(internal.snapshotActions.deleteExistingSnapshot, {
-      snapshotName: config.snapshotName,
-      repoId: config.repoId,
-      buildId: args.buildId,
-    });
-
-    // Step 3: Resolve config, POST to Daytona to start the build
-    const kickOffResult = await step.runAction(
-      internal.snapshotActions.kickOffSnapshotBuild,
-      {
+    let snapshotName = config.snapshotName;
+    let repoId = config.repoId;
+    if (imageUnchanged) {
+      // Image inputs unchanged — keep the existing active image as this
+      // build's result and mark the build successful immediately.
+      console.log(
+        `[snapshot] image inputs unchanged — keeping ${config.snapshotName}`,
+      );
+      await step.runMutation(internal.repoSnapshots.completeBuild, {
         buildId: args.buildId,
-        repoSnapshotId: args.repoSnapshotId,
-      },
-    );
+        status: "success",
+        logs: `Image inputs unchanged (fingerprint match) — kept existing snapshot ${config.snapshotName}.\n`,
+      });
+    } else {
+      // Step 2: Delete existing snapshot and wait for removal to finish
+      await step.runAction(internal.snapshotActions.deleteExistingSnapshot, {
+        snapshotName: config.snapshotName,
+        repoId: config.repoId,
+        buildId: args.buildId,
+      });
 
-    // If kick-off failed, it already called completeBuild with error — stop.
-    // Tear down any pre-created prep sandboxes so they don't linger.
-    if (!kickOffResult) {
-      for (let i = 0; i < apps.length; i++) {
-        const sandboxId = prepSandboxIds[i];
-        if (sandboxId) {
-          await step.runAction(internal.daytona.deleteSandbox, {
-            sandboxId,
-            repoId: apps[i].repoId,
-          });
+      // Step 3: Resolve config, POST to Daytona to start the build
+      const kickOffResult = await step.runAction(
+        internal.snapshotActions.kickOffSnapshotBuild,
+        {
+          buildId: args.buildId,
+          repoSnapshotId: args.repoSnapshotId,
+        },
+      );
+
+      // If kick-off failed, it already called completeBuild with error — stop.
+      // Tear down any pre-created prep sandboxes so they don't linger.
+      if (!kickOffResult) {
+        for (let i = 0; i < apps.length; i++) {
+          const sandboxId = prepSandboxIds[i];
+          if (sandboxId) {
+            await step.runAction(internal.daytona.deleteSandbox, {
+              sandboxId,
+              repoId: apps[i].repoId,
+            });
+          }
         }
+        return;
       }
-      return;
-    }
 
-    const { snapshotName, repoId } = kickOffResult;
+      snapshotName = kickOffResult.snapshotName;
+      repoId = kickOffResult.repoId;
+    }
 
     // Image poll loop: poll snapshot state + stream logs until terminal state,
     // then finalize the build record. Runs CONCURRENTLY with the seed chains.
@@ -232,6 +260,14 @@ export const snapshotBuildWorkflow = workflow.define({
           logs: `Max poll attempts (${MAX_POLLS}) reached.\n`,
           error:
             "Snapshot build did not complete within polling window (~30 minutes)",
+        });
+      }
+      // Remember the inputs this image was built from so the next build can
+      // skip when they are unchanged.
+      if (state === "active" && imageFingerprint !== null) {
+        await step.runMutation(internal.repoSnapshots.setImageFingerprint, {
+          repoSnapshotId: args.repoSnapshotId,
+          imageFingerprint,
         });
       }
     };
@@ -458,7 +494,7 @@ export const snapshotBuildWorkflow = workflow.define({
     // is independent and catches its own errors, so one app's failure never
     // affects the image build or its sibling.
     await Promise.all([
-      pollImageBuild(),
+      ...(imageUnchanged ? [] : [pollImageBuild()]),
       ...apps.map((app, i) =>
         runSeedChain(app, prepSandboxIds[i], fingerprints[i], skipApp[i]),
       ),

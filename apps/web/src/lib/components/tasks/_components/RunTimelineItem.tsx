@@ -218,7 +218,11 @@ export function RunTimelineItem({
                   </Reasoning>
                 );
               })()}
-            <RunActivityLog runId={run._id} isActive={isActiveRun} />
+            <RunActivityLog
+              runId={run._id}
+              isActive={isActiveRun}
+              finalText={run.resultSummary}
+            />
             {run.resultSummary && (
               <Streamdown
                 className="text-sm text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"

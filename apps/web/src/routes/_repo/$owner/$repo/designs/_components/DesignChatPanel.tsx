@@ -313,6 +313,7 @@ export function DesignChatPanel({
                                     activityLog={message.activityLog}
                                     name="Eva"
                                     icon={evaIcon}
+                                    finalText={message.content}
                                   />
                                 )}
                                 <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">

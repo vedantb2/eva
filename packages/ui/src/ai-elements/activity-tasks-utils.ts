@@ -128,3 +128,38 @@ export function getBlockTitle(block: ActivityBlock): string {
   const builder = titleBuilders[block.type] ?? titleBuilders.tool;
   return builder(block.items.length, block.status === "active");
 }
+
+/**
+ * Runs recorded by an interim callback version bake the final response text
+ * into both the last activity step AND the run's resultSummary/message
+ * content, which is rendered directly below the activity. Newer callback
+ * versions drop the trailing response step at completion, so this only
+ * matters for older stored runs. Given the finished blocks and the text
+ * rendered alongside them, drop the trailing response block when its text
+ * duplicates (or is a prefix/superset of) that final text.
+ */
+export function dropTrailingResponseBlock(
+  blocks: ActivityBlock[],
+  finalText: string | undefined,
+): ActivityBlock[] {
+  if (!finalText) return blocks;
+  const trimmedFinal = finalText.trim();
+  if (!trimmedFinal) return blocks;
+
+  const lastBlock = blocks[blocks.length - 1];
+  if (!lastBlock || lastBlock.type !== "response") return blocks;
+
+  const blockText = lastBlock.items
+    .map((item) => item.detail ?? item.label)
+    .join("\n\n")
+    .trim();
+  if (!blockText) return blocks;
+
+  const isDuplicate =
+    blockText === trimmedFinal ||
+    blockText.startsWith(trimmedFinal) ||
+    trimmedFinal.startsWith(blockText);
+  if (!isDuplicate) return blocks;
+
+  return blocks.slice(0, -1);
+}

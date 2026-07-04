@@ -336,6 +336,7 @@ export function ChatBody({
                                     icon={evaIcon}
                                     startedAt={message.timestamp}
                                     finishedAt={message.finishedAt}
+                                    finalText={message.content}
                                   />
                                 )}
                                 <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">

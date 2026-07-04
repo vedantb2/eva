@@ -9,9 +9,11 @@ import { parseActivitySteps } from "@conductor/shared/parseActivitySteps";
 export function RunActivityLog({
   runId,
   isActive,
+  finalText,
 }: {
   runId: Id<"agentRuns">;
   isActive?: boolean;
+  finalText?: string;
 }) {
   const activityLog = useQuery(
     api.agentRuns.getActivityLog,
@@ -21,5 +23,5 @@ export function RunActivityLog({
   if (activityLog === undefined) return <Spinner size="sm" />;
   if (activityLog === null) return null;
   const steps = parseActivitySteps(activityLog);
-  return steps ? <ActivityTasks steps={steps} /> : null;
+  return steps ? <ActivityTasks steps={steps} finalText={finalText} /> : null;
 }

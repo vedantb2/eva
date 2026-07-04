@@ -17,6 +17,7 @@ import {
   type ActivityBlock,
   groupSteps,
   getBlockTitle,
+  dropTrailingResponseBlock,
 } from "./activity-tasks-utils";
 import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from "./task";
 import { memo } from "react";
@@ -30,6 +31,13 @@ export interface ActivityTasksProps extends ComponentProps<"div"> {
   icon?: ReactNode;
   startedAt?: number;
   duration?: string;
+  /**
+   * The final text rendered adjacent to this activity (e.g. resultSummary or
+   * message content). Runs recorded by an interim callback version bake that
+   * same text into the last "response" step, duplicating it on screen — when
+   * set, a trailing response block matching this text is hidden.
+   */
+  finalText?: string;
 }
 
 const FILE_TYPES = new Set<ActivityStep["type"]>([
@@ -165,6 +173,7 @@ export const ActivityTasks = memo(
     className,
     startedAt,
     duration,
+    finalText,
     ...props
   }: ActivityTasksProps) => {
     const verb = useSpinnerVerb(Boolean(isStreaming));
@@ -176,7 +185,7 @@ export const ActivityTasks = memo(
     // ActivitySteps API but is not rendered here.
     void duration;
 
-    const blocks = groupSteps(steps);
+    const blocks = dropTrailingResponseBlock(groupSteps(steps), finalText);
     const headerText = `${name ?? "Eva"} is ${verb.toLowerCase()}…${
       startedAt ? ` (${formatElapsed(elapsed)})` : ""
     }`;

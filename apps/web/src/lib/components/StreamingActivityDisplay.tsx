@@ -44,12 +44,14 @@ export function ActivityLogDisplay({
   icon,
   startedAt,
   finishedAt,
+  finalText,
 }: {
   activityLog: string;
   name?: string;
   icon?: ReactNode;
   startedAt?: number;
   finishedAt?: number;
+  finalText?: string;
 }) {
   const steps = parseActivitySteps(activityLog);
   const duration =
@@ -62,6 +64,7 @@ export function ActivityLogDisplay({
         name={name}
         icon={icon}
         duration={duration}
+        finalText={finalText}
       />
     );
   }

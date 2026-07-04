@@ -86,6 +86,7 @@ export function ChatMessage({
                       icon={evaIcon}
                       startedAt={startedAt}
                       finishedAt={finishedAt}
+                      finalText={content}
                     />
                   )}
                   <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">

@@ -173,6 +173,11 @@ function RunAccordion({
   const completedSteps = run.activityLog
     ? parseActivitySteps(run.activityLog)
     : null;
+  // When findings render below instead of resultSummary, the activity's
+  // trailing response text isn't shown as adjacent final text.
+  const showsFindings = Boolean(
+    actionsEnabled && run.findings && run.findings.length > 0,
+  );
 
   return (
     <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
@@ -254,9 +259,12 @@ function RunAccordion({
             <ActivityTasks steps={liveSteps} isStreaming />
           )}
           {!isActive && completedSteps && (
-            <ActivityTasks steps={completedSteps} />
+            <ActivityTasks
+              steps={completedSteps}
+              finalText={showsFindings ? undefined : run.resultSummary}
+            />
           )}
-          {actionsEnabled && run.findings && run.findings.length > 0 ? (
+          {showsFindings ? (
             <FindingsList run={run} repoOwner={repoOwner} repoName={repoName} />
           ) : (
             <>

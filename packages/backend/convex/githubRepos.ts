@@ -20,7 +20,7 @@ export {
   updateConfig,
   updateMcpRootPrompt,
   toggleHidden,
-  setStopCommandsInternal,
+  setRepoCommandsInternal,
   deleteInternal,
 } from "./_githubRepos/mutations";
 

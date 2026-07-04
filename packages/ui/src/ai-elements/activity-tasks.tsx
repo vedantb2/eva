@@ -60,31 +60,40 @@ function ActivityBlockRow({ block }: { block: ActivityBlock }) {
     );
   }
 
-  // Reasoning: the model's raw thinking text, rendered as plain muted lines
-  // (not markdown — reasoning traces aren't meant to be formatted output).
+  // Reasoning: a "Thought" accordion holding the model's raw thinking text
+  // in italics — expanded with a spinner while active, collapsed once done.
   if (block.type === "reasoning") {
     const Icon = config.icon;
+    const title = getBlockTitle(block);
     return (
-      <div className="flex items-start gap-2 text-muted-foreground text-sm">
-        {isActive ? (
-          <Spinner size="sm" className="mt-0.5 shrink-0" />
-        ) : (
-          <Icon className="mt-0.5 size-4 shrink-0" />
-        )}
-        <div className="space-y-1">
-          {block.items.map((item, i) =>
-            isActive && i === block.items.length - 1 ? (
-              <Shimmer key={i} as="p" duration={2.5} spread={1.5}>
-                {item.detail ?? item.label}
-              </Shimmer>
-            ) : (
-              <p key={i} className="whitespace-pre-wrap">
-                {item.detail ?? item.label}
-              </p>
-            ),
-          )}
-        </div>
-      </div>
+      // Keyed on status so the accordion remounts (and collapses) when the
+      // block flips from active to complete during streaming.
+      <Task key={block.status} defaultOpen={isActive}>
+        <TaskTrigger
+          title={
+            <>
+              {isActive ? <Spinner size="sm" /> : <Icon className="size-4" />}
+              {isActive ? (
+                <Shimmer as="span" duration={2.5} spread={1.5}>
+                  {title}
+                </Shimmer>
+              ) : (
+                <span>{title}</span>
+              )}
+            </>
+          }
+        />
+        <TaskContent>
+          {block.items.map((item, i) => (
+            <p
+              key={i}
+              className="whitespace-pre-wrap text-muted-foreground italic"
+            >
+              {item.detail ?? item.label}
+            </p>
+          ))}
+        </TaskContent>
+      </Task>
     );
   }
 

@@ -1378,7 +1378,6 @@ function onStreamLine(parsed) {
       log(
         "first assistant event after " + String(callbackState.firstAssistantEventAt - callbackState.activeAttemptStartedAt) + "ms"
       );
-      updateThinkingStep("Thinking...", "Claude is reasoning...");
     }
     const message = parsed.message && typeof parsed.message === "object" && !Array.isArray(parsed.message) ? parsed.message : null;
     const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
@@ -1870,18 +1869,6 @@ function prepareOpencodeSessionState() {
 // callback-src/providers/opencode.ts
 function opencodeParseLine(event) {
   const events = [];
-  if (event.type === "step_start") {
-    events.push({
-      kind: "push_step",
-      step: {
-        type: "thinking",
-        label: "Thinking...",
-        detail: "Opencode is reasoning...",
-        status: "active"
-      }
-    });
-    return events;
-  }
   if (event.type === "reasoning" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {
     events.push({ kind: "update_reasoning", text: event.part.text });
     return events;

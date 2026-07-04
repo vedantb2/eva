@@ -125,7 +125,6 @@ function onStreamLine(parsed: JsonObject): StreamLineResult {
           String(S.firstAssistantEventAt - S.activeAttemptStartedAt) +
           "ms",
       );
-      updateThinkingStep("Thinking...", "Claude is reasoning...");
     }
     const message =
       parsed.message &&

@@ -24,13 +24,41 @@ const LEGACY_NOISE_LABELS = new Set([
  * single block (Cursor/Claude-style task grouping). A block is "active" iff
  * its last item is active.
  */
+/** Thinking labels that mark model reasoning rather than status narration. */
+const REASONING_LABELS = new Set(["Thinking...", "Thought"]);
+
+/** Placeholder details older callbacks attached to reasoning-label steps. */
+const FILLER_DETAILS = new Set([
+  "Claude is reasoning...",
+  "Codex is reasoning...",
+  "Opencode is reasoning...",
+  "Cursor is reasoning...",
+  "Receiving reply...",
+]);
+
+/**
+ * Older callbacks stored reasoning as thinking steps labelled
+ * "Thinking..."/"Thought". Remap those with real text to reasoning blocks;
+ * drop the bare placeholder ones (nothing to show).
+ */
+function normalizeStep(step: ActivityStep): ActivityStep | null {
+  if (step.type !== "thinking") return step;
+  if (LEGACY_NOISE_LABELS.has(step.label)) return null;
+  if (REASONING_LABELS.has(step.label)) {
+    if (step.detail && !FILLER_DETAILS.has(step.detail)) {
+      return { ...step, type: "reasoning" };
+    }
+    return null;
+  }
+  return step;
+}
+
 export function groupSteps(steps: ActivityStep[]): ActivityBlock[] {
   const blocks: ActivityBlock[] = [];
 
-  for (const step of steps) {
-    if (step.type === "thinking" && LEGACY_NOISE_LABELS.has(step.label)) {
-      continue;
-    }
+  for (const rawStep of steps) {
+    const step = normalizeStep(rawStep);
+    if (!step) continue;
     const previous = blocks[blocks.length - 1];
     if (previous && previous.type === step.type) {
       previous.items.push(step);
@@ -91,7 +119,7 @@ const titleBuilders: Record<
       ? `Using ${n} ${pluralize(n, "tool", "tools")}`
       : `Used ${n} ${pluralize(n, "tool", "tools")}`,
   thinking: () => "",
-  reasoning: () => "",
+  reasoning: (_n, active) => (active ? "Thinking..." : "Thought"),
   response: () => "",
   question: () => "",
 };

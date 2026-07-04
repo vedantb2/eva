@@ -9,18 +9,6 @@ import type { ProviderAdapter } from "./types.js";
 
 export function opencodeParseLine(event: JsonObject): CanonicalEvent[] {
   const events: CanonicalEvent[] = [];
-  if (event.type === "step_start") {
-    events.push({
-      kind: "push_step",
-      step: {
-        type: "thinking",
-        label: "Thinking...",
-        detail: "Opencode is reasoning...",
-        status: "active",
-      },
-    });
-    return events;
-  }
   // Reasoning parts carry the model's actual thinking text (reasoning-capable
   // models only); previously these events were ignored.
   if (

@@ -141,10 +141,21 @@ export async function findSeedableAppRepos(
 
 export const getSeedableAppRepos = internalQuery({
   args: { repoSnapshotId: v.id("repoSnapshots") },
-  returns: v.array(v.object({ repoId: v.id("githubRepos") })),
+  returns: v.array(
+    v.object({
+      repoId: v.id("githubRepos"),
+      // Current live seeded snapshot (null when falling back to the Image).
+      // The build workflow warm-boots the seed-prep sandbox from this and
+      // deletes it only after the replacement capture succeeds.
+      seededSnapshotName: v.union(v.string(), v.null()),
+    }),
+  ),
   handler: async (ctx, args) => {
     const apps = await findSeedableAppRepos(ctx.db, args.repoSnapshotId);
-    return apps.map((r) => ({ repoId: r._id }));
+    return apps.map((r) => ({
+      repoId: r._id,
+      seededSnapshotName: r.seededSnapshotName ?? null,
+    }));
   },
 });
 

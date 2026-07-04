@@ -60,6 +60,7 @@ export const getRepoSnapshot = authQuery({
       cronJobId: v.optional(v.string()),
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
+      imageFingerprint: v.optional(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     }),

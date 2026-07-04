@@ -235,12 +235,21 @@ export const snapshotBuildWorkflow = workflow.define({
               { repoId: app.repoId },
             );
             for (const command of seedCommands ?? []) {
-              await step.runAction(internal.daytona.runSandboxCommand, {
-                sandboxId: prepSandboxId,
-                repoId: app.repoId,
-                command,
-                timeoutSeconds: 600,
-              });
+              // Retry once: a cold prep sandbox pulls service docker images on
+              // first boot (supabase ~1-2GB), so a readiness-wait command can
+              // overrun the 600s step ceiling while pulls are in flight. The
+              // detached background daemons keep pulling meanwhile, so the
+              // retry's wait typically finds the service already up.
+              await step.runAction(
+                internal.daytona.runSandboxCommand,
+                {
+                  sandboxId: prepSandboxId,
+                  repoId: app.repoId,
+                  command,
+                  timeoutSeconds: 540,
+                },
+                { retry: { maxAttempts: 2, initialBackoffMs: 5000, base: 2 } },
+              );
             }
             // Marker so a sandbox booting from the seeded snapshot skips the seed.
             await step.runAction(internal.daytona.runSandboxCommand, {

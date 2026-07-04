@@ -6,32 +6,36 @@ import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
 const POLL_DELAY_MS = 30_000;
 const MAX_POLLS = 60; // ~30 minutes at 30s intervals
 
-// Propagation-probe loop (Step 5 gate). A freshly-built base snapshot is not
-// immediately bootable on Daytona runners; creating a sandbox from it returns
-// "No available runners" until propagation completes. We probe with one cheap
-// ephemeral sandbox until it succeeds, THEN seed — so seed-prep creates don't
-// race the lag.
-const PROBE_DELAY_MS = 30_000;
-const MAX_PROBE_ATTEMPTS = 20; // ~10 minutes at 30s intervals
-
-// Seeded-snapshot capture poll loop (Step 5, per app). The capture is triggered
+// Seeded-snapshot capture poll loop (per app). The capture is triggered
 // without blocking (triggerSeededSnapshot) then polled here across separate
 // steps, so a long DB-volume capture never exceeds Convex's 600s per-action
 // ceiling. We poll the snapshot entity until it reaches "active" (success) or a
 // failure state — see pollSeededSnapshotState for why the sandbox state is not
 // a reliable completion signal.
-const SEED_SNAPSHOT_POLL_DELAY_MS = 30_000;
-const MAX_SEED_SNAPSHOT_POLLS = 60; // ~30 minutes at 30s intervals
+const SEED_SNAPSHOT_POLL_DELAY_MS = 15_000;
+const MAX_SEED_SNAPSHOT_POLLS = 120; // ~30 minutes at 15s intervals
 
 /**
  * Workflow that orchestrates a full Daytona snapshot build:
- *   0. Delete existing snapshot and wait for removal
- *   1. Kick off the build (non-blocking POST to Daytona API)
- *   2. Poll snapshot state + stream build logs until terminal
- *   3. Complete the build record
+ *   0. Resolve config + seedable apps; clean up orphaned seeded snapshots
+ *   1. Pre-create per-app seed-prep sandboxes from the CURRENT (old) image —
+ *      seeding does not need the new image (the DB data is identical and
+ *      sandboxes fetch fresh branches on boot), so booting from the old,
+ *      already-propagated image lets seeding run CONCURRENTLY with the image
+ *      rebuild instead of serially after it. This turned a ~35min build
+ *      (image → propagation probe → seed → capture, all serial) back into
+ *      ~max(image, seed+capture) ≈ the old ~15min image-only time.
+ *   2. Delete the existing image snapshot and kick off the rebuild
+ *   3. CONCURRENTLY: poll the image build to completion AND run each app's
+ *      seed → clean-stop → capture chain on its pre-created sandbox
  *
- * Each step is a separate action with its own timeout, so builds
- * that take 15–20 minutes don't hit Convex action limits.
+ * Fallback: when no bootable current image exists (first build, or the app's
+ * pre-create failed), the app's chain waits for the NEW image to become active
+ * and creates its prep sandbox from that, with retry/backoff absorbing
+ * propagation lag — no separate probe needed.
+ *
+ * Each step is a separate action with its own timeout, so builds that take
+ * 15–20 minutes don't hit Convex action limits.
  */
 export const snapshotBuildWorkflow = workflow.define({
   args: {
@@ -55,14 +59,83 @@ export const snapshotBuildWorkflow = workflow.define({
       return;
     }
 
-    // Step 1: Delete existing snapshot and wait for removal to finish
+    const apps = await step.runQuery(
+      internal.repoSnapshots.getSeedableAppRepos,
+      { repoSnapshotId: args.repoSnapshotId },
+    );
+
+    // Best-effort cleanup: delete seeded snapshots for siblings that are no
+    // longer seedable (e.g. dropped stopCommands) and clear their stale name.
+    // The per-app chains below only delete snapshots for CURRENTLY seedable
+    // apps, so without this an ex-seedable app's seeded-<repoId> would linger
+    // in Daytona forever. A failed cleanup must not fail the build.
+    const orphans = await step.runQuery(
+      internal.repoSnapshots.getOrphanedSeededApps,
+      { repoSnapshotId: args.repoSnapshotId },
+    );
+    for (const orphan of orphans) {
+      try {
+        await step.runAction(internal.snapshotActions.deleteDaytonaSnapshot, {
+          snapshotName: orphan.seededSnapshotName,
+          repoId: orphan.repoId,
+        });
+        await step.runMutation(internal.repoSnapshots.setSeededSnapshotName, {
+          repoId: orphan.repoId,
+          seededSnapshotName: null,
+        });
+        console.log(
+          `[snapshot] cleaned up orphaned seeded snapshot ${orphan.seededSnapshotName} (repo ${orphan.repoId} no longer seedable)`,
+        );
+      } catch (e) {
+        console.error(
+          `[snapshot] failed to clean up orphaned seeded snapshot ${orphan.seededSnapshotName}: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
+    }
+
+    // Step 1: Pre-create seed-prep sandboxes from the CURRENT image, before it
+    // is deleted for the rebuild. The old image is already propagated to
+    // runners, so creates succeed immediately (no probe / propagation wait).
+    // A miss (no current image, or create failure) leaves null — that app's
+    // chain falls back to waiting for the new image below.
+    const currentImageState =
+      apps.length > 0
+        ? await step.runAction(
+            internal.snapshotActions.pollSeededSnapshotState,
+            { repoId: config.repoId, seededName: config.snapshotName },
+          )
+        : "pending";
+    const prepSandboxIds: Array<string | null> = await Promise.all(
+      apps.map(async (app) => {
+        if (currentImageState !== "active") return null;
+        try {
+          const created = await step.runAction(
+            internal.snapshotActions.createSeedPrepSandbox,
+            { repoId: app.repoId, imageSnapshot: config.snapshotName },
+            { retry: { maxAttempts: 2, initialBackoffMs: 10000, base: 2 } },
+          );
+          return created.sandboxId;
+        } catch (e) {
+          console.error(
+            `[snapshot] pre-create from current image failed for ${app.repoId} — will fall back to the new image: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+          return null;
+        }
+      }),
+    );
+
+    // Step 2: Delete existing snapshot and wait for removal to finish
     await step.runAction(internal.snapshotActions.deleteExistingSnapshot, {
       snapshotName: config.snapshotName,
       repoId: config.repoId,
       buildId: args.buildId,
     });
 
-    // Step 2: Resolve config, POST to Daytona to start the build
+    // Step 3: Resolve config, POST to Daytona to start the build
     const kickOffResult = await step.runAction(
       internal.snapshotActions.kickOffSnapshotBuild,
       {
@@ -71,275 +144,233 @@ export const snapshotBuildWorkflow = workflow.define({
       },
     );
 
-    // If kick-off failed, it already called completeBuild with error — stop
-    if (!kickOffResult) return;
+    // If kick-off failed, it already called completeBuild with error — stop.
+    // Tear down any pre-created prep sandboxes so they don't linger.
+    if (!kickOffResult) {
+      for (let i = 0; i < apps.length; i++) {
+        const sandboxId = prepSandboxIds[i];
+        if (sandboxId) {
+          await step.runAction(internal.daytona.deleteSandbox, {
+            sandboxId,
+            repoId: apps[i].repoId,
+          });
+        }
+      }
+      return;
+    }
 
     const { snapshotName, repoId } = kickOffResult;
 
-    // Step 3: Poll snapshot state + stream logs until terminal state
-    let attempt = 0;
-    let state = "";
-    while (attempt < MAX_POLLS) {
-      attempt++;
-
-      const pollResult = await step.runAction(
-        internal.snapshotActions.pollSnapshotProgress,
-        {
+    // Image poll loop: poll snapshot state + stream logs until terminal state,
+    // then finalize the build record. Runs CONCURRENTLY with the seed chains.
+    const pollImageBuild = async (): Promise<void> => {
+      let attempt = 0;
+      let state = "";
+      while (attempt < MAX_POLLS) {
+        attempt++;
+        state = await step.runAction(
+          internal.snapshotActions.pollSnapshotProgress,
+          {
+            buildId: args.buildId,
+            snapshotName,
+            repoId,
+            attempt,
+          },
+          { runAfter: attempt === 1 ? 10_000 : POLL_DELAY_MS },
+        );
+        if (isTerminalSnapshotState(state)) break;
+      }
+      if (!isTerminalSnapshotState(state)) {
+        await step.runMutation(internal.repoSnapshots.completeBuild, {
           buildId: args.buildId,
-          snapshotName,
-          repoId,
-          attempt,
-        },
-        { runAfter: attempt === 1 ? 10_000 : POLL_DELAY_MS },
-      );
-
-      state = pollResult;
-
-      if (isTerminalSnapshotState(state)) break;
-    }
-
-    // Step 4: Finalize — if we exhausted polls without terminal state, mark timeout
-    if (!isTerminalSnapshotState(state)) {
-      await step.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: "error",
-        logs: `Max poll attempts (${MAX_POLLS}) reached.\n`,
-        error:
-          "Snapshot build did not complete within polling window (~30 minutes)",
-      });
-    }
-
-    // Step 5: Per-app seeded snapshots (best-effort). Only once the base Image is
-    // active. For each app repo with stopCommands, boot a sandbox from the Image,
-    // bring services up, run the one-time seed, clean-stop so volumes flush, then
-    // capture a filesystem snapshot with the DB baked in. A sandbox for that app
-    // then boots from `seeded-<repoId>` (see getRepoSnapshotName) and skips the
-    // ~10-min seed. Failures fall back to the Image (seededSnapshotName left clear).
-    if (state === "active") {
-      // Gate: wait until the freshly-built base snapshot is actually bootable on
-      // a runner before seeding. One cheap ephemeral probe sandbox per attempt;
-      // proceed on the first success. If propagation never completes within the
-      // window, skip seeding entirely — apps keep the base-Image fallback
-      // (seededSnapshotName stays clear), matching the per-app catch below.
-      let propagated = false;
-      for (
-        let attempt = 1;
-        attempt <= MAX_PROBE_ATTEMPTS && !propagated;
-        attempt++
-      ) {
-        const probe = await step.runAction(
-          internal.snapshotActions.probeSnapshotAvailability,
-          { repoId: config.repoId, imageSnapshot: config.snapshotName },
-          { runAfter: attempt === 1 ? 10_000 : PROBE_DELAY_MS },
-        );
-        propagated = probe === "available";
+          status: "error",
+          logs: `Max poll attempts (${MAX_POLLS}) reached.\n`,
+          error:
+            "Snapshot build did not complete within polling window (~30 minutes)",
+        });
       }
-      if (!propagated) {
-        console.error(
-          `[snapshot] base snapshot ${config.snapshotName} not bootable after ${MAX_PROBE_ATTEMPTS} probes — skipping seeding (apps fall back to base Image)`,
-        );
-        return;
-      }
+    };
 
-      const apps = await step.runQuery(
-        internal.repoSnapshots.getSeedableAppRepos,
-        { repoSnapshotId: args.repoSnapshotId },
-      );
-
-      // Best-effort cleanup: delete seeded snapshots for siblings that are no
-      // longer seedable (e.g. dropped stopCommands) and clear their stale name.
-      // The per-app loop below only deletes snapshots for CURRENTLY seedable
-      // apps, so without this an ex-seedable app's seeded-<repoId> would linger
-      // in Daytona forever. A failed cleanup must not fail the build.
-      const orphans = await step.runQuery(
-        internal.repoSnapshots.getOrphanedSeededApps,
-        { repoSnapshotId: args.repoSnapshotId },
-      );
-      for (const orphan of orphans) {
-        try {
-          await step.runAction(internal.snapshotActions.deleteDaytonaSnapshot, {
-            snapshotName: orphan.seededSnapshotName,
-            repoId: orphan.repoId,
-          });
-          await step.runMutation(internal.repoSnapshots.setSeededSnapshotName, {
-            repoId: orphan.repoId,
-            seededSnapshotName: null,
-          });
-          console.log(
-            `[snapshot] cleaned up orphaned seeded snapshot ${orphan.seededSnapshotName} (repo ${orphan.repoId} no longer seedable)`,
+    // Per-app seeded snapshot chain (best-effort). Boot a sandbox (pre-created
+    // from the old image, or created from the new image once active), bring
+    // services up, run the one-time seed, clean-stop so volumes flush, then
+    // capture a filesystem snapshot with the DB baked in. A sandbox for that
+    // app then boots from `seeded-<repoId>` (see getRepoSnapshotName) and skips
+    // the ~10-min seed. Failures fall back to the Image (seededSnapshotName
+    // left clear).
+    const runSeedChain = async (
+      app: { repoId: (typeof apps)[number]["repoId"] },
+      preCreatedSandboxId: string | null,
+    ): Promise<void> => {
+      const seededName = `seeded-${app.repoId}`;
+      let prepSandboxId: string | null = preCreatedSandboxId;
+      try {
+        // Mark this app as actively seeding so the UI shows a spinner until
+        // it resolves to seeded/fallback below.
+        await step.runMutation(internal.repoSnapshots.recordSeededApp, {
+          buildId: args.buildId,
+          repoId: app.repoId,
+          status: "running",
+          seededSnapshotName: null,
+        });
+        // Clear first so live sandboxes fall back to the Image during rebuild.
+        await step.runMutation(internal.repoSnapshots.setSeededSnapshotName, {
+          repoId: app.repoId,
+          seededSnapshotName: null,
+        });
+        // Delete the previous seeded snapshot (name reuse would 409).
+        await step.runAction(internal.snapshotActions.deleteDaytonaSnapshot, {
+          snapshotName: seededName,
+          repoId: app.repoId,
+        });
+        // Fallback path: no pre-created sandbox (first build, or pre-create
+        // failed). Wait for the NEW image to become active, then create from
+        // it — the retry/backoff absorbs runner propagation lag.
+        if (!prepSandboxId) {
+          let imageState = "pending";
+          for (
+            let pollAttempt = 1;
+            pollAttempt <= MAX_POLLS && !isTerminalSnapshotState(imageState);
+            pollAttempt++
+          ) {
+            imageState = await step.runAction(
+              internal.snapshotActions.pollSeededSnapshotState,
+              { repoId: app.repoId, seededName: snapshotName },
+              { runAfter: pollAttempt === 1 ? 10_000 : POLL_DELAY_MS },
+            );
+          }
+          if (imageState !== "active") {
+            throw new Error(
+              `Base image never became active (last state: ${imageState}) — cannot seed ${app.repoId}`,
+            );
+          }
+          const created = await step.runAction(
+            internal.snapshotActions.createSeedPrepSandbox,
+            { repoId: app.repoId, imageSnapshot: snapshotName },
+            { retry: { maxAttempts: 5, initialBackoffMs: 15000, base: 2 } },
           );
-        } catch (e) {
-          console.error(
-            `[snapshot] failed to clean up orphaned seeded snapshot ${orphan.seededSnapshotName}: ${
-              e instanceof Error ? e.message : String(e)
-            }`,
+          prepSandboxId = created.sandboxId;
+        }
+        // services (every-start, launched detached in one quick action)
+        await step.runAction(internal.daytona.runBackgroundCommands, {
+          sandboxId: prepSandboxId,
+          repoId: app.repoId,
+        });
+        // Seed: run each command as its OWN workflow step. A single action
+        // running the whole seed (readiness wait + many env sets + import) can
+        // overrun Convex's ~10-min action limit; per-command steps each get
+        // their own budget. Any failure throws -> caught below -> Image fallback
+        // (we never snapshot a half-seeded DB).
+        const seedCommands = await step.runQuery(
+          internal.repoSnapshots.getStartupCommands,
+          { repoId: app.repoId },
+        );
+        for (const command of seedCommands ?? []) {
+          // Retry generously: a cold prep sandbox pulls service docker
+          // images on first boot (supabase ~1-2GB), so a readiness-wait
+          // command can overrun its step budget while pulls are in flight —
+          // observed on prod taking >15 min on a cache-cold runner. The
+          // detached background daemons keep pulling between attempts, so
+          // 4 attempts (~30 min of wait budget) rides out any cold pull.
+          await step.runAction(
+            internal.daytona.runSandboxCommand,
+            {
+              sandboxId: prepSandboxId,
+              repoId: app.repoId,
+              command,
+              timeoutSeconds: 540,
+            },
+            { retry: { maxAttempts: 4, initialBackoffMs: 5000, base: 2 } },
           );
         }
+        // Marker so a sandbox booting from the seeded snapshot skips the seed.
+        await step.runAction(internal.daytona.runSandboxCommand, {
+          sandboxId: prepSandboxId,
+          repoId: app.repoId,
+          command: "touch /tmp/.startup-commands-done",
+          timeoutSeconds: 10,
+        });
+        // clean stop so volumes flush before the snapshot
+        await step.runAction(internal.daytona.runStopCommands, {
+          sandboxId: prepSandboxId,
+          repoId: app.repoId,
+        });
+        // Capture the seeded filesystem snapshot. Trigger fires the POST
+        // without blocking; poll across separate steps so a long DB capture
+        // never exceeds Convex's 600s per-action ceiling.
+        await step.runAction(internal.snapshotActions.triggerSeededSnapshot, {
+          repoId: app.repoId,
+          sandboxId: prepSandboxId,
+          seededName,
+        });
+        let snapState = "pending";
+        for (
+          let pollAttempt = 1;
+          pollAttempt <= MAX_SEED_SNAPSHOT_POLLS &&
+          !isTerminalSnapshotState(snapState);
+          pollAttempt++
+        ) {
+          snapState = await step.runAction(
+            internal.snapshotActions.pollSeededSnapshotState,
+            { repoId: app.repoId, seededName },
+            {
+              runAfter:
+                pollAttempt === 1 ? 10_000 : SEED_SNAPSHOT_POLL_DELAY_MS,
+            },
+          );
+        }
+        // Anything but "active" (failure state or window exhausted) throws
+        // into the per-app catch below → prep sandbox torn down + fallback
+        // (null) recorded → app keeps the base-Image snapshot.
+        if (snapState !== "active") {
+          throw new Error(
+            `Seeded snapshot for ${app.repoId} did not reach active (last state: ${snapState})`,
+          );
+        }
+        await step.runAction(internal.daytona.deleteSandbox, {
+          sandboxId: prepSandboxId,
+          repoId: app.repoId,
+        });
+        prepSandboxId = null;
+        await step.runMutation(internal.repoSnapshots.setSeededSnapshotName, {
+          repoId: app.repoId,
+          seededSnapshotName: seededName,
+        });
+        // Record the success on the build record for the history view.
+        await step.runMutation(internal.repoSnapshots.recordSeededApp, {
+          buildId: args.buildId,
+          repoId: app.repoId,
+          status: "seeded",
+          seededSnapshotName: seededName,
+        });
+      } catch (e) {
+        console.error(
+          `[snapshot] seeded build failed for ${app.repoId}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+        // Tear down the prep sandbox so it doesn't linger.
+        if (prepSandboxId) {
+          await step.runAction(internal.daytona.deleteSandbox, {
+            sandboxId: prepSandboxId,
+            repoId: app.repoId,
+          });
+        }
+        // seededSnapshotName stays cleared → app uses the base Image snapshot.
+        // Record the fallback on the build record for the history view.
+        await step.runMutation(internal.repoSnapshots.recordSeededApp, {
+          buildId: args.buildId,
+          repoId: app.repoId,
+          status: "fallback",
+          seededSnapshotName: null,
+        });
       }
+    };
 
-      // Build all apps' seeded snapshots in PARALLEL (each chain is independent).
-      // Trade-off: more concurrent Daytona runner demand — the createSeedPrepSandbox
-      // retry/backoff above absorbs transient "No available runners".
-      await Promise.all(
-        apps.map(async (app) => {
-          const seededName = `seeded-${app.repoId}`;
-          let prepSandboxId: string | null = null;
-          try {
-            // Mark this app as actively seeding so the UI shows a spinner until
-            // it resolves to seeded/fallback below.
-            await step.runMutation(internal.repoSnapshots.recordSeededApp, {
-              buildId: args.buildId,
-              repoId: app.repoId,
-              status: "running",
-              seededSnapshotName: null,
-            });
-            // Clear first so live sandboxes fall back to the Image during rebuild.
-            await step.runMutation(
-              internal.repoSnapshots.setSeededSnapshotName,
-              {
-                repoId: app.repoId,
-                seededSnapshotName: null,
-              },
-            );
-            // Delete the previous seeded snapshot (name reuse would 409).
-            await step.runAction(
-              internal.snapshotActions.deleteDaytonaSnapshot,
-              {
-                snapshotName: seededName,
-                repoId: app.repoId,
-              },
-            );
-            // Retry with backoff: creating the prep sandbox can transiently hit
-            // Daytona "No available runners" when the Image build + per-app prep
-            // sandboxes contend for capacity. Backoff (15s/30s/60s/120s) rides out
-            // a brief saturation; if it still fails, the catch below falls back to
-            // the Image for this app.
-            const created = await step.runAction(
-              internal.snapshotActions.createSeedPrepSandbox,
-              { repoId: app.repoId, imageSnapshot: config.snapshotName },
-              { retry: { maxAttempts: 5, initialBackoffMs: 15000, base: 2 } },
-            );
-            prepSandboxId = created.sandboxId;
-            // services (every-start, launched detached in one quick action)
-            await step.runAction(internal.daytona.runBackgroundCommands, {
-              sandboxId: prepSandboxId,
-              repoId: app.repoId,
-            });
-            // Seed: run each command as its OWN workflow step. A single action
-            // running the whole seed (readiness wait + many env sets + import) can
-            // overrun Convex's ~10-min action limit; per-command steps each get
-            // their own budget. Any failure throws -> caught below -> Image fallback
-            // (we never snapshot a half-seeded DB).
-            const seedCommands = await step.runQuery(
-              internal.repoSnapshots.getStartupCommands,
-              { repoId: app.repoId },
-            );
-            for (const command of seedCommands ?? []) {
-              // Retry generously: a cold prep sandbox pulls service docker
-              // images on first boot (supabase ~1-2GB), so a readiness-wait
-              // command can overrun its step budget while pulls are in flight —
-              // observed on prod taking >15 min on a cache-cold runner. The
-              // detached background daemons keep pulling between attempts, so
-              // 4 attempts (~30 min of wait budget) rides out any cold pull.
-              await step.runAction(
-                internal.daytona.runSandboxCommand,
-                {
-                  sandboxId: prepSandboxId,
-                  repoId: app.repoId,
-                  command,
-                  timeoutSeconds: 540,
-                },
-                { retry: { maxAttempts: 4, initialBackoffMs: 5000, base: 2 } },
-              );
-            }
-            // Marker so a sandbox booting from the seeded snapshot skips the seed.
-            await step.runAction(internal.daytona.runSandboxCommand, {
-              sandboxId: prepSandboxId,
-              repoId: app.repoId,
-              command: "touch /tmp/.startup-commands-done",
-              timeoutSeconds: 10,
-            });
-            // clean stop so volumes flush before the snapshot
-            await step.runAction(internal.daytona.runStopCommands, {
-              sandboxId: prepSandboxId,
-              repoId: app.repoId,
-            });
-            // Capture the seeded filesystem snapshot. Trigger fires the POST
-            // without blocking; poll the sandbox state across separate steps so
-            // a long DB capture never exceeds Convex's 600s per-action ceiling.
-            await step.runAction(
-              internal.snapshotActions.triggerSeededSnapshot,
-              {
-                repoId: app.repoId,
-                sandboxId: prepSandboxId,
-                seededName,
-              },
-            );
-            let snapState = "pending";
-            for (
-              let pollAttempt = 1;
-              pollAttempt <= MAX_SEED_SNAPSHOT_POLLS &&
-              !isTerminalSnapshotState(snapState);
-              pollAttempt++
-            ) {
-              snapState = await step.runAction(
-                internal.snapshotActions.pollSeededSnapshotState,
-                { repoId: app.repoId, seededName },
-                {
-                  runAfter:
-                    pollAttempt === 1 ? 10_000 : SEED_SNAPSHOT_POLL_DELAY_MS,
-                },
-              );
-            }
-            // Anything but "active" (failure state or window exhausted) throws
-            // into the per-app catch below → prep sandbox torn down + fallback
-            // (null) recorded → app keeps the base-Image snapshot.
-            if (snapState !== "active") {
-              throw new Error(
-                `Seeded snapshot for ${app.repoId} did not reach active (last state: ${snapState})`,
-              );
-            }
-            await step.runAction(internal.daytona.deleteSandbox, {
-              sandboxId: prepSandboxId,
-              repoId: app.repoId,
-            });
-            prepSandboxId = null;
-            await step.runMutation(
-              internal.repoSnapshots.setSeededSnapshotName,
-              {
-                repoId: app.repoId,
-                seededSnapshotName: seededName,
-              },
-            );
-            // Record the success on the build record for the history view.
-            await step.runMutation(internal.repoSnapshots.recordSeededApp, {
-              buildId: args.buildId,
-              repoId: app.repoId,
-              status: "seeded",
-              seededSnapshotName: seededName,
-            });
-          } catch (e) {
-            console.error(
-              `[snapshot] seeded build failed for ${app.repoId}: ${e instanceof Error ? e.message : String(e)}`,
-            );
-            // Tear down the prep sandbox so it doesn't linger.
-            if (prepSandboxId) {
-              await step.runAction(internal.daytona.deleteSandbox, {
-                sandboxId: prepSandboxId,
-                repoId: app.repoId,
-              });
-            }
-            // seededSnapshotName stays cleared → app uses the base Image snapshot.
-            // Record the fallback on the build record for the history view.
-            await step.runMutation(internal.repoSnapshots.recordSeededApp, {
-              buildId: args.buildId,
-              repoId: app.repoId,
-              status: "fallback",
-              seededSnapshotName: null,
-            });
-          }
-        }),
-      );
-    }
+    // Step 4: Image poll + all apps' seed chains run CONCURRENTLY. Each chain
+    // is independent and catches its own errors, so one app's failure never
+    // affects the image build or its sibling.
+    await Promise.all([
+      pollImageBuild(),
+      ...apps.map((app, i) => runSeedChain(app, prepSandboxIds[i])),
+    ]);
   },
 });

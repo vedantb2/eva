@@ -667,6 +667,92 @@ export const sweepSeedPrepSandboxes = internalAction({
 });
 
 /**
+ * Ops sweep: deletes Daytona sandboxes not referenced by any session, task,
+ * agent run, project, design session, doc, or automation run. These are orphans
+ * left by failed sandbox creates/starts (e.g. a create that timed out client-
+ * side while Daytona kept building it, or a start that threw after create).
+ * Defaults to a DRY RUN — pass dryRun:false to actually delete. Returns the
+ * orphan ids so they can be eyeballed before deleting.
+ */
+export const sweepOrphanSandboxes = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    dryRun: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    dryRun: v.boolean(),
+    scanned: v.number(),
+    orphaned: v.number(),
+    deleted: v.number(),
+    failed: v.number(),
+    orphans: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const referenced = new Set(
+      await ctx.runQuery(internal.repoSnapshots.listReferencedSandboxIds, {}),
+    );
+    // Default to a dry run so nothing is deleted unless explicitly requested.
+    const dryRun = args.dryRun !== false;
+
+    let scanned = 0;
+    let orphaned = 0;
+    let deleted = 0;
+    let failed = 0;
+    const orphans: string[] = [];
+    let page = 1;
+    const limit = 100;
+
+    while (true) {
+      const result = await daytona.list({
+        page: String(page),
+        limit: String(limit),
+      });
+      const items = result.items;
+      scanned += items.length;
+
+      for (const sandbox of items) {
+        if (referenced.has(sandbox.id)) {
+          continue;
+        }
+        orphaned += 1;
+        const label = sandbox.labels[SEED_PREP_LABEL_KEY]
+          ? "seed-prep"
+          : "other";
+        orphans.push(`${sandbox.id} (${label})`);
+        if (dryRun) {
+          continue;
+        }
+        try {
+          await sandbox.delete();
+          deleted += 1;
+          await ctx.runMutation(
+            internal.sandboxGitCredentials.deleteBySandboxId,
+            { sandboxId: sandbox.id },
+          );
+        } catch (e) {
+          failed += 1;
+          console.warn(
+            `[orphan sweep] failed to delete ${sandbox.id}: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        }
+      }
+
+      if (items.length < limit) break;
+      page += 1;
+    }
+
+    console.log(
+      `[orphan sweep] dryRun=${dryRun} scanned=${scanned} orphaned=${orphaned} deleted=${deleted} failed=${failed}`,
+    );
+    return { dryRun, scanned, orphaned, deleted, failed, orphans };
+  },
+});
+
+/**
  * Fingerprint of the Image inputs: the dependency lockfile's blob sha on the
  * build branch, the build commands, the config-file blobs baked into the image,
  * and IMAGE_DEF_VERSION. When this matches the value stored at the last

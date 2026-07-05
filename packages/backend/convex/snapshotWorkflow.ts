@@ -362,6 +362,39 @@ export const snapshotBuildWorkflow = workflow.define({
           status: "seeded",
           seededSnapshotName: seededName,
         });
+        try {
+          await step.runMutation(
+            internal.repoSnapshots.updateSeededAppWarmupStatus,
+            {
+              buildId: args.buildId,
+              repoId: app.repoId,
+              status: "pending",
+            },
+          );
+          await step.runAction(
+            internal.snapshotActions.warmSeededSnapshotCache,
+            {
+              buildId: args.buildId,
+              repoId: app.repoId,
+              seededName,
+            },
+          );
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          await step.runMutation(
+            internal.repoSnapshots.updateSeededAppWarmupStatus,
+            {
+              buildId: args.buildId,
+              repoId: app.repoId,
+              status: "error",
+              error: message,
+            },
+          );
+          await step.runMutation(internal.repoSnapshots.appendLogs, {
+            buildId: args.buildId,
+            chunk: `[warm ${app.repoId}] skipped after error: ${message}\n`,
+          });
+        }
         if (app.seededSnapshotName && app.seededSnapshotName !== seededName) {
           try {
             await step.runAction(

@@ -709,15 +709,20 @@ export async function normalizeSnapshotWorktree(
 /** Copies baked sandbox config files into the codebase root after git cleanup. */
 export async function copySandboxConfigFilesToWorkspace(
   sandbox: Sandbox,
+  options?: { force?: boolean },
 ): Promise<void> {
   const workspaceDir = workspaceDirShell();
+  const markerGuard =
+    options?.force === true
+      ? ""
+      : 'if [ -f /tmp/.startup-commands-done ]; then echo "startup commands already ran; skipping sandbox-config copy"; exit 0; fi; ';
   await runLoggedGitStep(
     "copySandboxConfigFilesToWorkspace",
     WORKSPACE_DIR,
     async () => {
       await execGitCommand(
         sandbox,
-        `if [ -f /tmp/.startup-commands-done ]; then echo "startup commands already ran; skipping sandbox-config copy"; exit 0; fi; if [ -d /home/eva/sandbox-config ] && find /home/eva/sandbox-config -mindepth 1 -maxdepth 1 | read first; then cp -a /home/eva/sandbox-config/. ${workspaceDir}/; fi`,
+        `${markerGuard}if [ -d /home/eva/sandbox-config ] && find /home/eva/sandbox-config -mindepth 1 -maxdepth 1 | read first; then cp -a /home/eva/sandbox-config/. ${workspaceDir}/; fi`,
         30,
       );
     },
@@ -988,7 +993,7 @@ export async function createSandboxAndPrepareRepo(
             if (onProgress) await onProgress("Syncing repository...");
             await syncRepo(sandbox, owner, name, syncStrategy);
           }
-          await copySandboxConfigFilesToWorkspace(sandbox);
+          await copySandboxConfigFilesToWorkspace(sandbox, { force: true });
           return { sandbox, usedSnapshot: true };
         }
         if (lifecycle.ephemeral && syncStrategy.mode === "none") {

@@ -17,6 +17,7 @@ import {
   runStatusValidator,
   sessionModeValidator,
   sessionStatusValidator,
+  snapshotWarmupStatusValidator,
   taskActivityFieldValidator,
   taskSandboxEventValidator,
   taskSandboxStatusValidator,
@@ -198,6 +199,8 @@ export const seededAppResultValidator = v.object({
   app: v.optional(v.string()),
   status: v.optional(seededAppStatusValidator),
   seededSnapshotName: v.union(v.string(), v.null()),
+  warmupStatus: v.optional(snapshotWarmupStatusValidator),
+  warmupError: v.optional(v.string()),
 });
 
 export const githubRepoFields = {

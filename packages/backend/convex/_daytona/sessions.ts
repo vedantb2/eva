@@ -742,7 +742,7 @@ async function prepareSessionSandboxInternal(
   await runLoggedSessionStep(
     "newSessionSandbox.copyConfigFiles",
     sandboxDetails,
-    () => copySandboxConfigFilesToWorkspace(sandbox),
+    () => copySandboxConfigFilesToWorkspace(sandbox, { force: true }),
   );
   completedSteps.push({
     type: "tool",
@@ -1418,7 +1418,7 @@ async function prepareTaskPreviewSandboxInternal(
   await runLoggedSessionStep(
     "newTaskSandbox.copyConfigFiles",
     sandboxDetails,
-    () => copySandboxConfigFilesToWorkspace(sandbox),
+    () => copySandboxConfigFilesToWorkspace(sandbox, { force: true }),
   );
   completedSteps.push({
     type: "tool",
@@ -1847,7 +1847,7 @@ async function prepareProjectPreviewSandboxInternal(
   await runLoggedSessionStep(
     "newProjectSandbox.copyConfigFiles",
     sandboxDetails,
-    () => copySandboxConfigFilesToWorkspace(sandbox),
+    () => copySandboxConfigFilesToWorkspace(sandbox, { force: true }),
   );
   completedSteps.push({
     type: "tool",

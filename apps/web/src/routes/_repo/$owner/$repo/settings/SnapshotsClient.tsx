@@ -415,6 +415,7 @@ export function SnapshotsClient({
                       </th>
                       <th className="px-2 py-2 font-medium sm:px-4">Trigger</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Status</th>
+                      <th className="px-2 py-2 font-medium sm:px-4">Warmup</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Seeded</th>
                     </tr>
                   </thead>

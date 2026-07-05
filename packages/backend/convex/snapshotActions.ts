@@ -13,7 +13,12 @@ import {
   getSandbox,
   type SandboxConfigFile,
 } from "./_daytona/helpers";
-import { createSandboxAndPrepareRepo, SESSION_LIFECYCLE } from "./_daytona/git";
+import {
+  createSandbox,
+  createSandboxAndPrepareRepo,
+  SESSION_LIFECYCLE,
+  WARMING_LIFECYCLE,
+} from "./_daytona/git";
 import {
   getSnapshot,
   deleteSnapshotByName,
@@ -27,6 +32,7 @@ import type { Id } from "./_generated/dataModel";
 const DAYTONA_API_URL = "https://app.daytona.io/api";
 const SEED_PREP_LABEL_KEY = "eva.purpose";
 const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
+const SEEDED_SNAPSHOT_WARM_READY_TIMEOUT_SECONDS = 300;
 
 // Bump when buildSnapshotImage's content changes (new tools, base image, or
 // layer commands) so existing image fingerprints invalidate and the next build
@@ -965,5 +971,101 @@ export const pollSeededSnapshotState = internalAction({
     // Not registered yet (or a transient lookup miss) → treat as still pending.
     const snapshot = await getSnapshot(daytona, args.seededName);
     return snapshot ? snapshot.state : "pending";
+  },
+});
+
+/**
+ * Warms Daytona's create-from-snapshot cache for a newly active seeded snapshot.
+ * The first sandbox from a large seeded filesystem can take several minutes;
+ * paying that cost inside the build makes the next user-created sandbox fast.
+ */
+export const warmSeededSnapshotCache = internalAction({
+  args: {
+    buildId: v.id("snapshotBuilds"),
+    repoId: v.id("githubRepos"),
+    seededName: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+      ctx,
+      args.repoId,
+    );
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) {
+      await ctx.runMutation(
+        internal.repoSnapshots.updateSeededAppWarmupStatus,
+        {
+          buildId: args.buildId,
+          repoId: args.repoId,
+          status: "error",
+          error: "Repo not found",
+        },
+      );
+      return null;
+    }
+
+    const daytona = getDaytona(daytonaApiKey);
+    let sandboxId: string | null = null;
+    try {
+      const sandbox = await createSandbox(
+        daytona,
+        repo.installationId,
+        { ...sandboxEnvVars, REPO_ID: args.repoId },
+        {
+          ...WARMING_LIFECYCLE,
+          labels: {
+            "eva.managed": "true",
+            "eva.purpose": "snapshot-warmup",
+            "eva.repoId": args.repoId,
+            "eva.snapshotName": args.seededName,
+          },
+        },
+        args.seededName,
+        undefined,
+        SEEDED_SNAPSHOT_WARM_READY_TIMEOUT_SECONDS,
+      );
+      sandboxId = sandbox.id;
+      await sandbox.delete();
+      sandboxId = null;
+      await ctx.runMutation(
+        internal.repoSnapshots.updateSeededAppWarmupStatus,
+        {
+          buildId: args.buildId,
+          repoId: args.repoId,
+          status: "success",
+        },
+      );
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk: `[warm ${args.repoId}] warmed ${args.seededName}\n`,
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      await ctx.runMutation(
+        internal.repoSnapshots.updateSeededAppWarmupStatus,
+        {
+          buildId: args.buildId,
+          repoId: args.repoId,
+          status: "error",
+          error: message,
+        },
+      );
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk: `[warm ${args.repoId}] failed for ${args.seededName}: ${message}\n`,
+      });
+      if (sandboxId) {
+        try {
+          const sandbox = await daytona.get(sandboxId);
+          await sandbox.delete();
+        } catch {
+          // Best-effort cleanup only; the warming lifecycle is ephemeral.
+        }
+      }
+    }
+    return null;
   },
 });

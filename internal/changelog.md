@@ -1,5 +1,11 @@
 # Changelog
 
+## Seeded snapshot config restore and warm-up fix - 2026-07-05
+
+- Force-restored baked sandbox config files when creating fresh session/task/project sandboxes from seeded snapshots so the app keeps the DB connection and seed files captured during the snapshot build.
+- Reintroduced per-app seeded snapshot cache warming during snapshot builds so the first slow Daytona create-from-snapshot happens before a user creates a sandbox.
+- Reason for change: seeded snapshots carry the startup-complete marker by design, but that marker was also preventing config restore after checkout, and fresh seeded snapshots still need an explicit warm-up pass before normal sandbox creation is fast.
+
 ## Snapshot seed bootstrap and leak guard - 2026-07-05
 
 - Added an explicit base-Image seeding mode for snapshot builds so stale per-app seeded snapshots can be refreshed without triggering cron retry cascades.

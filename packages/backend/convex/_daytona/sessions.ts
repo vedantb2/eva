@@ -546,25 +546,6 @@ async function prepareSessionSandboxInternal(
             () => startDesktopWithChrome(sandbox),
           );
         }
-        // Note: runStartupCommands is intentionally not surfaced as a UI step
-        // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
-        // makes it a no-op once the sandbox has been initialised, so showing
-        // "Running startup commands..." would be misleading on resume.
-        await runLoggedSessionStep(
-          "reuseSessionSandbox.runStartupCommands",
-          sandboxDetails,
-          async () => {
-            const result = await ctx.runAction(
-              internal.daytona.runStartupCommands,
-              { sandboxId: sandbox.id, repoId: args.repoId },
-            );
-            if (result.ran && result.commandCount > 0) {
-              logSession(
-                `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-              );
-            }
-          },
-        );
         await emitSessionProgress(
           ctx,
           args.sessionId,
@@ -595,6 +576,25 @@ async function prepareSessionSandboxInternal(
             status: "complete",
           });
         }
+        // Note: runStartupCommands is intentionally not surfaced as a UI step
+        // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
+        // makes it a no-op once the sandbox has been initialised, so showing
+        // "Running startup commands..." would be misleading on resume.
+        await runLoggedSessionStep(
+          "reuseSessionSandbox.runStartupCommands",
+          sandboxDetails,
+          async () => {
+            const result = await ctx.runAction(
+              internal.daytona.runStartupCommands,
+              { sandboxId: sandbox.id, repoId: args.repoId },
+            );
+            if (result.ran && result.commandCount > 0) {
+              logSession(
+                `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+              );
+            }
+          },
+        );
         reusedResult = {
           sandbox,
           isNew: false,
@@ -790,33 +790,6 @@ async function prepareSessionSandboxInternal(
     ctx,
     args.sessionId,
     completedSteps,
-    "Running startup commands...",
-  );
-  await runLoggedSessionStep(
-    "newSessionSandbox.runStartupCommands",
-    sandboxDetails,
-    async () => {
-      const result = await ctx.runAction(internal.daytona.runStartupCommands, {
-        sandboxId: sandbox.id,
-        repoId: args.repoId,
-      });
-      if (result.ran && result.commandCount > 0) {
-        logSession(
-          `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-        );
-      }
-    },
-  );
-  completedSteps.push({
-    type: "tool",
-    label: "Running startup commands...",
-    status: "complete",
-  });
-
-  await emitSessionProgress(
-    ctx,
-    args.sessionId,
-    completedSteps,
     "Launching background commands...",
   );
   let bgRan = false;
@@ -843,6 +816,33 @@ async function prepareSessionSandboxInternal(
       status: "complete",
     });
   }
+
+  await emitSessionProgress(
+    ctx,
+    args.sessionId,
+    completedSteps,
+    "Running startup commands...",
+  );
+  await runLoggedSessionStep(
+    "newSessionSandbox.runStartupCommands",
+    sandboxDetails,
+    async () => {
+      const result = await ctx.runAction(internal.daytona.runStartupCommands, {
+        sandboxId: sandbox.id,
+        repoId: args.repoId,
+      });
+      if (result.ran && result.commandCount > 0) {
+        logSession(
+          `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+        );
+      }
+    },
+  );
+  completedSteps.push({
+    type: "tool",
+    label: "Running startup commands...",
+    status: "complete",
+  });
 
   await completeSessionProgress(ctx, args.sessionId);
   return {

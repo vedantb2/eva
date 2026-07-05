@@ -246,7 +246,7 @@ export const runBackgroundCommands = internalAction({
       // self-backgrounds. A trailing `&` would otherwise let bash -lc exit
       // immediately, letting a process-group SIGTERM reach the daemon (nohup
       // only blocks SIGHUP).
-      const launchCmd = `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > ${logPath} 2>&1 &`;
+      const launchCmd = `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && (setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > ${logPath} 2>&1 & echo $! > /tmp/bg-${i}.pid) && echo LAUNCHED`;
       console.log(
         `[daytona] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
       );

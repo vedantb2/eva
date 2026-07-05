@@ -348,16 +348,18 @@ export const updateSeededAppWarmupStatus = internalMutation({
       };
     });
     const seededEntries = seededApps.filter((app) => app.status === "seeded");
-    const warmupStatus = seededEntries.some(
-      (app) => app.warmupStatus === "pending",
-    )
-      ? "pending"
-      : seededEntries.some((app) => app.warmupStatus === "error")
-        ? "error"
-        : seededEntries.length > 0 &&
-            seededEntries.every((app) => app.warmupStatus === "success")
-          ? "success"
-          : undefined;
+    const warmupStatus: "pending" | "success" | "error" | undefined =
+      seededApps.some((app) => app.status === "running")
+        ? "pending"
+        : seededEntries.some((app) => app.warmupStatus === "error")
+          ? "error"
+          : seededEntries.some(
+                (app) => !app.warmupStatus || app.warmupStatus === "pending",
+              )
+            ? "pending"
+            : seededEntries.length > 0
+              ? "success"
+              : undefined;
     const warmupError = seededEntries.find(
       (app) => app.warmupStatus === "error" && app.warmupError,
     )?.warmupError;

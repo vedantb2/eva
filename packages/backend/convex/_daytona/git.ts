@@ -36,6 +36,7 @@ export type SandboxLifecycle = {
   autoArchiveInterval?: number;
   autoDeleteInterval?: number;
   ephemeral?: boolean;
+  labels?: Record<string, string>;
 };
 
 export type RepoSyncStrategy =
@@ -311,6 +312,7 @@ export async function createSandbox(
 
     const commonParams = {
       ...(volumes ? { volumes } : {}),
+      ...(lifecycle.labels ? { labels: lifecycle.labels } : {}),
       envVars: {
         // VNC_RESOLUTION is read by the snapshot's ComputerUse plugin at startup
         // (Xvfb + x11vnc). Setting it here makes the desktop start at 1920x1080

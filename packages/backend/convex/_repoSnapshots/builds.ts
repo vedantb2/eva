@@ -82,7 +82,14 @@ export const getBuildStatus = internalQuery({
 
 /** Cron-triggered handler that starts a new snapshot build if none is currently running. */
 export const triggerScheduledBuild = internalMutation({
-  args: { repoSnapshotId: v.id("repoSnapshots") },
+  args: {
+    repoSnapshotId: v.id("repoSnapshots"),
+    // For operational debugging: keep the existing cron entry point but record
+    // the build as manual so completeBuild does not enqueue cron retries.
+    disableRetries: v.optional(v.boolean()),
+    forceImageRebuild: v.optional(v.boolean()),
+    forceBaseSeed: v.optional(v.boolean()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const config = await ctx.db.get(args.repoSnapshotId);
@@ -112,7 +119,7 @@ export const triggerScheduledBuild = internalMutation({
     const buildId = await ctx.db.insert("snapshotBuilds", {
       repoSnapshotId: args.repoSnapshotId,
       status: "running",
-      triggeredBy: "cron",
+      triggeredBy: args.disableRetries === true ? "manual" : "cron",
       logs: "",
       startedAt: now,
     });
@@ -120,9 +127,50 @@ export const triggerScheduledBuild = internalMutation({
     await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
       buildId,
       repoSnapshotId: args.repoSnapshotId,
+      forceImageRebuild: args.forceImageRebuild,
+      forceBaseSeed: args.forceBaseSeed,
     });
 
     return null;
+  },
+});
+
+/**
+ * Internal: all sandbox ids with a real product owner. Credential-helper rows
+ * are intentionally excluded: they are implementation detail rows created for
+ * every sandbox, including leaked seed-prep sandboxes.
+ */
+export const listReferencedSandboxIds = internalQuery({
+  args: {},
+  returns: v.array(v.string()),
+  handler: async (ctx) => {
+    const ids: string[] = [];
+    const add = (sandboxId: string | undefined): void => {
+      if (sandboxId && !ids.includes(sandboxId)) ids.push(sandboxId);
+    };
+
+    const tasks = await ctx.db.query("agentTasks").collect();
+    for (const task of tasks) add(task.sandboxId);
+
+    const runs = await ctx.db.query("agentRuns").collect();
+    for (const run of runs) add(run.sandboxId);
+
+    const sessions = await ctx.db.query("sessions").collect();
+    for (const session of sessions) add(session.sandboxId);
+
+    const projects = await ctx.db.query("projects").collect();
+    for (const project of projects) add(project.sandboxId);
+
+    const designSessions = await ctx.db.query("designSessions").collect();
+    for (const session of designSessions) add(session.sandboxId);
+
+    const docs = await ctx.db.query("docs").collect();
+    for (const doc of docs) add(doc.sandboxId);
+
+    const automationRuns = await ctx.db.query("automationRuns").collect();
+    for (const run of automationRuns) add(run.sandboxId);
+
+    return ids;
   },
 });
 

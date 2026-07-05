@@ -59,6 +59,10 @@ export const snapshotBuildWorkflow = workflow.define({
     // Rebuild the declarative base Image first (bootstrap / toolchain
     // changes). The nightly cron and Rebuild Now leave this unset.
     forceImageRebuild: v.optional(v.boolean()),
+    // Operational bootstrap path: seed app snapshots from the base Image
+    // instead of their previous seeded snapshots. Use once when a seeded app
+    // snapshot is too stale to boot its local services cleanly.
+    forceBaseSeed: v.optional(v.boolean()),
   },
   handler: async (step, args) => {
     // Resolve config + repo (owner/name/installation drive git fetch auth).
@@ -93,6 +97,19 @@ export const snapshotBuildWorkflow = workflow.define({
       internal.repoSnapshots.getSeedableAppRepos,
       { repoSnapshotId: args.repoSnapshotId },
     );
+
+    try {
+      await step.runAction(internal.snapshotActions.sweepSeedPrepSandboxes, {
+        repoId: config.repoId,
+        scopedRepoIds: apps.map((app) => app.repoId),
+        buildId: args.buildId,
+      });
+    } catch (e) {
+      await step.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk: `[seed-prep sweep] skipped after error: ${e instanceof Error ? e.message : String(e)}\n`,
+      });
+    }
 
     // Best-effort cleanup: delete seeded snapshots for siblings that are no
     // longer seedable (e.g. dropped stopCommands) and clear their stale name.
@@ -173,7 +190,9 @@ export const snapshotBuildWorkflow = workflow.define({
     } else {
       await step.runMutation(internal.repoSnapshots.appendLogs, {
         buildId: args.buildId,
-        chunk: `Sandbox-native build: updating + reseeding ${apps.length} app(s) from their previous seeded snapshots (branch: ${branch}).\n`,
+        chunk: args.forceBaseSeed
+          ? `Sandbox-native build: updating + reseeding ${apps.length} app(s) from the base Image (branch: ${branch}).\n`
+          : `Sandbox-native build: updating + reseeding ${apps.length} app(s) from their previous seeded snapshots (branch: ${branch}).\n`,
       });
     }
 
@@ -208,7 +227,9 @@ export const snapshotBuildWorkflow = workflow.define({
         // service images + deps all present) → base Image (bootstrap). The
         // retry/backoff absorbs runner propagation lag on fresh snapshots.
         const sources = [
-          ...(app.seededSnapshotName ? [app.seededSnapshotName] : []),
+          ...(app.seededSnapshotName && args.forceBaseSeed !== true
+            ? [app.seededSnapshotName]
+            : []),
           ...(imageState === "active" ? [config.snapshotName] : []),
         ];
         if (sources.length === 0) {

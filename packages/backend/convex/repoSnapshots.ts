@@ -22,6 +22,7 @@ export {
   completeBuild,
   appendLogs,
   recordSeededApp,
+  listReferencedSandboxIds,
 } from "./_repoSnapshots/builds";
 
 export {

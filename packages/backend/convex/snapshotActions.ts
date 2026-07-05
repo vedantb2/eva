@@ -25,6 +25,8 @@ import { Image } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
+const SEED_PREP_LABEL_KEY = "eva.purpose";
+const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
 
 // Bump when buildSnapshotImage's content changes (new tools, base image, or
 // layer commands) so existing image fingerprints invalidate and the next build
@@ -518,6 +520,104 @@ export const deleteDaytonaSnapshot = internalAction({
 });
 
 /**
+ * Deletes seed-prep sandboxes that were created by the snapshot workflow and
+ * no longer have a product owner in Convex. This is intentionally label-gated:
+ * older unlabelled leaks still need a one-off guarded audit, while the workflow
+ * can safely self-heal everything it creates after this change.
+ */
+export const sweepSeedPrepSandboxes = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    scopedRepoIds: v.optional(v.array(v.id("githubRepos"))),
+    buildId: v.optional(v.id("snapshotBuilds")),
+  },
+  returns: v.object({
+    scanned: v.number(),
+    matched: v.number(),
+    deleted: v.number(),
+    skippedReferenced: v.number(),
+    failed: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    const referenced = new Set(
+      await ctx.runQuery(internal.repoSnapshots.listReferencedSandboxIds, {}),
+    );
+    const scopedRepoIds = args.scopedRepoIds ?? [];
+    const scopedRepoIdStrings: string[] = [];
+    for (const repoId of scopedRepoIds) {
+      scopedRepoIdStrings.push(repoId);
+    }
+
+    let scanned = 0;
+    let matched = 0;
+    let deleted = 0;
+    let skippedReferenced = 0;
+    let failed = 0;
+    let page = 1;
+    const limit = 100;
+
+    while (true) {
+      const result = await daytona.list({
+        page: String(page),
+        limit: String(limit),
+      });
+      const items = result.items;
+      scanned += items.length;
+
+      for (const sandbox of items) {
+        if (sandbox.labels[SEED_PREP_LABEL_KEY] !== SEED_PREP_LABEL_VALUE) {
+          continue;
+        }
+        const sandboxRepoId = sandbox.labels["eva.repoId"];
+        if (
+          scopedRepoIdStrings.length > 0 &&
+          (sandboxRepoId === undefined ||
+            !scopedRepoIdStrings.includes(sandboxRepoId))
+        ) {
+          continue;
+        }
+        matched += 1;
+        if (referenced.has(sandbox.id)) {
+          skippedReferenced += 1;
+          continue;
+        }
+        try {
+          await sandbox.delete();
+          deleted += 1;
+          await ctx.runMutation(
+            internal.sandboxGitCredentials.deleteBySandboxId,
+            { sandboxId: sandbox.id },
+          );
+        } catch (e) {
+          failed += 1;
+          console.warn(
+            `[snapshot] failed to delete seed-prep sandbox ${sandbox.id}: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        }
+      }
+
+      if (items.length < limit) break;
+      page += 1;
+    }
+
+    if (args.buildId) {
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk:
+          `[seed-prep sweep] scanned=${scanned}, matched=${matched}, deleted=${deleted}, ` +
+          `referenced=${skippedReferenced}, failed=${failed}\n`,
+      });
+    }
+
+    return { scanned, matched, deleted, skippedReferenced, failed };
+  },
+});
+
+/**
  * Fingerprint of the Image inputs: the dependency lockfile's blob sha on the
  * build branch, the build commands, the config-file blobs baked into the image,
  * and IMAGE_DEF_VERSION. When this matches the value stored at the last
@@ -770,6 +870,14 @@ export const createSeedPrepSandbox = internalAction({
       repoId: args.repoId,
     });
     if (!repo) throw new Error("Repo not found");
+    const seedPrepLifecycle = {
+      ...SESSION_LIFECYCLE,
+      labels: {
+        "eva.managed": "true",
+        [SEED_PREP_LABEL_KEY]: SEED_PREP_LABEL_VALUE,
+        "eva.repoId": args.repoId,
+      },
+    };
     const { sandbox } = await createSandboxAndPrepareRepo(
       ctx,
       daytona,
@@ -777,7 +885,7 @@ export const createSeedPrepSandbox = internalAction({
       repo.owner,
       repo.name,
       { ...sandboxEnvVars, REPO_ID: args.repoId },
-      SESSION_LIFECYCLE,
+      seedPrepLifecycle,
       args.imageSnapshot,
       undefined, // volumes
       undefined, // onSandboxAcquired

@@ -34,16 +34,39 @@ const SEED_PREP_LABEL_KEY = "eva.purpose";
 const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
 const SEEDED_SNAPSHOT_WARM_READY_TIMEOUT_SECONDS = 300;
 
-function seededRuntimeStateCaptureLines(): string[] {
+function shouldCaptureSupabaseState(commands: string[]): boolean {
+  return commands.some((command) => {
+    const lower = command.toLowerCase();
+    return (
+      lower.includes("supabase") ||
+      lower.includes("start-db") ||
+      lower.includes("seed:sql")
+    );
+  });
+}
+
+function seededRuntimeStateCaptureLines(
+  requireSupabaseDump: boolean,
+): string[] {
   return [
     'echo "SEEDRUN-STAGE:capture-runtime-state"',
+    `REQUIRE_SUPABASE_DUMP=${requireSupabaseDump ? "1" : "0"}`,
     "mkdir -p /home/eva/.eva-snapshot-state",
     "rm -f /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz",
-    "if docker ps --filter name=supabase_db_web --filter status=running -q | grep -q .; then",
+    'if [ "$REQUIRE_SUPABASE_DUMP" != "1" ]; then',
+    '  echo "repo does not require Supabase state capture; skipping"',
+    "elif ! docker ps --filter name=supabase_db_web --filter status=running -q | grep -q .; then",
+    "  if docker ps -a --filter name=supabase_db_web -q | grep -q .; then",
+    "    docker start supabase_db_web >/dev/null",
+    "  else",
+    "    ( cd /tmp/repo && pnpm start-db ) || true",
+    "  fi",
+    "fi",
+    'if [ "$REQUIRE_SUPABASE_DUMP" = "1" ]; then',
+    "  for i in $(seq 1 240); do docker exec supabase_db_web pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done",
+    '  docker exec supabase_db_web pg_isready -U postgres >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }',
     '  ( set -o pipefail; docker exec supabase_db_web pg_dump -U postgres -d postgres --clean --if-exists --no-owner --no-privileges | gzip -1 > /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz ) || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }',
     "  ls -lh /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz",
-    "else",
-    '  echo "no supabase_db_web container running; skipping Supabase state capture"',
     "fi",
   ];
 }
@@ -751,6 +774,11 @@ export const launchSeedRun = internalAction({
       internal.repoSnapshots.getStopCommands,
       { repoId: args.repoId },
     );
+    const requireSupabaseDump = shouldCaptureSupabaseState([
+      ...(startupCommands ?? []),
+      ...(backgroundCommands ?? []),
+      ...(stopCommands ?? []),
+    ]);
     const lines: string[] = [
       "#!/bin/bash",
       "exec > /tmp/seedrun.log 2>&1",
@@ -784,7 +812,7 @@ export const launchSeedRun = internalAction({
         `( ${command} ) || { echo "SEEDRUN-FAILED:startup-${i}"; exit 1; }`,
       );
     });
-    lines.push(...seededRuntimeStateCaptureLines());
+    lines.push(...seededRuntimeStateCaptureLines(requireSupabaseDump));
     // Marker so a sandbox booting from the captured snapshot skips the seed.
     lines.push("touch /tmp/.startup-commands-done");
     (stopCommands ?? []).forEach((command, i) => {

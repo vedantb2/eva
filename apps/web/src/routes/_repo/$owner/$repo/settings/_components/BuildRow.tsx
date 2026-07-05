@@ -141,7 +141,7 @@ export function BuildRow({
   );
 }
 
-function WarmupStatusBadge({
+export function WarmupStatusBadge({
   status,
   error,
 }: {

@@ -12,6 +12,13 @@ const MAX_POLLS = 60; // ~30 minutes at 30s intervals
 // ceiling. We poll the snapshot entity until it reaches "active" (success) or a
 // failure state — see pollSeededSnapshotState for why the sandbox state is not
 // a reliable completion signal.
+// Detached seed-run poll loop (per app). The seed script is launched detached
+// on the prep sandbox (launchSeedRun) so no Convex action ever waits on a slow
+// command — cold docker pulls or readiness waits can take as long as they need.
+// The workflow just polls the script's outcome markers.
+const SEED_RUN_POLL_DELAY_MS = 20_000;
+const MAX_SEED_RUN_POLLS = 150; // ~50 minutes at 20s intervals
+
 const SEED_SNAPSHOT_POLL_DELAY_MS = 15_000;
 const MAX_SEED_SNAPSHOT_POLLS = 240; // ~60 minutes at 15s intervals — captures
 // normally finish in ~6m but have been observed taking 40m+ when the Daytona
@@ -349,45 +356,34 @@ export const snapshotBuildWorkflow = workflow.define({
           sandboxId: prepSandboxId,
           repoId: app.repoId,
         });
-        // Seed: run each command as its OWN workflow step. A single action
-        // running the whole seed (readiness wait + many env sets + import) can
-        // overrun Convex's ~10-min action limit; per-command steps each get
-        // their own budget. Any failure throws -> caught below -> Image fallback
-        // (we never snapshot a half-seeded DB).
-        const seedCommands = await step.runQuery(
-          internal.repoSnapshots.getStartupCommands,
-          { repoId: app.repoId },
-        );
-        for (const command of seedCommands ?? []) {
-          // Retry generously: a cold prep sandbox pulls service docker
-          // images on first boot (supabase ~1-2GB), so a readiness-wait
-          // command can overrun its step budget while pulls are in flight —
-          // observed on prod taking >15 min on a cache-cold runner. The
-          // detached background daemons keep pulling between attempts, so
-          // 4 attempts (~30 min of wait budget) rides out any cold pull.
-          await step.runAction(
-            internal.daytona.runSandboxCommand,
-            {
-              sandboxId: prepSandboxId,
-              repoId: app.repoId,
-              command,
-              timeoutSeconds: 540,
-            },
-            { retry: { maxAttempts: 4, initialBackoffMs: 5000, base: 2 } },
+        // Seed: launch the whole sequence (startup commands → marker → clean
+        // stop) as ONE detached script on the sandbox, then poll its outcome
+        // markers. No Convex action ever waits on a command, so slow docker
+        // pulls / readiness waits can take as long as they need — the 600s
+        // per-action ceiling repeatedly killed the previous per-command-step
+        // approach on prod. A failure marker throws -> caught below -> the app
+        // keeps its previous snapshot (we never capture a half-seeded DB).
+        await step.runAction(internal.snapshotActions.launchSeedRun, {
+          sandboxId: prepSandboxId,
+          repoId: app.repoId,
+        });
+        let seedState = "running";
+        for (
+          let pollAttempt = 1;
+          pollAttempt <= MAX_SEED_RUN_POLLS && seedState === "running";
+          pollAttempt++
+        ) {
+          seedState = await step.runAction(
+            internal.snapshotActions.pollSeedRun,
+            { sandboxId: prepSandboxId, repoId: app.repoId },
+            { runAfter: SEED_RUN_POLL_DELAY_MS },
           );
         }
-        // Marker so a sandbox booting from the seeded snapshot skips the seed.
-        await step.runAction(internal.daytona.runSandboxCommand, {
-          sandboxId: prepSandboxId,
-          repoId: app.repoId,
-          command: "touch /tmp/.startup-commands-done",
-          timeoutSeconds: 10,
-        });
-        // clean stop so volumes flush before the snapshot
-        await step.runAction(internal.daytona.runStopCommands, {
-          sandboxId: prepSandboxId,
-          repoId: app.repoId,
-        });
+        if (seedState !== "done") {
+          throw new Error(
+            `Seed run for ${app.repoId} did not complete (state: ${seedState})`,
+          );
+        }
         // Capture the seeded filesystem snapshot. Trigger fires the POST
         // without blocking; poll across separate steps so a long DB capture
         // never exceeds Convex's 600s per-action ceiling.

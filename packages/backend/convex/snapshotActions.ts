@@ -9,6 +9,8 @@ import {
   getDaytona,
   buildConfigFileDownloadCommands,
   filterDownloadableConfigFiles,
+  exec,
+  getSandbox,
   type SandboxConfigFile,
 } from "./_daytona/helpers";
 import { createSandboxAndPrepareRepo, SESSION_LIFECYCLE } from "./_daytona/git";
@@ -590,6 +592,90 @@ export const getImageFingerprint = internalAction({
       hash = (hash * 33) ^ payload.charCodeAt(i);
     }
     return `img-${(hash >>> 0).toString(36)}-${payload.length}`;
+  },
+});
+
+/**
+ * Seeded-snapshot build — LAUNCH step. Composes the app's whole seed sequence
+ * (startup commands → marker → stop commands) into one bash script and launches
+ * it DETACHED on the prep sandbox (setsid nohup), returning immediately.
+ *
+ * Convex actions have a hard 600s ceiling, so running seed commands
+ * synchronously inside actions caps every command at ~9 minutes — cold docker
+ * pulls and slow readiness waits blew through it repeatedly on prod. Detached,
+ * the script takes as long as it needs; the workflow polls pollSeedRun for the
+ * outcome markers, mirroring the trigger+poll pattern used for captures.
+ */
+export const launchSeedRun = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const startupCommands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getStartupCommands,
+      { repoId: args.repoId },
+    );
+    const stopCommands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getStopCommands,
+      { repoId: args.repoId },
+    );
+    const lines: string[] = [
+      "#!/bin/bash",
+      "exec > /tmp/seedrun.log 2>&1",
+      "set -x",
+      "rm -f /tmp/.seedrun-done",
+    ];
+    (startupCommands ?? []).forEach((command, i) => {
+      // Subshell so `cd`/env in one command can't leak into the next, matching
+      // how runSandboxCommand executed them as separate execs.
+      lines.push(
+        `( ${command} ) || { echo "SEEDRUN-FAILED:startup-${i}"; exit 1; }`,
+      );
+    });
+    // Marker so a sandbox booting from the captured snapshot skips the seed.
+    lines.push("touch /tmp/.startup-commands-done");
+    (stopCommands ?? []).forEach((command, i) => {
+      lines.push(
+        `( ${command} ) || { echo "SEEDRUN-FAILED:stop-${i}"; exit 1; }`,
+      );
+    });
+    lines.push('echo "SEEDRUN-DONE"', "touch /tmp/.seedrun-done");
+    const script = lines.join("\n");
+    const b64 = Buffer.from(script, "utf8").toString("base64");
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await exec(
+      sandbox,
+      `echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && setsid nohup /tmp/seedrun.sh </dev/null >/dev/null 2>&1 & echo LAUNCHED`,
+      30,
+    );
+    return null;
+  },
+});
+
+/**
+ * Seeded-snapshot build — SEED POLL step. Returns "done" when the detached
+ * seed script finished cleanly, "failed:<stage>" when it aborted (stage names
+ * the command index, e.g. startup-3), and "running" otherwise.
+ */
+export const pollSeedRun = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const out = await exec(
+      sandbox,
+      'test -f /tmp/.seedrun-done && echo DONE; grep -aoE "SEEDRUN-FAILED:[a-z0-9-]+" /tmp/seedrun.log 2>/dev/null | tail -1; true',
+      30,
+    );
+    if (out.includes("DONE")) return "done";
+    const failed = out.match(/SEEDRUN-FAILED:([a-z0-9-]+)/);
+    if (failed) return `failed:${failed[1]}`;
+    return "running";
   },
 });
 

@@ -13,6 +13,7 @@ export {
 
 export {
   runSandboxCommand,
+  restoreSeededRuntimeState,
   runStartupCommands,
   startupCommandsMarkerExists,
   runBackgroundCommands,

@@ -32,6 +32,7 @@ import { startDesktopWithChrome } from "./desktop";
 import { ensurePreviewNavigationProxy } from "./previewProxy";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
+import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 
 const sessionPersistenceKindValidator = v.union(
   v.literal("sessions"),
@@ -104,6 +105,20 @@ export const startupCommandsMarkerExists = internalAction({
   },
 });
 
+/** Restores service state exported into a seeded snapshot before services boot. */
+export const restoreSeededRuntimeState = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await restoreSeededRuntimeStateInSandbox(sandbox);
+    return null;
+  },
+});
+
 /** Runs startup commands on a sandbox if configured. Returns success status. */
 export const runStartupCommands = internalAction({
   args: {
@@ -170,11 +185,20 @@ export const runStartupCommands = internalAction({
       }
     }
 
-    // Create marker file to prevent re-running on sandbox resume
-    try {
-      await exec(sandbox, "touch /tmp/.startup-commands-done", 5);
-    } catch {
-      // Non-fatal
+    // Create the marker only when every command succeeded. Writing it after a
+    // failed run permanently branded the sandbox as seeded: every resume then
+    // marker-skipped the seed and the DB stayed empty forever. Leaving the
+    // marker absent lets the next resume retry the full startup sequence.
+    if (errors.length === 0) {
+      try {
+        await exec(sandbox, "touch /tmp/.startup-commands-done", 5);
+      } catch {
+        // Non-fatal
+      }
+    } else {
+      console.error(
+        `[daytona] runStartupCommands: ${errors.length}/${commands.length} command(s) failed — NOT writing marker so the next resume retries`,
+      );
     }
 
     return { ran: true, commandCount: commands.length, errors };
@@ -224,13 +248,20 @@ export const runBackgroundCommands = internalAction({
       const command = commands[i];
       const logPath = `/tmp/bg-${i}.log`;
       // Escape single quotes for the bash -lc payload.
-      const escaped = command.replace(/'/g, "'\\''");
+      // Write the command to a script file and launch THAT, rather than
+      // inlining it via `bash -lc '<command>'`: the inline form puts the whole
+      // command text into the wrapper shell's cmdline, so a user guard like
+      // `pgrep -f "[c]onvex dev" || npx convex dev` matches its own wrapper
+      // (the unguarded "npx convex dev" launch text) and silently never starts
+      // the daemon. With a script file the cmdline is just the file path.
+      // Base64 transport also makes user quoting unbreakable.
+      const cb64 = Buffer.from(command, "utf8").toString("base64");
       // setsid + </dev/null fully detaches the daemon into its own session, so
       // it survives the exec session teardown even when the user's command
       // self-backgrounds. A trailing `&` would otherwise let bash -lc exit
       // immediately, letting a process-group SIGTERM reach the daemon (nohup
       // only blocks SIGHUP).
-      const launchCmd = `setsid nohup bash -lc '${escaped}' </dev/null > ${logPath} 2>&1 &`;
+      const launchCmd = `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && (setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > ${logPath} 2>&1 & echo $! > /tmp/bg-${i}.pid) && echo LAUNCHED`;
       console.log(
         `[daytona] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
       );

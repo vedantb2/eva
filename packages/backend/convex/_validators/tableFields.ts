@@ -17,6 +17,7 @@ import {
   runStatusValidator,
   sessionModeValidator,
   sessionStatusValidator,
+  snapshotWarmupStatusValidator,
   taskActivityFieldValidator,
   taskSandboxEventValidator,
   taskSandboxStatusValidator,
@@ -198,6 +199,8 @@ export const seededAppResultValidator = v.object({
   app: v.optional(v.string()),
   status: v.optional(seededAppStatusValidator),
   seededSnapshotName: v.union(v.string(), v.null()),
+  warmupStatus: v.optional(snapshotWarmupStatusValidator),
+  warmupError: v.optional(v.string()),
 });
 
 export const githubRepoFields = {
@@ -232,6 +235,11 @@ export const githubRepoFields = {
   // the DB already seeded), set by the seeded-snapshot build when it succeeds.
   // Preferred over the base Image snapshot at sandbox-create time for fast starts.
   seededSnapshotName: v.optional(v.string()),
+  // Fingerprint of the seed inputs (startup/background/stop commands + config
+  // file blobs) captured when seededSnapshotName was built. When unchanged, the
+  // build workflow skips re-seeding — the existing snapshot's data is identical
+  // and re-capturing it would only contend with the image build.
+  seededFingerprint: v.optional(v.string()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   systemPrompt: v.optional(v.string()),

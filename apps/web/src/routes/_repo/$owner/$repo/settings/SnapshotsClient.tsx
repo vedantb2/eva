@@ -36,7 +36,11 @@ import {
 import { formatDurationMs } from "@conductor/shared/duration";
 import { parseCommandLines, formatFileSize } from "./_utils";
 import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
-import { BuildRow, BuildStatusBadge } from "./_components/BuildRow";
+import {
+  BuildRow,
+  BuildStatusBadge,
+  WarmupStatusBadge,
+} from "./_components/BuildRow";
 
 export function SnapshotsClient({
   activeTab,
@@ -133,6 +137,16 @@ export function SnapshotsClient({
     (lastBuild?.seededApps ?? [])
       .filter((a) => a.status === "running")
       .map((a) => a.repoId),
+  );
+  const warmupByRepoId = new Map(
+    (lastBuild?.seededApps ?? []).map((app) => [
+      app.repoId,
+      {
+        seededSnapshotName: app.seededSnapshotName,
+        warmupStatus: app.warmupStatus,
+        warmupError: app.warmupError,
+      },
+    ]),
   );
 
   const handleSnapshotsTabChange = useCallback(
@@ -357,33 +371,50 @@ export function SnapshotsClient({
                   </p>
                 ) : (
                   <div className="space-y-2 text-xs">
-                    {seededApps.map((app) => (
-                      <div
-                        key={app.repoId}
-                        className="flex items-start justify-between gap-3"
-                      >
-                        <span className="font-medium shrink-0">
-                          {app.app ?? app.name}
-                        </span>
-                        {seedingRepoIds.has(app.repoId) ? (
-                          <span className="inline-flex shrink-0 items-center gap-1 text-blue-500">
-                            <Spinner size="sm" />
-                            Seeding…
+                    {seededApps.map((app) => {
+                      const warmup = warmupByRepoId.get(app.repoId);
+                      const warmupMatchesSnapshot =
+                        app.seededSnapshotName !== null &&
+                        warmup?.seededSnapshotName === app.seededSnapshotName;
+                      return (
+                        <div
+                          key={app.repoId}
+                          className="flex items-start justify-between gap-3"
+                        >
+                          <span className="font-medium shrink-0">
+                            {app.app ?? app.name}
                           </span>
-                        ) : app.seededSnapshotName ? (
-                          <span className="inline-flex min-w-0 items-start gap-1 text-green-500">
-                            <IconCheck size={12} className="mt-0.5 shrink-0" />
-                            <span className="min-w-0 font-mono break-all">
-                              {app.seededSnapshotName}
+                          {seedingRepoIds.has(app.repoId) ? (
+                            <span className="inline-flex shrink-0 items-center gap-1 text-blue-500">
+                              <Spinner size="sm" />
+                              Seeding…
                             </span>
-                          </span>
-                        ) : (
-                          <span className="shrink-0 text-muted-foreground">
-                            Using base Image
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                          ) : app.seededSnapshotName ? (
+                            <span className="inline-flex min-w-0 items-start gap-1 text-green-500">
+                              <IconCheck
+                                size={12}
+                                className="mt-0.5 shrink-0"
+                              />
+                              <span className="min-w-0 space-y-1">
+                                <span className="block font-mono break-all">
+                                  {app.seededSnapshotName}
+                                </span>
+                                {warmupMatchesSnapshot && (
+                                  <WarmupStatusBadge
+                                    status={warmup.warmupStatus}
+                                    error={warmup.warmupError}
+                                  />
+                                )}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="shrink-0 text-muted-foreground">
+                              Using base Image
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -415,6 +446,7 @@ export function SnapshotsClient({
                       </th>
                       <th className="px-2 py-2 font-medium sm:px-4">Trigger</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Status</th>
+                      <th className="px-2 py-2 font-medium sm:px-4">Warmup</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Seeded</th>
                     </tr>
                   </thead>

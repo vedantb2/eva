@@ -198,7 +198,30 @@ export async function prepareSandboxSteps(
     );
   }
 
-  // Step 4: Launch background commands (long-running daemons / services) FIRST,
+  // Step 4: Restore service state baked into seeded snapshots before daemons
+  // or startup commands touch local dependencies. No-ops for ordinary snapshots.
+  if (!args.skipStartupCommands) {
+    await emitSteps(step, args.streamingEntityId, [
+      ...completedSteps,
+      {
+        type: "tool",
+        label: "Restoring seeded runtime...",
+        status: "active",
+      },
+    ]);
+    await step.runAction(
+      internal.daytona.restoreSeededRuntimeState,
+      { sandboxId, repoId: args.repoId },
+      { retry: { maxAttempts: 1, initialBackoffMs: 1000, base: 2 } },
+    );
+    completedSteps.push({
+      type: "tool",
+      label: "Restoring seeded runtime...",
+      status: "complete",
+    });
+  }
+
+  // Step 5: Launch background commands (long-running daemons / services) FIRST,
   // before startup commands, so one-time startup/seed work can depend on services
   // being up (e.g. `supabase start`, `npx convex dev`). Skipped together with
   // startup for read-only ephemeral flows (PR recap, interview). Non-fatal.
@@ -242,7 +265,7 @@ export async function prepareSandboxSteps(
     }
   }
 
-  // Step 5: Run startup commands once per sandbox (marker file). Skipped for
+  // Step 6: Run startup commands once per sandbox (marker file). Skipped for
   // read-only ephemeral flows (PR recap) and when a reused project sandbox
   // already paid this cost on the first task. Startup commands that depend on
   // services should wait for readiness themselves, since background daemons

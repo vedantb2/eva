@@ -9,7 +9,8 @@ import {
   getDaytona,
   buildConfigFileDownloadCommands,
   filterDownloadableConfigFiles,
-  WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
+  exec,
+  getSandbox,
   type SandboxConfigFile,
 } from "./_daytona/helpers";
 import {
@@ -29,6 +30,57 @@ import { Image } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
+const SEED_PREP_LABEL_KEY = "eva.purpose";
+const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
+const SEEDED_SNAPSHOT_WARM_READY_TIMEOUT_SECONDS = 300;
+
+function shouldCaptureSupabaseState(commands: string[]): boolean {
+  return commands.some((command) => {
+    const lower = command.toLowerCase();
+    return (
+      lower.includes("supabase") ||
+      lower.includes("start-db") ||
+      lower.includes("seed:sql")
+    );
+  });
+}
+
+function seededRuntimeStateCaptureLines(
+  requireSupabaseDump: boolean,
+): string[] {
+  return [
+    'echo "SEEDRUN-STAGE:capture-runtime-state"',
+    `REQUIRE_SUPABASE_DUMP=${requireSupabaseDump ? "1" : "0"}`,
+    "mkdir -p /home/eva/.eva-snapshot-state",
+    "rm -f /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz",
+    'if [ "$REQUIRE_SUPABASE_DUMP" != "1" ]; then',
+    '  echo "repo does not require Supabase state capture; skipping"',
+    "elif ! docker ps --filter name=supabase_db_web --filter status=running -q | grep -q .; then",
+    "  if docker ps -a --filter name=supabase_db_web -q | grep -q .; then",
+    "    docker start supabase_db_web >/dev/null",
+    "  else",
+    "    ( cd /tmp/repo && pnpm start-db ) || true",
+    "  fi",
+    "fi",
+    'if [ "$REQUIRE_SUPABASE_DUMP" = "1" ]; then',
+    "  for i in $(seq 1 240); do docker exec supabase_db_web pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done",
+    '  docker exec supabase_db_web pg_isready -U postgres >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }',
+    "  dump_supabase_public_data() { ( set -o pipefail; docker exec supabase_db_web pg_dump -U postgres -d postgres --schema=public --data-only --no-owner --no-privileges | gzip -1 > /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz ); }",
+    "  count_supabase_dump_rows() { gzip -dc /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz | awk 'BEGIN{in_copy=0;c=0} /^COPY public\\./{in_copy=1;next} /^\\\\\\.$/{in_copy=0;next} in_copy{c++} END{print c}'; }",
+    '  dump_supabase_public_data || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }',
+    "  SUPABASE_DUMP_ROWS=$(count_supabase_dump_rows)",
+    '  if [ "$SUPABASE_DUMP_ROWS" = "0" ] && [ -f packages/db/data.sql ]; then echo "Supabase dump was empty; rerunning pnpm seed:sql before capture"; pnpm seed:sql || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }; dump_supabase_public_data || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }; SUPABASE_DUMP_ROWS=$(count_supabase_dump_rows); fi',
+    '  if [ "$SUPABASE_DUMP_ROWS" = "0" ]; then echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; fi',
+    '  echo "supabase_dump_rows=$SUPABASE_DUMP_ROWS"',
+    "  ls -lh /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz",
+    "fi",
+  ];
+}
+
+// Bump when buildSnapshotImage's content changes (new tools, base image, or
+// layer commands) so existing image fingerprints invalidate and the next build
+// rebuilds the Image even though repo/config inputs are unchanged.
+const IMAGE_DEF_VERSION = 1;
 
 // "eva ALL=(ALL) NOPASSWD: ALL\n" — base64-encoded to avoid parentheses breaking Dockerfile RUN
 const EVA_SUDOERS_B64 = "ZXZhIEFMTD0oQUxMKSBOT1BBU1NXRDogQUxMCg==";
@@ -517,49 +569,341 @@ export const deleteDaytonaSnapshot = internalAction({
 });
 
 /**
- * Propagation probe: boots ONE cheap ephemeral sandbox from the base Image
- * snapshot, then deletes it. A freshly-built snapshot is not immediately
- * available on Daytona runners (propagation lag), so `daytona.create` returns
- * "No available runners" until propagation completes. The seeded-snapshot
- * workflow calls this in a poll loop BEFORE fanning out per-app seed-prep
- * sandboxes, so the expensive seed work only starts once the snapshot is
- * actually bootable. Returns "available" on a successful create+delete, or
- * "unavailable" on any create failure (never throws on the create itself — the
- * workflow owns the retry loop). A successful probe also warms the cache.
+ * Deletes seed-prep sandboxes that were created by the snapshot workflow and
+ * no longer have a product owner in Convex. This is intentionally label-gated:
+ * older unlabelled leaks still need a one-off guarded audit, while the workflow
+ * can safely self-heal everything it creates after this change.
  */
-export const probeSnapshotAvailability = internalAction({
-  args: { repoId: v.id("githubRepos"), imageSnapshot: v.string() },
-  returns: v.union(v.literal("available"), v.literal("unavailable")),
-  handler: async (ctx, args): Promise<"available" | "unavailable"> => {
-    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
-      ctx,
-      args.repoId,
-    );
+export const sweepSeedPrepSandboxes = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    scopedRepoIds: v.optional(v.array(v.id("githubRepos"))),
+    buildId: v.optional(v.id("snapshotBuilds")),
+  },
+  returns: v.object({
+    scanned: v.number(),
+    matched: v.number(),
+    deleted: v.number(),
+    skippedReferenced: v.number(),
+    failed: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
     const daytona = getDaytona(daytonaApiKey);
+    const referenced = new Set(
+      await ctx.runQuery(internal.repoSnapshots.listReferencedSandboxIds, {}),
+    );
+    const scopedRepoIds = args.scopedRepoIds ?? [];
+    const scopedRepoIdStrings: string[] = [];
+    for (const repoId of scopedRepoIds) {
+      scopedRepoIdStrings.push(repoId);
+    }
+
+    let scanned = 0;
+    let matched = 0;
+    let deleted = 0;
+    let skippedReferenced = 0;
+    let failed = 0;
+    let page = 1;
+    const limit = 100;
+
+    while (true) {
+      const result = await daytona.list({
+        page: String(page),
+        limit: String(limit),
+      });
+      const items = result.items;
+      scanned += items.length;
+
+      for (const sandbox of items) {
+        if (sandbox.labels[SEED_PREP_LABEL_KEY] !== SEED_PREP_LABEL_VALUE) {
+          continue;
+        }
+        const sandboxRepoId = sandbox.labels["eva.repoId"];
+        if (
+          scopedRepoIdStrings.length > 0 &&
+          (sandboxRepoId === undefined ||
+            !scopedRepoIdStrings.includes(sandboxRepoId))
+        ) {
+          continue;
+        }
+        matched += 1;
+        if (referenced.has(sandbox.id)) {
+          skippedReferenced += 1;
+          continue;
+        }
+        try {
+          await sandbox.delete();
+          deleted += 1;
+          await ctx.runMutation(
+            internal.sandboxGitCredentials.deleteBySandboxId,
+            { sandboxId: sandbox.id },
+          );
+        } catch (e) {
+          failed += 1;
+          console.warn(
+            `[snapshot] failed to delete seed-prep sandbox ${sandbox.id}: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+        }
+      }
+
+      if (items.length < limit) break;
+      page += 1;
+    }
+
+    if (args.buildId) {
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk:
+          `[seed-prep sweep] scanned=${scanned}, matched=${matched}, deleted=${deleted}, ` +
+          `referenced=${skippedReferenced}, failed=${failed}\n`,
+      });
+    }
+
+    return { scanned, matched, deleted, skippedReferenced, failed };
+  },
+});
+
+/**
+ * Fingerprint of the Image inputs: the dependency lockfile's blob sha on the
+ * build branch, the build commands, the config-file blobs baked into the image,
+ * and IMAGE_DEF_VERSION. When this matches the value stored at the last
+ * successful Image build, the workflow skips the ~11-15m rebuild — the output
+ * would be byte-identical (sandboxes fetch fresh branches at boot, so a repo
+ * checkout that is a few commits stale costs nothing; node_modules only drift
+ * when the lockfile changes, which changes this fingerprint). Returns null when
+ * the inputs cannot be determined (e.g. lockfile lookup fails) — callers must
+ * treat null as "always rebuild".
+ */
+export const getImageFingerprint = internalAction({
+  args: { repoSnapshotId: v.id("repoSnapshots") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args): Promise<string | null> => {
+    const config = await ctx.runQuery(
+      internal.repoSnapshots.getRepoSnapshotInternal,
+      { repoSnapshotId: args.repoSnapshotId },
+    );
+    if (!config) return null;
     const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
-      repoId: args.repoId,
+      repoId: config.repoId,
     });
-    if (!repo) throw new Error("Repo not found");
+    if (!repo) return null;
+    const branch = config.workflowRef ?? "main";
+    let lockfileSha: string | null = null;
     try {
-      const sandbox = await createSandbox(
-        daytona,
-        repo.installationId,
-        sandboxEnvVars,
-        WARMING_LIFECYCLE,
-        args.imageSnapshot,
-        undefined,
-        WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
-      );
-      await sandbox.delete();
-      return "available";
-    } catch (err) {
-      console.log(
-        `[snapshot] propagation probe for ${args.imageSnapshot} not ready: ${
-          err instanceof Error ? err.message : String(err)
+      const token = await getInstallationToken(repo.installationId);
+      for (const lockfile of [
+        "pnpm-lock.yaml",
+        "package-lock.json",
+        "yarn.lock",
+      ]) {
+        const resp = await fetch(
+          `https://api.github.com/repos/${repo.owner}/${repo.name}/contents/${lockfile}?ref=${encodeURIComponent(branch)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/vnd.github+json",
+            },
+          },
+        );
+        if (resp.ok) {
+          const data: unknown = await resp.json();
+          if (isRecord(data) && typeof data["sha"] === "string") {
+            lockfileSha = data["sha"];
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.error(
+        `[snapshot] image fingerprint: lockfile lookup failed: ${
+          e instanceof Error ? e.message : String(e)
         }`,
       );
-      return "unavailable";
+      return null;
     }
+    if (!lockfileSha) return null;
+    const fileKeys: string[] = await ctx.runQuery(
+      internal.sandboxConfigFiles.getConfigFileKeys,
+      { repoId: config.repoId },
+    );
+    const payload = JSON.stringify({
+      v: IMAGE_DEF_VERSION,
+      branch,
+      lockfileSha,
+      buildCommands: config.buildCommands ?? [],
+      files: fileKeys,
+    });
+    let hash = 5381;
+    for (let i = 0; i < payload.length; i++) {
+      hash = (hash * 33) ^ payload.charCodeAt(i);
+    }
+    return `img-${(hash >>> 0).toString(36)}-${payload.length}`;
+  },
+});
+
+/**
+ * Seeded-snapshot build — LAUNCH step. Composes the app's whole seed sequence
+ * (startup commands → marker → stop commands) into one bash script and launches
+ * it DETACHED on the prep sandbox (setsid nohup), returning immediately.
+ *
+ * Convex actions have a hard 600s ceiling, so running seed commands
+ * synchronously inside actions caps every command at ~9 minutes — cold docker
+ * pulls and slow readiness waits blew through it repeatedly on prod. Detached,
+ * the script takes as long as it needs; the workflow polls pollSeedRun for the
+ * outcome markers, mirroring the trigger+poll pattern used for captures.
+ */
+export const launchSeedRun = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    // Branch to hard-reset /tmp/repo to (refs must already be fetched — the
+    // workflow runs daytona.fetchBaseBranch first, which owns git auth).
+    branch: v.string(),
+    // Repo build commands (pnpm install / codegen etc), run after the reset so
+    // the captured snapshot carries fresh node_modules and build artifacts.
+    buildCommands: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const startupCommands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getStartupCommands,
+      { repoId: args.repoId },
+    );
+    const backgroundCommands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getBackgroundCommands,
+      { repoId: args.repoId },
+    );
+    const stopCommands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getStopCommands,
+      { repoId: args.repoId },
+    );
+    const requireSupabaseDump = shouldCaptureSupabaseState([
+      ...(startupCommands ?? []),
+      ...(backgroundCommands ?? []),
+      ...(stopCommands ?? []),
+    ]);
+    const lines: string[] = [
+      "#!/bin/bash",
+      "exec > /tmp/seedrun.log 2>&1",
+      "set -x",
+      "rm -f /tmp/.seedrun-done",
+      // ---- update: latest code + fresh deps/artifacts ----
+      'echo "SEEDRUN-STAGE:update"',
+      'cd /tmp/repo || { echo "SEEDRUN-FAILED:no-repo"; exit 1; }',
+      `( git checkout -f ${args.branch} 2>/dev/null || git checkout -fb ${args.branch} origin/${args.branch} ) && git reset --hard origin/${args.branch} || { echo "SEEDRUN-FAILED:git-reset"; exit 1; }`,
+    ];
+    args.buildCommands.forEach((command, i) => {
+      lines.push(
+        `( ${command} ) || { echo "SEEDRUN-FAILED:build-${i}"; exit 1; }`,
+      );
+    });
+    // ---- daemons: launch each background command detached (b64 per command
+    // so quoting inside user commands can never break the script) ----
+    lines.push('echo "SEEDRUN-STAGE:daemons"');
+    (backgroundCommands ?? []).forEach((command, i) => {
+      const cb64 = Buffer.from(command, "utf8").toString("base64");
+      lines.push(
+        `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > /tmp/bg-${i}.log 2>&1 &`,
+      );
+    });
+    // ---- seed ----
+    lines.push('echo "SEEDRUN-STAGE:startup"');
+    (startupCommands ?? []).forEach((command, i) => {
+      // Subshell so `cd`/env in one command can't leak into the next, matching
+      // how runSandboxCommand executed them as separate execs.
+      lines.push(
+        `( ${command} ) || { echo "SEEDRUN-FAILED:startup-${i}"; exit 1; }`,
+      );
+    });
+    lines.push(...seededRuntimeStateCaptureLines(requireSupabaseDump));
+    // Marker so a sandbox booting from the captured snapshot skips the seed.
+    lines.push("touch /tmp/.startup-commands-done");
+    (stopCommands ?? []).forEach((command, i) => {
+      lines.push(
+        `( ${command} ) || { echo "SEEDRUN-FAILED:stop-${i}"; exit 1; }`,
+      );
+    });
+    lines.push('echo "SEEDRUN-DONE"', "touch /tmp/.seedrun-done");
+    const script = lines.join("\n");
+    const b64 = Buffer.from(script, "utf8").toString("base64");
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    // Process-based guard makes the launch idempotent so the workflow can
+    // retry a timed-out launch exec without racing a second copy. It must be
+    // the LIVE process (pgrep, self-match-proof bracket pattern), not a
+    // lockfile: a prep sandbox warm-booted from a previously captured seeded
+    // snapshot carries that capture's marker files baked into /tmp, and a
+    // file-based guard would skip the launch and instantly report the baked
+    // "done" — capturing without ever re-seeding. Stale markers are scrubbed
+    // before every fresh launch for the same reason.
+    await exec(
+      sandbox,
+      `if pgrep -f "[s]eedrun.sh" >/dev/null; then echo ALREADY-RUNNING; else rm -f /tmp/.seedrun-done /tmp/seedrun.log && echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && setsid nohup /tmp/seedrun.sh </dev/null >/dev/null 2>&1 & echo LAUNCHED; fi`,
+      120,
+    );
+    return null;
+  },
+});
+
+/**
+ * Seeded-snapshot build — DIAGNOSTICS step. Returns the tail of the seed-run
+ * log and background daemon logs so a failed seed can be appended to the build
+ * record BEFORE the prep sandbox is torn down (teardown destroys the evidence).
+ */
+export const fetchSeedDiagnostics = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    try {
+      return await exec(
+        sandbox,
+        [
+          'echo "== git state =="',
+          "( cd /tmp/repo && git rev-parse --short HEAD 2>&1; git status -s 2>&1 | head -5 )",
+          'echo "== convex versions =="',
+          "( cd /tmp/repo && npx convex --version 2>&1; ls -la ~/.convex/ 2>&1 | head; ls -la ~/.cache/convex/ 2>&1 | head )",
+          'echo "== 3210 listening? =="',
+          "curl -s -o /dev/null -w 'backend http:%{http_code}\\n' http://127.0.0.1:3210 2>&1 || echo '3210 unreachable'",
+          'echo "== seedrun.log (tail) =="; tail -c 4000 /tmp/seedrun.log 2>/dev/null',
+          'for f in /tmp/bg-*.log; do echo; echo "== $f =="; tail -c 3000 "$f" 2>/dev/null; done',
+          "true",
+        ].join("; "),
+        90,
+      );
+    } catch (e) {
+      return `diagnostics unavailable: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  },
+});
+
+/**
+ * Seeded-snapshot build — SEED POLL step. Returns "done" when the detached
+ * seed script finished cleanly, "failed:<stage>" when it aborted (stage names
+ * the command index, e.g. startup-3), and "running" otherwise.
+ */
+export const pollSeedRun = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const out = await exec(
+      sandbox,
+      'test -f /tmp/.seedrun-done && echo DONE; grep -aoE "SEEDRUN-FAILED:[a-z0-9-]+" /tmp/seedrun.log 2>/dev/null | tail -1; true',
+      30,
+    );
+    if (out.includes("DONE")) return "done";
+    const failed = out.match(/SEEDRUN-FAILED:([a-z0-9-]+)/);
+    if (failed) return `failed:${failed[1]}`;
+    return "running";
   },
 });
 
@@ -581,6 +925,14 @@ export const createSeedPrepSandbox = internalAction({
       repoId: args.repoId,
     });
     if (!repo) throw new Error("Repo not found");
+    const seedPrepLifecycle = {
+      ...SESSION_LIFECYCLE,
+      labels: {
+        "eva.managed": "true",
+        [SEED_PREP_LABEL_KEY]: SEED_PREP_LABEL_VALUE,
+        "eva.repoId": args.repoId,
+      },
+    };
     const { sandbox } = await createSandboxAndPrepareRepo(
       ctx,
       daytona,
@@ -588,8 +940,15 @@ export const createSeedPrepSandbox = internalAction({
       repo.owner,
       repo.name,
       { ...sandboxEnvVars, REPO_ID: args.repoId },
-      SESSION_LIFECYCLE,
+      seedPrepLifecycle,
       args.imageSnapshot,
+      undefined, // volumes
+      undefined, // onSandboxAcquired
+      undefined, // onProgress
+      { mode: "all" }, // syncStrategy
+      // Large seeded snapshots take well over the 30s default to boot; 180s
+      // avoids the spurious create timeout + orphaned sandbox on warm boots.
+      180,
     );
     return { sandboxId: sandbox.id };
   },
@@ -661,5 +1020,101 @@ export const pollSeededSnapshotState = internalAction({
     // Not registered yet (or a transient lookup miss) → treat as still pending.
     const snapshot = await getSnapshot(daytona, args.seededName);
     return snapshot ? snapshot.state : "pending";
+  },
+});
+
+/**
+ * Warms Daytona's create-from-snapshot cache for a newly active seeded snapshot.
+ * The first sandbox from a large seeded filesystem can take several minutes;
+ * paying that cost inside the build makes the next user-created sandbox fast.
+ */
+export const warmSeededSnapshotCache = internalAction({
+  args: {
+    buildId: v.id("snapshotBuilds"),
+    repoId: v.id("githubRepos"),
+    seededName: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+      ctx,
+      args.repoId,
+    );
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) {
+      await ctx.runMutation(
+        internal.repoSnapshots.updateSeededAppWarmupStatus,
+        {
+          buildId: args.buildId,
+          repoId: args.repoId,
+          status: "error",
+          error: "Repo not found",
+        },
+      );
+      return null;
+    }
+
+    const daytona = getDaytona(daytonaApiKey);
+    let sandboxId: string | null = null;
+    try {
+      const sandbox = await createSandbox(
+        daytona,
+        repo.installationId,
+        { ...sandboxEnvVars, REPO_ID: args.repoId },
+        {
+          ...WARMING_LIFECYCLE,
+          labels: {
+            "eva.managed": "true",
+            "eva.purpose": "snapshot-warmup",
+            "eva.repoId": args.repoId,
+            "eva.snapshotName": args.seededName,
+          },
+        },
+        args.seededName,
+        undefined,
+        SEEDED_SNAPSHOT_WARM_READY_TIMEOUT_SECONDS,
+      );
+      sandboxId = sandbox.id;
+      await sandbox.delete();
+      sandboxId = null;
+      await ctx.runMutation(
+        internal.repoSnapshots.updateSeededAppWarmupStatus,
+        {
+          buildId: args.buildId,
+          repoId: args.repoId,
+          status: "success",
+        },
+      );
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk: `[warm ${args.repoId}] warmed ${args.seededName}\n`,
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      await ctx.runMutation(
+        internal.repoSnapshots.updateSeededAppWarmupStatus,
+        {
+          buildId: args.buildId,
+          repoId: args.repoId,
+          status: "error",
+          error: message,
+        },
+      );
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk: `[warm ${args.repoId}] failed for ${args.seededName}: ${message}\n`,
+      });
+      if (sandboxId) {
+        try {
+          const sandbox = await daytona.get(sandboxId);
+          await sandbox.delete();
+        } catch {
+          // Best-effort cleanup only; the warming lifecycle is ephemeral.
+        }
+      }
+    }
+    return null;
   },
 });

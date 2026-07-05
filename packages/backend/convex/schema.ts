@@ -10,8 +10,8 @@ import {
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
-  snapshotWarmupStatusValidator,
   seededAppResultValidator,
+  snapshotWarmupStatusValidator,
   teamMemberRoleValidator,
   webhookEventStatusValidator,
   messageFields,
@@ -265,6 +265,11 @@ const schema = defineSchema({
     cronJobId: v.optional(v.string()),
     workflowRef: v.optional(v.string()),
     buildCommands: v.optional(v.array(v.string())),
+    // Fingerprint of the image inputs (lockfile sha on the build branch,
+    // buildCommands, config-file blobs, image definition version) stored at the
+    // last successful Image build. When unchanged, the build workflow skips the
+    // ~11-15m image rebuild — its output would be byte-identical.
+    imageFingerprint: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),

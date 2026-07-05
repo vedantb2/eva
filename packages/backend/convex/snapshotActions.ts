@@ -39,14 +39,12 @@ function seededRuntimeStateCaptureLines(): string[] {
     'echo "SEEDRUN-STAGE:capture-runtime-state"',
     "mkdir -p /home/eva/.eva-snapshot-state",
     "rm -f /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz",
-    [
-      "if docker ps --filter name=supabase_db_web --filter status=running -q | grep -q .; then",
-      '  ( set -o pipefail; docker exec supabase_db_web pg_dump -U postgres -d postgres --clean --if-exists --no-owner --no-privileges | gzip -1 > /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz ) || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }',
-      "  ls -lh /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz",
-      "else",
-      '  echo "no supabase_db_web container running; skipping Supabase state capture"',
-      "fi",
-    ].join(" "),
+    "if docker ps --filter name=supabase_db_web --filter status=running -q | grep -q .; then",
+    '  ( set -o pipefail; docker exec supabase_db_web pg_dump -U postgres -d postgres --clean --if-exists --no-owner --no-privileges | gzip -1 > /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz ) || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }',
+    "  ls -lh /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz",
+    "else",
+    '  echo "no supabase_db_web container running; skipping Supabase state capture"',
+    "fi",
   ];
 }
 

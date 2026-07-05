@@ -34,6 +34,22 @@ const SEED_PREP_LABEL_KEY = "eva.purpose";
 const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
 const SEEDED_SNAPSHOT_WARM_READY_TIMEOUT_SECONDS = 300;
 
+function seededRuntimeStateCaptureLines(): string[] {
+  return [
+    'echo "SEEDRUN-STAGE:capture-runtime-state"',
+    "mkdir -p /home/eva/.eva-snapshot-state",
+    "rm -f /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz",
+    [
+      "if docker ps --filter name=supabase_db_web --filter status=running -q | grep -q .; then",
+      '  ( set -o pipefail; docker exec supabase_db_web pg_dump -U postgres -d postgres --clean --if-exists --no-owner --no-privileges | gzip -1 > /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz ) || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }',
+      "  ls -lh /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz",
+      "else",
+      '  echo "no supabase_db_web container running; skipping Supabase state capture"',
+      "fi",
+    ].join(" "),
+  ];
+}
+
 // Bump when buildSnapshotImage's content changes (new tools, base image, or
 // layer commands) so existing image fingerprints invalidate and the next build
 // rebuilds the Image even though repo/config inputs are unchanged.
@@ -770,6 +786,7 @@ export const launchSeedRun = internalAction({
         `( ${command} ) || { echo "SEEDRUN-FAILED:startup-${i}"; exit 1; }`,
       );
     });
+    lines.push(...seededRuntimeStateCaptureLines());
     // Marker so a sandbox booting from the captured snapshot skips the seed.
     lines.push("touch /tmp/.startup-commands-done");
     (stopCommands ?? []).forEach((command, i) => {

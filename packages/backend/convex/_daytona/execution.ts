@@ -32,6 +32,7 @@ import { startDesktopWithChrome } from "./desktop";
 import { ensurePreviewNavigationProxy } from "./previewProxy";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
+import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 
 const sessionPersistenceKindValidator = v.union(
   v.literal("sessions"),
@@ -101,6 +102,20 @@ export const startupCommandsMarkerExists = internalAction({
     } catch {
       return false;
     }
+  },
+});
+
+/** Restores service state exported into a seeded snapshot before services boot. */
+export const restoreSeededRuntimeState = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    await restoreSeededRuntimeStateInSandbox(sandbox);
+    return null;
   },
 });
 

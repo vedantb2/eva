@@ -1,5 +1,11 @@
 # Changelog
 
+## Seeded snapshot database restore artifact - 2026-07-05
+
+- Captured a compressed Supabase Postgres dump into the seeded snapshot filesystem after seed commands complete, then restored it once when fresh sandboxes boot from that snapshot.
+- Restored the dump before preview dev servers and workflow background commands start, while leaving non-Supabase and non-seeded snapshots as no-ops.
+- Reason for change: Daytona snapshot creation did not preserve the Supabase Docker volume for fresh sandboxes, so a warmed seeded snapshot could still start with an empty local DB unless the database state was exported as ordinary filesystem data.
+
 ## Preserve seeded snapshot runtime state - 2026-07-05
 
 - Preserved untracked runtime state when booting from a seeded snapshot marker so post-create repo cleanup does not remove stopped local database restore files while still skipping seed commands.

@@ -328,39 +328,16 @@ export async function signAndLaunchScript(
   console.log(
     `[daytona][launch] signAndLaunchScript started entityId=${entityId} mutation=${completionMutation} repoId=${repoId} sandboxId=${sandbox.id}`,
   );
-  const sandboxTokenPromise = ctx
-    .runAction(internal.sandboxJwt.signSandboxToken, { userId })
-    .then((sandboxToken) => {
-      console.log(
-        `[daytona][launch] sandbox token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-      );
-      return sandboxToken;
-    });
-  const mcpTokenPromise =
-    opts.enableMcp === false
-      ? Promise.resolve(undefined)
-      : ctx
-          .runAction(internal.mcp.tokenMinter.mintSandboxMcpToken, {
-            userId,
-            repoId,
-          })
-          .then((mcpToken) => {
-            console.log(
-              `[daytona][launch] MCP token minted in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-            );
-            return mcpToken;
-          })
-          .catch((error) => {
-            console.warn(
-              `[mcp] Continuing without MCP config: ${errorMessage(error, "Failed to mint MCP token")}`,
-            );
-            return undefined;
-          });
-
-  const [sandboxToken, mcpToken] = await Promise.all([
-    sandboxTokenPromise,
-    mcpTokenPromise,
-  ]);
+  // Mint the sandbox auth token and MCP token in a single node action. This
+  // replaces three separate runAction hops across two "use node" isolates, which
+  // cold-started Node twice and dominated launch latency (~3s).
+  const { sandboxToken, mcpToken } = await ctx.runAction(
+    internal.sandboxJwt.mintSandboxSessionTokens,
+    { userId, repoId, enableMcp: opts.enableMcp !== false },
+  );
+  console.log(
+    `[daytona][launch] sandbox + MCP tokens minted in ${Date.now() - launchStartedAt}ms entityId=${entityId} (mcp=${mcpToken ? "yes" : "no"})`,
+  );
 
   const mcpBaseUrl = mcpToken ? (process.env.CONVEX_SITE_URL ?? "") : "";
 

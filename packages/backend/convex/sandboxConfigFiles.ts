@@ -192,3 +192,40 @@ export const getConfigFilesForSnapshot = internalQuery({
     return Array.from(filesByName.values());
   },
 });
+
+/**
+ * Stable identity keys for the config files baked into a snapshot — same
+ * sibling aggregation as getConfigFilesForSnapshot but returns
+ * `fileName:fileSize:chunkIds` strings (storage ids are immutable, unlike the
+ * signed chunk URLs). Used to fingerprint image/seed inputs for skip decisions.
+ */
+export const getConfigFileKeys = internalQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const anchorRepo = await ctx.db.get(args.repoId);
+    if (!anchorRepo) return [];
+    const siblings = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", anchorRepo.owner).eq("name", anchorRepo.name),
+      )
+      .collect();
+    const keysByName = new Map<string, string>();
+    for (const sibling of siblings) {
+      const files = await ctx.db
+        .query("sandboxConfigFiles")
+        .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
+        .collect();
+      for (const file of files) {
+        const chunkIds =
+          file.chunks ?? (file.storageId ? [file.storageId] : []);
+        keysByName.set(
+          file.fileName,
+          `${file.fileName}:${file.fileSize}:${chunkIds.join(",")}`,
+        );
+      }
+    }
+    return Array.from(keysByName.values()).sort();
+  },
+});

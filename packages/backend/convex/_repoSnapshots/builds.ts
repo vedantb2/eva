@@ -5,6 +5,8 @@ import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
   snapshotWarmupStatusValidator,
+  seededAppResultValidator,
+  seededAppStatusValidator,
 } from "../validators";
 import { authQuery, authMutation } from "../functions";
 import { workflow } from "../workflowManager";
@@ -30,6 +32,7 @@ export const listBuilds = authQuery({
       retryCount: v.optional(v.number()),
       warmupStatus: v.optional(snapshotWarmupStatusValidator),
       warmupError: v.optional(v.string()),
+      seededApps: v.optional(v.array(seededAppResultValidator)),
     }),
   ),
   handler: async (ctx, args) => {
@@ -62,6 +65,7 @@ export const getBuild = authQuery({
       retryCount: v.optional(v.number()),
       warmupStatus: v.optional(snapshotWarmupStatusValidator),
       warmupError: v.optional(v.string()),
+      seededApps: v.optional(v.array(seededAppResultValidator)),
     }),
     v.null(),
   ),
@@ -83,7 +87,14 @@ export const getBuildStatus = internalQuery({
 
 /** Cron-triggered handler that starts a new snapshot build if none is currently running. */
 export const triggerScheduledBuild = internalMutation({
-  args: { repoSnapshotId: v.id("repoSnapshots") },
+  args: {
+    repoSnapshotId: v.id("repoSnapshots"),
+    // For operational debugging: keep the existing cron entry point but record
+    // the build as manual so completeBuild does not enqueue cron retries.
+    disableRetries: v.optional(v.boolean()),
+    forceImageRebuild: v.optional(v.boolean()),
+    forceBaseSeed: v.optional(v.boolean()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const config = await ctx.db.get(args.repoSnapshotId);
@@ -113,7 +124,7 @@ export const triggerScheduledBuild = internalMutation({
     const buildId = await ctx.db.insert("snapshotBuilds", {
       repoSnapshotId: args.repoSnapshotId,
       status: "running",
-      triggeredBy: "cron",
+      triggeredBy: args.disableRetries === true ? "manual" : "cron",
       logs: "",
       startedAt: now,
     });
@@ -121,9 +132,50 @@ export const triggerScheduledBuild = internalMutation({
     await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
       buildId,
       repoSnapshotId: args.repoSnapshotId,
+      forceImageRebuild: args.forceImageRebuild,
+      forceBaseSeed: args.forceBaseSeed,
     });
 
     return null;
+  },
+});
+
+/**
+ * Internal: all sandbox ids with a real product owner. Credential-helper rows
+ * are intentionally excluded: they are implementation detail rows created for
+ * every sandbox, including leaked seed-prep sandboxes.
+ */
+export const listReferencedSandboxIds = internalQuery({
+  args: {},
+  returns: v.array(v.string()),
+  handler: async (ctx) => {
+    const ids: string[] = [];
+    const add = (sandboxId: string | undefined): void => {
+      if (sandboxId && !ids.includes(sandboxId)) ids.push(sandboxId);
+    };
+
+    const tasks = await ctx.db.query("agentTasks").collect();
+    for (const task of tasks) add(task.sandboxId);
+
+    const runs = await ctx.db.query("agentRuns").collect();
+    for (const run of runs) add(run.sandboxId);
+
+    const sessions = await ctx.db.query("sessions").collect();
+    for (const session of sessions) add(session.sandboxId);
+
+    const projects = await ctx.db.query("projects").collect();
+    for (const project of projects) add(project.sandboxId);
+
+    const designSessions = await ctx.db.query("designSessions").collect();
+    for (const session of designSessions) add(session.sandboxId);
+
+    const docs = await ctx.db.query("docs").collect();
+    for (const doc of docs) add(doc.sandboxId);
+
+    const automationRuns = await ctx.db.query("automationRuns").collect();
+    for (const run of automationRuns) add(run.sandboxId);
+
+    return ids;
   },
 });
 
@@ -173,7 +225,7 @@ export const startBuild = authMutation({
   },
 });
 
-/** Marks a build as complete (success/error), triggers warmup on success or retries on cron failure. */
+/** Marks a build as complete (success/error); retries on cron failure. */
 export const completeBuild = internalMutation({
   args: {
     buildId: v.id("snapshotBuilds"),
@@ -195,16 +247,6 @@ export const completeBuild = internalMutation({
       error: args.error,
       completedAt: Date.now(),
     });
-    if (args.status === "success") {
-      const snapshot = await ctx.db.get(build.repoSnapshotId);
-      if (snapshot) {
-        await ctx.db.patch(args.buildId, { warmupStatus: "pending" });
-        await ctx.scheduler.runAfter(0, internal.daytona.warmSnapshotCache, {
-          repoId: snapshot.repoId,
-          buildId: args.buildId,
-        });
-      }
-    }
     if (
       args.status === "error" &&
       build.triggeredBy === "cron" &&
@@ -233,25 +275,6 @@ export const completeBuild = internalMutation({
   },
 });
 
-/** Updates the warmup status and optional error for a snapshot build. */
-export const updateWarmupStatus = internalMutation({
-  args: {
-    buildId: v.id("snapshotBuilds"),
-    status: snapshotWarmupStatusValidator,
-    error: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const build = await ctx.db.get(args.buildId);
-    if (!build) return null;
-    await ctx.db.patch(args.buildId, {
-      warmupStatus: args.status,
-      warmupError: args.error,
-    });
-    return null;
-  },
-});
-
 /** Appends a log chunk to an existing snapshot build record. */
 export const appendLogs = internalMutation({
   args: {
@@ -264,6 +287,86 @@ export const appendLogs = internalMutation({
     if (!build) return null;
     await ctx.db.patch(args.buildId, {
       logs: build.logs + args.chunk,
+    });
+    return null;
+  },
+});
+
+/**
+ * Records a single app's seeding outcome on a build (called during Step 5).
+ * seededSnapshotName is the captured snapshot name on success, or null when the
+ * app fell back to the base Image. Replaces any prior entry for the same repo so
+ * the operation is idempotent under workflow retries.
+ */
+export const recordSeededApp = internalMutation({
+  args: {
+    buildId: v.id("snapshotBuilds"),
+    repoId: v.id("githubRepos"),
+    status: seededAppStatusValidator,
+    seededSnapshotName: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return null;
+    const repo = await ctx.db.get(args.repoId);
+    const seededApps = [
+      ...(build.seededApps ?? []).filter((a) => a.repoId !== args.repoId),
+      {
+        repoId: args.repoId,
+        app: repo?.rootDirectory,
+        status: args.status,
+        seededSnapshotName: args.seededSnapshotName,
+      },
+    ];
+    await ctx.db.patch(args.buildId, { seededApps });
+    return null;
+  },
+});
+
+/** Updates a seeded app's cache-warm status without changing its seed outcome. */
+export const updateSeededAppWarmupStatus = internalMutation({
+  args: {
+    buildId: v.id("snapshotBuilds"),
+    repoId: v.id("githubRepos"),
+    status: snapshotWarmupStatusValidator,
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return null;
+    const seededApps = (build.seededApps ?? []).map((app) => {
+      if (app.repoId !== args.repoId) return app;
+      return {
+        repoId: app.repoId,
+        app: app.app,
+        status: app.status,
+        seededSnapshotName: app.seededSnapshotName,
+        warmupStatus: args.status,
+        warmupError: args.error,
+      };
+    });
+    const seededEntries = seededApps.filter((app) => app.status === "seeded");
+    const warmupStatus: "pending" | "success" | "error" | undefined =
+      seededApps.some((app) => app.status === "running")
+        ? "pending"
+        : seededEntries.some((app) => app.warmupStatus === "error")
+          ? "error"
+          : seededEntries.some(
+                (app) => !app.warmupStatus || app.warmupStatus === "pending",
+              )
+            ? "pending"
+            : seededEntries.length > 0
+              ? "success"
+              : undefined;
+    const warmupError = seededEntries.find(
+      (app) => app.warmupStatus === "error" && app.warmupError,
+    )?.warmupError;
+    await ctx.db.patch(args.buildId, {
+      seededApps,
+      warmupStatus,
+      warmupError,
     });
     return null;
   },

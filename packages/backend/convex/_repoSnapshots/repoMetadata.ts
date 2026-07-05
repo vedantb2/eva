@@ -23,6 +23,17 @@ export const getBackgroundCommands = internalQuery({
   },
 });
 
+/** Returns the clean-stop commands for a repo/app, if any. */
+export const getStopCommands = internalQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.union(v.array(v.string()), v.null()),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) return null;
+    return repo.stopCommands ?? null;
+  },
+});
+
 /** Internal query to get GitHub repo metadata (owner, name, installationId). */
 export const getRepo = internalQuery({
   args: { repoId: v.id("githubRepos") },

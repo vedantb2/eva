@@ -645,14 +645,45 @@ export const launchSeedRun = internalAction({
     const script = lines.join("\n");
     const b64 = Buffer.from(script, "utf8").toString("base64");
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    // Lockfile guard makes the launch idempotent so the workflow can retry a
-    // timed-out launch exec without racing a second copy of the script.
+    // Process-based guard makes the launch idempotent so the workflow can
+    // retry a timed-out launch exec without racing a second copy. It must be
+    // the LIVE process (pgrep, self-match-proof bracket pattern), not a
+    // lockfile: a prep sandbox warm-booted from a previously captured seeded
+    // snapshot carries that capture's marker files baked into /tmp, and a
+    // file-based guard would skip the launch and instantly report the baked
+    // "done" — capturing without ever re-seeding. Stale markers are scrubbed
+    // before every fresh launch for the same reason.
     await exec(
       sandbox,
-      `if [ -f /tmp/.seedrun-started ]; then echo ALREADY-RUNNING; else touch /tmp/.seedrun-started && echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && setsid nohup /tmp/seedrun.sh </dev/null >/dev/null 2>&1 & echo LAUNCHED; fi`,
+      `if pgrep -f "[s]eedrun.sh" >/dev/null; then echo ALREADY-RUNNING; else rm -f /tmp/.seedrun-done /tmp/seedrun.log && echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && setsid nohup /tmp/seedrun.sh </dev/null >/dev/null 2>&1 & echo LAUNCHED; fi`,
       120,
     );
     return null;
+  },
+});
+
+/**
+ * Seeded-snapshot build — DIAGNOSTICS step. Returns the tail of the seed-run
+ * log and background daemon logs so a failed seed can be appended to the build
+ * record BEFORE the prep sandbox is torn down (teardown destroys the evidence).
+ */
+export const fetchSeedDiagnostics = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    try {
+      return await exec(
+        sandbox,
+        'echo "== seedrun.log (tail) =="; tail -c 3000 /tmp/seedrun.log 2>/dev/null; for f in /tmp/bg-*.log; do echo; echo "== $f (tail) =="; tail -c 1000 "$f" 2>/dev/null; done; true',
+        60,
+      );
+    } catch (e) {
+      return `diagnostics unavailable: ${e instanceof Error ? e.message : String(e)}`;
+    }
   },
 });
 

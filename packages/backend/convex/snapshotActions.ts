@@ -645,10 +645,12 @@ export const launchSeedRun = internalAction({
     const script = lines.join("\n");
     const b64 = Buffer.from(script, "utf8").toString("base64");
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    // Lockfile guard makes the launch idempotent so the workflow can retry a
+    // timed-out launch exec without racing a second copy of the script.
     await exec(
       sandbox,
-      `echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && setsid nohup /tmp/seedrun.sh </dev/null >/dev/null 2>&1 & echo LAUNCHED`,
-      30,
+      `if [ -f /tmp/.seedrun-started ]; then echo ALREADY-RUNNING; else touch /tmp/.seedrun-started && echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && setsid nohup /tmp/seedrun.sh </dev/null >/dev/null 2>&1 & echo LAUNCHED; fi`,
+      120,
     );
     return null;
   },

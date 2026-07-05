@@ -363,10 +363,17 @@ export const snapshotBuildWorkflow = workflow.define({
         // per-action ceiling repeatedly killed the previous per-command-step
         // approach on prod. A failure marker throws -> caught below -> the app
         // keeps its previous snapshot (we never capture a half-seeded DB).
-        await step.runAction(internal.snapshotActions.launchSeedRun, {
-          sandboxId: prepSandboxId,
-          repoId: app.repoId,
-        });
+        // Launch is idempotent (lockfile-guarded), so retries can't race a
+        // second copy of the script — a slow sandbox session setup just gets
+        // another attempt.
+        await step.runAction(
+          internal.snapshotActions.launchSeedRun,
+          {
+            sandboxId: prepSandboxId,
+            repoId: app.repoId,
+          },
+          { retry: { maxAttempts: 3, initialBackoffMs: 10000, base: 2 } },
+        );
         let seedState = "running";
         for (
           let pollAttempt = 1;

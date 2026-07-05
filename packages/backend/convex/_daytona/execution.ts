@@ -251,6 +251,58 @@ export const runBackgroundCommands = internalAction({
   },
 });
 
+/**
+ * Runs a repo's clean-stop commands (e.g. `supabase stop`, `pkill convex dev`)
+ * sequentially, foreground, so on-disk volumes flush before a filesystem
+ * snapshot. Used only by the seeded-snapshot build; never on normal starts.
+ * Non-fatal per command so a partial stop still lets the snapshot proceed.
+ */
+export const runStopCommands = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({
+    ran: v.boolean(),
+    commandCount: v.number(),
+    errors: v.array(v.string()),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ ran: boolean; commandCount: number; errors: string[] }> => {
+    const commands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getStopCommands,
+      { repoId: args.repoId },
+    );
+
+    if (!commands || commands.length === 0) {
+      return { ran: false, commandCount: 0, errors: [] };
+    }
+
+    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+
+    console.log(
+      `[daytona] runStopCommands: running ${commands.length} stop command(s)`,
+    );
+
+    const errors: string[] = [];
+    for (const command of commands) {
+      console.log(`[daytona] runStopCommands: running: ${command}`);
+      try {
+        await exec(sandbox, command, 300);
+        console.log(`[daytona] runStopCommands: completed: ${command}`);
+      } catch (e) {
+        const msg = errorMessage(e, "command failed");
+        console.error(`[daytona] runStopCommands: failed: ${command}`, msg);
+        errors.push(`${command}: ${msg}`);
+      }
+    }
+
+    return { ran: true, commandCount: commands.length, errors };
+  },
+});
+
 /** Returns a signed preview URL for a sandbox port, optionally checking readiness. */
 export const getPreviewUrl = action({
   args: {

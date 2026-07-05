@@ -3,14 +3,28 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { resolveAllEnvVars } from "./envVarResolver";
+import { resolveAllEnvVars, resolveDaytonaApiKey } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import {
   getDaytona,
   buildConfigFileDownloadCommands,
   filterDownloadableConfigFiles,
+  WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
   type SandboxConfigFile,
 } from "./_daytona/helpers";
+import {
+  createSandbox,
+  createSandboxAndPrepareRepo,
+  SESSION_LIFECYCLE,
+  WARMING_LIFECYCLE,
+} from "./_daytona/git";
+import {
+  getSnapshot,
+  deleteSnapshotByName,
+  waitForSnapshotRemoval,
+  triggerSandboxSnapshot,
+} from "./_daytona/snapshots";
+import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
 import { Image } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
 
@@ -373,11 +387,16 @@ export const pollSnapshotProgress = internalAction({
     }
 
     const daytona = getDaytona(daytonaApiKey);
-    const snapshot = await daytona.snapshot.get(args.snapshotName);
-    const state = String(snapshot.state);
+    const snapshot = await getSnapshot(daytona, args.snapshotName);
+    if (!snapshot) {
+      // The base snapshot was just kicked off, so a missing one is unexpected;
+      // throw so the workflow step fails (matches the prior get-throws path).
+      throw new Error(`Snapshot ${args.snapshotName} not found`);
+    }
+    const state = snapshot.state;
 
     // Terminal states: fetch build logs and complete the build
-    if (state === "active" || state === "error" || state === "build_failed") {
+    if (isTerminalSnapshotState(state)) {
       // Fetch full build logs from the Daytona API (only on terminal state to avoid wasted calls).
       // Both the URL endpoint AND the returned log-stream URL require Bearer auth.
       let logs = "";
@@ -415,9 +434,7 @@ export const pollSnapshotProgress = internalAction({
         return "active";
       }
 
-      const reason = snapshot.errorReason
-        ? String(snapshot.errorReason)
-        : "Unknown error";
+      const reason = snapshot.errorReason || "Unknown error";
       await ctx.runMutation(internal.repoSnapshots.completeBuild, {
         buildId: args.buildId,
         status: "error",
@@ -466,26 +483,13 @@ export const deleteExistingSnapshot = internalAction({
 
     const daytona = getDaytona(daytonaApiKey);
 
-    try {
-      const existing = await daytona.snapshot.get(args.snapshotName);
-      await daytona.snapshot.delete(existing);
-
+    const deleted = await deleteSnapshotByName(daytona, args.snapshotName);
+    if (deleted) {
       await ctx.runMutation(internal.repoSnapshots.appendLogs, {
         buildId: args.buildId,
         chunk: "Deleting existing snapshot, waiting for removal...\n",
       });
-
-      // Poll until the snapshot is fully removed (get throws on not-found)
-      for (let i = 0; i < 30; i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        try {
-          await daytona.snapshot.get(args.snapshotName);
-        } catch {
-          break;
-        }
-      }
-    } catch {
-      // Snapshot doesn't exist — nothing to delete
+      await waitForSnapshotRemoval(daytona, args.snapshotName);
     }
 
     return null;
@@ -507,12 +511,155 @@ export const deleteDaytonaSnapshot = internalAction({
     }
 
     const daytona = getDaytona(daytonaApiKey);
-    try {
-      const snapshot = await daytona.snapshot.get(args.snapshotName);
-      await daytona.snapshot.delete(snapshot);
-    } catch {
-      // Snapshot may not exist
-    }
+    await deleteSnapshotByName(daytona, args.snapshotName);
     return null;
+  },
+});
+
+/**
+ * Propagation probe: boots ONE cheap ephemeral sandbox from the base Image
+ * snapshot, then deletes it. A freshly-built snapshot is not immediately
+ * available on Daytona runners (propagation lag), so `daytona.create` returns
+ * "No available runners" until propagation completes. The seeded-snapshot
+ * workflow calls this in a poll loop BEFORE fanning out per-app seed-prep
+ * sandboxes, so the expensive seed work only starts once the snapshot is
+ * actually bootable. Returns "available" on a successful create+delete, or
+ * "unavailable" on any create failure (never throws on the create itself — the
+ * workflow owns the retry loop). A successful probe also warms the cache.
+ */
+export const probeSnapshotAvailability = internalAction({
+  args: { repoId: v.id("githubRepos"), imageSnapshot: v.string() },
+  returns: v.union(v.literal("available"), v.literal("unavailable")),
+  handler: async (ctx, args): Promise<"available" | "unavailable"> => {
+    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+      ctx,
+      args.repoId,
+    );
+    const daytona = getDaytona(daytonaApiKey);
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+    try {
+      const sandbox = await createSandbox(
+        daytona,
+        repo.installationId,
+        sandboxEnvVars,
+        WARMING_LIFECYCLE,
+        args.imageSnapshot,
+        undefined,
+        WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
+      );
+      await sandbox.delete();
+      return "available";
+    } catch (err) {
+      console.log(
+        `[snapshot] propagation probe for ${args.imageSnapshot} not ready: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return "unavailable";
+    }
+  },
+});
+
+/**
+ * Seeded-snapshot build step: creates + prepares a sandbox from the base Image
+ * snapshot (NOT a seeded one — passed explicitly to bypass the seeded preference
+ * in getRepoSnapshotName), ready to run the app's background/seed/stop commands.
+ */
+export const createSeedPrepSandbox = internalAction({
+  args: { repoId: v.id("githubRepos"), imageSnapshot: v.string() },
+  returns: v.object({ sandboxId: v.string() }),
+  handler: async (ctx, args): Promise<{ sandboxId: string }> => {
+    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+      ctx,
+      args.repoId,
+    );
+    const daytona = getDaytona(daytonaApiKey);
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+    const { sandbox } = await createSandboxAndPrepareRepo(
+      ctx,
+      daytona,
+      repo.installationId,
+      repo.owner,
+      repo.name,
+      { ...sandboxEnvVars, REPO_ID: args.repoId },
+      SESSION_LIFECYCLE,
+      args.imageSnapshot,
+    );
+    return { sandboxId: sandbox.id };
+  },
+});
+
+// Trigger timeout (seconds) for the seeded-snapshot capture. The SDK's
+// _experimental_createSnapshot fires the POST then blocks polling the sandbox
+// state until the capture finishes OR this timeout elapses. We keep it small so
+// the trigger action returns quickly (the snapshot keeps building server-side)
+// and the workflow polls completion across separate steps — see
+// triggerSeededSnapshot. Comfortable for the POST; short enough to never near
+// Convex's 600s per-action ceiling.
+const SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC = 30;
+
+/**
+ * Seeded-snapshot build — TRIGGER step. Captures the (clean-stopped) sandbox's
+ * filesystem — including the seeded Docker volumes — into a reusable snapshot.
+ *
+ * Non-blocking by design: a seeded snapshot carries the whole seeded DB volume
+ * and its capture routinely runs for many minutes. The SDK helper blocks the
+ * caller polling the sandbox state for the entire capture, which exceeds
+ * Convex's hard 600s action limit — the action gets killed mid-await (the
+ * "unawaited operation" warning) and the app silently drops to the base Image.
+ * Instead we fire the POST with a short timeout so the helper bails fast with a
+ * DaytonaTimeoutError (the snapshot keeps building server-side), then poll
+ * completion in separate workflow steps via pollSeededSnapshotState. Any
+ * non-timeout error is a real failure and propagates to the per-app fallback.
+ */
+export const triggerSeededSnapshot = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    sandboxId: v.string(),
+    seededName: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    await triggerSandboxSnapshot(
+      daytona,
+      args.sandboxId,
+      args.seededName,
+      SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
+    );
+    return null;
+  },
+});
+
+/**
+ * Seeded-snapshot build — POLL step. Returns the snapshot entity's current state
+ * ("active" on success, "error"/"build_failed" on failure, otherwise still
+ * building; "pending" if it is not registered yet).
+ *
+ * We poll the SNAPSHOT entity, not the sandbox state: a sandbox snapshot can
+ * reach "active" while the source sandbox still reports "snapshotting", so a
+ * sandbox-state poll can wait out the whole window and wrongly record a fallback
+ * for a snapshot that actually succeeded. The snapshot's own state is the
+ * authoritative signal — the same one the base-Image build polls.
+ */
+export const pollSeededSnapshotState = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    seededName: v.string(),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytona(daytonaApiKey);
+    // Not registered yet (or a transient lookup miss) → treat as still pending.
+    const snapshot = await getSnapshot(daytona, args.seededName);
+    return snapshot ? snapshot.state : "pending";
   },
 });

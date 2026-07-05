@@ -66,7 +66,12 @@ const REPO_CLONE_TIMEOUT_SECONDS = 300;
 const PNPM_INSTALL_TIMEOUT_SECONDS = 900;
 const YARN_INSTALL_TIMEOUT_SECONDS = 900;
 const NPM_INSTALL_TIMEOUT_SECONDS = 900;
-const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 90;
+// Seeded running-sandbox snapshots (~10GB) take ~4 min to become ready when
+// restored with persistence volumes attached — observed ~235s in prod. 90s was
+// far too short and timed out session/task creates before the snapshot was up
+// (leaving an orphaned server-side sandbox). 300s gives headroom over the
+// observed restore time.
+const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 300;
 
 // Daytona built-in snapshot with 4 vCPU, 8 GiB RAM, 10 GiB disk.
 // Used as fallback when a repo has no custom snapshot.

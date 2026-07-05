@@ -1,5 +1,10 @@
 # Changelog
 
+## Preserve seeded snapshot runtime state - 2026-07-05
+
+- Preserved untracked runtime state when booting from a seeded snapshot marker so post-create repo cleanup does not remove stopped local database restore files while still skipping seed commands.
+- Reason for change: fresh sandboxes could boot from the correct seeded snapshot but start an empty Supabase DB if `git clean -fd` removed the snapshot's untracked local-service state before background services restarted.
+
 ## Seeded snapshot config restore and warm-up fix - 2026-07-05
 
 - Force-restored baked sandbox config files when creating fresh session/task/project sandboxes from seeded snapshots so the app keeps the DB connection and seed files captured during the snapshot build.

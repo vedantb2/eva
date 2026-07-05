@@ -688,7 +688,14 @@ export async function checkoutFetchedBaseBranch(
   });
 }
 
-/** Resets the snapshot worktree to a clean state via hard reset and clean. */
+/**
+ * Resets tracked files from a snapshot worktree.
+ *
+ * Seeded runtime snapshots carry /tmp/.startup-commands-done and may also carry
+ * untracked local-service state used to restore stopped databases. In that case
+ * preserve untracked files; deleting them makes the sandbox skip seeding while
+ * starting from an empty DB.
+ */
 export async function normalizeSnapshotWorktree(
   sandbox: Sandbox,
 ): Promise<void> {
@@ -699,7 +706,7 @@ export async function normalizeSnapshotWorktree(
     async () => {
       await execGitCommand(
         sandbox,
-        `cd ${workspaceDir} && git reset --hard HEAD && git clean -fd`,
+        `cd ${workspaceDir} && git reset --hard HEAD && if [ -f /tmp/.startup-commands-done ]; then echo "seeded snapshot marker found; preserving untracked runtime state"; else git clean -fd; fi`,
         60,
       );
     },

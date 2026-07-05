@@ -608,10 +608,11 @@ export const sweepSeedPrepSandboxes = internalAction({
     const limit = 100;
 
     while (true) {
-      const result = await daytona.list({
-        page: String(page),
-        limit: String(limit),
-      });
+      // SDK signature is list(labels?, page?, limit?). Passing {page,limit} as
+      // the first arg made it a labels filter (JSON-stringified), matching no
+      // sandboxes — so this sweep silently listed nothing and never cleaned up.
+      // Pass labels=undefined to list all; page/limit are numbers.
+      const result = await daytona.list(undefined, page, limit);
       const items = result.items;
       scanned += items.length;
 
@@ -705,10 +706,11 @@ export const sweepOrphanSandboxes = internalAction({
     const limit = 100;
 
     while (true) {
-      const result = await daytona.list({
-        page: String(page),
-        limit: String(limit),
-      });
+      // SDK signature is list(labels?, page?, limit?). Passing {page,limit} as
+      // the first arg made it a labels filter (JSON-stringified), matching no
+      // sandboxes — so this sweep silently listed nothing and never cleaned up.
+      // Pass labels=undefined to list all; page/limit are numbers.
+      const result = await daytona.list(undefined, page, limit);
       const items = result.items;
       scanned += items.length;
 

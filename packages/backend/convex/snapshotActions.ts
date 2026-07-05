@@ -65,7 +65,7 @@ function seededRuntimeStateCaptureLines(
     'if [ "$REQUIRE_SUPABASE_DUMP" = "1" ]; then',
     "  for i in $(seq 1 240); do docker exec supabase_db_web pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done",
     '  docker exec supabase_db_web pg_isready -U postgres >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }',
-    '  ( set -o pipefail; docker exec supabase_db_web pg_dump -U postgres -d postgres --clean --if-exists --no-owner --no-privileges | gzip -1 > /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz ) || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }',
+    '  ( set -o pipefail; docker exec supabase_db_web pg_dump -U postgres -d postgres --schema=public --data-only --no-owner --no-privileges | gzip -1 > /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz ) || { echo "SEEDRUN-FAILED:capture-runtime-state"; exit 1; }',
     "  ls -lh /home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz",
     "fi",
   ];

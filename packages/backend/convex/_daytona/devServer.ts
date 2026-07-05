@@ -147,6 +147,7 @@ export async function restoreSeededRuntimeState(
       "  sleep 1",
       "done",
       "docker exec supabase_db_web pg_isready -U postgres >/dev/null 2>&1",
+      `docker exec supabase_db_web psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "DO \\$\\$ DECLARE tables text; BEGIN SELECT string_agg(format('%I.%I', schemaname, tablename), ', ') INTO tables FROM pg_tables WHERE schemaname = 'public'; IF tables IS NOT NULL THEN EXECUTE 'TRUNCATE TABLE ' || tables || ' CASCADE'; END IF; END \\$\\$;" >/tmp/eva-supabase-db-web-truncate.log 2>&1 || { tail -120 /tmp/eva-supabase-db-web-truncate.log; exit 1; }`,
       `gzip -dc ${SUPABASE_DUMP_PATH} | docker exec -i supabase_db_web psql -U postgres -d postgres -v ON_ERROR_STOP=1 >/tmp/eva-supabase-db-web-restore.log 2>&1 || { tail -120 /tmp/eva-supabase-db-web-restore.log; exit 1; }`,
       `touch ${SUPABASE_RESTORE_MARKER}`,
       'echo "restored supabase_db_web from seeded snapshot dump"',

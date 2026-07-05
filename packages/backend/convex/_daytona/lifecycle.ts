@@ -3,17 +3,7 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import {
-  exec,
-  resolveSandboxContext,
-  getSandbox,
-  sleep,
-  WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
-} from "./helpers";
-import { createSandbox, WARMING_LIFECYCLE } from "./git";
-
-const MAX_WARMUP_RETRIES = 2;
-const WARMUP_RETRY_DELAY_MS = 5_000;
+import { exec, getSandbox } from "./helpers";
 
 /**
  * Short wait window for the start kick-off. A stopped→started fast resume
@@ -35,67 +25,6 @@ const CALLBACK_LIVENESS_COMMAND = [
 /** Agent CLI still running even if callback PID bookkeeping is stale. */
 const AGENT_PROCESS_LIVENESS_COMMAND =
   "pgrep -f 'claude-code|cursor-agent|codex run|opencode run|/\\.claude/' >/dev/null 2>&1";
-
-/** Warms the Daytona snapshot cache for a repo by creating and immediately deleting a sandbox, with retries. */
-export const warmSnapshotCache = internalAction({
-  args: {
-    repoId: v.id("githubRepos"),
-    buildId: v.id("snapshotBuilds"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const { daytona, sandboxEnvVars, snapshotName } =
-      await resolveSandboxContext(ctx, args.repoId);
-    if (!snapshotName) return null;
-    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
-      repoId: args.repoId,
-    });
-    if (!repo) return null;
-
-    let lastError = "";
-    for (let attempt = 0; attempt <= MAX_WARMUP_RETRIES; attempt++) {
-      try {
-        if (attempt > 0) {
-          console.log(
-            `[daytona] Warmup retry ${attempt}/${MAX_WARMUP_RETRIES} for ${repo.owner}/${repo.name}`,
-          );
-          await sleep(WARMUP_RETRY_DELAY_MS);
-        }
-        const sandbox = await createSandbox(
-          daytona,
-          repo.installationId,
-          sandboxEnvVars,
-          WARMING_LIFECYCLE,
-          snapshotName,
-          undefined,
-          WARMING_SANDBOX_READY_TIMEOUT_SECONDS,
-        );
-        await sandbox.delete();
-        console.log(
-          `[daytona] Warmed snapshot cache for ${repo.owner}/${repo.name}`,
-        );
-        await ctx.runMutation(internal.repoSnapshots.updateWarmupStatus, {
-          buildId: args.buildId,
-          status: "success",
-        });
-        return null;
-      } catch (err) {
-        lastError = err instanceof Error ? err.message : String(err);
-        console.error(
-          `[daytona] warmSnapshotCache attempt ${attempt + 1} failed:`,
-          lastError,
-        );
-      }
-    }
-
-    await ctx.runMutation(internal.repoSnapshots.updateWarmupStatus, {
-      buildId: args.buildId,
-      status: "error",
-      error: lastError,
-    });
-    return null;
-  },
-});
 
 /**
  * Verifies whether a sandbox and its callback runner are alive.

@@ -30,6 +30,7 @@ export function AppClient() {
 
   const startupCommands = repo.startupCommands?.join("\n") ?? "";
   const backgroundCommands = repo.backgroundCommands?.join("\n") ?? "";
+  const stopCommands = repo.stopCommands?.join("\n") ?? "";
 
   const handleDevPortBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const raw = e.target.value.trim();
@@ -67,6 +68,12 @@ export function AppClient() {
     const next = e.target.value;
     if (next === backgroundCommands) return;
     updateConfig({ repoId, backgroundCommands: parseCommandLines(next) });
+  };
+
+  const handleStopCommandsBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    const next = e.target.value;
+    if (next === stopCommands) return;
+    updateConfig({ repoId, stopCommands: parseCommandLines(next) });
   };
 
   const handleSystemPromptBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -154,9 +161,11 @@ export function AppClient() {
               placeholder="npx supabase start&#10;psql -h localhost -p 54322 -U postgres -d postgres < /home/eva/sandbox-config/seed.sql"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              One command per line. Runs once when sandbox first starts (after
-              snapshot loads). Use for services like <code>supabase start</code>{" "}
-              or database seeding. Commands have a 10-minute timeout each.
+              One command per line. Runs <strong>once</strong> per sandbox (a
+              marker is left, so it is skipped on resume and baked into a seeded
+              snapshot). Use for one-time data <strong>seeding</strong> that
+              depends on services being up — put the services themselves in
+              Background Commands. Commands have a 10-minute timeout each.
             </p>
           </div>
         </div>
@@ -182,6 +191,27 @@ export function AppClient() {
               redirect. Commands respawn every time the sandbox starts or
               resumes. Use for daemons like <code>npx convex dev</code>. Output
               is written to <code>/tmp/bg-&lt;index&gt;.log</code>.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-muted/40 p-3 space-y-4 sm:p-4">
+          <h3 className="text-sm font-medium">Stop Commands</h3>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Clean-shutdown commands run before snapshotting a seeded sandbox
+            </label>
+            <textarea
+              key={`stop-${repoId}`}
+              defaultValue={stopCommands}
+              onBlur={handleStopCommandsBlur}
+              className="w-full h-32 rounded-md bg-background px-3 py-2 font-mono text-xs resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              placeholder="pkill -TERM -f 'convex dev'&#10;pnpm stop-db"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              One command per line. Run by the seeded-snapshot build before the
+              filesystem snapshot is taken, so on-disk volumes (e.g. local
+              Postgres) flush consistently. Not run on normal sandbox starts.
             </p>
           </div>
         </div>

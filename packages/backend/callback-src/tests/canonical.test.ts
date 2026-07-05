@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  parseToCanonical,
-  applyCanonicalEvents,
-  updateResponseStep,
-  updateReasoningStep,
-} from "../parse/canonical.js";
+import { parseToCanonical, applyCanonicalEvents } from "../parse/canonical.js";
 import {
   callbackState as S,
   getPendingQuestionForTest,
+  parsePriorStepForTest,
   resetStateForTests,
 } from "../runtime/state.js";
 
@@ -75,57 +71,74 @@ test("tool_result clears in-flight tool by tool_use_id", () => {
   resetStateForTests();
 });
 
-test("updateResponseStep appends deltas to the active response step", () => {
+test("append_text updates streamed content without adding activity steps", () => {
   resetStateForTests();
-  updateResponseStep("Hello");
-  updateResponseStep(" world");
-  assert.equal(S.accumulatedSteps.length, 1);
-  const step = S.accumulatedSteps[0];
-  assert.equal(step.type, "response");
-  assert.equal(step.status, "active");
-  assert.equal(step.detail, "Hello world");
+  applyCanonicalEvents([{ kind: "append_text", text: "Hello" }]);
+  applyCanonicalEvents([{ kind: "append_text", text: " world" }]);
+  assert.equal(S.accumulatedSteps.length, 0);
+  assert.equal(S.currentStreamedContent, "Hello world");
   resetStateForTests();
 });
 
-test("updateResponseStep replaces detail on cumulative snapshots", () => {
+test("append_text replaces streamed content on cumulative snapshots", () => {
   resetStateForTests();
-  updateResponseStep("Hello");
-  updateResponseStep("Hello world");
-  assert.equal(S.accumulatedSteps.length, 1);
-  assert.equal(S.accumulatedSteps[0].detail, "Hello world");
-  resetStateForTests();
-});
-
-test("updateResponseStep starts a new step after the prior one completed", () => {
-  resetStateForTests();
-  updateResponseStep("First turn");
-  applyCanonicalEvents([{ kind: "mark_last_complete" }]);
-  updateResponseStep("Second turn");
-  assert.equal(S.accumulatedSteps.length, 2);
-  assert.equal(S.accumulatedSteps[0].status, "complete");
-  assert.equal(S.accumulatedSteps[1].status, "active");
-  assert.equal(S.accumulatedSteps[1].detail, "Second turn");
+  applyCanonicalEvents([{ kind: "append_text", text: "Hello" }]);
+  applyCanonicalEvents([{ kind: "append_text", text: "Hello world" }]);
+  assert.equal(S.accumulatedSteps.length, 0);
+  assert.equal(S.currentStreamedContent, "Hello world");
   resetStateForTests();
 });
 
-test("updateReasoningStep merges into an active reasoning step", () => {
+test("update_reasoning is transient and does not add activity steps", () => {
   resetStateForTests();
-  updateReasoningStep("Thinking about ");
-  updateReasoningStep("Thinking about the plan");
-  assert.equal(S.accumulatedSteps.length, 1);
-  assert.equal(S.accumulatedSteps[0].type, "reasoning");
-  assert.equal(S.accumulatedSteps[0].detail, "Thinking about the plan");
+  applyCanonicalEvents([{ kind: "update_reasoning", text: "pondering" }]);
+  assert.equal(S.accumulatedSteps.length, 0);
   assert.equal(S.lastStepType, "thinking");
   resetStateForTests();
 });
 
-test("applyCanonicalEvents update_reasoning routes to a reasoning step", () => {
+test("thinking push_step is transient and does not add activity steps", () => {
   resetStateForTests();
-  applyCanonicalEvents([{ kind: "update_reasoning", text: "pondering" }]);
-  assert.equal(S.accumulatedSteps.length, 1);
-  assert.equal(S.accumulatedSteps[0].type, "reasoning");
-  assert.equal(S.accumulatedSteps[0].detail, "pondering");
+  applyCanonicalEvents([
+    {
+      kind: "push_step",
+      step: {
+        type: "thinking",
+        label: "Finalizing response...",
+        status: "active",
+      },
+    },
+  ]);
+  assert.equal(S.accumulatedSteps.length, 0);
+  assert.equal(S.lastStepType, "thinking");
   resetStateForTests();
+});
+
+test("parsePriorStepForTest ignores transient activity rows", () => {
+  assert.equal(
+    parsePriorStepForTest({
+      type: "thinking",
+      label: "Preparing Codex session...",
+      status: "active",
+    }),
+    null,
+  );
+  assert.equal(
+    parsePriorStepForTest({
+      type: "reasoning",
+      label: "Thinking...",
+      status: "active",
+    }),
+    null,
+  );
+  assert.equal(
+    parsePriorStepForTest({
+      type: "response",
+      label: "Streaming response...",
+      status: "active",
+    }),
+    null,
+  );
 });
 
 test("parseToCanonical codex reasoning item routes to update_reasoning", () => {
@@ -178,14 +191,4 @@ test("parseToCanonical cursor thinking block routes to update_reasoning", () => 
     kind: "update_reasoning",
     text: "hmm let me see",
   });
-});
-
-test("applyCanonicalEvents append_text routes to a response step", () => {
-  resetStateForTests();
-  applyCanonicalEvents([{ kind: "append_text", text: "hi there" }]);
-  assert.equal(S.accumulatedSteps.length, 1);
-  assert.equal(S.accumulatedSteps[0].type, "response");
-  assert.equal(S.accumulatedSteps[0].detail, "hi there");
-  assert.equal(S.currentStreamedContent, "hi there");
-  resetStateForTests();
 });

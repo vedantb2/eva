@@ -77,19 +77,7 @@ try {
   /* unprivileged or non-Linux — ignore */
 }
 
-S.accumulatedSteps.push({
-  type: "thinking",
-  label:
-    PROVIDER === "codex"
-      ? "Preparing Codex session..."
-      : PROVIDER === "opencode"
-        ? "Preparing Opencode session..."
-        : PROVIDER === "cursor"
-          ? "Preparing Cursor session..."
-          : "Preparing Claude session...",
-  detail: "Initializing callback...",
-  status: "active",
-});
+S.lastStepType = "thinking";
 
 const preflightOk = await runPreflightHeartbeat();
 

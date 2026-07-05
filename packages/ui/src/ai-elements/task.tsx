@@ -77,7 +77,7 @@ export function TaskItem({ className, ...props }: TaskItemProps) {
   );
 }
 
-export type TaskItemFileProps = ComponentProps<"div">;
+export type TaskItemFileProps = ComponentProps<"span">;
 
 export function TaskItemFile({
   className,
@@ -85,15 +85,15 @@ export function TaskItemFile({
   ...props
 }: TaskItemFileProps) {
   return (
-    <div
+    <span
       className={cn(
-        "flex w-fit max-w-full items-center gap-1.5 rounded-md border border-border bg-secondary px-1.5 py-0.5 font-mono text-xs text-foreground",
+        "inline-flex w-fit max-w-full items-center gap-1.5 rounded-md border border-border bg-secondary px-1.5 py-0.5 font-mono text-xs text-foreground",
         className,
       )}
       {...props}
     >
       <FileIcon className="size-3 shrink-0" />
       <span className="truncate">{children}</span>
-    </div>
+    </span>
   );
 }

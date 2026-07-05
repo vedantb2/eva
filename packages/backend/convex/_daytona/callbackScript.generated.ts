@@ -378,6 +378,9 @@ function parsePriorStep(value) {
   if (typeof label !== "string" || typeof type !== "string") {
     return null;
   }
+  if (type === "thinking" || type === "reasoning" || type === "response") {
+    return null;
+  }
   const detail = value.detail;
   return {
     type,
@@ -1945,51 +1948,21 @@ function markLastComplete() {
   }
 }
 function updateThinkingStep(label, detail) {
-  const lastStep = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
-  if (lastStep && lastStep.type === "thinking" && lastStep.label === label) {
-    lastStep.status = "active";
-    lastStep.type = "thinking";
-    lastStep.detail = detail;
-    callbackState.lastStepType = "thinking";
+  void label;
+  void detail;
+  callbackState.lastStepType = "thinking";
+}
+function shouldRecordProgressStep(step) {
+  return step.type !== "thinking" && step.type !== "reasoning" && step.type !== "response";
+}
+function pushProgressStep(step) {
+  if (!shouldRecordProgressStep(step)) {
+    updateThinkingStep(step.label, step.detail);
     return;
   }
   markLastComplete();
-  callbackState.accumulatedSteps.push({
-    type: "thinking",
-    label,
-    detail,
-    status: "active"
-  });
-  callbackState.lastStepType = "thinking";
-}
-var STREAMED_DETAIL_MAX_CHARS = 2e4;
-function capDetail(text) {
-  return text.length > STREAMED_DETAIL_MAX_CHARS ? text.slice(text.length - STREAMED_DETAIL_MAX_CHARS) : text;
-}
-function updateTextStep(type, label, text) {
-  const lastStep = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
-  if (lastStep && lastStep.type === type && lastStep.status === "active") {
-    const existing = lastStep.detail ?? "";
-    lastStep.detail = capDetail(
-      text.startsWith(existing) ? text : existing + text
-    );
-    callbackState.lastStepType = "thinking";
-    return;
-  }
-  markLastComplete();
-  callbackState.accumulatedSteps.push({
-    type,
-    label,
-    detail: capDetail(text),
-    status: "active"
-  });
-  callbackState.lastStepType = "thinking";
-}
-function updateResponseStep(text) {
-  updateTextStep("response", "Streaming response...", text);
-}
-function updateReasoningStep(text) {
-  updateTextStep("reasoning", "Thinking...", text);
+  callbackState.accumulatedSteps.push(step);
+  callbackState.lastStepType = "tool";
 }
 function parseToCanonical(event, provider = PROVIDER) {
   if (provider === "cursor") return cursorParseLine(event);
@@ -2005,10 +1978,8 @@ function applyCanonicalEvents(events) {
         updateThinkingStep(ev.label, ev.detail);
         break;
       case "push_step":
-        markLastComplete();
-        callbackState.accumulatedSteps.push(ev.step);
-        callbackState.lastStepType = ev.step.type === "thinking" ? "thinking" : "tool";
-        if (ev.step.type !== "thinking") {
+        pushProgressStep(ev.step);
+        if (shouldRecordProgressStep(ev.step)) {
           if (ev.trackingId) callbackState.codexToolItemIds.add(ev.trackingId);
           callbackState.inFlightToolUses++;
         }
@@ -2027,10 +1998,9 @@ function applyCanonicalEvents(events) {
         break;
       case "append_text":
         appendStreamedContent(ev.text);
-        updateResponseStep(ev.text);
         break;
       case "update_reasoning":
-        updateReasoningStep(ev.text);
+        callbackState.lastStepType = "thinking";
         break;
       case "set_pending_question":
         callbackState.pendingQuestionData = ev.data;
@@ -3038,12 +3008,7 @@ try {
   writeFileSync10("/proc/self/oom_score_adj", "-600");
 } catch {
 }
-callbackState.accumulatedSteps.push({
-  type: "thinking",
-  label: PROVIDER === "codex" ? "Preparing Codex session..." : PROVIDER === "opencode" ? "Preparing Opencode session..." : PROVIDER === "cursor" ? "Preparing Cursor session..." : "Preparing Claude session...",
-  detail: "Initializing callback...",
-  status: "active"
-});
+callbackState.lastStepType = "thinking";
 var preflightOk = await runPreflightHeartbeat();
 if (!preflightOk) {
   writeDoneFile("preflight-failed");

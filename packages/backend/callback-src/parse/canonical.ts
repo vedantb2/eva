@@ -29,72 +29,29 @@ export function markLastComplete(): void {
   }
 }
 
-/** Updates or adds a thinking step in the accumulated steps list. */
+/** Thinking is a transient liveness signal, not a durable activity row. */
 export function updateThinkingStep(label: string, detail?: string): void {
-  const lastStep = S.accumulatedSteps[S.accumulatedSteps.length - 1];
-  if (lastStep && lastStep.type === "thinking" && lastStep.label === label) {
-    lastStep.status = "active";
-    lastStep.type = "thinking";
-    lastStep.detail = detail;
-    S.lastStepType = "thinking";
-    return;
-  }
-  markLastComplete();
-  S.accumulatedSteps.push({
-    type: "thinking",
-    label,
-    detail,
-    status: "active",
-  });
+  void label;
+  void detail;
   S.lastStepType = "thinking";
 }
 
-/** Max chars kept in a streamed "response"/"reasoning" step detail. Older
- * text is dropped from the head so the tail (most recent content) survives. */
-const STREAMED_DETAIL_MAX_CHARS = 20000;
-
-function capDetail(text: string): string {
-  return text.length > STREAMED_DETAIL_MAX_CHARS
-    ? text.slice(text.length - STREAMED_DETAIL_MAX_CHARS)
-    : text;
+function shouldRecordProgressStep(step: ProgressStep): boolean {
+  return (
+    step.type !== "thinking" &&
+    step.type !== "reasoning" &&
+    step.type !== "response"
+  );
 }
 
-/** Merges incoming text into an accumulated step of the given `type`,
- * de-duping cumulative-snapshot providers from delta-streaming ones (mirrors
- * `appendStreamedContent`'s prefix logic). Creates a new active step if the
- * last accumulated step isn't already an active step of this type. */
-function updateTextStep(
-  type: "response" | "reasoning",
-  label: string,
-  text: string,
-): void {
-  const lastStep = S.accumulatedSteps[S.accumulatedSteps.length - 1];
-  if (lastStep && lastStep.type === type && lastStep.status === "active") {
-    const existing = lastStep.detail ?? "";
-    lastStep.detail = capDetail(
-      text.startsWith(existing) ? text : existing + text,
-    );
-    S.lastStepType = "thinking";
+function pushProgressStep(step: ProgressStep): void {
+  if (!shouldRecordProgressStep(step)) {
+    updateThinkingStep(step.label, step.detail);
     return;
   }
   markLastComplete();
-  S.accumulatedSteps.push({
-    type,
-    label,
-    detail: capDetail(text),
-    status: "active",
-  });
-  S.lastStepType = "thinking";
-}
-
-/** Updates or adds the streamed response-text step. */
-export function updateResponseStep(text: string): void {
-  updateTextStep("response", "Streaming response...", text);
-}
-
-/** Updates or adds the streamed reasoning-text step. */
-export function updateReasoningStep(text: string): void {
-  updateTextStep("reasoning", "Thinking...", text);
+  S.accumulatedSteps.push(step);
+  S.lastStepType = "tool";
 }
 
 /** Provider-specific canonical events via adapter parseLine. */
@@ -117,10 +74,8 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         updateThinkingStep(ev.label, ev.detail);
         break;
       case "push_step":
-        markLastComplete();
-        S.accumulatedSteps.push(ev.step);
-        S.lastStepType = ev.step.type === "thinking" ? "thinking" : "tool";
-        if (ev.step.type !== "thinking") {
+        pushProgressStep(ev.step);
+        if (shouldRecordProgressStep(ev.step)) {
           if (ev.trackingId) S.codexToolItemIds.add(ev.trackingId);
           S.inFlightToolUses++;
         }
@@ -139,10 +94,9 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         break;
       case "append_text":
         appendStreamedContent(ev.text);
-        updateResponseStep(ev.text);
         break;
       case "update_reasoning":
-        updateReasoningStep(ev.text);
+        S.lastStepType = "thinking";
         break;
       case "set_pending_question":
         S.pendingQuestionData = ev.data;

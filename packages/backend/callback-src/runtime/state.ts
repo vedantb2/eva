@@ -11,6 +11,9 @@ function parsePriorStep(value: JsonValue): ProgressStep | null {
   if (typeof label !== "string" || typeof type !== "string") {
     return null;
   }
+  if (type === "thinking" || type === "reasoning" || type === "response") {
+    return null;
+  }
   const detail = value.detail;
   return {
     type,
@@ -19,6 +22,8 @@ function parsePriorStep(value: JsonValue): ProgressStep | null {
     status: "complete",
   };
 }
+
+export const parsePriorStepForTest = parsePriorStep;
 
 type ClaudeSessionMode = "none" | "session" | "resume";
 
@@ -164,6 +169,7 @@ export function resetStateForTests(): void {
   callbackState.claudeInitAt = 0;
   callbackState.resultEventSeen = false;
   callbackState.parsedStreamEventCount = 0;
+  callbackState.currentStreamedContent = "";
 }
 
 export function setFatalHeartbeatForTest(message: string): void {

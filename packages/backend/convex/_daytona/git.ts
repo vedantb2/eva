@@ -36,7 +36,6 @@ export type SandboxLifecycle = {
   autoArchiveInterval?: number;
   autoDeleteInterval?: number;
   ephemeral?: boolean;
-  labels?: Record<string, string>;
 };
 
 export type RepoSyncStrategy =
@@ -312,7 +311,6 @@ export async function createSandbox(
 
     const commonParams = {
       ...(volumes ? { volumes } : {}),
-      ...(lifecycle.labels ? { labels: lifecycle.labels } : {}),
       envVars: {
         // VNC_RESOLUTION is read by the snapshot's ComputerUse plugin at startup
         // (Xvfb + x11vnc). Setting it here makes the desktop start at 1920x1080
@@ -688,14 +686,7 @@ export async function checkoutFetchedBaseBranch(
   });
 }
 
-/**
- * Resets tracked files from a snapshot worktree.
- *
- * Seeded runtime snapshots carry /tmp/.startup-commands-done and may also carry
- * untracked local-service state used to restore stopped databases. In that case
- * preserve untracked files; deleting them makes the sandbox skip seeding while
- * starting from an empty DB.
- */
+/** Resets the snapshot worktree to a clean state via hard reset and clean. */
 export async function normalizeSnapshotWorktree(
   sandbox: Sandbox,
 ): Promise<void> {
@@ -706,7 +697,7 @@ export async function normalizeSnapshotWorktree(
     async () => {
       await execGitCommand(
         sandbox,
-        `cd ${workspaceDir} && git reset --hard HEAD && if [ -f /tmp/.startup-commands-done ]; then echo "seeded snapshot marker found; preserving untracked runtime state"; else git clean -fd; fi`,
+        `cd ${workspaceDir} && git reset --hard HEAD && git clean -fd`,
         60,
       );
     },
@@ -716,20 +707,15 @@ export async function normalizeSnapshotWorktree(
 /** Copies baked sandbox config files into the codebase root after git cleanup. */
 export async function copySandboxConfigFilesToWorkspace(
   sandbox: Sandbox,
-  options?: { force?: boolean },
 ): Promise<void> {
   const workspaceDir = workspaceDirShell();
-  const markerGuard =
-    options?.force === true
-      ? ""
-      : 'if [ -f /tmp/.startup-commands-done ]; then echo "startup commands already ran; skipping sandbox-config copy"; exit 0; fi; ';
   await runLoggedGitStep(
     "copySandboxConfigFilesToWorkspace",
     WORKSPACE_DIR,
     async () => {
       await execGitCommand(
         sandbox,
-        `${markerGuard}if [ -d /home/eva/sandbox-config ] && find /home/eva/sandbox-config -mindepth 1 -maxdepth 1 | read first; then cp -a /home/eva/sandbox-config/. ${workspaceDir}/; fi`,
+        `if [ -f /tmp/.startup-commands-done ]; then echo "startup commands already ran; skipping sandbox-config copy"; exit 0; fi; if [ -d /home/eva/sandbox-config ] && find /home/eva/sandbox-config -mindepth 1 -maxdepth 1 | read first; then cp -a /home/eva/sandbox-config/. ${workspaceDir}/; fi`,
         30,
       );
     },
@@ -941,11 +927,6 @@ export async function createSandboxAndPrepareRepo(
   onSandboxAcquired?: (sandbox: Sandbox) => Promise<void>,
   onProgress?: (label: string) => Promise<void>,
   syncStrategy: RepoSyncStrategy = { mode: "all" },
-  // Override the SDK create-ready wait. Large seeded snapshots (~10GB) take
-  // well over the 30s default to start, so callers that boot from them (seeded
-  // snapshot builds) pass a longer value to avoid spurious create timeouts +
-  // the orphaned sandboxes they leave server-side.
-  readyTimeoutSeconds?: number,
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
   let sandbox: Sandbox | undefined;
   try {
@@ -964,7 +945,6 @@ export async function createSandboxAndPrepareRepo(
             lifecycle,
             effectiveSnapshot,
             volumes,
-            readyTimeoutSeconds,
           );
         } catch (err) {
           if (effectiveSnapshot && isSnapshotUnusableError(err)) {
@@ -981,7 +961,6 @@ export async function createSandboxAndPrepareRepo(
               lifecycle,
               undefined,
               volumes,
-              readyTimeoutSeconds,
             );
           } else {
             throw err;
@@ -1000,7 +979,7 @@ export async function createSandboxAndPrepareRepo(
             if (onProgress) await onProgress("Syncing repository...");
             await syncRepo(sandbox, owner, name, syncStrategy);
           }
-          await copySandboxConfigFilesToWorkspace(sandbox, { force: true });
+          await copySandboxConfigFilesToWorkspace(sandbox);
           return { sandbox, usedSnapshot: true };
         }
         if (lifecycle.ephemeral && syncStrategy.mode === "none") {

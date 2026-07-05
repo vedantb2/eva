@@ -17,7 +17,6 @@ import {
   runStatusValidator,
   sessionModeValidator,
   sessionStatusValidator,
-  snapshotWarmupStatusValidator,
   taskActivityFieldValidator,
   taskSandboxEventValidator,
   taskSandboxStatusValidator,
@@ -181,28 +180,6 @@ export const repoSkillFields = {
   createdAt: v.number(),
 };
 
-// Lifecycle of a single app's seeded-snapshot build within Step 5: actively
-// seeding, captured successfully, or fell back to the base Image.
-export const seededAppStatusValidator = v.union(
-  v.literal("running"),
-  v.literal("seeded"),
-  v.literal("fallback"),
-);
-
-// Per-app outcome of a seeded-snapshot build (recorded per snapshotBuild during
-// Step 5). status tracks the lifecycle (running while in progress); is optional
-// for build records created before the field existed (treat absent as terminal,
-// inferred from seededSnapshotName). seededSnapshotName is the captured snapshot
-// name on success, or null while running / when it fell back to the base Image.
-export const seededAppResultValidator = v.object({
-  repoId: v.id("githubRepos"),
-  app: v.optional(v.string()),
-  status: v.optional(seededAppStatusValidator),
-  seededSnapshotName: v.union(v.string(), v.null()),
-  warmupStatus: v.optional(snapshotWarmupStatusValidator),
-  warmupError: v.optional(v.string()),
-});
-
 export const githubRepoFields = {
   owner: v.string(),
   name: v.string(),
@@ -227,19 +204,8 @@ export const githubRepoFields = {
   screenshotsVideosEnabled: v.optional(v.boolean()),
   startupCommands: v.optional(v.array(v.string())),
   backgroundCommands: v.optional(v.array(v.string())),
-  // Clean-shutdown commands run before snapshotting a seeded sandbox so on-disk
-  // volumes (e.g. local Postgres) flush consistently. Used by the seeded-snapshot
-  // build stage; not run on normal sandbox starts.
   stopCommands: v.optional(v.array(v.string())),
-  // Name of this app's seeded running-sandbox snapshot (filesystem snapshot with
-  // the DB already seeded), set by the seeded-snapshot build when it succeeds.
-  // Preferred over the base Image snapshot at sandbox-create time for fast starts.
   seededSnapshotName: v.optional(v.string()),
-  // Fingerprint of the seed inputs (startup/background/stop commands + config
-  // file blobs) captured when seededSnapshotName was built. When unchanged, the
-  // build workflow skips re-seeding — the existing snapshot's data is identical
-  // and re-capturing it would only contend with the image build.
-  seededFingerprint: v.optional(v.string()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   systemPrompt: v.optional(v.string()),

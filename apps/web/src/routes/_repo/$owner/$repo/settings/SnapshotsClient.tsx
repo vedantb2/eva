@@ -28,7 +28,6 @@ import {
 } from "@/lib/components/CronScheduleCard";
 import {
   IconCamera,
-  IconCheck,
   IconPlayerPlay,
   IconTrash,
   IconUpload,
@@ -52,10 +51,6 @@ export function SnapshotsClient({
   const snapshot = useQuery(api.repoSnapshots.getRepoSnapshot, { repoId });
   const builds = useQuery(
     api.repoSnapshots.listBuilds,
-    snapshot ? { repoSnapshotId: snapshot._id } : "skip",
-  );
-  const seededApps = useQuery(
-    api.repoSnapshots.getSeededAppStatus,
     snapshot ? { repoSnapshotId: snapshot._id } : "skip",
   );
   const saveRepoSnapshot = useMutation(api.repoSnapshots.saveRepoSnapshot);
@@ -128,26 +123,6 @@ export function SnapshotsClient({
   const isRunning =
     builds && builds.length > 0 && builds[0].status === "running";
   const lastBuild = builds && builds.length > 0 ? builds[0] : null;
-  // Base image is marked success before Step 5 seeding runs, so "in progress"
-  // must also cover an ongoing seed (any app still in the "running" state).
-  const isSeeding = (lastBuild?.seededApps ?? []).some(
-    (a) => a.status === "running",
-  );
-  const seedingRepoIds = new Set(
-    (lastBuild?.seededApps ?? [])
-      .filter((a) => a.status === "running")
-      .map((a) => a.repoId),
-  );
-  const warmupByRepoId = new Map(
-    (lastBuild?.seededApps ?? []).map((app) => [
-      app.repoId,
-      {
-        seededSnapshotName: app.seededSnapshotName,
-        warmupStatus: app.warmupStatus,
-        warmupError: app.warmupError,
-      },
-    ]),
-  );
 
   const handleSnapshotsTabChange = useCallback(
     (value: string) => {
@@ -284,141 +259,75 @@ export function SnapshotsClient({
 
         <TabsContent value="status" className="space-y-6">
           {snapshot ? (
-            <>
-              <div className="rounded-surface border border-border bg-card p-4 space-y-3">
-                <h3 className="text-sm font-medium">Current Status</h3>
-                <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 sm:gap-4">
-                  <div>
-                    <span className="text-muted-foreground">Snapshot Name</span>
-                    <p className="font-mono mt-0.5">{snapshot.snapshotName}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Schedule</span>
-                    <p className="mt-0.5">
-                      {snapshot.schedule === "manual"
-                        ? "Manual"
-                        : (() => {
-                            const result = describeCron(snapshot.schedule);
-                            return result.valid
-                              ? result.text
-                              : snapshot.schedule;
-                          })()}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Clone Branch</span>
-                    <p className="font-mono mt-0.5">
-                      {snapshot.workflowRef ?? "main"}
-                    </p>
-                  </div>
-                  {lastBuild && (
-                    <>
-                      <div>
-                        <span className="text-muted-foreground">
-                          Last Build
-                        </span>
-                        <p className="mt-0.5">
-                          {new Date(lastBuild.startedAt).toLocaleDateString(
-                            "en-GB",
-                            {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            },
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Status</span>
-                        <p className="mt-0.5">
-                          <BuildStatusBadge status={lastBuild.status} />
-                        </p>
-                      </div>
-                    </>
-                  )}
+            <div className="rounded-surface border border-border bg-card p-4 space-y-3">
+              <h3 className="text-sm font-medium">Current Status</h3>
+              <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 sm:gap-4">
+                <div>
+                  <span className="text-muted-foreground">Snapshot Name</span>
+                  <p className="font-mono mt-0.5">{snapshot.snapshotName}</p>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={handleRebuild}
-                  disabled={building || isRunning || isSeeding}
-                >
-                  {building || isRunning || isSeeding ? (
-                    <Spinner size="sm" className="mr-1.5" />
-                  ) : (
-                    <IconPlayerPlay size={14} className="mr-1.5" />
-                  )}
-                  {building || isRunning
-                    ? "Building..."
-                    : isSeeding
-                      ? "Seeding..."
-                      : "Rebuild Now"}
-                </Button>
-              </div>
-              <div className="rounded-lg bg-muted/40 p-4 space-y-3">
-                <h3 className="text-sm font-medium">Seeded Snapshots</h3>
-                <p className="text-xs text-muted-foreground">
-                  Per-app running-sandbox snapshots with the DB already seeded.
-                  Apps without one fall back to the base Image (slower cold
-                  start).
-                </p>
-                {seededApps === undefined ? (
-                  <p className="text-xs text-muted-foreground">Loading…</p>
-                ) : seededApps.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    No seedable apps for this snapshot.
+                <div>
+                  <span className="text-muted-foreground">Schedule</span>
+                  <p className="mt-0.5">
+                    {snapshot.schedule === "manual"
+                      ? "Manual"
+                      : (() => {
+                          const result = describeCron(snapshot.schedule);
+                          return result.valid ? result.text : snapshot.schedule;
+                        })()}
                   </p>
-                ) : (
-                  <div className="space-y-2 text-xs">
-                    {seededApps.map((app) => {
-                      const warmup = warmupByRepoId.get(app.repoId);
-                      const warmupMatchesSnapshot =
-                        app.seededSnapshotName !== null &&
-                        warmup?.seededSnapshotName === app.seededSnapshotName;
-                      return (
-                        <div
-                          key={app.repoId}
-                          className="flex items-start justify-between gap-3"
-                        >
-                          <span className="font-medium shrink-0">
-                            {app.app ?? app.name}
-                          </span>
-                          {seedingRepoIds.has(app.repoId) ? (
-                            <span className="inline-flex shrink-0 items-center gap-1 text-blue-500">
-                              <Spinner size="sm" />
-                              Seeding…
-                            </span>
-                          ) : app.seededSnapshotName ? (
-                            <span className="inline-flex min-w-0 items-start gap-1 text-green-500">
-                              <IconCheck
-                                size={12}
-                                className="mt-0.5 shrink-0"
-                              />
-                              <span className="min-w-0 space-y-1">
-                                <span className="block font-mono break-all">
-                                  {app.seededSnapshotName}
-                                </span>
-                                {warmupMatchesSnapshot && (
-                                  <WarmupStatusBadge
-                                    status={warmup.warmupStatus}
-                                    error={warmup.warmupError}
-                                  />
-                                )}
-                              </span>
-                            </span>
-                          ) : (
-                            <span className="shrink-0 text-muted-foreground">
-                              Using base Image
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Clone Branch</span>
+                  <p className="font-mono mt-0.5">
+                    {snapshot.workflowRef ?? "main"}
+                  </p>
+                </div>
+                {lastBuild && (
+                  <>
+                    <div>
+                      <span className="text-muted-foreground">Last Build</span>
+                      <p className="mt-0.5">
+                        {new Date(lastBuild.startedAt).toLocaleDateString(
+                          "en-GB",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Status</span>
+                      <p className="mt-0.5">
+                        <BuildStatusBadge status={lastBuild.status} />
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Warmup</span>
+                      <p className="mt-0.5">
+                        <WarmupStatusBadge status={lastBuild.warmupStatus} />
+                      </p>
+                    </div>
+                  </>
                 )}
               </div>
-            </>
+              <Button
+                size="sm"
+                onClick={handleRebuild}
+                disabled={building || isRunning}
+              >
+                {isRunning ? (
+                  <Spinner size="sm" className="mr-1.5" />
+                ) : (
+                  <IconPlayerPlay size={14} className="mr-1.5" />
+                )}
+                {isRunning ? "Building..." : "Rebuild Now"}
+              </Button>
+            </div>
           ) : (
             <div className="rounded-surface border border-border bg-card p-8 text-center">
               <p className="text-sm text-muted-foreground">
@@ -447,7 +356,6 @@ export function SnapshotsClient({
                       <th className="px-2 py-2 font-medium sm:px-4">Trigger</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Status</th>
                       <th className="px-2 py-2 font-medium sm:px-4">Warmup</th>
-                      <th className="px-2 py-2 font-medium sm:px-4">Seeded</th>
                     </tr>
                   </thead>
                   <tbody>

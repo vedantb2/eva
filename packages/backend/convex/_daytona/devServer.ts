@@ -1,11 +1,7 @@
 "use node";
 
 import type { Sandbox } from "@daytonaio/sdk";
-import { ensureDockerDaemon, exec, workspaceDirShell } from "./helpers";
-
-const SUPABASE_DUMP_PATH =
-  "/home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz";
-const SUPABASE_RESTORE_MARKER = "/tmp/.eva-supabase-db-web-restored";
+import { exec, workspaceDirShell } from "./helpers";
 
 /** Detects the package manager (pnpm, yarn, or npm) by checking lock files. */
 export async function detectPackageManager(
@@ -91,8 +87,6 @@ export async function startSessionServices(
   rootDir: string,
   overrides?: { devPort?: number; devCommand?: string },
 ): Promise<{ port: number; devCommand: string }> {
-  await restoreSeededRuntimeState(sandbox);
-
   const port =
     overrides?.devPort !== undefined
       ? overrides.devPort
@@ -108,52 +102,6 @@ export async function startSessionServices(
     : workspaceDirShell();
   const devCommand = `cd ${dir} && PORT=${port} ${pm} run dev`;
   return { port, devCommand };
-}
-
-/** Restores service state that was exported into a seeded snapshot filesystem. */
-export async function restoreSeededRuntimeState(
-  sandbox: Sandbox,
-): Promise<void> {
-  try {
-    await exec(sandbox, `test -f ${SUPABASE_DUMP_PATH}`, 5);
-  } catch {
-    return;
-  }
-
-  try {
-    await exec(sandbox, `test -f ${SUPABASE_RESTORE_MARKER}`, 5);
-    return;
-  } catch {
-    // No marker means this fresh sandbox still needs its local service state.
-  }
-
-  await ensureDockerDaemon(sandbox);
-  await exec(
-    sandbox,
-    [
-      "set -e",
-      "set -o pipefail",
-      "cd /tmp/repo",
-      "if docker ps --filter name=supabase_db_web --filter status=running -q | grep -q .; then",
-      '  echo "supabase_db_web already running"',
-      "elif docker ps -a --filter name=supabase_db_web -q | grep -q .; then",
-      "  docker start supabase_db_web >/dev/null",
-      '  echo "started existing supabase_db_web"',
-      "else",
-      "  pnpm start-db",
-      "fi",
-      "for i in $(seq 1 240); do",
-      "  if docker exec supabase_db_web pg_isready -U postgres >/dev/null 2>&1; then break; fi",
-      "  sleep 1",
-      "done",
-      "docker exec supabase_db_web pg_isready -U postgres >/dev/null 2>&1",
-      `docker exec supabase_db_web psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "DO \\$\\$ DECLARE tables text; BEGIN SELECT string_agg(format('%I.%I', schemaname, tablename), ', ') INTO tables FROM pg_tables WHERE schemaname = 'public'; IF tables IS NOT NULL THEN EXECUTE 'TRUNCATE TABLE ' || tables || ' CASCADE'; END IF; END \\$\\$;" >/tmp/eva-supabase-db-web-truncate.log 2>&1 || { tail -120 /tmp/eva-supabase-db-web-truncate.log; exit 1; }`,
-      `gzip -dc ${SUPABASE_DUMP_PATH} | docker exec -i supabase_db_web psql -U postgres -d postgres -v ON_ERROR_STOP=1 >/tmp/eva-supabase-db-web-restore.log 2>&1 || { tail -120 /tmp/eva-supabase-db-web-restore.log; exit 1; }`,
-      `touch ${SUPABASE_RESTORE_MARKER}`,
-      'echo "restored supabase_db_web from seeded snapshot dump"',
-    ].join("; "),
-    600,
-  );
 }
 
 /** Stable default terminal pane id — must match `sandboxPanes.defaultPane`. */

@@ -1,6 +1,7 @@
 "use node";
 
 export {
+  warmSnapshotCache,
   killSandboxProcess,
   stopSandbox,
   deleteSandbox,
@@ -13,11 +14,9 @@ export {
 
 export {
   runSandboxCommand,
-  restoreSeededRuntimeState,
   runStartupCommands,
   startupCommandsMarkerExists,
   runBackgroundCommands,
-  runStopCommands,
   getPreviewUrl,
   prepareSandbox,
   createOrResumeSandbox,

@@ -5,12 +5,6 @@ export {
   saveRepoSnapshot,
   setSnapshotEnabled,
   deleteRepoSnapshot,
-  getSeedableAppRepos,
-  getOrphanedSeededApps,
-  getSeededAppStatus,
-  setSeededSnapshotName,
-  getSeedFingerprint,
-  setImageFingerprint,
 } from "./_repoSnapshots/config";
 
 export {
@@ -20,15 +14,12 @@ export {
   triggerScheduledBuild,
   startBuild,
   completeBuild,
+  updateWarmupStatus,
   appendLogs,
-  recordSeededApp,
-  updateSeededAppWarmupStatus,
-  listReferencedSandboxIds,
 } from "./_repoSnapshots/builds";
 
 export {
   getStartupCommands,
   getBackgroundCommands,
-  getStopCommands,
   getRepo,
 } from "./_repoSnapshots/repoMetadata";

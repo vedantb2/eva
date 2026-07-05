@@ -10,7 +10,6 @@ import {
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
-  seededAppResultValidator,
   snapshotWarmupStatusValidator,
   teamMemberRoleValidator,
   webhookEventStatusValidator,
@@ -265,11 +264,6 @@ const schema = defineSchema({
     cronJobId: v.optional(v.string()),
     workflowRef: v.optional(v.string()),
     buildCommands: v.optional(v.array(v.string())),
-    // Fingerprint of the image inputs (lockfile sha on the build branch,
-    // buildCommands, config-file blobs, image definition version) stored at the
-    // last successful Image build. When unchanged, the build workflow skips the
-    // ~11-15m image rebuild — its output would be byte-identical.
-    imageFingerprint: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
@@ -285,8 +279,16 @@ const schema = defineSchema({
     retryCount: v.optional(v.number()),
     warmupStatus: v.optional(snapshotWarmupStatusValidator),
     warmupError: v.optional(v.string()),
-    // Per-app seeding outcomes captured during Step 5 of the build workflow.
-    seededApps: v.optional(v.array(seededAppResultValidator)),
+    seededApps: v.optional(
+      v.array(
+        v.object({
+          app: v.string(),
+          repoId: v.id("githubRepos"),
+          seededSnapshotName: v.union(v.string(), v.null()),
+          status: v.optional(v.string()),
+        }),
+      ),
+    ),
   })
     .index("by_repo_snapshot", ["repoSnapshotId"])
     .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])

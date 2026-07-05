@@ -233,13 +233,20 @@ export const runBackgroundCommands = internalAction({
       const command = commands[i];
       const logPath = `/tmp/bg-${i}.log`;
       // Escape single quotes for the bash -lc payload.
-      const escaped = command.replace(/'/g, "'\\''");
+      // Write the command to a script file and launch THAT, rather than
+      // inlining it via `bash -lc '<command>'`: the inline form puts the whole
+      // command text into the wrapper shell's cmdline, so a user guard like
+      // `pgrep -f "[c]onvex dev" || npx convex dev` matches its own wrapper
+      // (the unguarded "npx convex dev" launch text) and silently never starts
+      // the daemon. With a script file the cmdline is just the file path.
+      // Base64 transport also makes user quoting unbreakable.
+      const cb64 = Buffer.from(command, "utf8").toString("base64");
       // setsid + </dev/null fully detaches the daemon into its own session, so
       // it survives the exec session teardown even when the user's command
       // self-backgrounds. A trailing `&` would otherwise let bash -lc exit
       // immediately, letting a process-group SIGTERM reach the daemon (nohup
       // only blocks SIGHUP).
-      const launchCmd = `setsid nohup bash -lc '${escaped}' </dev/null > ${logPath} 2>&1 &`;
+      const launchCmd = `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > ${logPath} 2>&1 &`;
       console.log(
         `[daytona] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
       );

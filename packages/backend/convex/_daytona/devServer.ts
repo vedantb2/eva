@@ -151,7 +151,11 @@ export async function restoreSeededRuntimeState(
       `gzip -dc ${SUPABASE_DUMP_PATH} | docker exec -i supabase_db_web psql -U postgres -d postgres -v ON_ERROR_STOP=1 >/tmp/eva-supabase-db-web-restore.log 2>&1 || { tail -120 /tmp/eva-supabase-db-web-restore.log; exit 1; }`,
       `touch ${SUPABASE_RESTORE_MARKER}`,
       'echo "restored supabase_db_web from seeded snapshot dump"',
-    ].join("; "),
+      // Join with newlines, not "; ": the script contains if/elif/else/for
+      // blocks, and "then; ", "else; ", "do; " are bash syntax errors
+      // ("syntax error near unexpected token ';'"). Newlines terminate those
+      // keywords correctly and are valid statement separators everywhere else.
+    ].join("\n"),
     600,
   );
 }

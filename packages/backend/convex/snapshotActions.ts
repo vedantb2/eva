@@ -610,11 +610,21 @@ export const launchSeedRun = internalAction({
   args: {
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
+    // Branch to hard-reset /tmp/repo to (refs must already be fetched — the
+    // workflow runs daytona.fetchBaseBranch first, which owns git auth).
+    branch: v.string(),
+    // Repo build commands (pnpm install / codegen etc), run after the reset so
+    // the captured snapshot carries fresh node_modules and build artifacts.
+    buildCommands: v.array(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const startupCommands: string[] | null = await ctx.runQuery(
       internal.repoSnapshots.getStartupCommands,
+      { repoId: args.repoId },
+    );
+    const backgroundCommands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getBackgroundCommands,
       { repoId: args.repoId },
     );
     const stopCommands: string[] | null = await ctx.runQuery(
@@ -626,7 +636,27 @@ export const launchSeedRun = internalAction({
       "exec > /tmp/seedrun.log 2>&1",
       "set -x",
       "rm -f /tmp/.seedrun-done",
+      // ---- update: latest code + fresh deps/artifacts ----
+      'echo "SEEDRUN-STAGE:update"',
+      'cd /tmp/repo || { echo "SEEDRUN-FAILED:no-repo"; exit 1; }',
+      `( git checkout -f ${args.branch} 2>/dev/null || git checkout -fb ${args.branch} origin/${args.branch} ) && git reset --hard origin/${args.branch} || { echo "SEEDRUN-FAILED:git-reset"; exit 1; }`,
     ];
+    args.buildCommands.forEach((command, i) => {
+      lines.push(
+        `( ${command} ) || { echo "SEEDRUN-FAILED:build-${i}"; exit 1; }`,
+      );
+    });
+    // ---- daemons: launch each background command detached (b64 per command
+    // so quoting inside user commands can never break the script) ----
+    lines.push('echo "SEEDRUN-STAGE:daemons"');
+    (backgroundCommands ?? []).forEach((command, i) => {
+      const cb64 = Buffer.from(command, "utf8").toString("base64");
+      lines.push(
+        `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > /tmp/bg-${i}.log 2>&1 &`,
+      );
+    });
+    // ---- seed ----
+    lines.push('echo "SEEDRUN-STAGE:startup"');
     (startupCommands ?? []).forEach((command, i) => {
       // Subshell so `cd`/env in one command can't leak into the next, matching
       // how runSandboxCommand executed them as separate execs.

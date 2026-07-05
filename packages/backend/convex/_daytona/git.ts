@@ -927,6 +927,11 @@ export async function createSandboxAndPrepareRepo(
   onSandboxAcquired?: (sandbox: Sandbox) => Promise<void>,
   onProgress?: (label: string) => Promise<void>,
   syncStrategy: RepoSyncStrategy = { mode: "all" },
+  // Override the SDK create-ready wait. Large seeded snapshots (~10GB) take
+  // well over the 30s default to start, so callers that boot from them (seeded
+  // snapshot builds) pass a longer value to avoid spurious create timeouts +
+  // the orphaned sandboxes they leave server-side.
+  readyTimeoutSeconds?: number,
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
   let sandbox: Sandbox | undefined;
   try {
@@ -945,6 +950,7 @@ export async function createSandboxAndPrepareRepo(
             lifecycle,
             effectiveSnapshot,
             volumes,
+            readyTimeoutSeconds,
           );
         } catch (err) {
           if (effectiveSnapshot && isSnapshotUnusableError(err)) {
@@ -961,6 +967,7 @@ export async function createSandboxAndPrepareRepo(
               lifecycle,
               undefined,
               volumes,
+              readyTimeoutSeconds,
             );
           } else {
             throw err;

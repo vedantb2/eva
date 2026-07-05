@@ -708,8 +708,18 @@ export const fetchSeedDiagnostics = internalAction({
     try {
       return await exec(
         sandbox,
-        'echo "== seedrun.log (tail) =="; tail -c 3000 /tmp/seedrun.log 2>/dev/null; for f in /tmp/bg-*.log; do echo; echo "== $f (tail) =="; tail -c 1000 "$f" 2>/dev/null; done; true',
-        60,
+        [
+          'echo "== git state =="',
+          "( cd /tmp/repo && git rev-parse --short HEAD 2>&1; git status -s 2>&1 | head -5 )",
+          'echo "== convex versions =="',
+          "( cd /tmp/repo && npx convex --version 2>&1; ls -la ~/.convex/ 2>&1 | head; ls -la ~/.cache/convex/ 2>&1 | head )",
+          'echo "== 3210 listening? =="',
+          "curl -s -o /dev/null -w 'backend http:%{http_code}\\n' http://127.0.0.1:3210 2>&1 || echo '3210 unreachable'",
+          'echo "== seedrun.log (tail) =="; tail -c 4000 /tmp/seedrun.log 2>/dev/null',
+          'for f in /tmp/bg-*.log; do echo; echo "== $f =="; tail -c 3000 "$f" 2>/dev/null; done',
+          "true",
+        ].join("; "),
+        90,
       );
     } catch (e) {
       return `diagnostics unavailable: ${e instanceof Error ? e.message : String(e)}`;
@@ -769,6 +779,13 @@ export const createSeedPrepSandbox = internalAction({
       { ...sandboxEnvVars, REPO_ID: args.repoId },
       SESSION_LIFECYCLE,
       args.imageSnapshot,
+      undefined, // volumes
+      undefined, // onSandboxAcquired
+      undefined, // onProgress
+      { mode: "all" }, // syncStrategy
+      // Large seeded snapshots take well over the 30s default to boot; 180s
+      // avoids the spurious create timeout + orphaned sandbox on warm boots.
+      180,
     );
     return { sandboxId: sandbox.id };
   },

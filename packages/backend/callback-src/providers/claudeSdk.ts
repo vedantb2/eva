@@ -151,6 +151,31 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
   if (existsSync(MCP_CONFIG_PATH)) {
     extraArgs["mcp-config"] = MCP_CONFIG_PATH;
   }
+  return buildSdkOptionsFromParts(sessionMode, extraArgs);
+}
+
+/** Fresh one-shot query for conversational turns: no resume, no tools, no MCP. */
+export function buildConversationalSdkOptions(): SdkOptions {
+  return {
+    ...buildSdkOptionsFromParts(
+      { mode: "session" },
+      { settings: settingsJson },
+      "none",
+    ),
+    systemPrompt: "Reply briefly and directly. Do not use tools.",
+  };
+}
+
+function buildSdkOptionsFromParts(
+  sessionMode: SessionMode,
+  extraArgs: Record<string, string>,
+  tools: "agent" | "none" = "agent",
+): SdkOptions {
+  const allowedToolsOption =
+    tools === "agent" && ALLOWED_TOOLS
+      ? { allowedTools: ALLOWED_TOOLS.split(",") }
+      : { allowedTools: [] as string[] };
+
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -163,14 +188,10 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
     // Emit token-level partial (`stream_event`) messages so claudeParseLine can
     // stream text deltas into the reply live (dedup guards the final message).
     includePartialMessages: true,
-    ...(ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : {}),
+    ...allowedToolsOption,
     // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
     // title / flavour-text side calls) — measured as a ~6s second API call
-    // ("duration_api_ms" ~2x "duration_ms") that delays turn completion after
-    // the visible reply. The reference agents (t3code/synara/openagents) never
-    // ask the interactive turn to generate titles, so they don't pay this; we
-    // disable it via the engine's own env knobs. Also quiets autoupdater /
-    // telemetry / error-reporting network calls on the turn's hot path.
+    // that delays turn completion after the visible reply.
     env: {
       ...process.env,
       CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,

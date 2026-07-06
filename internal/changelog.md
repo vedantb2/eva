@@ -1,5 +1,11 @@
 # Changelog
 
+## Session conversational fast path - 2026-07-06
+
+- Classify simple Q&A turns and run them as fresh one-shot Agent SDK queries (no resume, no tools/MCP) instead of the warm coding-agent session with full transcript context.
+- Skip git push for conversational turns; log `claimWaitMs` and `turnKind` for latency debugging.
+- Reason for change: warm daemon worked but Opus still took ~11s on math questions because every message paid for coding-agent prompt scaffolding and 50+ turn resume context; claude.ai answers in ~3s on a fresh thread.
+
 ## Session turn latency improvements - 2026-07-06
 
 - Stream live assistant tokens in the chat UI via `streamingContent` while a turn is in progress.

@@ -52,7 +52,7 @@ export const startExecute = authMutation({
     });
 
     const user = await ctx.db.get(ctx.userId);
-    const { prompt } = await buildSessionPrompt(ctx, {
+    const { prompt, turnKind } = await buildSessionPrompt(ctx, {
       session,
       repo,
       user,
@@ -61,7 +61,7 @@ export const startExecute = authMutation({
     });
 
     await ctx.db.patch(args.sessionId, {
-      pendingTurn: { prompt, requestedAt: Date.now() },
+      pendingTurn: { prompt, requestedAt: Date.now(), turnKind },
       updatedAt: Date.now(),
     });
 
@@ -123,7 +123,7 @@ export const devStartExecute = internalMutation({
       activityLog: "",
     });
     const user = await ctx.db.get(session.userId);
-    const { prompt } = await buildSessionPrompt(ctx, {
+    const { prompt, turnKind } = await buildSessionPrompt(ctx, {
       session,
       repo,
       user,
@@ -131,7 +131,7 @@ export const devStartExecute = internalMutation({
       mode: "ask",
     });
     await ctx.db.patch(args.sessionId, {
-      pendingTurn: { prompt, requestedAt: Date.now() },
+      pendingTurn: { prompt, requestedAt: Date.now(), turnKind },
       updatedAt: Date.now(),
     });
     if (session.sandboxId) {

@@ -19,7 +19,12 @@ import {
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
-import { buildPlanPrompt, buildEditPrompt } from "./prompts";
+import {
+  buildPlanPrompt,
+  buildEditPrompt,
+  buildConversationalPrompt,
+} from "./prompts";
+import { classifyTurnKind, type SessionTurnKind } from "./turnKind";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 
@@ -67,7 +72,7 @@ export async function buildSessionPrompt(
     message: string;
     mode: "edit" | "ask" | "execute" | "plan";
   },
-): Promise<{ prompt: string; branchName: string }> {
+): Promise<{ prompt: string; branchName: string; turnKind: SessionTurnKind }> {
   const { session, repo, user } = args;
   const rootDirectory = repo.rootDirectory ?? "";
   const customInstructionsBlock = buildCustomInstructionsBlock(
@@ -84,6 +89,9 @@ export async function buildSessionPrompt(
     session.repoId,
   );
 
+  const turnKind: SessionTurnKind =
+    effectiveMode === "plan" ? "agent" : classifyTurnKind(resolvedMessage);
+
   let prompt: string;
   if (effectiveMode === "plan") {
     prompt = buildPlanPrompt(
@@ -91,6 +99,12 @@ export async function buildSessionPrompt(
       session.planContent || "",
       resolvedMessage,
       rootDirectory,
+      customInstructionsBlock,
+      repo.systemPrompt,
+    );
+  } else if (turnKind === "conversational") {
+    prompt = buildConversationalPrompt(
+      resolvedMessage,
       customInstructionsBlock,
       repo.systemPrompt,
     );
@@ -108,7 +122,7 @@ export async function buildSessionPrompt(
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }
-  return { prompt, branchName };
+  return { prompt, branchName, turnKind };
 }
 
 // --- Workflows ---
@@ -307,7 +321,12 @@ export const sessionExecuteWorkflow = workflow.define({
     });
 
     let pushSucceeded = false;
-    if (args.mode !== "plan" && result.success && data.branchName) {
+    if (
+      args.mode !== "plan" &&
+      result.success &&
+      data.branchName &&
+      data.turnKind === "agent"
+    ) {
       try {
         await step.runAction(internal.daytona.pushSandboxBranch, {
           sandboxId,
@@ -438,6 +457,7 @@ export const getSessionData = internalQuery({
     allowedTools: v.string(),
     model: aiModelValidator,
     deploymentProjectName: v.optional(v.string()),
+    turnKind: v.union(v.literal("conversational"), v.literal("agent")),
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -450,7 +470,7 @@ export const getSessionData = internalQuery({
       args.mode === "plan" ? "plan" : "edit";
 
     const user = await ctx.db.get(args.userId);
-    const { prompt, branchName } = await buildSessionPrompt(ctx, {
+    const { prompt, branchName, turnKind } = await buildSessionPrompt(ctx, {
       session,
       repo,
       user,
@@ -465,6 +485,7 @@ export const getSessionData = internalQuery({
       repoId: session.repoId,
       prompt,
       branchName,
+      turnKind,
       baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
       allowedTools: MODE_TOOLS[effectiveMode],
       model: normalizeAIModel(args.model),
@@ -570,22 +591,26 @@ export const saveResult = internalMutation({
  */
 export const claimPendingTurn = authMutation({
   args: { sessionId: v.id("sessions") },
-  returns: v.object({ prompt: v.union(v.string(), v.null()) }),
+  returns: v.object({
+    prompt: v.union(v.string(), v.null()),
+    turnKind: v.union(v.literal("conversational"), v.literal("agent")),
+  }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) return { prompt: null };
+    if (!session) return { prompt: null, turnKind: "agent" };
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
-    if (!session.pendingTurn) return { prompt: null };
+    if (!session.pendingTurn) return { prompt: null, turnKind: "agent" };
 
     const prompt = session.pendingTurn.prompt;
+    const turnKind = session.pendingTurn.turnKind ?? "agent";
     const claimWaitMs = Date.now() - session.pendingTurn.requestedAt;
     await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
     console.log(
-      `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} claimWaitMs=${claimWaitMs}`,
+      `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} turnKind=${turnKind} claimWaitMs=${claimWaitMs}`,
     );
-    return { prompt };
+    return { prompt, turnKind };
   },
 });
 

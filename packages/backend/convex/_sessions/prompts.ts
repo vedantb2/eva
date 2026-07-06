@@ -28,6 +28,21 @@ Rules:
 - Do NOT commit or push${getResponseLengthInstruction("plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+/** Minimal prompt for direct Q&A — no codebase exploration steps. */
+export function buildConversationalPrompt(
+  message: string,
+  customInstructionsBlock: string,
+  systemPrompt: string | undefined,
+): string {
+  return `Reply directly to the user. Do not use tools. Do not read files or explore the codebase.
+
+User: ${message}
+
+Rules:
+- Answer immediately with no preamble.
+- If they asked for only a number or short phrase, reply with exactly that.${getResponseLengthInstruction("edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}`;
+}
+
 /** Builds an edit-mode prompt with full read+write access for answering questions and making code changes. */
 export function buildEditPrompt(
   repo: { owner: string; name: string },

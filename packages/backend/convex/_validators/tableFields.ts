@@ -162,7 +162,13 @@ export const sessionFields = {
   // warm sandbox daemon claims it (clearing this field) in one poll, bypassing
   // the workflow's durable step queue. Absent between turns.
   pendingTurn: v.optional(
-    v.object({ prompt: v.string(), requestedAt: v.number() }),
+    v.object({
+      prompt: v.string(),
+      requestedAt: v.number(),
+      turnKind: v.optional(
+        v.union(v.literal("conversational"), v.literal("agent")),
+      ),
+    }),
   ),
 };
 

@@ -2985,6 +2985,20 @@ function buildSdkOptions(sessionMode) {
   if (existsSync6(MCP_CONFIG_PATH)) {
     extraArgs["mcp-config"] = MCP_CONFIG_PATH;
   }
+  return buildSdkOptionsFromParts(sessionMode, extraArgs);
+}
+function buildConversationalSdkOptions() {
+  return {
+    ...buildSdkOptionsFromParts(
+      { mode: "session" },
+      { settings: settingsJson },
+      "none"
+    ),
+    systemPrompt: "Reply briefly and directly. Do not use tools."
+  };
+}
+function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
+  const allowedToolsOption = tools === "agent" && ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : { allowedTools: [] };
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -2995,14 +3009,10 @@ function buildSdkOptions(sessionMode) {
     // Emit token-level partial (\`stream_event\`) messages so claudeParseLine can
     // stream text deltas into the reply live (dedup guards the final message).
     includePartialMessages: true,
-    ...ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : {},
+    ...allowedToolsOption,
     // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
     // title / flavour-text side calls) — measured as a ~6s second API call
-    // ("duration_api_ms" ~2x "duration_ms") that delays turn completion after
-    // the visible reply. The reference agents (t3code/synara/openagents) never
-    // ask the interactive turn to generate titles, so they don't pay this; we
-    // disable it via the engine's own env knobs. Also quiets autoupdater /
-    // telemetry / error-reporting network calls on the turn's hot path.
+    // that delays turn completion after the visible reply.
     env: {
       ...process.env,
       CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
@@ -3255,7 +3265,81 @@ function readClaimedPrompt(result) {
   const prompt = payload.prompt;
   return typeof prompt === "string" ? prompt : null;
 }
-async function waitForNextPrompt() {
+function readClaimedTurn(result) {
+  const prompt = readClaimedPrompt(result);
+  if (prompt === null) {
+    return null;
+  }
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return { prompt, turnKind: "agent" };
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const turnKindField = payload.turnKind;
+  const turnKind = turnKindField === "conversational" ? "conversational" : "agent";
+  return { prompt, turnKind };
+}
+function processDaemonMessage(message, output, turnStartedAt, sawFirstMessageThisTurn, sawAssistantThisTurn) {
+  const messageType = typeof message.type === "string" ? message.type : "?";
+  if (!sawFirstMessageThisTurn.value) {
+    sawFirstMessageThisTurn.value = true;
+    log(
+      "daemon[timing]: first SDK message (" + messageType + ") +" + (Date.now() - turnStartedAt) + "ms after turn start"
+    );
+  }
+  if (!sawAssistantThisTurn.value && messageType === "assistant") {
+    sawAssistantThisTurn.value = true;
+    log(
+      "daemon[timing]: first assistant msg +" + (Date.now() - turnStartedAt) + "ms after turn start"
+    );
+  }
+  const line = JSON.stringify(message) + "\\n";
+  appendToRawLogFile(line);
+  const nextOutput = trimBufferHead(output + line);
+  appendToRawOutput(line);
+  processRealtimeStdoutChunk(line);
+  const isResult = message.type === "result";
+  return { output: nextOutput, isResult };
+}
+async function runConversationalOneShot(prompt) {
+  resetTurnState();
+  const turnStartedAt = Date.now();
+  callbackState.activeAttemptStartedAt = turnStartedAt;
+  log("daemon: conversational one-shot turn started");
+  const sdk = await loadSdk();
+  const options = buildConversationalSdkOptions();
+  let output = "";
+  const sawFirstMessageThisTurn = { value: false };
+  const sawAssistantThisTurn = { value: false };
+  const query = sdk.query({ prompt, options });
+  for await (const message of query) {
+    if (typeof message !== "object" || message === null || Array.isArray(message)) {
+      continue;
+    }
+    const processed = processDaemonMessage(
+      message,
+      output,
+      turnStartedAt,
+      sawFirstMessageThisTurn,
+      sawAssistantThisTurn
+    );
+    output = processed.output;
+    if (!processed.isResult) {
+      continue;
+    }
+    const resultAt = Date.now();
+    log(
+      "daemon[timing]: conversational result +" + (resultAt - turnStartedAt) + "ms after turn start"
+    );
+    await finalizeTurn(output);
+    log(
+      "daemon[timing]: conversational finalizeTurn took " + (Date.now() - resultAt) + "ms"
+    );
+    resetTurnState();
+    return;
+  }
+}
+async function waitForNextTurn() {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
   while (Date.now() < idleDeadline) {
     const claimed = await callConvexWithRetry(
@@ -3263,9 +3347,9 @@ async function waitForNextPrompt() {
       CLAIM_PENDING_TURN_MUTATION,
       { sessionId: ENTITY_ID ?? "" }
     );
-    const prompt = readClaimedPrompt(claimed);
-    if (prompt !== null) {
-      return prompt;
+    const turn = readClaimedTurn(claimed);
+    if (turn !== null) {
+      return turn;
     }
     await sleep(PROMPT_POLL_INTERVAL_MS);
   }
@@ -3290,8 +3374,8 @@ async function runSdkDaemon() {
     "runSdkDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", mode=" + sessionMode.mode + ")"
   );
   log("daemon: warm query() live, waiting for first prompt (pull)");
-  const firstPrompt = await waitForNextPrompt();
-  if (firstPrompt === null) {
+  let nextTurn = await waitForNextTurn();
+  if (nextTurn === null) {
     log("daemon: idle timeout before first prompt \\u2014 exiting");
     try {
       unlinkSync(DAEMON_PID_FILE);
@@ -3300,55 +3384,61 @@ async function runSdkDaemon() {
     await stopStreamingLoops();
     process.exit(0);
   }
-  let turnStartedAt = Date.now();
-  let sawFirstMessageThisTurn = false;
-  push(firstPrompt);
-  callbackState.activeAttemptStartedAt = turnStartedAt;
-  let output = "";
-  let sawAssistantThisTurn = false;
   try {
-    for await (const message of query) {
-      const messageType = typeof message.type === "string" ? message.type : "?";
-      if (!sawFirstMessageThisTurn) {
-        sawFirstMessageThisTurn = true;
-        log(
-          "daemon[timing]: first SDK message (" + messageType + ") +" + (Date.now() - turnStartedAt) + "ms after push"
-        );
-      }
-      if (!sawAssistantThisTurn && messageType === "assistant") {
-        sawAssistantThisTurn = true;
-        log(
-          "daemon[timing]: first assistant msg +" + (Date.now() - turnStartedAt) + "ms after push"
-        );
-      }
-      const line = JSON.stringify(message) + "\\n";
-      appendToRawLogFile(line);
-      output = trimBufferHead(output + line);
-      appendToRawOutput(line);
-      processRealtimeStdoutChunk(line);
-      const isResult = typeof message === "object" && message !== null && !Array.isArray(message) && message.type === "result";
-      if (!isResult) continue;
-      const resultAt = Date.now();
-      log(
-        "daemon[timing]: result message +" + (resultAt - turnStartedAt) + "ms after push"
-      );
-      await finalizeTurn(output);
-      log(
-        "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
-      );
-      resetTurnState();
-      output = "";
-      const nextPrompt = await waitForNextPrompt();
-      if (nextPrompt === null) {
-        log("daemon: idle timeout \\u2014 exiting");
-        break;
-      }
-      log("daemon: next turn received");
-      turnStartedAt = Date.now();
-      sawFirstMessageThisTurn = false;
-      sawAssistantThisTurn = false;
+    while (nextTurn !== null && nextTurn.turnKind === "conversational") {
+      await runConversationalOneShot(nextTurn.prompt);
+      nextTurn = await waitForNextTurn();
+    }
+    if (nextTurn === null) {
+      log("daemon: idle timeout after conversational turns \\u2014 exiting");
+    } else {
+      let turnStartedAt = Date.now();
+      const sawFirstMessageThisTurn = { value: false };
+      const sawAssistantThisTurn = { value: false };
+      push(nextTurn.prompt);
       callbackState.activeAttemptStartedAt = turnStartedAt;
-      push(nextPrompt);
+      let output = "";
+      for await (const message of query) {
+        if (typeof message !== "object" || message === null || Array.isArray(message)) {
+          continue;
+        }
+        const processed = processDaemonMessage(
+          message,
+          output,
+          turnStartedAt,
+          sawFirstMessageThisTurn,
+          sawAssistantThisTurn
+        );
+        output = processed.output;
+        if (!processed.isResult) {
+          continue;
+        }
+        const resultAt = Date.now();
+        log(
+          "daemon[timing]: result message +" + (resultAt - turnStartedAt) + "ms after push"
+        );
+        await finalizeTurn(output);
+        log(
+          "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
+        );
+        resetTurnState();
+        output = "";
+        let upcoming = await waitForNextTurn();
+        while (upcoming !== null && upcoming.turnKind === "conversational") {
+          await runConversationalOneShot(upcoming.prompt);
+          upcoming = await waitForNextTurn();
+        }
+        if (upcoming === null) {
+          log("daemon: idle timeout \\u2014 exiting");
+          break;
+        }
+        log("daemon: next agent turn received");
+        turnStartedAt = Date.now();
+        sawFirstMessageThisTurn.value = false;
+        sawAssistantThisTurn.value = false;
+        callbackState.activeAttemptStartedAt = turnStartedAt;
+        push(upcoming.prompt);
+      }
     }
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);

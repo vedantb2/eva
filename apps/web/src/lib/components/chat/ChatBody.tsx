@@ -58,18 +58,6 @@ export type ChatBodyMessage = Doc<"messages"> & {
 
 export type ChatBodyQueuedMessage = Doc<"queuedMessages">;
 
-/**
- * A user message shown optimistically, before the server row (carrying the
- * same clientId) arrives via the reactive query. Rendered with the same bubble
- * as a real user message so there is no visual pop when it swaps out.
- */
-export interface PendingUserMessage {
-  clientId: string;
-  content: string;
-  mode?: Doc<"messages">["mode"];
-  createdAt: number;
-}
-
 interface ParsedQuestion {
   question: string;
   header: string;
@@ -123,12 +111,6 @@ interface ChatBodyProps {
   /** Conversation id (session / agent task / project) — scopes the typing-presence room. */
   conversationId: string;
   messages: ChatBodyMessage[];
-  /**
-   * User messages sent optimistically that have not yet appeared in `messages`.
-   * The caller dedups these against server rows by `clientId`; ChatBody renders
-   * them after the server messages and shows a working indicator for them.
-   */
-  pendingMessages?: PendingUserMessage[];
   queuedMessages: ChatBodyQueuedMessage[];
   streamingActivity?: string;
   streamingContent?: string;
@@ -179,7 +161,6 @@ export function ChatBody({
   repoBasePath,
   conversationId,
   messages,
-  pendingMessages,
   queuedMessages,
   streamingActivity,
   streamingContent,
@@ -246,23 +227,6 @@ export function ChatBody({
 
   const lastMessage = messages[messages.length - 1];
 
-  // Drop any optimistic message whose server row has already arrived (matched
-  // by clientId). The parent also prunes delivered rows, but deduping here
-  // guarantees no duplicate render in the window between the two updates.
-  const visiblePendingMessages = useMemo(
-    () =>
-      (pendingMessages ?? []).filter(
-        (p) => !messages.some((m) => m.clientId === p.clientId),
-      ),
-    [pendingMessages, messages],
-  );
-
-  // Show a working ("thinking") bubble the instant a message is pending, unless
-  // the server has already inserted the empty assistant placeholder that drives
-  // the existing streaming indicator (isExecuting). Avoids a gap before the
-  // server round-trip completes.
-  const showPendingWorking = visiblePendingMessages.length > 0 && !isExecuting;
-
   const [hintDismissed, setHintDismissed] = useState(false);
   const [questionDismissed, setQuestionDismissed] = useState(false);
   const pendingQuestionRaw =
@@ -316,7 +280,7 @@ export function ChatBody({
       {preConversationContent}
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
-          {messages.length === 0 && visiblePendingMessages.length === 0
+          {messages.length === 0
             ? (emptyStateOverride ?? (
                 <ConversationEmptyState title={emptyStateTitle} />
               ))
@@ -439,67 +403,6 @@ export function ChatBody({
                   </motion.div>
                 ),
               )}
-          {/* Optimistic user messages: rendered with the same bubble as a real
-              user message so there is no visual pop when the server row (matched
-              by clientId) replaces them. */}
-          {visiblePendingMessages.map((pending) => (
-            <motion.div
-              key={pending.clientId}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <AIMessage from="user">
-                <MessageContent className="group rounded-surface bg-secondary text-foreground px-4 py-3">
-                  <MessageMentionText
-                    text={pending.content}
-                    repoBasePath={repoBasePath}
-                  />
-                </MessageContent>
-                <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
-                  <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {pending.mode && (
-                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-                        {pending.mode === "plan" ? (
-                          <>
-                            <IconClipboardList className="w-2.5 h-2.5" /> PRD
-                          </>
-                        ) : (
-                          <>
-                            <IconCode className="w-2.5 h-2.5" /> Edit
-                          </>
-                        )}
-                      </div>
-                    )}
-                    <span className="text-[11px] text-muted-foreground/60">
-                      {dayjs(pending.createdAt).format("h:mm A")}
-                    </span>
-                  </div>
-                  <UserMessageAvatar />
-                </div>
-              </AIMessage>
-            </motion.div>
-          ))}
-          {/* Instant "thinking" bubble shown while the send round-trip is in
-              flight, before the server inserts the empty assistant placeholder
-              (which then drives the same indicator via isExecuting). */}
-          {showPendingWorking && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <AIMessage from="assistant">
-                <MessageContent className="px-1 py-2">
-                  <StreamingActivityDisplay
-                    activity={streamingActivity}
-                    name="Eva"
-                    icon={evaIcon}
-                  />
-                </MessageContent>
-              </AIMessage>
-            </motion.div>
-          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>

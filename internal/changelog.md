@@ -1,5 +1,12 @@
 # Changelog
 
+## Session turn latency improvements - 2026-07-06
+
+- Stream live assistant tokens in the chat UI via `streamingContent` while a turn is in progress.
+- Persist assistant replies before git push so the UI updates as soon as the Agent SDK daemon finishes.
+- Faster daemon claim polling (50ms) and stream heartbeats when only text content changes.
+- Reason for change: Agent SDK warm daemon was working but perceived latency stayed ~10s because the UI waited for workflow bookkeeping and never rendered streamed tokens.
+
 ## Seeded snapshot database restore artifact - 2026-07-05
 
 - Captured a compressed Supabase Postgres dump into the seeded snapshot filesystem after seed commands complete, then restored it once when fresh sandboxes boot from that snapshot.

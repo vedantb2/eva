@@ -132,12 +132,10 @@ export async function flushStreaming(): Promise<void> {
         S.parsedStreamEventCount++;
       }
     }
-    if (hasNew) {
+    const contentChanged = S.currentStreamedContent !== S.lastSentContent;
+    if (hasNew || contentChanged) {
       const payload = buildStreamingPayload();
-      if (
-        payload === S.lastSentPayload &&
-        S.currentStreamedContent === S.lastSentContent
-      ) {
+      if (payload === S.lastSentPayload && !contentChanged) {
         return;
       }
       await sendStreamingHeartbeatUpdate(payload);

@@ -294,9 +294,19 @@ export const sessionExecuteWorkflow = workflow.define({
       }
     }
 
-    let savedSuccess = result.success;
-    let savedError = result.error;
+    // Persist the assistant reply before git push so the UI updates as soon as
+    // the daemon finishes — branch publish is best-effort bookkeeping after.
+    await step.runMutation(internal.sessionWorkflow.saveResult, {
+      sessionId: args.sessionId,
+      success: result.success,
+      result: result.result,
+      error: result.error,
+      activityLog: result.activityLog,
+      planContent,
+      pendingQuestion: result.pendingQuestion,
+    });
 
+    let pushSucceeded = false;
     if (args.mode !== "plan" && result.success && data.branchName) {
       try {
         await step.runAction(internal.daytona.pushSandboxBranch, {
@@ -307,26 +317,15 @@ export const sessionExecuteWorkflow = workflow.define({
           repoId: data.repoId,
           branchName: data.branchName,
         });
+        pushSucceeded = true;
       } catch (error) {
-        savedSuccess = false;
-        savedError = `Session completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
         console.error(
           `[sessionWorkflow] pushSandboxBranch failed sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
 
-    await step.runMutation(internal.sessionWorkflow.saveResult, {
-      sessionId: args.sessionId,
-      success: savedSuccess,
-      result: result.result,
-      error: savedError,
-      activityLog: result.activityLog,
-      planContent,
-      pendingQuestion: result.pendingQuestion,
-    });
-
-    if (args.mode !== "plan" && savedSuccess && data.branchName) {
+    if (pushSucceeded) {
       await step.runMutation(
         internal.sessionWorkflow.scheduleSessionDeploymentTracking,
         {
@@ -581,7 +580,11 @@ export const claimPendingTurn = authMutation({
     if (!session.pendingTurn) return { prompt: null };
 
     const prompt = session.pendingTurn.prompt;
+    const claimWaitMs = Date.now() - session.pendingTurn.requestedAt;
     await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
+    console.log(
+      `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} claimWaitMs=${claimWaitMs}`,
+    );
     return { prompt };
   },
 });

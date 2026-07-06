@@ -2583,9 +2583,10 @@ async function flushStreaming() {
         callbackState.parsedStreamEventCount++;
       }
     }
-    if (hasNew) {
+    const contentChanged = callbackState.currentStreamedContent !== callbackState.lastSentContent;
+    if (hasNew || contentChanged) {
       const payload = buildStreamingPayload();
-      if (payload === callbackState.lastSentPayload && callbackState.currentStreamedContent === callbackState.lastSentContent) {
+      if (payload === callbackState.lastSentPayload && !contentChanged) {
         return;
       }
       await sendStreamingHeartbeatUpdate(payload);
@@ -3128,7 +3129,7 @@ var DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
 var DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
 var CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
-var PROMPT_POLL_INTERVAL_MS = 200;
+var PROMPT_POLL_INTERVAL_MS = 50;
 function createPromptStream() {
   const queue = [];
   let notify = null;
@@ -3204,11 +3205,13 @@ function resetTurnState() {
   callbackState.streamedAssistantTextThisMessage = false;
   callbackState.resultEventSeen = false;
   callbackState.rawOutput = "";
+  callbackState.lastProcessed = 0;
   callbackState.inFlightToolUses = 0;
   callbackState.pendingQuestionData = "";
   callbackState.lastStepType = "thinking";
 }
 async function finalizeTurn(output) {
+  await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(callbackState.accumulatedSteps);
@@ -3238,7 +3241,7 @@ async function finalizeTurn(output) {
   );
   const bookkeepingAt = Date.now();
   syncClaudeStateToPersist("daemon-turn");
-  await flushStreaming();
+  await setFinalizingState();
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );

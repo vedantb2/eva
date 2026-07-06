@@ -13,6 +13,7 @@ import { extractResultEvent } from "../runtime/completion.js";
 import {
   flushStreaming,
   runPreflightHeartbeat,
+  setFinalizingState,
   startStreamingLoops,
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
@@ -52,7 +53,7 @@ const CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
 const IDLE_EXIT_MS = 45 * 60 * 1000;
 // Poll interval for the claim mutation. Low enough to keep handoff→turn-start
 // latency to ~one poll; the turn itself dominates so this only trims the tail.
-const PROMPT_POLL_INTERVAL_MS = 200;
+const PROMPT_POLL_INTERVAL_MS = 50;
 
 /**
  * A queue-backed async iterable of user messages that BLOCKS when empty and
@@ -152,6 +153,11 @@ function resetTurnState(): void {
   S.streamedAssistantTextThisMessage = false;
   S.resultEventSeen = false;
   S.rawOutput = "";
+  // rawOutput is truncated to "" above, so the flush cursor must return to the
+  // head — otherwise flushStreaming's `rawOutput.length <= lastProcessed` guard
+  // stays true for the whole next turn and its lines are never parsed into
+  // accumulatedSteps (activity would be empty from turn 2 onward).
+  S.lastProcessed = 0;
   S.inFlightToolUses = 0;
   S.pendingQuestionData = "";
   S.lastStepType = "thinking";
@@ -159,11 +165,15 @@ function resetTurnState(): void {
 
 /** Reports one finished turn to the session workflow (mirrors the one-shot completion). */
 async function finalizeTurn(output: string): Promise<void> {
-  // Realtime parsing (processRealtimeStdoutChunk) has already folded every
-  // message — including the result — into S.accumulatedSteps inline, so the
-  // completion payload is ready WITHOUT a preceding streaming flush. Sending the
-  // completion first is what resolves the workflow's awaitEvent and surfaces the
-  // reply to the user, so it must not sit behind the ~5s streaming heartbeat.
+  // Drain the buffered turn output into S.accumulatedSteps before building the
+  // completion payload — exactly like the one-shot path (index.ts) flushes after
+  // its attempt loop. processRealtimeStdoutChunk only runs the streaming
+  // side-effects (onStreamLine); it does NOT parse tool_use blocks into
+  // accumulatedSteps. Only flushStreaming -> parseStreamEvent -> claudeParseLine
+  // does that, and it runs on a 150ms interval, so without this synchronous
+  // drain the activityLog is read (and then resetTurnState-cleared) before the
+  // loop has parsed this turn's tool steps — yielding an empty "[]" activityLog.
+  await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(S.accumulatedSteps);
@@ -205,9 +215,13 @@ async function finalizeTurn(output: string): Promise<void> {
   // transcript copy never delays the reply the user is waiting on. The sandbox
   // stays warm between turns, so this only guards against a sandbox restart.
   // accumulatedSteps is still populated (resetTurnState runs after this returns).
+  // setFinalizingState pushes the now-complete steps to the streaming heartbeat;
+  // the buffer was already drained at the top of finalizeTurn, so a plain
+  // flushStreaming() here would early-return without reflecting the completed
+  // status.
   const bookkeepingAt = Date.now();
   syncClaudeStateToPersist("daemon-turn");
-  await flushStreaming();
+  await setFinalizingState();
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
   );

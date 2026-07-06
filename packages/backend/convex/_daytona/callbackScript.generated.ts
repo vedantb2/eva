@@ -378,7 +378,7 @@ function parsePriorStep(value) {
   if (typeof label !== "string" || typeof type !== "string") {
     return null;
   }
-  if (type === "thinking" || type === "response") {
+  if (type === "thinking" || type === "reasoning" || type === "response") {
     return null;
   }
   const detail = value.detail;
@@ -1952,29 +1952,6 @@ function updateThinkingStep(label, detail) {
   void detail;
   callbackState.lastStepType = "thinking";
 }
-var REASONING_DETAIL_MAX_CHARS = 2e4;
-function capReasoningDetail(text) {
-  return text.length > REASONING_DETAIL_MAX_CHARS ? text.slice(text.length - REASONING_DETAIL_MAX_CHARS) : text;
-}
-function updateReasoningStep(text) {
-  const lastStep = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
-  if (lastStep && lastStep.type === "reasoning" && lastStep.status === "active") {
-    const existing = lastStep.detail ?? "";
-    lastStep.detail = capReasoningDetail(
-      text.startsWith(existing) ? text : existing + text
-    );
-    callbackState.lastStepType = "thinking";
-    return;
-  }
-  markLastComplete();
-  callbackState.accumulatedSteps.push({
-    type: "reasoning",
-    label: "Thought process",
-    detail: capReasoningDetail(text),
-    status: "active"
-  });
-  callbackState.lastStepType = "thinking";
-}
 function shouldRecordProgressStep(step) {
   return step.type !== "thinking" && step.type !== "reasoning" && step.type !== "response";
 }
@@ -2023,7 +2000,7 @@ function applyCanonicalEvents(events) {
         appendStreamedContent(ev.text);
         break;
       case "update_reasoning":
-        updateReasoningStep(ev.text);
+        callbackState.lastStepType = "thinking";
         break;
       case "set_pending_question":
         callbackState.pendingQuestionData = ev.data;
@@ -2949,15 +2926,7 @@ async function runClaudeAttempt(sessionMode) {
   const startupStep = buildClaudeStartupStep();
   return await runCliAttempt({
     cmd,
-    env: {
-      ...process.env,
-      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
-      // Enable extended thinking so the CLI emits \`thinking\` blocks, which the
-      // parser turns into the "Thought process" accordion. Headless \`claude -p\`
-      // thinking output is undocumented, so this is verified empirically;
-      // overridable via the sandbox env, default 10k budget.
-      MAX_THINKING_TOKENS: process.env.MAX_THINKING_TOKENS ?? "10000"
-    },
+    env: { ...process.env, CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR },
     processLabel: "claude",
     attemptLabel: "runClaudeAttempt",
     startupStep,

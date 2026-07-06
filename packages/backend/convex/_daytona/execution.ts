@@ -965,7 +965,7 @@ export const launchOnExistingSandbox = internalAction({
 
     await signAndLaunchScript(
       ctx,
-      sandbox,
+      wrapDaytonaSandbox(sandbox),
       args.userId,
       args.prompt,
       args.completionMutation,

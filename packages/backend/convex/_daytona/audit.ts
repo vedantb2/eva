@@ -8,7 +8,6 @@ import { sessionClaudeUuid } from "./volumes";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 import { buildAuditFixPrompt } from "../_taskWorkflow/prompts";
 import { auditFailureValidator } from "../validators";
-import { unwrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 
 const AUDIT_FIRST_EVENT_TIMEOUT_MS = "30000";
 const AUDIT_POST_TEXT_STALL_TIMEOUT_MS = "30000";
@@ -73,7 +72,7 @@ export const launchAudit = internalAction({
 
     await signAndLaunchScript(
       ctx,
-      unwrapDaytonaSandbox(sandbox),
+      sandbox,
       args.userId,
       args.prompt,
       "taskWorkflow:handleAuditCompletion",
@@ -117,7 +116,7 @@ export const launchAuditFix = internalAction({
 
     await signAndLaunchScript(
       ctx,
-      unwrapDaytonaSandbox(sandbox),
+      sandbox,
       args.userId,
       args.prompt,
       "taskWorkflow:handleAuditFixCompletion",
@@ -212,7 +211,7 @@ export const launchSelectedAuditFixes = internalAction({
 
       await signAndLaunchScript(
         ctx,
-        unwrapDaytonaSandbox(sandbox),
+        sandbox,
         args.userId,
         prompt,
         "taskWorkflow:handleAuditFixCompletion",
@@ -287,7 +286,7 @@ export const runSessionAudit = internalAction({
 
       await signAndLaunchScript(
         ctx,
-        unwrapDaytonaSandbox(sandbox),
+        sandbox,
         args.userId,
         buildSessionAuditPrompt(categories),
         "audits:handleSessionCompletion",

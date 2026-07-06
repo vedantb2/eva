@@ -357,7 +357,7 @@ export async function getSandboxHandle(
 /** Signs sandbox and MCP tokens, then launches the AI agent script on the sandbox. */
 export async function signAndLaunchScript(
   ctx: GenericActionCtx<DataModel>,
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   userId: Id<"users">,
   prompt: string,
   completionMutation: string,

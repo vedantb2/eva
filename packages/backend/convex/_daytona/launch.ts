@@ -1,10 +1,10 @@
 "use node";
 
-import type { Sandbox } from "@daytonaio/sdk";
 import { createHmac } from "crypto";
 import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
-import { exec, requireEnv } from "./helpers";
+import { execHandle, requireEnv } from "./helpers";
+import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import {
   CLAUDE_BASE_CONFIG_DIR,
@@ -47,8 +47,8 @@ function resolveConvexSiteUrl(convexCloudUrl: string): string {
 }
 
 /** Installs the Codex CLI globally if not already available on the sandbox. */
-async function ensureCodexCliAvailable(sandbox: Sandbox): Promise<void> {
-  await exec(
+async function ensureCodexCliAvailable(sandbox: SandboxHandle): Promise<void> {
+  await execHandle(
     sandbox,
     `if ! command -v codex >/dev/null 2>&1 && [ ! -x ${quote([CODEX_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CODEX_FALLBACK_INSTALL_DIR])} @openai/codex; fi`,
     CODEX_INSTALL_TIMEOUT_SECONDS,
@@ -56,8 +56,10 @@ async function ensureCodexCliAvailable(sandbox: Sandbox): Promise<void> {
 }
 
 /** Installs the opencode CLI globally if not already available on the sandbox. */
-async function ensureOpencodeCliAvailable(sandbox: Sandbox): Promise<void> {
-  await exec(
+async function ensureOpencodeCliAvailable(
+  sandbox: SandboxHandle,
+): Promise<void> {
+  await execHandle(
     sandbox,
     `if ! command -v opencode >/dev/null 2>&1 && [ ! -x ${quote([OPENCODE_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([OPENCODE_FALLBACK_INSTALL_DIR])} opencode-ai; fi`,
     OPENCODE_INSTALL_TIMEOUT_SECONDS,
@@ -65,8 +67,8 @@ async function ensureOpencodeCliAvailable(sandbox: Sandbox): Promise<void> {
 }
 
 /** Installs the Cursor CLI if not already available on the sandbox. Cursor ships as a curl-bash installer (not npm) that drops the `cursor-agent` binary into ~/.local/bin. */
-async function ensureCursorCliAvailable(sandbox: Sandbox): Promise<void> {
-  await exec(
+async function ensureCursorCliAvailable(sandbox: SandboxHandle): Promise<void> {
+  await execHandle(
     sandbox,
     `if ! command -v cursor-agent >/dev/null 2>&1 && [ ! -x ${quote([CURSOR_FALLBACK_BIN_PATH])} ]; then curl -fsS https://cursor.com/install | bash; fi`,
     CURSOR_INSTALL_TIMEOUT_SECONDS,
@@ -75,7 +77,7 @@ async function ensureCursorCliAvailable(sandbox: Sandbox): Promise<void> {
 
 /** Uploads prompt and callback script to the sandbox, then launches the AI runner process. */
 export async function launchScript(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   prompt: string,
   completionMutation: string,
   entityIdField: string,
@@ -105,20 +107,16 @@ export async function launchScript(
     await ensureCursorCliAvailable(sandbox);
   }
   const uploadTasks: Array<Promise<void>> = [
-    sandbox.fs
-      .uploadFile(Buffer.from(prompt, "utf-8"), "/tmp/design-prompt.txt")
-      .then(() => {
-        console.log(
-          `[daytona][launchScript] prompt uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-        );
-      }),
-    sandbox.fs
-      .uploadFile(Buffer.from(CALLBACK_SCRIPT, "utf-8"), "/tmp/run-design.mjs")
-      .then(() => {
-        console.log(
-          `[daytona][launchScript] callback script uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-        );
-      }),
+    sandbox.writeFile("/tmp/design-prompt.txt", prompt).then(() => {
+      console.log(
+        `[daytona][launchScript] prompt uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+      );
+    }),
+    sandbox.writeFile("/tmp/run-design.mjs", CALLBACK_SCRIPT).then(() => {
+      console.log(
+        `[daytona][launchScript] callback script uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+      );
+    }),
   ];
 
   if (opts.mcpBaseUrl && opts.mcpToken) {
@@ -134,13 +132,11 @@ export async function launchScript(
       },
     });
     uploadTasks.push(
-      sandbox.fs
-        .uploadFile(Buffer.from(mcpConfig, "utf-8"), "/tmp/eva-mcp.json")
-        .then(() => {
-          console.log(
-            `[daytona][launchScript] MCP config uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
-          );
-        }),
+      sandbox.writeFile("/tmp/eva-mcp.json", mcpConfig).then(() => {
+        console.log(
+          `[daytona][launchScript] MCP config uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+        );
+      }),
     );
   }
 
@@ -192,7 +188,7 @@ export async function launchScript(
     }
   }
   const envVars = envParts.join(" ");
-  await exec(
+  await execHandle(
     sandbox,
     `rm -f /tmp/run-design.pid /tmp/run-design.ready; ${envVars} nohup node /tmp/run-design.mjs > /tmp/design.log 2>&1 & echo $! > /tmp/run-design.pid; pid=$(cat /tmp/run-design.pid); if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=0; while [ "$i" -lt ${CALLBACK_READY_POLL_ATTEMPTS} ]; do if [ -f /tmp/run-design.ready ]; then exit 0; fi; if ! kill -0 "$pid" 2>/dev/null; then tail -n 120 /tmp/design.log 2>/dev/null || true; exit 1; fi; i=$((i+1)); sleep 1; done; tail -n 120 /tmp/design.log 2>/dev/null || true; kill "$pid" 2>/dev/null || true; exit 1`,
     CALLBACK_READY_TIMEOUT_SECONDS,

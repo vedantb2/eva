@@ -16,6 +16,8 @@ import {
   errorMessage,
   signAndLaunchScript,
 } from "./helpers";
+import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
+import { uploadCallbackScriptBundle } from "./launch";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import {
   fetchOrigin,
@@ -977,16 +979,26 @@ export const prewarmSessionDaemon = internalAction({
     const startedAt = Date.now();
     try {
       const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-      // Already warm? A live daemon for this session means nothing to do.
+      const sessionIdStr = String(args.sessionId);
+      const fp = CALLBACK_SCRIPT_FINGERPRINT;
+      // Live daemon for this session with a matching callback fingerprint?
       const alive = await exec(
         sandbox,
-        `if [ -f /tmp/eva-daemon.pid ] && kill -0 "$(cat /tmp/eva-daemon.pid)" 2>/dev/null && [ "$(cat /tmp/eva-daemon.entity 2>/dev/null)" = ${JSON.stringify(String(args.sessionId))} ]; then echo alive; else echo cold; fi`,
+        `if [ -f /tmp/eva-daemon.pid ] && kill -0 "$(cat /tmp/eva-daemon.pid)" 2>/dev/null && [ "$(cat /tmp/eva-daemon.entity 2>/dev/null)" = ${JSON.stringify(sessionIdStr)} ] && [ "$(cat /tmp/eva-callback-fp 2>/dev/null)" = ${JSON.stringify(fp)} ]; then echo alive; elif [ -f /tmp/eva-daemon.pid ] && kill -0 "$(cat /tmp/eva-daemon.pid)" 2>/dev/null && [ "$(cat /tmp/eva-daemon.entity 2>/dev/null)" = ${JSON.stringify(sessionIdStr)} ]; then echo stale; else echo cold; fi`,
         10,
       );
-      if (alive.trim().endsWith("alive")) {
+      const aliveState = alive.trim().split("\n").pop()?.trim() ?? "cold";
+      if (aliveState === "alive") {
         console.log(
           `[daytona][execution] prewarmSessionDaemon: already warm sessionId=${args.sessionId}`,
         );
+        return { prewarmed: false };
+      }
+      if (aliveState === "stale") {
+        console.log(
+          `[daytona][execution] prewarmSessionDaemon: stale callback script — uploading bundle without killing live daemon sessionId=${args.sessionId}`,
+        );
+        await uploadCallbackScriptBundle(sandbox);
         return { prewarmed: false };
       }
 

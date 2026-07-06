@@ -27,6 +27,7 @@ var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
 var CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
+var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 var WORK_DIR = existsSync("/tmp/repo") ? "/tmp/repo" : existsSync("/workspace/repo") ? "/workspace/repo" : "/tmp/repo";
 var NO_OUTPUT_TIMEOUT_MS = Number(
@@ -200,7 +201,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync, writeFileSync as writeFileSync10 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
 
 // callback-src/http/convexClient.ts
 function narrowJsonValue(value) {
@@ -2994,6 +2995,8 @@ function buildConversationalSdkOptions() {
       { settings: settingsJson },
       "none"
     ),
+    // Always Haiku for simple Q&A — session model (e.g. Opus) is for agent turns only.
+    model: "haiku",
     systemPrompt: "Reply briefly and directly. Do not use tools."
   };
 }
@@ -3220,7 +3223,7 @@ function resetTurnState() {
   callbackState.pendingQuestionData = "";
   callbackState.lastStepType = "thinking";
 }
-async function finalizeTurn(output) {
+async function finalizeTurn(output, opts = {}) {
   await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
@@ -3249,12 +3252,14 @@ async function finalizeTurn(output) {
   log(
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
-  const bookkeepingAt = Date.now();
-  syncClaudeStateToPersist("daemon-turn");
-  await setFinalizingState();
-  log(
-    "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
-  );
+  if (!opts.skipBookkeeping) {
+    const bookkeepingAt = Date.now();
+    syncClaudeStateToPersist("daemon-turn");
+    await setFinalizingState();
+    log(
+      "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
+    );
+  }
 }
 function readClaimedPrompt(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
@@ -3331,7 +3336,7 @@ async function runConversationalOneShot(prompt) {
     log(
       "daemon[timing]: conversational result +" + (resultAt - turnStartedAt) + "ms after turn start"
     );
-    await finalizeTurn(output);
+    await finalizeTurn(output, { skipBookkeeping: true });
     log(
       "daemon[timing]: conversational finalizeTurn took " + (Date.now() - resultAt) + "ms"
     );
@@ -3339,9 +3344,22 @@ async function runConversationalOneShot(prompt) {
     return;
   }
 }
+function callbackScriptWentStaleOnDisk() {
+  if (!CALLBACK_SCRIPT_FP) return false;
+  try {
+    const onDisk = readFileSync7("/tmp/eva-callback-fp", "utf8").trim();
+    return onDisk !== CALLBACK_SCRIPT_FP;
+  } catch {
+    return false;
+  }
+}
 async function waitForNextTurn() {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
   while (Date.now() < idleDeadline) {
+    if (callbackScriptWentStaleOnDisk()) {
+      log("daemon: callback script updated on disk \\u2014 exiting for respawn");
+      return null;
+    }
     const claimed = await callConvexWithRetry(
       "mutation",
       CLAIM_PENDING_TURN_MUTATION,

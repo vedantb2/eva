@@ -1,8 +1,9 @@
-import { unlinkSync, writeFileSync } from "fs";
+import { unlinkSync, writeFileSync, readFileSync } from "fs";
 import {
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
   CONVEX_URL,
+  CALLBACK_SCRIPT_FP,
   ENTITY_ID,
   ENTITY_ID_FIELD,
   REPO_ID,
@@ -175,8 +176,16 @@ function resetTurnState(): void {
   S.lastStepType = "thinking";
 }
 
+type FinalizeTurnOptions = {
+  /** Conversational one-shots skip transcript persistence — not on the agent resume path. */
+  skipBookkeeping?: boolean;
+};
+
 /** Reports one finished turn to the session workflow (mirrors the one-shot completion). */
-async function finalizeTurn(output: string): Promise<void> {
+async function finalizeTurn(
+  output: string,
+  opts: FinalizeTurnOptions = {},
+): Promise<void> {
   // Drain the buffered turn output into S.accumulatedSteps before building the
   // completion payload — exactly like the one-shot path (index.ts) flushes after
   // its attempt loop. processRealtimeStdoutChunk only runs the streaming
@@ -231,12 +240,16 @@ async function finalizeTurn(output: string): Promise<void> {
   // the buffer was already drained at the top of finalizeTurn, so a plain
   // flushStreaming() here would early-return without reflecting the completed
   // status.
-  const bookkeepingAt = Date.now();
-  syncClaudeStateToPersist("daemon-turn");
-  await setFinalizingState();
-  log(
-    "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
-  );
+  if (!opts.skipBookkeeping) {
+    const bookkeepingAt = Date.now();
+    syncClaudeStateToPersist("daemon-turn");
+    await setFinalizingState();
+    log(
+      "daemon: post-turn bookkeeping took " +
+        (Date.now() - bookkeepingAt) +
+        "ms",
+    );
+  }
 }
 
 /**
@@ -357,7 +370,7 @@ async function runConversationalOneShot(prompt: string): Promise<void> {
         (resultAt - turnStartedAt) +
         "ms after turn start",
     );
-    await finalizeTurn(output);
+    await finalizeTurn(output, { skipBookkeeping: true });
     log(
       "daemon[timing]: conversational finalizeTurn took " +
         (Date.now() - resultAt) +
@@ -365,6 +378,20 @@ async function runConversationalOneShot(prompt: string): Promise<void> {
     );
     resetTurnState();
     return;
+  }
+}
+
+/**
+ * Returns true when a newer callback bundle was uploaded while this daemon is
+ * running — exit cleanly so the next prewarm can spawn with fresh code.
+ */
+function callbackScriptWentStaleOnDisk(): boolean {
+  if (!CALLBACK_SCRIPT_FP) return false;
+  try {
+    const onDisk = readFileSync("/tmp/eva-callback-fp", "utf8").trim();
+    return onDisk !== CALLBACK_SCRIPT_FP;
+  } catch {
+    return false;
   }
 }
 
@@ -377,6 +404,10 @@ async function runConversationalOneShot(prompt: string): Promise<void> {
 async function waitForNextTurn(): Promise<ClaimedTurn | null> {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
   while (Date.now() < idleDeadline) {
+    if (callbackScriptWentStaleOnDisk()) {
+      log("daemon: callback script updated on disk — exiting for respawn");
+      return null;
+    }
     const claimed = await callConvexWithRetry(
       "mutation",
       CLAIM_PENDING_TURN_MUTATION,

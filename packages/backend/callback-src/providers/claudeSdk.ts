@@ -162,6 +162,8 @@ export function buildConversationalSdkOptions(): SdkOptions {
       { settings: settingsJson },
       "none",
     ),
+    // Always Haiku for simple Q&A — session model (e.g. Opus) is for agent turns only.
+    model: "haiku",
     systemPrompt: "Reply briefly and directly. Do not use tools.",
   };
 }

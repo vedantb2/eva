@@ -596,15 +596,19 @@ export const claimPendingTurn = authMutation({
     turnKind: v.union(v.literal("conversational"), v.literal("agent")),
   }),
   handler: async (ctx, args) => {
+    const emptyClaim = {
+      prompt: null,
+      turnKind: "agent",
+    } satisfies { prompt: null; turnKind: SessionTurnKind };
     const session = await ctx.db.get(args.sessionId);
-    if (!session) return { prompt: null, turnKind: "agent" };
+    if (!session) return emptyClaim;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
-    if (!session.pendingTurn) return { prompt: null, turnKind: "agent" };
+    if (!session.pendingTurn) return emptyClaim;
 
     const prompt = session.pendingTurn.prompt;
-    const turnKind = session.pendingTurn.turnKind ?? "agent";
+    const turnKind: SessionTurnKind = session.pendingTurn.turnKind ?? "agent";
     const claimWaitMs = Date.now() - session.pendingTurn.requestedAt;
     await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
     console.log(

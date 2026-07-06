@@ -25,6 +25,8 @@ export const CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
  * trigger pay the boot cost BEFORE the user sends their first message.
  */
 export const CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
+/** Fingerprint of the callback bundle this daemon was started with; exit when disk fp differs. */
+export const CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 export const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 export const WORK_DIR = existsSync("/tmp/repo")
   ? "/tmp/repo"

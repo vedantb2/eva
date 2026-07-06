@@ -10,6 +10,10 @@ test("classifyTurnKind marks simple math as conversational", () => {
     "conversational",
   );
   assert.equal(classifyTurnKind("what is 12+12?"), "conversational");
+  assert.equal(
+    classifyTurnKind("what is 13+13? just the number"),
+    "conversational",
+  );
 });
 
 test("classifyTurnKind marks code tasks as agent", () => {

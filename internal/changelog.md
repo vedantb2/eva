@@ -1,5 +1,10 @@
 # Changelog
 
+## Conversational latency hardening - 2026-07-06
+
+- Force Haiku on conversational one-shots, skip transcript bookkeeping, fingerprint callback bundles on sandboxes, and upload refreshed scripts without killing a live mid-turn daemon.
+- Reason for change: stale-script prewarm was pkilling the daemon after claim (losing the turn) and conversational turns still inherited the session Opus model; claude.ai parity needs a safe fast path without interrupting in-flight work.
+
 ## Session conversational fast path - 2026-07-06
 
 - Classify simple Q&A turns and run them as fresh one-shot Agent SDK queries (no resume, no tools/MCP) instead of the warm coding-agent session with full transcript context.

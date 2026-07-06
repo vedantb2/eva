@@ -6,6 +6,7 @@ import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import { exec, requireEnv } from "./helpers";
 import { CALLBACK_SCRIPT } from "./callbackScript";
+import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import {
   CLAUDE_BASE_CONFIG_DIR,
   CLAUDE_PERSIST_VOLUME_MOUNT_PATH,
@@ -73,6 +74,22 @@ async function ensureCursorCliAvailable(sandbox: Sandbox): Promise<void> {
   );
 }
 
+/** Uploads the bundled callback runner + fingerprint without starting a process. */
+export async function uploadCallbackScriptBundle(
+  sandbox: Sandbox,
+): Promise<void> {
+  await Promise.all([
+    sandbox.fs.uploadFile(
+      Buffer.from(CALLBACK_SCRIPT, "utf-8"),
+      "/tmp/run-design.mjs",
+    ),
+    sandbox.fs.uploadFile(
+      Buffer.from(CALLBACK_SCRIPT_FINGERPRINT, "utf-8"),
+      "/tmp/eva-callback-fp",
+    ),
+  ]);
+}
+
 /** Uploads prompt and callback script to the sandbox, then launches the AI runner process. */
 export async function launchScript(
   sandbox: Sandbox,
@@ -117,6 +134,16 @@ export async function launchScript(
       .then(() => {
         console.log(
           `[daytona][launchScript] callback script uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+        );
+      }),
+    sandbox.fs
+      .uploadFile(
+        Buffer.from(CALLBACK_SCRIPT_FINGERPRINT, "utf-8"),
+        "/tmp/eva-callback-fp",
+      )
+      .then(() => {
+        console.log(
+          `[daytona][launchScript] callback fingerprint uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
         );
       }),
   ];
@@ -199,6 +226,7 @@ export async function launchScript(
       envParts.push(`${key}=${quote([val])}`);
     }
   }
+  envParts.push(`CALLBACK_SCRIPT_FP=${quote([CALLBACK_SCRIPT_FINGERPRINT])}`);
   const envVars = envParts.join(" ");
   await exec(
     sandbox,

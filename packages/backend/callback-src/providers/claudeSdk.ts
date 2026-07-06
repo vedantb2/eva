@@ -62,6 +62,7 @@ export type SdkOptions = {
   sessionId?: string;
   resume?: string;
   extraArgs?: Record<string, string>;
+  includePartialMessages?: boolean;
 };
 
 export type SdkUserMessage = {
@@ -159,6 +160,9 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
       : { type: "preset", preset: "claude_code" },
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
+    // Emit token-level partial (`stream_event`) messages so claudeParseLine can
+    // stream text deltas into the reply live (dedup guards the final message).
+    includePartialMessages: true,
     ...(ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : {}),
     // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
     // title / flavour-text side calls) — measured as a ~6s second API call

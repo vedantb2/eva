@@ -229,7 +229,7 @@ export async function initialHeartbeat(): Promise<void> {
 export function startStreamingLoops(): void {
   flushInterval = setInterval(() => {
     void flushStreaming();
-  }, 500);
+  }, 150);
   heartbeatInterval = setInterval(() => {
     void heartbeatPing();
   }, 10000);

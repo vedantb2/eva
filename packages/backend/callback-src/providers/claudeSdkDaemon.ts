@@ -149,6 +149,7 @@ function readToken(data: unknownJson): string | null {
 function resetTurnState(): void {
   S.accumulatedSteps.length = 0;
   S.currentStreamedContent = "";
+  S.streamedAssistantTextThisMessage = false;
   S.resultEventSeen = false;
   S.rawOutput = "";
   S.inFlightToolUses = 0;

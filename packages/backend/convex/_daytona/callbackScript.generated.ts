@@ -433,6 +433,7 @@ var callbackState = {
   firstAssistantEventAt: 0,
   firstTextBlockAt: 0,
   currentStreamedContent: "",
+  streamedAssistantTextThisMessage: false,
   activeAttemptChild: null,
   fatalHeartbeatErrorMessage: "",
   consecutiveHeartbeatFailures: 0,
@@ -1706,8 +1707,35 @@ function prepareClaudeSessionState() {
 }
 
 // callback-src/providers/claude.ts
+function parseClaudeStreamEvent(event) {
+  const events = [];
+  const inner = event.event && typeof event.event === "object" && !Array.isArray(event.event) ? event.event : null;
+  if (!inner) return events;
+  if (inner.type === "message_start") {
+    events.push({ kind: "mark_message_start" });
+    return events;
+  }
+  if (inner.type !== "content_block_delta") return events;
+  const delta = inner.delta && typeof inner.delta === "object" && !Array.isArray(inner.delta) ? inner.delta : null;
+  if (!delta) return events;
+  if (delta.type === "text_delta" && typeof delta.text === "string") {
+    if (delta.text) {
+      events.push({ kind: "stream_text_delta", text: delta.text });
+    }
+    return events;
+  }
+  if (delta.type === "thinking_delta" && typeof delta.thinking === "string") {
+    if (delta.thinking) {
+      events.push({ kind: "update_reasoning", text: delta.thinking });
+    }
+  }
+  return events;
+}
 function claudeParseLine(event) {
   const events = [];
+  if (event.type === "stream_event") {
+    return parseClaudeStreamEvent(event);
+  }
   if (event.type === "tool_result") {
     const toolUseId = typeof event.tool_use_id === "string" && event.tool_use_id.trim() ? event.tool_use_id.trim() : void 0;
     events.push({ kind: "complete_tool", trackingId: toolUseId });
@@ -1753,7 +1781,9 @@ function claudeParseLine(event) {
     } else if (block.type === "thinking" && "thinking" in block && block.thinking) {
       events.push({ kind: "update_reasoning", text: String(block.thinking) });
     } else if (block.type === "text" && "text" in block && block.text) {
-      events.push({ kind: "append_text", text: String(block.text) });
+      if (!callbackState.streamedAssistantTextThisMessage) {
+        events.push({ kind: "append_text", text: String(block.text) });
+      }
     }
   }
   return events;
@@ -2395,6 +2425,13 @@ function applyCanonicalEvents(events) {
       case "append_text":
         appendStreamedContent(ev.text);
         break;
+      case "stream_text_delta":
+        appendStreamedContent(ev.text);
+        callbackState.streamedAssistantTextThisMessage = true;
+        break;
+      case "mark_message_start":
+        callbackState.streamedAssistantTextThisMessage = false;
+        break;
       case "update_reasoning":
         callbackState.lastStepType = "thinking";
         break;
@@ -2624,7 +2661,7 @@ async function initialHeartbeat() {
 function startStreamingLoops() {
   flushInterval = setInterval(() => {
     void flushStreaming();
-  }, 500);
+  }, 150);
   heartbeatInterval = setInterval(() => {
     void heartbeatPing();
   }, 1e4);
@@ -2954,6 +2991,9 @@ function buildSdkOptions(sessionMode) {
     systemPrompt: SYSTEM_PROMPT ? { type: "preset", preset: "claude_code", append: SYSTEM_PROMPT } : { type: "preset", preset: "claude_code" },
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
+    // Emit token-level partial (\`stream_event\`) messages so claudeParseLine can
+    // stream text deltas into the reply live (dedup guards the final message).
+    includePartialMessages: true,
     ...ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : {},
     // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
     // title / flavour-text side calls) — measured as a ~6s second API call
@@ -3161,6 +3201,7 @@ function readToken(data) {
 function resetTurnState() {
   callbackState.accumulatedSteps.length = 0;
   callbackState.currentStreamedContent = "";
+  callbackState.streamedAssistantTextThisMessage = false;
   callbackState.resultEventSeen = false;
   callbackState.rawOutput = "";
   callbackState.inFlightToolUses = 0;

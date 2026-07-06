@@ -54,6 +54,7 @@ type CallbackState = {
   firstAssistantEventAt: number;
   firstTextBlockAt: number;
   currentStreamedContent: string;
+  streamedAssistantTextThisMessage: boolean;
   activeAttemptChild: ChildProcess | null;
   fatalHeartbeatErrorMessage: string;
   consecutiveHeartbeatFailures: number;
@@ -97,6 +98,7 @@ export const callbackState: CallbackState = {
   firstAssistantEventAt: 0,
   firstTextBlockAt: 0,
   currentStreamedContent: "",
+  streamedAssistantTextThisMessage: false,
   activeAttemptChild: null,
   fatalHeartbeatErrorMessage: "",
   consecutiveHeartbeatFailures: 0,
@@ -170,6 +172,7 @@ export function resetStateForTests(): void {
   callbackState.resultEventSeen = false;
   callbackState.parsedStreamEventCount = 0;
   callbackState.currentStreamedContent = "";
+  callbackState.streamedAssistantTextThisMessage = false;
 }
 
 export function setFatalHeartbeatForTest(message: string): void {

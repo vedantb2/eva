@@ -178,6 +178,12 @@ export interface SandboxHandle {
 
   exec(cmd: string, opts?: SandboxExecOptions): Promise<SandboxExecResult>;
 
+  /**
+   * Write a file into the sandbox filesystem at an absolute path, creating
+   * parent directories as needed. (Daytona: `fs.uploadFile`; Vercel: `writeFiles`.)
+   */
+  writeFile(path: string, content: string | Uint8Array): Promise<void>;
+
   /** Start/resume the sandbox, waiting up to `timeoutSeconds` for readiness. */
   start(timeoutSeconds: number): Promise<void>;
   stop(): Promise<void>;

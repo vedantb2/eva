@@ -204,6 +204,14 @@ class DaytonaSandboxHandle implements SandboxHandle {
     return { exitCode: resp.exitCode, output: resp.result };
   }
 
+  async writeFile(path: string, content: string | Uint8Array): Promise<void> {
+    const buffer =
+      typeof content === "string"
+        ? Buffer.from(content, "utf-8")
+        : Buffer.from(content);
+    await this.sandbox.fs.uploadFile(buffer, path);
+  }
+
   async start(timeoutSeconds: number): Promise<void> {
     await this.sandbox.start(timeoutSeconds);
   }

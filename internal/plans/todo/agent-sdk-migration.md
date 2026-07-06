@@ -1,6 +1,11 @@
 # Migrate the Claude provider off `claude -p` to the Claude Agent SDK
 
-Status: IN PROGRESS (branch `feat/agent-sdk-migration`). Goal: run Claude via
+Status: WORKING on dev (branch `feat/agent-sdk-migration`, PR #423). Verified
+end-to-end via the local dev server (dev deployment with
+CLAUDE_ATTEMPT_MODE=sdk): new-session turn, tool-using turn with correct
+activity, and multi-turn resume with session memory all pass. Prod untouched
+(flag defaults to cli). Before flipping prod: rebuild the base Image so the SDK
+is preinstalled, and soak on dev. Goal: run Claude via
 `@anthropic-ai/claude-agent-sdk` `query()` in-process inside the callback,
 instead of spawning the `claude -p` CLI. Keep all other providers (codex,
 cursor, opencode) on their current CLI path. Flag-gated; not deployed to prod

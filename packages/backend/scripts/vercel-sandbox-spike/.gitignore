@@ -1,0 +1,5 @@
+node_modules/
+# never commit credential dumps
+secrets.txt
+*.secret
+.env*

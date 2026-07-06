@@ -1,0 +1,14 @@
+{
+  "name": "vercel-sandbox-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 0 go/no-go benchmark for the Daytona -> Vercel Sandbox migration. Standalone; isolated from the backend package so it does not perturb Convex deps.",
+  "scripts": {
+    "spike": "node spike.mjs"
+  },
+  "dependencies": {
+    "@vercel/sandbox": "latest",
+    "ws": "^8.21.0"
+  }
+}

@@ -38,11 +38,10 @@ const FILE_TYPES = new Set<ActivityStep["type"]>([
   "notebook",
 ]);
 
-const HIDDEN_TYPES = new Set<ActivityStep["type"]>([
-  "thinking",
-  "reasoning",
-  "response",
-]);
+// Thinking is a transient liveness pulse and the streamed response duplicates
+// the final reply, so both stay hidden. Reasoning is shown as a collapsed
+// "Thought process" accordion (see ActivityBlockRow).
+const HIDDEN_TYPES = new Set<ActivityStep["type"]>(["thinking", "response"]);
 
 function getFileVerb(type: ActivityStep["type"], active: boolean): string {
   if (type === "edit" || type === "notebook") {
@@ -58,10 +57,17 @@ function ActivityBlockRow({ block }: { block: ActivityBlock }) {
   const isActive = block.status === "active";
   const title = getBlockTitle(block);
   const isFileType = FILE_TYPES.has(block.type);
+  const isReasoning = block.type === "reasoning";
   const fileVerb = getFileVerb(block.type, isActive);
 
   return (
-    <Task key={block.status} defaultOpen={isActive} className="w-full">
+    // Reasoning stays collapsed by default (it's opt-in detail); other blocks
+    // auto-open while active so their live output is visible.
+    <Task
+      key={block.status}
+      defaultOpen={isReasoning ? false : isActive}
+      className="w-full"
+    >
       <TaskTrigger
         title={
           isActive ? (
@@ -75,7 +81,14 @@ function ActivityBlockRow({ block }: { block: ActivityBlock }) {
       />
       <TaskContent>
         {block.items.map((item, i) =>
-          isFileType ? (
+          isReasoning ? (
+            <p
+              key={i}
+              className="whitespace-pre-wrap text-muted-foreground text-xs italic"
+            >
+              {item.detail ?? item.label}
+            </p>
+          ) : isFileType ? (
             <TaskItem key={i}>
               <span className="inline-flex max-w-full items-center gap-1">
                 {fileVerb}

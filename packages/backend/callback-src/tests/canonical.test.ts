@@ -89,10 +89,16 @@ test("append_text replaces streamed content on cumulative snapshots", () => {
   resetStateForTests();
 });
 
-test("update_reasoning is transient and does not add activity steps", () => {
+test("update_reasoning records a durable reasoning step and merges deltas", () => {
   resetStateForTests();
   applyCanonicalEvents([{ kind: "update_reasoning", text: "pondering" }]);
-  assert.equal(S.accumulatedSteps.length, 0);
+  assert.equal(S.accumulatedSteps.length, 1);
+  assert.equal(S.accumulatedSteps[0].type, "reasoning");
+  assert.equal(S.accumulatedSteps[0].detail, "pondering");
+  // A cumulative snapshot merges into the same step rather than adding a new one.
+  applyCanonicalEvents([{ kind: "update_reasoning", text: "pondering more" }]);
+  assert.equal(S.accumulatedSteps.length, 1);
+  assert.equal(S.accumulatedSteps[0].detail, "pondering more");
   assert.equal(S.lastStepType, "thinking");
   resetStateForTests();
 });
@@ -125,20 +131,24 @@ test("parsePriorStepForTest ignores transient activity rows", () => {
   );
   assert.equal(
     parsePriorStepForTest({
-      type: "reasoning",
-      label: "Thinking...",
-      status: "active",
-    }),
-    null,
-  );
-  assert.equal(
-    parsePriorStepForTest({
       type: "response",
       label: "Streaming response...",
       status: "active",
     }),
     null,
   );
+});
+
+test("parsePriorStepForTest preserves reasoning rows", () => {
+  const restored = parsePriorStepForTest({
+    type: "reasoning",
+    label: "Thought process",
+    detail: "prior thinking",
+    status: "active",
+  });
+  assert.notEqual(restored, null);
+  assert.equal(restored?.type, "reasoning");
+  assert.equal(restored?.detail, "prior thinking");
 });
 
 test("parseToCanonical codex reasoning item routes to update_reasoning", () => {

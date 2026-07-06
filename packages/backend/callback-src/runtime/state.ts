@@ -11,7 +11,10 @@ function parsePriorStep(value: JsonValue): ProgressStep | null {
   if (typeof label !== "string" || typeof type !== "string") {
     return null;
   }
-  if (type === "thinking" || type === "reasoning" || type === "response") {
+  // Thinking is a transient liveness signal and the streamed response duplicates
+  // the final summary, so neither is restored. Reasoning IS kept — it backs the
+  // collapsed "Thought process" accordion.
+  if (type === "thinking" || type === "response") {
     return null;
   }
   const detail = value.detail;

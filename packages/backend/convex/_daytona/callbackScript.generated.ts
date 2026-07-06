@@ -378,7 +378,7 @@ function parsePriorStep(value) {
   if (typeof label !== "string" || typeof type !== "string") {
     return null;
   }
-  if (type === "thinking" || type === "reasoning" || type === "response") {
+  if (type === "thinking" || type === "response") {
     return null;
   }
   const detail = value.detail;
@@ -1952,6 +1952,29 @@ function updateThinkingStep(label, detail) {
   void detail;
   callbackState.lastStepType = "thinking";
 }
+var REASONING_DETAIL_MAX_CHARS = 2e4;
+function capReasoningDetail(text) {
+  return text.length > REASONING_DETAIL_MAX_CHARS ? text.slice(text.length - REASONING_DETAIL_MAX_CHARS) : text;
+}
+function updateReasoningStep(text) {
+  const lastStep = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
+  if (lastStep && lastStep.type === "reasoning" && lastStep.status === "active") {
+    const existing = lastStep.detail ?? "";
+    lastStep.detail = capReasoningDetail(
+      text.startsWith(existing) ? text : existing + text
+    );
+    callbackState.lastStepType = "thinking";
+    return;
+  }
+  markLastComplete();
+  callbackState.accumulatedSteps.push({
+    type: "reasoning",
+    label: "Thought process",
+    detail: capReasoningDetail(text),
+    status: "active"
+  });
+  callbackState.lastStepType = "thinking";
+}
 function shouldRecordProgressStep(step) {
   return step.type !== "thinking" && step.type !== "reasoning" && step.type !== "response";
 }
@@ -2000,7 +2023,7 @@ function applyCanonicalEvents(events) {
         appendStreamedContent(ev.text);
         break;
       case "update_reasoning":
-        callbackState.lastStepType = "thinking";
+        updateReasoningStep(ev.text);
         break;
       case "set_pending_question":
         callbackState.pendingQuestionData = ev.data;

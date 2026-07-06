@@ -119,7 +119,7 @@ const titleBuilders: Record<
       ? `Using ${n} ${pluralize(n, "tool", "tools")}`
       : `Used ${n} ${pluralize(n, "tool", "tools")}`,
   thinking: () => "",
-  reasoning: (_n, active) => (active ? "Thinking..." : "Thought"),
+  reasoning: (_n, active) => (active ? "Thinking..." : "Thought process"),
   response: () => "",
   question: () => "",
 };

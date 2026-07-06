@@ -36,6 +36,46 @@ export function updateThinkingStep(label: string, detail?: string): void {
   S.lastStepType = "thinking";
 }
 
+/** Max chars kept in a streamed reasoning step's detail. Older text is dropped
+ * from the head so the tail (most recent content) survives. */
+const REASONING_DETAIL_MAX_CHARS = 20000;
+
+function capReasoningDetail(text: string): string {
+  return text.length > REASONING_DETAIL_MAX_CHARS
+    ? text.slice(text.length - REASONING_DETAIL_MAX_CHARS)
+    : text;
+}
+
+/**
+ * Accumulates the model's reasoning text into a durable "reasoning" step so the
+ * UI can surface it as a collapsed "Thought process" accordion. Merges incoming
+ * deltas into the active reasoning step (de-duping cumulative-snapshot providers
+ * that resend the full text from delta-streaming ones), or starts a new one.
+ */
+export function updateReasoningStep(text: string): void {
+  const lastStep = S.accumulatedSteps[S.accumulatedSteps.length - 1];
+  if (
+    lastStep &&
+    lastStep.type === "reasoning" &&
+    lastStep.status === "active"
+  ) {
+    const existing = lastStep.detail ?? "";
+    lastStep.detail = capReasoningDetail(
+      text.startsWith(existing) ? text : existing + text,
+    );
+    S.lastStepType = "thinking";
+    return;
+  }
+  markLastComplete();
+  S.accumulatedSteps.push({
+    type: "reasoning",
+    label: "Thought process",
+    detail: capReasoningDetail(text),
+    status: "active",
+  });
+  S.lastStepType = "thinking";
+}
+
 function shouldRecordProgressStep(step: ProgressStep): boolean {
   return (
     step.type !== "thinking" &&
@@ -96,7 +136,7 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         appendStreamedContent(ev.text);
         break;
       case "update_reasoning":
-        S.lastStepType = "thinking";
+        updateReasoningStep(ev.text);
         break;
       case "set_pending_question":
         S.pendingQuestionData = ev.data;

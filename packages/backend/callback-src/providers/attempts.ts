@@ -60,7 +60,15 @@ export async function runClaudeAttempt(sessionMode: SessionMode) {
   const startupStep = buildClaudeStartupStep();
   return await runCliAttempt({
     cmd,
-    env: { ...process.env, CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR },
+    env: {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+      // Enable extended thinking so the CLI emits `thinking` blocks, which the
+      // parser turns into the "Thought process" accordion. Headless `claude -p`
+      // thinking output is undocumented, so this is verified empirically;
+      // overridable via the sandbox env, default 10k budget.
+      MAX_THINKING_TOKENS: process.env.MAX_THINKING_TOKENS ?? "10000",
+    },
     processLabel: "claude",
     attemptLabel: "runClaudeAttempt",
     startupStep,

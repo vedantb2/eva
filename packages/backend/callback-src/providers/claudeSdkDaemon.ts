@@ -330,28 +330,142 @@ function processDaemonMessage(
   return { output: nextOutput, isResult };
 }
 
+/** Pulls visible reply text from a final assistant SDK message. */
+function extractAssistantTextFromMessage(
+  message: DaemonMessage,
+): string | null {
+  if (message.type !== "assistant") {
+    return null;
+  }
+  const nested = message.message;
+  if (typeof nested !== "object" || nested === null || Array.isArray(nested)) {
+    return null;
+  }
+  const content = nested.content;
+  if (!Array.isArray(content)) {
+    return null;
+  }
+  const parts: string[] = [];
+  for (const block of content) {
+    if (typeof block !== "object" || block === null || Array.isArray(block)) {
+      continue;
+    }
+    if (block.type === "text" && typeof block.text === "string") {
+      parts.push(block.text);
+    }
+  }
+  const text = parts.join("");
+  return text.length > 0 ? text : null;
+}
+
+function appendSyntheticResultLine(output: string, replyText: string): string {
+  const line =
+    JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      result: replyText,
+    }) + "\n";
+  return trimBufferHead(output + line);
+}
+
+type WarmConversationalRunner = {
+  push: (text: string) => void;
+  waitMessage: () => Promise<DaemonMessage | null>;
+};
+
 /**
- * One-shot fast path for conversational turns: fresh context (no resume), no
- * tools/MCP, minimal system prompt — matches claude.ai latency for simple Q&A.
+ * Persistent conversational query (Haiku, no tools/MCP/resume). Booted once at
+ * daemon start so conversational turns only pay model time, not CLI spawn.
  */
-async function runConversationalOneShot(prompt: string): Promise<void> {
+function createWarmConversationalRunner(
+  sdk: Awaited<ReturnType<typeof loadSdk>>,
+): WarmConversationalRunner {
+  const { push, iterable } = createPromptStream();
+  log("daemon: booting warm conversational query()");
+  const query = sdk.query({
+    prompt: iterable,
+    options: buildConversationalSdkOptions(),
+  });
+
+  const pending: DaemonMessage[] = [];
+  let notify: (() => void) | null = null;
+  let pumpFinished = false;
+
+  const wakeWaiters = (): void => {
+    const resume = notify;
+    notify = null;
+    if (resume) resume();
+  };
+
+  void (async () => {
+    try {
+      for await (const raw of query) {
+        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+          continue;
+        }
+        pending.push(raw);
+        wakeWaiters();
+      }
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : String(error);
+      log("daemon: conversational query pump failed — " + messageText);
+    } finally {
+      pumpFinished = true;
+      wakeWaiters();
+    }
+  })();
+
+  const waitMessage = async (): Promise<DaemonMessage | null> => {
+    while (pending.length === 0) {
+      if (pumpFinished) return null;
+      await new Promise<void>((resolve) => {
+        notify = resolve;
+      });
+      if (pending.length === 0 && pumpFinished) return null;
+    }
+    const message = pending.shift();
+    return message ?? null;
+  };
+
+  return { push, waitMessage };
+}
+
+/** Drops post-assistant SDK messages until the turn's result line is consumed. */
+async function drainUntilConversationalResult(
+  runner: WarmConversationalRunner,
+): Promise<void> {
+  while (true) {
+    const message = await runner.waitMessage();
+    if (message === null) {
+      return;
+    }
+    if (message.type === "result") {
+      return;
+    }
+  }
+}
+
+/** Feed a prompt into the warm conversational query and wait for its result. */
+async function runConversationalWarmTurn(
+  runner: WarmConversationalRunner,
+  prompt: string,
+): Promise<void> {
   resetTurnState();
   const turnStartedAt = Date.now();
   S.activeAttemptStartedAt = turnStartedAt;
-  log("daemon: conversational one-shot turn started");
-  const sdk = await loadSdk();
-  const options = buildConversationalSdkOptions();
+  log("daemon: conversational warm turn started");
+  runner.push(prompt);
   let output = "";
   const sawFirstMessageThisTurn = { value: false };
   const sawAssistantThisTurn = { value: false };
-  const query = sdk.query({ prompt, options });
-  for await (const message of query) {
-    if (
-      typeof message !== "object" ||
-      message === null ||
-      Array.isArray(message)
-    ) {
-      continue;
+
+  while (true) {
+    const message = await runner.waitMessage();
+    if (message === null) {
+      log("daemon: conversational query ended unexpectedly");
+      return;
     }
     const processed = processDaemonMessage(
       message,
@@ -362,6 +476,25 @@ async function runConversationalOneShot(prompt: string): Promise<void> {
     );
     output = processed.output;
     if (!processed.isResult) {
+      const replyText = extractAssistantTextFromMessage(message);
+      if (replyText !== null) {
+        output = appendSyntheticResultLine(output, replyText);
+        const resultAt = Date.now();
+        log(
+          "daemon[timing]: conversational early result (assistant) +" +
+            (resultAt - turnStartedAt) +
+            "ms after turn start",
+        );
+        await finalizeTurn(output, { skipBookkeeping: true });
+        log(
+          "daemon[timing]: conversational finalizeTurn took " +
+            (Date.now() - resultAt) +
+            "ms",
+        );
+        resetTurnState();
+        await drainUntilConversationalResult(runner);
+        return;
+      }
       continue;
     }
     const resultAt = Date.now();
@@ -445,6 +578,7 @@ export async function runSdkDaemon(): Promise<void> {
   const sessionMode = prepareClaudeSessionState();
   const options = buildSdkOptions(sessionMode);
   const sdk = await loadSdk();
+  const convRunner = createWarmConversationalRunner(sdk);
   const { push, iterable } = createPromptStream();
   const query = sdk.query({ prompt: iterable, options });
 
@@ -477,7 +611,7 @@ export async function runSdkDaemon(): Promise<void> {
 
   try {
     while (nextTurn !== null && nextTurn.turnKind === "conversational") {
-      await runConversationalOneShot(nextTurn.prompt);
+      await runConversationalWarmTurn(convRunner, nextTurn.prompt);
       nextTurn = await waitForNextTurn();
     }
     if (nextTurn === null) {
@@ -525,7 +659,7 @@ export async function runSdkDaemon(): Promise<void> {
 
         let upcoming = await waitForNextTurn();
         while (upcoming !== null && upcoming.turnKind === "conversational") {
-          await runConversationalOneShot(upcoming.prompt);
+          await runConversationalWarmTurn(convRunner, upcoming.prompt);
           upcoming = await waitForNextTurn();
         }
         if (upcoming === null) {

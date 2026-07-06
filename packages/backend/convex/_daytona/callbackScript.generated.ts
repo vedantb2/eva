@@ -2990,14 +2990,23 @@ function buildSdkOptions(sessionMode) {
 }
 function buildConversationalSdkOptions() {
   return {
-    ...buildSdkOptionsFromParts(
-      { mode: "session" },
-      { settings: settingsJson },
-      "none"
-    ),
-    // Always Haiku for simple Q&A — session model (e.g. Opus) is for agent turns only.
+    cwd: WORK_DIR,
     model: "haiku",
-    systemPrompt: "Reply briefly and directly. Do not use tools."
+    pathToClaudeCodeExecutable: claudeExecutablePath(),
+    systemPrompt: "Reply briefly and directly. Do not use tools.",
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
+    allowedTools: [],
+    includePartialMessages: true,
+    env: {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+      DISABLE_TELEMETRY: "1",
+      DISABLE_AUTOUPDATER: "1",
+      DISABLE_ERROR_REPORTING: "1"
+    }
   };
 }
 var EVA_SDK_SYSTEM_APPEND = "You are running inside Eva, a platform that runs coding agents in remote sandboxes against GitHub repos. Treat the workspace as the active repo checkout.";
@@ -3317,20 +3326,109 @@ function processDaemonMessage(message, output, turnStartedAt, sawFirstMessageThi
   const isResult = message.type === "result";
   return { output: nextOutput, isResult };
 }
-async function runConversationalOneShot(prompt) {
+function extractAssistantTextFromMessage(message) {
+  if (message.type !== "assistant") {
+    return null;
+  }
+  const nested = message.message;
+  if (typeof nested !== "object" || nested === null || Array.isArray(nested)) {
+    return null;
+  }
+  const content = nested.content;
+  if (!Array.isArray(content)) {
+    return null;
+  }
+  const parts = [];
+  for (const block of content) {
+    if (typeof block !== "object" || block === null || Array.isArray(block)) {
+      continue;
+    }
+    if (block.type === "text" && typeof block.text === "string") {
+      parts.push(block.text);
+    }
+  }
+  const text = parts.join("");
+  return text.length > 0 ? text : null;
+}
+function appendSyntheticResultLine(output, replyText) {
+  const line = JSON.stringify({
+    type: "result",
+    subtype: "success",
+    is_error: false,
+    result: replyText
+  }) + "\\n";
+  return trimBufferHead(output + line);
+}
+function createWarmConversationalRunner(sdk) {
+  const { push, iterable } = createPromptStream();
+  log("daemon: booting warm conversational query()");
+  const query = sdk.query({
+    prompt: iterable,
+    options: buildConversationalSdkOptions()
+  });
+  const pending = [];
+  let notify = null;
+  let pumpFinished = false;
+  const wakeWaiters = () => {
+    const resume = notify;
+    notify = null;
+    if (resume) resume();
+  };
+  void (async () => {
+    try {
+      for await (const raw of query) {
+        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+          continue;
+        }
+        pending.push(raw);
+        wakeWaiters();
+      }
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      log("daemon: conversational query pump failed \\u2014 " + messageText);
+    } finally {
+      pumpFinished = true;
+      wakeWaiters();
+    }
+  })();
+  const waitMessage = async () => {
+    while (pending.length === 0) {
+      if (pumpFinished) return null;
+      await new Promise((resolve) => {
+        notify = resolve;
+      });
+      if (pending.length === 0 && pumpFinished) return null;
+    }
+    const message = pending.shift();
+    return message ?? null;
+  };
+  return { push, waitMessage };
+}
+async function drainUntilConversationalResult(runner) {
+  while (true) {
+    const message = await runner.waitMessage();
+    if (message === null) {
+      return;
+    }
+    if (message.type === "result") {
+      return;
+    }
+  }
+}
+async function runConversationalWarmTurn(runner, prompt) {
   resetTurnState();
   const turnStartedAt = Date.now();
   callbackState.activeAttemptStartedAt = turnStartedAt;
-  log("daemon: conversational one-shot turn started");
-  const sdk = await loadSdk();
-  const options = buildConversationalSdkOptions();
+  log("daemon: conversational warm turn started");
+  runner.push(prompt);
   let output = "";
   const sawFirstMessageThisTurn = { value: false };
   const sawAssistantThisTurn = { value: false };
-  const query = sdk.query({ prompt, options });
-  for await (const message of query) {
-    if (typeof message !== "object" || message === null || Array.isArray(message)) {
-      continue;
+  while (true) {
+    const message = await runner.waitMessage();
+    if (message === null) {
+      log("daemon: conversational query ended unexpectedly");
+      return;
     }
     const processed = processDaemonMessage(
       message,
@@ -3341,6 +3439,21 @@ async function runConversationalOneShot(prompt) {
     );
     output = processed.output;
     if (!processed.isResult) {
+      const replyText = extractAssistantTextFromMessage(message);
+      if (replyText !== null) {
+        output = appendSyntheticResultLine(output, replyText);
+        const resultAt2 = Date.now();
+        log(
+          "daemon[timing]: conversational early result (assistant) +" + (resultAt2 - turnStartedAt) + "ms after turn start"
+        );
+        await finalizeTurn(output, { skipBookkeeping: true });
+        log(
+          "daemon[timing]: conversational finalizeTurn took " + (Date.now() - resultAt2) + "ms"
+        );
+        resetTurnState();
+        await drainUntilConversationalResult(runner);
+        return;
+      }
       continue;
     }
     const resultAt = Date.now();
@@ -3397,6 +3510,7 @@ async function runSdkDaemon() {
   const sessionMode = prepareClaudeSessionState();
   const options = buildSdkOptions(sessionMode);
   const sdk = await loadSdk();
+  const convRunner = createWarmConversationalRunner(sdk);
   const { push, iterable } = createPromptStream();
   const query = sdk.query({ prompt: iterable, options });
   log(
@@ -3415,7 +3529,7 @@ async function runSdkDaemon() {
   }
   try {
     while (nextTurn !== null && nextTurn.turnKind === "conversational") {
-      await runConversationalOneShot(nextTurn.prompt);
+      await runConversationalWarmTurn(convRunner, nextTurn.prompt);
       nextTurn = await waitForNextTurn();
     }
     if (nextTurn === null) {
@@ -3454,7 +3568,7 @@ async function runSdkDaemon() {
         output = "";
         let upcoming = await waitForNextTurn();
         while (upcoming !== null && upcoming.turnKind === "conversational") {
-          await runConversationalOneShot(upcoming.prompt);
+          await runConversationalWarmTurn(convRunner, upcoming.prompt);
           upcoming = await waitForNextTurn();
         }
         if (upcoming === null) {

@@ -157,14 +157,23 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
 /** Fresh one-shot query for conversational turns: no resume, no tools, no MCP. */
 export function buildConversationalSdkOptions(): SdkOptions {
   return {
-    ...buildSdkOptionsFromParts(
-      { mode: "session" },
-      { settings: settingsJson },
-      "none",
-    ),
-    // Always Haiku for simple Q&A — session model (e.g. Opus) is for agent turns only.
+    cwd: WORK_DIR,
     model: "haiku",
+    pathToClaudeCodeExecutable: claudeExecutablePath(),
     systemPrompt: "Reply briefly and directly. Do not use tools.",
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
+    allowedTools: [],
+    includePartialMessages: true,
+    env: {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+      DISABLE_TELEMETRY: "1",
+      DISABLE_AUTOUPDATER: "1",
+      DISABLE_ERROR_REPORTING: "1",
+    },
   };
 }
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## Warm conversational query latency - 2026-07-06
+
+- Boot a persistent Haiku conversational `query()` at daemon start, complete on assistant text (skip slow `result` tail), and strip settings/MCP from conversational SDK options.
+- Reason for change: conversational turns spawned a fresh SDK subprocess each message (~14s); warm query + early finalize brings simple Q&A under 5s on a live daemon.
+
 ## Conversational latency hardening - 2026-07-06
 
 - Force Haiku on conversational one-shots, skip transcript bookkeeping, fingerprint callback bundles on sandboxes, and upload refreshed scripts without killing a live mid-turn daemon.

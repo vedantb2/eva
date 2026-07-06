@@ -30,6 +30,7 @@ import {
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 import { ensurePreviewNavigationProxy } from "./previewProxy";
+import { wrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
@@ -388,13 +389,17 @@ export const getPreviewUrl = action({
     let signedPort = args.port;
     if (ready) {
       try {
-        signedPort = await ensurePreviewNavigationProxy(sandbox, args.port, {
-          publicKeyJwk: previewPublicJwk,
-          sandboxId: args.sandboxId,
-          repoId: args.repoId,
-          webAppUrl: process.env.WEB_APP_URL ?? "",
-          inject: args.navigationSync === true,
-        });
+        signedPort = await ensurePreviewNavigationProxy(
+          wrapDaytonaSandbox(sandbox),
+          args.port,
+          {
+            publicKeyJwk: previewPublicJwk,
+            sandboxId: args.sandboxId,
+            repoId: args.repoId,
+            webAppUrl: process.env.WEB_APP_URL ?? "",
+            inject: args.navigationSync === true,
+          },
+        );
       } catch (e) {
         console.warn(
           `[daytona] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "proxy startup failed")}`,

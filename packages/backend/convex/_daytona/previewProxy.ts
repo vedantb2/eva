@@ -1,8 +1,8 @@
 "use node";
 
-import type { Sandbox } from "@daytonaio/sdk";
 import type { JWK } from "jose";
-import { exec } from "./helpers";
+import type { SandboxHandle } from "../_sandbox/provider";
+import { execHandle } from "./helpers";
 import {
   PREVIEW_GRANT_AUDIENCE,
   PREVIEW_GRANT_ISSUER,
@@ -53,10 +53,12 @@ function previewProxyPortCandidates(targetPort: number): number[] {
   return candidates;
 }
 
-async function listListeningPorts(sandbox: Sandbox): Promise<Set<number>> {
+async function listListeningPorts(
+  sandbox: SandboxHandle,
+): Promise<Set<number>> {
   const ports = new Set<number>();
   try {
-    const output = await exec(
+    const output = await execHandle(
       sandbox,
       "(ss -ltnH 2>/dev/null || netstat -ltn 2>/dev/null || true) | awk '{print $4}'",
       5,
@@ -78,7 +80,7 @@ async function listListeningPorts(sandbox: Sandbox): Promise<Set<number>> {
 }
 
 async function resolvePreviewProxyPort(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   targetPort: number,
 ): Promise<number> {
   const candidates = previewProxyPortCandidates(targetPort);
@@ -637,12 +639,12 @@ server.listen(proxyPort, "0.0.0.0", function handleListen() {
 }
 
 async function proxyAlreadyRunning(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   targetPort: number,
   proxyPort: number,
 ): Promise<boolean> {
   try {
-    const health = await exec(
+    const health = await execHandle(
       sandbox,
       `curl -fsS http://127.0.0.1:${proxyPort}${HEALTH_PATH}`,
       5,
@@ -656,7 +658,7 @@ async function proxyAlreadyRunning(
 }
 
 async function launchProxy(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   targetPort: number,
   proxyPort: number,
   authParams: PreviewProxyAuthParams,
@@ -674,7 +676,7 @@ async function launchProxy(
     `i=0; while [ "$i" -lt 20 ]; do if curl -fsS 'http://127.0.0.1:${proxyPort}${HEALTH_PATH}' >/dev/null 2>&1; then exit 0; fi; i=$((i+1)); sleep 0.25; done; tail -n 80 '${logPath}' 2>/dev/null || true; exit 1`,
   ].join("\n");
 
-  await exec(sandbox, command, 15, "/tmp");
+  await execHandle(sandbox, command, 15, "/tmp");
 }
 
 /**
@@ -683,7 +685,7 @@ async function launchProxy(
  * full-page navigations to Eva via postMessage.
  */
 export async function ensurePreviewNavigationProxy(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   targetPort: number,
   authParams: PreviewProxyAuthParams,
 ): Promise<number> {

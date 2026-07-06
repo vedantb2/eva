@@ -1,4 +1,5 @@
 import {
+  CLAUDE_ATTEMPT_MODE,
   CLAUDE_RUNTIME_CONFIG_DIR,
   CODEX_RUNTIME_HOME_DIR,
   CURSOR_RUNTIME_HOME_DIR,
@@ -21,6 +22,7 @@ import { syncCodexStateToPersist } from "../session/codexSession.js";
 import { syncOpencodeStateToPersist } from "../session/opencodeSession.js";
 import { syncCursorStateToPersist } from "../session/cursorSession.js";
 import { codexAdapter } from "./codex.js";
+import { runClaudeSdkAttempt } from "./claudeSdk.js";
 import { runCliAttempt } from "../runtime/cliAttempt.js";
 import { callbackState as S } from "../runtime/state.js";
 import { log } from "../utils.js";
@@ -50,6 +52,11 @@ export function syncProviderStateToPersist(reason: string): void {
 }
 
 export async function runClaudeAttempt(sessionMode: SessionMode) {
+  // Flag-gated Agent SDK path (CLAUDE_ATTEMPT_MODE=sdk). Default stays on the
+  // `claude -p` CLI spawn until the SDK path is verified end-to-end.
+  if (CLAUDE_ATTEMPT_MODE === "sdk") {
+    return await runClaudeSdkAttempt(sessionMode);
+  }
   const sessionArg =
     sessionMode.mode === "session" && sessionMode.sessionId
       ? " --session-id " + JSON.stringify(sessionMode.sessionId)

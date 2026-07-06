@@ -2,7 +2,7 @@
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
 import {
-  existsSync as existsSync6,
+  existsSync as existsSync7,
   mkdirSync as mkdirSync7,
   readdirSync as readdirSync2,
   unlinkSync,
@@ -25,6 +25,7 @@ var REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
+var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
 var SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 var WORK_DIR = existsSync("/tmp/repo") ? "/tmp/repo" : existsSync("/workspace/repo") ? "/workspace/repo" : "/tmp/repo";
 var NO_OUTPUT_TIMEOUT_MS = Number(
@@ -2656,9 +2657,9 @@ function hasToolActivity() {
   return callbackState.accumulatedSteps.some((step) => TOOL_STEP_TYPES.has(step.type));
 }
 
-// callback-src/runtime/cliAttempt.ts
-import { spawn } from "child_process";
-import { writeFileSync as writeFileSync9 } from "fs";
+// callback-src/providers/claudeSdk.ts
+import { execSync } from "child_process";
+import { existsSync as existsSync6, readFileSync as readFileSync6 } from "fs";
 
 // callback-src/providers/index.ts
 function getProviderAdapter(provider = PROVIDER) {
@@ -2734,6 +2735,8 @@ function appendToRawLogFile(text) {
 }
 
 // callback-src/runtime/cliAttempt.ts
+import { spawn } from "child_process";
+import { writeFileSync as writeFileSync9 } from "fs";
 function evaluateAttemptHealth(input) {
   const result = {
     shouldTerminate: false,
@@ -2898,6 +2901,134 @@ async function runCliAttempt(options) {
   });
 }
 
+// callback-src/providers/claudeSdk.ts
+var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
+var SDK_VERSION = "0.3.201";
+var MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
+function globalNpmRoot() {
+  return execSync("npm root -g", { encoding: "utf8" }).trim();
+}
+async function loadSdk() {
+  const entry = () => globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
+  if (!existsSync6(entry())) {
+    log(
+      "claude-agent-sdk not found in sandbox; installing " + SDK_PACKAGE + "@" + SDK_VERSION + " (one-time)"
+    );
+    execSync("npm install -g " + SDK_PACKAGE + "@" + SDK_VERSION, {
+      encoding: "utf8",
+      timeout: 18e4
+    });
+  }
+  const mod = await import(entry());
+  return mod;
+}
+function claudeExecutablePath() {
+  try {
+    return execSync("command -v claude", { encoding: "utf8" }).trim();
+  } catch {
+    return "claude";
+  }
+}
+function readPromptText() {
+  return readFileSync6("/tmp/design-prompt.txt", "utf8");
+}
+function buildSdkOptions(sessionMode) {
+  const extraArgs = { settings: settingsJson };
+  if (existsSync6(MCP_CONFIG_PATH)) {
+    extraArgs["mcp-config"] = MCP_CONFIG_PATH;
+  }
+  return {
+    cwd: WORK_DIR,
+    model: normalizedClaudeModel,
+    pathToClaudeCodeExecutable: claudeExecutablePath(),
+    systemPrompt: SYSTEM_PROMPT ? { type: "preset", preset: "claude_code", append: SYSTEM_PROMPT } : { type: "preset", preset: "claude_code" },
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
+    ...ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : {},
+    env: { ...process.env, CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR },
+    ...sessionMode.mode === "session" && sessionMode.sessionId ? { sessionId: sessionMode.sessionId } : {},
+    ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},
+    extraArgs
+  };
+}
+async function runClaudeSdkAttempt(sessionMode) {
+  resetAttemptState();
+  callbackState.activeAttemptStartedAt = Date.now();
+  const startupStep = buildClaudeStartupStep();
+  updateThinkingStep(startupStep.label, startupStep.detail);
+  log(
+    "runClaudeSdkAttempt started (mode=" + sessionMode.mode + ", sessionId=" + (sessionMode.sessionId || "none") + ")"
+  );
+  let attemptOutput = "";
+  let lastMessageAt = Date.now();
+  let timedOutForNoOutput = false;
+  let timedOutForMaxRuntime = false;
+  let sawResult = false;
+  let resultIsError = false;
+  const sdk = await loadSdk();
+  const q = sdk.query({
+    prompt: readPromptText(),
+    options: buildSdkOptions(sessionMode)
+  });
+  const interrupt = async () => {
+    try {
+      if (q.interrupt) await q.interrupt();
+    } catch {
+    }
+  };
+  const healthTimer = setInterval(() => {
+    const now = Date.now();
+    if (now - callbackState.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
+      timedOutForMaxRuntime = true;
+      log("runClaudeSdkAttempt: max runtime exceeded \\u2014 interrupting");
+      void interrupt();
+      return;
+    }
+    if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
+      timedOutForNoOutput = true;
+      log("runClaudeSdkAttempt: no SDK messages \\u2014 interrupting");
+      void interrupt();
+    }
+  }, NO_OUTPUT_CHECK_INTERVAL_MS);
+  try {
+    for await (const message of q) {
+      lastMessageAt = Date.now();
+      const line = JSON.stringify(message) + "\\n";
+      appendToRawLogFile(line);
+      attemptOutput = trimBufferHead(attemptOutput + line);
+      appendToRawOutput(line);
+      processRealtimeStdoutChunk(line);
+      if (message.type === "result") {
+        sawResult = true;
+        resultIsError = message.is_error === true;
+      }
+      if (timedOutForMaxRuntime || timedOutForNoOutput) break;
+    }
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("runClaudeSdkAttempt: query failed \\u2014 " + messageText);
+    appendToRawLogFile("[sdk-error] " + messageText + "\\n");
+    callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + messageText + "\\n");
+  } finally {
+    clearInterval(healthTimer);
+  }
+  const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
+  log(
+    "runClaudeSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + ")"
+  );
+  return {
+    code,
+    output: attemptOutput,
+    timedOutForNoOutput,
+    timedOutForMaxRuntime,
+    timedOutForFirstEvent: false,
+    timedOutForFirstAssistant: false,
+    timedOutAfterFirstText: false,
+    timedOutForZombie: false,
+    toolStallErrorMessage: ""
+  };
+}
+
 // callback-src/providers/attempts.ts
 function prepareProviderSessionState() {
   if (PROVIDER === "codex") return prepareCodexSessionState();
@@ -2921,6 +3052,9 @@ function syncProviderStateToPersist(reason) {
   syncClaudeStateToPersist(reason);
 }
 async function runClaudeAttempt(sessionMode) {
+  if (CLAUDE_ATTEMPT_MODE === "sdk") {
+    return await runClaudeSdkAttempt(sessionMode);
+  }
   const sessionArg = sessionMode.mode === "session" && sessionMode.sessionId ? " --session-id " + JSON.stringify(sessionMode.sessionId) : sessionMode.mode === "resume" && sessionMode.sessionId ? " --resume " + JSON.stringify(sessionMode.sessionId) : "";
   const cmd = claudeBaseCmd + sessionArg;
   const startupStep = buildClaudeStartupStep();
@@ -3016,7 +3150,7 @@ if (!preflightOk) {
 }
 startStreamingLoops();
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
-  if (existsSync6(d)) {
+  if (existsSync7(d)) {
     for (const f of readdirSync2(d)) {
       try {
         unlinkSync(d + "/" + f);
@@ -3166,7 +3300,7 @@ try {
     let imageStorageId = null;
     let lastFileName = null;
     const recDir = WORK_DIR + "/recordings";
-    if (existsSync6(recDir)) {
+    if (existsSync7(recDir)) {
       for (const file of readdirSync2(recDir)) {
         if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
         const fp = recDir + "/" + file;
@@ -3184,7 +3318,7 @@ try {
     }
     if (!videoStorageId) {
       const ssDir = WORK_DIR + "/screenshots";
-      if (existsSync6(ssDir)) {
+      if (existsSync7(ssDir)) {
         for (const file of readdirSync2(ssDir)) {
           if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
           const fp = ssDir + "/" + file;

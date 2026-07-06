@@ -16,6 +16,8 @@ export const PROVIDER = process.env.AI_PROVIDER || "claude";
 export const MODEL =
   process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
+/** "sdk" runs Claude via the Agent SDK query(); anything else spawns `claude -p`. */
+export const CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
 export const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 export const WORK_DIR = existsSync("/tmp/repo")
   ? "/tmp/repo"

@@ -25,6 +25,7 @@ import {
   waitForSnapshotRemoval,
   triggerSandboxSnapshot,
 } from "./_daytona/snapshots";
+import { getSandboxClient } from "./_sandbox/factory";
 import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
 import { Image } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
@@ -438,8 +439,8 @@ export const pollSnapshotProgress = internalAction({
       return "error";
     }
 
-    const daytona = getDaytona(daytonaApiKey);
-    const snapshot = await getSnapshot(daytona, args.snapshotName);
+    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
+    const snapshot = await getSnapshot(client, args.snapshotName);
     if (!snapshot) {
       // The base snapshot was just kicked off, so a missing one is unexpected;
       // throw so the workflow step fails (matches the prior get-throws path).
@@ -533,15 +534,15 @@ export const deleteExistingSnapshot = internalAction({
       return null;
     }
 
-    const daytona = getDaytona(daytonaApiKey);
+    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
 
-    const deleted = await deleteSnapshotByName(daytona, args.snapshotName);
+    const deleted = await deleteSnapshotByName(client, args.snapshotName);
     if (deleted) {
       await ctx.runMutation(internal.repoSnapshots.appendLogs, {
         buildId: args.buildId,
         chunk: "Deleting existing snapshot, waiting for removal...\n",
       });
-      await waitForSnapshotRemoval(daytona, args.snapshotName);
+      await waitForSnapshotRemoval(client, args.snapshotName);
     }
 
     return null;
@@ -562,8 +563,8 @@ export const deleteDaytonaSnapshot = internalAction({
       );
     }
 
-    const daytona = getDaytona(daytonaApiKey);
-    await deleteSnapshotByName(daytona, args.snapshotName);
+    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
+    await deleteSnapshotByName(client, args.snapshotName);
     return null;
   },
 });
@@ -1074,9 +1075,9 @@ export const triggerSeededSnapshot = internalAction({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
+    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
     await triggerSandboxSnapshot(
-      daytona,
+      client,
       args.sandboxId,
       args.seededName,
       SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
@@ -1104,9 +1105,9 @@ export const pollSeededSnapshotState = internalAction({
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
+    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
     // Not registered yet (or a transient lookup miss) → treat as still pending.
-    const snapshot = await getSnapshot(daytona, args.seededName);
+    const snapshot = await getSnapshot(client, args.seededName);
     return snapshot ? snapshot.state : "pending";
   },
 });

@@ -189,7 +189,11 @@ export interface SandboxHandle {
   /** Public/signed URL for a port. */
   previewUrl(port: number, ttlSeconds?: number): Promise<PreviewUrl>;
 
-  /** Capture a snapshot of this sandbox's filesystem. Returns the new snapshot id. */
+  /**
+   * Initiate a filesystem snapshot of this sandbox and return the new snapshot
+   * id. May return before the capture finishes (large seeded snapshots keep
+   * building server-side); poll {@link SandboxClient.getSnapshot} for readiness.
+   */
   createSnapshot(params: CreateSnapshotParams): Promise<{ snapshotId: string }>;
 
   readonly git: SandboxGit;

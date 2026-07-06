@@ -13,7 +13,7 @@
  * argument reshaping needed to satisfy the contract.
  */
 
-import { Daytona } from "@daytonaio/sdk";
+import { Daytona, DaytonaTimeoutError } from "@daytonaio/sdk";
 import type {
   CreateSandboxFromSnapshotParams,
   Sandbox as DaytonaSandbox,
@@ -233,10 +233,20 @@ class DaytonaSandboxHandle implements SandboxHandle {
         "Daytona snapshots require a name; pass CreateSnapshotParams.name.",
       );
     }
-    await this.sandbox._experimental_createSnapshot(
-      params.name,
-      params.timeoutSeconds,
-    );
+    // The SDK helper blocks polling the source sandbox for the whole capture,
+    // which for seeded DB volumes routinely exceeds Convex's 600s action ceiling.
+    // A short timeout makes it bail fast with a DaytonaTimeoutError while the
+    // capture continues server-side; callers poll readiness via getSnapshot.
+    // Swallowing the timeout here (not at the call site) keeps the neutral
+    // contract "fire, then poll" — the same shape Vercel's snapshot() satisfies.
+    try {
+      await this.sandbox._experimental_createSnapshot(
+        params.name,
+        params.timeoutSeconds,
+      );
+    } catch (e) {
+      if (!(e instanceof DaytonaTimeoutError)) throw e;
+    }
     // Daytona identifies snapshots by name, so the name IS the id.
     return { snapshotId: params.name };
   }

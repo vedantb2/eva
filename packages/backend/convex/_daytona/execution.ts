@@ -919,6 +919,30 @@ export const launchOnExistingSandbox = internalAction({
     );
     const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
 
+    // Warm-daemon handoff (Claude sessions only): if a persistent daemon is
+    // alive in this sandbox for THIS session, hand it the new prompt via a file
+    // + ready marker instead of killing and respawning the runner. The daemon
+    // keeps its `query()` (and the warm CLI/MCP/API connection) alive, so the
+    // turn skips the ~several-second boot. Falls through to a fresh spawn if no
+    // healthy matching daemon exists (first turn, crash, entity mismatch).
+    if (
+      process.env.CLAUDE_ATTEMPT_MODE === "sdk-daemon" &&
+      args.completionMutation === "sessionWorkflow:handleCompletion"
+    ) {
+      const promptB64 = Buffer.from(args.prompt, "utf8").toString("base64");
+      const handoff = await exec(
+        sandbox,
+        `if [ -f /tmp/eva-daemon.pid ] && kill -0 "$(cat /tmp/eva-daemon.pid)" 2>/dev/null && [ "$(cat /tmp/eva-daemon.entity 2>/dev/null)" = ${JSON.stringify(args.entityId)} ]; then echo ${promptB64} | base64 -d > /tmp/eva-daemon-prompt.txt && touch /tmp/eva-daemon-prompt.ready && echo handed; else echo respawn; fi`,
+        15,
+      );
+      if (handoff.trim().endsWith("handed")) {
+        console.log(
+          `[daytona][execution] handed prompt to warm daemon in ${Date.now() - launchStartedAt}ms entityId=${args.entityId}`,
+        );
+        return null;
+      }
+    }
+
     await exec(
       sandbox,
       "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'opencode' 2>/dev/null; pkill -f 'cursor-agent' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",

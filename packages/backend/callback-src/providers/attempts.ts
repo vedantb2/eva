@@ -52,9 +52,10 @@ export function syncProviderStateToPersist(reason: string): void {
 }
 
 export async function runClaudeAttempt(sessionMode: SessionMode) {
-  // Flag-gated Agent SDK path (CLAUDE_ATTEMPT_MODE=sdk). Default stays on the
-  // `claude -p` CLI spawn until the SDK path is verified end-to-end.
-  if (CLAUDE_ATTEMPT_MODE === "sdk") {
+  // Flag-gated Agent SDK path. `sdk-daemon` non-session flows (and any daemon
+  // fallback) also use the one-shot SDK runner here; the persistent daemon is
+  // handled earlier in index.ts. Default stays on the `claude -p` CLI spawn.
+  if (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon") {
     return await runClaudeSdkAttempt(sessionMode);
   }
   const sessionArg =

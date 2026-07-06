@@ -7,6 +7,7 @@ import {
 } from "fs";
 import {
   ALLOWED_TOOLS,
+  CLAUDE_ATTEMPT_MODE,
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
   CONVEX_URL,
@@ -22,6 +23,7 @@ import {
   WORK_DIR,
   mcpArg,
 } from "./config.js";
+import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
 import { fetchWithTimeout } from "./http/convexClient.js";
 import { callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
@@ -78,6 +80,18 @@ try {
 }
 
 S.lastStepType = "thinking";
+
+// Persistent warm-session daemon path (Claude, sessions only). Keeps one warm
+// query() across turns instead of respawning per turn. Self-contained — it runs
+// its own preflight/streaming/completion loop and never returns (process.exit),
+// so the one-shot flow below is left completely untouched for every other case.
+if (
+  CLAUDE_ATTEMPT_MODE === "sdk-daemon" &&
+  PROVIDER === "claude" &&
+  ENTITY_ID_FIELD === "sessionId"
+) {
+  await runSdkDaemon();
+}
 
 const preflightOk = await runPreflightHeartbeat();
 

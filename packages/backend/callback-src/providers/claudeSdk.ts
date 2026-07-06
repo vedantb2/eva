@@ -34,11 +34,11 @@ const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
  * the base Image alongside the claude CLI), so these local types stand in for
  * the SDK's own — kept intentionally narrow.
  */
-type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {
+export type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {
   interrupt?: () => Promise<void>;
 };
 
-type JsonLike =
+export type JsonLike =
   | string
   | number
   | boolean
@@ -46,7 +46,9 @@ type JsonLike =
   | JsonLike[]
   | { [key: string]: JsonLike };
 
-type SdkOptions = {
+export type SdkMessage = Record<string, JsonLike>;
+
+export type SdkOptions = {
   cwd: string;
   model: string;
   pathToClaudeCodeExecutable: string;
@@ -62,8 +64,18 @@ type SdkOptions = {
   extraArgs?: Record<string, string>;
 };
 
-type SdkModule = {
-  query: (args: { prompt: string; options: SdkOptions }) => SdkQueryHandle;
+export type SdkUserMessage = {
+  type: "user";
+  message: { role: "user"; content: string };
+  parent_tool_use_id: string | null;
+  session_id: string;
+};
+
+export type SdkModule = {
+  query: (args: {
+    prompt: string | AsyncIterable<SdkUserMessage>;
+    options: SdkOptions;
+  }) => SdkQueryHandle;
 };
 
 /** Resolves the sandbox's global npm root once (e.g. /usr/lib/node_modules). */
@@ -80,7 +92,7 @@ const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
  * global `npm i -g` fails with EACCES on the root-owned npm root), so the
  * fallback is a one-time user-local prefix install under the eva home.
  */
-async function loadSdk(): Promise<SdkModule> {
+export async function loadSdk(): Promise<SdkModule> {
   const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
   const localEntry =
     SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + "/sdk.mjs";
@@ -127,7 +139,7 @@ function readPromptText(): string {
   return readFileSync("/tmp/design-prompt.txt", "utf8");
 }
 
-function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
+export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
   // Mirror the CLI flags claudeBaseCmd passes today:
   //   --append-system-prompt  -> preset claude_code + append
   //   --dangerously-skip-permissions -> bypassPermissions + allow flag

@@ -11,7 +11,12 @@ export const workflow = new WorkflowManager(components.workflow, {
       base: 2,
     },
     retryActionsByDefault: true,
-    maxParallelism: 10,
+    // Shared across every workflow type (sessions, tasks, design, projects…).
+    // At 10, a burst of concurrent turns queued steps behind each other and a
+    // warm session turn's handoff could wait 10s+ in the pool — the "slow hi".
+    // Raised to cut that head-of-line wait; Convex scales the functions, this
+    // cap is backpressure, not a hard resource limit.
+    maxParallelism: 30,
   },
 });
 

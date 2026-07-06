@@ -3,11 +3,12 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { getSandbox, errorMessage, signAndLaunchScript } from "./helpers";
+import { getSandboxHandle, errorMessage, signAndLaunchScript } from "./helpers";
 import { sessionClaudeUuid } from "./volumes";
 import { getTaskAuditStreamingEntityId } from "../_taskWorkflow/helpers";
 import { buildAuditFixPrompt } from "../_taskWorkflow/prompts";
 import { auditFailureValidator } from "../validators";
+import { unwrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 
 const AUDIT_FIRST_EVENT_TIMEOUT_MS = "30000";
 const AUDIT_POST_TEXT_STALL_TIMEOUT_MS = "30000";
@@ -65,14 +66,14 @@ export const launchAudit = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
       id: args.repoId,
     });
 
     await signAndLaunchScript(
       ctx,
-      sandbox,
+      unwrapDaytonaSandbox(sandbox),
       args.userId,
       args.prompt,
       "taskWorkflow:handleAuditCompletion",
@@ -109,14 +110,14 @@ export const launchAuditFix = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
       id: args.repoId,
     });
 
     await signAndLaunchScript(
       ctx,
-      sandbox,
+      unwrapDaytonaSandbox(sandbox),
       args.userId,
       args.prompt,
       "taskWorkflow:handleAuditFixCompletion",
@@ -207,11 +208,11 @@ export const launchSelectedAuditFixes = internalAction({
       if (!sandboxId) {
         throw new Error("Failed to create or resume sandbox for audit fix");
       }
-      const sandbox = await getSandbox(ctx, args.repoId, sandboxId);
+      const sandbox = await getSandboxHandle(ctx, args.repoId, sandboxId);
 
       await signAndLaunchScript(
         ctx,
-        sandbox,
+        unwrapDaytonaSandbox(sandbox),
         args.userId,
         prompt,
         "taskWorkflow:handleAuditFixCompletion",
@@ -262,7 +263,11 @@ export const runSessionAudit = internalAction({
         throw new Error("Session not found");
       }
 
-      const sandbox = await getSandbox(ctx, session.repoId, args.sandboxId);
+      const sandbox = await getSandboxHandle(
+        ctx,
+        session.repoId,
+        args.sandboxId,
+      );
       const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
         id: session.repoId,
       });
@@ -282,7 +287,7 @@ export const runSessionAudit = internalAction({
 
       await signAndLaunchScript(
         ctx,
-        sandbox,
+        unwrapDaytonaSandbox(sandbox),
         args.userId,
         buildSessionAuditPrompt(categories),
         "audits:handleSessionCompletion",

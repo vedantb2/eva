@@ -73,6 +73,51 @@ until verified locally / in a test session.
 - Thinking: SDK can request thinking, but per product decision we are NOT
   surfacing reasoning — so leave thinking off (parity with current behaviour).
 
+## Phase 2 — persistent warm-session daemon (the actual speed win)
+
+Phase 1 reaches latency parity with `claude -p` (both spawn the CLI per turn).
+Phase 2 keeps one `query()` warm across a session's turns so per-turn cost drops
+to model time only. Design (grounded in the code):
+
+Key fact: for a SESSION, `launchOnExistingSandbox` passes `entityId`,
+`streamingEntityId`, `completionMutation` (`sessionWorkflow:handleCompletion`),
+`entityIdField`, `model`, `allowedTools` all keyed to the session id — STABLE
+across turns. **Only `prompt` varies.** So the daemon is started once with the
+session's stable context and handed only the new prompt per turn.
+
+Mechanism (mirrors t3code/synara):
+
+- One `query({ prompt: AsyncIterable<SDKUserMessage>, options })` created once.
+  The prompt is a queue-backed async generator that blocks (never returns) when
+  idle, so the query — and its warm CLI subprocess + MCP + API connection —
+  stays alive between turns. Each pushed user message is a new turn, ended by a
+  `result` message.
+- The callback becomes a loop: create warm query once; per turn { push prompt →
+  consume messages until `result` → run the existing completion block (extracted
+  into a per-turn function) → reset per-turn accumulators (S.accumulatedSteps,
+  currentStreamedContent, resultEventSeen, timers) }; idle-exit after N minutes
+  so the sandbox can be reclaimed.
+- `launchOnExistingSandbox` handoff: if a daemon is alive for this sandbox
+  (pidfile + `kill -0`) AND its entity matches, write the new prompt to a FIFO
+  the daemon watches (fast, no respawn, no `pkill`); otherwise spawn fresh
+  (first turn / after crash / entity mismatch).
+
+Scope / safety:
+
+- v1 gated behind `CLAUDE_ATTEMPT_MODE=sdk-daemon` (distinct from `sdk`), SESSION
+  path only. All other flows and any non-session entity fall back to the
+  one-shot SDK/CLI path unchanged.
+- Fallback: on daemon crash / unhealthy pidfile, `launchOnExistingSandbox`
+  respawns one-shot — never worse than today.
+- Token lifetime: MCP token (8h) / sandbox token (24h) are set at daemon start;
+  a session daemon older than the MCP token needs a refresh-or-recycle (v1: recycle
+  the daemon when the token nears expiry).
+
+Build order: (1) extract index.ts per-turn completion into a function (pure
+refactor, verify identical one-shot behaviour); (2) daemon loop + queue-fed
+query; (3) FIFO handoff in launchOnExistingSandbox; (4) idle-exit + crash
+fallback; (5) dev test: measure turn-2+ latency vs phase 1.
+
 ## Testing target
 
 "Moved off `claude -p`": a test eva session running with the SDK path completes

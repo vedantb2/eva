@@ -18,6 +18,13 @@ export const MODEL =
 export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 /** "sdk" runs Claude via the Agent SDK query(); anything else spawns `claude -p`. */
 export const CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
+/**
+ * Pre-warm mode for the sdk-daemon: boot the daemon (creating the warm query()
+ * so the CLI/MCP/API connection is live) and wait for the first prompt via the
+ * handoff protocol instead of running an initial turn. Lets a session-open
+ * trigger pay the boot cost BEFORE the user sends their first message.
+ */
+export const CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
 export const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 export const WORK_DIR = existsSync("/tmp/repo")
   ? "/tmp/repo"

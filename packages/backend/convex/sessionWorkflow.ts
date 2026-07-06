@@ -11,6 +11,7 @@ export {
 
 export {
   startExecute,
+  prewarmDaemon,
   enqueueMessage,
   cancelExecution,
 } from "./_sessions/execution";

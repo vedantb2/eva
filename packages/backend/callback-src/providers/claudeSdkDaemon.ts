@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import {
+  CLAUDE_PREWARM,
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
   CONVEX_URL,
@@ -42,7 +43,10 @@ export const DAEMON_READY_FILE = "/tmp/eva-daemon-prompt.ready";
 const INITIAL_PROMPT_FILE = "/tmp/design-prompt.txt";
 
 // Exit if no new turn arrives for this long, so the sandbox can be reclaimed.
-const IDLE_EXIT_MS = 15 * 60 * 1000;
+// Kept generous so a normal work session never pays a mid-session respawn (the
+// respawn — re-upload + boot — is the ~20s "slow hi" users feel). Matches the
+// keep-warm window of comparable agents (t3code reaps at 30min).
+const IDLE_EXIT_MS = 45 * 60 * 1000;
 // Tight poll: the prompt file is dropped by a workflow step, so a low interval
 // shaves handoff→turn-start latency at negligible idle cost (a stat() every
 // 150ms). The turn itself dominates, so this only trims the wait tail.
@@ -260,11 +264,33 @@ export async function runSdkDaemon(): Promise<void> {
       ")",
   );
 
-  // Turn 1: the prompt launchScript already uploaded.
+  // Feed the first turn. In pre-warm mode the daemon was booted by a
+  // session-open trigger (not a real turn): the expensive work — spawning the
+  // claude CLI, MCP init, API handshake — already happened above when the
+  // query() was created, so here we simply wait for the user's first message
+  // via the handoff protocol. Otherwise this is turn 1, whose prompt
+  // launchScript already uploaded.
   let turnStartedAt = Date.now();
   let sawFirstMessageThisTurn = false;
-  push(readFileSync(INITIAL_PROMPT_FILE, "utf8"));
-  S.activeAttemptStartedAt = Date.now();
+  if (CLAUDE_PREWARM) {
+    log("daemon: pre-warmed — warm query() live, waiting for first prompt");
+    const firstPrompt = await waitForNextPrompt();
+    if (firstPrompt === null) {
+      log("daemon: idle timeout before first prompt — exiting");
+      try {
+        unlinkSync(DAEMON_PID_FILE);
+      } catch {
+        /* ignore */
+      }
+      await stopStreamingLoops();
+      process.exit(0);
+    }
+    turnStartedAt = Date.now();
+    push(firstPrompt);
+  } else {
+    push(readFileSync(INITIAL_PROMPT_FILE, "utf8"));
+  }
+  S.activeAttemptStartedAt = turnStartedAt;
 
   let output = "";
   try {

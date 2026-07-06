@@ -949,6 +949,90 @@ export const tryWarmDaemonHandoff = internalAction({
   },
 });
 
+/**
+ * Pre-warm a session's Claude daemon so the user's FIRST message is warm.
+ *
+ * The ~20s "slow hi" is a cold respawn: after the daemon idle-exits (or a
+ * fresh/resumed sandbox), the first message pays token mint + 132KB script
+ * upload + node/CLI boot before any token. This action, fired when the session
+ * page opens, does that boot ahead of time: it launches the daemon in
+ * CLAUDE_PREWARM mode (create the warm query() — spawning + warming the claude
+ * CLI/MCP/API — then wait for the first prompt via the handoff protocol). By
+ * the time the user types, tryWarmDaemonHandoff finds a live daemon and the turn
+ * skips the boot entirely. No-op if a daemon is already alive for this session.
+ * Best-effort: any failure is swallowed (the normal path still works).
+ */
+export const prewarmSessionDaemon = internalAction({
+  args: {
+    sandboxId: v.string(),
+    sessionId: v.id("sessions"),
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    model: v.optional(v.string()),
+    allowedTools: v.optional(v.string()),
+    sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
+  },
+  returns: v.object({ prewarmed: v.boolean() }),
+  handler: async (ctx, args) => {
+    const startedAt = Date.now();
+    try {
+      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      // Already warm? A live daemon for this session means nothing to do.
+      const alive = await exec(
+        sandbox,
+        `if [ -f /tmp/eva-daemon.pid ] && kill -0 "$(cat /tmp/eva-daemon.pid)" 2>/dev/null && [ "$(cat /tmp/eva-daemon.entity 2>/dev/null)" = ${JSON.stringify(String(args.sessionId))} ]; then echo alive; else echo cold; fi`,
+        10,
+      );
+      if (alive.trim().endsWith("alive")) {
+        console.log(
+          `[daytona][execution] prewarmSessionDaemon: already warm sessionId=${args.sessionId}`,
+        );
+        return { prewarmed: false };
+      }
+
+      await ensureSandboxRunning(sandbox, {
+        timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+      });
+
+      const normalizedModel = normalizeAIModel(args.model);
+      const claudeSessionId =
+        getAIModelProvider(normalizedModel) === "claude" &&
+        args.sessionPersistenceId
+          ? sessionClaudeUuid(args.sessionPersistenceId)
+          : undefined;
+
+      // Empty prompt: the daemon in CLAUDE_PREWARM mode never reads it — it
+      // waits for the first real message via the handoff ready-file.
+      await signAndLaunchScript(
+        ctx,
+        sandbox,
+        args.userId,
+        "",
+        "sessionWorkflow:handleCompletion",
+        "sessionId",
+        String(args.sessionId),
+        args.repoId,
+        {
+          model: normalizedModel,
+          allowedTools: args.allowedTools,
+          extraEnvVars: { CLAUDE_PREWARM: "1" },
+          claudeSessionId,
+          enableMcp: true,
+        },
+      );
+      console.log(
+        `[daytona][execution] prewarmSessionDaemon: launched in ${Date.now() - startedAt}ms sessionId=${args.sessionId}`,
+      );
+      return { prewarmed: true };
+    } catch (error) {
+      console.log(
+        `[daytona][execution] prewarmSessionDaemon: skipped in ${Date.now() - startedAt}ms sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { prewarmed: false };
+    }
+  },
+});
+
 export const launchOnExistingSandbox = internalAction({
   args: {
     sandboxId: v.string(),

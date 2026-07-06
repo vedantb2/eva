@@ -26,6 +26,7 @@ var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
+var CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
 var SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 var WORK_DIR = existsSync("/tmp/repo") ? "/tmp/repo" : existsSync("/workspace/repo") ? "/workspace/repo" : "/tmp/repo";
 var NO_OUTPUT_TIMEOUT_MS = Number(
@@ -3073,7 +3074,7 @@ var DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
 var DAEMON_PROMPT_FILE = "/tmp/eva-daemon-prompt.txt";
 var DAEMON_READY_FILE = "/tmp/eva-daemon-prompt.ready";
 var INITIAL_PROMPT_FILE = "/tmp/design-prompt.txt";
-var IDLE_EXIT_MS = 15 * 60 * 1e3;
+var IDLE_EXIT_MS = 45 * 60 * 1e3;
 var PROMPT_POLL_INTERVAL_MS = 150;
 function createPromptStream() {
   const queue = [];
@@ -3184,7 +3185,9 @@ async function finalizeTurn(output) {
   const bookkeepingAt = Date.now();
   syncClaudeStateToPersist("daemon-turn");
   await flushStreaming();
-  log("daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms");
+  log(
+    "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
+  );
 }
 async function waitForNextPrompt() {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
@@ -3221,8 +3224,24 @@ async function runSdkDaemon() {
   );
   let turnStartedAt = Date.now();
   let sawFirstMessageThisTurn = false;
-  push(readFileSync7(INITIAL_PROMPT_FILE, "utf8"));
-  callbackState.activeAttemptStartedAt = Date.now();
+  if (CLAUDE_PREWARM) {
+    log("daemon: pre-warmed \\u2014 warm query() live, waiting for first prompt");
+    const firstPrompt = await waitForNextPrompt();
+    if (firstPrompt === null) {
+      log("daemon: idle timeout before first prompt \\u2014 exiting");
+      try {
+        unlinkSync(DAEMON_PID_FILE);
+      } catch {
+      }
+      await stopStreamingLoops();
+      process.exit(0);
+    }
+    turnStartedAt = Date.now();
+    push(firstPrompt);
+  } else {
+    push(readFileSync7(INITIAL_PROMPT_FILE, "utf8"));
+  }
+  callbackState.activeAttemptStartedAt = turnStartedAt;
   let output = "";
   try {
     for await (const message of query) {

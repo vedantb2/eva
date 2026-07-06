@@ -50,6 +50,31 @@ export const startExecute = authMutation({
   },
 });
 
+/**
+ * Fired when a session page opens: boot the Claude daemon ahead of the user's
+ * first message so that message is warm instead of paying a ~20s cold respawn.
+ * No-op unless the session already has a sandbox and is in sdk-daemon mode.
+ * Best-effort and cheap to call repeatedly (the action skips if already warm).
+ */
+export const prewarmDaemon = authMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || !session.sandboxId) return null;
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+    await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
+      sandboxId: session.sandboxId,
+      sessionId: args.sessionId,
+      repoId: session.repoId,
+      userId: session.userId,
+      sessionPersistenceId: args.sessionId,
+    });
+    return null;
+  },
+});
+
 /** Queues a message to be processed after the current active workflow finishes. */
 export const enqueueMessage = authMutation({
   args: {

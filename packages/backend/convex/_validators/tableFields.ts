@@ -354,6 +354,10 @@ export const messageFields = {
     v.id("agentTasks"),
   ),
   mode: v.optional(sessionModeValidator),
+  // Client-generated id (crypto.randomUUID) set when a user message is sent
+  // optimistically. Lets the client dedup its local pending row against the
+  // server row once the reactive query delivers it.
+  clientId: v.optional(v.string()),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),

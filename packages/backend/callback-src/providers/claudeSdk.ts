@@ -71,27 +71,46 @@ function globalNpmRoot(): string {
   return execSync("npm root -g", { encoding: "utf8" }).trim();
 }
 
+/** User-writable fallback install location (persists in home across resumes). */
+const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
+
 /**
- * Imports the Agent SDK from the sandbox's global install. Newer base Images
- * ship it preinstalled; on older snapshots fall back to a one-time global
- * install so the SDK path still works without an image rebuild.
+ * Imports the Agent SDK, preferring the base Image's global install. Older
+ * snapshots lack it, and the callback runs as the unprivileged `eva` user (a
+ * global `npm i -g` fails with EACCES on the root-owned npm root), so the
+ * fallback is a one-time user-local prefix install under the eva home.
  */
 async function loadSdk(): Promise<SdkModule> {
-  const entry = () => globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
-  if (!existsSync(entry())) {
+  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
+  const localEntry =
+    SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + "/sdk.mjs";
+  if (existsSync(globalEntry)) {
+    const mod: SdkModule = await import(globalEntry);
+    return mod;
+  }
+  if (!existsSync(localEntry)) {
     log(
       "claude-agent-sdk not found in sandbox; installing " +
         SDK_PACKAGE +
         "@" +
         SDK_VERSION +
+        " to " +
+        SDK_LOCAL_PREFIX +
         " (one-time)",
     );
-    execSync("npm install -g " + SDK_PACKAGE + "@" + SDK_VERSION, {
-      encoding: "utf8",
-      timeout: 180_000,
-    });
+    execSync(
+      "mkdir -p " +
+        SDK_LOCAL_PREFIX +
+        " && npm install --prefix " +
+        SDK_LOCAL_PREFIX +
+        " " +
+        SDK_PACKAGE +
+        "@" +
+        SDK_VERSION,
+      { encoding: "utf8", timeout: 180_000 },
+    );
   }
-  const mod: SdkModule = await import(entry());
+  const mod: SdkModule = await import(localEntry);
   return mod;
 }
 
@@ -171,11 +190,13 @@ export async function runClaudeSdkAttempt(
   let timedOutForMaxRuntime = false;
   let sawResult = false;
   let resultIsError = false;
+  let queryErrorMessage = "";
 
   const sdk = await loadSdk();
-  const q = sdk.query({
+  let effectiveMode = sessionMode;
+  let q = sdk.query({
     prompt: readPromptText(),
-    options: buildSdkOptions(sessionMode),
+    options: buildSdkOptions(effectiveMode),
   });
 
   const interrupt = async (): Promise<void> => {
@@ -201,7 +222,7 @@ export async function runClaudeSdkAttempt(
     }
   }, NO_OUTPUT_CHECK_INTERVAL_MS);
 
-  try {
+  const consumeQuery = async (): Promise<void> => {
     for await (const message of q) {
       lastMessageAt = Date.now();
       const line = JSON.stringify(message) + "\n";
@@ -215,8 +236,42 @@ export async function runClaudeSdkAttempt(
       }
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
     }
+  };
+
+  try {
+    try {
+      await consumeQuery();
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : String(error);
+      // Self-heal a stale persisted session id: a prior attempt that died
+      // before Claude ran can persist a session id whose conversation was
+      // never created, making `resume` fail. Retry once as a fresh
+      // conversation with the same id so persistence stays consistent.
+      if (
+        effectiveMode.mode === "resume" &&
+        effectiveMode.sessionId &&
+        messageText.includes("No conversation found with session ID")
+      ) {
+        log(
+          "runClaudeSdkAttempt: resume target missing — retrying as a new session with the same id",
+        );
+        appendToRawLogFile("[sdk-retry] " + messageText + "\n");
+        sawResult = false;
+        resultIsError = false;
+        effectiveMode = { mode: "session", sessionId: effectiveMode.sessionId };
+        q = sdk.query({
+          prompt: readPromptText(),
+          options: buildSdkOptions(effectiveMode),
+        });
+        await consumeQuery();
+      } else {
+        throw error;
+      }
+    }
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
+    queryErrorMessage = messageText;
     log("runClaudeSdkAttempt: query failed — " + messageText);
     appendToRawLogFile("[sdk-error] " + messageText + "\n");
     S.stderrOutput = trimBufferHead(S.stderrOutput + messageText + "\n");
@@ -246,6 +301,7 @@ export async function runClaudeSdkAttempt(
       timedOutForMaxRuntime +
       ", outputBytes=" +
       attemptOutput.length +
+      (queryErrorMessage ? ", queryError=" + queryErrorMessage : "") +
       ")",
   );
   return {

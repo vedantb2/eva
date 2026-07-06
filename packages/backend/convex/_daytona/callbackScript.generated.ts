@@ -2908,18 +2908,24 @@ var MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 function globalNpmRoot() {
   return execSync("npm root -g", { encoding: "utf8" }).trim();
 }
+var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 async function loadSdk() {
-  const entry = () => globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
-  if (!existsSync6(entry())) {
-    log(
-      "claude-agent-sdk not found in sandbox; installing " + SDK_PACKAGE + "@" + SDK_VERSION + " (one-time)"
-    );
-    execSync("npm install -g " + SDK_PACKAGE + "@" + SDK_VERSION, {
-      encoding: "utf8",
-      timeout: 18e4
-    });
+  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
+  const localEntry = SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + "/sdk.mjs";
+  if (existsSync6(globalEntry)) {
+    const mod2 = await import(globalEntry);
+    return mod2;
   }
-  const mod = await import(entry());
+  if (!existsSync6(localEntry)) {
+    log(
+      "claude-agent-sdk not found in sandbox; installing " + SDK_PACKAGE + "@" + SDK_VERSION + " to " + SDK_LOCAL_PREFIX + " (one-time)"
+    );
+    execSync(
+      "mkdir -p " + SDK_LOCAL_PREFIX + " && npm install --prefix " + SDK_LOCAL_PREFIX + " " + SDK_PACKAGE + "@" + SDK_VERSION,
+      { encoding: "utf8", timeout: 18e4 }
+    );
+  }
+  const mod = await import(localEntry);
   return mod;
 }
 function claudeExecutablePath() {
@@ -2965,10 +2971,12 @@ async function runClaudeSdkAttempt(sessionMode) {
   let timedOutForMaxRuntime = false;
   let sawResult = false;
   let resultIsError = false;
+  let queryErrorMessage = "";
   const sdk = await loadSdk();
-  const q = sdk.query({
+  let effectiveMode = sessionMode;
+  let q = sdk.query({
     prompt: readPromptText(),
-    options: buildSdkOptions(sessionMode)
+    options: buildSdkOptions(effectiveMode)
   });
   const interrupt = async () => {
     try {
@@ -2990,7 +2998,7 @@ async function runClaudeSdkAttempt(sessionMode) {
       void interrupt();
     }
   }, NO_OUTPUT_CHECK_INTERVAL_MS);
-  try {
+  const consumeQuery = async () => {
     for await (const message of q) {
       lastMessageAt = Date.now();
       const line = JSON.stringify(message) + "\\n";
@@ -3004,8 +3012,32 @@ async function runClaudeSdkAttempt(sessionMode) {
       }
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
     }
+  };
+  try {
+    try {
+      await consumeQuery();
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      if (effectiveMode.mode === "resume" && effectiveMode.sessionId && messageText.includes("No conversation found with session ID")) {
+        log(
+          "runClaudeSdkAttempt: resume target missing \\u2014 retrying as a new session with the same id"
+        );
+        appendToRawLogFile("[sdk-retry] " + messageText + "\\n");
+        sawResult = false;
+        resultIsError = false;
+        effectiveMode = { mode: "session", sessionId: effectiveMode.sessionId };
+        q = sdk.query({
+          prompt: readPromptText(),
+          options: buildSdkOptions(effectiveMode)
+        });
+        await consumeQuery();
+      } else {
+        throw error;
+      }
+    }
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
+    queryErrorMessage = messageText;
     log("runClaudeSdkAttempt: query failed \\u2014 " + messageText);
     appendToRawLogFile("[sdk-error] " + messageText + "\\n");
     callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + messageText + "\\n");
@@ -3014,7 +3046,7 @@ async function runClaudeSdkAttempt(sessionMode) {
   }
   const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
   log(
-    "runClaudeSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + ")"
+    "runClaudeSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (queryErrorMessage ? ", queryError=" + queryErrorMessage : "") + ")"
   );
   return {
     code,

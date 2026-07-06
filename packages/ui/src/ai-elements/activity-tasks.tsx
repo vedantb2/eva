@@ -131,7 +131,6 @@ export const ActivityTasks = memo(
 
     if (blocks.length === 0 && !isStreaming) return null;
 
-    void duration;
     void finalText;
 
     const headerText = `${name ?? "Eva"} is ${verb.toLowerCase()}...${
@@ -152,6 +151,12 @@ export const ActivityTasks = memo(
         {blocks.map((block, i) => (
           <ActivityBlockRow key={i} block={block} />
         ))}
+        {/* Elapsed time for the completed turn (once streaming has ended). */}
+        {!isStreaming && duration && (
+          <div className="text-muted-foreground text-xs">
+            Worked for {duration}
+          </div>
+        )}
       </div>
     );
   },

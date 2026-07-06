@@ -160,7 +160,22 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
     ...(ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : {}),
-    env: { ...process.env, CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR },
+    // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
+    // title / flavour-text side calls) — measured as a ~6s second API call
+    // ("duration_api_ms" ~2x "duration_ms") that delays turn completion after
+    // the visible reply. The reference agents (t3code/synara/openagents) never
+    // ask the interactive turn to generate titles, so they don't pay this; we
+    // disable it via the engine's own env knobs. Also quiets autoupdater /
+    // telemetry / error-reporting network calls on the turn's hot path.
+    env: {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+      DISABLE_TELEMETRY: "1",
+      DISABLE_AUTOUPDATER: "1",
+      DISABLE_ERROR_REPORTING: "1",
+    },
     ...(sessionMode.mode === "session" && sessionMode.sessionId
       ? { sessionId: sessionMode.sessionId }
       : {}),

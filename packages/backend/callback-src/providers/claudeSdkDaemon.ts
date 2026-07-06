@@ -1,6 +1,5 @@
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
+import { unlinkSync, writeFileSync } from "fs";
 import {
-  CLAUDE_PREWARM,
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
   CONVEX_URL,
@@ -28,29 +27,32 @@ import { prepareClaudeSessionState } from "../session/claudeSession.js";
 import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
 import { log } from "../utils.js";
+import type { JsonValue } from "../types.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Handoff protocol between launchOnExistingSandbox and a live daemon. The daemon
-// writes its pid + entity so launch can confirm a match; each new turn drops a
-// prompt file + ready marker that the daemon picks up (no respawn, no pkill).
+// The daemon writes its pid + entity so the backend's prewarm alive-check can
+// confirm a live, matching daemon (and skip respawning one). Prompts are no
+// longer delivered by file: the daemon PULLS each turn from Convex via
+// claimPendingTurn (daemon-pull), so there is no prompt/ready file to poll.
 export const DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
 export const DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
-export const DAEMON_PROMPT_FILE = "/tmp/eva-daemon-prompt.txt";
-export const DAEMON_READY_FILE = "/tmp/eva-daemon-prompt.ready";
-const INITIAL_PROMPT_FILE = "/tmp/design-prompt.txt";
+
+// Public Convex mutation the daemon polls to atomically claim the next staged
+// turn's prompt for THIS session (ENTITY_ID). Mirrors how COMPLETION_MUTATION is
+// invoked over /api/mutation with the sandbox CONVEX_TOKEN identity.
+const CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
 
 // Exit if no new turn arrives for this long, so the sandbox can be reclaimed.
 // Kept generous so a normal work session never pays a mid-session respawn (the
 // respawn — re-upload + boot — is the ~20s "slow hi" users feel). Matches the
 // keep-warm window of comparable agents (t3code reaps at 30min).
 const IDLE_EXIT_MS = 45 * 60 * 1000;
-// Tight poll: the prompt file is dropped by a workflow step, so a low interval
-// shaves handoff→turn-start latency at negligible idle cost (a stat() every
-// 150ms). The turn itself dominates, so this only trims the wait tail.
-const PROMPT_POLL_INTERVAL_MS = 150;
+// Poll interval for the claim mutation. Low enough to keep handoff→turn-start
+// latency to ~one poll; the turn itself dominates so this only trims the tail.
+const PROMPT_POLL_INTERVAL_MS = 200;
 
 /**
  * A queue-backed async iterable of user messages that BLOCKS when empty and
@@ -210,19 +212,42 @@ async function finalizeTurn(output: string): Promise<void> {
   );
 }
 
-/** Waits for launchOnExistingSandbox to drop the next turn's prompt, or idle-exits. */
+/**
+ * Reads the `prompt` string out of a claimPendingTurn result. The Convex
+ * `/api/mutation` HTTP endpoint wraps the return value in `{ status, value }`
+ * (same envelope readToken() unwraps for `/api/action`), so the actual
+ * `{ prompt }` lives under `.value`. Falls back to the top level in case an
+ * unwrapped value is ever passed.
+ */
+function readClaimedPrompt(result: JsonValue): string | null {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  const payload =
+    typeof inner === "object" && inner !== null && !Array.isArray(inner)
+      ? inner
+      : result;
+  const prompt = payload.prompt;
+  return typeof prompt === "string" ? prompt : null;
+}
+
+/**
+ * Polls the claimPendingTurn mutation until a turn is staged for this session
+ * (daemon-pull), then returns its prompt. Returns null on idle timeout so the
+ * daemon can exit and free the sandbox. The claim is atomic server-side, so a
+ * prompt is handed to exactly one poll and never re-executed.
+ */
 async function waitForNextPrompt(): Promise<string | null> {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
   while (Date.now() < idleDeadline) {
-    if (existsSync(DAEMON_READY_FILE)) {
-      const prompt = existsSync(DAEMON_PROMPT_FILE)
-        ? readFileSync(DAEMON_PROMPT_FILE, "utf8")
-        : "";
-      try {
-        unlinkSync(DAEMON_READY_FILE);
-      } catch {
-        /* ignore */
-      }
+    const claimed = await callConvexWithRetry(
+      "mutation",
+      CLAIM_PENDING_TURN_MUTATION,
+      { sessionId: ENTITY_ID ?? "" },
+    );
+    const prompt = readClaimedPrompt(claimed);
+    if (prompt !== null) {
       return prompt;
     }
     await sleep(PROMPT_POLL_INTERVAL_MS);
@@ -264,41 +289,48 @@ export async function runSdkDaemon(): Promise<void> {
       ")",
   );
 
-  // Feed the first turn. In pre-warm mode the daemon was booted by a
-  // session-open trigger (not a real turn): the expensive work — spawning the
-  // claude CLI, MCP init, API handshake — already happened above when the
-  // query() was created, so here we simply wait for the user's first message
-  // via the handoff protocol. Otherwise this is turn 1, whose prompt
-  // launchScript already uploaded.
+  // Feed the first turn. Daemon-pull: the prompt is no longer uploaded to a
+  // file — every turn (including the first, whether this daemon was booted by a
+  // session-open prewarm or by the turn's own workflow) is PULLED from Convex
+  // via claimPendingTurn. The expensive boot (spawning the claude CLI, MCP init,
+  // API handshake) already happened above when query() was created, so here we
+  // just wait for the first staged prompt to appear.
+  log("daemon: warm query() live, waiting for first prompt (pull)");
+  const firstPrompt = await waitForNextPrompt();
+  if (firstPrompt === null) {
+    log("daemon: idle timeout before first prompt — exiting");
+    try {
+      unlinkSync(DAEMON_PID_FILE);
+    } catch {
+      /* ignore */
+    }
+    await stopStreamingLoops();
+    process.exit(0);
+  }
   let turnStartedAt = Date.now();
   let sawFirstMessageThisTurn = false;
-  if (CLAUDE_PREWARM) {
-    log("daemon: pre-warmed — warm query() live, waiting for first prompt");
-    const firstPrompt = await waitForNextPrompt();
-    if (firstPrompt === null) {
-      log("daemon: idle timeout before first prompt — exiting");
-      try {
-        unlinkSync(DAEMON_PID_FILE);
-      } catch {
-        /* ignore */
-      }
-      await stopStreamingLoops();
-      process.exit(0);
-    }
-    turnStartedAt = Date.now();
-    push(firstPrompt);
-  } else {
-    push(readFileSync(INITIAL_PROMPT_FILE, "utf8"));
-  }
+  push(firstPrompt);
   S.activeAttemptStartedAt = turnStartedAt;
 
   let output = "";
+  let sawAssistantThisTurn = false;
   try {
     for await (const message of query) {
+      const messageType = typeof message.type === "string" ? message.type : "?";
       if (!sawFirstMessageThisTurn) {
         sawFirstMessageThisTurn = true;
         log(
-          "daemon[timing]: first SDK message +" +
+          "daemon[timing]: first SDK message (" +
+            messageType +
+            ") +" +
+            (Date.now() - turnStartedAt) +
+            "ms after push",
+        );
+      }
+      if (!sawAssistantThisTurn && messageType === "assistant") {
+        sawAssistantThisTurn = true;
+        log(
+          "daemon[timing]: first assistant msg +" +
             (Date.now() - turnStartedAt) +
             "ms after push",
         );
@@ -337,6 +369,7 @@ export async function runSdkDaemon(): Promise<void> {
       log("daemon: next turn received");
       turnStartedAt = Date.now();
       sawFirstMessageThisTurn = false;
+      sawAssistantThisTurn = false;
       S.activeAttemptStartedAt = turnStartedAt;
       push(nextPrompt);
     }

@@ -2,7 +2,7 @@
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
 import {
-  existsSync as existsSync8,
+  existsSync as existsSync7,
   mkdirSync as mkdirSync7,
   readdirSync as readdirSync2,
   unlinkSync as unlinkSync2,
@@ -200,7 +200,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { existsSync as existsSync7, readFileSync as readFileSync7, unlinkSync, writeFileSync as writeFileSync10 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync10 } from "fs";
 
 // callback-src/http/convexClient.ts
 function narrowJsonValue(value) {
@@ -2955,7 +2955,22 @@ function buildSdkOptions(sessionMode) {
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
     ...ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : {},
-    env: { ...process.env, CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR },
+    // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
+    // title / flavour-text side calls) — measured as a ~6s second API call
+    // ("duration_api_ms" ~2x "duration_ms") that delays turn completion after
+    // the visible reply. The reference agents (t3code/synara/openagents) never
+    // ask the interactive turn to generate titles, so they don't pay this; we
+    // disable it via the engine's own env knobs. Also quiets autoupdater /
+    // telemetry / error-reporting network calls on the turn's hot path.
+    env: {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+      DISABLE_TELEMETRY: "1",
+      DISABLE_AUTOUPDATER: "1",
+      DISABLE_ERROR_REPORTING: "1"
+    },
     ...sessionMode.mode === "session" && sessionMode.sessionId ? { sessionId: sessionMode.sessionId } : {},
     ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},
     extraArgs
@@ -3071,11 +3086,9 @@ function sleep(ms) {
 }
 var DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
 var DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
-var DAEMON_PROMPT_FILE = "/tmp/eva-daemon-prompt.txt";
-var DAEMON_READY_FILE = "/tmp/eva-daemon-prompt.ready";
-var INITIAL_PROMPT_FILE = "/tmp/design-prompt.txt";
+var CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
-var PROMPT_POLL_INTERVAL_MS = 150;
+var PROMPT_POLL_INTERVAL_MS = 200;
 function createPromptStream() {
   const queue = [];
   let notify = null;
@@ -3189,15 +3202,25 @@ async function finalizeTurn(output) {
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );
 }
+function readClaimedPrompt(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const prompt = payload.prompt;
+  return typeof prompt === "string" ? prompt : null;
+}
 async function waitForNextPrompt() {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
   while (Date.now() < idleDeadline) {
-    if (existsSync7(DAEMON_READY_FILE)) {
-      const prompt = existsSync7(DAEMON_PROMPT_FILE) ? readFileSync7(DAEMON_PROMPT_FILE, "utf8") : "";
-      try {
-        unlinkSync(DAEMON_READY_FILE);
-      } catch {
-      }
+    const claimed = await callConvexWithRetry(
+      "mutation",
+      CLAIM_PENDING_TURN_MUTATION,
+      { sessionId: ENTITY_ID ?? "" }
+    );
+    const prompt = readClaimedPrompt(claimed);
+    if (prompt !== null) {
       return prompt;
     }
     await sleep(PROMPT_POLL_INTERVAL_MS);
@@ -3222,33 +3245,36 @@ async function runSdkDaemon() {
   log(
     "runSdkDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", mode=" + sessionMode.mode + ")"
   );
+  log("daemon: warm query() live, waiting for first prompt (pull)");
+  const firstPrompt = await waitForNextPrompt();
+  if (firstPrompt === null) {
+    log("daemon: idle timeout before first prompt \\u2014 exiting");
+    try {
+      unlinkSync(DAEMON_PID_FILE);
+    } catch {
+    }
+    await stopStreamingLoops();
+    process.exit(0);
+  }
   let turnStartedAt = Date.now();
   let sawFirstMessageThisTurn = false;
-  if (CLAUDE_PREWARM) {
-    log("daemon: pre-warmed \\u2014 warm query() live, waiting for first prompt");
-    const firstPrompt = await waitForNextPrompt();
-    if (firstPrompt === null) {
-      log("daemon: idle timeout before first prompt \\u2014 exiting");
-      try {
-        unlinkSync(DAEMON_PID_FILE);
-      } catch {
-      }
-      await stopStreamingLoops();
-      process.exit(0);
-    }
-    turnStartedAt = Date.now();
-    push(firstPrompt);
-  } else {
-    push(readFileSync7(INITIAL_PROMPT_FILE, "utf8"));
-  }
+  push(firstPrompt);
   callbackState.activeAttemptStartedAt = turnStartedAt;
   let output = "";
+  let sawAssistantThisTurn = false;
   try {
     for await (const message of query) {
+      const messageType = typeof message.type === "string" ? message.type : "?";
       if (!sawFirstMessageThisTurn) {
         sawFirstMessageThisTurn = true;
         log(
-          "daemon[timing]: first SDK message +" + (Date.now() - turnStartedAt) + "ms after push"
+          "daemon[timing]: first SDK message (" + messageType + ") +" + (Date.now() - turnStartedAt) + "ms after push"
+        );
+      }
+      if (!sawAssistantThisTurn && messageType === "assistant") {
+        sawAssistantThisTurn = true;
+        log(
+          "daemon[timing]: first assistant msg +" + (Date.now() - turnStartedAt) + "ms after push"
         );
       }
       const line = JSON.stringify(message) + "\\n";
@@ -3276,6 +3302,7 @@ async function runSdkDaemon() {
       log("daemon: next turn received");
       turnStartedAt = Date.now();
       sawFirstMessageThisTurn = false;
+      sawAssistantThisTurn = false;
       callbackState.activeAttemptStartedAt = turnStartedAt;
       push(nextPrompt);
     }
@@ -3426,7 +3453,7 @@ if (!preflightOk) {
 }
 startStreamingLoops();
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
-  if (existsSync8(d)) {
+  if (existsSync7(d)) {
     for (const f of readdirSync2(d)) {
       try {
         unlinkSync2(d + "/" + f);
@@ -3576,7 +3603,7 @@ try {
     let imageStorageId = null;
     let lastFileName = null;
     const recDir = WORK_DIR + "/recordings";
-    if (existsSync8(recDir)) {
+    if (existsSync7(recDir)) {
       for (const file of readdirSync2(recDir)) {
         if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
         const fp = recDir + "/" + file;
@@ -3594,7 +3621,7 @@ try {
     }
     if (!videoStorageId) {
       const ssDir = WORK_DIR + "/screenshots";
-      if (existsSync8(ssDir)) {
+      if (existsSync7(ssDir)) {
         for (const file of readdirSync2(ssDir)) {
           if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
           const fp = ssDir + "/" + file;

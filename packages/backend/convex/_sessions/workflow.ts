@@ -20,6 +20,8 @@ import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
 import { buildPlanPrompt, buildEditPrompt } from "./prompts";
+import type { QueryCtx } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
 
 // --- Completion event ---
 
@@ -30,7 +32,7 @@ export const sessionCompleteEvent = defineEvent({
 
 // --- Mode config ---
 
-const MODE_TOOLS: Record<"edit" | "plan", string> = {
+export const MODE_TOOLS: Record<"edit" | "plan", string> = {
   edit: "Read,Write,Edit,Bash,Glob,Grep",
   plan: "Read,Write,Glob,Grep",
 };
@@ -45,6 +47,69 @@ export const sessionModeArgValidator = v.union(
   v.literal("execute"),
   v.literal("plan"),
 );
+
+/**
+ * Builds the mode-specific agent prompt for a session turn (doc `@` mentions
+ * resolved, custom instructions + system prompt folded in). Shared single
+ * source of truth so both the workflow's `getSessionData` query and the
+ * daemon-pull `startExecute` mutation produce byte-identical prompts — the
+ * daemon must run exactly what the workflow would have handed it, never a
+ * second variant. Takes already-fetched session/repo/user docs so it works from
+ * either a query or a mutation context (MutationCtx satisfies QueryCtx for the
+ * read-only mention resolution).
+ */
+export async function buildSessionPrompt(
+  ctx: QueryCtx,
+  args: {
+    session: Doc<"sessions">;
+    repo: Doc<"githubRepos">;
+    user: Doc<"users"> | null;
+    message: string;
+    mode: "edit" | "ask" | "execute" | "plan";
+  },
+): Promise<{ prompt: string; branchName: string }> {
+  const { session, repo, user } = args;
+  const rootDirectory = repo.rootDirectory ?? "";
+  const customInstructionsBlock = buildCustomInstructionsBlock(
+    user?.role ?? undefined,
+    user?.customInstructions ?? undefined,
+  );
+
+  const effectiveMode: "edit" | "plan" = args.mode === "plan" ? "plan" : "edit";
+  const branchName = session.branchName || `eva/session-${session._id}`;
+
+  const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
+    ctx,
+    args.message,
+    session.repoId,
+  );
+
+  let prompt: string;
+  if (effectiveMode === "plan") {
+    prompt = buildPlanPrompt(
+      { owner: repo.owner, name: repo.name },
+      session.planContent || "",
+      resolvedMessage,
+      rootDirectory,
+      customInstructionsBlock,
+      repo.systemPrompt,
+    );
+  } else {
+    prompt = buildEditPrompt(
+      { owner: repo.owner, name: repo.name },
+      branchName,
+      session.planContent || "",
+      resolvedMessage,
+      rootDirectory,
+      customInstructionsBlock,
+      repo.systemPrompt,
+    );
+  }
+  if (prefixBlock) {
+    prompt = `${prefixBlock}\n\n${prompt}`;
+  }
+  return { prompt, branchName };
+}
 
 // --- Workflows ---
 
@@ -119,115 +184,99 @@ export const sessionExecuteWorkflow = workflow.define({
       userId: args.userId,
     });
 
+    // Daemon-pull dispatch: the prompt is NOT pushed from here. `startExecute`
+    // has already staged it in `session.pendingTurn` and scheduled a daemon to
+    // claim it; the warm daemon pulls it via `claimPendingTurn` in ~one poll,
+    // which is why we no longer probe/handoff/launch WITH a prompt here (doing
+    // so would double-execute the turn). This workflow's remaining job is to
+    // (a) make sure the sandbox is started (thawing cold/archived storage over
+    // durable steps) and a daemon is alive to do the claim, then (b) awaitEvent
+    // + run the unchanged post-turn bookkeeping (branch push, saveResult,
+    // deployment tracking).
     let sandboxId: string | null = null;
+    let validatedSandboxId: string | null = null;
 
-    // Warm fast-path: if a persistent Claude daemon is already alive in this
-    // (running) sandbox, hand it the prompt in one quick exec and skip the
-    // thaw + validate + launch gauntlet (~3–7s of durable Daytona steps that
-    // are no-ops on a warm sandbox). Safe to always attempt: with no daemon
-    // (CLI mode, cold/stopped/archived sandbox) the probe returns handed=false
-    // quickly and we fall through to the full path below.
     if (data.sandboxId) {
-      const warm = await step.runAction(
-        internal.daytona.tryWarmDaemonHandoff,
-        {
+      // Bring an archived/stopped sandbox back to "started" via durable
+      // polling steps first, so a multi-minute cold-storage thaw doesn't blow
+      // the per-action 10-minute limit inside validateSandbox. Once started,
+      // the validate below hits its fast (echo) path.
+      try {
+        await ensureSandboxStartedSteps(step, {
           sandboxId: data.sandboxId,
-          entityId: args.sessionId,
-          prompt: data.prompt,
           repoId: data.repoId,
-        },
+          streamingEntityId: args.sessionId,
+        });
+      } catch (error) {
+        await step.runMutation(internal.sessionWorkflow.saveResult, {
+          sessionId: args.sessionId,
+          success: false,
+          result: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Sandbox could not be restored from cold storage. Please retry.",
+          activityLog: null,
+        });
+        return;
+      }
+
+      const validation = await step.runAction(
+        internal.daytona.validateSandbox,
+        { sandboxId: data.sandboxId, repoId: data.repoId },
         { retry: false },
       );
-      if (warm.handed) {
-        sandboxId = data.sandboxId;
-        console.log(
-          `[sessionWorkflow] warm daemon fast-path: handed prompt directly, skipped thaw+validate+launch sessionId=${args.sessionId}`,
-        );
-      }
+      validatedSandboxId = validation.healthy ? data.sandboxId : null;
     }
 
-    if (sandboxId === null) {
-      let validatedSandboxId: string | null = null;
-
-      if (data.sandboxId) {
-        // Bring an archived/stopped sandbox back to "started" via durable
-        // polling steps first, so a multi-minute cold-storage thaw doesn't blow
-        // the per-action 10-minute limit inside validateSandbox. Once started,
-        // the validate below hits its fast (echo) path.
-        try {
-          await ensureSandboxStartedSteps(step, {
-            sandboxId: data.sandboxId,
-            repoId: data.repoId,
-            streamingEntityId: args.sessionId,
-          });
-        } catch (error) {
-          await step.runMutation(internal.sessionWorkflow.saveResult, {
-            sessionId: args.sessionId,
-            success: false,
-            result: null,
-            error:
-              error instanceof Error
-                ? error.message
-                : "Sandbox could not be restored from cold storage. Please retry.",
-            activityLog: null,
-          });
-          return;
-        }
-
-        const validation = await step.runAction(
-          internal.daytona.validateSandbox,
-          { sandboxId: data.sandboxId, repoId: data.repoId },
-          { retry: false },
-        );
-        validatedSandboxId = validation.healthy ? data.sandboxId : null;
-      }
-
-      if (validatedSandboxId) {
-        sandboxId = validatedSandboxId;
-      } else {
-        const prepared = await step.runAction(
-          internal.daytona.prepareSessionSandbox,
-          {
-            sessionId: args.sessionId,
-            existingSandboxId: data.sandboxId,
-            installationId: args.installationId,
-            repoOwner: data.repoOwner,
-            repoName: data.repoName,
-            branchName: data.branchName ?? `eva/session-${args.sessionId}`,
-            baseBranch: data.baseBranch,
-            repoId: data.repoId,
-            startDesktop: true,
-          },
-          { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
-        );
-        sandboxId = prepared.sandboxId;
-
-        await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
+    if (validatedSandboxId) {
+      sandboxId = validatedSandboxId;
+    } else {
+      const prepared = await step.runAction(
+        internal.daytona.prepareSessionSandbox,
+        {
           sessionId: args.sessionId,
-          sandboxId,
-          branchName: data.branchName,
-        });
-      }
+          existingSandboxId: data.sandboxId,
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          branchName: data.branchName ?? `eva/session-${args.sessionId}`,
+          baseBranch: data.baseBranch,
+          repoId: data.repoId,
+          startDesktop: true,
+        },
+        { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
+      );
+      sandboxId = prepared.sandboxId;
 
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+      await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
+        sessionId: args.sessionId,
         sandboxId,
-        entityId: args.sessionId,
-        prompt: data.prompt,
-        userId: args.userId,
-        completionMutation: "sessionWorkflow:handleCompletion",
-        entityIdField: "sessionId",
-        model: data.model,
-        allowedTools: data.allowedTools,
-        repoId: data.repoId,
-        sessionPersistenceId: args.sessionId,
-        streamingEntityId: args.sessionId,
+        branchName: data.branchName,
       });
     }
 
     if (sandboxId === null) {
-      // Unreachable: both the fast path and the full path assign sandboxId.
+      // Unreachable: sandboxId is assigned on both branches above.
       throw new Error("sessionExecuteWorkflow: sandbox was not resolved");
     }
+
+    // Ensure a daemon is alive to claim the staged prompt. Idempotent and
+    // prompt-less: a no-op if a daemon is already warm (the common warm-turn
+    // case, and it never pkills a live daemon), otherwise it respawns one in
+    // pull mode. `startExecute` already scheduled this same action; running it
+    // again here covers the cold/archived path where the sandbox was only just
+    // started by the steps above (so the earlier schedule found nothing to
+    // start) and guards against a daemon that died between turns.
+    await step.runAction(internal.daytona.prewarmSessionDaemon, {
+      sandboxId,
+      sessionId: args.sessionId,
+      repoId: data.repoId,
+      userId: args.userId,
+      model: data.model,
+      allowedTools: data.allowedTools,
+      sessionPersistenceId: args.sessionId,
+    });
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 
@@ -330,7 +379,13 @@ export const scheduleSessionDeploymentTracking = internalMutation({
 
 // --- Supporting internal functions ---
 
-/** Inserts an empty assistant message into the session for streaming updates. */
+/**
+ * Inserts an empty assistant message into the session for streaming updates.
+ * Idempotent: the daemon-pull `startExecute` already inserts this placeholder
+ * before starting the workflow, so if the last message is already an empty
+ * assistant placeholder we skip, avoiding a duplicate. Callers that do NOT
+ * pre-insert (e.g. the dev harness `devStartExecute`) still get one here.
+ */
 export const addAssistantPlaceholder = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -340,6 +395,16 @@ export const addAssistantPlaceholder = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
+
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .order("desc")
+      .first();
+    if (last && last.role === "assistant" && last.content === "") {
+      // Placeholder already staged by startExecute — nothing to do.
+      return null;
+    }
 
     await ctx.db.insert("messages", {
       parentId: args.sessionId,
@@ -382,50 +447,17 @@ export const getSessionData = internalQuery({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    const rootDirectory = repo.rootDirectory ?? "";
-
-    const user = await ctx.db.get(args.userId);
-    const customInstructionsBlock = buildCustomInstructionsBlock(
-      user?.role ?? undefined,
-      user?.customInstructions ?? undefined,
-    );
-
-    // Normalize legacy "ask"/"execute" to "edit"
     const effectiveMode: "edit" | "plan" =
       args.mode === "plan" ? "plan" : "edit";
 
-    const branchName = session.branchName || `eva/session-${args.sessionId}`;
-
-    const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
-      ctx,
-      args.message,
-      session.repoId,
-    );
-
-    let prompt: string;
-    if (effectiveMode === "plan") {
-      prompt = buildPlanPrompt(
-        { owner: repo.owner, name: repo.name },
-        session.planContent || "",
-        resolvedMessage,
-        rootDirectory,
-        customInstructionsBlock,
-        repo.systemPrompt,
-      );
-    } else {
-      prompt = buildEditPrompt(
-        { owner: repo.owner, name: repo.name },
-        branchName,
-        session.planContent || "",
-        resolvedMessage,
-        rootDirectory,
-        customInstructionsBlock,
-        repo.systemPrompt,
-      );
-    }
-    if (prefixBlock) {
-      prompt = `${prefixBlock}\n\n${prompt}`;
-    }
+    const user = await ctx.db.get(args.userId);
+    const { prompt, branchName } = await buildSessionPrompt(ctx, {
+      session,
+      repo,
+      user,
+      message: args.message,
+      mode: args.mode,
+    });
 
     return {
       sandboxId: session.sandboxId,
@@ -525,6 +557,32 @@ export const saveResult = internalMutation({
     await ctx.db.patch(args.sessionId, sessionPatch);
     await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
+  },
+});
+
+/**
+ * Daemon-pull turn claim. The warm sandbox daemon polls this every ~200ms; when
+ * `startExecute` has staged a prompt in `session.pendingTurn`, this atomically
+ * hands it over and clears the field so the same prompt is never claimed twice
+ * (which would double-execute the turn). Returns `{ prompt: null }` when nothing
+ * is pending. Public + auth-gated (via the sandbox CONVEX_TOKEN identity) to
+ * match `handleCompletion` — the daemon calls it over `/api/mutation`, and
+ * internal mutations are not reachable there.
+ */
+export const claimPendingTurn = authMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.object({ prompt: v.union(v.string(), v.null()) }),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return { prompt: null };
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+
+    if (!session.pendingTurn) return { prompt: null };
+
+    const prompt = session.pendingTurn.prompt;
+    await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
+    return { prompt };
   },
 });
 

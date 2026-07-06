@@ -7,10 +7,12 @@ export {
   updateSandboxId,
   saveResult,
   handleCompletion,
+  claimPendingTurn,
 } from "./_sessions/workflow";
 
 export {
   startExecute,
+  devStartExecute,
   prewarmDaemon,
   enqueueMessage,
   cancelExecution,

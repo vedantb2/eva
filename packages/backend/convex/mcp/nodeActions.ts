@@ -220,40 +220,6 @@ export const verifyAccessToken = internalAction({
   },
 });
 
-export const mintInternalToken = internalAction({
-  args: {
-    clerkUserId: v.string(),
-    repoId: v.string(),
-  },
-  returns: v.union(
-    v.object({
-      token: v.string(),
-      expiresIn: v.number(),
-    }),
-    v.null(),
-  ),
-  handler: async (_ctx, { clerkUserId, repoId }) => {
-    const internalSecret = process.env.MCP_INTERNAL_SECRET;
-    if (!internalSecret) return null;
-
-    const secret = new TextEncoder().encode(internalSecret);
-    const expiresIn = 28800; // 8 hours
-
-    const token = await new SignJWT({
-      sub: clerkUserId,
-      iss: "eva",
-      aud: "mcp-internal",
-      repoId,
-    })
-      .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime(`${expiresIn}s`)
-      .setIssuedAt()
-      .sign(secret);
-
-    return { token, expiresIn };
-  },
-});
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Convex API Helpers (for calling target Convex deployments)
 // ─────────────────────────────────────────────────────────────────────────────

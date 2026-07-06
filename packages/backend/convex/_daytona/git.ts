@@ -28,6 +28,11 @@ import {
 } from "./helpers";
 import { detectPackageManager } from "./devServer";
 import { ensureGitCredentialHelper } from "./gitCredentials";
+export { VM_SNAPSHOT_REGION } from "./snapshots";
+import {
+  isVmToolingBaseSnapshot,
+  VM_SNAPSHOT_THIN_SUFFIX,
+} from "./vmSnapshotNames";
 
 type ActionCtx = GenericActionCtx<DataModel>;
 
@@ -297,10 +302,16 @@ export async function createSandbox(
   snapshotName?: string,
   volumes?: VolumeMount[],
   readyTimeoutSeconds?: number,
+  seededSnapshotClass?: "container" | "vm-hot",
+  sandboxRegionId?: string,
+  skipPostCreateSetup?: boolean,
 ): Promise<Sandbox> {
   const details = [
     `installation=${installationId}`,
     snapshotName ? `snapshot=${snapshotName}` : "snapshot=none",
+    seededSnapshotClass
+      ? `seededClass=${seededSnapshotClass}`
+      : "seededClass=none",
     lifecycle.ephemeral ? "ephemeral=true" : "ephemeral=false",
     `volumes=${volumes?.length ?? 0}`,
   ].join(", ");
@@ -343,8 +354,10 @@ export async function createSandbox(
     const createParams: CreateSandboxFromSnapshotParams = {
       ...commonParams,
       snapshot: snapshotName ?? DEFAULT_SNAPSHOT,
+      ...(sandboxRegionId ? { regionId: sandboxRegionId } : {}),
     };
 
+    const daytonaCreateStartedAt = Date.now();
     const sandbox = await withTimeout(
       daytona.create(createParams, { timeout: timeoutSeconds }),
       readyTimeoutSeconds
@@ -352,8 +365,9 @@ export async function createSandbox(
         : DAYTONA_CREATE_TIMEOUT_MS,
       "create",
     );
+    const daytonaCreateMs = Date.now() - daytonaCreateStartedAt;
     logGit(
-      `createSandbox: created id=${sandbox.id}, cpu=${sandbox.cpu}, memory=${sandbox.memory}, disk=${sandbox.disk}`,
+      `createSandbox: daytona.create ready in ${formatDurationMsShort(daytonaCreateMs)} id=${sandbox.id}, cpu=${sandbox.cpu}, memory=${sandbox.memory}, disk=${sandbox.disk}`,
     );
 
     const appSlug = process.env.GITHUB_APP_SLUG;
@@ -363,16 +377,22 @@ export async function createSandbox(
         "GITHUB_APP_SLUG and GITHUB_BOT_USER_ID must be set in Convex env",
       );
     }
-    await exec(
-      sandbox,
-      `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,
-      10,
-    );
+    // Thin VM base images (node:20-bookworm pull) lack tooling until bootstrap;
+    // skip exec hooks that require bash/docker/git before bootstrap runs.
+    const isVmThinBootstrap =
+      snapshotName?.endsWith(VM_SNAPSHOT_THIN_SUFFIX) === true;
+    if (!isVmThinBootstrap && skipPostCreateSetup !== true) {
+      await exec(
+        sandbox,
+        `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,
+        10,
+      );
 
-    // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev).
-    // Idempotent — also re-invoked from ensureSandboxRunning on resume since
-    // dockerd doesn't survive auto-stop.
-    await ensureDockerDaemon(sandbox);
+      // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev).
+      // Idempotent — also re-invoked from ensureSandboxRunning on resume since
+      // dockerd doesn't survive auto-stop.
+      await ensureDockerDaemon(sandbox);
+    }
 
     return sandbox;
   });
@@ -750,7 +770,7 @@ async function installDependencies(
   if (pm === "pnpm") {
     await exec(
       sandbox,
-      `npm install -g pnpm && cd ${workspaceDir} && pnpm install`,
+      `cd ${workspaceDir} && (command -v pnpm >/dev/null 2>&1 || npm install -g pnpm) && pnpm install`,
       PNPM_INSTALL_TIMEOUT_SECONDS,
     );
   } else if (pm === "yarn") {
@@ -951,6 +971,8 @@ export async function createSandboxAndPrepareRepo(
   // snapshot builds) pass a longer value to avoid spurious create timeouts +
   // the orphaned sandboxes they leave server-side.
   readyTimeoutSeconds?: number,
+  seededSnapshotClass?: "container" | "vm-hot",
+  sandboxRegionId?: string,
 ): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
   let sandbox: Sandbox | undefined;
   try {
@@ -970,6 +992,8 @@ export async function createSandboxAndPrepareRepo(
             effectiveSnapshot,
             volumes,
             readyTimeoutSeconds,
+            seededSnapshotClass,
+            sandboxRegionId,
           );
         } catch (err) {
           if (effectiveSnapshot && isSnapshotUnusableError(err)) {
@@ -987,6 +1011,8 @@ export async function createSandboxAndPrepareRepo(
               undefined,
               volumes,
               readyTimeoutSeconds,
+              undefined,
+              undefined,
             );
           } else {
             throw err;
@@ -996,14 +1022,27 @@ export async function createSandboxAndPrepareRepo(
           await onSandboxAcquired(sandbox);
         }
         if (effectiveSnapshot) {
-          await normalizeSnapshotWorktree(sandbox);
-          // The snapshot was baked with a stale token in its git config /
-          // remotes. Install the credential helper before any git network op
-          // so syncRepo (and later in-sandbox `git pull`) authenticate cleanly.
-          await ensureGitCredentialHelper(ctx, sandbox, installationId);
-          if (syncStrategy.mode !== "none") {
-            if (onProgress) await onProgress("Syncing repository...");
-            await syncRepo(sandbox, owner, name, syncStrategy);
+          if (isVmToolingBaseSnapshot(effectiveSnapshot)) {
+            // VM tooling base has docker/node/etc. but no baked repo clone.
+            await cloneAndSetupRepo(
+              ctx,
+              sandbox,
+              installationId,
+              owner,
+              name,
+              syncStrategy.mode === "all",
+              onProgress,
+            );
+          } else {
+            await normalizeSnapshotWorktree(sandbox);
+            // The snapshot was baked with a stale token in its git config /
+            // remotes. Install the credential helper before any git network op
+            // so syncRepo (and later in-sandbox `git pull`) authenticate cleanly.
+            await ensureGitCredentialHelper(ctx, sandbox, installationId);
+            if (syncStrategy.mode !== "none") {
+              if (onProgress) await onProgress("Syncing repository...");
+              await syncRepo(sandbox, owner, name, syncStrategy);
+            }
           }
           await copySandboxConfigFilesToWorkspace(sandbox, { force: true });
           return { sandbox, usedSnapshot: true };

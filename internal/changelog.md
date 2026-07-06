@@ -1,5 +1,10 @@
 # Changelog
 
+## VM hot seeded snapshots pilot (Path B) - 2026-07-06
+
+- Pilot flag `vmHotSeededSnapshots` on carepulse `apps/web`: VM base via thin `ubuntu:22.04` pull in Daytona `experimental` region + sandbox bootstrap (declarative builder is container-only), hot capture (`includeMemory`), skip stopCommands at seed time, `seededSnapshotClass` tracking, and session startup logging.
+- Reason for change: container seeded snapshots cost ~30s on `daytona.create`; VM hot snapshots target sub-10s session boot while keeping daily versioned seeded builds.
+
 ## Seeded snapshot database restore artifact - 2026-07-05
 
 - Captured a compressed Supabase Postgres dump into the seeded snapshot filesystem after seed commands complete, then restored it once when fresh sandboxes boot from that snapshot.

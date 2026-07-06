@@ -14,6 +14,18 @@ import { DaytonaTimeoutError } from "@daytonaio/sdk";
  * or throws).
  */
 
+export const DAYTONA_API_BASE = "https://app.daytona.io/api";
+
+/** VM pilot resource limits (experimental VM region — 12 GiB, not container 16). */
+export const VM_SNAPSHOT_RESOURCES = {
+  cpu: 4,
+  memory: 12,
+  disk: 10,
+} as const;
+
+/** linux-vm runners live on Daytona's dedicated experimental region (12 GiB cap). */
+export const VM_SNAPSHOT_REGION = "experimental";
+
 /** Narrowed view of a Daytona snapshot — the fields callers actually read. */
 export type SnapshotInfo = {
   id: string;
@@ -80,22 +92,86 @@ export async function waitForSnapshotRemoval(
 }
 
 /**
- * Fires a sandbox→snapshot capture (the seeded-DB filesystem snapshot) and
- * returns WITHOUT waiting for it to finish.
+ * Kicks off a VM base snapshot from a public OCI image (linux-vm). Declarative
+ * buildInfo/dockerfile builds are container-only per Daytona docs — VM class uses
+ * imageName pull, then bootstrapVmBaseTooling bakes Eva tooling via sandbox exec.
+ */
+export async function kickOffVmBaseSnapshot(
+  apiKey: string,
+  name: string,
+  _dockerfileContent: string,
+  regionId: string = VM_SNAPSHOT_REGION,
+): Promise<void> {
+  const resp = await fetch(`${DAYTONA_API_BASE}/snapshots`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      name,
+      imageName: "ubuntu:22.04",
+      sandboxClass: "linux-vm",
+      regionId,
+      cpu: VM_SNAPSHOT_RESOURCES.cpu,
+      memory: VM_SNAPSHOT_RESOURCES.memory,
+      disk: VM_SNAPSHOT_RESOURCES.disk,
+    }),
+  });
+  const body = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`Daytona VM snapshot API error (${resp.status}): ${body}`);
+  }
+  if (body.length > 0) {
+    console.log(
+      `[vm-hot] kickOffVmBaseSnapshot response (${regionId}): ${body.slice(0, 500)}`,
+    );
+  }
+}
+
+type TriggerSandboxSnapshotOptions = {
+  includeMemory?: boolean;
+  apiKey?: string;
+};
+
+/**
+ * Fires a sandbox→snapshot capture and returns WITHOUT waiting for completion.
  *
- * The SDK helper blocks the caller polling the source sandbox's state for the
- * entire capture, which for a seeded DB volume routinely exceeds Convex's 600s
- * per-action ceiling. We pass a short timeout so the helper bails fast with a
- * DaytonaTimeoutError (the capture keeps running server-side) and let the caller
- * poll completion via getSnapshot. Any non-timeout error is a real failure and
- * propagates.
+ * Cold captures use the SDK helper (short timeout, DaytonaTimeoutError = still
+ * building). Hot VM captures use the REST API with includeMemory=true because
+ * the sandbox must stay started.
  */
 export async function triggerSandboxSnapshot(
   daytona: Daytona,
   sandboxId: string,
   name: string,
   timeoutSec: number,
+  options: TriggerSandboxSnapshotOptions = {},
 ): Promise<void> {
+  const apiKey = options.apiKey;
+  if (apiKey) {
+    const body: { name: string; includeMemory?: boolean } = { name };
+    if (options.includeMemory === true) {
+      body.includeMemory = true;
+    }
+    const resp = await fetch(
+      `${DAYTONA_API_BASE}/sandbox/${encodeURIComponent(sandboxId)}/snapshot`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      },
+    );
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Daytona snapshot API error (${resp.status}): ${text}`);
+    }
+    return;
+  }
+
   const sandbox = await daytona.get(sandboxId);
   try {
     await sandbox._experimental_createSnapshot(name, timeoutSec);

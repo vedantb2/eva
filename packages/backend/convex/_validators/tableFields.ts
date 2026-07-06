@@ -158,6 +158,8 @@ export const sessionFields = {
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
+  /** Wall-clock ms when the user clicked New Session — drives startup timing logs. */
+  startupRequestedAt: v.optional(v.number()),
 };
 
 export const syncSettingFields = {
@@ -194,11 +196,17 @@ export const seededAppStatusValidator = v.union(
 // for build records created before the field existed (treat absent as terminal,
 // inferred from seededSnapshotName). seededSnapshotName is the captured snapshot
 // name on success, or null while running / when it fell back to the base Image.
+export const seededSnapshotClassValidator = v.union(
+  v.literal("container"),
+  v.literal("vm-hot"),
+);
+
 export const seededAppResultValidator = v.object({
   repoId: v.id("githubRepos"),
   app: v.optional(v.string()),
   status: v.optional(seededAppStatusValidator),
   seededSnapshotName: v.union(v.string(), v.null()),
+  seededSnapshotClass: v.optional(seededSnapshotClassValidator),
   warmupStatus: v.optional(snapshotWarmupStatusValidator),
   warmupError: v.optional(v.string()),
 });
@@ -240,6 +248,10 @@ export const githubRepoFields = {
   // build workflow skips re-seeding — the existing snapshot's data is identical
   // and re-capturing it would only contend with the image build.
   seededFingerprint: v.optional(v.string()),
+  // Pilot: hot VM snapshot capture for faster session boot (eva apps/web).
+  vmHotSeededSnapshots: v.optional(v.boolean()),
+  // Set when seededSnapshotName is swapped — tracks container vs vm-hot capture.
+  seededSnapshotClass: v.optional(seededSnapshotClassValidator),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   systemPrompt: v.optional(v.string()),

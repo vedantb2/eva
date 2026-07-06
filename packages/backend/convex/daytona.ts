@@ -47,6 +47,7 @@ export {
 export {
   startSessionSandbox,
   prepareSessionSandbox,
+  finishNewSessionSandboxSetup,
   startDesignSandbox,
   startTaskPreviewSandbox,
   startProjectPreviewSandbox,

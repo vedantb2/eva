@@ -13,6 +13,8 @@ import {
   errorMessage,
   sleep,
   workspaceDirShell,
+  getSandbox,
+  VM_SNAPSHOT_REGION,
 } from "./helpers";
 import {
   setupBranch,
@@ -43,6 +45,24 @@ function devOverrides(
   if (repo.devPort === undefined && repo.devCommand === undefined)
     return undefined;
   return { devPort: repo.devPort, devCommand: repo.devCommand };
+}
+
+/** Logs structured startup timing for new-session latency work. */
+function logStartupTiming(
+  sessionId: Id<"sessions">,
+  phase: string,
+  flowStartedAt: number,
+  extra?: Record<string, string | number | boolean>,
+): void {
+  const elapsed = Date.now() - flowStartedAt;
+  const extraStr = extra
+    ? ` ${Object.entries(extra)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(" ")}`
+    : "";
+  console.log(
+    `[sessionStartup][timing] sessionId=${sessionId} phase=${phase} elapsedMs=${elapsed} elapsed=${formatDurationMsShort(elapsed)}${extraStr}`,
+  );
 }
 
 /** Logs a session-scoped message with the daytona/sessions prefix. */
@@ -331,6 +351,8 @@ type SessionSandboxPreparationArgs = {
   baseBranch: string;
   repoId: Id<"githubRepos">;
   startDesktop: boolean;
+  /** When true, skip dev server / bg / startup commands so sandboxReady can fire sooner. */
+  deferPostReadySetup?: boolean;
 };
 
 type PreparedSessionSandbox = {
@@ -339,8 +361,10 @@ type PreparedSessionSandbox = {
   usedSnapshot: boolean;
   sandboxDetails: string;
   branchName: string;
-  devPort: number;
-  devCommand: string;
+  devPort?: number;
+  devCommand?: string;
+  deferPostReadySetup?: boolean;
+  sandboxProvisionMs?: number;
 };
 
 type ProgressStep = { type: string; label: string; status: string };
@@ -437,6 +461,13 @@ async function prepareSessionSandboxInternal(
 ): Promise<PreparedSessionSandbox> {
   const actionDetails = `sessionId=${args.sessionId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
   const completedSteps: ProgressStep[] = [];
+  const sessionDoc = await ctx.runQuery(internal.sessions.getInternal, {
+    id: args.sessionId,
+  });
+  const flowStartedAt = sessionDoc?.startupRequestedAt ?? Date.now();
+  logStartupTiming(args.sessionId, "prepareStart", flowStartedAt, {
+    deferPostReadySetup: args.deferPostReadySetup === true,
+  });
 
   await emitSessionProgress(
     ctx,
@@ -465,14 +496,19 @@ async function prepareSessionSandboxInternal(
     completedSteps,
     "Resolving sandbox context...",
   );
-  const { daytona, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
-    "resolveSessionSandboxContext",
-    actionDetails,
-    () => resolveSandboxContext(ctx, args.repoId),
-  );
+  const { daytona, sandboxEnvVars, snapshotName, seededSnapshotClass } =
+    await runLoggedSessionStep(
+      "resolveSessionSandboxContext",
+      actionDetails,
+      () => resolveSandboxContext(ctx, args.repoId),
+    );
   logSession(
-    `prepareSessionSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
+    `prepareSessionSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, seededClass=${seededSnapshotClass ?? "none"}, rootDir=${rootDir || "."})`,
   );
+  logStartupTiming(args.sessionId, "sandboxContextResolved", flowStartedAt, {
+    snapshotName: snapshotName ?? "none",
+    seededSnapshotClass: seededSnapshotClass ?? "none",
+  });
   completedSteps.push({
     type: "tool",
     label: "Resolving sandbox context...",
@@ -645,9 +681,10 @@ async function prepareSessionSandboxInternal(
     completedSteps,
     "Creating sandbox...",
   );
+  const sandboxProvisionStartedAt = Date.now();
   const prepared = await runLoggedSessionStep(
     "createSessionSandboxAndPrepareRepo",
-    `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
+    `${actionDetails}, snapshot=${snapshotName ?? "none"}, seededClass=${seededSnapshotClass ?? "none"}`,
     () =>
       createSandboxAndPrepareRepo(
         ctx,
@@ -662,10 +699,21 @@ async function prepareSessionSandboxInternal(
         undefined,
         undefined,
         { mode: "none" },
+        undefined,
+        seededSnapshotClass,
+        seededSnapshotClass === "vm-hot" ? VM_SNAPSHOT_REGION : undefined,
       ),
   );
+  const sandboxProvisionMs = Date.now() - sandboxProvisionStartedAt;
   const sandbox = prepared.sandbox;
   const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
+  logStartupTiming(args.sessionId, "sandboxProvisionComplete", flowStartedAt, {
+    sandboxProvisionMs,
+    sandboxId: sandbox.id,
+    usedSnapshot: prepared.usedSnapshot,
+    seededSnapshotClass: seededSnapshotClass ?? "none",
+    snapshotName: snapshotName ?? "none",
+  });
   // Any setup step below (ref sync, branch checkout, config restore, seeded-
   // runtime restore, dev server) can throw. This is the new-session path — the
   // sandbox was just created here — so delete it on failure before rethrowing,
@@ -758,6 +806,22 @@ async function prepareSessionSandboxInternal(
       label: "Restoring config files...",
       status: "complete",
     });
+
+    if (args.deferPostReadySetup) {
+      logStartupTiming(args.sessionId, "deferPostReadySetup", flowStartedAt, {
+        sandboxProvisionMs,
+      });
+      await completeSessionProgress(ctx, args.sessionId);
+      return {
+        sandbox,
+        isNew: true,
+        usedSnapshot: prepared.usedSnapshot,
+        sandboxDetails,
+        branchName: args.branchName,
+        deferPostReadySetup: true,
+        sandboxProvisionMs,
+      };
+    }
 
     await emitSessionProgress(
       ctx,
@@ -911,7 +975,12 @@ export const startSessionSandbox = internalAction({
         baseBranch: args.baseBranch,
         repoId: args.repoId,
         startDesktop: false,
+        deferPostReadySetup: true,
       });
+      const sessionDoc = await ctx.runQuery(internal.sessions.getInternal, {
+        id: args.sessionId,
+      });
+      const flowStartedAt = sessionDoc?.startupRequestedAt ?? actionStartedAt;
       await runLoggedSessionStep(
         prepared.isNew
           ? "newSessionSandbox.sandboxReady"
@@ -928,6 +997,31 @@ export const startSessionSandbox = internalAction({
             devCommand: prepared.devCommand,
           }),
       );
+      logStartupTiming(
+        args.sessionId,
+        "sandboxReadyMutationDone",
+        flowStartedAt,
+        {
+          isNew: prepared.isNew,
+          sandboxId: prepared.sandbox.id,
+          sandboxProvisionMs: prepared.sandboxProvisionMs ?? 0,
+        },
+      );
+      if (prepared.deferPostReadySetup && prepared.isNew) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.daytona.finishNewSessionSandboxSetup,
+          {
+            sessionId: args.sessionId,
+            sandboxId: prepared.sandbox.id,
+            repoId: args.repoId,
+            startDesktop: false,
+          },
+        );
+        logSession(
+          `scheduled finishNewSessionSandboxSetup (${prepared.sandboxDetails})`,
+        );
+      }
       logSession(
         `startSessionSandbox completed in ${formatDurationMsShort(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
@@ -939,6 +1033,90 @@ export const startSessionSandbox = internalAction({
         sessionId: args.sessionId,
         error: errorMessage(e, "Unknown error"),
       });
+    }
+    return null;
+  },
+});
+
+/** Finishes dev server, background, and startup commands after sandboxReady (new sessions). */
+export const finishNewSessionSandboxSetup = internalAction({
+  args: {
+    sessionId: v.id("sessions"),
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    startDesktop: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const deferredStartedAt = Date.now();
+    const sessionDoc = await ctx.runQuery(internal.sessions.getInternal, {
+      id: args.sessionId,
+    });
+    const flowStartedAt = sessionDoc?.startupRequestedAt ?? deferredStartedAt;
+    const sandboxDetails = `sessionId=${args.sessionId}, sandboxId=${args.sandboxId}`;
+    logStartupTiming(args.sessionId, "deferredSetupStart", flowStartedAt);
+    try {
+      const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+        id: args.repoId,
+      });
+      const rootDir = repo?.rootDirectory ?? "";
+      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+
+      const { port: devPort, devCommand } = await runLoggedSessionStep(
+        "deferred.startSessionServices",
+        sandboxDetails,
+        () => startSessionServices(sandbox, rootDir, devOverrides(repo)),
+      );
+      if (args.startDesktop) {
+        await runLoggedSessionStep(
+          "deferred.startDesktop",
+          sandboxDetails,
+          () => startDesktopWithChrome(sandbox),
+        );
+      }
+      await runLoggedSessionStep(
+        "deferred.runBackgroundCommands",
+        sandboxDetails,
+        async () => {
+          const result = await ctx.runAction(
+            internal.daytona.runBackgroundCommands,
+            { sandboxId: sandbox.id, repoId: args.repoId },
+          );
+          if (result.ran && result.commandCount > 0) {
+            logSession(
+              `deferred: launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+            );
+          }
+        },
+      );
+      await runLoggedSessionStep(
+        "deferred.runStartupCommands",
+        sandboxDetails,
+        async () => {
+          const result = await ctx.runAction(
+            internal.daytona.runStartupCommands,
+            { sandboxId: sandbox.id, repoId: args.repoId },
+          );
+          if (result.ran && result.commandCount > 0) {
+            logSession(
+              `deferred: ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+            );
+          }
+        },
+      );
+      await ctx.runMutation(internal.sessions.patchDevServer, {
+        sessionId: args.sessionId,
+        devPort,
+        devCommand,
+      });
+      logStartupTiming(args.sessionId, "deferredSetupComplete", flowStartedAt, {
+        devPort,
+        deferredWallMs: Date.now() - deferredStartedAt,
+      });
+    } catch (error) {
+      console.error(
+        `[daytona][sessions] finishNewSessionSandboxSetup failed after ${formatDurationMsShort(Date.now() - deferredStartedAt)} (${sandboxDetails}): ${errorMessage(error, "Unknown error")}`,
+      );
     }
     return null;
   },

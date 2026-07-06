@@ -22,14 +22,19 @@ export const create = authMutation({
     }
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
+    const startupRequestedAt = Date.now();
     const sessionId = await ctx.db.insert("sessions", {
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
       status: "starting",
       createdBy: ctx.userId,
-      updatedAt: Date.now(),
+      updatedAt: startupRequestedAt,
+      startupRequestedAt,
     });
+    console.log(
+      `[sessionStartup] create sessionId=${sessionId} repoId=${args.repoId} startupRequestedAt=${startupRequestedAt}`,
+    );
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });
     const baseBranch = repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;

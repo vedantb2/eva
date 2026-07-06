@@ -7,6 +7,11 @@ import { snapshotScheduleValidator } from "../validators";
 import { authQuery, authMutation } from "../functions";
 import { safeDeleteCron, safeReplaceCron } from "../cronManager";
 
+/** True when this app repo uses the VM hot seeded-snapshot pilot path. */
+export function isVmHotSeedRepo(repo: Doc<"githubRepos">): boolean {
+  return repo.vmHotSeededSnapshots === true;
+}
+
 /** Converts a schedule string to a cron expression, returning null for "manual". */
 function resolveCronspec(schedule: string): string | null {
   if (schedule === "manual") return null;
@@ -79,12 +84,25 @@ export const getRepoSnapshot = authQuery({
  */
 export const getRepoSnapshotName = internalQuery({
   args: { repoId: v.id("githubRepos") },
-  returns: v.union(v.object({ snapshotName: v.string() }), v.null()),
+  returns: v.union(
+    v.object({
+      snapshotName: v.string(),
+      seededSnapshotClass: v.optional(
+        v.union(v.literal("container"), v.literal("vm-hot")),
+      ),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     // Per-app seeded snapshot takes precedence (fast start with seeded DB).
     const repo = await ctx.db.get(args.repoId);
     if (repo?.seededSnapshotName) {
-      return { snapshotName: repo.seededSnapshotName };
+      return {
+        snapshotName: repo.seededSnapshotName,
+        ...(repo.seededSnapshotClass
+          ? { seededSnapshotClass: repo.seededSnapshotClass }
+          : {}),
+      };
     }
 
     const snapshot = await findSnapshotForRepo(ctx.db, args.repoId);
@@ -152,6 +170,12 @@ export const getSeedableAppRepos = internalQuery({
       // Seed-input fingerprint stored at the last successful capture — when it
       // still matches the current inputs the workflow skips re-seeding.
       seededFingerprint: v.union(v.string(), v.null()),
+      vmHotSeededSnapshots: v.boolean(),
+      seededSnapshotClass: v.union(
+        v.literal("container"),
+        v.literal("vm-hot"),
+        v.null(),
+      ),
     }),
   ),
   handler: async (ctx, args) => {
@@ -160,6 +184,8 @@ export const getSeedableAppRepos = internalQuery({
       repoId: r._id,
       seededSnapshotName: r.seededSnapshotName ?? null,
       seededFingerprint: r.seededFingerprint ?? null,
+      vmHotSeededSnapshots: isVmHotSeedRepo(r),
+      seededSnapshotClass: r.seededSnapshotClass ?? null,
     }));
   },
 });
@@ -244,6 +270,9 @@ export const setSeededSnapshotName = internalMutation({
     repoId: v.id("githubRepos"),
     seededSnapshotName: v.union(v.string(), v.null()),
     seededFingerprint: v.optional(v.union(v.string(), v.null())),
+    seededSnapshotClass: v.optional(
+      v.union(v.literal("container"), v.literal("vm-hot"), v.null()),
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -252,6 +281,24 @@ export const setSeededSnapshotName = internalMutation({
       ...(args.seededFingerprint !== undefined
         ? { seededFingerprint: args.seededFingerprint ?? undefined }
         : {}),
+      ...(args.seededSnapshotClass !== undefined
+        ? { seededSnapshotClass: args.seededSnapshotClass ?? undefined }
+        : {}),
+    });
+    return null;
+  },
+});
+
+/** Enables or disables VM hot seeded snapshots for a pilot app repo (ops). */
+export const enableVmHotSeededSnapshotsPilot = internalMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    enabled: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.repoId, {
+      vmHotSeededSnapshots: args.enabled !== false,
     });
     return null;
   },

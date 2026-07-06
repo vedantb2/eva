@@ -31,4 +31,5 @@ export {
   setPrState,
   markReadyAndArchive,
   updateDeploymentStatus,
+  patchDevServer,
 } from "./_sessions/internal";

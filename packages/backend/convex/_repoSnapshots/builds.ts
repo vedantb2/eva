@@ -304,6 +304,9 @@ export const recordSeededApp = internalMutation({
     repoId: v.id("githubRepos"),
     status: seededAppStatusValidator,
     seededSnapshotName: v.union(v.string(), v.null()),
+    seededSnapshotClass: v.optional(
+      v.union(v.literal("container"), v.literal("vm-hot")),
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -317,6 +320,9 @@ export const recordSeededApp = internalMutation({
         app: repo?.rootDirectory,
         status: args.status,
         seededSnapshotName: args.seededSnapshotName,
+        ...(args.seededSnapshotClass
+          ? { seededSnapshotClass: args.seededSnapshotClass }
+          : {}),
       },
     ];
     await ctx.db.patch(args.buildId, { seededApps });
@@ -343,6 +349,7 @@ export const updateSeededAppWarmupStatus = internalMutation({
         app: app.app,
         status: app.status,
         seededSnapshotName: app.seededSnapshotName,
+        seededSnapshotClass: app.seededSnapshotClass,
         warmupStatus: args.status,
         warmupError: args.error,
       };

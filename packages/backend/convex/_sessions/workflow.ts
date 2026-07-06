@@ -61,6 +61,9 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     repoId: v.id("githubRepos"),
   },
   handler: async (step, args): Promise<void> => {
+    console.log(
+      `[sessionStartup] workflow started sessionId=${args.sessionId} existingSandboxId=${args.existingSandboxId ?? "none"}`,
+    );
     // Thaw an archived/stopped sandbox across polling steps before the start
     // action, so a multi-minute cold-storage restore doesn't blow the
     // per-action 10-minute limit inside startSessionSandbox →

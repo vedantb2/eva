@@ -75,6 +75,24 @@ export const setPrState = internalMutation({
   },
 });
 
+/** Updates dev server fields after deferred post-ready setup completes. */
+export const patchDevServer = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    devPort: v.number(),
+    devCommand: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.sessionId, {
+      devPort: args.devPort,
+      devCommand: args.devCommand,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 /** Marks a session's PR ready for review and archives the sandbox (internal use). */
 export const markReadyAndArchive = internalMutation({
   args: { id: v.id("sessions") },

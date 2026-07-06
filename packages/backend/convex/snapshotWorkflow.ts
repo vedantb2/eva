@@ -2,6 +2,10 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
 import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
+import {
+  vmBaseSnapshotName,
+  vmThinSnapshotName,
+} from "./_daytona/vmSnapshotNames";
 
 const POLL_DELAY_MS = 30_000;
 const MAX_POLLS = 60; // ~30 minutes at 30s intervals
@@ -97,6 +101,9 @@ export const snapshotBuildWorkflow = workflow.define({
       internal.repoSnapshots.getSeedableAppRepos,
       { repoSnapshotId: args.repoSnapshotId },
     );
+    const hasVmHotApp = apps.some((app) => app.vmHotSeededSnapshots);
+    const vmBaseName = vmBaseSnapshotName(config.snapshotName);
+    const vmThinName = vmThinSnapshotName(config.snapshotName);
 
     try {
       await step.runAction(internal.snapshotActions.sweepSeedPrepSandboxes, {
@@ -129,6 +136,7 @@ export const snapshotBuildWorkflow = workflow.define({
         await step.runMutation(internal.repoSnapshots.setSeededSnapshotName, {
           repoId: orphan.repoId,
           seededSnapshotName: null,
+          seededSnapshotClass: null,
         });
         console.log(
           `[snapshot] cleaned up orphaned seeded snapshot ${orphan.seededSnapshotName} (repo ${orphan.repoId} no longer seedable)`,
@@ -167,6 +175,7 @@ export const snapshotBuildWorkflow = workflow.define({
             snapshotName: kickOffResult.snapshotName,
             repoId: kickOffResult.repoId,
             attempt,
+            finalizeBuildOnActive: false,
           },
           { runAfter: attempt === 1 ? 10_000 : POLL_DELAY_MS },
         );
@@ -187,6 +196,98 @@ export const snapshotBuildWorkflow = workflow.define({
         }
         return;
       }
+
+      // Parallel VM-class base build for vm-hot pilot apps.
+      if (hasVmHotApp) {
+        await step.runAction(internal.snapshotActions.deleteExistingSnapshot, {
+          snapshotName: vmThinName,
+          repoId: config.repoId,
+          buildId: args.buildId,
+        });
+        const vmKickOff = await step.runAction(
+          internal.snapshotActions.kickOffVmSnapshotBuild,
+          { buildId: args.buildId, repoSnapshotId: args.repoSnapshotId },
+        );
+        if (!vmKickOff) return;
+        let vmAttempt = 0;
+        let vmState = "pending";
+        while (
+          vmAttempt < MAX_POLLS &&
+          !isTerminalSnapshotState(vmState) &&
+          vmState !== "active"
+        ) {
+          vmAttempt++;
+          vmState = await step.runAction(
+            internal.snapshotActions.pollSeededSnapshotState,
+            {
+              repoId: vmKickOff.repoId,
+              seededName: vmKickOff.snapshotName,
+              vmHot: true,
+            },
+            { runAfter: vmAttempt === 1 ? 10_000 : POLL_DELAY_MS },
+          );
+        }
+        if (vmState !== "active") {
+          await step.runMutation(internal.repoSnapshots.completeBuild, {
+            buildId: args.buildId,
+            status: "error",
+            logs: `[vm-hot] VM thin base ${vmKickOff.snapshotName} did not reach active (last state: ${vmState}).\n`,
+            error: `VM thin base snapshot failed or timed out (state: ${vmState})`,
+          });
+          return;
+        }
+        await step.runMutation(internal.repoSnapshots.appendLogs, {
+          buildId: args.buildId,
+          chunk: `[vm-hot] VM thin base ${vmKickOff.snapshotName} is active. Bootstrapping Eva tooling → ${vmBaseName}...\n`,
+        });
+        const bootstrap = await step.runAction(
+          internal.snapshotActions.bootstrapVmBaseTooling,
+          {
+            buildId: args.buildId,
+            repoId: config.repoId,
+            thinSnapshotName: vmKickOff.snapshotName,
+            finalSnapshotName: vmBaseName,
+          },
+        );
+        if (!bootstrap) {
+          return;
+        }
+        let finalAttempt = 0;
+        let finalState = "pending";
+        while (
+          finalAttempt < MAX_POLLS &&
+          !isTerminalSnapshotState(finalState) &&
+          finalState !== "active"
+        ) {
+          finalAttempt++;
+          finalState = await step.runAction(
+            internal.snapshotActions.pollSeededSnapshotState,
+            {
+              repoId: config.repoId,
+              seededName: bootstrap.finalSnapshotName,
+              vmHot: true,
+            },
+            { runAfter: finalAttempt === 1 ? 10_000 : POLL_DELAY_MS },
+          );
+        }
+        if (finalState !== "active") {
+          await step.runMutation(internal.repoSnapshots.completeBuild, {
+            buildId: args.buildId,
+            status: "error",
+            logs: `[vm-hot] VM base ${bootstrap.finalSnapshotName} did not reach active (last state: ${finalState}).\n`,
+            error: `VM base snapshot bootstrap failed or timed out (state: ${finalState})`,
+          });
+          return;
+        }
+        await step.runMutation(internal.repoSnapshots.appendLogs, {
+          buildId: args.buildId,
+          chunk: `[vm-hot] VM base snapshot ${bootstrap.finalSnapshotName} is active.\n`,
+        });
+        await step.runAction(internal.snapshotActions.deleteDaytonaSnapshot, {
+          snapshotName: vmKickOff.snapshotName,
+          repoId: config.repoId,
+        });
+      }
     } else {
       await step.runMutation(internal.repoSnapshots.appendLogs, {
         buildId: args.buildId,
@@ -202,6 +303,13 @@ export const snapshotBuildWorkflow = workflow.define({
       internal.snapshotActions.pollSeededSnapshotState,
       { repoId: config.repoId, seededName: config.snapshotName },
     );
+    const vmImageState = hasVmHotApp
+      ? await step.runAction(internal.snapshotActions.pollSeededSnapshotState, {
+          repoId: config.repoId,
+          seededName: vmBaseName,
+          vmHot: true,
+        })
+      : "inactive";
 
     // Per-app pipeline. Versioned capture name (buildId is unique per build):
     // the previous seeded snapshot stays LIVE and untouched until the
@@ -212,6 +320,9 @@ export const snapshotBuildWorkflow = workflow.define({
     const runSeedChain = async (
       app: (typeof apps)[number],
     ): Promise<boolean> => {
+      const isVmHot = app.vmHotSeededSnapshots;
+      const captureClass = isVmHot ? "vm-hot" : "container";
+      const pathTag = isVmHot ? "[vm-hot]" : "[container]";
       const seededName = `seeded-${app.repoId}-${args.buildId}`;
       let prepSandboxId: string | null = null;
       try {
@@ -223,18 +334,28 @@ export const snapshotBuildWorkflow = workflow.define({
           status: "running",
           seededSnapshotName: null,
         });
-        // Boot source cascade: previous seeded snapshot (warm: toolchain +
-        // service images + deps all present) → base Image (bootstrap). The
-        // retry/backoff absorbs runner propagation lag on fresh snapshots.
-        const sources = [
-          ...(app.seededSnapshotName && args.forceBaseSeed !== true
-            ? [app.seededSnapshotName]
-            : []),
-          ...(imageState === "active" ? [config.snapshotName] : []),
-        ];
+        // Boot source cascade. VM hot: previous vm-hot seeded → VM base only
+        // (no container fallback). Container: previous seeded → base Image.
+        const sources = isVmHot
+          ? [
+              ...(app.seededSnapshotName &&
+              app.seededSnapshotClass === "vm-hot" &&
+              args.forceBaseSeed !== true
+                ? [app.seededSnapshotName]
+                : []),
+              ...(vmImageState === "active" ? [vmBaseName] : []),
+            ]
+          : [
+              ...(app.seededSnapshotName && args.forceBaseSeed !== true
+                ? [app.seededSnapshotName]
+                : []),
+              ...(imageState === "active" ? [config.snapshotName] : []),
+            ];
         if (sources.length === 0) {
           throw new Error(
-            `No boot source for ${app.repoId}: no previous seeded snapshot and no base Image — run forceImageRebuild to bootstrap`,
+            isVmHot
+              ? `No VM boot source for ${app.repoId}: need active ${vmBaseName} (run forceImageRebuild) or a previous vm-hot seeded snapshot`
+              : `No boot source for ${app.repoId}: no previous seeded snapshot and no base Image — run forceImageRebuild to bootstrap`,
           );
         }
         for (const source of sources) {
@@ -246,12 +367,12 @@ export const snapshotBuildWorkflow = workflow.define({
             );
             prepSandboxId = created.sandboxId;
             console.log(
-              `[snapshot] booted seed sandbox for ${app.repoId} from ${source}`,
+              `${pathTag} [snapshot] booted seed sandbox for ${app.repoId} from ${source}`,
             );
             break;
           } catch (e) {
             console.error(
-              `[snapshot] boot from ${source} failed for ${app.repoId}: ${
+              `${pathTag} [snapshot] boot from ${source} failed for ${app.repoId}: ${
                 e instanceof Error ? e.message : String(e)
               }`,
             );
@@ -285,6 +406,7 @@ export const snapshotBuildWorkflow = workflow.define({
             repoId: app.repoId,
             branch,
             buildCommands: config.buildCommands ?? [],
+            skipStopCommands: isVmHot,
           },
           { retry: { maxAttempts: 3, initialBackoffMs: 10000, base: 2 } },
         );
@@ -322,6 +444,7 @@ export const snapshotBuildWorkflow = workflow.define({
           repoId: app.repoId,
           sandboxId: prepSandboxId,
           seededName,
+          includeMemory: isVmHot,
         });
         let snapState = "pending";
         for (
@@ -332,7 +455,7 @@ export const snapshotBuildWorkflow = workflow.define({
         ) {
           snapState = await step.runAction(
             internal.snapshotActions.pollSeededSnapshotState,
-            { repoId: app.repoId, seededName },
+            { repoId: app.repoId, seededName, vmHot: isVmHot },
             {
               runAfter:
                 pollAttempt === 1 ? 10_000 : SEED_SNAPSHOT_POLL_DELAY_MS,
@@ -355,12 +478,14 @@ export const snapshotBuildWorkflow = workflow.define({
         await step.runMutation(internal.repoSnapshots.setSeededSnapshotName, {
           repoId: app.repoId,
           seededSnapshotName: seededName,
+          seededSnapshotClass: captureClass,
         });
         await step.runMutation(internal.repoSnapshots.recordSeededApp, {
           buildId: args.buildId,
           repoId: app.repoId,
           status: "seeded",
           seededSnapshotName: seededName,
+          seededSnapshotClass: captureClass,
         });
         try {
           await step.runMutation(
@@ -448,10 +573,19 @@ export const snapshotBuildWorkflow = workflow.define({
 
     const results = await Promise.all(apps.map((app) => runSeedChain(app)));
 
-    // Finalize the build record (the forceImageRebuild path already recorded
-    // the image outcome; per-app outcomes live in seededApps either way).
-    if (!args.forceImageRebuild) {
-      const succeeded = results.filter(Boolean).length;
+    const succeeded = results.filter(Boolean).length;
+    if (args.forceImageRebuild) {
+      await step.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: succeeded === apps.length ? "success" : "error",
+        logs: `Force rebuild finished: container base + ${hasVmHotApp ? "VM base + " : ""}${succeeded}/${apps.length} app snapshot(s) refreshed.\n`,
+        ...(succeeded === apps.length
+          ? {}
+          : {
+              error: `${apps.length - succeeded} app snapshot(s) fell back — see per-app diagnostics in the logs`,
+            }),
+      });
+    } else {
       await step.runMutation(internal.repoSnapshots.completeBuild, {
         buildId: args.buildId,
         status: succeeded === apps.length ? "success" : "error",

@@ -7,10 +7,13 @@ import { resolveAllEnvVars, resolveDaytonaApiKey } from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import {
   getDaytona,
+  getDaytonaForSnapshotName,
   buildConfigFileDownloadCommands,
   filterDownloadableConfigFiles,
   exec,
+  execScript,
   getSandbox,
+  sleep,
   type SandboxConfigFile,
 } from "./_daytona/helpers";
 import {
@@ -18,18 +21,23 @@ import {
   createSandboxAndPrepareRepo,
   SESSION_LIFECYCLE,
   WARMING_LIFECYCLE,
+  VM_SNAPSHOT_REGION,
 } from "./_daytona/git";
 import {
   getSnapshot,
   deleteSnapshotByName,
   waitForSnapshotRemoval,
   triggerSandboxSnapshot,
+  kickOffVmBaseSnapshot,
+  VM_SNAPSHOT_RESOURCES,
 } from "./_daytona/snapshots";
+import { vmThinSnapshotName } from "./_daytona/vmSnapshotNames";
 import { isTerminalSnapshotState } from "./_daytona/snapshotStates";
 import { Image } from "@daytonaio/sdk";
 import type { Id } from "./_generated/dataModel";
 
 const DAYTONA_API_URL = "https://app.daytona.io/api";
+import { VM_SNAPSHOT_THIN_SUFFIX } from "./_daytona/vmSnapshotNames";
 const SEED_PREP_LABEL_KEY = "eva.purpose";
 const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
 const SEEDED_SNAPSHOT_WARM_READY_TIMEOUT_SECONDS = 300;
@@ -404,6 +412,265 @@ export const kickOffSnapshotBuild = internalAction({
 });
 
 /**
+ * Workflow step: kick off the parallel VM-class base Image build (linux-vm,
+ * memory=12). Same Dockerfile as the container base; only sandboxClass differs.
+ */
+export const kickOffVmSnapshotBuild = internalAction({
+  args: {
+    buildId: v.id("snapshotBuilds"),
+    repoSnapshotId: v.id("repoSnapshots"),
+  },
+  returns: v.union(
+    v.object({
+      snapshotName: v.string(),
+      repoId: v.id("githubRepos"),
+    }),
+    v.null(),
+  ),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ snapshotName: string; repoId: Id<"githubRepos"> } | null> => {
+    const config = await ctx.runQuery(
+      internal.repoSnapshots.getRepoSnapshotInternal,
+      { repoSnapshotId: args.repoSnapshotId },
+    );
+    if (!config) {
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: "Snapshot config not found",
+      });
+      return null;
+    }
+
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: config.repoId,
+    });
+    if (!repo) {
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: "GitHub repo not found",
+      });
+      return null;
+    }
+
+    let token: string;
+    try {
+      token = await getInstallationToken(repo.installationId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: `Failed to get GitHub installation token: ${message}`,
+      });
+      return null;
+    }
+
+    let daytonaApiKey: string;
+    try {
+      const envVars = await resolveAllEnvVars(ctx, config.repoId);
+      const key = envVars.DAYTONA_API_KEY;
+      if (!key) {
+        throw new Error(
+          "DAYTONA_API_KEY not found in team or repo environment variables",
+        );
+      }
+      daytonaApiKey = key;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: message,
+      });
+      return null;
+    }
+
+    const branch = config.workflowRef ?? "main";
+    const configFiles: SandboxConfigFile[] = await ctx.runQuery(
+      internal.sandboxConfigFiles.getConfigFilesForSnapshot,
+      { repoId: config.repoId },
+    );
+    const buildCommands = config.buildCommands ?? [];
+    const image = buildSnapshotImage(
+      token,
+      repo.owner,
+      repo.name,
+      branch,
+      configFiles,
+      buildCommands,
+    );
+
+    const vmSnapshotName = vmThinSnapshotName(config.snapshotName);
+    try {
+      await kickOffVmBaseSnapshot(
+        daytonaApiKey,
+        vmSnapshotName,
+        image.dockerfile,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: message,
+      });
+      return null;
+    }
+
+    await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+      buildId: args.buildId,
+      chunk:
+        `[vm-hot] VM base snapshot build initiated ${vmSnapshotName} ` +
+        `(region=${VM_SNAPSHOT_REGION}, cpu=${VM_SNAPSHOT_RESOURCES.cpu}, memory=${VM_SNAPSHOT_RESOURCES.memory}, disk=${VM_SNAPSHOT_RESOURCES.disk}). Polling...\n`,
+    });
+
+    return { snapshotName: vmSnapshotName, repoId: config.repoId };
+  },
+});
+
+/**
+ * Shell script mirroring the container Image's system-tooling layers (not repo
+ * clone / pnpm install — those happen at seed-prep time). Runs inside a VM
+ * sandbox booted from the thin node:20-bookworm pull, then cold-captured as
+ * the final `-vm` base snapshot.
+ */
+function buildVmBootstrapShellScript(): string {
+  const lines = [
+    "set -euo pipefail",
+    "export DEBIAN_FRONTEND=noninteractive",
+    "apt-get update && apt-get install -y ca-certificates curl gnupg",
+    "curl -fsSL https://deb.nodesource.com/setup_20.x | bash -",
+    "apt-get install -y nodejs",
+    "apt-get install -y git curl jq ripgrep fd-find git-lfs gh sudo build-essential python3",
+    "apt-get install -y xvfb xfce4 xfce4-terminal x11vnc novnc dbus-x11 x11-utils libx11-6 libxrandr2 libxext6 libxrender1 libxfixes3 libxss1 libxtst6 libxi6",
+    "sed -i 's/mdns4_minimal \\[NOTFOUND=return\\] //' /etc/nsswitch.conf",
+    "echo 'precedence ::ffff:0:0/96 100' > /etc/gai.conf",
+    'apt-get install -y wget gnupg && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && apt-get update && apt-get install -y google-chrome-stable',
+    "curl -fsSL https://get.docker.com | VERSION=28.3.3 sh",
+    'mkdir -p /etc/docker && echo \'{"dns":["1.1.1.1","8.8.8.8"],"mtu":1400,"ipv6":false,"ip6tables":false,"max-concurrent-downloads":3}\' > /etc/docker/daemon.json',
+    `printf %s ${EVA_SUDOERS_B64}|base64 -d>/etc/sudoers.d/eva&&chmod 440 /etc/sudoers.d/eva`,
+    `printf %s ${EVA_ENTRYPOINT_B64}|base64 -d>/usr/local/bin/eva-entrypoint.sh&&chmod 755 /usr/local/bin/eva-entrypoint.sh`,
+    "rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*",
+    "corepack enable",
+    "ln -sf /usr/bin/fdfind /usr/local/bin/fd",
+    "git lfs install --system",
+    "npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 @anthropic-ai/claude-agent-sdk@0.3.201",
+    "curl -fsSL https://code-server.dev/install.sh | sh",
+    "curl -fsSL https://github.com/supabase/cli/releases/download/v2.90.0/supabase_2.90.0_linux_amd64.deb -o /tmp/supabase.deb && dpkg -i /tmp/supabase.deb && rm /tmp/supabase.deb",
+    "useradd -m -s /bin/bash eva || true",
+    "usermod -aG docker eva",
+    "mkdir -p /workspace /home/eva/.pnpm /home/eva/.local/bin && chown -R eva:eva /workspace /home/eva",
+    "su - eva -c 'corepack prepare pnpm@10.33.4 --activate'",
+    "echo VM bootstrap complete",
+  ];
+  return lines.join("\n");
+}
+
+/**
+ * Workflow step: boot thin VM snapshot, install Eva tooling, cold-capture final
+ * `-vm` base snapshot (declarative dockerfile builds are container-only).
+ */
+export const bootstrapVmBaseTooling = internalAction({
+  args: {
+    buildId: v.id("snapshotBuilds"),
+    repoId: v.id("githubRepos"),
+    thinSnapshotName: v.string(),
+    finalSnapshotName: v.string(),
+  },
+  returns: v.union(v.object({ finalSnapshotName: v.string() }), v.null()),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+      ctx,
+      args.repoId,
+    );
+    const daytona = getDaytona(daytonaApiKey, VM_SNAPSHOT_REGION);
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) {
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: "GitHub repo not found for VM bootstrap",
+      });
+      return null;
+    }
+
+    let sandboxId: string | null = null;
+    try {
+      const sandbox = await createSandbox(
+        daytona,
+        repo.installationId,
+        { ...sandboxEnvVars, REPO_ID: args.repoId },
+        {
+          ...SESSION_LIFECYCLE,
+          labels: {
+            "eva.managed": "true",
+            "eva.purpose": "vm-base-bootstrap",
+            "eva.repoId": args.repoId,
+          },
+        },
+        args.thinSnapshotName,
+        undefined,
+        300,
+      );
+      sandboxId = sandbox.id;
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk: `[vm-hot] Bootstrap sandbox ${sandboxId} booted from ${args.thinSnapshotName}. Installing tooling...\n`,
+      });
+      const script = buildVmBootstrapShellScript();
+      await execScript(sandbox, script, 540);
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk: `[vm-hot] Bootstrap script finished on ${sandboxId}. Capturing ${args.finalSnapshotName}...\n`,
+      });
+      // VM filesystem snapshots require a stopped sandbox (Daytona 400 otherwise).
+      await sandbox.stop();
+      await deleteSnapshotByName(daytona, args.finalSnapshotName);
+      await waitForSnapshotRemoval(daytona, args.finalSnapshotName, {
+        attempts: 20,
+      });
+      await triggerSandboxSnapshot(
+        daytona,
+        sandboxId,
+        args.finalSnapshotName,
+        SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
+        { includeMemory: false, apiKey: daytonaApiKey },
+      );
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk: `[vm-hot] Cold capture triggered for ${args.finalSnapshotName}.\n`,
+      });
+      return { finalSnapshotName: args.finalSnapshotName };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk: `[vm-hot] VM bootstrap failed: ${message}\n`,
+      });
+      await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: `VM bootstrap failed: ${message}`,
+      });
+      return null;
+    }
+  },
+});
+
+/**
  * Workflow step 2 (called in a loop): Checks snapshot build state and streams
  * build logs from the Daytona API. Returns the current snapshot state string.
  * Each invocation is a fresh action with its own timeout.
@@ -414,6 +681,8 @@ export const pollSnapshotProgress = internalAction({
     snapshotName: v.string(),
     repoId: v.id("githubRepos"),
     attempt: v.number(),
+    /** When false, active only appends logs — workflow finalizes the build later. */
+    finalizeBuildOnActive: v.optional(v.boolean()),
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
@@ -476,13 +745,21 @@ export const pollSnapshotProgress = internalAction({
       }
 
       if (state === "active") {
-        await ctx.runMutation(internal.repoSnapshots.completeBuild, {
-          buildId: args.buildId,
-          status: "success",
-          logs:
-            (logs ? logs + "\n" : "") +
-            `[Poll ${args.attempt}] Snapshot build completed successfully.\n`,
-        });
+        const completionLogs =
+          (logs ? logs + "\n" : "") +
+          `[Poll ${args.attempt}] Snapshot build completed successfully.\n`;
+        if (args.finalizeBuildOnActive !== false) {
+          await ctx.runMutation(internal.repoSnapshots.completeBuild, {
+            buildId: args.buildId,
+            status: "success",
+            logs: completionLogs,
+          });
+        } else {
+          await ctx.runMutation(internal.repoSnapshots.appendLogs, {
+            buildId: args.buildId,
+            chunk: completionLogs,
+          });
+        }
         return "active";
       }
 
@@ -853,6 +1130,8 @@ export const launchSeedRun = internalAction({
     // Repo build commands (pnpm install / codegen etc), run after the reset so
     // the captured snapshot carries fresh node_modules and build artifacts.
     buildCommands: v.array(v.string()),
+    // VM hot capture: daemons stay running; stopCommands run on session teardown.
+    skipStopCommands: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
@@ -864,10 +1143,11 @@ export const launchSeedRun = internalAction({
       internal.repoSnapshots.getBackgroundCommands,
       { repoId: args.repoId },
     );
-    const stopCommands: string[] | null = await ctx.runQuery(
-      internal.repoSnapshots.getStopCommands,
-      { repoId: args.repoId },
-    );
+    const stopCommands: string[] | null = args.skipStopCommands
+      ? null
+      : await ctx.runQuery(internal.repoSnapshots.getStopCommands, {
+          repoId: args.repoId,
+        });
     const requireSupabaseDump = shouldCaptureSupabaseState([
       ...(startupCommands ?? []),
       ...(backgroundCommands ?? []),
@@ -1008,7 +1288,12 @@ export const createSeedPrepSandbox = internalAction({
       ctx,
       args.repoId,
     );
-    const daytona = getDaytona(daytonaApiKey);
+    const vmRegionId =
+      args.imageSnapshot.endsWith("-vm") ||
+      args.imageSnapshot.endsWith(VM_SNAPSHOT_THIN_SUFFIX)
+        ? VM_SNAPSHOT_REGION
+        : undefined;
+    const daytona = getDaytona(daytonaApiKey, vmRegionId);
     const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
       repoId: args.repoId,
     });
@@ -1037,6 +1322,7 @@ export const createSeedPrepSandbox = internalAction({
       // Large seeded snapshots take well over the 30s default to boot; 180s
       // avoids the spurious create timeout + orphaned sandbox on warm boots.
       180,
+      undefined,
     );
     return { sandboxId: sandbox.id };
   },
@@ -1070,16 +1356,24 @@ export const triggerSeededSnapshot = internalAction({
     repoId: v.id("githubRepos"),
     sandboxId: v.string(),
     seededName: v.string(),
+    includeMemory: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
+    const daytona = getDaytona(
+      daytonaApiKey,
+      args.includeMemory === true ? VM_SNAPSHOT_REGION : undefined,
+    );
     await triggerSandboxSnapshot(
       daytona,
       args.sandboxId,
       args.seededName,
       SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
+      {
+        includeMemory: args.includeMemory === true,
+        apiKey: args.includeMemory === true ? daytonaApiKey : undefined,
+      },
     );
     return null;
   },
@@ -1100,11 +1394,16 @@ export const pollSeededSnapshotState = internalAction({
   args: {
     repoId: v.id("githubRepos"),
     seededName: v.string(),
+    vmHot: v.optional(v.boolean()),
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const daytona = getDaytona(daytonaApiKey);
+    const daytona = getDaytonaForSnapshotName(
+      daytonaApiKey,
+      args.seededName,
+      args.vmHot,
+    );
     // Not registered yet (or a transient lookup miss) → treat as still pending.
     const snapshot = await getSnapshot(daytona, args.seededName);
     return snapshot ? snapshot.state : "pending";
@@ -1204,5 +1503,300 @@ export const warmSeededSnapshotCache = internalAction({
       }
     }
     return null;
+  },
+});
+
+/** Ops/debug: boot daytona-vm-large in experimental and test shell exec. */
+export const debugVmExecTest = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    region: v.optional(v.string()),
+    snapshotName: v.optional(v.string()),
+  },
+  returns: v.object({
+    output: v.string(),
+    sandboxId: v.string(),
+    target: v.string(),
+    via: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+      ctx,
+      args.repoId,
+    );
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+    const region = args.region ?? VM_SNAPSHOT_REGION;
+    const daytona = getDaytona(daytonaApiKey, region);
+    const snapshot =
+      args.snapshotName ??
+      (region === VM_SNAPSHOT_REGION
+        ? "snapshot-mh796tpcm1h0a0amat46r27wms81gwz3-vm-thin"
+        : "snapshot-mh796tpcm1h0a0amat46r27wms81gwz3");
+    const skipPostCreate =
+      region === VM_SNAPSHOT_REGION || args.snapshotName !== undefined;
+    const sandbox = await createSandbox(
+      daytona,
+      repo.installationId,
+      { ...sandboxEnvVars, REPO_ID: args.repoId },
+      {
+        ...SESSION_LIFECYCLE,
+        labels: { "eva.managed": "true", "eva.purpose": "vm-exec-test" },
+      },
+      snapshot,
+      undefined,
+      120,
+      undefined,
+      undefined,
+      skipPostCreate,
+    );
+    const output = await exec(
+      sandbox,
+      "echo EXEC_OK && which bash && which sh",
+      30,
+      "/",
+    );
+    await sandbox.delete();
+    return {
+      output,
+      sandboxId: sandbox.id,
+      target: sandbox.target,
+      via: "toolbox",
+    };
+  },
+});
+
+/** Ops/debug: run full VM bootstrap shell script via toolbox execScript (no capture). */
+export const debugVmBootstrapScriptOnly = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({
+    sandboxId: v.string(),
+    ok: v.boolean(),
+    output: v.string(),
+    error: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+      ctx,
+      args.repoId,
+    );
+    const daytona = getDaytona(daytonaApiKey, VM_SNAPSHOT_REGION);
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+    const sandbox = await createSandbox(
+      daytona,
+      repo.installationId,
+      { ...sandboxEnvVars, REPO_ID: args.repoId },
+      {
+        ...SESSION_LIFECYCLE,
+        labels: {
+          "eva.managed": "true",
+          "eva.purpose": "vm-bootstrap-script-test",
+        },
+      },
+      "snapshot-mh796tpcm1h0a0amat46r27wms81gwz3-vm-thin",
+      undefined,
+      120,
+    );
+    try {
+      const output = await execScript(
+        sandbox,
+        buildVmBootstrapShellScript(),
+        540,
+      );
+      await sandbox.delete();
+      return {
+        sandboxId: sandbox.id,
+        ok: true,
+        output: output.slice(-2000),
+        error: null,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await sandbox.delete();
+      return {
+        sandboxId: sandbox.id,
+        ok: false,
+        output: "",
+        error: message,
+      };
+    }
+  },
+});
+
+/** Ops/debug: POST a VM base snapshot and return the raw Daytona response. */
+export const debugKickOffVmSnapshot = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    repoSnapshotId: v.id("repoSnapshots"),
+    snapshotName: v.string(),
+    regionId: v.optional(v.string()),
+    memory: v.optional(v.number()),
+  },
+  returns: v.object({
+    httpStatus: v.number(),
+    body: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const config = await ctx.runQuery(
+      internal.repoSnapshots.getRepoSnapshotInternal,
+      { repoSnapshotId: args.repoSnapshotId },
+    );
+    if (!config) throw new Error("Snapshot config not found");
+    const envVars = await resolveAllEnvVars(ctx, config.repoId);
+    const daytonaApiKey = envVars.DAYTONA_API_KEY;
+    if (!daytonaApiKey) throw new Error("DAYTONA_API_KEY not found");
+    const regionId = args.regionId ?? VM_SNAPSHOT_REGION;
+    const memory = args.memory ?? VM_SNAPSHOT_RESOURCES.memory;
+    const resp = await fetch(`${DAYTONA_API_URL}/snapshots`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${daytonaApiKey}`,
+      },
+      body: JSON.stringify({
+        name: args.snapshotName,
+        sandboxClass: "linux-vm",
+        regionId,
+        imageName: "ubuntu:22.04",
+        cpu: VM_SNAPSHOT_RESOURCES.cpu,
+        memory,
+        disk: VM_SNAPSHOT_RESOURCES.disk,
+      }),
+    });
+    const body = await resp.text();
+    return { httpStatus: resp.status, body: body.slice(0, 3000) };
+  },
+});
+
+/** Ops/debug: list Daytona regions available to the org. */
+export const debugListDaytonaRegions = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({
+    sharedStatus: v.number(),
+    sharedBody: v.string(),
+    orgStatus: v.number(),
+    orgBody: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const headers = { Authorization: `Bearer ${daytonaApiKey}` };
+    const sharedResp = await fetch(`${DAYTONA_API_URL}/shared-regions`, {
+      headers,
+    });
+    const sharedBody = await sharedResp.text();
+    const orgResp = await fetch(`${DAYTONA_API_URL}/regions`, { headers });
+    const orgBody = await orgResp.text();
+    return {
+      sharedStatus: sharedResp.status,
+      sharedBody: sharedBody.slice(0, 4000),
+      orgStatus: orgResp.status,
+      orgBody: orgBody.slice(0, 4000),
+    };
+  },
+});
+
+/** Ops/debug: resolve a snapshot name on Daytona (SDK + REST). */
+export const inspectDaytonaSnapshot = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    snapshotName: v.string(),
+    vmHot: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    sdkState: v.union(v.string(), v.null()),
+    sdkErrorReason: v.union(v.string(), v.null()),
+    listStatus: v.number(),
+    listBody: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
+    const daytona = getDaytonaForSnapshotName(
+      daytonaApiKey,
+      args.snapshotName,
+      args.vmHot,
+    );
+    const snapshot = await getSnapshot(daytona, args.snapshotName);
+    const listResp = await fetch(
+      `${DAYTONA_API_URL}/snapshots/${encodeURIComponent(args.snapshotName)}`,
+      { headers: { Authorization: `Bearer ${daytonaApiKey}` } },
+    );
+    const listBody = await listResp.text();
+    return {
+      sdkState: snapshot?.state ?? null,
+      sdkErrorReason: snapshot?.errorReason ?? null,
+      listStatus: listResp.status,
+      listBody: listBody.slice(0, 2000),
+    };
+  },
+});
+
+/** Ops/debug: minimal VM bootstrap + cold capture smoke test. */
+export const debugVmBootstrapCapture = internalAction({
+  args: {
+    repoId: v.id("githubRepos"),
+    thinSnapshotName: v.string(),
+    testSnapshotName: v.string(),
+  },
+  returns: v.object({
+    sandboxId: v.string(),
+    execOutput: v.string(),
+    snapshotState: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+      ctx,
+      args.repoId,
+    );
+    const daytona = getDaytona(daytonaApiKey, VM_SNAPSHOT_REGION);
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+    const sandbox = await createSandbox(
+      daytona,
+      repo.installationId,
+      { ...sandboxEnvVars, REPO_ID: args.repoId },
+      {
+        ...SESSION_LIFECYCLE,
+        labels: { "eva.managed": "true", "eva.purpose": "vm-bootstrap-smoke" },
+      },
+      args.thinSnapshotName,
+      undefined,
+      120,
+    );
+    const script = ["set -e", "echo minimal-vm-bootstrap", "date -u"].join(
+      "\n",
+    );
+    const execOutput = await execScript(sandbox, script, 60);
+    await deleteSnapshotByName(daytona, args.testSnapshotName);
+    await waitForSnapshotRemoval(daytona, args.testSnapshotName, {
+      attempts: 10,
+    });
+    await sandbox.stop();
+    await triggerSandboxSnapshot(
+      daytona,
+      sandbox.id,
+      args.testSnapshotName,
+      60,
+      { apiKey: daytonaApiKey },
+    );
+    let snapshotState = "pending";
+    for (let i = 0; i < 20; i += 1) {
+      const snap = await getSnapshot(daytona, args.testSnapshotName);
+      snapshotState = snap?.state ?? "pending";
+      if (snapshotState === "active" || snapshotState === "error") break;
+      await sleep(15_000);
+    }
+    await sandbox.delete();
+    return { sandboxId: sandbox.id, execOutput, snapshotState };
   },
 });

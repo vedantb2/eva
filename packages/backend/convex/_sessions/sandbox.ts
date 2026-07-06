@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { formatDurationMsShort } from "@conductor/shared/duration";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation } from "../functions";
@@ -226,6 +227,12 @@ export const sandboxReady = internalMutation({
       devPort: args.devPort,
       devCommand: args.devCommand,
     });
+    if (args.isNew && session.startupRequestedAt) {
+      const activeMs = Date.now() - session.startupRequestedAt;
+      console.log(
+        `[sessionStartup][timing] sessionId=${args.sessionId} phase=sessionActive elapsedMs=${activeMs} elapsed=${formatDurationMsShort(activeMs)} sandboxId=${args.sandboxId} usedSnapshot=${args.usedSnapshot === true}`,
+      );
+    }
     return null;
   },
 });

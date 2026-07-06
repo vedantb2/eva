@@ -5,6 +5,8 @@ import type { DataModel, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { resolveDaytonaApiKey } from "../envVarResolver";
 import { launchScript } from "./launch";
+import { VM_SNAPSHOT_REGION } from "./snapshots";
+import { isVmRegionSnapshotName } from "./vmSnapshotNames";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
@@ -80,6 +82,19 @@ export const ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS = 600;
 
 const EXEC_CLIENT_TIMEOUT_BUFFER_MS = 15_000;
 
+/** VM sandboxes run in the experimental region (linux-vm). */
+function isVmSandbox(sandbox: Sandbox): boolean {
+  return sandbox.target === VM_SNAPSHOT_REGION;
+}
+
+/** Toolbox cwd: thin VM images may not have /tmp/repo yet. */
+function toolboxCwd(sandbox: Sandbox, cwd: string): string {
+  if (isVmSandbox(sandbox) && cwd === WORKSPACE_DIR) {
+    return "/";
+  }
+  return cwd;
+}
+
 /** Executes a shell command on a sandbox and returns stdout, throwing on non-zero exit. */
 export async function exec(
   sandbox: Sandbox,
@@ -89,7 +104,12 @@ export async function exec(
 ): Promise<string> {
   const clientTimeoutMs = timeout * 1000 + EXEC_CLIENT_TIMEOUT_BUFFER_MS;
   const resp = await withTimeout(
-    sandbox.process.executeCommand(cmd, cwd, undefined, timeout),
+    sandbox.process.executeCommand(
+      cmd,
+      toolboxCwd(sandbox, cwd),
+      undefined,
+      timeout,
+    ),
     clientTimeoutMs,
     `exec (${timeout}s)`,
   );
@@ -102,6 +122,37 @@ export async function exec(
     );
   }
   return resp.result;
+}
+
+/**
+ * Runs a multi-line shell script via toolbox exec (chunked b64 upload for size).
+ * Use for VM bootstrap scripts that exceed a single argv limit.
+ */
+export async function execScript(
+  sandbox: Sandbox,
+  script: string,
+  timeoutSec: number,
+): Promise<string> {
+  const b64 = Buffer.from(script, "utf8").toString("base64");
+  const chunkSize = 12_000;
+  const cwd = "/";
+  await exec(sandbox, "rm -f /tmp/eva-script.b64", 30, cwd);
+  for (let offset = 0; offset < b64.length; offset += chunkSize) {
+    const chunk = b64.slice(offset, offset + chunkSize);
+    const quoted = chunk.replace(/'/g, `'\\''`);
+    await exec(
+      sandbox,
+      `printf '%s' '${quoted}' >> /tmp/eva-script.b64`,
+      30,
+      cwd,
+    );
+  }
+  return exec(
+    sandbox,
+    "base64 -d /tmp/eva-script.b64 > /tmp/eva-script.sh && /bin/bash /tmp/eva-script.sh",
+    timeoutSec,
+    cwd,
+  );
 }
 
 /**
@@ -227,9 +278,24 @@ export function requireEnv(name: string): string {
   return value;
 }
 
-/** Creates a new Daytona SDK client with the given API key. */
-export function getDaytona(apiKey: string): Daytona {
+/** Creates a new Daytona SDK client with the given API key and optional region target. */
+export function getDaytona(apiKey: string, target?: string): Daytona {
+  if (target) {
+    return new Daytona({ apiKey, target });
+  }
   return new Daytona({ apiKey });
+}
+
+/** Resolves the Daytona client for snapshot lookups (VM bases live in experimental). */
+export function getDaytonaForSnapshotName(
+  apiKey: string,
+  snapshotName: string,
+  vmHot?: boolean,
+): Daytona {
+  if (vmHot === true || isVmRegionSnapshotName(snapshotName)) {
+    return getDaytona(apiKey, VM_SNAPSHOT_REGION);
+  }
+  return getDaytona(apiKey);
 }
 
 /** Returns a promise that resolves after the specified milliseconds. */
@@ -268,6 +334,9 @@ export function errorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Re-export for session/seed sandbox region selection. */
+export { VM_SNAPSHOT_REGION } from "./snapshots";
+
 /** Resolves Daytona client, sandbox env vars, and snapshot name for a repo. */
 export async function resolveSandboxContext(
   ctx: GenericActionCtx<DataModel>,
@@ -276,21 +345,27 @@ export async function resolveSandboxContext(
   daytona: Daytona;
   sandboxEnvVars: Record<string, string>;
   snapshotName: string | undefined;
+  seededSnapshotClass: "container" | "vm-hot" | undefined;
 }> {
   const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
     ctx,
     repoId,
   );
-  const daytona = getDaytona(daytonaApiKey);
   const repoSnapshot = await ctx.runQuery(
     internal.repoSnapshots.getRepoSnapshotName,
     { repoId },
   );
   const snapshotName = repoSnapshot?.snapshotName;
+  const seededSnapshotClass = repoSnapshot?.seededSnapshotClass;
+  const daytona = getDaytona(
+    daytonaApiKey,
+    seededSnapshotClass === "vm-hot" ? VM_SNAPSHOT_REGION : undefined,
+  );
   return {
     daytona,
     sandboxEnvVars: { ...sandboxEnvVars, REPO_ID: repoId },
     snapshotName,
+    seededSnapshotClass,
   };
 }
 
@@ -301,7 +376,16 @@ export async function getSandbox(
   sandboxId: string,
 ): Promise<Sandbox> {
   const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, repoId);
-  const daytona = getDaytona(daytonaApiKey);
+  const repoSnapshot = await ctx.runQuery(
+    internal.repoSnapshots.getRepoSnapshotName,
+    { repoId },
+  );
+  const daytona = getDaytona(
+    daytonaApiKey,
+    repoSnapshot?.seededSnapshotClass === "vm-hot"
+      ? VM_SNAPSHOT_REGION
+      : undefined,
+  );
   return daytona.get(sandboxId);
 }
 

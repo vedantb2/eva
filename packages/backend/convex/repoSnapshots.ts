@@ -9,6 +9,7 @@ export {
   getOrphanedSeededApps,
   getSeededAppStatus,
   setSeededSnapshotName,
+  enableVmHotSeededSnapshotsPilot,
   getSeedFingerprint,
   setImageFingerprint,
 } from "./_repoSnapshots/config";

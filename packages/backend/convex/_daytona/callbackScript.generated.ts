@@ -3000,13 +3000,24 @@ function buildConversationalSdkOptions() {
     systemPrompt: "Reply briefly and directly. Do not use tools."
   };
 }
+var EVA_SDK_SYSTEM_APPEND = "You are running inside Eva, a platform that runs coding agents in remote sandboxes against GitHub repos. Treat the workspace as the active repo checkout.";
 function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
   const allowedToolsOption = tools === "agent" && ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : { allowedTools: [] };
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
     pathToClaudeCodeExecutable: claudeExecutablePath(),
-    systemPrompt: SYSTEM_PROMPT ? { type: "preset", preset: "claude_code", append: SYSTEM_PROMPT } : { type: "preset", preset: "claude_code" },
+    systemPrompt: SYSTEM_PROMPT ? {
+      type: "preset",
+      preset: "claude_code",
+      append: \`\${EVA_SDK_SYSTEM_APPEND}
+
+\${SYSTEM_PROMPT}\`
+    } : {
+      type: "preset",
+      preset: "claude_code",
+      append: EVA_SDK_SYSTEM_APPEND
+    },
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
     // Emit token-level partial (\`stream_event\`) messages so claudeParseLine can

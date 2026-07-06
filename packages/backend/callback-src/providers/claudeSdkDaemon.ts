@@ -25,7 +25,12 @@ import {
 } from "../runtime/buffers.js";
 import { syncClaudeStateToPersist } from "../session/claudeSession.js";
 import { prepareClaudeSessionState } from "../session/claudeSession.js";
-import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
+import {
+  buildSdkOptions,
+  buildConversationalSdkOptions,
+  loadSdk,
+  type SdkUserMessage,
+} from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
 import { log } from "../utils.js";
 import type { JsonValue } from "../types.js";
@@ -54,6 +59,13 @@ const IDLE_EXIT_MS = 45 * 60 * 1000;
 // Poll interval for the claim mutation. Low enough to keep handoff→turn-start
 // latency to ~one poll; the turn itself dominates so this only trims the tail.
 const PROMPT_POLL_INTERVAL_MS = 50;
+
+type TurnKind = "conversational" | "agent";
+
+type ClaimedTurn = {
+  prompt: string;
+  turnKind: TurnKind;
+};
 
 /**
  * A queue-backed async iterable of user messages that BLOCKS when empty and
@@ -247,13 +259,122 @@ function readClaimedPrompt(result: JsonValue): string | null {
   return typeof prompt === "string" ? prompt : null;
 }
 
+function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
+  const prompt = readClaimedPrompt(result);
+  if (prompt === null) {
+    return null;
+  }
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return { prompt, turnKind: "agent" };
+  }
+  const inner = result.value;
+  const payload =
+    typeof inner === "object" && inner !== null && !Array.isArray(inner)
+      ? inner
+      : result;
+  const turnKindField = payload.turnKind;
+  const turnKind: TurnKind =
+    turnKindField === "conversational" ? "conversational" : "agent";
+  return { prompt, turnKind };
+}
+
+type DaemonMessage = Record<string, JsonValue>;
+
+/** Processes one SDK message through the streaming pipeline. */
+function processDaemonMessage(
+  message: DaemonMessage,
+  output: string,
+  turnStartedAt: number,
+  sawFirstMessageThisTurn: { value: boolean },
+  sawAssistantThisTurn: { value: boolean },
+): { output: string; isResult: boolean } {
+  const messageType = typeof message.type === "string" ? message.type : "?";
+  if (!sawFirstMessageThisTurn.value) {
+    sawFirstMessageThisTurn.value = true;
+    log(
+      "daemon[timing]: first SDK message (" +
+        messageType +
+        ") +" +
+        (Date.now() - turnStartedAt) +
+        "ms after turn start",
+    );
+  }
+  if (!sawAssistantThisTurn.value && messageType === "assistant") {
+    sawAssistantThisTurn.value = true;
+    log(
+      "daemon[timing]: first assistant msg +" +
+        (Date.now() - turnStartedAt) +
+        "ms after turn start",
+    );
+  }
+  const line = JSON.stringify(message) + "\n";
+  appendToRawLogFile(line);
+  const nextOutput = trimBufferHead(output + line);
+  appendToRawOutput(line);
+  processRealtimeStdoutChunk(line);
+
+  const isResult = message.type === "result";
+  return { output: nextOutput, isResult };
+}
+
+/**
+ * One-shot fast path for conversational turns: fresh context (no resume), no
+ * tools/MCP, minimal system prompt — matches claude.ai latency for simple Q&A.
+ */
+async function runConversationalOneShot(prompt: string): Promise<void> {
+  resetTurnState();
+  const turnStartedAt = Date.now();
+  S.activeAttemptStartedAt = turnStartedAt;
+  log("daemon: conversational one-shot turn started");
+  const sdk = await loadSdk();
+  const options = buildConversationalSdkOptions();
+  let output = "";
+  const sawFirstMessageThisTurn = { value: false };
+  const sawAssistantThisTurn = { value: false };
+  const query = sdk.query({ prompt, options });
+  for await (const message of query) {
+    if (
+      typeof message !== "object" ||
+      message === null ||
+      Array.isArray(message)
+    ) {
+      continue;
+    }
+    const processed = processDaemonMessage(
+      message,
+      output,
+      turnStartedAt,
+      sawFirstMessageThisTurn,
+      sawAssistantThisTurn,
+    );
+    output = processed.output;
+    if (!processed.isResult) {
+      continue;
+    }
+    const resultAt = Date.now();
+    log(
+      "daemon[timing]: conversational result +" +
+        (resultAt - turnStartedAt) +
+        "ms after turn start",
+    );
+    await finalizeTurn(output);
+    log(
+      "daemon[timing]: conversational finalizeTurn took " +
+        (Date.now() - resultAt) +
+        "ms",
+    );
+    resetTurnState();
+    return;
+  }
+}
+
 /**
  * Polls the claimPendingTurn mutation until a turn is staged for this session
- * (daemon-pull), then returns its prompt. Returns null on idle timeout so the
+ * (daemon-pull), then returns it. Returns null on idle timeout so the
  * daemon can exit and free the sandbox. The claim is atomic server-side, so a
  * prompt is handed to exactly one poll and never re-executed.
  */
-async function waitForNextPrompt(): Promise<string | null> {
+async function waitForNextTurn(): Promise<ClaimedTurn | null> {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
   while (Date.now() < idleDeadline) {
     const claimed = await callConvexWithRetry(
@@ -261,9 +382,9 @@ async function waitForNextPrompt(): Promise<string | null> {
       CLAIM_PENDING_TURN_MUTATION,
       { sessionId: ENTITY_ID ?? "" },
     );
-    const prompt = readClaimedPrompt(claimed);
-    if (prompt !== null) {
-      return prompt;
+    const turn = readClaimedTurn(claimed);
+    if (turn !== null) {
+      return turn;
     }
     await sleep(PROMPT_POLL_INTERVAL_MS);
   }
@@ -311,8 +432,8 @@ export async function runSdkDaemon(): Promise<void> {
   // API handshake) already happened above when query() was created, so here we
   // just wait for the first staged prompt to appear.
   log("daemon: warm query() live, waiting for first prompt (pull)");
-  const firstPrompt = await waitForNextPrompt();
-  if (firstPrompt === null) {
+  let nextTurn = await waitForNextTurn();
+  if (nextTurn === null) {
     log("daemon: idle timeout before first prompt — exiting");
     try {
       unlinkSync(DAEMON_PID_FILE);
@@ -322,76 +443,75 @@ export async function runSdkDaemon(): Promise<void> {
     await stopStreamingLoops();
     process.exit(0);
   }
-  let turnStartedAt = Date.now();
-  let sawFirstMessageThisTurn = false;
-  push(firstPrompt);
-  S.activeAttemptStartedAt = turnStartedAt;
 
-  let output = "";
-  let sawAssistantThisTurn = false;
   try {
-    for await (const message of query) {
-      const messageType = typeof message.type === "string" ? message.type : "?";
-      if (!sawFirstMessageThisTurn) {
-        sawFirstMessageThisTurn = true;
-        log(
-          "daemon[timing]: first SDK message (" +
-            messageType +
-            ") +" +
-            (Date.now() - turnStartedAt) +
-            "ms after push",
-        );
-      }
-      if (!sawAssistantThisTurn && messageType === "assistant") {
-        sawAssistantThisTurn = true;
-        log(
-          "daemon[timing]: first assistant msg +" +
-            (Date.now() - turnStartedAt) +
-            "ms after push",
-        );
-      }
-      const line = JSON.stringify(message) + "\n";
-      appendToRawLogFile(line);
-      output = trimBufferHead(output + line);
-      appendToRawOutput(line);
-      processRealtimeStdoutChunk(line);
-
-      const isResult =
-        typeof message === "object" &&
-        message !== null &&
-        !Array.isArray(message) &&
-        message.type === "result";
-      if (!isResult) continue;
-
-      const resultAt = Date.now();
-      log(
-        "daemon[timing]: result message +" +
-          (resultAt - turnStartedAt) +
-          "ms after push",
-      );
-      await finalizeTurn(output);
-      log(
-        "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
-      );
-      resetTurnState();
-      output = "";
-
-      const nextPrompt = await waitForNextPrompt();
-      if (nextPrompt === null) {
-        log("daemon: idle timeout — exiting");
-        break;
-      }
-      log("daemon: next turn received");
-      turnStartedAt = Date.now();
-      sawFirstMessageThisTurn = false;
-      sawAssistantThisTurn = false;
+    while (nextTurn !== null && nextTurn.turnKind === "conversational") {
+      await runConversationalOneShot(nextTurn.prompt);
+      nextTurn = await waitForNextTurn();
+    }
+    if (nextTurn === null) {
+      log("daemon: idle timeout after conversational turns — exiting");
+    } else {
+      let turnStartedAt = Date.now();
+      const sawFirstMessageThisTurn = { value: false };
+      const sawAssistantThisTurn = { value: false };
+      push(nextTurn.prompt);
       S.activeAttemptStartedAt = turnStartedAt;
-      push(nextPrompt);
+
+      let output = "";
+      for await (const message of query) {
+        if (
+          typeof message !== "object" ||
+          message === null ||
+          Array.isArray(message)
+        ) {
+          continue;
+        }
+        const processed = processDaemonMessage(
+          message,
+          output,
+          turnStartedAt,
+          sawFirstMessageThisTurn,
+          sawAssistantThisTurn,
+        );
+        output = processed.output;
+        if (!processed.isResult) {
+          continue;
+        }
+
+        const resultAt = Date.now();
+        log(
+          "daemon[timing]: result message +" +
+            (resultAt - turnStartedAt) +
+            "ms after push",
+        );
+        await finalizeTurn(output);
+        log(
+          "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
+        );
+        resetTurnState();
+        output = "";
+
+        let upcoming = await waitForNextTurn();
+        while (upcoming !== null && upcoming.turnKind === "conversational") {
+          await runConversationalOneShot(upcoming.prompt);
+          upcoming = await waitForNextTurn();
+        }
+        if (upcoming === null) {
+          log("daemon: idle timeout — exiting");
+          break;
+        }
+        log("daemon: next agent turn received");
+        turnStartedAt = Date.now();
+        sawFirstMessageThisTurn.value = false;
+        sawAssistantThisTurn.value = false;
+        S.activeAttemptStartedAt = turnStartedAt;
+        push(upcoming.prompt);
+      }
     }
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("daemon: query failed — " + messageText);
-    // Report the in-flight turn as failed so the workflow's awaitEvent resolves.
     try {
       await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",

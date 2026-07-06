@@ -23,3 +23,13 @@ test("classifyTurnKind marks code tasks as agent", () => {
     "agent",
   );
 });
+
+test("classifyTurnKind marks MCP and platform tool requests as agent", () => {
+  assert.equal(
+    classifyTurnKind(
+      "can you use eva mcp to run a test query against a project?",
+    ),
+    "agent",
+  );
+  assert.equal(classifyTurnKind("use the eva mcp to list projects"), "agent");
+});

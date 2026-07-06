@@ -7,6 +7,10 @@ const CODE_TASK_PATTERN =
 const CODE_CONTEXT_PATTERN =
   /\b(apps\/|packages\/|\.tsx?\b|\.jsx?\b|src\/|convex\/|glob\b|grep\b|file tree|codebase)\b/i;
 
+/** Tool/MCP/platform actions need the full agent daemon (MCP config + coding tools). */
+const TOOL_OR_MCP_PATTERN =
+  /\b(mcp|eva\s+mcp|convex\s+query|test\s+query|query\s+(?:the\s+)?(?:project|database|db|convex)|run\s+(?:a\s+)?(?:test\s+)?query|use\s+(?:the\s+)?eva)\b/i;
+
 const CONVERSATIONAL_PREFIX_PATTERN =
   /^(hi|hey|hello|sup|thanks|thank you|what is|what's|how many|how much|who is|when is|where is|loop latency test)/i;
 
@@ -25,6 +29,7 @@ export function classifyTurnKind(message: string): SessionTurnKind {
   if (trimmed.length > 500) return "agent";
   if (CODE_TASK_PATTERN.test(trimmed)) return "agent";
   if (CODE_CONTEXT_PATTERN.test(trimmed)) return "agent";
+  if (TOOL_OR_MCP_PATTERN.test(trimmed)) return "agent";
   if (MATH_PATTERN.test(trimmed)) return "conversational";
   if (MATH_QUESTION_PATTERN.test(trimmed)) return "conversational";
   if (CONVERSATIONAL_PREFIX_PATTERN.test(trimmed)) return "conversational";

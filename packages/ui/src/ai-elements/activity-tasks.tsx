@@ -223,7 +223,6 @@ export const ActivityTasks = memo(
         {isStreaming && (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Spinner size="sm" />
-            {icon}
             <Shimmer as="span" duration={2.5} spread={1.5}>
               {headerText}
             </Shimmer>

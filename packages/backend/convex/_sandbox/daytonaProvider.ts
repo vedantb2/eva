@@ -160,6 +160,16 @@ class DaytonaSandboxHandle implements SandboxHandle {
     this.desktop = new DaytonaDesktop(sandbox);
   }
 
+  /**
+   * Migration escape hatch: recover the underlying Daytona sandbox. Not on the
+   * neutral {@link SandboxHandle} interface, so it is only reachable after an
+   * `instanceof` narrowing (see {@link unwrapDaytonaSandbox}). Deleted once every
+   * `_daytona` consumer is converted onto SandboxHandle.
+   */
+  unwrap(): DaytonaSandbox {
+    return this.sandbox;
+  }
+
   get id(): string {
     return this.sandbox.id;
   }
@@ -303,4 +313,26 @@ class DaytonaSandboxClient implements SandboxClient {
 /** Constructs a Daytona-backed {@link SandboxClient} from an API key. */
 export function createDaytonaClient(apiKey: string): SandboxClient {
   return new DaytonaSandboxClient(new Daytona({ apiKey }));
+}
+
+/**
+ * Wraps a raw Daytona sandbox in a {@link SandboxHandle}. Migration helper for
+ * call sites that still receive a Daytona `Sandbox` (e.g. from a not-yet-
+ * converted function) and need to hand it to converted code.
+ */
+export function wrapDaytonaSandbox(sandbox: DaytonaSandbox): SandboxHandle {
+  return new DaytonaSandboxHandle(sandbox);
+}
+
+/**
+ * Recovers the underlying Daytona sandbox from a handle, for converted code
+ * that must still call a not-yet-converted function taking a raw `Sandbox`.
+ * Throws if the handle is not Daytona-backed. Both this and
+ * {@link wrapDaytonaSandbox} are deleted at the end of the Phase 1 rewire.
+ */
+export function unwrapDaytonaSandbox(handle: SandboxHandle): DaytonaSandbox {
+  if (handle instanceof DaytonaSandboxHandle) {
+    return handle.unwrap();
+  }
+  throw new Error("Expected a Daytona-backed sandbox handle.");
 }

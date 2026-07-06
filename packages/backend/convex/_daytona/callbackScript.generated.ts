@@ -3074,7 +3074,7 @@ var DAEMON_PROMPT_FILE = "/tmp/eva-daemon-prompt.txt";
 var DAEMON_READY_FILE = "/tmp/eva-daemon-prompt.ready";
 var INITIAL_PROMPT_FILE = "/tmp/design-prompt.txt";
 var IDLE_EXIT_MS = 15 * 60 * 1e3;
-var PROMPT_POLL_INTERVAL_MS = 750;
+var PROMPT_POLL_INTERVAL_MS = 150;
 function createPromptStream() {
   const queue = [];
   let notify = null;
@@ -3154,7 +3154,6 @@ function resetTurnState() {
   callbackState.lastStepType = "thinking";
 }
 async function finalizeTurn(output) {
-  await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(callbackState.accumulatedSteps);
@@ -3173,9 +3172,19 @@ async function finalizeTurn(output) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
+  const completionSentAt = Date.now();
+  await callConvexWithRetry(
+    "mutation",
+    COMPLETION_MUTATION ?? "",
+    completionArgs
+  );
+  log(
+    "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
+  );
+  const bookkeepingAt = Date.now();
   syncClaudeStateToPersist("daemon-turn");
-  await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", completionArgs);
-  log("daemon: turn finalized success=" + success + " steps=" + activityLog.length);
+  await flushStreaming();
+  log("daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms");
 }
 async function waitForNextPrompt() {
   const idleDeadline = Date.now() + IDLE_EXIT_MS;
@@ -3210,11 +3219,19 @@ async function runSdkDaemon() {
   log(
     "runSdkDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", mode=" + sessionMode.mode + ")"
   );
+  let turnStartedAt = Date.now();
+  let sawFirstMessageThisTurn = false;
   push(readFileSync7(INITIAL_PROMPT_FILE, "utf8"));
   callbackState.activeAttemptStartedAt = Date.now();
   let output = "";
   try {
     for await (const message of query) {
+      if (!sawFirstMessageThisTurn) {
+        sawFirstMessageThisTurn = true;
+        log(
+          "daemon[timing]: first SDK message +" + (Date.now() - turnStartedAt) + "ms after push"
+        );
+      }
       const line = JSON.stringify(message) + "\\n";
       appendToRawLogFile(line);
       output = trimBufferHead(output + line);
@@ -3222,7 +3239,14 @@ async function runSdkDaemon() {
       processRealtimeStdoutChunk(line);
       const isResult = typeof message === "object" && message !== null && !Array.isArray(message) && message.type === "result";
       if (!isResult) continue;
+      const resultAt = Date.now();
+      log(
+        "daemon[timing]: result message +" + (resultAt - turnStartedAt) + "ms after push"
+      );
       await finalizeTurn(output);
+      log(
+        "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
+      );
       resetTurnState();
       output = "";
       const nextPrompt = await waitForNextPrompt();
@@ -3231,7 +3255,9 @@ async function runSdkDaemon() {
         break;
       }
       log("daemon: next turn received");
-      callbackState.activeAttemptStartedAt = Date.now();
+      turnStartedAt = Date.now();
+      sawFirstMessageThisTurn = false;
+      callbackState.activeAttemptStartedAt = turnStartedAt;
       push(nextPrompt);
     }
   } catch (error) {

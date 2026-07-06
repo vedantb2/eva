@@ -119,83 +119,115 @@ export const sessionExecuteWorkflow = workflow.define({
       userId: args.userId,
     });
 
-    let validatedSandboxId: string | null = null;
+    let sandboxId: string | null = null;
 
+    // Warm fast-path: if a persistent Claude daemon is already alive in this
+    // (running) sandbox, hand it the prompt in one quick exec and skip the
+    // thaw + validate + launch gauntlet (~3–7s of durable Daytona steps that
+    // are no-ops on a warm sandbox). Safe to always attempt: with no daemon
+    // (CLI mode, cold/stopped/archived sandbox) the probe returns handed=false
+    // quickly and we fall through to the full path below.
     if (data.sandboxId) {
-      // Bring an archived/stopped sandbox back to "started" via durable polling
-      // steps first, so a multi-minute cold-storage thaw doesn't blow the
-      // per-action 10-minute limit inside validateSandbox. Once started, the
-      // validate below hits its fast (echo) path.
-      try {
-        await ensureSandboxStartedSteps(step, {
+      const warm = await step.runAction(
+        internal.daytona.tryWarmDaemonHandoff,
+        {
           sandboxId: data.sandboxId,
+          entityId: args.sessionId,
+          prompt: data.prompt,
           repoId: data.repoId,
-          streamingEntityId: args.sessionId,
-        });
-      } catch (error) {
-        await step.runMutation(internal.sessionWorkflow.saveResult, {
-          sessionId: args.sessionId,
-          success: false,
-          result: null,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Sandbox could not be restored from cold storage. Please retry.",
-          activityLog: null,
-        });
-        return;
-      }
-
-      const validation = await step.runAction(
-        internal.daytona.validateSandbox,
-        { sandboxId: data.sandboxId, repoId: data.repoId },
+        },
         { retry: false },
       );
-      validatedSandboxId = validation.healthy ? data.sandboxId : null;
+      if (warm.handed) {
+        sandboxId = data.sandboxId;
+        console.log(
+          `[sessionWorkflow] warm daemon fast-path: handed prompt directly, skipped thaw+validate+launch sessionId=${args.sessionId}`,
+        );
+      }
     }
 
-    let sandboxId: string;
+    if (sandboxId === null) {
+      let validatedSandboxId: string | null = null;
 
-    if (validatedSandboxId) {
-      sandboxId = validatedSandboxId;
-    } else {
-      const prepared = await step.runAction(
-        internal.daytona.prepareSessionSandbox,
-        {
+      if (data.sandboxId) {
+        // Bring an archived/stopped sandbox back to "started" via durable
+        // polling steps first, so a multi-minute cold-storage thaw doesn't blow
+        // the per-action 10-minute limit inside validateSandbox. Once started,
+        // the validate below hits its fast (echo) path.
+        try {
+          await ensureSandboxStartedSteps(step, {
+            sandboxId: data.sandboxId,
+            repoId: data.repoId,
+            streamingEntityId: args.sessionId,
+          });
+        } catch (error) {
+          await step.runMutation(internal.sessionWorkflow.saveResult, {
+            sessionId: args.sessionId,
+            success: false,
+            result: null,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Sandbox could not be restored from cold storage. Please retry.",
+            activityLog: null,
+          });
+          return;
+        }
+
+        const validation = await step.runAction(
+          internal.daytona.validateSandbox,
+          { sandboxId: data.sandboxId, repoId: data.repoId },
+          { retry: false },
+        );
+        validatedSandboxId = validation.healthy ? data.sandboxId : null;
+      }
+
+      if (validatedSandboxId) {
+        sandboxId = validatedSandboxId;
+      } else {
+        const prepared = await step.runAction(
+          internal.daytona.prepareSessionSandbox,
+          {
+            sessionId: args.sessionId,
+            existingSandboxId: data.sandboxId,
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            branchName: data.branchName ?? `eva/session-${args.sessionId}`,
+            baseBranch: data.baseBranch,
+            repoId: data.repoId,
+            startDesktop: true,
+          },
+          { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
+        );
+        sandboxId = prepared.sandboxId;
+
+        await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
           sessionId: args.sessionId,
-          existingSandboxId: data.sandboxId,
-          installationId: args.installationId,
-          repoOwner: data.repoOwner,
-          repoName: data.repoName,
-          branchName: data.branchName ?? `eva/session-${args.sessionId}`,
-          baseBranch: data.baseBranch,
-          repoId: data.repoId,
-          startDesktop: true,
-        },
-        { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
-      );
-      sandboxId = prepared.sandboxId;
+          sandboxId,
+          branchName: data.branchName,
+        });
+      }
 
-      await step.runMutation(internal.sessionWorkflow.updateSandboxId, {
-        sessionId: args.sessionId,
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
         sandboxId,
-        branchName: data.branchName,
+        entityId: args.sessionId,
+        prompt: data.prompt,
+        userId: args.userId,
+        completionMutation: "sessionWorkflow:handleCompletion",
+        entityIdField: "sessionId",
+        model: data.model,
+        allowedTools: data.allowedTools,
+        repoId: data.repoId,
+        sessionPersistenceId: args.sessionId,
+        streamingEntityId: args.sessionId,
       });
     }
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
-      sandboxId,
-      entityId: args.sessionId,
-      prompt: data.prompt,
-      userId: args.userId,
-      completionMutation: "sessionWorkflow:handleCompletion",
-      entityIdField: "sessionId",
-      model: data.model,
-      allowedTools: data.allowedTools,
-      repoId: data.repoId,
-      sessionPersistenceId: args.sessionId,
-      streamingEntityId: args.sessionId,
-    });
+    if (sandboxId === null) {
+      // Unreachable: both the fast path and the full path assign sandboxId.
+      throw new Error("sessionExecuteWorkflow: sandbox was not resolved");
+    }
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 

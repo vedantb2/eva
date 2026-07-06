@@ -189,7 +189,6 @@ import type * as mcp_postgres from "../mcp/postgres.js";
 import type * as mcp_queries from "../mcp/queries.js";
 import type * as mcp_routes from "../mcp/routes.js";
 import type * as mcp_supabase from "../mcp/supabase.js";
-import type * as mcp_tokenMinter from "../mcp/tokenMinter.js";
 import type * as mcp_tools from "../mcp/tools.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
@@ -440,7 +439,6 @@ declare const fullApi: ApiFromModules<{
   "mcp/queries": typeof mcp_queries;
   "mcp/routes": typeof mcp_routes;
   "mcp/supabase": typeof mcp_supabase;
-  "mcp/tokenMinter": typeof mcp_tokenMinter;
   "mcp/tools": typeof mcp_tools;
   messages: typeof messages;
   migrations: typeof migrations;

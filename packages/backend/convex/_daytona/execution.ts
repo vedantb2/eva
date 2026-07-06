@@ -893,6 +893,62 @@ export const pushSandboxBranch = internalAction({
 });
 
 /** Launches an AI agent script on an existing sandbox with streaming and token setup. */
+// Shell one-liner (run on the sandbox) that hands a new prompt to a live warm
+// daemon for THIS entity: if the pid is alive and the entity matches, it writes
+// the base64 prompt to the prompt file and touches the ready marker the daemon
+// polls for, echoing "handed"; otherwise "respawn". Shared by the workflow
+// fast-path probe and launchOnExistingSandbox's inline handoff.
+function buildDaemonHandoffCommand(
+  entityId: string,
+  promptB64: string,
+): string {
+  return `if [ -f /tmp/eva-daemon.pid ] && kill -0 "$(cat /tmp/eva-daemon.pid)" 2>/dev/null && [ "$(cat /tmp/eva-daemon.entity 2>/dev/null)" = ${JSON.stringify(entityId)} ]; then echo ${promptB64} | base64 -d > /tmp/eva-daemon-prompt.txt && touch /tmp/eva-daemon-prompt.ready && echo handed; else echo respawn; fi`;
+}
+
+/**
+ * Fast-path warm-daemon handoff probe (Claude sdk-daemon sessions only).
+ *
+ * A warm turn does not need the sandbox thaw + validate gauntlet the full launch
+ * path runs: if a daemon is already alive in the (running) sandbox for this
+ * session, we can hand it the prompt directly in one quick exec, skipping two
+ * durable Daytona steps (~3–7s). This action is deliberately failure-tolerant —
+ * on ANY error (sandbox stopped/archived/unreachable, no daemon, entity
+ * mismatch) it returns `{ handed: false }` so the caller falls through to the
+ * full cold path (which thaws, validates and respawns). It never starts a
+ * sandbox or respawns a runner itself.
+ */
+export const tryWarmDaemonHandoff = internalAction({
+  args: {
+    sandboxId: v.string(),
+    entityId: v.string(),
+    prompt: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({ handed: v.boolean() }),
+  handler: async (ctx, args) => {
+    const startedAt = Date.now();
+    try {
+      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      const promptB64 = Buffer.from(args.prompt, "utf8").toString("base64");
+      const out = await exec(
+        sandbox,
+        buildDaemonHandoffCommand(args.entityId, promptB64),
+        10,
+      );
+      const handed = out.trim().endsWith("handed");
+      console.log(
+        `[daytona][execution] tryWarmDaemonHandoff handed=${handed} in ${Date.now() - startedAt}ms entityId=${args.entityId}`,
+      );
+      return { handed };
+    } catch (error) {
+      console.log(
+        `[daytona][execution] tryWarmDaemonHandoff miss in ${Date.now() - startedAt}ms entityId=${args.entityId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { handed: false };
+    }
+  },
+});
+
 export const launchOnExistingSandbox = internalAction({
   args: {
     sandboxId: v.string(),
@@ -932,7 +988,7 @@ export const launchOnExistingSandbox = internalAction({
       const promptB64 = Buffer.from(args.prompt, "utf8").toString("base64");
       const handoff = await exec(
         sandbox,
-        `if [ -f /tmp/eva-daemon.pid ] && kill -0 "$(cat /tmp/eva-daemon.pid)" 2>/dev/null && [ "$(cat /tmp/eva-daemon.entity 2>/dev/null)" = ${JSON.stringify(args.entityId)} ]; then echo ${promptB64} | base64 -d > /tmp/eva-daemon-prompt.txt && touch /tmp/eva-daemon-prompt.ready && echo handed; else echo respawn; fi`,
+        buildDaemonHandoffCommand(args.entityId, promptB64),
         15,
       );
       if (handoff.trim().endsWith("handed")) {

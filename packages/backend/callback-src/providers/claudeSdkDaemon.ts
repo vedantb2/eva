@@ -43,7 +43,10 @@ const INITIAL_PROMPT_FILE = "/tmp/design-prompt.txt";
 
 // Exit if no new turn arrives for this long, so the sandbox can be reclaimed.
 const IDLE_EXIT_MS = 15 * 60 * 1000;
-const PROMPT_POLL_INTERVAL_MS = 750;
+// Tight poll: the prompt file is dropped by a workflow step, so a low interval
+// shaves handoff→turn-start latency at negligible idle cost (a stat() every
+// 150ms). The turn itself dominates, so this only trims the wait tail.
+const PROMPT_POLL_INTERVAL_MS = 150;
 
 /**
  * A queue-backed async iterable of user messages that BLOCKS when empty and
@@ -149,7 +152,11 @@ function resetTurnState(): void {
 
 /** Reports one finished turn to the session workflow (mirrors the one-shot completion). */
 async function finalizeTurn(output: string): Promise<void> {
-  await flushStreaming();
+  // Realtime parsing (processRealtimeStdoutChunk) has already folded every
+  // message — including the result — into S.accumulatedSteps inline, so the
+  // completion payload is ready WITHOUT a preceding streaming flush. Sending the
+  // completion first is what resolves the workflow's awaitEvent and surfaces the
+  // reply to the user, so it must not sit behind the ~5s streaming heartbeat.
   const resultEvent = extractResultEvent(output);
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = JSON.stringify(S.accumulatedSteps);
@@ -168,7 +175,10 @@ async function finalizeTurn(output: string): Promise<void> {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
-  syncClaudeStateToPersist("daemon-turn");
+  // Send completion FIRST — this resolves the workflow's awaitEvent and surfaces
+  // the reply. Everything that follows is recovery bookkeeping that must not sit
+  // on the reply-critical path.
+  const completionSentAt = Date.now();
   await callConvexWithRetry(
     "mutation",
     COMPLETION_MUTATION ?? "",
@@ -178,7 +188,21 @@ async function finalizeTurn(output: string): Promise<void> {
     "daemon: turn finalized success=" +
       success +
       " steps=" +
-      activityLog.length,
+      activityLog.length +
+      " (completion mutation " +
+      (Date.now() - completionSentAt) +
+      "ms)",
+  );
+  // Persist the Claude transcript to the volume for restart recovery, and send a
+  // final streaming reconcile. Both run AFTER completion so the ~5s synchronous
+  // transcript copy never delays the reply the user is waiting on. The sandbox
+  // stays warm between turns, so this only guards against a sandbox restart.
+  // accumulatedSteps is still populated (resetTurnState runs after this returns).
+  const bookkeepingAt = Date.now();
+  syncClaudeStateToPersist("daemon-turn");
+  await flushStreaming();
+  log(
+    "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
   );
 }
 
@@ -237,12 +261,22 @@ export async function runSdkDaemon(): Promise<void> {
   );
 
   // Turn 1: the prompt launchScript already uploaded.
+  let turnStartedAt = Date.now();
+  let sawFirstMessageThisTurn = false;
   push(readFileSync(INITIAL_PROMPT_FILE, "utf8"));
   S.activeAttemptStartedAt = Date.now();
 
   let output = "";
   try {
     for await (const message of query) {
+      if (!sawFirstMessageThisTurn) {
+        sawFirstMessageThisTurn = true;
+        log(
+          "daemon[timing]: first SDK message +" +
+            (Date.now() - turnStartedAt) +
+            "ms after push",
+        );
+      }
       const line = JSON.stringify(message) + "\n";
       appendToRawLogFile(line);
       output = trimBufferHead(output + line);
@@ -256,7 +290,16 @@ export async function runSdkDaemon(): Promise<void> {
         message.type === "result";
       if (!isResult) continue;
 
+      const resultAt = Date.now();
+      log(
+        "daemon[timing]: result message +" +
+          (resultAt - turnStartedAt) +
+          "ms after push",
+      );
       await finalizeTurn(output);
+      log(
+        "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
+      );
       resetTurnState();
       output = "";
 
@@ -266,7 +309,9 @@ export async function runSdkDaemon(): Promise<void> {
         break;
       }
       log("daemon: next turn received");
-      S.activeAttemptStartedAt = Date.now();
+      turnStartedAt = Date.now();
+      sawFirstMessageThisTurn = false;
+      S.activeAttemptStartedAt = turnStartedAt;
       push(nextPrompt);
     }
   } catch (error) {

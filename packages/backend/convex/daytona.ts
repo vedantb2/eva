@@ -26,6 +26,7 @@ export {
   setupSandboxBranch,
   pushSandboxBranch,
   launchOnExistingSandbox,
+  tryWarmDaemonHandoff,
   validateSandbox,
 } from "./_daytona/execution";
 

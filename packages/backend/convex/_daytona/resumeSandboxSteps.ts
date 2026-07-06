@@ -18,7 +18,7 @@ type EnsureSandboxStartedArgs = {
 };
 
 /**
- * Brings a (possibly archived) sandbox to the "started" state as a sequence of
+ * Brings a (possibly archived) sandbox to the "running" state as a sequence of
  * short workflow steps, so a multi-minute cold-storage thaw can outlast the
  * Convex per-action 10-minute limit.
  *
@@ -26,7 +26,7 @@ type EnsureSandboxStartedArgs = {
  * can take well over 10 minutes. Waiting inline in one action would hit the
  * action timeout (the same constraint snapshotBuildWorkflow works around).
  * Instead we fire the start (kick-off), then poll the sandbox state in separate
- * steps spaced by `runAfter` delays until it reports "started". The thaw runs
+ * steps spaced by `runAfter` delays until it reports "running". The thaw runs
  * server-side on Daytona regardless of whether we are watching, so polling only
  * observes it.
  *
@@ -35,7 +35,7 @@ type EnsureSandboxStartedArgs = {
  * window with no polling.
  *
  * Throws if the sandbox hits a terminal failure state or does not reach
- * "started" within the ceiling; callers wrap this to surface a retryable message.
+ * "running" within the ceiling; callers wrap this to surface a retryable message.
  */
 export async function ensureSandboxStartedSteps(
   step: WorkflowCtx,
@@ -45,7 +45,7 @@ export async function ensureSandboxStartedSteps(
     internal.daytona.startSandboxAsyncKickoff,
     { sandboxId: args.sandboxId, repoId: args.repoId },
   );
-  if (kickoff.state === "started") return;
+  if (kickoff.state === "running") return;
 
   if (args.streamingEntityId) {
     await step.runMutation(internal.streaming.internalSet, {
@@ -63,7 +63,7 @@ export async function ensureSandboxStartedSteps(
 
   let state = kickoff.state;
   let attempt = 0;
-  while (attempt < MAX_POLLS && state !== "started") {
+  while (attempt < MAX_POLLS && state !== "running") {
     attempt++;
     const poll = await step.runAction(
       internal.daytona.pollSandboxStarted,
@@ -73,7 +73,7 @@ export async function ensureSandboxStartedSteps(
     state = poll.state;
   }
 
-  if (state !== "started") {
+  if (state !== "running") {
     throw new Error(
       `Sandbox ${args.sandboxId} restore from cold storage did not complete within ~20 minutes (last state: ${state}). The restore continues in the background — retry to resume.`,
     );

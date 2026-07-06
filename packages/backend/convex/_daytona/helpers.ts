@@ -3,7 +3,12 @@ import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
-import { resolveDaytonaApiKey } from "../envVarResolver";
+import {
+  resolveDaytonaApiKey,
+  resolveSandboxCredentials,
+} from "../envVarResolver";
+import type { SandboxHandle } from "../_sandbox/provider";
+import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
 
 export const WORKSPACE_DIR = "/tmp/repo";
@@ -102,6 +107,35 @@ export async function exec(
     );
   }
   return resp.result;
+}
+
+/**
+ * Provider-neutral counterpart to {@link exec}: runs a command on a
+ * {@link SandboxHandle} and returns stdout, throwing on a non-zero exit. Added
+ * alongside `exec` so `_daytona` consumers migrate onto the handle one file at a
+ * time; `exec` is removed once the last raw-`Sandbox` caller is converted.
+ */
+export async function execHandle(
+  handle: SandboxHandle,
+  cmd: string,
+  timeout = 30,
+  cwd = WORKSPACE_DIR,
+): Promise<string> {
+  const clientTimeoutMs = timeout * 1000 + EXEC_CLIENT_TIMEOUT_BUFFER_MS;
+  const resp = await withTimeout(
+    handle.exec(cmd, { cwd, timeoutSeconds: timeout }),
+    clientTimeoutMs,
+    `exec (${timeout}s)`,
+  );
+  if (resp.exitCode !== 0) {
+    const output = resp.output?.trim();
+    throw new Error(
+      output
+        ? `Sandbox command failed (exit ${resp.exitCode}): ${output}`
+        : `Sandbox command failed with exit code ${resp.exitCode}`,
+    );
+  }
+  return resp.output;
 }
 
 /**
@@ -303,6 +337,21 @@ export async function getSandbox(
   const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, repoId);
   const daytona = getDaytona(daytonaApiKey);
   return daytona.get(sandboxId);
+}
+
+/**
+ * Provider-neutral counterpart to {@link getSandbox}: resolves the repo's
+ * configured provider (via the `SANDBOX_PROVIDER` flag) and returns a
+ * {@link SandboxHandle} for the sandbox. Consumers migrate from `getSandbox`
+ * onto this one file at a time; `getSandbox` is removed at the end of the rewire.
+ */
+export async function getSandboxHandle(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+  sandboxId: string,
+): Promise<SandboxHandle> {
+  const { credentials } = await resolveSandboxCredentials(ctx, repoId);
+  return getSandboxClient(credentials).get(sandboxId);
 }
 
 /** Signs sandbox and MCP tokens, then launches the AI agent script on the sandbox. */

@@ -28,6 +28,7 @@ import {
 } from "./helpers";
 import { detectPackageManager } from "./devServer";
 import { ensureGitCredentialHelper } from "./gitCredentials";
+import { wrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 
 type ActionCtx = GenericActionCtx<DataModel>;
 
@@ -844,7 +845,11 @@ export async function cloneAndSetupRepo(
     // pushes (here and from inside the sandbox) auth without URL tokens. The
     // initial SDK clone still uses an explicit token because the helper
     // can't be wired up before the .git directory exists.
-    await ensureGitCredentialHelper(ctx, sandbox, installationId);
+    await ensureGitCredentialHelper(
+      ctx,
+      wrapDaytonaSandbox(sandbox),
+      installationId,
+    );
 
     if (!shouldInstallDeps) {
       return;
@@ -1000,7 +1005,11 @@ export async function createSandboxAndPrepareRepo(
           // The snapshot was baked with a stale token in its git config /
           // remotes. Install the credential helper before any git network op
           // so syncRepo (and later in-sandbox `git pull`) authenticate cleanly.
-          await ensureGitCredentialHelper(ctx, sandbox, installationId);
+          await ensureGitCredentialHelper(
+            ctx,
+            wrapDaytonaSandbox(sandbox),
+            installationId,
+          );
           if (syncStrategy.mode !== "none") {
             if (onProgress) await onProgress("Syncing repository...");
             await syncRepo(sandbox, owner, name, syncStrategy);
@@ -1158,7 +1167,11 @@ async function tryResumeSandbox(
       // Self-heal: rotate the per-sandbox secret and (re)install the helper on
       // every resume so the in-sandbox `git pull` works without a stale token
       // and so sandboxes that pre-date this change pick up the helper.
-      await ensureGitCredentialHelper(ctx, sandbox, installationId);
+      await ensureGitCredentialHelper(
+        ctx,
+        wrapDaytonaSandbox(sandbox),
+        installationId,
+      );
       if (syncStrategy.mode !== "none") {
         if (onProgress) await onProgress("Syncing repository...");
         await syncRepo(sandbox, owner, name, syncStrategy);

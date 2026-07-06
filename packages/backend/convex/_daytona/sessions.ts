@@ -24,6 +24,7 @@ import {
   SESSION_LIFECYCLE,
 } from "./git";
 import { ensureGitCredentialHelper } from "./gitCredentials";
+import { wrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 import { ensureSessionPersistenceVolumes } from "./volumes";
 import {
   detectPackageManager,
@@ -509,7 +510,11 @@ async function prepareSessionSandboxInternal(
             // Self-heal: rotate the per-sandbox secret + reinstall the helper
             // every resume so in-sandbox `git pull` and any subsequent fetch
             // authenticate without relying on a stale URL-embedded token.
-            await ensureGitCredentialHelper(ctx, sandbox, args.installationId);
+            await ensureGitCredentialHelper(
+              ctx,
+              wrapDaytonaSandbox(sandbox),
+              args.installationId,
+            );
             await checkoutSessionBranchWithRetry(
               sandbox,
               args.branchName,
@@ -1026,7 +1031,11 @@ export const startDesignSandbox = internalAction({
           // Self-heal: rotate the per-sandbox secret + reinstall the helper
           // before any git network op so resumed sandboxes pick up the new
           // credential flow without carrying a stale URL-embedded token.
-          await ensureGitCredentialHelper(ctx, sandbox, args.installationId);
+          await ensureGitCredentialHelper(
+            ctx,
+            wrapDaytonaSandbox(sandbox),
+            args.installationId,
+          );
           await syncDesignRefsForSetup(
             sandbox,
             args.repoOwner,
@@ -1222,7 +1231,7 @@ async function prepareTaskPreviewSandboxInternal(
               // subsequent fetch authenticate without a stale URL token.
               await ensureGitCredentialHelper(
                 ctx,
-                sandbox,
+                wrapDaytonaSandbox(sandbox),
                 args.installationId,
               );
               await checkoutSessionBranchWithRetry(
@@ -1670,7 +1679,7 @@ async function prepareProjectPreviewSandboxInternal(
               // subsequent fetch authenticate without a stale URL token.
               await ensureGitCredentialHelper(
                 ctx,
-                sandbox,
+                wrapDaytonaSandbox(sandbox),
                 args.installationId,
               );
               await checkoutSessionBranchWithRetry(

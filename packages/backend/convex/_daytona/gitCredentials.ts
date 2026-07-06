@@ -1,12 +1,12 @@
 "use node";
 
 import { randomBytes } from "crypto";
-import type { Sandbox } from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import { internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
+import type { SandboxHandle } from "../_sandbox/provider";
 import {
-  exec,
+  execHandle,
   LEGACY_WORKSPACE_DIR,
   requireEnv,
   WORKSPACE_DIR,
@@ -106,7 +106,7 @@ function resolveConvexSiteUrl(): string {
  */
 export async function ensureGitCredentialHelper(
   ctx: GenericActionCtx<DataModel>,
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   installationId: number,
 ): Promise<void> {
   const secret = randomBytes(32).toString("hex");
@@ -119,14 +119,8 @@ export async function ensureGitCredentialHelper(
   const siteUrl = resolveConvexSiteUrl();
   const envFileContent = `CONDUCTOR_SANDBOX_SECRET=${secret}\nCONVEX_SITE_URL=${siteUrl}\n`;
 
-  await sandbox.fs.uploadFile(
-    Buffer.from(HELPER_SCRIPT, "utf-8"),
-    HELPER_SCRIPT_PATH,
-  );
-  await sandbox.fs.uploadFile(
-    Buffer.from(envFileContent, "utf-8"),
-    HELPER_CONFIG_PATH,
-  );
+  await sandbox.writeFile(HELPER_SCRIPT_PATH, HELPER_SCRIPT);
+  await sandbox.writeFile(HELPER_CONFIG_PATH, envFileContent);
 
   // Legacy snapshots and pre-helper clones embed the installation token in
   // `remote.origin.url` (e.g. `https://x-access-token:ghs_xxx@github.com/...`).
@@ -140,7 +134,7 @@ export async function ensureGitCredentialHelper(
     `if [ -d ${dir}/.git ]; then git -C ${dir} config --unset-all http.https://github.com/.extraheader 2>/dev/null || true; fi`,
   ]);
 
-  await exec(
+  await execHandle(
     sandbox,
     [
       `mkdir -p ${HELPER_CONFIG_DIR}`,

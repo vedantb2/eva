@@ -29,6 +29,7 @@ import type {
   SandboxExecResult,
   SandboxGit,
   SandboxHandle,
+  SandboxProviderKind,
   SandboxPty,
   SandboxPtyHandle,
   SandboxSnapshotInfo,
@@ -159,11 +160,6 @@ class DaytonaSandboxHandle implements SandboxHandle {
     this.desktop = new DaytonaDesktop(sandbox);
   }
 
-  /** The underlying SDK object, for the rare call site that still needs it during migration. */
-  get raw(): DaytonaSandbox {
-    return this.sandbox;
-  }
-
   get id(): string {
     return this.sandbox.id;
   }
@@ -238,7 +234,7 @@ class DaytonaSandboxHandle implements SandboxHandle {
 
 /** Daytona-backed provider client, scoped to one API key. */
 class DaytonaSandboxClient implements SandboxClient {
-  readonly kind = "daytona" as const;
+  readonly kind: SandboxProviderKind = "daytona";
 
   constructor(private readonly daytona: Daytona) {}
 

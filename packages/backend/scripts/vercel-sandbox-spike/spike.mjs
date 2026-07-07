@@ -80,6 +80,8 @@ async function createSandbox({ snapshotId, timeoutMs } = {}) {
     timeout: timeoutMs ?? 15 * 60 * 1000,
     ports: [CONFIG.devPort, CONFIG.wsPort],
     resources: { vcpus: CONFIG.vcpus },
+    // Tag so cleanup targets only tooling-created sandboxes (runs on the real eva project).
+    tags: { managedBy: "eva-migration-tooling" },
   };
   if (snapshotId) {
     params.source = { type: "snapshot", snapshotId };

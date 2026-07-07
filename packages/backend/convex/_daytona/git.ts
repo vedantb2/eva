@@ -345,6 +345,18 @@ export async function createSandbox(
         "GITHUB_APP_SLUG and GITHUB_BOT_USER_ID must be set in Convex env",
       );
     }
+    // Fresh Vercel node24 sandboxes ship without `jq`, which the git credential
+    // helper (git-credential-conductor) shells out to on every authenticated
+    // fetch/push. Without it, syncRepo/fetchBaseBranch fail with exit 128
+    // ("jq: command not found") before the seed toolchain stage ever runs.
+    // Daytona bakes jq into its base Image, so this is a no-op there.
+    if (client.kind === "vercel") {
+      await execHandle(
+        sandbox,
+        "command -v jq >/dev/null 2>&1 || sudo dnf install -y jq >/dev/null 2>&1 || true",
+        120,
+      );
+    }
     await execHandle(
       sandbox,
       `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,

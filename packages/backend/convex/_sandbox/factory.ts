@@ -11,6 +11,7 @@
 
 import type { SandboxClient, SandboxCredentials } from "./provider";
 import { createDaytonaClient } from "./daytonaProvider";
+import { createVercelClient } from "./vercelProvider";
 
 /** Returns the sandbox client for the given credentials' provider. */
 export function getSandboxClient(
@@ -20,10 +21,10 @@ export function getSandboxClient(
     case "daytona":
       return createDaytonaClient(credentials.apiKey);
     case "vercel":
-      // Phase 2: implemented once the Vercel adapter lands. Until then a repo
-      // flagged `vercel` fails loudly here rather than silently using Daytona.
-      throw new Error(
-        "Vercel sandbox provider is not implemented yet (migration Phase 2).",
-      );
+      return createVercelClient({
+        token: credentials.token,
+        teamId: credentials.teamId,
+        projectId: credentials.projectId,
+      });
   }
 }

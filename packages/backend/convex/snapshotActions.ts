@@ -861,6 +861,7 @@ export const launchSeedRun = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     const startupCommands: string[] | null = await ctx.runQuery(
       internal.repoSnapshots.getStartupCommands,
       { repoId: args.repoId },
@@ -888,6 +889,24 @@ export const launchSeedRun = internalAction({
       'cd /tmp/repo || { echo "SEEDRUN-FAILED:no-repo"; exit 1; }',
       `( git checkout -f ${args.branch} 2>/dev/null || git checkout -fb ${args.branch} origin/${args.branch} ) && git reset --hard origin/${args.branch} || { echo "SEEDRUN-FAILED:git-reset"; exit 1; }`,
     ];
+    // Vercel node24 base has no container runtime. Install Docker if missing,
+    // then ensure the daemon is running and the socket is group-accessible so
+    // startup/background commands can run `docker ps` without sudo.
+    if (credentials.kind === "vercel") {
+      lines.push(
+        'echo "SEEDRUN-STAGE:docker-bootstrap"',
+        // Install Docker if not already present (skip on warm snapshots that
+        // already have it baked in).
+        'command -v docker >/dev/null 2>&1 || { sudo dnf install -y docker 2>&1 || { echo "SEEDRUN-FAILED:docker-install"; exit 1; }; }',
+        // Ensure daemon is running (Vercel does not auto-start dockerd on restore).
+        'sudo docker info >/dev/null 2>&1 || sudo systemctl start docker 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
+        // Open the socket so non-root `docker` commands work (background/startup
+        // commands run as the sandbox user without sudo).
+        "sudo chmod 666 /var/run/docker.sock 2>/dev/null || true",
+        // Block until the daemon is fully ready.
+        "until docker info >/dev/null 2>&1; do sleep 1; done",
+      );
+    }
     args.buildCommands.forEach((command, i) => {
       lines.push(
         `( ${command} ) || { echo "SEEDRUN-FAILED:build-${i}"; exit 1; }`,
@@ -931,13 +950,23 @@ export const launchSeedRun = internalAction({
     // file-based guard would skip the launch and instantly report the baked
     // "done" — capturing without ever re-seeding. Stale markers are scrubbed
     // before every fresh launch for the same reason.
-    // Launch DETACHED via the provider so it returns immediately without holding
-    // the exec stream (on Vercel a synchronous `&` launch would StreamError; on
-    // Daytona this is a normal exec). The workflow observes progress via
-    // pollSeedRun markers, so the launcher's stdout is not needed.
-    await sandbox.execDetached(
-      `if pgrep -f "[s]eedrun.sh" >/dev/null; then echo ALREADY-RUNNING; else rm -f /tmp/.seedrun-done /tmp/seedrun.log && echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && setsid nohup /tmp/seedrun.sh </dev/null >/dev/null 2>&1 & echo LAUNCHED; fi`,
+    // Step 1: write the seed script idempotently (a live seedrun means a retry —
+    // skip re-writing so we don't race a second copy). Stale markers are scrubbed
+    // before a fresh write for the reason above (baked "done" from the source snap).
+    const writeResult = await execHandle(
+      sandbox,
+      `if pgrep -f "[s]eedrun.sh" >/dev/null; then echo ALREADY-RUNNING; else rm -f /tmp/.seedrun-done /tmp/seedrun.log && echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && echo WROTE; fi`,
+      120,
     );
+    // Step 2: launch the script as a DETACHED, PERSISTENT process — its OWN main
+    // process, not a `setsid nohup … &` grandchild. On Daytona the adapter wraps
+    // it in setsid+nohup (fast return); on Vercel it becomes the detached
+    // runCommand's main process, which survives (a backgrounded grandchild does
+    // NOT persist under Vercel's process model). The workflow polls pollSeedRun
+    // markers for progress, so the launcher returns immediately either way.
+    if (writeResult.includes("WROTE")) {
+      await sandbox.execDetached("/tmp/seedrun.sh");
+    }
     return null;
   },
 });
@@ -1016,6 +1045,14 @@ export const createSeedPrepSandbox = internalAction({
       args.repoId,
     );
     const client = getSandboxClient(credentials);
+    // For Vercel, snapshot IDs are `snap_*`; Daytona uses `snapshot-*` /
+    // `seeded-*` names. Passing a Daytona name to the Vercel adapter 404s —
+    // instead we fall back to a fresh sandbox (no snapshot source) so the first
+    // Vercel build can bootstrap the chain by cloning the repo from scratch.
+    const effectiveImageSnapshot =
+      credentials.kind === "vercel" && !args.imageSnapshot.startsWith("snap_")
+        ? undefined
+        : args.imageSnapshot;
     const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
       repoId: args.repoId,
     });
@@ -1036,7 +1073,7 @@ export const createSeedPrepSandbox = internalAction({
       repo.name,
       { ...sandboxEnvVars, REPO_ID: args.repoId },
       seedPrepLifecycle,
-      args.imageSnapshot,
+      effectiveImageSnapshot,
       undefined, // volumes
       undefined, // onSandboxAcquired
       undefined, // onProgress
@@ -1044,8 +1081,39 @@ export const createSeedPrepSandbox = internalAction({
       // Large seeded snapshots take well over the 30s default to boot; 180s
       // avoids the spurious create timeout + orphaned sandbox on warm boots.
       180,
+      // Skip pnpm/yarn install: launchSeedRun's buildCommands install deps
+      // inside the detached seed script. Installing here would blow Convex's
+      // 600s per-action ceiling on providers (Vercel) that don't have deps
+      // pre-baked into their base snapshot.
+      true,
     );
     return { sandboxId: sandbox.id };
+  },
+});
+
+/**
+ * Provider-agnostic delete of a seed-prep sandbox. Used by the snapshot build
+ * workflow after the seed run completes (success or failure) so the sandbox does
+ * not linger. Works for both Daytona and Vercel providers.
+ */
+export const deleteSeedPrepSandbox = internalAction({
+  args: { repoId: v.id("githubRepos"), sandboxId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    const client = getSandboxClient(credentials);
+    try {
+      const handle = await client.get(args.sandboxId);
+      await handle.delete();
+    } catch (e) {
+      // Best-effort: log but do not fail the build if delete fails.
+      console.error(
+        `[snapshot] deleteSeedPrepSandbox: failed to delete ${args.sandboxId}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+    return null;
   },
 });
 
@@ -1078,17 +1146,20 @@ export const triggerSeededSnapshot = internalAction({
     sandboxId: v.string(),
     seededName: v.string(),
   },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
-    await triggerSandboxSnapshot(
-      client,
-      args.sandboxId,
-      args.seededName,
-      SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
-    );
-    return null;
+  // Returns the effective snapshot identifier used by the provider.
+  // For Daytona this equals seededName (name IS the id); for Vercel it is the
+  // `snap_*` id returned by the API. The workflow must use this value — not
+  // seededName — when polling and writing seededSnapshotName to the DB.
+  returns: v.object({ snapshotId: v.string() }),
+  handler: async (ctx, args): Promise<{ snapshotId: string }> => {
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    const client = getSandboxClient(credentials);
+    const handle = await client.get(args.sandboxId);
+    const { snapshotId } = await handle.createSnapshot({
+      name: args.seededName,
+      timeoutSeconds: SEEDED_SNAPSHOT_TRIGGER_TIMEOUT_SEC,
+    });
+    return { snapshotId };
   },
 });
 
@@ -1110,11 +1181,15 @@ export const pollSeededSnapshotState = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const { daytonaApiKey } = await resolveDaytonaApiKey(ctx, args.repoId);
-    const client = getSandboxClient({ kind: "daytona", apiKey: daytonaApiKey });
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    const client = getSandboxClient(credentials);
     // Not registered yet (or a transient lookup miss) → treat as still pending.
-    const snapshot = await getSnapshot(client, args.seededName);
-    return snapshot ? snapshot.state : "pending";
+    const snapshot = await client.getSnapshot(args.seededName);
+    if (!snapshot) return "pending";
+    // SandboxSnapshotInfo.status uses "ready" for success; the workflow polls
+    // for "active" (the Daytona-era term). Map "ready" → "active" so the
+    // existing isTerminalSnapshotState / state === "active" checks still work.
+    return snapshot.status === "ready" ? "active" : snapshot.status;
   },
 });
 

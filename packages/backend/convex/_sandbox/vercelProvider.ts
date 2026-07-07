@@ -90,6 +90,25 @@ function normalizeSnapshotStatus(raw: string): SandboxSnapshotInfo["status"] {
   return "pending";
 }
 
+/**
+ * Extracts a human-readable detail string from a Vercel SDK APIError (or any
+ * thrown value). The SDK's `APIError` carries `.json` and `.text` fields with
+ * the actual API response body — these are far more useful than the generic
+ * "Status code 4xx is not ok" message that otherwise appears in logs.
+ *
+ * `JSON.stringify(e, Object.getOwnPropertyNames(e))` serialises ALL own
+ * properties (including non-enumerable ones like `json`, `text`, `message`)
+ * without any type assertions.
+ */
+function extractApiErrorDetail(e: unknown): string {
+  if (e === null || typeof e !== "object") return String(e);
+  try {
+    return JSON.stringify(e, Object.getOwnPropertyNames(e)).slice(0, 1000);
+  } catch (_err) {
+    return e instanceof Error ? e.message : String(e);
+  }
+}
+
 /** Vercel git operations, implemented over the shell (no native git client). */
 class VercelGit implements SandboxGit {
   constructor(private readonly sandbox: Sandbox) {}
@@ -183,18 +202,28 @@ class VercelSandboxHandle implements SandboxHandle {
     cmd: string,
     opts?: SandboxExecOptions,
   ): Promise<SandboxExecResult> {
-    const finished = await this.sandbox.runCommand({
-      cmd: "bash",
-      args: ["-lc", `${SOURCE_ENV} ${cmd}`],
-      ...(opts?.cwd ? { cwd: opts.cwd } : {}),
-      ...(opts?.env ? { env: opts.env } : {}),
-      ...(opts?.sudo ? { sudo: true } : {}),
-      ...(opts?.timeoutSeconds
-        ? { timeoutMs: opts.timeoutSeconds * 1000 }
-        : {}),
-    });
-    const output = await finished.output("both").catch(() => "");
-    return { exitCode: finished.exitCode, output };
+    try {
+      const finished = await this.sandbox.runCommand({
+        cmd: "bash",
+        args: ["-lc", `${SOURCE_ENV} ${cmd}`],
+        ...(opts?.cwd ? { cwd: opts.cwd } : {}),
+        ...(opts?.env ? { env: opts.env } : {}),
+        ...(opts?.sudo ? { sudo: true } : {}),
+        ...(opts?.timeoutSeconds
+          ? { timeoutMs: opts.timeoutSeconds * 1000 }
+          : {}),
+      });
+      const output = await finished.output("both").catch(() => "");
+      return { exitCode: finished.exitCode, output };
+    } catch (e) {
+      // The Vercel SDK throws APIError whose .json / .text fields carry the
+      // actual API response body — surface them so 400/422 failures are
+      // diagnosable in Convex logs instead of just "Status code 4xx is not ok".
+      const detail = extractApiErrorDetail(e);
+      throw new Error(
+        `vercel exec failed (cwd=${opts?.cwd ?? "(default)"}, cmd=${cmd.slice(0, 120)}): ${detail}`,
+      );
+    }
   }
 
   async execDetached(cmd: string, opts?: SandboxExecOptions): Promise<void> {
@@ -287,14 +316,20 @@ class VercelSandboxClient implements SandboxClient {
           { path: EVA_ENV_FILE, content: renderEnvFile(params.envVars) },
         ]);
       }
+      // Fresh node24 sandboxes don't include /tmp/repo. Every execHandle call
+      // defaults to that cwd (WORKSPACE_DIR = "/tmp/repo" in helpers.ts), so
+      // any command with no explicit cwd returns HTTP 400 until the directory
+      // exists. Pre-create it here so git config / ensureDockerDaemon calls in
+      // createSandbox succeed. Snapshot-restored sandboxes already have the
+      // directory baked in, so this is only needed for fresh ones.
+      if (!params.snapshot) {
+        await sandbox.mkDir("/tmp/repo");
+      }
       return new VercelSandboxHandle(sandbox, this.creds);
     } catch (e) {
       // The SDK's message is just the HTTP status; surface the API body + the
       // params we sent (env values redacted) so a create failure is diagnosable.
-      const detail =
-        e && typeof e === "object"
-          ? JSON.stringify(e, Object.getOwnPropertyNames(e)).slice(0, 900)
-          : String(e);
+      const detail = extractApiErrorDetail(e);
       throw new Error(
         `vercel create failed (snapshot=${params.snapshot ?? "none"}, timeout=${base.timeout}, persistent=${base.persistent}, vcpus=${DEFAULT_VCPUS}, envKeys=[${Object.keys(params.envVars ?? {}).join(",")}], hasTags=${Boolean(params.lifecycle.labels)}): ${detail}`,
       );

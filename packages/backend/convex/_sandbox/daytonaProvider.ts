@@ -205,10 +205,11 @@ class DaytonaSandboxHandle implements SandboxHandle {
   }
 
   async execDetached(cmd: string, opts?: SandboxExecOptions): Promise<void> {
-    // Daytona's exec returns as soon as the `setsid nohup … &` backgrounds the
-    // process, so a normal executeCommand is already fire-and-forget here.
+    // The caller passes a bare long-running command; detach it here with
+    // setsid+nohup so this exec returns immediately and the process outlives it.
+    const escaped = cmd.replace(/'/g, "'\\''");
     await this.sandbox.process.executeCommand(
-      cmd,
+      `setsid nohup bash -lc '${escaped}' </dev/null >/dev/null 2>&1 &`,
       opts?.cwd,
       opts?.env,
       opts?.timeoutSeconds,

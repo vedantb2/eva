@@ -318,11 +318,15 @@ export const snapshotBuildWorkflow = workflow.define({
         // Capture the refreshed filesystem snapshot. Trigger fires the POST
         // without blocking; poll across separate steps so a long DB capture
         // never exceeds Convex's 600s per-action ceiling.
-        await step.runAction(internal.snapshotActions.triggerSeededSnapshot, {
-          repoId: app.repoId,
-          sandboxId: prepSandboxId,
-          seededName,
-        });
+        // triggerSeededSnapshot returns the provider's actual snapshot id:
+        // - Daytona: equals seededName (the Daytona snapshot name IS its id)
+        // - Vercel: a generated `snap_*` id distinct from seededName
+        // All subsequent steps must use effectiveSeededName so that the right
+        // id is polled and written to seededSnapshotName on the repo.
+        const { snapshotId: effectiveSeededName } = await step.runAction(
+          internal.snapshotActions.triggerSeededSnapshot,
+          { repoId: app.repoId, sandboxId: prepSandboxId, seededName },
+        );
         let snapState = "pending";
         for (
           let pollAttempt = 1;
@@ -332,7 +336,7 @@ export const snapshotBuildWorkflow = workflow.define({
         ) {
           snapState = await step.runAction(
             internal.snapshotActions.pollSeededSnapshotState,
-            { repoId: app.repoId, seededName },
+            { repoId: app.repoId, seededName: effectiveSeededName },
             {
               runAfter:
                 pollAttempt === 1 ? 10_000 : SEED_SNAPSHOT_POLL_DELAY_MS,
@@ -344,7 +348,7 @@ export const snapshotBuildWorkflow = workflow.define({
             `Seeded snapshot for ${app.repoId} did not reach active (last state: ${snapState})`,
           );
         }
-        await step.runAction(internal.daytona.deleteSandbox, {
+        await step.runAction(internal.snapshotActions.deleteSeedPrepSandbox, {
           sandboxId: prepSandboxId,
           repoId: app.repoId,
         });
@@ -354,13 +358,13 @@ export const snapshotBuildWorkflow = workflow.define({
         // just leaves a stray snapshot that the next successful build removes.
         await step.runMutation(internal.repoSnapshots.setSeededSnapshotName, {
           repoId: app.repoId,
-          seededSnapshotName: seededName,
+          seededSnapshotName: effectiveSeededName,
         });
         await step.runMutation(internal.repoSnapshots.recordSeededApp, {
           buildId: args.buildId,
           repoId: app.repoId,
           status: "seeded",
-          seededSnapshotName: seededName,
+          seededSnapshotName: effectiveSeededName,
         });
         try {
           await step.runMutation(
@@ -376,7 +380,7 @@ export const snapshotBuildWorkflow = workflow.define({
             {
               buildId: args.buildId,
               repoId: app.repoId,
-              seededName,
+              seededName: effectiveSeededName,
             },
           );
         } catch (e) {
@@ -395,7 +399,10 @@ export const snapshotBuildWorkflow = workflow.define({
             chunk: `[warm ${app.repoId}] skipped after error: ${message}\n`,
           });
         }
-        if (app.seededSnapshotName && app.seededSnapshotName !== seededName) {
+        if (
+          app.seededSnapshotName &&
+          app.seededSnapshotName !== effectiveSeededName
+        ) {
           try {
             await step.runAction(
               internal.snapshotActions.deleteDaytonaSnapshot,
@@ -419,7 +426,7 @@ export const snapshotBuildWorkflow = workflow.define({
         );
         // Tear down the prep sandbox so it doesn't linger.
         if (prepSandboxId) {
-          await step.runAction(internal.daytona.deleteSandbox, {
+          await step.runAction(internal.snapshotActions.deleteSeedPrepSandbox, {
             sandboxId: prepSandboxId,
             repoId: app.repoId,
           });

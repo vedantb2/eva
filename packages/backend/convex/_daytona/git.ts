@@ -936,6 +936,12 @@ export async function createSandboxAndPrepareRepo(
   // snapshot builds) pass a longer value to avoid spurious create timeouts +
   // the orphaned sandboxes they leave server-side.
   readyTimeoutSeconds?: number,
+  // When true, skip `pnpm/yarn install` during a fresh clone. Used by
+  // createSeedPrepSandbox: the launchSeedRun buildCommands run pnpm install
+  // inside the detached seed script, so installing here wastes 10–15 minutes
+  // and reliably trips Convex's 600s per-action ceiling on providers (Vercel)
+  // that don't have it pre-baked into their base snapshot.
+  skipInstallDeps = false,
 ): Promise<{ sandbox: SandboxHandle; usedSnapshot: boolean }> {
   let sandbox: SandboxHandle | undefined;
   try {
@@ -1011,7 +1017,7 @@ export async function createSandboxAndPrepareRepo(
           installationId,
           owner,
           name,
-          !lifecycle.ephemeral,
+          !lifecycle.ephemeral && !skipInstallDeps,
           onProgress,
         );
         if (syncStrategy.mode !== "none") {

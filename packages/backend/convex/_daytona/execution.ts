@@ -2,6 +2,7 @@
 
 import { v } from "convex/values";
 import type { Sandbox } from "@daytonaio/sdk";
+import type { SandboxHandle } from "../_sandbox/provider";
 import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
@@ -10,12 +11,15 @@ import {
   exec,
   resolveSandboxContext,
   getSandbox,
+  getSandboxHandle,
+  getDaytona,
   ensureSandboxRunning,
   ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
   sleep,
   errorMessage,
   signAndLaunchScript,
 } from "./helpers";
+import { resolveDaytonaApiKey } from "../envVarResolver";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import {
   fetchOrigin,
@@ -30,7 +34,10 @@ import {
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
 import { ensurePreviewNavigationProxy } from "./previewProxy";
-import { wrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
+import {
+  unwrapDaytonaSandbox,
+  wrapDaytonaSandbox,
+} from "../_sandbox/daytonaProvider";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
@@ -58,7 +65,7 @@ export const validateSandbox = internalAction({
   returns: v.object({ healthy: v.boolean() }),
   handler: async (ctx, args) => {
     try {
-      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       // Start the sandbox if it's stopped (fast resume ~3-5s)
       await ensureSandboxRunning(sandbox, {
         timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
@@ -503,12 +510,16 @@ export const prepareSandbox = internalAction({
     console.log(
       `[daytona] prepareSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
     );
-    const { daytona, sandboxEnvVars, snapshotName } =
+    const { client, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
+    // Persistence volumes remain a Daytona-only capability; resolve a raw
+    // Daytona client just for the volume lookup on that path.
     const sessionVolumeMounts =
       args.sessionPersistenceId && args.sessionPersistenceKind
         ? await ensureSessionPersistenceVolumes(
-            daytona,
+            getDaytona(
+              (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
+            ),
             args.repoId,
             args.sessionPersistenceKind,
             args.sessionPersistenceId,
@@ -522,7 +533,7 @@ export const prepareSandbox = internalAction({
     let attempt = 1;
     const maxSetupAttempts = 3;
     const attachRunSandbox = async (
-      sandboxToAttach: Sandbox,
+      sandboxToAttach: SandboxHandle,
     ): Promise<void> => {
       if (!args.attachRunId) {
         return;
@@ -538,7 +549,7 @@ export const prepareSandbox = internalAction({
         if (args.ephemeral) {
           const prepared = await createSandboxAndPrepareRepo(
             ctx,
-            daytona,
+            client,
             args.installationId,
             args.repoOwner,
             args.repoName,
@@ -550,12 +561,12 @@ export const prepareSandbox = internalAction({
             emitProgress,
             { mode: "none" },
           );
-          sandbox = prepared.sandbox;
+          sandbox = unwrapDaytonaSandbox(prepared.sandbox);
           deleteSandboxOnFailure = true;
         } else {
           const prepared = await getOrCreateSandbox(
             ctx,
-            daytona,
+            client,
             args.existingSandboxId,
             args.installationId,
             args.repoOwner,
@@ -567,20 +578,23 @@ export const prepareSandbox = internalAction({
             emitProgress,
             { mode: "none" },
           );
-          sandbox = prepared.sandbox;
+          sandbox = unwrapDaytonaSandbox(prepared.sandbox);
           deleteSandboxOnFailure = prepared.isNew;
         }
 
         if (args.branchName) {
           await emitProgress("Setting up branch...");
           await setupBranch(
-            sandbox,
+            wrapDaytonaSandbox(sandbox),
             args.branchName,
             args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH,
           );
         } else if (args.baseBranch) {
           await emitProgress("Checking out base branch...");
-          await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
+          await checkoutFetchedBaseBranch(
+            wrapDaytonaSandbox(sandbox),
+            args.baseBranch,
+          );
         }
 
         if (args.startDesktop) {
@@ -685,12 +699,16 @@ export const createOrResumeSandbox = internalAction({
     console.log(
       `[daytona] createOrResumeSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
     );
-    const { daytona, sandboxEnvVars, snapshotName } =
+    const { client, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
+    // Persistence volumes remain a Daytona-only capability; resolve a raw
+    // Daytona client just for the volume lookup on that path.
     const sessionVolumeMounts =
       args.sessionPersistenceId && args.sessionPersistenceKind
         ? await ensureSessionPersistenceVolumes(
-            daytona,
+            getDaytona(
+              (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
+            ),
             args.repoId,
             args.sessionPersistenceKind,
             args.sessionPersistenceId,
@@ -705,7 +723,7 @@ export const createOrResumeSandbox = internalAction({
     let attempt = 1;
     const maxSetupAttempts = 3;
     const attachRunSandbox = async (
-      sandboxToAttach: Sandbox,
+      sandboxToAttach: SandboxHandle,
     ): Promise<void> => {
       if (!args.attachRunId) {
         return;
@@ -721,7 +739,7 @@ export const createOrResumeSandbox = internalAction({
         if (args.ephemeral) {
           const prepared = await createSandboxAndPrepareRepo(
             ctx,
-            daytona,
+            client,
             args.installationId,
             args.repoOwner,
             args.repoName,
@@ -733,12 +751,12 @@ export const createOrResumeSandbox = internalAction({
             emitProgress,
             { mode: "none" },
           );
-          sandbox = prepared.sandbox;
+          sandbox = unwrapDaytonaSandbox(prepared.sandbox);
           deleteSandboxOnFailure = true;
         } else {
           const prepared = await getOrCreateSandbox(
             ctx,
-            daytona,
+            client,
             args.existingSandboxId,
             args.installationId,
             args.repoOwner,
@@ -750,7 +768,7 @@ export const createOrResumeSandbox = internalAction({
             emitProgress,
             { mode: "none" },
           );
-          sandbox = prepared.sandbox;
+          sandbox = unwrapDaytonaSandbox(prepared.sandbox);
           deleteSandboxOnFailure = prepared.isNew;
         }
 
@@ -832,7 +850,7 @@ export const fetchBaseBranch = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await fetchOrigin(sandbox, args.repoOwner, args.repoName, args.baseBranch, {
       prune: false,
       timeoutSeconds: 120,
@@ -851,7 +869,7 @@ export const checkoutBaseBranch = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
     return null;
   },
@@ -867,7 +885,7 @@ export const setupSandboxBranch = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await setupBranch(sandbox, args.branchName, args.baseBranch);
     return null;
   },
@@ -885,7 +903,7 @@ export const pushSandboxBranch = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await pushBranchToOrigin(
       sandbox,
       args.repoOwner,

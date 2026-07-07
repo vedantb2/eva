@@ -7,7 +7,7 @@ import {
   resolveDaytonaApiKey,
   resolveSandboxCredentials,
 } from "../envVarResolver";
-import type { SandboxHandle } from "../_sandbox/provider";
+import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
 
@@ -148,9 +148,11 @@ export async function execHandle(
  *
  * Failures are non-fatal — older snapshots without Docker installed log and continue.
  */
-export async function ensureDockerDaemon(sandbox: Sandbox): Promise<void> {
+export async function ensureDockerDaemon(
+  sandbox: SandboxHandle,
+): Promise<void> {
   try {
-    await exec(sandbox, "docker info >/dev/null 2>&1", 5);
+    await execHandle(sandbox, "docker info >/dev/null 2>&1", 5);
     console.log(
       `[daytona] ensureDockerDaemon: Docker daemon already running on ${sandbox.id}`,
     );
@@ -164,7 +166,7 @@ export async function ensureDockerDaemon(sandbox: Sandbox): Promise<void> {
     // pidfiles survive but their PIDs map to unrelated processes in the new
     // boot — dockerd/containerd refuse to start while a pidfile claims a
     // running peer, so we must delete them.
-    await exec(
+    await execHandle(
       sandbox,
       [
         "sudo pkill -9 containerd 2>/dev/null",
@@ -198,7 +200,7 @@ export async function ensureDockerDaemon(sandbox: Sandbox): Promise<void> {
  * useful progress label instead of the generic "Resuming sandbox...".
  */
 export async function ensureSandboxRunning(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   options: {
     timeoutSeconds?: number;
     onRestoring?: () => Promise<void>;
@@ -211,7 +213,7 @@ export async function ensureSandboxRunning(
     console.log(
       `[daytona] ensureSandboxRunning: checking if sandbox ${sandbox.id} is running...`,
     );
-    await exec(sandbox, "echo 1", 5);
+    await execHandle(sandbox, "echo 1", 5);
     console.log(
       `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} already running (${Date.now() - startedAt}ms)`,
     );
@@ -222,7 +224,7 @@ export async function ensureSandboxRunning(
     );
     let startTimeout = defaultTimeout;
     try {
-      await sandbox.refreshData();
+      await sandbox.refresh();
       const state = sandbox.state;
       if (state === "archived" || state === "restoring") {
         startTimeout = Math.max(
@@ -244,7 +246,7 @@ export async function ensureSandboxRunning(
     console.log(
       `[daytona] ensureSandboxRunning: sandbox.start() completed in ${Date.now() - startStartedAt}ms`,
     );
-    await exec(sandbox, "echo 1", 5);
+    await execHandle(sandbox, "echo 1", 5);
     console.log(
       `[daytona] ensureSandboxRunning: sandbox ${sandbox.id} now running (total ${Date.now() - startedAt}ms)`,
     );
@@ -302,27 +304,27 @@ export function errorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Resolves Daytona client, sandbox env vars, and snapshot name for a repo. */
+/** Resolves the provider client, sandbox env vars, and snapshot name for a repo. */
 export async function resolveSandboxContext(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
 ): Promise<{
-  daytona: Daytona;
+  client: SandboxClient;
   sandboxEnvVars: Record<string, string>;
   snapshotName: string | undefined;
 }> {
-  const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+  const { credentials, sandboxEnvVars } = await resolveSandboxCredentials(
     ctx,
     repoId,
   );
-  const daytona = getDaytona(daytonaApiKey);
+  const client = getSandboxClient(credentials);
   const repoSnapshot = await ctx.runQuery(
     internal.repoSnapshots.getRepoSnapshotName,
     { repoId },
   );
   const snapshotName = repoSnapshot?.snapshotName;
   return {
-    daytona,
+    client,
     sandboxEnvVars: { ...sandboxEnvVars, REPO_ID: repoId },
     snapshotName,
   };

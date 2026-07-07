@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { resolveSandboxContext } from "./helpers";
+import { unwrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 import {
   launchDevServerInBackground,
   resetDevTerminalForResume,
@@ -40,8 +41,8 @@ export const runDevServerInTaskSandbox = internalAction({
     }
 
     const rootDir = repo.rootDirectory ?? "";
-    const { daytona } = await resolveSandboxContext(ctx, args.repoId);
-    const sandbox = await daytona.get(args.sandboxId);
+    const { client } = await resolveSandboxContext(ctx, args.repoId);
+    const sandbox = unwrapDaytonaSandbox(await client.get(args.sandboxId));
 
     const { port: devPort, devCommand } = await startSessionServices(
       sandbox,

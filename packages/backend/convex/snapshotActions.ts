@@ -3,14 +3,18 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { resolveAllEnvVars, resolveDaytonaApiKey } from "./envVarResolver";
+import {
+  resolveAllEnvVars,
+  resolveDaytonaApiKey,
+  resolveSandboxCredentials,
+} from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import {
   getDaytona,
   buildConfigFileDownloadCommands,
   filterDownloadableConfigFiles,
-  exec,
-  getSandbox,
+  execHandle,
+  getSandboxHandle,
   type SandboxConfigFile,
 } from "./_daytona/helpers";
 import {
@@ -918,7 +922,7 @@ export const launchSeedRun = internalAction({
     lines.push('echo "SEEDRUN-DONE"', "touch /tmp/.seedrun-done");
     const script = lines.join("\n");
     const b64 = Buffer.from(script, "utf8").toString("base64");
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     // Process-based guard makes the launch idempotent so the workflow can
     // retry a timed-out launch exec without racing a second copy. It must be
     // the LIVE process (pgrep, self-match-proof bracket pattern), not a
@@ -927,7 +931,7 @@ export const launchSeedRun = internalAction({
     // file-based guard would skip the launch and instantly report the baked
     // "done" — capturing without ever re-seeding. Stale markers are scrubbed
     // before every fresh launch for the same reason.
-    await exec(
+    await execHandle(
       sandbox,
       `if pgrep -f "[s]eedrun.sh" >/dev/null; then echo ALREADY-RUNNING; else rm -f /tmp/.seedrun-done /tmp/seedrun.log && echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && setsid nohup /tmp/seedrun.sh </dev/null >/dev/null 2>&1 & echo LAUNCHED; fi`,
       120,
@@ -948,9 +952,9 @@ export const fetchSeedDiagnostics = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     try {
-      return await exec(
+      return await execHandle(
         sandbox,
         [
           'echo "== git state =="',
@@ -983,8 +987,8 @@ export const pollSeedRun = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    const out = await exec(
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    const out = await execHandle(
       sandbox,
       'test -f /tmp/.seedrun-done && echo DONE; grep -aoE "SEEDRUN-FAILED:[a-z0-9-]+" /tmp/seedrun.log 2>/dev/null | tail -1; true',
       30,
@@ -1005,11 +1009,11 @@ export const createSeedPrepSandbox = internalAction({
   args: { repoId: v.id("githubRepos"), imageSnapshot: v.string() },
   returns: v.object({ sandboxId: v.string() }),
   handler: async (ctx, args): Promise<{ sandboxId: string }> => {
-    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+    const { credentials, sandboxEnvVars } = await resolveSandboxCredentials(
       ctx,
       args.repoId,
     );
-    const daytona = getDaytona(daytonaApiKey);
+    const client = getSandboxClient(credentials);
     const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
       repoId: args.repoId,
     });
@@ -1024,7 +1028,7 @@ export const createSeedPrepSandbox = internalAction({
     };
     const { sandbox } = await createSandboxAndPrepareRepo(
       ctx,
-      daytona,
+      client,
       repo.installationId,
       repo.owner,
       repo.name,
@@ -1125,7 +1129,7 @@ export const warmSeededSnapshotCache = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const { daytonaApiKey, sandboxEnvVars } = await resolveDaytonaApiKey(
+    const { credentials, sandboxEnvVars } = await resolveSandboxCredentials(
       ctx,
       args.repoId,
     );
@@ -1145,11 +1149,11 @@ export const warmSeededSnapshotCache = internalAction({
       return null;
     }
 
-    const daytona = getDaytona(daytonaApiKey);
+    const client = getSandboxClient(credentials);
     let sandboxId: string | null = null;
     try {
       const sandbox = await createSandbox(
-        daytona,
+        client,
         repo.installationId,
         { ...sandboxEnvVars, REPO_ID: args.repoId },
         {
@@ -1197,7 +1201,7 @@ export const warmSeededSnapshotCache = internalAction({
       });
       if (sandboxId) {
         try {
-          const sandbox = await daytona.get(sandboxId);
+          const sandbox = await client.get(sandboxId);
           await sandbox.delete();
         } catch {
           // Best-effort cleanup only; the warming lifecycle is ephemeral.

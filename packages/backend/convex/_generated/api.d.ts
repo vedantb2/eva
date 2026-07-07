@@ -107,6 +107,7 @@ import type * as _repoSnapshots_repoMetadata from "../_repoSnapshots/repoMetadat
 import type * as _sandbox_daytonaProvider from "../_sandbox/daytonaProvider.js";
 import type * as _sandbox_factory from "../_sandbox/factory.js";
 import type * as _sandbox_provider from "../_sandbox/provider.js";
+import type * as _sandbox_vercelProvider from "../_sandbox/vercelProvider.js";
 import type * as _sessions_chatEntries from "../_sessions/chatEntries.js";
 import type * as _sessions_execution from "../_sessions/execution.js";
 import type * as _sessions_helpers from "../_sessions/helpers.js";
@@ -360,6 +361,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox/daytonaProvider": typeof _sandbox_daytonaProvider;
   "_sandbox/factory": typeof _sandbox_factory;
   "_sandbox/provider": typeof _sandbox_provider;
+  "_sandbox/vercelProvider": typeof _sandbox_vercelProvider;
   "_sessions/chatEntries": typeof _sessions_chatEntries;
   "_sessions/execution": typeof _sessions_execution;
   "_sessions/helpers": typeof _sessions_helpers;

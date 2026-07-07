@@ -2,6 +2,7 @@
 
 import type { Sandbox } from "@daytonaio/sdk";
 import { ensureDockerDaemon, exec, workspaceDirShell } from "./helpers";
+import { wrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 
 const SUPABASE_DUMP_PATH =
   "/home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz";
@@ -127,7 +128,7 @@ export async function restoreSeededRuntimeState(
     // No marker means this fresh sandbox still needs its local service state.
   }
 
-  await ensureDockerDaemon(sandbox);
+  await ensureDockerDaemon(wrapDaytonaSandbox(sandbox));
   await exec(
     sandbox,
     [

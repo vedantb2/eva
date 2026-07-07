@@ -284,7 +284,10 @@ class DaytonaSandboxClient implements SandboxClient {
       ...(params.lifecycle.ephemeral ? { ephemeral: true } : {}),
       ...(params.lifecycle.labels ? { labels: params.lifecycle.labels } : {}),
       ...(volumes ? { volumes } : {}),
-      ...(params.snapshot ? { snapshot: params.snapshot } : {}),
+      // Daytona requires a snapshot; fall back to the built-in daytona-large
+      // (4 vCPU / 8 GiB / 10 GiB). Non-snapshot sandboxes have broken outbound
+      // networking, so this default matters. Vercel has no such requirement.
+      snapshot: params.snapshot ?? "daytona-large",
     };
     const sandbox = await this.daytona.create(createParams, {
       timeout: params.readyTimeoutSeconds ?? 60,

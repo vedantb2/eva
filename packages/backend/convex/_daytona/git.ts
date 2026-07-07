@@ -1,25 +1,23 @@
 "use node";
 
-import type {
-  CreateSandboxFromSnapshotParams,
-  Daytona,
-  Sandbox,
-  VolumeMount,
-} from "@daytonaio/sdk";
 import type { GenericActionCtx } from "convex/server";
 import { quote } from "shell-quote";
 import { formatDurationMsShort } from "@conductor/shared/duration";
 import { getInstallationToken } from "../githubAuth";
 import { internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
+import type {
+  SandboxClient,
+  SandboxHandle,
+  VolumeMountSpec,
+} from "../_sandbox/provider";
 import {
-  exec,
+  execHandle,
   LEGACY_WORKSPACE_DIR,
   WORKSPACE_DIR,
   SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS,
   DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
   ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-  DAYTONA_CREATE_TIMEOUT_MS,
   ensureDockerDaemon,
   ensureSandboxRunning,
   sleep,
@@ -28,7 +26,7 @@ import {
 } from "./helpers";
 import { detectPackageManager } from "./devServer";
 import { ensureGitCredentialHelper } from "./gitCredentials";
-import { wrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
+import { unwrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 
 type ActionCtx = GenericActionCtx<DataModel>;
 
@@ -74,10 +72,6 @@ const NPM_INSTALL_TIMEOUT_SECONDS = 900;
 // observed restore time.
 const SNAPSHOT_SANDBOX_WITH_VOLUMES_READY_TIMEOUT_SECONDS = 300;
 
-// Daytona built-in snapshot with 4 vCPU, 8 GiB RAM, 10 GiB disk.
-// Used as fallback when a repo has no custom snapshot.
-const DEFAULT_SNAPSHOT = "daytona-large";
-
 /** Logs a git-related message with a consistent prefix. */
 function logGit(message: string): void {
   console.log(`[daytona][git] ${message}`);
@@ -93,17 +87,17 @@ function isSandboxExecTimeout(message: string): boolean {
 }
 
 /** Kills stale git processes and removes lock files after a timeout. */
-async function cleanupTimedOutGitState(sandbox: Sandbox): Promise<void> {
+async function cleanupTimedOutGitState(sandbox: SandboxHandle): Promise<void> {
   logGit(
     "cleanupTimedOutGitState: killing stale git processes and removing lock files",
   );
   try {
     const workspaceDir = workspaceDirShell();
-    await sandbox.process.executeCommand(
+    await execHandle(
+      sandbox,
       `pkill -9 -f '^git($| )' 2>/dev/null || true; rm -f ${workspaceDir}/.git/index.lock ${workspaceDir}/.git/HEAD.lock ${workspaceDir}/.git/FETCH_HEAD.lock ${workspaceDir}/.git/ORIG_HEAD.lock 2>/dev/null || true`,
-      "/",
-      undefined,
       10,
+      "/",
     );
     logGit("cleanupTimedOutGitState: cleanup completed");
   } catch (error) {
@@ -122,7 +116,7 @@ function sanitizeCommand(command: string): string {
 
 /** Executes a git command, cleaning up lock files on timeout errors. */
 async function execGitCommand(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   command: string,
   timeoutSeconds: number,
 ): Promise<string> {
@@ -130,7 +124,7 @@ async function execGitCommand(
   const startedAt = Date.now();
   logGit(`exec [timeout=${timeoutSeconds}s]: ${sanitized}`);
   try {
-    const result = await exec(sandbox, command, timeoutSeconds);
+    const result = await execHandle(sandbox, command, timeoutSeconds);
     logGit(
       `exec completed in ${formatDurationMsShort(Date.now() - startedAt)}: ${sanitized}`,
     );
@@ -152,7 +146,7 @@ const SDK_TIMEOUT_BUFFER_MS = 15_000;
 
 /** Wraps a Daytona SDK git call with timeout, logging, and stale-process cleanup. */
 async function execSdkGitOperation<T>(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   label: string,
   fn: () => Promise<T>,
   timeoutSeconds: number,
@@ -289,16 +283,16 @@ async function retryGitNetworkOperation<T>(
   );
 }
 
-/** Creates a new Daytona sandbox with GitHub auth and git configuration. */
+/** Creates a new sandbox with GitHub auth and git configuration. */
 export async function createSandbox(
-  daytona: Daytona,
+  client: SandboxClient,
   installationId: number,
   sandboxEnvVars: Record<string, string>,
   lifecycle: SandboxLifecycle,
   snapshotName?: string,
-  volumes?: VolumeMount[],
+  volumes?: VolumeMountSpec[],
   readyTimeoutSeconds?: number,
-): Promise<Sandbox> {
+): Promise<SandboxHandle> {
   const details = [
     `installation=${installationId}`,
     snapshotName ? `snapshot=${snapshotName}` : "snapshot=none",
@@ -316,9 +310,11 @@ export async function createSandbox(
 
     const githubToken = await getInstallationToken(installationId);
 
-    const commonParams = {
-      ...(volumes ? { volumes } : {}),
-      ...(lifecycle.labels ? { labels: lifecycle.labels } : {}),
+    // The adapter defaults an absent snapshot to daytona-large (Daytona) — non-
+    // snapshot Daytona sandboxes (cpu=1, mem=1GB) have broken outbound
+    // networking. Vercel has no such requirement.
+    const sandbox = await client.create({
+      snapshot: snapshotName,
       envVars: {
         // VNC_RESOLUTION is read by the snapshot's ComputerUse plugin at startup
         // (Xvfb + x11vnc). Setting it here makes the desktop start at 1920x1080
@@ -329,30 +325,20 @@ export async function createSandbox(
         GITHUB_TOKEN: githubToken,
         INSTALLATION_ID: String(installationId),
       },
-      autoStopInterval: lifecycle.autoStopInterval,
-      ...(lifecycle.autoArchiveInterval !== undefined
-        ? { autoArchiveInterval: lifecycle.autoArchiveInterval }
-        : {}),
-      ...(lifecycle.autoDeleteInterval !== undefined
-        ? { autoDeleteInterval: lifecycle.autoDeleteInterval }
-        : {}),
-      ...(lifecycle.ephemeral ? { ephemeral: true } : {}),
-    };
-
-    // Use the repo's custom snapshot, or fall back to daytona-large (4 vCPU / 8 GiB / 10 GiB).
-    // Non-snapshot sandboxes (cpu=1, mem=1GB) have broken outbound networking.
-    const createParams: CreateSandboxFromSnapshotParams = {
-      ...commonParams,
-      snapshot: snapshotName ?? DEFAULT_SNAPSHOT,
-    };
-
-    const sandbox = await withTimeout(
-      daytona.create(createParams, { timeout: timeoutSeconds }),
-      readyTimeoutSeconds
-        ? timeoutSeconds * 1000 + 30_000
-        : DAYTONA_CREATE_TIMEOUT_MS,
-      "create",
-    );
+      lifecycle: {
+        autoStopMinutes: lifecycle.autoStopInterval,
+        autoArchiveMinutes: lifecycle.autoArchiveInterval,
+        autoDeleteMinutes: lifecycle.autoDeleteInterval,
+        ephemeral: lifecycle.ephemeral,
+        labels: lifecycle.labels,
+      },
+      volumes: volumes?.map((v) => ({
+        volumeId: v.volumeId,
+        mountPath: v.mountPath,
+        subpath: v.subpath,
+      })),
+      readyTimeoutSeconds: timeoutSeconds,
+    });
     logGit(
       `createSandbox: created id=${sandbox.id}, cpu=${sandbox.cpu}, memory=${sandbox.memory}, disk=${sandbox.disk}`,
     );
@@ -364,7 +350,7 @@ export async function createSandbox(
         "GITHUB_APP_SLUG and GITHUB_BOT_USER_ID must be set in Convex env",
       );
     }
-    await exec(
+    await execHandle(
       sandbox,
       `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,
       10,
@@ -392,7 +378,7 @@ function bareGitHubRepoUrl(owner: string, name: string): string {
  * bootstrap; the remote URL no longer carries a token.
  */
 export async function fetchOrigin(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   owner: string,
   name: string,
   ref?: string,
@@ -433,7 +419,7 @@ export async function fetchOrigin(
  * bootstrap; the remote URL no longer carries a token.
  */
 export async function fetchBranchRefs(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   owner: string,
   name: string,
   branchNames: string[],
@@ -504,7 +490,7 @@ export async function fetchBranchRefs(
 
 /** Syncs the sandbox repo with the remote using the given strategy. */
 export async function syncRepo(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   owner: string,
   name: string,
   strategy: RepoSyncStrategy,
@@ -533,7 +519,7 @@ export async function syncRepo(
 
 /** Resolves the best available base ref: prefers origin/<base>, falls back to local, then HEAD. */
 export async function resolveBaseTarget(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   baseBranch: string,
 ): Promise<{ ref: string; source: "remote" | "local" | "head" }> {
   // Check remote tracking branch via shell (SDK branches() only lists local)
@@ -563,7 +549,7 @@ export async function resolveBaseTarget(
 
 /** Resolves the best local starting ref for a working branch. */
 async function resolveBranchStartTarget(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   branchName: string,
   baseBranch: string,
 ): Promise<{
@@ -598,7 +584,7 @@ async function resolveBranchStartTarget(
 
 /** Checks out a session branch, creating it from a remote or base ref if needed. */
 export async function checkoutSessionBranch(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
@@ -653,7 +639,7 @@ export async function checkoutSessionBranch(
 
 /** Checks out a base branch, preferring remote refs but falling back to local snapshot refs. */
 export async function checkoutFetchedBaseBranch(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   baseBranch: string,
   timeoutSeconds = 30,
 ): Promise<void> {
@@ -703,7 +689,7 @@ export async function checkoutFetchedBaseBranch(
  * starting from an empty DB.
  */
 export async function normalizeSnapshotWorktree(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
 ): Promise<void> {
   const workspaceDir = workspaceDirShell();
   await runLoggedGitStep(
@@ -721,7 +707,7 @@ export async function normalizeSnapshotWorktree(
 
 /** Copies baked sandbox config files into the codebase root after git cleanup. */
 export async function copySandboxConfigFilesToWorkspace(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   options?: { force?: boolean },
 ): Promise<void> {
   const workspaceDir = workspaceDirShell();
@@ -744,24 +730,24 @@ export async function copySandboxConfigFilesToWorkspace(
 
 /** Installs project dependencies using the detected package manager. */
 async function installDependencies(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   pm: string,
 ): Promise<void> {
   const workspaceDir = workspaceDirShell();
   if (pm === "pnpm") {
-    await exec(
+    await execHandle(
       sandbox,
       `npm install -g pnpm && cd ${workspaceDir} && pnpm install`,
       PNPM_INSTALL_TIMEOUT_SECONDS,
     );
   } else if (pm === "yarn") {
-    await exec(
+    await execHandle(
       sandbox,
       `cd ${workspaceDir} && yarn install`,
       YARN_INSTALL_TIMEOUT_SECONDS,
     );
   } else {
-    await exec(
+    await execHandle(
       sandbox,
       `cd ${workspaceDir} && npm install`,
       NPM_INSTALL_TIMEOUT_SECONDS,
@@ -778,7 +764,7 @@ async function installDependencies(
  */
 export async function cloneAndSetupRepo(
   ctx: ActionCtx,
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   installationId: number,
   owner: string,
   name: string,
@@ -792,7 +778,7 @@ export async function cloneAndSetupRepo(
     const repoUrl = `https://github.com/${owner}/${name}.git`;
 
     // SDK clone doesn't clean target dir — pre-clean workspace directories
-    await exec(
+    await execHandle(
       sandbox,
       `rm -rf ${quote([WORKSPACE_DIR])} ${quote([LEGACY_WORKSPACE_DIR])}`,
       30,
@@ -808,8 +794,6 @@ export async function cloneAndSetupRepo(
             sandbox.git.clone(
               repoUrl,
               WORKSPACE_DIR,
-              undefined,
-              undefined,
               "x-access-token",
               githubToken,
             ),
@@ -845,17 +829,13 @@ export async function cloneAndSetupRepo(
     // pushes (here and from inside the sandbox) auth without URL tokens. The
     // initial SDK clone still uses an explicit token because the helper
     // can't be wired up before the .git directory exists.
-    await ensureGitCredentialHelper(
-      ctx,
-      wrapDaytonaSandbox(sandbox),
-      installationId,
-    );
+    await ensureGitCredentialHelper(ctx, sandbox, installationId);
 
     if (!shouldInstallDeps) {
       return;
     }
     if (onProgress) await onProgress("Installing dependencies...");
-    const pm = await detectPackageManager(sandbox);
+    const pm = await detectPackageManager(unwrapDaytonaSandbox(sandbox));
     logGit(
       `installDependencies: detected package manager "${pm}" for ${owner}/${name}`,
     );
@@ -865,7 +845,7 @@ export async function cloneAndSetupRepo(
 
 /** Sets up a working branch from the best available local ref with no pre-merge git choreography. */
 export async function setupBranch(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
@@ -897,7 +877,7 @@ export async function setupBranch(
  * bootstrap; the remote URL no longer carries a token.
  */
 export async function pushBranchToOrigin(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   owner: string,
   name: string,
   branchName: string,
@@ -940,15 +920,15 @@ function isSnapshotUnusableError(err: unknown): boolean {
 /** Creates a sandbox and prepares the repo by cloning or syncing from a snapshot. */
 export async function createSandboxAndPrepareRepo(
   ctx: ActionCtx,
-  daytona: Daytona,
+  client: SandboxClient,
   installationId: number,
   owner: string,
   name: string,
   sandboxEnvVars: Record<string, string>,
   lifecycle: SandboxLifecycle,
   snapshotName?: string,
-  volumes?: VolumeMount[],
-  onSandboxAcquired?: (sandbox: Sandbox) => Promise<void>,
+  volumes?: VolumeMountSpec[],
+  onSandboxAcquired?: (sandbox: SandboxHandle) => Promise<void>,
   onProgress?: (label: string) => Promise<void>,
   syncStrategy: RepoSyncStrategy = { mode: "all" },
   // Override the SDK create-ready wait. Large seeded snapshots (~10GB) take
@@ -956,8 +936,8 @@ export async function createSandboxAndPrepareRepo(
   // snapshot builds) pass a longer value to avoid spurious create timeouts +
   // the orphaned sandboxes they leave server-side.
   readyTimeoutSeconds?: number,
-): Promise<{ sandbox: Sandbox; usedSnapshot: boolean }> {
-  let sandbox: Sandbox | undefined;
+): Promise<{ sandbox: SandboxHandle; usedSnapshot: boolean }> {
+  let sandbox: SandboxHandle | undefined;
   try {
     const details = `${owner}/${name}, snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}`;
     return await runLoggedGitStep(
@@ -968,7 +948,7 @@ export async function createSandboxAndPrepareRepo(
         let effectiveSnapshot = snapshotName;
         try {
           sandbox = await createSandbox(
-            daytona,
+            client,
             installationId,
             sandboxEnvVars,
             lifecycle,
@@ -985,7 +965,7 @@ export async function createSandboxAndPrepareRepo(
               await onProgress("Snapshot unavailable — cloning instead...");
             effectiveSnapshot = undefined;
             sandbox = await createSandbox(
-              daytona,
+              client,
               installationId,
               sandboxEnvVars,
               lifecycle,
@@ -1005,11 +985,7 @@ export async function createSandboxAndPrepareRepo(
           // The snapshot was baked with a stale token in its git config /
           // remotes. Install the credential helper before any git network op
           // so syncRepo (and later in-sandbox `git pull`) authenticate cleanly.
-          await ensureGitCredentialHelper(
-            ctx,
-            wrapDaytonaSandbox(sandbox),
-            installationId,
-          );
+          await ensureGitCredentialHelper(ctx, sandbox, installationId);
           if (syncStrategy.mode !== "none") {
             if (onProgress) await onProgress("Syncing repository...");
             await syncRepo(sandbox, owner, name, syncStrategy);
@@ -1062,7 +1038,7 @@ export async function createSandboxAndPrepareRepo(
 /** Resumes an existing sandbox or creates a new one with repo setup. */
 export async function getOrCreateSandbox(
   ctx: ActionCtx,
-  daytona: Daytona,
+  client: SandboxClient,
   existingSandboxId: string | undefined,
   installationId: number,
   owner: string,
@@ -1070,16 +1046,16 @@ export async function getOrCreateSandbox(
   sandboxEnvVars: Record<string, string>,
   lifecycle: SandboxLifecycle,
   snapshotName?: string,
-  volumes?: VolumeMount[],
+  volumes?: VolumeMountSpec[],
   onProgress?: (label: string) => Promise<void>,
   syncStrategy: RepoSyncStrategy = { mode: "all" },
-): Promise<{ sandbox: Sandbox; isNew: boolean }> {
+): Promise<{ sandbox: SandboxHandle; isNew: boolean }> {
   const details = `${owner}/${name}, existingSandboxId=${existingSandboxId ?? "none"}, snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}`;
   return await runLoggedGitStep("getOrCreateSandbox", details, async () => {
     if (existingSandboxId) {
       const resumed = await tryResumeSandbox(
         ctx,
-        daytona,
+        client,
         existingSandboxId,
         installationId,
         owner,
@@ -1091,7 +1067,7 @@ export async function getOrCreateSandbox(
     }
     const { sandbox } = await createSandboxAndPrepareRepo(
       ctx,
-      daytona,
+      client,
       installationId,
       owner,
       name,
@@ -1141,20 +1117,20 @@ function isSandboxMissingError(err: unknown): boolean {
  */
 async function tryResumeSandbox(
   ctx: ActionCtx,
-  daytona: Daytona,
+  client: SandboxClient,
   existingSandboxId: string,
   installationId: number,
   owner: string,
   name: string,
   syncStrategy: RepoSyncStrategy,
   onProgress?: (label: string) => Promise<void>,
-): Promise<Sandbox | null> {
+): Promise<SandboxHandle | null> {
   const maxAttempts = 4;
   const backoffMs = [2000, 4000, 8000];
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       if (onProgress) await onProgress("Resuming sandbox...");
-      const sandbox = await daytona.get(existingSandboxId);
+      const sandbox = await client.get(existingSandboxId);
       await ensureSandboxRunning(sandbox, {
         timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
         onRestoring: onProgress
@@ -1167,11 +1143,7 @@ async function tryResumeSandbox(
       // Self-heal: rotate the per-sandbox secret and (re)install the helper on
       // every resume so the in-sandbox `git pull` works without a stale token
       // and so sandboxes that pre-date this change pick up the helper.
-      await ensureGitCredentialHelper(
-        ctx,
-        wrapDaytonaSandbox(sandbox),
-        installationId,
-      );
+      await ensureGitCredentialHelper(ctx, sandbox, installationId);
       if (syncStrategy.mode !== "none") {
         if (onProgress) await onProgress("Syncing repository...");
         await syncRepo(sandbox, owner, name, syncStrategy);

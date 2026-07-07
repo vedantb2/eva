@@ -8,12 +8,14 @@ import type { DataModel, Id } from "../_generated/dataModel";
 import {
   exec,
   resolveSandboxContext,
+  getDaytona,
   ensureSandboxRunning,
   ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
   errorMessage,
   sleep,
   workspaceDirShell,
 } from "./helpers";
+import { resolveDaytonaApiKey } from "../envVarResolver";
 import {
   setupBranch,
   checkoutSessionBranch,
@@ -24,7 +26,10 @@ import {
   SESSION_LIFECYCLE,
 } from "./git";
 import { ensureGitCredentialHelper } from "./gitCredentials";
-import { wrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
+import {
+  unwrapDaytonaSandbox,
+  wrapDaytonaSandbox,
+} from "../_sandbox/daytonaProvider";
 import { ensureSessionPersistenceVolumes } from "./volumes";
 import {
   detectPackageManager,
@@ -106,7 +111,10 @@ async function resolveSessionBaseRef(
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
-  const { source } = await resolveBaseTarget(sandbox, baseBranch);
+  const { source } = await resolveBaseTarget(
+    wrapDaytonaSandbox(sandbox),
+    baseBranch,
+  );
   logSession(
     `resolveSessionBaseRef source=${source} (repo=${repoOwner}/${repoName}, branch=${branchName}, base=${baseBranch})`,
   );
@@ -121,7 +129,11 @@ async function checkoutSessionBranchWithRetry(
   const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      await checkoutSessionBranch(sandbox, branchName, baseBranch);
+      await checkoutSessionBranch(
+        wrapDaytonaSandbox(sandbox),
+        branchName,
+        baseBranch,
+      );
       if (attempt > 1) {
         logSession(
           `checkoutSessionBranchWithRetry recovered on retry ${attempt}/${maxAttempts} (branch=${branchName}, base=${baseBranch})`,
@@ -155,7 +167,7 @@ async function syncSessionRefsForRestore(
   let fetchedSessionBranches: string[] = [];
   try {
     fetchedSessionBranches = await fetchBranchRefs(
-      sandbox,
+      wrapDaytonaSandbox(sandbox),
       repoOwner,
       repoName,
       [branchName],
@@ -200,7 +212,7 @@ async function syncDesignRefsForSetup(
   baseBranch: string,
 ): Promise<void> {
   const fetchedBranches = await fetchBranchRefs(
-    sandbox,
+    wrapDaytonaSandbox(sandbox),
     repoOwner,
     repoName,
     [baseBranch, branchName],
@@ -466,10 +478,15 @@ async function prepareSessionSandboxInternal(
     completedSteps,
     "Resolving sandbox context...",
   );
-  const { daytona, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
+  const { client, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
     "resolveSessionSandboxContext",
     actionDetails,
     () => resolveSandboxContext(ctx, args.repoId),
+  );
+  // Sandbox reuse and persistence volumes remain Daytona-only; resolve a raw
+  // Daytona client for those paths while the create path uses the neutral client.
+  const daytona = getDaytona(
+    (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
   );
   logSession(
     `prepareSessionSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
@@ -497,7 +514,7 @@ async function prepareSessionSandboxInternal(
           "reuseSessionSandbox.prepare",
           sandboxDetails,
           async () => {
-            await ensureSandboxRunning(sandbox, {
+            await ensureSandboxRunning(wrapDaytonaSandbox(sandbox), {
               timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
               onRestoring: () =>
                 emitSessionProgress(
@@ -525,14 +542,19 @@ async function prepareSessionSandboxInternal(
         await runLoggedSessionStep(
           "reuseSessionSandbox.setupBranch",
           sandboxDetails,
-          () => setupBranch(sandbox, args.branchName, args.baseBranch),
+          () =>
+            setupBranch(
+              wrapDaytonaSandbox(sandbox),
+              args.branchName,
+              args.baseBranch,
+            ),
         );
         // Restore baked config files from /home/eva/sandbox-config into the workspace.
         // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
         await runLoggedSessionStep(
           "reuseSessionSandbox.copyConfigFiles",
           sandboxDetails,
-          () => copySandboxConfigFilesToWorkspace(sandbox),
+          () => copySandboxConfigFilesToWorkspace(wrapDaytonaSandbox(sandbox)),
         );
         const { port: devPort, devCommand } = await runLoggedSessionStep(
           "reuseSessionSandbox.startSessionServices",
@@ -656,7 +678,7 @@ async function prepareSessionSandboxInternal(
     () =>
       createSandboxAndPrepareRepo(
         ctx,
-        daytona,
+        client,
         args.installationId,
         args.repoOwner,
         args.repoName,
@@ -669,7 +691,7 @@ async function prepareSessionSandboxInternal(
         { mode: "none" },
       ),
   );
-  const sandbox = prepared.sandbox;
+  const sandbox = unwrapDaytonaSandbox(prepared.sandbox);
   const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
   // Any setup step below (ref sync, branch checkout, config restore, seeded-
   // runtime restore, dev server) can throw. This is the new-session path — the
@@ -737,7 +759,12 @@ async function prepareSessionSandboxInternal(
     await runLoggedSessionStep(
       "newSessionSandbox.setupBranch",
       sandboxDetails,
-      () => setupBranch(sandbox, args.branchName, args.baseBranch),
+      () =>
+        setupBranch(
+          wrapDaytonaSandbox(sandbox),
+          args.branchName,
+          args.baseBranch,
+        ),
     );
     completedSteps.push({
       type: "tool",
@@ -756,7 +783,10 @@ async function prepareSessionSandboxInternal(
     await runLoggedSessionStep(
       "newSessionSandbox.copyConfigFiles",
       sandboxDetails,
-      () => copySandboxConfigFilesToWorkspace(sandbox, { force: true }),
+      () =>
+        copySandboxConfigFilesToWorkspace(wrapDaytonaSandbox(sandbox), {
+          force: true,
+        }),
     );
     completedSteps.push({
       type: "tool",
@@ -1006,8 +1036,13 @@ export const startDesignSandbox = internalAction({
         id: repoId,
       });
       const rootDir = repo?.rootDirectory ?? "";
-      const { daytona, sandboxEnvVars, snapshotName } =
+      const { client, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, repoId);
+      // Sandbox reuse and persistence volumes remain Daytona-only; resolve a
+      // raw Daytona client for those paths while create uses the neutral client.
+      const daytona = getDaytona(
+        (await resolveDaytonaApiKey(ctx, repoId)).daytonaApiKey,
+      );
 
       const designVolumeMounts = await ensureSessionPersistenceVolumes(
         daytona,
@@ -1025,7 +1060,7 @@ export const startDesignSandbox = internalAction({
           // sandbox fell through to a fresh rebuild). designSandboxStartupWorkflow
           // pre-thaws archived sandboxes across polling steps first, so this
           // fast-paths instead of blocking the action on a cold-storage restore.
-          await ensureSandboxRunning(sandbox, {
+          await ensureSandboxRunning(wrapDaytonaSandbox(sandbox), {
             timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
           });
           // Self-heal: rotate the per-sandbox secret + reinstall the helper
@@ -1043,7 +1078,11 @@ export const startDesignSandbox = internalAction({
             args.branchName,
             args.baseBranch,
           );
-          await setupBranch(sandbox, args.branchName, args.baseBranch);
+          await setupBranch(
+            wrapDaytonaSandbox(sandbox),
+            args.branchName,
+            args.baseBranch,
+          );
           const { port: devPort, devCommand } = await startSessionServices(
             sandbox,
             rootDir,
@@ -1067,7 +1106,7 @@ export const startDesignSandbox = internalAction({
 
       const prepared = await createSandboxAndPrepareRepo(
         ctx,
-        daytona,
+        client,
         args.installationId,
         args.repoOwner,
         args.repoName,
@@ -1079,7 +1118,7 @@ export const startDesignSandbox = internalAction({
         undefined,
         { mode: "none" },
       );
-      const sandbox = prepared.sandbox;
+      const sandbox = unwrapDaytonaSandbox(prepared.sandbox);
       newSandbox = sandbox;
       await syncDesignRefsForSetup(
         sandbox,
@@ -1088,7 +1127,11 @@ export const startDesignSandbox = internalAction({
         args.branchName,
         args.baseBranch,
       );
-      await setupBranch(sandbox, args.branchName, args.baseBranch);
+      await setupBranch(
+        wrapDaytonaSandbox(sandbox),
+        args.branchName,
+        args.baseBranch,
+      );
       if (prepared.usedSnapshot) {
         await installSnapshotDependenciesWithRetry(sandbox, rootDir);
       }
@@ -1176,10 +1219,15 @@ async function prepareTaskPreviewSandboxInternal(
     completedSteps,
     "Resolving sandbox context...",
   );
-  const { daytona, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
+  const { client, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
     "resolveTaskSandboxContext",
     actionDetails,
     () => resolveSandboxContext(ctx, args.repoId),
+  );
+  // Sandbox reuse and persistence volumes remain Daytona-only; resolve a raw
+  // Daytona client for those paths while the create path uses the neutral client.
+  const daytona = getDaytona(
+    (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
   );
   logSession(
     `prepareTaskPreviewSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
@@ -1216,7 +1264,7 @@ async function prepareTaskPreviewSandboxInternal(
             "reuseTaskSandbox.prepare",
             sandboxDetails,
             async () => {
-              await ensureSandboxRunning(sandbox, {
+              await ensureSandboxRunning(wrapDaytonaSandbox(sandbox), {
                 timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
                 onRestoring: () =>
                   emitTaskProgress(
@@ -1257,7 +1305,8 @@ async function prepareTaskPreviewSandboxInternal(
           await runLoggedSessionStep(
             "reuseTaskSandbox.copyConfigFiles",
             sandboxDetails,
-            () => copySandboxConfigFilesToWorkspace(sandbox),
+            () =>
+              copySandboxConfigFilesToWorkspace(wrapDaytonaSandbox(sandbox)),
           );
           completedSteps.push({
             type: "tool",
@@ -1393,7 +1442,7 @@ async function prepareTaskPreviewSandboxInternal(
     () =>
       createSandboxAndPrepareRepo(
         ctx,
-        daytona,
+        client,
         args.installationId,
         args.repoOwner,
         args.repoName,
@@ -1406,7 +1455,7 @@ async function prepareTaskPreviewSandboxInternal(
         { mode: "none" },
       ),
   );
-  const sandbox = prepared.sandbox;
+  const sandbox = unwrapDaytonaSandbox(prepared.sandbox);
   const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
   // Delete the just-created sandbox if any setup step below fails, so it does
   // not leak server-side (mirrors the session path).
@@ -1474,7 +1523,10 @@ async function prepareTaskPreviewSandboxInternal(
     await runLoggedSessionStep(
       "newTaskSandbox.copyConfigFiles",
       sandboxDetails,
-      () => copySandboxConfigFilesToWorkspace(sandbox, { force: true }),
+      () =>
+        copySandboxConfigFilesToWorkspace(wrapDaytonaSandbox(sandbox), {
+          force: true,
+        }),
     );
     completedSteps.push({
       type: "tool",
@@ -1624,10 +1676,15 @@ async function prepareProjectPreviewSandboxInternal(
     completedSteps,
     "Resolving sandbox context...",
   );
-  const { daytona, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
+  const { client, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
     "resolveProjectSandboxContext",
     actionDetails,
     () => resolveSandboxContext(ctx, args.repoId),
+  );
+  // Sandbox reuse and persistence volumes remain Daytona-only; resolve a raw
+  // Daytona client for those paths while the create path uses the neutral client.
+  const daytona = getDaytona(
+    (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
   );
   logSession(
     `prepareProjectPreviewSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
@@ -1664,7 +1721,7 @@ async function prepareProjectPreviewSandboxInternal(
             "reuseProjectSandbox.prepare",
             sandboxDetails,
             async () => {
-              await ensureSandboxRunning(sandbox, {
+              await ensureSandboxRunning(wrapDaytonaSandbox(sandbox), {
                 timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
                 onRestoring: () =>
                   emitProjectProgress(
@@ -1705,7 +1762,8 @@ async function prepareProjectPreviewSandboxInternal(
           await runLoggedSessionStep(
             "reuseProjectSandbox.copyConfigFiles",
             sandboxDetails,
-            () => copySandboxConfigFilesToWorkspace(sandbox),
+            () =>
+              copySandboxConfigFilesToWorkspace(wrapDaytonaSandbox(sandbox)),
           );
           completedSteps.push({
             type: "tool",
@@ -1840,7 +1898,7 @@ async function prepareProjectPreviewSandboxInternal(
     () =>
       createSandboxAndPrepareRepo(
         ctx,
-        daytona,
+        client,
         args.installationId,
         args.repoOwner,
         args.repoName,
@@ -1853,7 +1911,7 @@ async function prepareProjectPreviewSandboxInternal(
         { mode: "none" },
       ),
   );
-  const sandbox = prepared.sandbox;
+  const sandbox = unwrapDaytonaSandbox(prepared.sandbox);
   const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}, usedSnapshot=${prepared.usedSnapshot ? "true" : "false"}`;
   await ctx.runMutation(internal.projects.projectSandboxAllocated, {
     projectId: args.projectId,
@@ -1918,7 +1976,10 @@ async function prepareProjectPreviewSandboxInternal(
   await runLoggedSessionStep(
     "newProjectSandbox.copyConfigFiles",
     sandboxDetails,
-    () => copySandboxConfigFilesToWorkspace(sandbox, { force: true }),
+    () =>
+      copySandboxConfigFilesToWorkspace(wrapDaytonaSandbox(sandbox), {
+        force: true,
+      }),
   );
   completedSteps.push({
     type: "tool",

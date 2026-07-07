@@ -43,6 +43,23 @@ interface VercelCredentials {
 }
 
 const DEFAULT_VCPUS = Number(process.env.SANDBOX_VERCEL_VCPUS ?? "4");
+// Vercel caps the create-time `env` payload at 4 KB, but eva injects the full
+// repo/team env (~6 KB+). Instead of passing env at create, we write it to this
+// file in the sandbox and source it on every exec — no size cap, and it persists
+// across get()/resume like any other file.
+const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
+
+/** Renders env vars as sourceable `export K='V'` lines (single-quote-escaped). */
+function renderEnvFile(env: Record<string, string>): string {
+  return (
+    Object.entries(env)
+      .map(([k, v]) => `export ${k}='${v.replace(/'/g, "'\\''")}'`)
+      .join("\n") + "\n"
+  );
+}
+
+/** Prefix that sources the eva env file (if present) before a command. */
+const SOURCE_ENV = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE};`;
 /** Vercel exposes at most 4 ports; default to the eva dev + proxy range if unset. */
 const MAX_PORTS = 4;
 
@@ -168,7 +185,7 @@ class VercelSandboxHandle implements SandboxHandle {
   ): Promise<SandboxExecResult> {
     const finished = await this.sandbox.runCommand({
       cmd: "bash",
-      args: ["-lc", cmd],
+      args: ["-lc", `${SOURCE_ENV} ${cmd}`],
       ...(opts?.cwd ? { cwd: opts.cwd } : {}),
       ...(opts?.env ? { env: opts.env } : {}),
       ...(opts?.sudo ? { sudo: true } : {}),
@@ -178,6 +195,22 @@ class VercelSandboxHandle implements SandboxHandle {
     });
     const output = await finished.output("both").catch(() => "");
     return { exitCode: finished.exitCode, output };
+  }
+
+  async execDetached(cmd: string, opts?: SandboxExecOptions): Promise<void> {
+    // Native detached exec: returns a Command handle immediately without holding
+    // the stream. This is the analogue of eva's `setsid nohup … &` on Daytona —
+    // a shell `&` inside a synchronous runCommand would keep the stream open
+    // until it times out (StreamError). The command itself still backgrounds its
+    // long-runner with setsid so it survives this launcher process exiting.
+    await this.sandbox.runCommand({
+      cmd: "bash",
+      args: ["-lc", `${SOURCE_ENV} ${cmd}`],
+      ...(opts?.cwd ? { cwd: opts.cwd } : {}),
+      ...(opts?.env ? { env: opts.env } : {}),
+      ...(opts?.sudo ? { sudo: true } : {}),
+      detached: true,
+    });
   }
 
   async start(_timeoutSeconds: number): Promise<void> {
@@ -227,22 +260,45 @@ class VercelSandboxClient implements SandboxClient {
   constructor(private readonly creds: VercelCredentials) {}
 
   async create(params: SandboxCreateParams): Promise<SandboxHandle> {
+    // env is written to a file post-create (see EVA_ENV_FILE) rather than passed
+    // here — Vercel's create-time env cap is 4 KB and eva's env exceeds it.
     const base = {
       ...this.creds,
-      timeout: params.lifecycle.autoStopMinutes * 60 * 1000,
+      // Vercel `timeout` is a HARD session cap, not Daytona's idle-stop timer.
+      // Mapping a small autoStop (e.g. WARMING's 10 min) straight through would
+      // hard-kill a ~11-min seed build mid-run. Floor it to 45 min so builds and
+      // resumes have headroom; eva stops sandboxes explicitly (snapshot/stop),
+      // and Vercel bills only active CPU + provisioned memory while running.
+      timeout: Math.max(params.lifecycle.autoStopMinutes, 45) * 60 * 1000,
       persistent: params.lifecycle.ephemeral !== true,
       resources: { vcpus: DEFAULT_VCPUS },
-      env: params.envVars,
       ...(params.ports ? { ports: params.ports.slice(0, MAX_PORTS) } : {}),
       ...(params.lifecycle.labels ? { tags: params.lifecycle.labels } : {}),
     };
-    const sandbox = params.snapshot
-      ? await Sandbox.create({
-          ...base,
-          source: { type: "snapshot", snapshotId: params.snapshot },
-        })
-      : await Sandbox.create({ ...base, runtime: "node24" });
-    return new VercelSandboxHandle(sandbox, this.creds);
+    try {
+      const sandbox = params.snapshot
+        ? await Sandbox.create({
+            ...base,
+            source: { type: "snapshot", snapshotId: params.snapshot },
+          })
+        : await Sandbox.create({ ...base, runtime: "node24" });
+      if (params.envVars && Object.keys(params.envVars).length > 0) {
+        await sandbox.writeFiles([
+          { path: EVA_ENV_FILE, content: renderEnvFile(params.envVars) },
+        ]);
+      }
+      return new VercelSandboxHandle(sandbox, this.creds);
+    } catch (e) {
+      // The SDK's message is just the HTTP status; surface the API body + the
+      // params we sent (env values redacted) so a create failure is diagnosable.
+      const detail =
+        e && typeof e === "object"
+          ? JSON.stringify(e, Object.getOwnPropertyNames(e)).slice(0, 900)
+          : String(e);
+      throw new Error(
+        `vercel create failed (snapshot=${params.snapshot ?? "none"}, timeout=${base.timeout}, persistent=${base.persistent}, vcpus=${DEFAULT_VCPUS}, envKeys=[${Object.keys(params.envVars ?? {}).join(",")}], hasTags=${Boolean(params.lifecycle.labels)}): ${detail}`,
+      );
+    }
   }
 
   async get(sandboxId: string): Promise<SandboxHandle> {

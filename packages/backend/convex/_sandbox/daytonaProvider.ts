@@ -204,6 +204,17 @@ class DaytonaSandboxHandle implements SandboxHandle {
     return { exitCode: resp.exitCode, output: resp.result };
   }
 
+  async execDetached(cmd: string, opts?: SandboxExecOptions): Promise<void> {
+    // Daytona's exec returns as soon as the `setsid nohup … &` backgrounds the
+    // process, so a normal executeCommand is already fire-and-forget here.
+    await this.sandbox.process.executeCommand(
+      cmd,
+      opts?.cwd,
+      opts?.env,
+      opts?.timeoutSeconds,
+    );
+  }
+
   async writeFile(path: string, content: string | Uint8Array): Promise<void> {
     const buffer =
       typeof content === "string"

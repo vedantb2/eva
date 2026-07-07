@@ -931,10 +931,12 @@ export const launchSeedRun = internalAction({
     // file-based guard would skip the launch and instantly report the baked
     // "done" — capturing without ever re-seeding. Stale markers are scrubbed
     // before every fresh launch for the same reason.
-    await execHandle(
-      sandbox,
+    // Launch DETACHED via the provider so it returns immediately without holding
+    // the exec stream (on Vercel a synchronous `&` launch would StreamError; on
+    // Daytona this is a normal exec). The workflow observes progress via
+    // pollSeedRun markers, so the launcher's stdout is not needed.
+    await sandbox.execDetached(
       `if pgrep -f "[s]eedrun.sh" >/dev/null; then echo ALREADY-RUNNING; else rm -f /tmp/.seedrun-done /tmp/seedrun.log && echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && setsid nohup /tmp/seedrun.sh </dev/null >/dev/null 2>&1 & echo LAUNCHED; fi`,
-      120,
     );
     return null;
   },

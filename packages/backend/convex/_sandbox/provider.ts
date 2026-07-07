@@ -179,6 +179,15 @@ export interface SandboxHandle {
   exec(cmd: string, opts?: SandboxExecOptions): Promise<SandboxExecResult>;
 
   /**
+   * Launch a command detached and return immediately, without holding the exec
+   * stream for the process's lifetime. Used to kick off long-running daemons /
+   * the seed-run script. On Daytona this is a normal exec (its `setsid nohup … &`
+   * returns at once); on Vercel it must use native detached exec, because a shell
+   * `&` inside a synchronous exec keeps Vercel's stream open until it times out.
+   */
+  execDetached(cmd: string, opts?: SandboxExecOptions): Promise<void>;
+
+  /**
    * Write a file into the sandbox filesystem at an absolute path, creating
    * parent directories as needed. (Daytona: `fs.uploadFile`; Vercel: `writeFiles`.)
    */

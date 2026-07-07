@@ -9,8 +9,10 @@ export {
   getOrphanedSeededApps,
   getSeededAppStatus,
   setSeededSnapshotName,
+  setSeededSnapshotNameForAll,
   getSeedFingerprint,
   setImageFingerprint,
+  getPrimarySeedAppRepo,
 } from "./_repoSnapshots/config";
 
 export {

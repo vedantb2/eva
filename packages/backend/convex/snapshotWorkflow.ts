@@ -27,30 +27,30 @@ const MAX_SEED_SNAPSHOT_POLLS = 240; // ~60 minutes at 15s intervals — capture
 // exhausting it costs the app its seeded refresh for this build.
 
 /**
- * Snapshot build workflow — sandbox-native model.
+ * Snapshot build workflow — SINGLE whole-repo seeded snapshot model.
  *
- * Each app's snapshot is refreshed INSIDE a sandbox booted from its previous
- * seeded snapshot (warm: toolchain, service docker images, node_modules and
- * local backends all present), rather than via a separate declarative Image
- * build:
+ * Instead of one seeded snapshot per app, the whole monorepo is captured into
+ * ONE seeded snapshot on a single fresh sandbox: clone → install toolchain +
+ * deps → start the shared stack (Supabase + Convex) → seed → capture ONE
+ * `snap_*` → write it to every seedable app repo's seededSnapshotName. Any
+ * app then boots from the same snapshot (its code/deps are present; if it
+ * owns its own Convex, that cold-starts on first use).
  *
- *   per app, in parallel:
- *     1. boot a sandbox from the app's previous seeded snapshot
- *        (fallback: the base Image snapshot when no seeded exists yet)
- *     2. fetch latest refs (fetchBaseBranch owns git auth)
- *     3. run ONE detached script: git reset to the build branch → repo build
- *        commands (fresh deps/artifacts) → launch background daemons → seed
- *        commands → marker → clean stop; the workflow polls its markers
- *     4. capture a versioned snapshot (seeded-<repoId>-<buildId>), poll to
- *        active, swap the repo pointer, then delete the previous snapshot
- *        (keep-last-good: a failure at any point leaves the old snapshot live)
+ *   1. resolve the PRIMARY seed app (getPrimarySeedAppRepo) — the seedable
+ *      app whose commands require Supabase capture (owns start-db/supabase/
+ *      seed:sql), falling back to the first seedable app
+ *   2. boot ONE fresh seed-prep sandbox from the primary app
+ *   3. fetch latest refs (fetchBaseBranch owns git auth)
+ *   4. run ONE detached script (launchSeedRun): toolchain + config files
+ *      (Vercel only) → git reset → install → daemons → seed commands →
+ *      marker → clean stop; the workflow polls its markers
+ *   5. capture ONE snapshot, poll to active, write it to every seedable app
+ *      repo's seededSnapshotName
+ *   6. stop/delete all sandboxes for these repos (best-effort safety net)
  *
- * Everything a sandbox boot needs is refreshed every build — code, deps, build
- * artifacts, seeded data — with no separate Image rebuild (~11-15m serial, and
- * observed 2-4x slower when captures ran concurrently against Daytona's
- * builder). The declarative Image build remains ONLY as the bootstrap /
- * toolchain-change path, behind forceImageRebuild (run it when an app has no
- * seeded snapshot yet, or buildSnapshotImage's tool layers change).
+ * No warmup step: the first user sandbox created from the new snapshot pays
+ * the cold-boot cost directly. The declarative Image build remains ONLY as
+ * the bootstrap / toolchain-change path, behind forceImageRebuild.
  */
 export const snapshotBuildWorkflow = workflow.define({
   args: {
@@ -93,15 +93,27 @@ export const snapshotBuildWorkflow = workflow.define({
     }
     const branch = config.workflowRef ?? "main";
 
-    const apps = await step.runQuery(
-      internal.repoSnapshots.getSeedableAppRepos,
+    // Resolve the primary seed app + the full set of seedable app repos that
+    // must all end up pointing at the ONE snapshot built below.
+    const primary = await step.runQuery(
+      internal.repoSnapshots.getPrimarySeedAppRepo,
       { repoSnapshotId: args.repoSnapshotId },
     );
+    if (!primary && !args.forceImageRebuild) {
+      await step.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error: "No seedable apps configured for this repo",
+      });
+      return;
+    }
+    const seedableRepoIds = primary?.seedableRepoIds ?? [];
 
     try {
       await step.runAction(internal.snapshotActions.sweepSeedPrepSandboxes, {
         repoId: config.repoId,
-        scopedRepoIds: apps.map((app) => app.repoId),
+        scopedRepoIds: seedableRepoIds,
         buildId: args.buildId,
       });
     } catch (e) {
@@ -122,7 +134,7 @@ export const snapshotBuildWorkflow = workflow.define({
     );
     for (const orphan of orphans) {
       try {
-        await step.runAction(internal.snapshotActions.deleteDaytonaSnapshot, {
+        await step.runAction(internal.snapshotActions.deleteSeededSnapshot, {
           snapshotName: orphan.seededSnapshotName,
           repoId: orphan.repoId,
         });
@@ -190,226 +202,215 @@ export const snapshotBuildWorkflow = workflow.define({
     } else {
       await step.runMutation(internal.repoSnapshots.appendLogs, {
         buildId: args.buildId,
-        chunk: args.forceBaseSeed
-          ? `Sandbox-native build: updating + reseeding ${apps.length} app(s) from the base Image (branch: ${branch}).\n`
-          : `Sandbox-native build: updating + reseeding ${apps.length} app(s) from their previous seeded snapshots (branch: ${branch}).\n`,
+        chunk: `Single seeded snapshot build: updating + reseeding ${seedableRepoIds.length} app(s) from a fresh sandbox (branch: ${branch}).\n`,
       });
     }
 
-    // Whether the base Image exists (fallback boot source for apps that have
-    // no seeded snapshot yet).
-    const imageState = await step.runAction(
-      internal.snapshotActions.pollSeededSnapshotState,
-      { repoId: config.repoId, seededName: config.snapshotName },
+    // forceImageRebuild has no seedable apps to chase further (it only
+    // refreshes the base Image); the seed flow below needs a primary app.
+    if (!primary) return;
+    const primaryRepoId = primary.primaryRepoId;
+
+    // Track the previous per-app seeded snapshot names so a failure can log
+    // what stays live, and so we can best-effort delete now-orphaned ones
+    // once the new snapshot is confirmed active.
+    const previousSeededNames = await step.runQuery(
+      internal.repoSnapshots.getSeedableAppRepos,
+      { repoSnapshotId: args.repoSnapshotId },
     );
 
-    // Per-app pipeline. Versioned capture name (buildId is unique per build):
-    // the previous seeded snapshot stays LIVE and untouched until the
-    // replacement is active, so a failed build never costs an app its warm
-    // snapshot — sandboxes keep booting from the old one and the next build
-    // warm-boots from it. Only after a successful swap is the old snapshot
-    // deleted (keep-last-good).
-    const runSeedChain = async (
-      app: (typeof apps)[number],
-    ): Promise<boolean> => {
-      const seededName = `seeded-${app.repoId}-${args.buildId}`;
-      let prepSandboxId: string | null = null;
-      try {
-        // Mark this app as actively seeding so the UI shows a spinner until
-        // it resolves to seeded/fallback below.
+    const seededName = `seeded-${primaryRepoId}-${args.buildId}`;
+    let prepSandboxId: string | null = null;
+
+    // Marks every seedable app as fallback (keeping its previous snapshot
+    // name) and completes the build with an error. Used on every failure exit.
+    const failBuild = async (error: string): Promise<void> => {
+      for (const app of previousSeededNames) {
         await step.runMutation(internal.repoSnapshots.recordSeededApp, {
           buildId: args.buildId,
           repoId: app.repoId,
+          status: "fallback",
+          seededSnapshotName: app.seededSnapshotName,
+        });
+      }
+      await step.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "error",
+        logs: "",
+        error,
+      });
+      await step.runAction(internal.snapshotActions.stopAllRepoSandboxes, {
+        seedableRepoIds,
+      });
+    };
+
+    try {
+      // Mark every seedable app as actively seeding so the UI shows a
+      // spinner until the single build resolves to seeded/fallback below.
+      for (const repoId of seedableRepoIds) {
+        await step.runMutation(internal.repoSnapshots.recordSeededApp, {
+          buildId: args.buildId,
+          repoId,
           status: "running",
           seededSnapshotName: null,
         });
-        // Boot source cascade: previous seeded snapshot (warm: toolchain +
-        // service images + deps all present) → base Image (bootstrap). The
-        // retry/backoff absorbs runner propagation lag on fresh snapshots.
-        const sources = [
-          ...(app.seededSnapshotName && args.forceBaseSeed !== true
-            ? [app.seededSnapshotName]
-            : []),
-          ...(imageState === "active" ? [config.snapshotName] : []),
-        ];
-        if (sources.length === 0) {
-          throw new Error(
-            `No boot source for ${app.repoId}: no previous seeded snapshot and no base Image — run forceImageRebuild to bootstrap`,
-          );
-        }
-        for (const source of sources) {
-          try {
-            const created = await step.runAction(
-              internal.snapshotActions.createSeedPrepSandbox,
-              { repoId: app.repoId, imageSnapshot: source },
-              { retry: { maxAttempts: 4, initialBackoffMs: 15000, base: 2 } },
-            );
-            prepSandboxId = created.sandboxId;
-            console.log(
-              `[snapshot] booted seed sandbox for ${app.repoId} from ${source}`,
-            );
-            break;
-          } catch (e) {
-            console.error(
-              `[snapshot] boot from ${source} failed for ${app.repoId}: ${
-                e instanceof Error ? e.message : String(e)
-              }`,
-            );
-          }
-        }
-        if (!prepSandboxId) {
-          throw new Error(
-            `Could not boot a seed sandbox for ${app.repoId} from any source`,
-          );
-        }
-        // Fresh refs for the detached script's hard reset (owns git auth).
-        await step.runAction(
-          internal.daytona.fetchBaseBranch,
-          {
-            sandboxId: prepSandboxId,
-            installationId: repo.installationId,
-            repoOwner: repo.owner,
-            repoName: repo.name,
-            baseBranch: branch,
-            repoId: app.repoId,
-          },
-          { retry: { maxAttempts: 3, initialBackoffMs: 10000, base: 2 } },
+      }
+
+      // One fresh seed-prep sandbox for the whole build (Vercel maps a
+      // non-`snap_` source to a fresh sandbox; Daytona would map onto its
+      // Image snapshot the same way the old per-app flow did).
+      const created = await step.runAction(
+        internal.snapshotActions.createSeedPrepSandbox,
+        { repoId: primaryRepoId, imageSnapshot: config.snapshotName },
+        { retry: { maxAttempts: 4, initialBackoffMs: 15000, base: 2 } },
+      );
+      prepSandboxId = created.sandboxId;
+
+      // Fresh refs for the detached script's hard reset (owns git auth).
+      await step.runAction(
+        internal.daytona.fetchBaseBranch,
+        {
+          sandboxId: prepSandboxId,
+          installationId: repo.installationId,
+          repoOwner: repo.owner,
+          repoName: repo.name,
+          baseBranch: branch,
+          repoId: primaryRepoId,
+        },
+        { retry: { maxAttempts: 3, initialBackoffMs: 10000, base: 2 } },
+      );
+
+      // Launch the whole pipeline detached; poll its outcome markers. The
+      // launch is idempotent (live-process guard), so retries can't race a
+      // second copy of the script.
+      await step.runAction(
+        internal.snapshotActions.launchSeedRun,
+        {
+          sandboxId: prepSandboxId,
+          repoId: primaryRepoId,
+          branch,
+          buildCommands: config.buildCommands ?? [],
+        },
+        { retry: { maxAttempts: 3, initialBackoffMs: 10000, base: 2 } },
+      );
+
+      let seedState = "running";
+      for (
+        let pollAttempt = 1;
+        pollAttempt <= MAX_SEED_RUN_POLLS && seedState === "running";
+        pollAttempt++
+      ) {
+        seedState = await step.runAction(
+          internal.snapshotActions.pollSeedRun,
+          { sandboxId: prepSandboxId, repoId: primaryRepoId },
+          { runAfter: SEED_RUN_POLL_DELAY_MS },
         );
-        // Launch the whole pipeline detached; poll its outcome markers. The
-        // launch is idempotent (live-process guard), so retries can't race a
-        // second copy of the script.
-        await step.runAction(
-          internal.snapshotActions.launchSeedRun,
-          {
-            sandboxId: prepSandboxId,
-            repoId: app.repoId,
-            branch,
-            buildCommands: config.buildCommands ?? [],
-          },
-          { retry: { maxAttempts: 3, initialBackoffMs: 10000, base: 2 } },
+      }
+      if (seedState !== "done") {
+        // Grab the seed-run + daemon logs into the build record BEFORE the
+        // sandbox is torn down — teardown destroys the evidence.
+        const diagnostics = await step.runAction(
+          internal.snapshotActions.fetchSeedDiagnostics,
+          { sandboxId: prepSandboxId, repoId: primaryRepoId },
         );
-        let seedState = "running";
-        for (
-          let pollAttempt = 1;
-          pollAttempt <= MAX_SEED_RUN_POLLS && seedState === "running";
-          pollAttempt++
-        ) {
-          seedState = await step.runAction(
-            internal.snapshotActions.pollSeedRun,
-            { sandboxId: prepSandboxId, repoId: app.repoId },
-            { runAfter: SEED_RUN_POLL_DELAY_MS },
-          );
-        }
-        if (seedState !== "done") {
-          // Grab the seed-run + daemon logs into the build record BEFORE the
-          // catch tears the sandbox down — teardown destroys the evidence.
-          const diagnostics = await step.runAction(
-            internal.snapshotActions.fetchSeedDiagnostics,
-            { sandboxId: prepSandboxId, repoId: app.repoId },
-          );
-          await step.runMutation(internal.repoSnapshots.appendLogs, {
-            buildId: args.buildId,
-            chunk: `[seed ${app.repoId}] FAILED (${seedState}) — diagnostics:\n${diagnostics}\n`,
-          });
-          throw new Error(
-            `Seed run for ${app.repoId} did not complete (state: ${seedState})`,
-          );
-        }
-        // Capture the refreshed filesystem snapshot. Trigger fires the POST
-        // without blocking; poll across separate steps so a long DB capture
-        // never exceeds Convex's 600s per-action ceiling.
-        // triggerSeededSnapshot returns the provider's actual snapshot id:
-        // - Daytona: equals seededName (the Daytona snapshot name IS its id)
-        // - Vercel: a generated `snap_*` id distinct from seededName
-        // All subsequent steps must use effectiveSeededName so that the right
-        // id is polled and written to seededSnapshotName on the repo.
-        const { snapshotId: effectiveSeededName } = await step.runAction(
-          internal.snapshotActions.triggerSeededSnapshot,
-          { repoId: app.repoId, sandboxId: prepSandboxId, seededName },
-        );
-        let snapState = "pending";
-        for (
-          let pollAttempt = 1;
-          pollAttempt <= MAX_SEED_SNAPSHOT_POLLS &&
-          !isTerminalSnapshotState(snapState);
-          pollAttempt++
-        ) {
-          snapState = await step.runAction(
-            internal.snapshotActions.pollSeededSnapshotState,
-            { repoId: app.repoId, seededName: effectiveSeededName },
-            {
-              runAfter:
-                pollAttempt === 1 ? 10_000 : SEED_SNAPSHOT_POLL_DELAY_MS,
-            },
-          );
-        }
-        if (snapState !== "active") {
-          throw new Error(
-            `Seeded snapshot for ${app.repoId} did not reach active (last state: ${snapState})`,
-          );
-        }
+        await step.runMutation(internal.repoSnapshots.appendLogs, {
+          buildId: args.buildId,
+          chunk: `[seed ${primaryRepoId}] FAILED (${seedState}) — diagnostics:\n${diagnostics}\n`,
+        });
         await step.runAction(internal.snapshotActions.deleteSeedPrepSandbox, {
           sandboxId: prepSandboxId,
-          repoId: app.repoId,
+          repoId: primaryRepoId,
         });
         prepSandboxId = null;
-        // SWAP: point the repo at the new snapshot, then (best-effort) delete
-        // the previous one. New sandboxes cut over atomically; a failed delete
-        // just leaves a stray snapshot that the next successful build removes.
-        await step.runMutation(internal.repoSnapshots.setSeededSnapshotName, {
-          repoId: app.repoId,
-          seededSnapshotName: effectiveSeededName,
+        await failBuild(
+          `Seed run did not complete (state: ${seedState}) — see logs for diagnostics`,
+        );
+        return;
+      }
+
+      // Capture the refreshed filesystem into ONE snapshot. Trigger fires the
+      // POST without blocking; poll across separate steps so a long DB
+      // capture never exceeds Convex's 600s per-action ceiling.
+      // triggerSeededSnapshot returns the provider's actual snapshot id:
+      // - Daytona: equals seededName (the Daytona snapshot name IS its id)
+      // - Vercel: a generated `snap_*` id distinct from seededName
+      // All subsequent steps must use effectiveSeededName so that the right
+      // id is polled and written to seededSnapshotName on every app repo.
+      const { snapshotId: effectiveSeededName } = await step.runAction(
+        internal.snapshotActions.triggerSeededSnapshot,
+        { repoId: primaryRepoId, sandboxId: prepSandboxId, seededName },
+      );
+
+      let snapState = "pending";
+      for (
+        let pollAttempt = 1;
+        pollAttempt <= MAX_SEED_SNAPSHOT_POLLS &&
+        !isTerminalSnapshotState(snapState);
+        pollAttempt++
+      ) {
+        snapState = await step.runAction(
+          internal.snapshotActions.pollSeededSnapshotState,
+          { repoId: primaryRepoId, seededName: effectiveSeededName },
+          {
+            runAfter: pollAttempt === 1 ? 10_000 : SEED_SNAPSHOT_POLL_DELAY_MS,
+          },
+        );
+      }
+      if (snapState !== "active") {
+        await step.runAction(internal.snapshotActions.deleteSeedPrepSandbox, {
+          sandboxId: prepSandboxId,
+          repoId: primaryRepoId,
         });
+        prepSandboxId = null;
+        // Best-effort: remove the partial/failed capture so it doesn't linger.
+        await step.runAction(internal.snapshotActions.deleteSeededSnapshot, {
+          snapshotName: effectiveSeededName,
+          repoId: primaryRepoId,
+        });
+        await failBuild(
+          `Seeded snapshot did not reach active (last state: ${snapState})`,
+        );
+        return;
+      }
+
+      await step.runAction(internal.snapshotActions.deleteSeedPrepSandbox, {
+        sandboxId: prepSandboxId,
+        repoId: primaryRepoId,
+      });
+      prepSandboxId = null;
+
+      // SWAP: point every seedable app repo at the ONE new snapshot.
+      await step.runMutation(
+        internal.repoSnapshots.setSeededSnapshotNameForAll,
+        { repoIds: seedableRepoIds, seededSnapshotName: effectiveSeededName },
+      );
+      for (const repoId of seedableRepoIds) {
         await step.runMutation(internal.repoSnapshots.recordSeededApp, {
           buildId: args.buildId,
-          repoId: app.repoId,
+          repoId,
           status: "seeded",
           seededSnapshotName: effectiveSeededName,
         });
-        try {
-          await step.runMutation(
-            internal.repoSnapshots.updateSeededAppWarmupStatus,
-            {
-              buildId: args.buildId,
-              repoId: app.repoId,
-              status: "pending",
-            },
-          );
-          await step.runAction(
-            internal.snapshotActions.warmSeededSnapshotCache,
-            {
-              buildId: args.buildId,
-              repoId: app.repoId,
-              seededName: effectiveSeededName,
-            },
-          );
-        } catch (e) {
-          const message = e instanceof Error ? e.message : String(e);
-          await step.runMutation(
-            internal.repoSnapshots.updateSeededAppWarmupStatus,
-            {
-              buildId: args.buildId,
-              repoId: app.repoId,
-              status: "error",
-              error: message,
-            },
-          );
-          await step.runMutation(internal.repoSnapshots.appendLogs, {
-            buildId: args.buildId,
-            chunk: `[warm ${app.repoId}] skipped after error: ${message}\n`,
-          });
-        }
+      }
+
+      await step.runMutation(internal.repoSnapshots.completeBuild, {
+        buildId: args.buildId,
+        status: "success",
+        logs: `Single seeded snapshot ${effectiveSeededName} built for ${seedableRepoIds.length} app(s).\n`,
+      });
+
+      // Best-effort: delete each app's previous snapshot if it differed from
+      // the new one (keep-last-good already swapped above, so failures here
+      // just leave a stray snapshot that the next successful build removes).
+      for (const app of previousSeededNames) {
         if (
           app.seededSnapshotName &&
           app.seededSnapshotName !== effectiveSeededName
         ) {
           try {
             await step.runAction(
-              internal.snapshotActions.deleteDaytonaSnapshot,
-              {
-                snapshotName: app.seededSnapshotName,
-                repoId: app.repoId,
-              },
+              internal.snapshotActions.deleteSeededSnapshot,
+              { snapshotName: app.seededSnapshotName, repoId: app.repoId },
             );
           } catch (e) {
             console.error(
@@ -419,56 +420,22 @@ export const snapshotBuildWorkflow = workflow.define({
             );
           }
         }
-        return true;
-      } catch (e) {
-        console.error(
-          `[snapshot] seeded build failed for ${app.repoId}: ${e instanceof Error ? e.message : String(e)}`,
-        );
-        // Tear down the prep sandbox so it doesn't linger.
-        if (prepSandboxId) {
-          await step.runAction(internal.snapshotActions.deleteSeedPrepSandbox, {
-            sandboxId: prepSandboxId,
-            repoId: app.repoId,
-          });
-        }
-        // Best-effort: remove the partial/orphaned versioned capture if the
-        // trigger fired before the failure (no-op when it never registered).
-        try {
-          await step.runAction(internal.snapshotActions.deleteDaytonaSnapshot, {
-            snapshotName: seededName,
-            repoId: app.repoId,
-          });
-        } catch {
-          // ignore — snapshot may not exist
-        }
-        // The repo keeps its PREVIOUS seededSnapshotName (untouched above), so
-        // sandboxes continue booting from the last good seeded snapshot.
-        await step.runMutation(internal.repoSnapshots.recordSeededApp, {
-          buildId: args.buildId,
-          repoId: app.repoId,
-          status: "fallback",
-          seededSnapshotName: app.seededSnapshotName,
-        });
-        return false;
       }
-    };
 
-    const results = await Promise.all(apps.map((app) => runSeedChain(app)));
-
-    // Finalize the build record (the forceImageRebuild path already recorded
-    // the image outcome; per-app outcomes live in seededApps either way).
-    if (!args.forceImageRebuild) {
-      const succeeded = results.filter(Boolean).length;
-      await step.runMutation(internal.repoSnapshots.completeBuild, {
-        buildId: args.buildId,
-        status: succeeded === apps.length ? "success" : "error",
-        logs: `Sandbox-native build finished: ${succeeded}/${apps.length} app snapshot(s) refreshed.\n`,
-        ...(succeeded === apps.length
-          ? {}
-          : {
-              error: `${apps.length - succeeded} app snapshot(s) fell back to their previous seeded snapshot — see per-app diagnostics in the logs`,
-            }),
+      await step.runAction(internal.snapshotActions.stopAllRepoSandboxes, {
+        seedableRepoIds,
       });
+    } catch (e) {
+      console.error(
+        `[snapshot] single seeded build failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      if (prepSandboxId) {
+        await step.runAction(internal.snapshotActions.deleteSeedPrepSandbox, {
+          sandboxId: prepSandboxId,
+          repoId: primaryRepoId,
+        });
+      }
+      await failBuild(e instanceof Error ? e.message : String(e));
     }
   },
 });

@@ -17,7 +17,6 @@ import {
   runStatusValidator,
   sessionModeValidator,
   sessionStatusValidator,
-  snapshotWarmupStatusValidator,
   taskActivityFieldValidator,
   taskSandboxEventValidator,
   taskSandboxStatusValidator,
@@ -189,12 +188,6 @@ export const seededAppStatusValidator = v.union(
   v.literal("fallback"),
 );
 
-/** Whether the active seeded snapshot was captured from a container or VM hot path. */
-export const seededSnapshotClassValidator = v.union(
-  v.literal("container"),
-  v.literal("vm-hot"),
-);
-
 // Per-app outcome of a seeded-snapshot build (recorded per snapshotBuild during
 // Step 5). status tracks the lifecycle (running while in progress); is optional
 // for build records created before the field existed (treat absent as terminal,
@@ -205,9 +198,6 @@ export const seededAppResultValidator = v.object({
   app: v.optional(v.string()),
   status: v.optional(seededAppStatusValidator),
   seededSnapshotName: v.union(v.string(), v.null()),
-  seededSnapshotClass: v.optional(seededSnapshotClassValidator),
-  warmupStatus: v.optional(snapshotWarmupStatusValidator),
-  warmupError: v.optional(v.string()),
 });
 
 export const githubRepoFields = {
@@ -247,10 +237,6 @@ export const githubRepoFields = {
   // build workflow skips re-seeding — the existing snapshot's data is identical
   // and re-capturing it would only contend with the image build.
   seededFingerprint: v.optional(v.string()),
-  // Class of the active seeded snapshot (container cold capture vs VM hot capture).
-  seededSnapshotClass: v.optional(seededSnapshotClassValidator),
-  // When true, the seeded-snapshot build uses the VM hot capture path (linux-vm).
-  vmHotSeededSnapshots: v.optional(v.boolean()),
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   systemPrompt: v.optional(v.string()),

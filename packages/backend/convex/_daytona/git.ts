@@ -54,12 +54,7 @@ const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
   ephemeral: true,
 };
 
-const WARMING_LIFECYCLE: SandboxLifecycle = {
-  autoStopInterval: 10,
-  ephemeral: true,
-};
-
-export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE, WARMING_LIFECYCLE };
+export { SESSION_LIFECYCLE, EPHEMERAL_LIFECYCLE };
 
 const REPO_CLONE_TIMEOUT_SECONDS = 300;
 const PNPM_INSTALL_TIMEOUT_SECONDS = 900;

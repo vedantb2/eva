@@ -67,6 +67,7 @@ export function DesktopPanel({
       stopAction={stopAction}
       transformUrl={appendNoVncParams}
       onReady={handleReady}
+      ensureStartedBeforeReady
       maxAttempts={40}
       icon={IconDeviceDesktop}
       inactiveLabel="Start the sandbox to use the desktop"

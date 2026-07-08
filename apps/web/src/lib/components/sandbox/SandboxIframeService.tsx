@@ -52,6 +52,8 @@ interface SandboxIframeServiceProps {
   transformUrl?: (url: string) => string;
   /** Optional side-effect when the service becomes ready (e.g. launch chrome). */
   onReady?: (url: string) => void;
+  /** Run startAction before accepting an already-ready port. */
+  ensureStartedBeforeReady?: boolean;
   /** Maximum poll attempts before declaring failure. */
   maxAttempts: number;
   /** Tabler icon shown in the inactive / idle empty states. */
@@ -91,6 +93,7 @@ export function SandboxIframeService({
   stopAction,
   transformUrl,
   onReady,
+  ensureStartedBeforeReady = false,
   maxAttempts,
   icon: Icon,
   inactiveLabel,
@@ -196,6 +199,20 @@ export function SandboxIframeService({
     setUrl(null);
     stopPolling();
     try {
+      if (ensureStartedBeforeReady) {
+        const result = await startAction();
+        if (!result.success) {
+          const msg = result.logs
+            ? `${result.message ?? startFailedError}\n\nLogs:\n${result.logs}`
+            : (result.message ?? startFailedError);
+          setError(msg);
+          setState("error");
+          return;
+        }
+        await pollForReady();
+        return;
+      }
+
       const existing = await getPreviewUrl({
         sandboxId,
         port,
@@ -231,6 +248,7 @@ export function SandboxIframeService({
     startAction,
     pollForReady,
     startFailedError,
+    ensureStartedBeforeReady,
   ]);
 
   const stop = useCallback(async () => {
@@ -252,12 +270,26 @@ export function SandboxIframeService({
     if (isActive && sandboxId && state === "idle" && cachedUrl) {
       setUrl(cachedUrl);
       setState("running");
+      onReady?.(cachedUrl);
+      if (ensureStartedBeforeReady) {
+        startAction().catch(() => {});
+      }
     }
     if (!isActive) {
       setCachedUrl(null);
     }
     return stopPolling;
-  }, [isActive, sandboxId, state, stopPolling, cachedUrl, setCachedUrl]);
+  }, [
+    isActive,
+    sandboxId,
+    state,
+    stopPolling,
+    cachedUrl,
+    setCachedUrl,
+    onReady,
+    ensureStartedBeforeReady,
+    startAction,
+  ]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;

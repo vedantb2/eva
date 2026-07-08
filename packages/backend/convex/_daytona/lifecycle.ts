@@ -3,7 +3,12 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { execHandle, getSandboxHandle } from "./helpers";
+import {
+  execHandle,
+  getSandboxHandle,
+  KILL_PRIOR_AGENT_PROCESSES_CMD,
+} from "./helpers";
+import { resolveSandboxCredentials } from "../envVarResolver";
 
 /**
  * Short wait window for the start kick-off. A stopped→started fast resume
@@ -149,11 +154,7 @@ export const killSandboxProcess = internalAction({
   handler: async (ctx, args) => {
     try {
       const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-      await execHandle(
-        sandbox,
-        "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'opencode' 2>/dev/null; pkill -f 'cursor-agent' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
-        10,
-      );
+      await execHandle(sandbox, KILL_PRIOR_AGENT_PROCESSES_CMD, 10);
     } catch {
       // Sandbox may already be stopped/deleted
     }
@@ -302,12 +303,16 @@ export const archiveSandbox = internalAction({
  */
 export const startSandboxAsyncKickoff = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
-  returns: v.object({ state: v.string() }),
+  returns: v.object({
+    state: v.string(),
+    provider: v.union(v.literal("daytona"), v.literal("vercel")),
+  }),
   handler: async (ctx, args) => {
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await sandbox.refresh();
     if (sandbox.state === "running") {
-      return { state: "running" };
+      return { state: "running", provider: credentials.kind };
     }
     try {
       // start() POSTs the start request, then waits up to the given window. The
@@ -329,7 +334,7 @@ export const startSandboxAsyncKickoff = internalAction({
     console.log(
       `[daytona] startSandboxAsyncKickoff: sandbox ${args.sandboxId} state after kick-off = ${state}`,
     );
-    return { state };
+    return { state, provider: credentials.kind };
   },
 });
 
@@ -345,7 +350,12 @@ export const pollSandboxStarted = internalAction({
   handler: async (ctx, args) => {
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await sandbox.refresh();
-    const state = sandbox.state;
+    let state = sandbox.state;
+    if (state !== "running" && !TERMINAL_FAILURE_STATES.includes(state)) {
+      await sandbox.start(KICKOFF_START_WAIT_SECONDS);
+      await sandbox.refresh();
+      state = sandbox.state;
+    }
     if (TERMINAL_FAILURE_STATES.includes(state)) {
       throw new Error(
         `Sandbox ${args.sandboxId} reached terminal state "${state}" during restore: ${sandbox.errorReason ?? "no reason given"}`,

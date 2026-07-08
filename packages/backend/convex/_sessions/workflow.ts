@@ -170,7 +170,7 @@ export const sessionExecuteWorkflow = workflow.define({
           branchName: data.branchName ?? `eva/session-${args.sessionId}`,
           baseBranch: data.baseBranch,
           repoId: data.repoId,
-          startDesktop: true,
+          startDesktop: false,
         },
         { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } },
       );
@@ -183,19 +183,33 @@ export const sessionExecuteWorkflow = workflow.define({
       });
     }
 
-    await step.runAction(internal.daytona.launchOnExistingSandbox, {
-      sandboxId,
-      entityId: args.sessionId,
-      prompt: data.prompt,
-      userId: args.userId,
-      completionMutation: "sessionWorkflow:handleCompletion",
-      entityIdField: "sessionId",
-      model: data.model,
-      allowedTools: data.allowedTools,
-      repoId: data.repoId,
-      sessionPersistenceId: args.sessionId,
-      streamingEntityId: args.sessionId,
-    });
+    try {
+      await step.runAction(internal.daytona.launchOnExistingSandbox, {
+        sandboxId,
+        entityId: args.sessionId,
+        prompt: data.prompt,
+        userId: args.userId,
+        completionMutation: "sessionWorkflow:handleCompletion",
+        entityIdField: "sessionId",
+        model: data.model,
+        allowedTools: data.allowedTools,
+        repoId: data.repoId,
+        sessionPersistenceId: args.sessionId,
+        streamingEntityId: args.sessionId,
+      });
+    } catch (error) {
+      await step.runMutation(internal.sessionWorkflow.saveResult, {
+        sessionId: args.sessionId,
+        success: false,
+        result: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Sandbox agent launch failed.",
+        activityLog: null,
+      });
+      return;
+    }
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 
@@ -218,17 +232,26 @@ export const sessionExecuteWorkflow = workflow.define({
 
     if (args.mode !== "plan" && result.success && data.branchName) {
       try {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
-          sandboxId,
-          installationId: args.installationId,
-          repoOwner: data.repoOwner,
-          repoName: data.repoName,
-          repoId: data.repoId,
-          branchName: data.branchName,
-        });
+        const status = await step.runAction(
+          internal.daytona.runSandboxCommand,
+          {
+            sandboxId,
+            command: `test -d ${WORKSPACE_DIR}/.git && cd ${WORKSPACE_DIR} && git status --porcelain`,
+            timeoutSeconds: 10,
+            repoId: data.repoId,
+          },
+        );
+        if (status.trim()) {
+          await step.runAction(internal.daytona.pushSandboxBranch, {
+            sandboxId,
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            repoId: data.repoId,
+            branchName: data.branchName,
+          });
+        }
       } catch (error) {
-        savedSuccess = false;
-        savedError = `Session completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
         console.error(
           `[sessionWorkflow] pushSandboxBranch failed sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -460,15 +483,22 @@ export const saveResult = internalMutation({
       .first();
     if (!last) return null;
 
+    const publishFailedAfterResult =
+      args.result !== null &&
+      args.error !== null &&
+      args.error.startsWith(
+        "Session completed locally, but Eva could not publish",
+      );
     const patch: {
       content: string;
       activityLog?: string;
       finishedAt?: number;
       pendingQuestion?: string;
     } = {
-      content: args.success
-        ? args.result || "I couldn't process your message."
-        : `Error: ${args.error || "Unknown error during execution."}`,
+      content:
+        args.success || publishFailedAfterResult
+          ? args.result || "I couldn't process your message."
+          : `Error: ${args.error || "Unknown error during execution."}`,
       finishedAt: Date.now(),
     };
     if (args.activityLog) {

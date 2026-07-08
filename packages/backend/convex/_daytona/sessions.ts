@@ -480,6 +480,10 @@ async function prepareSessionSandboxInternal(
   ctx: GenericActionCtx<DataModel>,
   args: SessionSandboxPreparationArgs,
 ): Promise<PreparedSessionSandbox> {
+  // Total wall-clock budget for this call, logged at every exit point below
+  // so slow session starts can be attributed to reuse vs. fresh-create vs.
+  // provider without re-deriving it from scattered per-step timings.
+  const startedAt = Date.now();
   const actionDetails = `sessionId=${args.sessionId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
   const completedSteps: ProgressStep[] = [];
 
@@ -653,6 +657,9 @@ async function prepareSessionSandboxInternal(
     );
     if (reusedHandle && reusedResult) {
       await completeSessionProgress(ctx, args.sessionId);
+      logSession(
+        `prepareSessionSandboxInternal summary: elapsed=${formatDurationMsShort(Date.now() - startedAt)}, path=vercel-reuse, isNew=false, usedSnapshot=false (${actionDetails})`,
+      );
       return reusedResult;
     }
   }
@@ -807,6 +814,9 @@ async function prepareSessionSandboxInternal(
         );
   if (reused && reusedResult) {
     await completeSessionProgress(ctx, args.sessionId);
+    logSession(
+      `prepareSessionSandboxInternal summary: elapsed=${formatDurationMsShort(Date.now() - startedAt)}, path=daytona-reuse, isNew=false, usedSnapshot=false (${actionDetails})`,
+    );
     return reusedResult;
   }
   completedSteps.push({
@@ -947,21 +957,26 @@ async function prepareSessionSandboxInternal(
     });
 
     // Restore baked config files from /home/eva/sandbox-config into the workspace.
-    // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
+    // Skipped when usedSnapshot: createSandboxAndPrepareRepo already ran this
+    // exact copy (force: true) on the snapshot-restore path, and the
+    // checkout/setupBranch steps above don't touch untracked files, so
+    // re-copying here would be a pure duplicate on the common Vercel path.
     await emitSessionProgress(
       ctx,
       args.sessionId,
       completedSteps,
       "Restoring config files...",
     );
-    await runLoggedSessionStep(
-      "newSessionSandbox.copyConfigFiles",
-      sandboxDetails,
-      () =>
-        copySandboxConfigFilesToWorkspace(handle, {
-          force: true,
-        }),
-    );
+    if (!prepared.usedSnapshot) {
+      await runLoggedSessionStep(
+        "newSessionSandbox.copyConfigFiles",
+        sandboxDetails,
+        () =>
+          copySandboxConfigFilesToWorkspace(handle, {
+            force: true,
+          }),
+      );
+    }
     completedSteps.push({
       type: "tool",
       label: "Restoring config files...",
@@ -1076,6 +1091,9 @@ async function prepareSessionSandboxInternal(
     );
 
     await completeSessionProgress(ctx, args.sessionId);
+    logSession(
+      `prepareSessionSandboxInternal summary: elapsed=${formatDurationMsShort(Date.now() - startedAt)}, path=new, isNew=true, usedSnapshot=${prepared.usedSnapshot} (${sandboxDetails})`,
+    );
     return {
       sandbox: handle,
       isNew: true,
@@ -1702,21 +1720,25 @@ async function prepareTaskPreviewSandboxInternal(
     });
 
     // Restore baked config files from /home/eva/sandbox-config into the workspace.
-    // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
+    // Skipped when usedSnapshot: createSandboxAndPrepareRepo already ran this
+    // exact copy (force: true) on the snapshot-restore path — see the
+    // matching comment in prepareSessionSandboxInternal.
     await emitTaskProgress(
       ctx,
       args.taskId,
       completedSteps,
       "Restoring config files...",
     );
-    await runLoggedSessionStep(
-      "newTaskSandbox.copyConfigFiles",
-      sandboxDetails,
-      () =>
-        copySandboxConfigFilesToWorkspace(handle, {
-          force: true,
-        }),
-    );
+    if (!prepared.usedSnapshot) {
+      await runLoggedSessionStep(
+        "newTaskSandbox.copyConfigFiles",
+        sandboxDetails,
+        () =>
+          copySandboxConfigFilesToWorkspace(handle, {
+            force: true,
+          }),
+      );
+    }
     completedSteps.push({
       type: "tool",
       label: "Restoring config files...",
@@ -2160,21 +2182,25 @@ async function prepareProjectPreviewSandboxInternal(
   });
 
   // Restore baked config files from /home/eva/sandbox-config into the workspace.
-  // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
+  // Skipped when usedSnapshot: createSandboxAndPrepareRepo already ran this
+  // exact copy (force: true) on the snapshot-restore path — see the
+  // matching comment in prepareSessionSandboxInternal.
   await emitProjectProgress(
     ctx,
     args.projectId,
     completedSteps,
     "Restoring config files...",
   );
-  await runLoggedSessionStep(
-    "newProjectSandbox.copyConfigFiles",
-    sandboxDetails,
-    () =>
-      copySandboxConfigFilesToWorkspace(handle, {
-        force: true,
-      }),
-  );
+  if (!prepared.usedSnapshot) {
+    await runLoggedSessionStep(
+      "newProjectSandbox.copyConfigFiles",
+      sandboxDetails,
+      () =>
+        copySandboxConfigFilesToWorkspace(handle, {
+          force: true,
+        }),
+    );
+  }
   completedSteps.push({
     type: "tool",
     label: "Restoring config files...",

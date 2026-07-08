@@ -356,33 +356,47 @@ export async function createSandbox(
     // fetch/push. Without it, syncRepo/fetchBaseBranch fail with exit 128
     // ("jq: command not found") before the seed toolchain stage ever runs.
     // Daytona bakes jq into its base Image, so this is a no-op there.
+    // Timed individually (vs. one blanket log) so slow session creates can be
+    // attributed to a specific step from Convex logs alone.
     if (client.kind === "vercel") {
-      await execHandle(
-        sandbox,
-        "command -v jq >/dev/null 2>&1 || sudo dnf install -y jq >/dev/null 2>&1 || true",
-        120,
+      await runLoggedGitStep("createSandbox.ensureJq", sandbox.id, () =>
+        execHandle(
+          sandbox,
+          "command -v jq >/dev/null 2>&1 || sudo dnf install -y jq >/dev/null 2>&1 || true",
+          120,
+        ),
       );
     }
-    await execHandle(
-      sandbox,
-      `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,
-      10,
-    );
-    // Snapshot-restored /tmp/repo is owned by vercel-sandbox; session git
-    // commands run as a different uid and hit "dubious ownership" without this.
-    await execHandle(
-      sandbox,
-      "git config --global --add safe.directory '*'",
-      10,
-    );
+    await runLoggedGitStep("createSandbox.gitConfig", sandbox.id, async () => {
+      await execHandle(
+        sandbox,
+        `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,
+        10,
+      );
+      // Snapshot-restored /tmp/repo is owned by vercel-sandbox; session git
+      // commands run as a different uid and hit "dubious ownership" without this.
+      await execHandle(
+        sandbox,
+        "git config --global --add safe.directory '*'",
+        10,
+      );
+    });
 
     // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev).
     // Idempotent — also re-invoked from ensureSandboxRunning on resume since
-    // dockerd doesn't survive auto-stop.
+    // dockerd doesn't survive auto-stop. Both helpers already fast-path on an
+    // already-running daemon (`docker info` check first); the timing wrapper
+    // just makes that fast path visible in logs instead of assumed.
     if (client.kind === "vercel") {
-      await bootstrapVercelDocker(sandbox);
+      await runLoggedGitStep("createSandbox.bootstrapDocker", sandbox.id, () =>
+        bootstrapVercelDocker(sandbox),
+      );
     } else {
-      await ensureDockerDaemon(sandbox);
+      await runLoggedGitStep(
+        "createSandbox.ensureDockerDaemon",
+        sandbox.id,
+        () => ensureDockerDaemon(sandbox),
+      );
     }
 
     return sandbox;
@@ -1011,6 +1025,12 @@ export async function createSandboxAndPrepareRepo(
           await onSandboxAcquired(sandbox);
         }
         if (effectiveSnapshot) {
+          // Deliberately no `installDependencies`/pnpm install on this path:
+          // a seeded/base snapshot already carries node_modules from the seed
+          // build (launchSeedRun's buildCommands), and normalizeSnapshotWorktree
+          // preserves untracked files (skips `git clean -fd`) whenever the
+          // seed marker is present, so node_modules survives the reset below.
+          // Re-installing here would cost minutes on every session create.
           await normalizeSnapshotWorktree(sandbox);
           // The snapshot was baked with a stale token in its git config /
           // remotes. Install the credential helper before any git network op

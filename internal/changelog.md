@@ -1,5 +1,12 @@
 # Changelog
 
+## Vercel session parity: Computer, Editor, auth, fast start - 2026-07-08
+
+- noVNC on Vercel now loads RFB from jsDelivr and strips `crossorigin` so ES modules instantiate behind `*.vercel.run`; static assets bypass auth while HTML/WebSocket stay gated (auth-v10).
+- Editor and desktop run on internal ports (18080/16080) with auth proxies on 8080/6080 so open-in-new-tab matches Preview’s sign-in gate.
+- Session goes active right after `Sandbox.create` (before jq/git/docker); Vercel env is written post-create so the first-command boot penalty does not block “Sandbox started”.
+- Reason for change: Vercel migration needed Computer/Editor tabs, auth on all preview surfaces, and ~1–2s new-session ready time instead of waiting on full post-create setup.
+
 ## Vercel desktop VNC zombie fix - 2026-07-08
 
 - Stopped using `setsid … &` inside Vercel desktop start — that left Xvnc/websockify as zombies so noVNC HTML loaded but the RFB WebSocket hung on "Loading".

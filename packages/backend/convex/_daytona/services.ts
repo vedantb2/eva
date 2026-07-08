@@ -2,10 +2,12 @@
 
 import { v } from "convex/values";
 import { action } from "../_generated/server";
+import { resolveSandboxCredentials } from "../envVarResolver";
 import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
 import { launchChrome } from "./desktop";
+import { VERCEL_EDITOR_INTERNAL_PORT } from "./previewProxy";
 
-/** Starts or stops a code-server instance inside a sandbox on port 8080. */
+/** Starts or stops a code-server instance inside a sandbox. */
 export const toggleCodeServer = action({
   args: {
     sandboxId: v.string(),
@@ -25,44 +27,45 @@ export const toggleCodeServer = action({
       `[code-server] ${args.action} requested for sandbox ${args.sandboxId}`,
     );
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    // Vercel: listen internally so the auth proxy can own exposed 8080.
+    // Daytona: listen on 8080 (proxy sits on a separate 9xxx port).
+    const listenPort =
+      credentials.kind === "vercel" ? VERCEL_EDITOR_INTERNAL_PORT : 8080;
+    const bindAddr = credentials.kind === "vercel" ? "127.0.0.1" : "0.0.0.0";
 
     if (args.action === "start") {
-      // Check if already running
       try {
         const checkResult = await execHandle(
           handle,
-          "pgrep -f 'code-server.*8080'",
+          `curl -fsS http://127.0.0.1:${listenPort}/ >/dev/null 2>&1 && echo running || true`,
           5,
         );
-        if (checkResult.trim()) {
-          console.log(
-            `[code-server] Already running (pid: ${checkResult.trim()})`,
-          );
+        if (checkResult.trim().includes("running")) {
           return {
             success: true,
-            message: `Already running (pid: ${checkResult.trim()})`,
+            message: `Already running on ${listenPort}`,
           };
         }
       } catch {
         // Not running, proceed to start
       }
 
-      // Start code-server
-      console.log(`[code-server] Starting code-server on port 8080...`);
+      console.log(
+        `[code-server] Starting code-server on port ${listenPort}...`,
+      );
       try {
-        await execHandle(
-          handle,
-          `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${workspaceDirShell()} > /tmp/code-server.log 2>&1 &`,
-          10,
+        // Native detached exec — `… &` inside sync runCommand zombies on Vercel.
+        await handle.execDetached(
+          `code-server --port ${listenPort} --auth none --bind-addr ${bindAddr} ${workspaceDirShell()} > /tmp/code-server.log 2>&1`,
         );
 
-        // Wait a moment and check if it started
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        const pidCheck = await execHandle(
+        const ready = await execHandle(
           handle,
-          "pgrep -f 'code-server.*8080' || echo 'not running'",
-          5,
+          `for i in $(seq 1 20); do curl -fsS http://127.0.0.1:${listenPort}/ >/dev/null 2>&1 && echo ready && exit 0; sleep 0.5; done; echo not_ready`,
+          20,
         );
         const logs = await execHandle(
           handle,
@@ -70,24 +73,19 @@ export const toggleCodeServer = action({
           5,
         );
 
-        if (pidCheck.trim() && pidCheck.trim() !== "not running") {
-          console.log(
-            `[code-server] Started successfully (pid: ${pidCheck.trim()})`,
-          );
-          console.log(`[code-server] Logs:\n${logs}`);
+        if (ready.trim().includes("ready")) {
+          console.log(`[code-server] Started successfully on ${listenPort}`);
           return {
             success: true,
-            message: `Started (pid: ${pidCheck.trim()})`,
+            message: `Started on ${listenPort}`,
             logs,
           };
-        } else {
-          console.error(`[code-server] Failed to start. Logs:\n${logs}`);
-          return { success: false, message: "Failed to start", logs };
         }
+        console.error(`[code-server] Failed to start. Logs:\n${logs}`);
+        return { success: false, message: "Failed to start", logs };
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         console.error(`[code-server] Error starting: ${errorMsg}`);
-        // Try to get logs anyway
         let logs = "";
         try {
           logs = await execHandle(
@@ -101,7 +99,6 @@ export const toggleCodeServer = action({
         return { success: false, message: errorMsg, logs };
       }
     } else {
-      // Stop code-server
       console.log(`[code-server] Stopping code-server...`);
       try {
         await execHandle(handle, "pkill -f code-server || true", 10);

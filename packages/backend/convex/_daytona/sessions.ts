@@ -861,6 +861,11 @@ async function prepareSessionSandboxInternal(
     completedSteps,
     "Creating sandbox...",
   );
+  // Mark the session active as soon as the sandbox exists so the UI can chat /
+  // open tabs while branch checkout + services finish in the background.
+  // Snapshot restore is sub-second; the remaining work is what used to make
+  // "new session" feel like 10–60s.
+  let earlyReadyEmitted = false;
   const prepared = await runLoggedSessionStep(
     "createSessionSandboxAndPrepareRepo",
     `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
@@ -875,7 +880,17 @@ async function prepareSessionSandboxInternal(
         SESSION_LIFECYCLE,
         snapshotName,
         sessionVolumeMounts,
-        undefined,
+        async (sandbox) => {
+          if (earlyReadyEmitted) return;
+          earlyReadyEmitted = true;
+          await ctx.runMutation(internal.sessions.sandboxReady, {
+            sessionId: args.sessionId,
+            sandboxId: sandbox.id,
+            branchName: args.branchName,
+            isNew: true,
+            usedSnapshot: Boolean(snapshotName),
+          });
+        },
         undefined,
         { mode: "none" },
       ),

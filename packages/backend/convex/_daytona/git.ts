@@ -28,7 +28,11 @@ import {
 import { detectPackageManager } from "./devServer";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import { unwrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
-import { VERCEL_DEFAULT_EXPOSED_PORTS } from "../_sandbox/vercelProvider";
+import {
+  EVA_ENV_FILE,
+  renderEvaEnvFile,
+  VERCEL_DEFAULT_EXPOSED_PORTS,
+} from "../_sandbox/vercelProvider";
 
 type ActionCtx = GenericActionCtx<DataModel>;
 
@@ -289,6 +293,10 @@ export async function createSandbox(
   snapshotName?: string,
   volumes?: VolumeMountSpec[],
   readyTimeoutSeconds?: number,
+  // Fired as soon as Sandbox.create returns — before jq/git/docker setup.
+  // Those post-create steps absorb Vercel's first-command boot penalty
+  // (seconds–tens of seconds); session UI should not wait on them.
+  onSandboxAcquired?: (sandbox: SandboxHandle) => Promise<void>,
 ): Promise<SandboxHandle> {
   const details = [
     `installation=${installationId}`,
@@ -305,7 +313,14 @@ export async function createSandbox(
           : SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS
         : DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS);
 
-    const githubToken = await getInstallationToken(installationId);
+    // Vercel: create does not need the GitHub token at API time (env is a
+    // post-create file write). Overlap token fetch with Sandbox.create, then
+    // write the env file AFTER onSandboxAcquired so the UI goes active before
+    // the first-command boot penalty.
+    // Daytona: envVars are baked into create, so the token must be ready first.
+    const tokenPromise = getInstallationToken(installationId);
+    const githubToken =
+      client.kind === "vercel" ? undefined : await tokenPromise;
 
     // The adapter defaults an absent snapshot to daytona-large (Daytona) — non-
     // snapshot Daytona sandboxes (cpu=1, mem=1GB) have broken outbound
@@ -323,8 +338,12 @@ export async function createSandbox(
         // we don't have to rely on a post-start xrandr resize.
         VNC_RESOLUTION: "1920x1080",
         ...sandboxEnvVars,
-        GITHUB_TOKEN: githubToken,
-        INSTALLATION_ID: String(installationId),
+        ...(githubToken !== undefined
+          ? {
+              GITHUB_TOKEN: githubToken,
+              INSTALLATION_ID: String(installationId),
+            }
+          : {}),
       },
       lifecycle: {
         autoStopMinutes: lifecycle.autoStopInterval,
@@ -343,6 +362,23 @@ export async function createSandbox(
     logGit(
       `createSandbox: created id=${sandbox.id}, cpu=${sandbox.cpu}, memory=${sandbox.memory}, disk=${sandbox.disk}`,
     );
+    if (onSandboxAcquired) {
+      await onSandboxAcquired(sandbox);
+    }
+    if (client.kind === "vercel") {
+      const token = await tokenPromise;
+      await runLoggedGitStep("createSandbox.writeEvaEnv", sandbox.id, () =>
+        sandbox.writeFile(
+          EVA_ENV_FILE,
+          renderEvaEnvFile({
+            VNC_RESOLUTION: "1920x1080",
+            ...sandboxEnvVars,
+            GITHUB_TOKEN: token,
+            INSTALLATION_ID: String(installationId),
+          }),
+        ),
+      );
+    }
 
     const appSlug = process.env.GITHUB_APP_SLUG;
     const botUserId = process.env.GITHUB_BOT_USER_ID;
@@ -999,6 +1035,7 @@ export async function createSandboxAndPrepareRepo(
             effectiveSnapshot,
             volumes,
             readyTimeoutSeconds,
+            onSandboxAcquired,
           );
         } catch (err) {
           if (effectiveSnapshot && isSnapshotUnusableError(err)) {
@@ -1016,13 +1053,11 @@ export async function createSandboxAndPrepareRepo(
               undefined,
               volumes,
               readyTimeoutSeconds,
+              onSandboxAcquired,
             );
           } else {
             throw err;
           }
-        }
-        if (onSandboxAcquired) {
-          await onSandboxAcquired(sandbox);
         }
         if (effectiveSnapshot) {
           // Deliberately no `installDependencies`/pnpm install on this path:

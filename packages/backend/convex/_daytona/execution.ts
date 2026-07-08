@@ -75,6 +75,8 @@ import { startDesktopWithChrome } from "./desktop";
 import {
   ensurePreviewNavigationProxy,
   VERCEL_PREVIEW_PROXY_PORT,
+  VERCEL_DESKTOP_INTERNAL_PORT,
+  VERCEL_EDITOR_INTERNAL_PORT,
 } from "./previewProxy";
 import {
   unwrapDaytonaSandbox,
@@ -414,9 +416,20 @@ export const getPreviewUrl = action({
 
     const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+
+    // On Vercel, services listen on internal ports and the auth proxy owns the
+    // exposed port (same pattern as app preview 54321→3000). Probe the
+    // upstream service port for readiness, not the proxy port.
+    const upstreamPort =
+      credentials.kind === "vercel" && args.port === 6080
+        ? VERCEL_DESKTOP_INTERNAL_PORT
+        : credentials.kind === "vercel" && args.port === 8080
+          ? VERCEL_EDITOR_INTERNAL_PORT
+          : args.port;
+
     let ready = true;
     if (args.checkReady) {
-      ready = await probePreviewReady(handle, args.port);
+      ready = await probePreviewReady(handle, upstreamPort);
       // Only auto-restart the app/dev server for app preview ports.
       // Desktop (6080) and editor (8080) are started by their own toggle
       // actions — launching `pnpm run dev` onto those ports would clobber
@@ -440,35 +453,44 @@ export const getPreviewUrl = action({
       }
     }
 
-    // Always front the dev server with the in-sandbox proxy (not just when
-    // navigationSync is set) so the auth gate covers every preview surface —
-    // dev server, code-server editor, VNC desktop, design preview. When no
-    // grant key is configured the proxy runs in legacy pass-through mode.
-    // `navigationSync` now only decides whether the HTML nav-sync script is
-    // injected.
+    // Always front the service with the in-sandbox auth proxy so open-in-new-tab
+    // is gated the same way for Preview, Computer, and Editor.
     //
-    // Vercel exposes a fixed, small port set. Use the reserved 54321 port for
-    // app previews there; editor (8080) and desktop (6080) keep their own
-    // direct exposed ports so one proxy does not clobber another surface.
+    // Vercel exposes a fixed 4-port set. Map:
+    //   app 3000  → proxy on 54321 (upstream 3000)
+    //   editor    → proxy on 8080  (upstream 18080)
+    //   desktop   → proxy on 6080  (upstream 16080)
+    // Daytona uses a free 9xxx proxy port in front of the real service port.
     const previewPublicJwk = getPreviewGrantPublicJwk();
     let previewPort = args.port;
     const fixedVercelProxyPort =
       credentials.kind === "vercel" && args.port === 3000
         ? VERCEL_PREVIEW_PROXY_PORT
-        : undefined;
+        : credentials.kind === "vercel" &&
+            (args.port === 6080 || args.port === 8080)
+          ? args.port
+          : undefined;
+    const proxyTargetPort =
+      credentials.kind === "vercel" && args.port === 6080
+        ? VERCEL_DESKTOP_INTERNAL_PORT
+        : credentials.kind === "vercel" && args.port === 8080
+          ? VERCEL_EDITOR_INTERNAL_PORT
+          : args.port;
     const shouldStartPreviewProxy =
       credentials.kind === "daytona" || fixedVercelProxyPort !== undefined;
     if (ready && shouldStartPreviewProxy) {
       try {
         previewPort = await ensurePreviewNavigationProxy(
           handle,
-          args.port,
+          proxyTargetPort,
           {
             publicKeyJwk: previewPublicJwk,
             sandboxId: args.sandboxId,
             repoId: args.repoId,
             webAppUrl: process.env.WEB_APP_URL ?? "",
             inject: args.navigationSync === true,
+            // Browser-facing port for /preview-auth (may differ from upstream).
+            authPort: args.port,
           },
           fixedVercelProxyPort,
         );
@@ -478,10 +500,9 @@ export const getPreviewUrl = action({
           `[daytona] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${proxyErrorMessage}`,
         );
         // Vercel only exposes a fixed, small port set (VERCEL_DEFAULT_EXPOSED_PORTS).
-        // If the reserved 54321 proxy port fails to start while a preview grant
-        // key is configured, silently falling back to the unproxied dev-server
-        // port would serve the app with no auth gate at all. Fail loudly instead
-        // of returning an ungated preview URL.
+        // If the reserved proxy port fails to start while a preview grant
+        // key is configured, silently falling back to the unproxied service
+        // port would serve with no auth gate at all. Fail loudly instead.
         if (fixedVercelProxyPort !== undefined && previewPublicJwk) {
           throw new Error(
             `Vercel preview proxy failed to start on port ${fixedVercelProxyPort}: ${proxyErrorMessage}`,
@@ -498,14 +519,7 @@ export const getPreviewUrl = action({
     // user's "open in new tab") loads without a login round-trip. The proxy
     // exchanges it for a session cookie on first load. Only when gating is
     // configured — otherwise the URL stays a plain proxied URL.
-    //
-    // Skip grants on desktop (6080) / editor (8080) for Vercel: those ports are
-    // served directly (no in-sandbox auth proxy), and extra query params on the
-    // noVNC URL only confuse the viewer.
-    const skipGrantForDirectPort =
-      credentials.kind === "vercel" &&
-      (args.port === 6080 || args.port === 8080);
-    if (previewPublicJwk && ready && !skipGrantForDirectPort) {
+    if (previewPublicJwk && ready) {
       const grant = await signPreviewGrant({
         sandboxId: args.sandboxId,
         port: args.port,

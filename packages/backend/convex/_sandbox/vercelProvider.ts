@@ -48,10 +48,10 @@ const DEFAULT_VCPUS = Number(process.env.SANDBOX_VERCEL_VCPUS ?? "8");
 // repo/team env (~6 KB+). Instead of passing env at create, we write it to this
 // file in the sandbox and source it on every exec — no size cap, and it persists
 // across get()/resume like any other file.
-const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
+export const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
 
 /** Renders env vars as sourceable `export K='V'` lines (single-quote-escaped). */
-function renderEnvFile(env: Record<string, string>): string {
+export function renderEvaEnvFile(env: Record<string, string>): string {
   return (
     Object.entries(env)
       .map(([k, v]) => `export ${k}='${v.replace(/'/g, "'\\''")}'`)
@@ -186,11 +186,12 @@ class VercelDesktop implements SandboxDesktop {
   async start(): Promise<void> {
     // Idempotent: if a live (non-zombie) stack is already healthy, keep it.
     // Re-killing a working Xvnc mid-session blacks the Computer tab and races
-    // Chrome relaunch.
+    // Chrome relaunch. websockify listens on 16080 (internal); exposed 6080 is
+    // the auth preview proxy (see getPreviewUrl / VERCEL_DESKTOP_INTERNAL_PORT).
     const healthy = await this.handle.exec(
       [
         "ps -eo pid,stat,cmd | awk '$2 !~ /Z/ && /Xvnc/ { xvnc=1 } $2 !~ /Z/ && /websockify/ { ws=1 } END { exit(xvnc && ws ? 0 : 1) }'",
-        "&& (curl -fsS http://127.0.0.1:6080/vnc_lite.html >/dev/null 2>&1 || curl -fsS http://127.0.0.1:6080/vnc.html >/dev/null 2>&1)",
+        "&& (curl -fsS http://127.0.0.1:16080/vnc_lite.html >/dev/null 2>&1 || curl -fsS http://127.0.0.1:16080/vnc.html >/dev/null 2>&1)",
         "&& xprop -display :1 -root >/dev/null 2>&1",
       ].join(" "),
       { timeoutSeconds: 15 },
@@ -229,7 +230,7 @@ class VercelDesktop implements SandboxDesktop {
         "pkill -9 -x Xvnc 2>/dev/null || true",
         "pkill -9 -x x0vncserver 2>/dev/null || true",
         "pkill -9 -f '[w]ebsockify' 2>/dev/null || true",
-        "fuser -k 6080/tcp 5901/tcp 2>/dev/null || true",
+        "fuser -k 16080/tcp 5901/tcp 2>/dev/null || true",
         "rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true",
         "sleep 1",
       ].join("\n"),
@@ -241,7 +242,8 @@ class VercelDesktop implements SandboxDesktop {
       "rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true; Xvnc :1 -geometry ${VNC_RESOLUTION:-1920x1080} -depth 24 -SecurityTypes None -AlwaysShared=1 >/tmp/xvnc.log 2>&1",
     );
 
-    // 3) Wait for the display, then detach websockify.
+    // 3) Wait for the display, then detach websockify on the INTERNAL port.
+    // Exposed 6080 is reserved for the auth preview proxy (open-in-new-tab gate).
     await this.handle.exec(
       [
         "for i in $(seq 1 30); do xprop -display :1 -root >/dev/null 2>&1 && break; sleep 0.5; done",
@@ -255,16 +257,16 @@ class VercelDesktop implements SandboxDesktop {
       [
         'NOVNC_DIR=""; if [ -d /opt/novnc ]; then NOVNC_DIR=/opt/novnc; elif [ -d /opt/noVNC ]; then NOVNC_DIR=/opt/noVNC; fi',
         'WEBSOCKIFY_BIN="$(command -v websockify || echo "$(python3 -m site --user-base)/bin/websockify")"',
-        'exec "$WEBSOCKIFY_BIN" --web="$NOVNC_DIR" 0.0.0.0:6080 127.0.0.1:5901 >/tmp/novnc.log 2>&1',
+        'exec "$WEBSOCKIFY_BIN" --web="$NOVNC_DIR" 127.0.0.1:16080 127.0.0.1:5901 >/tmp/novnc.log 2>&1',
       ].join("; "),
     );
 
-    // 4) Health-check: live (non-zombie) websockify + HTTP 200.
+    // 4) Health-check: live (non-zombie) websockify + HTTP 200 on internal port.
     await this.handle.exec(
       [
         "for i in $(seq 1 30); do",
         "  if ps -eo pid,stat,cmd | awk '$2 !~ /Z/ && /websockify/ { found=1 } END { exit(found ? 0 : 1) }' \\",
-        "    && (curl -fsS http://127.0.0.1:6080/vnc_lite.html >/dev/null 2>&1 || curl -fsS http://127.0.0.1:6080/vnc.html >/dev/null 2>&1); then",
+        "    && (curl -fsS http://127.0.0.1:16080/vnc_lite.html >/dev/null 2>&1 || curl -fsS http://127.0.0.1:16080/vnc.html >/dev/null 2>&1); then",
         "    exit 0",
         "  fi",
         "  sleep 0.5",
@@ -284,7 +286,7 @@ class VercelDesktop implements SandboxDesktop {
         "pkill -9 -x Xvnc 2>/dev/null || true",
         "pkill -9 -x x0vncserver 2>/dev/null || true",
         "pkill -9 -f '[w]ebsockify' 2>/dev/null || true",
-        "fuser -k 6080/tcp 5901/tcp 2>/dev/null || true",
+        "fuser -k 16080/tcp 5901/tcp 2>/dev/null || true",
         "pkill -f '[X]vfb :0' 2>/dev/null || true",
       ].join("; "),
       { timeoutSeconds: 30 },
@@ -473,11 +475,9 @@ class VercelSandboxClient implements SandboxClient {
             source: { type: "snapshot", snapshotId: params.snapshot },
           })
         : await Sandbox.create({ ...base, runtime: "node24" });
-      if (params.envVars && Object.keys(params.envVars).length > 0) {
-        await sandbox.writeFiles([
-          { path: EVA_ENV_FILE, content: renderEnvFile(params.envVars) },
-        ]);
-      }
+      // Env is NOT written here. writeFiles is the first sandbox I/O and absorbs
+      // Vercel's first-command boot penalty (seconds–tens of seconds). Callers
+      // (createSandbox) fire onSandboxAcquired first, then write EVA_ENV_FILE.
       // Fresh node24 sandboxes don't include /tmp/repo. Every execHandle call
       // defaults to that cwd (WORKSPACE_DIR = "/tmp/repo" in helpers.ts), so
       // any command with no explicit cwd returns HTTP 400 until the directory

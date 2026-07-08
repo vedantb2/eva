@@ -113,14 +113,18 @@ export function TerminalPanel({
       mounted: { current: boolean },
       historyWriter: TerminalHistoryWriter,
     ) => {
-      const { wsUrl, isNewPty, ptyProtocol, sharedPtySessionName } =
-        await connectPty({
-          owner,
-          cols: terminal.cols,
-          rows: terminal.rows,
-          initialOutput,
-          ptyInstanceId,
-        });
+      const {
+        wsUrl,
+        isNewPty,
+        ptyProtocol,
+        sharedPtySessionName,
+        initialOutput,
+      } = await connectPty({
+        owner,
+        cols: terminal.cols,
+        rows: terminal.rows,
+        ptyInstanceId,
+      });
 
       if (!mounted.current) return;
 

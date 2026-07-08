@@ -19,6 +19,10 @@ interface DesktopPanelProps {
  * NoVNC remote-desktop panel. Thin wrapper around `SandboxIframeService` —
  * port 6080, transforms the preview URL into a vnc_lite.html viewer URL, and
  * fires `launchChromeInDesktop` once the viewer is ready.
+ *
+ * Forwards `__eva_grant` onto noVNC's websockify `path` so the auth proxy can
+ * authorize the WebSocket upgrade even when the Partitioned session cookie is
+ * missing in a cross-site iframe (Eva app → *.vercel.run).
  */
 function appendNoVncParams(baseUrl: string): string {
   const url = new URL(baseUrl);
@@ -27,6 +31,11 @@ function appendNoVncParams(baseUrl: string): string {
   url.searchParams.set("resize", "scale");
   url.searchParams.set("quality", "6");
   url.searchParams.set("compression", "2");
+  const grant = url.searchParams.get("__eva_grant");
+  if (grant) {
+    // searchParams.set encodes once; do not pre-encode the grant.
+    url.searchParams.set("path", "websockify?__eva_grant=" + grant);
+  }
   return url.toString();
 }
 

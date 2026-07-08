@@ -2,7 +2,7 @@
 
 import { v } from "convex/values";
 import { action } from "../_generated/server";
-import { exec, getSandbox, workspaceDirShell } from "./helpers";
+import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
 import { launchChrome } from "./desktop";
 
 /** Starts or stops a code-server instance inside a sandbox on port 8080. */
@@ -24,13 +24,13 @@ export const toggleCodeServer = action({
     console.log(
       `[code-server] ${args.action} requested for sandbox ${args.sandboxId}`,
     );
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
     if (args.action === "start") {
       // Check if already running
       try {
-        const checkResult = await exec(
-          sandbox,
+        const checkResult = await execHandle(
+          handle,
           "pgrep -f 'code-server.*8080'",
           5,
         );
@@ -50,8 +50,8 @@ export const toggleCodeServer = action({
       // Start code-server
       console.log(`[code-server] Starting code-server on port 8080...`);
       try {
-        await exec(
-          sandbox,
+        await execHandle(
+          handle,
           `code-server --port 8080 --auth none --bind-addr 0.0.0.0 ${workspaceDirShell()} > /tmp/code-server.log 2>&1 &`,
           10,
         );
@@ -59,13 +59,13 @@ export const toggleCodeServer = action({
         // Wait a moment and check if it started
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        const pidCheck = await exec(
-          sandbox,
+        const pidCheck = await execHandle(
+          handle,
           "pgrep -f 'code-server.*8080' || echo 'not running'",
           5,
         );
-        const logs = await exec(
-          sandbox,
+        const logs = await execHandle(
+          handle,
           "tail -20 /tmp/code-server.log 2>/dev/null || echo 'No logs yet'",
           5,
         );
@@ -90,8 +90,8 @@ export const toggleCodeServer = action({
         // Try to get logs anyway
         let logs = "";
         try {
-          logs = await exec(
-            sandbox,
+          logs = await execHandle(
+            handle,
             "tail -20 /tmp/code-server.log 2>/dev/null || echo 'No logs'",
             5,
           );
@@ -104,7 +104,7 @@ export const toggleCodeServer = action({
       // Stop code-server
       console.log(`[code-server] Stopping code-server...`);
       try {
-        await exec(sandbox, "pkill -f code-server || true", 10);
+        await execHandle(handle, "pkill -f code-server || true", 10);
         console.log(`[code-server] Stopped`);
         return { success: true, message: "Stopped" };
       } catch (error) {
@@ -128,14 +128,17 @@ export const toggleDesktopServer = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    if (!handle.desktop) {
+      throw new Error("Desktop is not available for this sandbox provider");
+    }
 
     if (args.action === "start") {
       // Resolution comes from the VNC_RESOLUTION env var set at sandbox creation
       // (see createSandbox in git.ts) — Xvfb starts at 1920x1080 natively.
-      await sandbox.computerUse.start();
+      await handle.desktop.start();
     } else {
-      await sandbox.computerUse.stop();
+      await handle.desktop.stop();
     }
 
     return null;
@@ -153,8 +156,8 @@ export const launchChromeInDesktop = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await launchChrome(sandbox);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    await launchChrome(handle);
 
     return null;
   },

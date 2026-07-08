@@ -16,6 +16,7 @@ import {
 const PROXY_PORT_MIN = 9000;
 const PROXY_PORT_MAX = 9999;
 const PROXY_PORT_COUNT = PROXY_PORT_MAX - PROXY_PORT_MIN + 1;
+export const VERCEL_PREVIEW_PROXY_PORT = 54321;
 const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
@@ -82,7 +83,15 @@ async function listListeningPorts(
 async function resolvePreviewProxyPort(
   sandbox: SandboxHandle,
   targetPort: number,
+  fixedProxyPort?: number,
 ): Promise<number> {
+  if (fixedProxyPort !== undefined) {
+    if (!isPort(fixedProxyPort) || fixedProxyPort === targetPort) {
+      throw new Error(`Invalid fixed preview proxy port: ${fixedProxyPort}`);
+    }
+    return fixedProxyPort;
+  }
+
   const candidates = previewProxyPortCandidates(targetPort);
   const listeningPorts = await listListeningPorts(sandbox);
 
@@ -672,6 +681,9 @@ async function launchProxy(
     script,
     SCRIPT_MARKER,
     `if [ -f '${pidPath}' ] && kill -0 "$(cat '${pidPath}')" 2>/dev/null; then kill "$(cat '${pidPath}')" 2>/dev/null || true; fi`,
+    `if command -v fuser >/dev/null 2>&1; then fuser -k ${proxyPort}/tcp >/dev/null 2>&1 || true; fi`,
+    `if command -v lsof >/dev/null 2>&1; then for p in $(lsof -ti :${proxyPort} 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done; fi`,
+    `sleep 0.2`,
     `EVA_PREVIEW_TARGET_PORT=${targetPort} EVA_PREVIEW_PROXY_PORT=${proxyPort} nohup node '${scriptPath}' > '${logPath}' 2>&1 & echo $! > '${pidPath}'`,
     `i=0; while [ "$i" -lt 20 ]; do if curl -fsS 'http://127.0.0.1:${proxyPort}${HEALTH_PATH}' >/dev/null 2>&1; then exit 0; fi; i=$((i+1)); sleep 0.25; done; tail -n 80 '${logPath}' 2>/dev/null || true; exit 1`,
   ].join("\n");
@@ -688,12 +700,17 @@ export async function ensurePreviewNavigationProxy(
   sandbox: SandboxHandle,
   targetPort: number,
   authParams: PreviewProxyAuthParams,
+  fixedProxyPort?: number,
 ): Promise<number> {
   if (!isPort(targetPort)) {
     throw new Error(`Invalid preview target port: ${targetPort}`);
   }
 
-  const proxyPort = await resolvePreviewProxyPort(sandbox, targetPort);
+  const proxyPort = await resolvePreviewProxyPort(
+    sandbox,
+    targetPort,
+    fixedProxyPort,
+  );
   if (await proxyAlreadyRunning(sandbox, targetPort, proxyPort)) {
     return proxyPort;
   }

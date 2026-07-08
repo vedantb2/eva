@@ -1,8 +1,14 @@
 "use node";
 
 import type { Sandbox } from "@daytonaio/sdk";
-import { ensureDockerDaemon, exec, workspaceDirShell } from "./helpers";
-import { wrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
+import type { SandboxHandle } from "../_sandbox/provider";
+import {
+  ensureDockerDaemon,
+  exec,
+  execHandle,
+  bootstrapVercelDocker,
+  workspaceDirShell,
+} from "./helpers";
 
 const SUPABASE_DUMP_PATH =
   "/home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz";
@@ -10,14 +16,14 @@ const SUPABASE_RESTORE_MARKER = "/tmp/.eva-supabase-db-web-restored";
 
 /** Detects the package manager (pnpm, yarn, or npm) by checking lock files. */
 export async function detectPackageManager(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   rootDir = "",
 ): Promise<string> {
   const dir = rootDir
     ? `${workspaceDirShell()}/${rootDir}`
     : workspaceDirShell();
   const lockFile = (
-    await exec(
+    await execHandle(
       sandbox,
       `cd ${dir} && ls -1 | grep -E '^(pnpm-lock.yaml|yarn.lock)$' | head -n1`,
       5,
@@ -42,14 +48,14 @@ const FRAMEWORK_DEFAULT_PORTS: Record<string, number> = {
 
 /** Detects the dev server port from package.json scripts or framework defaults. */
 export async function detectDevPort(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   rootDir: string,
 ): Promise<number> {
   const dir = rootDir
     ? `${workspaceDirShell()}/${rootDir}`
     : workspaceDirShell();
   try {
-    const raw = await exec(
+    const raw = await execHandle(
       sandbox,
       `cat ${dir}/package.json 2>/dev/null || echo "{}"`,
       5,
@@ -88,7 +94,7 @@ export async function detectDevPort(
  *   the override port, else detection.
  */
 export async function startSessionServices(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   rootDir: string,
   overrides?: { devPort?: number; devCommand?: string },
 ): Promise<{ port: number; devCommand: string }> {
@@ -100,36 +106,47 @@ export async function startSessionServices(
       : await detectDevPort(sandbox, rootDir);
 
   if (overrides?.devCommand && overrides.devCommand.trim().length > 0) {
-    return { port, devCommand: overrides.devCommand };
+    return {
+      port,
+      devCommand: `cd ${workspaceDirShell()} && HOSTNAME=0.0.0.0 PORT=${port} ${overrides.devCommand}`,
+    };
   }
 
   const pm = await detectPackageManager(sandbox, rootDir);
   const dir = rootDir
     ? `${workspaceDirShell()}/${rootDir}`
     : workspaceDirShell();
-  const devCommand = `cd ${dir} && PORT=${port} ${pm} run dev`;
+  const devCommand = `cd ${dir} && HOSTNAME=0.0.0.0 PORT=${port} ${pm} run dev`;
   return { port, devCommand };
 }
 
 /** Restores service state that was exported into a seeded snapshot filesystem. */
 export async function restoreSeededRuntimeState(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
 ): Promise<void> {
   try {
-    await exec(sandbox, `test -f ${SUPABASE_DUMP_PATH}`, 5);
+    await execHandle(sandbox, `test -f ${SUPABASE_DUMP_PATH}`, 5);
   } catch {
     return;
   }
 
   try {
-    await exec(sandbox, `test -f ${SUPABASE_RESTORE_MARKER}`, 5);
+    await execHandle(sandbox, `test -f ${SUPABASE_RESTORE_MARKER}`, 5);
     return;
   } catch {
     // No marker means this fresh sandbox still needs its local service state.
   }
 
-  await ensureDockerDaemon(wrapDaytonaSandbox(sandbox));
-  await exec(
+  const dockerReady =
+    (await ensureDockerDaemon(sandbox)) ||
+    (await bootstrapVercelDocker(sandbox));
+  if (!dockerReady) {
+    console.log(
+      `[daytona] restoreSeededRuntimeState: docker unavailable on ${sandbox.id}, skipping supabase dump restore (startup commands will bootstrap)`,
+    );
+    return;
+  }
+  await execHandle(
     sandbox,
     [
       "set -e",
@@ -182,10 +199,67 @@ export async function resetDevTerminalForResume(
   }
 }
 
+const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
+
+const DEVSERVER_LOCK = "/tmp/eva-devserver.lock";
+const DEVSERVER_LAST_LAUNCH = "/tmp/eva-devserver-last-launch";
+const DEVSERVER_RELAUNCH_COOLDOWN_SECONDS = 20;
+
 /** Starts the dev server detached so preview can load without an open terminal tab. */
 export async function launchDevServerInBackground(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   devCommand: string,
+  port: number,
 ): Promise<void> {
-  await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
+  const launchState = (
+    await execHandle(
+      sandbox,
+      [
+        `LOCK=${DEVSERVER_LOCK}`,
+        `LAST=${DEVSERVER_LAST_LAUNCH}`,
+        'pid=$(cat "$LOCK" 2>/dev/null || true)',
+        'if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo active; exit 0; fi',
+        "now=$(date +%s)",
+        'last=$(cat "$LAST" 2>/dev/null || echo 0)',
+        `if [ $((now - last)) -lt ${DEVSERVER_RELAUNCH_COOLDOWN_SECONDS} ]; then echo recent; exit 0; fi`,
+        'echo "$now" > "$LAST"',
+        "echo launch",
+      ].join("; "),
+      5,
+      "/",
+    )
+  ).trim();
+  if (launchState !== "launch") {
+    return;
+  }
+
+  const script = [
+    "#!/usr/bin/env bash",
+    "set -euo pipefail",
+    `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE}`,
+    `WORKSPACE_DIR=${workspaceDirShell()}`,
+    'cd "$WORKSPACE_DIR"',
+    'export INIT_CWD="$WORKSPACE_DIR"',
+    `LOCK=${DEVSERVER_LOCK}`,
+    'if [ -f "$LOCK" ]; then',
+    '  oldpid=$(cat "$LOCK" 2>/dev/null || true)',
+    '  if [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null; then',
+    "    exit 0",
+    "  fi",
+    "fi",
+    `if command -v fuser >/dev/null 2>&1; then fuser -k ${port}/tcp >/dev/null 2>&1 || true`,
+    `elif command -v lsof >/dev/null 2>&1; then for p in $(lsof -ti :${port} 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done`,
+    "fi",
+    'echo $$ > "$LOCK"',
+    "trap 'rm -f \"$LOCK\"' EXIT",
+    devCommand,
+  ].join("\n");
+  await sandbox.writeFile("/tmp/eva-launch-devserver.sh", script);
+  await sandbox.execDetached(
+    "chmod +x /tmp/eva-launch-devserver.sh && /tmp/eva-launch-devserver.sh >> /tmp/devserver.log 2>&1",
+    { timeoutSeconds: 15 },
+  );
+  console.log(
+    `[daytona] launchDevServerInBackground: launched on ${sandbox.id} port=${port}`,
+  );
 }

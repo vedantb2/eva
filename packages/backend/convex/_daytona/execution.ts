@@ -9,6 +9,7 @@ import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import {
   exec,
+  execHandle,
   resolveSandboxContext,
   getSandbox,
   getSandboxHandle,
@@ -18,9 +19,47 @@ import {
   sleep,
   errorMessage,
   signAndLaunchScript,
+  workspaceDirShell,
+  KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
+import { resolveSandboxCredentials } from "../envVarResolver";
 import { resolveDaytonaApiKey } from "../envVarResolver";
+import { detectPackageManager, launchDevServerInBackground } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
+
+async function resolveDevCommandForPreview(
+  handle: SandboxHandle,
+  repo: { rootDirectory?: string; devPort?: number; devCommand?: string },
+  port: number,
+): Promise<string> {
+  const rootDir = repo.rootDirectory ?? "";
+  const dir = rootDir
+    ? `${workspaceDirShell()}/${rootDir}`
+    : workspaceDirShell();
+  const effectivePort = repo.devPort ?? port;
+  if (repo.devCommand && repo.devCommand.trim().length > 0) {
+    return `cd ${workspaceDirShell()} && HOSTNAME=0.0.0.0 PORT=${effectivePort} ${repo.devCommand}`;
+  }
+  const pm = await detectPackageManager(handle, rootDir);
+  return `cd ${dir} && HOSTNAME=0.0.0.0 PORT=${effectivePort} ${pm} run dev`;
+}
+
+async function probePreviewReady(
+  handle: SandboxHandle,
+  port: number,
+): Promise<boolean> {
+  try {
+    const result = await execHandle(
+      handle,
+      `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${port}`,
+      3,
+    );
+    const code = parseInt(result.trim() || "0", 10);
+    return code >= 200 && code < 500;
+  } catch {
+    return false;
+  }
+}
 import {
   fetchOrigin,
   setupBranch,
@@ -33,7 +72,10 @@ import {
 } from "./git";
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
-import { ensurePreviewNavigationProxy } from "./previewProxy";
+import {
+  ensurePreviewNavigationProxy,
+  VERCEL_PREVIEW_PROXY_PORT,
+} from "./previewProxy";
 import {
   unwrapDaytonaSandbox,
   wrapDaytonaSandbox,
@@ -88,9 +130,9 @@ export const runSandboxCommand = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     return (
-      await exec(sandbox, args.command, args.timeoutSeconds ?? 30)
+      await execHandle(handle, args.command, args.timeoutSeconds ?? 30)
     ).trim();
   },
 });
@@ -103,9 +145,9 @@ export const startupCommandsMarkerExists = internalAction({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     try {
-      await exec(sandbox, "test -f /tmp/.startup-commands-done", 5);
+      await execHandle(handle, "test -f /tmp/.startup-commands-done", 5);
       return true;
     } catch {
       return false;
@@ -121,7 +163,7 @@ export const restoreSeededRuntimeState = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await restoreSeededRuntimeStateInSandbox(sandbox);
     return null;
   },
@@ -155,12 +197,12 @@ export const runStartupCommands = internalAction({
       return { ran: false, commandCount: 0, errors: [] };
     }
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
     if (!args.force) {
       // Check if startup commands have already run (marker file)
       try {
-        await exec(sandbox, "test -f /tmp/.startup-commands-done", 5);
+        await execHandle(sandbox, "test -f /tmp/.startup-commands-done", 5);
         // Marker exists, commands already ran
         console.log(
           `[daytona] runStartupCommands: marker exists, skipping ${commands.length} commands`,
@@ -180,7 +222,7 @@ export const runStartupCommands = internalAction({
       console.log(`[daytona] runStartupCommands: running: ${command}`);
       try {
         // 10 minute timeout per command (supabase start can take a while)
-        const output = await exec(sandbox, command, 600);
+        const output = await execHandle(sandbox, command, 600);
         console.log(`[daytona] runStartupCommands: completed: ${command}`);
         if (output.trim()) {
           console.log(`[daytona] output: ${output.slice(0, 500)}`);
@@ -199,7 +241,7 @@ export const runStartupCommands = internalAction({
     // marker absent lets the next resume retry the full startup sequence.
     if (errors.length === 0) {
       try {
-        await exec(sandbox, "touch /tmp/.startup-commands-done", 5);
+        await execHandle(sandbox, "touch /tmp/.startup-commands-done", 5);
       } catch {
         // Non-fatal
       }
@@ -245,7 +287,7 @@ export const runBackgroundCommands = internalAction({
       return { ran: false, commandCount: 0, errors: [] };
     }
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
     console.log(
       `[daytona] runBackgroundCommands: launching ${commands.length} background command(s)`,
@@ -275,7 +317,7 @@ export const runBackgroundCommands = internalAction({
       );
       try {
         // Short timeout — we only wait for the shell to fork the daemon.
-        await exec(sandbox, launchCmd, 10);
+        await execHandle(sandbox, launchCmd, 10);
       } catch (e) {
         const msg = errorMessage(e, "command failed");
         console.error(
@@ -319,7 +361,7 @@ export const runStopCommands = internalAction({
       return { ran: false, commandCount: 0, errors: [] };
     }
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
     console.log(
       `[daytona] runStopCommands: running ${commands.length} stop command(s)`,
@@ -329,7 +371,7 @@ export const runStopCommands = internalAction({
     for (const command of commands) {
       console.log(`[daytona] runStopCommands: running: ${command}`);
       try {
-        await exec(sandbox, command, 300);
+        await execHandle(handle, command, 300);
         console.log(`[daytona] runStopCommands: completed: ${command}`);
       } catch (e) {
         const msg = errorMessage(e, "command failed");
@@ -370,19 +412,26 @@ export const getPreviewUrl = action({
       throw new Error("Not authorized to access this repository");
     }
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     let ready = true;
     if (args.checkReady) {
-      try {
-        const result = await exec(
-          sandbox,
-          `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${args.port}`,
-          3,
-        );
-        const code = parseInt(result.trim() || "0", 10);
-        ready = code >= 200 && code < 500;
-      } catch {
-        ready = false;
+      ready = await probePreviewReady(handle, args.port);
+      if (!ready) {
+        try {
+          const devCommand = await resolveDevCommandForPreview(
+            handle,
+            repo,
+            args.port,
+          );
+          await launchDevServerInBackground(handle, devCommand, args.port);
+          await sleep(8);
+          ready = await probePreviewReady(handle, args.port);
+        } catch (e) {
+          console.warn(
+            `[daytona] preview dev server restart failed sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "restart failed")}`,
+          );
+        }
       }
     }
 
@@ -392,12 +441,22 @@ export const getPreviewUrl = action({
     // grant key is configured the proxy runs in legacy pass-through mode.
     // `navigationSync` now only decides whether the HTML nav-sync script is
     // injected.
+    //
+    // Vercel exposes a fixed, small port set. Use the reserved 54321 port for
+    // app previews there; editor (8080) and desktop (6080) keep their own
+    // direct exposed ports so one proxy does not clobber another surface.
     const previewPublicJwk = getPreviewGrantPublicJwk();
-    let signedPort = args.port;
-    if (ready) {
+    let previewPort = args.port;
+    const fixedVercelProxyPort =
+      credentials.kind === "vercel" && args.port === 3000
+        ? VERCEL_PREVIEW_PROXY_PORT
+        : undefined;
+    const shouldStartPreviewProxy =
+      credentials.kind === "daytona" || fixedVercelProxyPort !== undefined;
+    if (ready && shouldStartPreviewProxy) {
       try {
-        signedPort = await ensurePreviewNavigationProxy(
-          wrapDaytonaSandbox(sandbox),
+        previewPort = await ensurePreviewNavigationProxy(
+          handle,
           args.port,
           {
             publicKeyJwk: previewPublicJwk,
@@ -406,6 +465,7 @@ export const getPreviewUrl = action({
             webAppUrl: process.env.WEB_APP_URL ?? "",
             inject: args.navigationSync === true,
           },
+          fixedVercelProxyPort,
         );
       } catch (e) {
         console.warn(
@@ -414,7 +474,7 @@ export const getPreviewUrl = action({
       }
     }
 
-    const signedPreview = await sandbox.getSignedPreviewUrl(signedPort, 86400);
+    const signedPreview = await handle.previewUrl(previewPort, 86400);
     const parsedUrl = new URL(signedPreview.url);
     parsedUrl.protocol = "https:";
 
@@ -599,7 +659,7 @@ export const prepareSandbox = internalAction({
 
         if (args.startDesktop) {
           await emitProgress("Starting desktop...");
-          await startDesktopWithChrome(sandbox);
+          await startDesktopWithChrome(wrapDaytonaSandbox(sandbox));
         }
 
         break;
@@ -904,13 +964,19 @@ export const pushSandboxBranch = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-    await pushBranchToOrigin(
-      sandbox,
-      args.repoOwner,
-      args.repoName,
-      args.branchName,
-      { timeoutSeconds: 90, retryAttempts: 3 },
-    );
+    try {
+      await pushBranchToOrigin(
+        sandbox,
+        args.repoOwner,
+        args.repoName,
+        args.branchName,
+        { timeoutSeconds: 90, retryAttempts: 3 },
+      );
+    } catch (error) {
+      console.error(
+        `[daytona][execution] pushSandboxBranch failed sandbox=${args.sandboxId} repo=${args.repoOwner}/${args.repoName} branch=${args.branchName}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     return null;
   },
 });
@@ -940,13 +1006,9 @@ export const launchOnExistingSandbox = internalAction({
     console.log(
       `[daytona][execution] launchOnExistingSandbox started entityId=${args.entityId} sandboxId=${args.sandboxId} repoId=${args.repoId}`,
     );
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
-    await exec(
-      sandbox,
-      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'opencode' 2>/dev/null; pkill -f 'cursor-agent' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
-      10,
-    );
+    await execHandle(sandbox, KILL_PRIOR_AGENT_PROCESSES_CMD, 10);
     console.log(
       `[daytona][execution] cleaned prior runner in ${Date.now() - launchStartedAt}ms entityId=${args.entityId}`,
     );
@@ -983,7 +1045,7 @@ export const launchOnExistingSandbox = internalAction({
 
     await signAndLaunchScript(
       ctx,
-      wrapDaytonaSandbox(sandbox),
+      sandbox,
       args.userId,
       args.prompt,
       args.completionMutation,

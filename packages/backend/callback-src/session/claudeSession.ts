@@ -6,6 +6,7 @@ import {
   CLAUDE_PERSIST_PROJECT_DIR,
   CLAUDE_PERSIST_STATE_FILE,
   CLAUDE_RUNTIME_CONFIG_DIR,
+  WORK_DIR,
 } from "../config.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { callbackState as S } from "../runtime/state.js";
@@ -159,6 +160,34 @@ export function hydratePersistedClaudeState(): void {
   );
 }
 
+function ensureClaudeWorkspaceTrust(): void {
+  const configPath = CLAUDE_RUNTIME_CONFIG_DIR + "/.claude.json";
+  mkdirSync(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  const parsed = existsSync(configPath)
+    ? tryParseJson(readFileSync(configPath, "utf8"))
+    : null;
+  const config =
+    parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? { ...parsed }
+      : {};
+  const rawProjects = config.projects;
+  const projects =
+    rawProjects &&
+    typeof rawProjects === "object" &&
+    !Array.isArray(rawProjects)
+      ? { ...rawProjects }
+      : {};
+  const rawProject = projects[WORK_DIR];
+  const projectEntry =
+    rawProject && typeof rawProject === "object" && !Array.isArray(rawProject)
+      ? { ...rawProject }
+      : {};
+  projectEntry.hasTrustDialogAccepted = true;
+  projects[WORK_DIR] = projectEntry;
+  config.projects = projects;
+  writeFileSync(configPath, JSON.stringify(config, null, 2));
+}
+
 function resolveClaudeSessionMode(): SessionMode {
   const configuredSessionId = process.env.CLAUDE_SESSION_ID;
   if (!configuredSessionId) {
@@ -166,7 +195,20 @@ function resolveClaudeSessionMode(): SessionMode {
   }
   const persistedState = readClaudeSessionState();
   if (persistedState) {
-    return { mode: "resume", sessionId: persistedState.resumeSessionId };
+    if (
+      existsSync(
+        buildClaudeTranscriptPath(
+          CLAUDE_LOCAL_PROJECT_DIR,
+          persistedState.resumeSessionId,
+        ),
+      )
+    ) {
+      return { mode: "resume", sessionId: persistedState.resumeSessionId };
+    }
+    log(
+      "resolveClaudeSessionMode: persisted state without transcript, starting fresh session",
+    );
+    return { mode: "session", sessionId: configuredSessionId };
   }
   if (
     existsSync(
@@ -226,6 +268,7 @@ export function prepareClaudeSessionState(): SessionMode {
     "Hydrating saved session...",
   );
   hydratePersistedClaudeState();
+  ensureClaudeWorkspaceTrust();
   const sessionMode = resolveClaudeSessionMode();
   S.activeClaudeSessionMode = sessionMode.mode;
   updateThinkingStep(

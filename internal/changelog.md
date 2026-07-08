@@ -1,5 +1,47 @@
 # Changelog
 
+## Stabilize Vercel desktop and seeded snapshots - 2026-07-08
+
+- Switched Vercel desktop startup to TigerVNC `Xvnc` with noVNC/websockify so the desktop tab can run like a real cloud VM desktop instead of a fragile Xvfb bridge.
+- Increased the default Vercel sandbox allocation to 8 vCPU, giving desktop sessions the documented 16 GB memory envelope while keeping `SANDBOX_VERCEL_VCPUS` as the override.
+- Hardened Vercel preview and desktop process cleanup to use exact process names or port-based cleanup, preventing shell self-matches that caused exit 143 log spam.
+- Fixed Cursor provider fallback and seeded snapshot installation so `cursor-agent` resolves consistently in both old live Vercel sandboxes and new snapshots.
+- Updated the desktop iframe service to reconcile/start the VNC service even when a stale cached URL exists, avoiding cached-but-dead noVNC sessions.
+
+## Vercel sandbox terminal and desktop parity - 2026-07-08
+
+- Hydrate Vercel terminal panes from shared tmux capture on connect so new viewers see the shared terminal state instead of only their browser-local history.
+- Switched Vercel desktop startup from unavailable `x11vnc` to Amazon Linux-compatible TigerVNC/noVNC tooling, and fixed display readiness on non-root sandboxes.
+- Reason for change: Vercel sandboxes use a different base distro and controller PTY model than Daytona, so terminal replay and desktop startup needed provider-specific handling.
+
+## Vercel sandbox resume trigger - 2026-07-08
+
+- Trigger Vercel persistent sandbox resume with a tiny command during provider `start()`, instead of only refreshing metadata.
+- Let restore polling kick stopped sandboxes once so in-flight session starts can recover after the provider fix deploys.
+- Reason for change: UI verification showed session start spinning indefinitely because Vercel `Sandbox.get()` returns the saved sandbox record but does not by itself resume compute.
+
+## Vercel sandbox chat launch fixes - 2026-07-07
+
+- Fixed agent cleanup `pkill` patterns so the sandbox exec shell is not SIGTERM'd (bracket-regex trick), which was aborting `launchOnExistingSandbox` before runner files were written.
+- Launch the callback runner through the provider-native detached path and save launch failures through the normal session result path, preventing Vercel command termination from leaving an empty active chat bubble.
+- Install `@anthropic-ai/claude-code` on demand for Vercel sandboxes (Daytona snapshots already bundle it) and pass `CLAUDE_BIN_PATH` into the callback runner.
+- Auto-accept Claude workspace trust and only `--resume` when a transcript exists, avoiding stale session state after failed launches.
+- Reason for change: chat on Vercel never produced a reply because launch died at cleanup and Claude CLI/session prerequisites were missing.
+
+## Vercel sandbox session stabilization - 2026-07-07
+
+- Shared Vercel terminal panes through per-pane `tmux` sessions instead of per-browser shells, so terminal state follows the sandbox pane rather than the viewer.
+- Hardened chat runner cleanup so stale pid reuse cannot kill the launch shell before prompt/script upload, and throttled preview self-healing when the dev server is already launching or just failed.
+- Centralized chat model availability on the backend provider-availability query so chat model menus use one repo/team env view.
+- Reason for change: Vercel's interactive PTY and command execution semantics differ from Daytona's, so session chat, preview recovery, and terminal sharing need provider-aware behavior while keeping Daytona paths intact.
+
+## Vercel sandbox chat + preview reliability - 2026-07-07
+
+- Launch the AI runner with a synchronous exec (not detached) so the launcher script finishes before readiness polling; source `.eva-env.sh` and export env vars explicitly.
+- Guard dev-server launches with a pid lock, free the target port before start, bind `HOSTNAME=0.0.0.0`, and restore `cd /tmp/repo` in the launcher script (regression dropped it).
+- Send Vercel PTY stdin as binary `Uint8Array` frames so keystrokes reach the shell.
+- Reason for change: Vercel `execDetached` returns before short launcher scripts complete, and repeated preview self-heal stacked multiple `next dev` processes on wrong ports.
+
 ## Seeded snapshot database restore artifact - 2026-07-05
 
 - Captured a compressed Supabase Postgres dump into the seeded snapshot filesystem after seed commands complete, then restored it once when fresh sandboxes boot from that snapshot.
@@ -5391,6 +5433,14 @@ Behavior per context:
 - Removed border separators from chat header, summary accordion, and input area in ChatPanel and QueryDetailClient
 - Updated message bubbles: user messages use subtle `bg-secondary` instead of `bg-primary`, assistant messages have no background
 - Removed border separators from DocViewer, ProjectDetailClient, testing-arena pages, and SessionFunnel
+
+## Stabilize Vercel sandbox parity - 2026-07-07
+
+- Restored preview auth proxy behavior for Vercel app previews while keeping editor and desktop on their dedicated exposed ports.
+- Added Vercel desktop/noVNC support and made Chrome launch tolerate Chromium-based runtimes.
+- Made Vercel session reuse use the provider-neutral sandbox path so resumes keep sandbox state instead of creating replacements.
+- Updated Vercel seeded snapshot builds to include the Daytona-equivalent CLI/desktop toolchain and delete the previous seeded snapshot before capture.
+- Removed an avoidable first-message desktop startup wait so chat does not pay for VNC/Chrome unless desktop is actually needed.
 
 ## Add response length selector to chat UIs - 2026-02-06
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## Vercel desktop VNC zombie fix - 2026-07-08
+
+- Stopped using `setsid … &` inside Vercel desktop start — that left Xvnc/websockify as zombies so noVNC HTML loaded but the RFB WebSocket hung on "Loading".
+- Desktop iframe no longer paints a stale cached URL before start+ready; skips preview-grant query params on direct 6080/8080 Vercel ports.
+- Reason for change: Computer tab showed permanent Loading while direct VNC worked after a clean non-setsid restart.
+
+## Vercel desktop VNC + preview auth parity - 2026-07-08
+
+- Desktop now follows vercel-sandbox-gui: TigerVNC + noVNC + Chrome on Xvnc without a window manager (Amazon Linux has no openbox/fluxbox packages).
+- Preview auth accepts `*.vercel.run` return hosts; proxy rewrites absolute vercel.run Location headers and fails loudly if the 54321 auth proxy cannot start.
+- Seeded snapshot rebuilds keep `keepLastSnapshots: 1` and bake agent CLIs + PATH into the snap; session start skips redundant config copies when restoring from snap\_\*.
+- Reason for change: Vercel desktop was a black screen (missing WM package) and open-in-new-tab auth rejected Vercel preview hosts.
+
 ## Stabilize Vercel desktop and seeded snapshots - 2026-07-08
 
 - Switched Vercel desktop startup to TigerVNC `Xvnc` with noVNC/websockify so the desktop tab can run like a real cloud VM desktop instead of a fragile Xvfb bridge.

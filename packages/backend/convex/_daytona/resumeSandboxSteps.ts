@@ -46,6 +46,7 @@ export async function ensureSandboxStartedSteps(
     { sandboxId: args.sandboxId, repoId: args.repoId },
   );
   if (kickoff.state === "running") return;
+  if (kickoff.provider === "vercel") return;
 
   if (args.streamingEntityId) {
     await step.runMutation(internal.streaming.internalSet, {

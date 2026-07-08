@@ -28,6 +28,7 @@ import type {
   SandboxCreateParams,
   SandboxExecOptions,
   SandboxExecResult,
+  SandboxDesktop,
   SandboxGit,
   SandboxHandle,
   SandboxProviderKind,
@@ -42,7 +43,7 @@ interface VercelCredentials {
   projectId: string;
 }
 
-const DEFAULT_VCPUS = Number(process.env.SANDBOX_VERCEL_VCPUS ?? "4");
+const DEFAULT_VCPUS = Number(process.env.SANDBOX_VERCEL_VCPUS ?? "8");
 // Vercel caps the create-time `env` payload at 4 KB, but eva injects the full
 // repo/team env (~6 KB+). Instead of passing env at create, we write it to this
 // file in the sandbox and source it on every exec — no size cap, and it persists
@@ -62,6 +63,9 @@ function renderEnvFile(env: Record<string, string>): string {
 const SOURCE_ENV = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE};`;
 /** Vercel exposes at most 4 ports; default to the eva dev + proxy range if unset. */
 const MAX_PORTS = 4;
+export const VERCEL_DEFAULT_EXPOSED_PORTS: ReadonlyArray<number> = [
+  3000, 8080, 6080, 54321,
+];
 
 /** Maps Vercel's session status onto the neutral {@link SandboxState}. */
 function normalizeState(raw: string | undefined): SandboxState {
@@ -72,11 +76,15 @@ function normalizeState(raw: string | undefined): SandboxState {
     case "stopping":
     case "snapshotting":
       return "stopped";
+    case "starting":
     case "pending":
       return "starting";
     case "failed":
+    case "error":
       return "error";
     case "aborted":
+    case "destroying":
+    case "destroyed":
       return "gone";
     default:
       return "unknown";
@@ -160,12 +168,69 @@ class VercelGit implements SandboxGit {
   }
 }
 
+/** Vercel desktop operations, implemented with the same in-sandbox noVNC stack. */
+class VercelDesktop implements SandboxDesktop {
+  constructor(private readonly handle: VercelSandboxHandle) {}
+
+  async start(): Promise<void> {
+    const install = [
+      "command -v Xvnc >/dev/null 2>&1",
+      "command -v websockify >/dev/null 2>&1",
+      "test -d /opt/noVNC",
+    ].join(" && ");
+    await this.handle.exec(
+      [
+        `if ! ( ${install} ); then`,
+        "  sudo dnf install -y tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 procps-ng psmisc git >/tmp/desktop-dnf.log 2>&1",
+        "  sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
+        "  python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1",
+        "  sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
+        "  sudo rm -rf /opt/noVNC && sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/noVNC >/tmp/novnc-git.log 2>&1",
+        "fi",
+        "if ! command -v google-chrome-stable >/dev/null 2>&1 && ! command -v chromium >/dev/null 2>&1; then",
+        "  sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'",
+        "[google-chrome]",
+        "name=google-chrome",
+        "baseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64",
+        "enabled=1",
+        "gpgcheck=1",
+        "gpgkey=https://dl.google.com/linux/linux_signing_key.pub",
+        "EOF",
+        "  sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || true",
+        "fi",
+        "mkdir -p /home/eva/.vnc /tmp",
+        "sudo mkdir -p /tmp/.X11-unix && sudo chmod 1777 /tmp/.X11-unix",
+        "pkill -x x0vncserver 2>/dev/null || true",
+        "fuser -k 6080/tcp 2>/dev/null || true",
+        "export DISPLAY=:1",
+        "if ! pgrep -x Xvnc >/dev/null; then setsid Xvnc :1 -geometry ${VNC_RESOLUTION:-1920x1080} -depth 24 -SecurityTypes None -AlwaysShared=1 >/tmp/xvnc.log 2>&1 & fi",
+        "for i in $(seq 1 30); do xprop -display :1 -root >/dev/null 2>&1 && break; sleep 1; done",
+        "setsid websockify --web=/opt/noVNC 0.0.0.0:6080 127.0.0.1:5901 >/tmp/novnc.log 2>&1 &",
+        "for i in $(seq 1 30); do curl -fsS http://127.0.0.1:6080/vnc_lite.html >/dev/null 2>&1 && break; sleep 1; done",
+        "curl -fsS http://127.0.0.1:6080/vnc_lite.html >/dev/null",
+      ].join("\n"),
+      { timeoutSeconds: 240 },
+    );
+  }
+
+  async stop(): Promise<void> {
+    await this.handle.exec(
+      "fuser -k 6080/tcp 2>/dev/null || true; pkill -x Xvnc 2>/dev/null || true; pkill -x x0vncserver 2>/dev/null || true; pkill -f '[X]vfb :0' 2>/dev/null || true",
+      { timeoutSeconds: 30 },
+    );
+  }
+}
+
 /** A handle to one Vercel sandbox, exposing the neutral {@link SandboxHandle}. */
 class VercelSandboxHandle implements SandboxHandle {
+  readonly desktop: SandboxDesktop;
+
   constructor(
     private sandbox: Sandbox,
     private readonly creds: VercelCredentials,
-  ) {}
+  ) {
+    this.desktop = new VercelDesktop(this);
+  }
 
   /** Fresh git facade bound to the current session (refresh() swaps the sandbox). */
   get git(): SandboxGit {
@@ -242,9 +307,14 @@ class VercelSandboxHandle implements SandboxHandle {
     });
   }
 
-  async start(_timeoutSeconds: number): Promise<void> {
-    // Vercel persistent sandboxes auto-resume on access; nothing to start.
+  async start(timeoutSeconds: number): Promise<void> {
+    // Vercel persistent sandboxes resume when a command is run. A plain get()
+    // only returns the saved sandbox record, so kick it with a tiny command.
     await this.refresh();
+    if (this.state !== "running") {
+      await this.exec("true", { timeoutSeconds });
+      await this.refresh();
+    }
   }
   async stop(): Promise<void> {
     await this.sandbox.stop();
@@ -265,7 +335,20 @@ class VercelSandboxHandle implements SandboxHandle {
   }
 
   async previewUrl(port: number): Promise<PreviewUrl> {
-    return { url: this.sandbox.domain(port), port };
+    if (VERCEL_DEFAULT_EXPOSED_PORTS.includes(port)) {
+      await this.sandbox.update({ ports: [...VERCEL_DEFAULT_EXPOSED_PORTS] });
+      await this.refresh();
+    }
+    try {
+      return { url: this.sandbox.domain(port), port };
+    } catch (error) {
+      if (!VERCEL_DEFAULT_EXPOSED_PORTS.includes(port)) {
+        throw error;
+      }
+      await this.sandbox.update({ ports: [...VERCEL_DEFAULT_EXPOSED_PORTS] });
+      await this.refresh();
+      return { url: this.sandbox.domain(port), port };
+    }
   }
 
   async createSnapshot(
@@ -301,7 +384,7 @@ class VercelSandboxClient implements SandboxClient {
       timeout: Math.max(params.lifecycle.autoStopMinutes, 45) * 60 * 1000,
       persistent: params.lifecycle.ephemeral !== true,
       resources: { vcpus: DEFAULT_VCPUS },
-      ...(params.ports ? { ports: params.ports.slice(0, MAX_PORTS) } : {}),
+      ports: (params.ports ?? VERCEL_DEFAULT_EXPOSED_PORTS).slice(0, MAX_PORTS),
       ...(params.lifecycle.labels ? { tags: params.lifecycle.labels } : {}),
     };
     try {
@@ -374,6 +457,14 @@ class VercelSandboxClient implements SandboxClient {
       "Vercel provider does not implement named volumes yet (Drives, beta — Phase 2 follow-up).",
     );
   }
+}
+
+/** Recovers the underlying Vercel sandbox from a handle (PTY, etc.). */
+export function unwrapVercelSandbox(handle: SandboxHandle): Sandbox {
+  if (handle instanceof VercelSandboxHandle) {
+    return handle.unwrap();
+  }
+  throw new Error("Expected a Vercel-backed sandbox handle.");
 }
 
 /** Constructs a Vercel-backed {@link SandboxClient} from access-token credentials. */

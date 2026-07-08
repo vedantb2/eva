@@ -885,9 +885,19 @@ export const launchSeedRun = internalAction({
       "set -x",
       "rm -f /tmp/.seedrun-done",
     ];
-    // Vercel's fresh sandbox has NO toolchain baked in (no pnpm, no docker, no
-    // supabase CLI) unlike Daytona's Image, which bakes all of this in ahead of
-    // time. Install it here, once per prep sandbox, before touching the repo.
+    // Daytona bakes its whole agent-CLI toolchain (claude, codex, opencode,
+    // cursor-agent, supabase, docker, ...) into the sandbox's Image via
+    // buildSnapshotImage — every fresh Daytona sandbox already has them.
+    //
+    // Vercel has NO equivalent custom Image: a fresh Vercel sandbox boots
+    // bare `node24` with none of this installed. The ONLY place the CLIs get
+    // installed for Vercel is right here, once, on the seed-prep sandbox —
+    // they end up on disk only because this stage runs before the capture
+    // below (triggerSeededSnapshot) bakes the whole filesystem into the
+    // seeded `snap_*` snapshot. A session sandbox that boots from anything
+    // OTHER than that seeded snapshot (i.e. bare node24, because no seed
+    // build has completed yet) will NOT have Claude/Codex/cursor-agent/etc.
+    // — this is expected, not a bug; see getRepoSnapshotName.
     if (credentials.kind === "vercel") {
       lines.push(
         'echo "SEEDRUN-STAGE:toolchain"',
@@ -907,7 +917,10 @@ export const launchSeedRun = internalAction({
         'curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
         'python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
         "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
-        'sudo rm -rf /opt/noVNC && sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/noVNC || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
+        // Canonical path matches vercel-sandbox-gui + VercelDesktop (/opt/novnc).
+        // Amazon Linux has no openbox/fluxbox packages — Chrome runs on Xvnc
+        // without a WM (same as the GUI reference).
+        'sudo rm -rf /opt/novnc /opt/noVNC && sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
         "sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'\n[google-chrome]\nname=google-chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\nEOF",
         'sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || { echo "SEEDRUN-FAILED:chrome"; exit 1; }',
         'curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh >/tmp/cursor.log 2>&1 || { echo "SEEDRUN-FAILED:cursor"; exit 1; }',
@@ -918,6 +931,19 @@ export const launchSeedRun = internalAction({
         'git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93 || { echo "SEEDRUN-FAILED:interface-design-plugin"; exit 1; }',
         'git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins || { echo "SEEDRUN-FAILED:maister-plugin"; exit 1; }',
         `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
+        // Persist PATH additions into the sandbox filesystem itself (not just
+        // the current shell) so agent CLIs survive into the captured snap_*
+        // and are found by every later session exec:
+        //   - /etc/profile.d runs for every `bash -lc` login-shell exec (see
+        //     SOURCE_ENV / exec() in vercelProvider.ts) — the durable fix.
+        //   - .bashrc/.eva-env.sh are best-effort belt-and-suspenders; note
+        //     .eva-env.sh gets fully REWRITTEN by every session create() with
+        //     that session's env vars (vercelProvider.ts renderEnvFile), so
+        //     /etc/profile.d is what actually has to carry this across boots.
+        'echo "SEEDRUN-STAGE:path-setup"',
+        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' | sudo tee /etc/profile.d/eva-path.sh >/dev/null && sudo chmod 644 /etc/profile.d/eva-path.sh",
+        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' >> /home/eva/.bashrc",
+        "echo 'export PATH=\"/home/eva/.local/bin:/usr/local/bin:$PATH\"' >> /vercel/sandbox/.eva-env.sh",
       );
 
       // Config files (data.sql, backup zips) are NOT baked into a fresh Vercel
@@ -1383,7 +1409,14 @@ export const deleteSeededSnapshot = internalAction({
     try {
       const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
       const client = getSandboxClient(credentials);
-      await client.deleteSnapshot(args.snapshotName);
+      const deleted = await client.deleteSnapshot(args.snapshotName);
+      // Explicit confirmation so "keep-last" / rebuild deletion can be
+      // verified in Convex logs, not just the build's UI log stream.
+      console.log(
+        deleted
+          ? `[snapshot] deleteSeededSnapshot: deleted ${args.snapshotName}`
+          : `[snapshot] deleteSeededSnapshot: ${args.snapshotName} not found (already gone)`,
+      );
     } catch (e) {
       console.error(
         `[snapshot] deleteSeededSnapshot: failed to delete ${args.snapshotName}: ${

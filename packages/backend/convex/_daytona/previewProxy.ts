@@ -21,7 +21,7 @@ const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "auth-v3";
+const SCRIPT_VERSION = "auth-v4";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -459,13 +459,27 @@ function injectHtml(html) {
   return tag + html;
 }
 
+// Vercel exposes each sandbox port on its OWN "*.vercel.run" subdomain (unlike
+// Daytona's single host + port-prefix scheme). The proxy has no way to learn
+// its own external hostname (Vercel's edge terminates TLS before this
+// process), so it cannot rewrite a redirect to "the current host, new path" —
+// it can only strip the host entirely and rely on the browser resolving a
+// path-only Location against whatever origin it is already on. That is
+// exactly what we want: any absolute "*.vercel.run" Location (e.g. the app
+// building an absolute URL from a Host header that resolved to the unproxied
+// dev-server port) would otherwise send the browser to a DIFFERENT port's
+// subdomain than the one it loaded the page from, which Vercel's edge then
+// rejects as "port is not exposed" for that host/path combination.
+const VERCEL_HOST_SUFFIX = ".vercel.run";
+
 function rewriteLocationHeader(value) {
   try {
     const parsed = new URL(value, "http://127.0.0.1:" + String(targetPort));
-    const isLocal =
+    const isLocalUpstream =
       (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost") &&
       Number(parsed.port || "80") === targetPort;
-    if (isLocal) {
+    const isVercelHost = parsed.hostname.endsWith(VERCEL_HOST_SUFFIX);
+    if (isLocalUpstream || isVercelHost) {
       return parsed.pathname + parsed.search + parsed.hash;
     }
     return value;

@@ -417,7 +417,12 @@ export const getPreviewUrl = action({
     let ready = true;
     if (args.checkReady) {
       ready = await probePreviewReady(handle, args.port);
-      if (!ready) {
+      // Only auto-restart the app/dev server for app preview ports.
+      // Desktop (6080) and editor (8080) are started by their own toggle
+      // actions — launching `pnpm run dev` onto those ports would clobber
+      // noVNC/websockify or code-server and surface as SANDBOX_NOT_LISTENING.
+      const isDesktopOrEditorPort = args.port === 6080 || args.port === 8080;
+      if (!ready && !isDesktopOrEditorPort) {
         try {
           const devCommand = await resolveDevCommandForPreview(
             handle,
@@ -468,9 +473,20 @@ export const getPreviewUrl = action({
           fixedVercelProxyPort,
         );
       } catch (e) {
+        const proxyErrorMessage = errorMessage(e, "proxy startup failed");
         console.warn(
-          `[daytona] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "proxy startup failed")}`,
+          `[daytona] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${proxyErrorMessage}`,
         );
+        // Vercel only exposes a fixed, small port set (VERCEL_DEFAULT_EXPOSED_PORTS).
+        // If the reserved 54321 proxy port fails to start while a preview grant
+        // key is configured, silently falling back to the unproxied dev-server
+        // port would serve the app with no auth gate at all. Fail loudly instead
+        // of returning an ungated preview URL.
+        if (fixedVercelProxyPort !== undefined && previewPublicJwk) {
+          throw new Error(
+            `Vercel preview proxy failed to start on port ${fixedVercelProxyPort}: ${proxyErrorMessage}`,
+          );
+        }
       }
     }
 
@@ -482,7 +498,14 @@ export const getPreviewUrl = action({
     // user's "open in new tab") loads without a login round-trip. The proxy
     // exchanges it for a session cookie on first load. Only when gating is
     // configured — otherwise the URL stays a plain proxied URL.
-    if (previewPublicJwk && ready) {
+    //
+    // Skip grants on desktop (6080) / editor (8080) for Vercel: those ports are
+    // served directly (no in-sandbox auth proxy), and extra query params on the
+    // noVNC URL only confuse the viewer.
+    const skipGrantForDirectPort =
+      credentials.kind === "vercel" &&
+      (args.port === 6080 || args.port === 8080);
+    if (previewPublicJwk && ready && !skipGrantForDirectPort) {
       const grant = await signPreviewGrant({
         sandboxId: args.sandboxId,
         port: args.port,

@@ -168,24 +168,50 @@ class VercelGit implements SandboxGit {
   }
 }
 
-/** Vercel desktop operations, implemented with the same in-sandbox noVNC stack. */
+/**
+ * Vercel desktop operations, aligned with timolins/vercel-sandbox-gui:
+ * TigerVNC (Xvnc :1) + websockify + noVNC. Amazon Linux 2023 has no usable
+ * window-manager packages (openbox/fluxbox/icewm are absent), so we follow the
+ * GUI reference and run Chrome directly on the Xvnc display — no WM required.
+ *
+ * Critical: long-running Xvnc/websockify MUST use native `detached: true`
+ * (execDetached). Backgrounding with `setsid … &` OR plain `&` inside a
+ * synchronous runCommand leaves zombies (ppid=1, state Z) once that command
+ * exits — HTTP may briefly answer then the RFB WebSocket hangs on noVNC
+ * "Loading". Detached commands survive the launcher exiting.
+ */
 class VercelDesktop implements SandboxDesktop {
   constructor(private readonly handle: VercelSandboxHandle) {}
 
   async start(): Promise<void> {
-    const install = [
-      "command -v Xvnc >/dev/null 2>&1",
-      "command -v websockify >/dev/null 2>&1",
-      "test -d /opt/noVNC",
-    ].join(" && ");
+    // Idempotent: if a live (non-zombie) stack is already healthy, keep it.
+    // Re-killing a working Xvnc mid-session blacks the Computer tab and races
+    // Chrome relaunch.
+    const healthy = await this.handle.exec(
+      [
+        "ps -eo pid,stat,cmd | awk '$2 !~ /Z/ && /Xvnc/ { xvnc=1 } $2 !~ /Z/ && /websockify/ { ws=1 } END { exit(xvnc && ws ? 0 : 1) }'",
+        "&& (curl -fsS http://127.0.0.1:6080/vnc_lite.html >/dev/null 2>&1 || curl -fsS http://127.0.0.1:6080/vnc.html >/dev/null 2>&1)",
+        "&& xprop -display :1 -root >/dev/null 2>&1",
+      ].join(" "),
+      { timeoutSeconds: 15 },
+    );
+    if (healthy.exitCode === 0) {
+      return;
+    }
+
+    // 1) Install + kill previous servers (sync).
     await this.handle.exec(
       [
-        `if ! ( ${install} ); then`,
+        'NOVNC_DIR=""',
+        "if [ -d /opt/novnc ]; then NOVNC_DIR=/opt/novnc; elif [ -d /opt/noVNC ]; then NOVNC_DIR=/opt/noVNC; fi",
+        "INSTALLED=0",
+        'if command -v Xvnc >/dev/null 2>&1 && command -v websockify >/dev/null 2>&1 && [ -n "$NOVNC_DIR" ]; then INSTALLED=1; fi',
+        'if [ "$INSTALLED" != "1" ]; then',
         "  sudo dnf install -y tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 procps-ng psmisc git >/tmp/desktop-dnf.log 2>&1",
-        "  sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
-        "  python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1",
-        "  sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
-        "  sudo rm -rf /opt/noVNC && sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/noVNC >/tmp/novnc-git.log 2>&1",
+        "  sudo dnf install -y gtk3 nss alsa-lib libXScrnSaver libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
+        "  sudo python3 -m pip install --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1",
+        "  command -v websockify >/dev/null 2>&1 || sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
+        '  if [ -z "$NOVNC_DIR" ]; then sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc >/tmp/novnc-git.log 2>&1; NOVNC_DIR=/opt/novnc; fi',
         "fi",
         "if ! command -v google-chrome-stable >/dev/null 2>&1 && ! command -v chromium >/dev/null 2>&1; then",
         "  sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'",
@@ -200,22 +226,67 @@ class VercelDesktop implements SandboxDesktop {
         "fi",
         "mkdir -p /home/eva/.vnc /tmp",
         "sudo mkdir -p /tmp/.X11-unix && sudo chmod 1777 /tmp/.X11-unix",
-        "pkill -x x0vncserver 2>/dev/null || true",
-        "fuser -k 6080/tcp 2>/dev/null || true",
-        "export DISPLAY=:1",
-        "if ! pgrep -x Xvnc >/dev/null; then setsid Xvnc :1 -geometry ${VNC_RESOLUTION:-1920x1080} -depth 24 -SecurityTypes None -AlwaysShared=1 >/tmp/xvnc.log 2>&1 & fi",
-        "for i in $(seq 1 30); do xprop -display :1 -root >/dev/null 2>&1 && break; sleep 1; done",
-        "setsid websockify --web=/opt/noVNC 0.0.0.0:6080 127.0.0.1:5901 >/tmp/novnc.log 2>&1 &",
-        "for i in $(seq 1 30); do curl -fsS http://127.0.0.1:6080/vnc_lite.html >/dev/null 2>&1 && break; sleep 1; done",
-        "curl -fsS http://127.0.0.1:6080/vnc_lite.html >/dev/null",
+        "pkill -9 -x Xvnc 2>/dev/null || true",
+        "pkill -9 -x x0vncserver 2>/dev/null || true",
+        "pkill -9 -f '[w]ebsockify' 2>/dev/null || true",
+        "fuser -k 6080/tcp 5901/tcp 2>/dev/null || true",
+        "rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true",
+        "sleep 1",
       ].join("\n"),
       { timeoutSeconds: 240 },
+    );
+
+    // 2) Detach Xvnc so it outlives this action.
+    await this.handle.execDetached(
+      "rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true; Xvnc :1 -geometry ${VNC_RESOLUTION:-1920x1080} -depth 24 -SecurityTypes None -AlwaysShared=1 >/tmp/xvnc.log 2>&1",
+    );
+
+    // 3) Wait for the display, then detach websockify.
+    await this.handle.exec(
+      [
+        "for i in $(seq 1 30); do xprop -display :1 -root >/dev/null 2>&1 && break; sleep 0.5; done",
+        "xprop -display :1 -root >/dev/null 2>&1",
+        "command -v xsetroot >/dev/null 2>&1 && DISPLAY=:1 xsetroot -solid '#1a1a1a' || true",
+      ].join("\n"),
+      { timeoutSeconds: 60 },
+    );
+
+    await this.handle.execDetached(
+      [
+        'NOVNC_DIR=""; if [ -d /opt/novnc ]; then NOVNC_DIR=/opt/novnc; elif [ -d /opt/noVNC ]; then NOVNC_DIR=/opt/noVNC; fi',
+        'WEBSOCKIFY_BIN="$(command -v websockify || echo "$(python3 -m site --user-base)/bin/websockify")"',
+        'exec "$WEBSOCKIFY_BIN" --web="$NOVNC_DIR" 0.0.0.0:6080 127.0.0.1:5901 >/tmp/novnc.log 2>&1',
+      ].join("; "),
+    );
+
+    // 4) Health-check: live (non-zombie) websockify + HTTP 200.
+    await this.handle.exec(
+      [
+        "for i in $(seq 1 30); do",
+        "  if ps -eo pid,stat,cmd | awk '$2 !~ /Z/ && /websockify/ { found=1 } END { exit(found ? 0 : 1) }' \\",
+        "    && (curl -fsS http://127.0.0.1:6080/vnc_lite.html >/dev/null 2>&1 || curl -fsS http://127.0.0.1:6080/vnc.html >/dev/null 2>&1); then",
+        "    exit 0",
+        "  fi",
+        "  sleep 0.5",
+        "done",
+        'echo "desktop start: websockify/noVNC not healthy" >&2',
+        "tail -40 /tmp/novnc.log >&2 || true",
+        "tail -20 /tmp/xvnc.log >&2 || true",
+        "exit 1",
+      ].join("\n"),
+      { timeoutSeconds: 60 },
     );
   }
 
   async stop(): Promise<void> {
     await this.handle.exec(
-      "fuser -k 6080/tcp 2>/dev/null || true; pkill -x Xvnc 2>/dev/null || true; pkill -x x0vncserver 2>/dev/null || true; pkill -f '[X]vfb :0' 2>/dev/null || true",
+      [
+        "pkill -9 -x Xvnc 2>/dev/null || true",
+        "pkill -9 -x x0vncserver 2>/dev/null || true",
+        "pkill -9 -f '[w]ebsockify' 2>/dev/null || true",
+        "fuser -k 6080/tcp 5901/tcp 2>/dev/null || true",
+        "pkill -f '[X]vfb :0' 2>/dev/null || true",
+      ].join("; "),
       { timeoutSeconds: 30 },
     );
   }
@@ -354,8 +425,16 @@ class VercelSandboxHandle implements SandboxHandle {
   async createSnapshot(
     _params: CreateSnapshotParams,
   ): Promise<{ snapshotId: string }> {
-    // Vercel snapshots are id-addressed (name is ignored). snapshot() stops the
-    // sandbox and returns fast; large state keeps building server-side.
+    // Vercel snapshots are id-addressed (name is ignored). A persistent
+    // sandbox also auto-snapshots on every stop, so without a retention
+    // policy a long-lived seed-prep sandbox's lineage of snap_* objects
+    // grows unbounded. Cap it at the single most recent snapshot and delete
+    // evicted ones immediately — this is in ADDITION to (not a replacement
+    // for) snapshotWorkflow's own delete-before-capture step, which targets
+    // the previous seeded snapshot by name across sandbox lineages.
+    await this.sandbox.update({
+      keepLastSnapshots: { count: 1, deleteEvicted: true },
+    });
     const snap = await this.sandbox.snapshot({ expiration: 0 });
     return { snapshotId: snap.snapshotId };
   }

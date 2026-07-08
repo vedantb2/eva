@@ -266,14 +266,19 @@ export function SandboxIframeService({
   }, [sandboxId, stopPolling, setCachedUrl, stopAction]);
 
   // Hydrate from sessionStorage cache when the sandbox is up; clear on stop.
+  // Desktop (ensureStartedBeforeReady) must NOT paint a cached URL immediately —
+  // a stale noVNC URL loads the HTML chrome while the RFB WebSocket is dead
+  // (zombie websockify), which looks like a permanent "Loading" bar. Re-run
+  // start + readiness poll instead.
   useEffect(() => {
     if (isActive && sandboxId && state === "idle" && cachedUrl) {
+      if (ensureStartedBeforeReady) {
+        void start();
+        return stopPolling;
+      }
       setUrl(cachedUrl);
       setState("running");
       onReady?.(cachedUrl);
-      if (ensureStartedBeforeReady) {
-        startAction().catch(() => {});
-      }
     }
     if (!isActive) {
       setCachedUrl(null);
@@ -288,7 +293,7 @@ export function SandboxIframeService({
     setCachedUrl,
     onReady,
     ensureStartedBeforeReady,
-    startAction,
+    start,
   ]);
 
   const toggleFullscreen = useCallback(() => {

@@ -1,10 +1,14 @@
 # OCC Conflict Resolution
 
-Use these rules when insights, logs, or dashboard health show OCC (Optimistic Concurrency Control) conflicts, mutation retries, or write contention on hot tables.
+Use these rules when insights, logs, or dashboard health show OCC (Optimistic
+Concurrency Control) conflicts, mutation retries, or write contention on hot
+tables.
 
 ## Core Principle
 
-Convex uses optimistic concurrency control. When two transactions read or write overlapping data, one succeeds and the other retries automatically. High contention means wasted work and increased latency.
+Convex uses optimistic concurrency control. When two transactions read or write
+overlapping data, one succeeds and the other retries automatically. High
+contention means wasted work and increased latency.
 
 ## Symptoms
 
@@ -17,21 +21,31 @@ Convex uses optimistic concurrency control. When two transactions read or write 
 
 ### Hot documents
 
-Multiple mutations writing to the same document concurrently. Classic examples: a global counter, a shared settings row, or a "last updated" timestamp on a parent record.
+Multiple mutations writing to the same document concurrently. Classic examples:
+a global counter, a shared settings row, or a "last updated" timestamp on a
+parent record.
 
 ### Broad read sets causing false conflicts
 
-A query that scans a large table range creates a broad read set. If any write touches that range, the query's transaction conflicts even if the specific document the query cared about was not modified.
+A query that scans a large table range creates a broad read set. If any write
+touches that range, the query's transaction conflicts even if the specific
+document the query cared about was not modified.
 
 ### Fan-out from triggers or cascading writes
 
-A single user action triggers multiple mutations that all touch related documents. Each mutation competes with the others.
+A single user action triggers multiple mutations that all touch related
+documents. Each mutation competes with the others.
 
-Database triggers (e.g. from `convex-helpers`) run inside the same transaction as the mutation that caused them. If a trigger does heavy work, reads extra tables, or writes to many documents, it extends the transaction's read/write set and increases the window for conflicts. Keep trigger logic minimal, or move expensive derived work to a scheduled function.
+Database triggers (e.g. from `convex-helpers`) run inside the same transaction
+as the mutation that caused them. If a trigger does heavy work, reads extra
+tables, or writes to many documents, it extends the transaction's read/write set
+and increases the window for conflicts. Keep trigger logic minimal, or move
+expensive derived work to a scheduled function.
 
 ### Write-then-read chains
 
-A mutation writes a document, then a reactive query re-reads it, then another mutation writes it again. Under load, these chains stack up.
+A mutation writes a document, then a reactive query re-reads it, then another
+mutation writes it again. Under load, these chains stack up.
 
 ## Fix Order
 
@@ -73,50 +87,47 @@ await ctx.db.patch(shardId, { count: shard!.count + 1 });
 
 Aggregate the shards in a query or scheduled job when you need the total.
 
-### 3. Skip no-op writes
+### 3. Move non-critical work to scheduled functions
 
-Writes that do not change data still participate in conflict detection and trigger invalidation.
-
-```ts
-// Bad: patches even when nothing changed
-await ctx.db.patch(doc._id, { status: args.status });
-```
+If a mutation does primary work plus secondary bookkeeping (analytics,
+non-critical notifications, cache warming), the bookkeeping extends the
+transaction's lifetime and read/write set.
 
 ```ts
-// Good: only write when the value actually differs
-if (doc.status !== args.status) {
-  await ctx.db.patch(doc._id, { status: args.status });
-}
-```
-
-### 4. Move non-critical work to scheduled functions
-
-If a mutation does primary work plus secondary bookkeeping (analytics, notifications, cache warming), the bookkeeping extends the transaction's lifetime and read/write set.
-
-```ts
-// Bad: analytics update in the same transaction as the user action
-await ctx.db.patch(userId, { lastActiveAt: Date.now() });
-await ctx.db.insert("analytics", { event: "action", userId, ts: Date.now() });
-```
-
-```ts
-// Good: schedule the bookkeeping so the primary transaction is smaller
-await ctx.db.patch(userId, { lastActiveAt: Date.now() });
-await ctx.scheduler.runAfter(0, internal.analytics.recordEvent, {
-  event: "action",
+// Bad: canonical write and derived work happen in the same transaction
+await ctx.db.patch(userId, { name: args.name });
+await ctx.db.insert("userUpdateAnalytics", {
   userId,
+  kind: "name_changed",
+  name: args.name,
 });
 ```
 
-### 5. Combine competing writes
+```ts
+// Good: keep the primary write small, defer the analytics work
+await ctx.db.patch(userId, { name: args.name });
+await ctx.scheduler.runAfter(0, internal.users.recordNameChangeAnalytics, {
+  userId,
+  name: args.name,
+});
+```
 
-If two mutations must update the same document atomically, consider whether they can be combined into a single mutation call from the client, reducing round trips and conflict windows.
+### 4. Combine competing writes
 
-Do not introduce artificial locks or queues unless the above steps have been tried first.
+If two mutations must update the same document atomically, consider whether they
+can be combined into a single mutation call from the client, reducing round
+trips and conflict windows.
+
+Do not introduce artificial locks or queues unless the above steps have been
+tried first.
 
 ## Related: Invalidation Scope
 
-Splitting hot documents also reduces subscription invalidation, not just OCC contention. If a document is written frequently and read by many queries, those queries re-run on every write even when the fields they care about have not changed. See `subscription-cost.md` section 4 ("Isolate frequently-updated fields") for that pattern.
+Splitting hot documents also reduces subscription invalidation, not just OCC
+contention. If a document is written frequently and read by many queries, those
+queries re-run on every write even when the fields they care about have not
+changed. See `subscription-cost.md` section 4 ("Isolate frequently-updated
+fields") for that pattern.
 
 ## Verification
 

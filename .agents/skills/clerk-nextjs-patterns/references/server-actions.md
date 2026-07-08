@@ -1,4 +1,4 @@
-# Server Actions (HIGH)
+# Server Actions
 
 Server Actions are public endpoints. Always verify auth.
 
@@ -9,8 +9,8 @@ Server Actions are public endpoints. Always verify auth.
 import { auth } from "@clerk/nextjs/server";
 
 export async function createPost(formData: FormData) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  const { isAuthenticated, userId } = await auth();
+  if (!isAuthenticated) throw new Error("Unauthorized");
 
   const title = formData.get("title") as string;
   await db.posts.create({ data: { title, authorId: userId } });
@@ -51,5 +51,7 @@ export async function deleteProject(projectId: string) {
   await db.projects.delete({ where: { id: projectId } });
 }
 ```
+
+> **Core 2 ONLY (skip if current SDK):** `isAuthenticated` is not available. Use `if (!userId)` instead.
 
 [Docs](https://clerk.com/docs/reference/nextjs/server-actions)

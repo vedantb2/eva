@@ -29,12 +29,16 @@ Mode stick until changed or session end.
 | -------------------- | -------------------------- | -------------------------------------------------------------- |
 | **caveman-commit**   | `/caveman-commit`          | Terse commit messages. Conventional Commits. ≤50 char subject. |
 | **caveman-review**   | `/caveman-review`          | One-line PR comments: `L42: bug: user null. Add guard.`        |
-| **caveman-compress** | `/caveman:compress <file>` | Compress .md files to caveman prose. Saves ~46% input tokens.  |
+| **caveman-compress** | `/caveman-compress <file>` | Compress .md files to caveman prose. Saves ~46% input tokens.  |
 | **caveman-help**     | `/caveman-help`            | This card.                                                     |
 
 ## Deactivate
 
 Say "stop caveman" or "normal mode". Resume anytime with `/caveman`.
+
+## Language
+
+Keep user's language by default. User write Portuguese → reply Portuguese caveman. Compress the style, not the language. Technical terms, code, commands, commit types, and exact error strings stay verbatim unless user ask for translation.
 
 ## Configure Default Mode
 

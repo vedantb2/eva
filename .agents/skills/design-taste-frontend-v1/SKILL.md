@@ -52,7 +52,7 @@ LLMs have statistical biases toward specific UI cliché patterns. Proactively co
 
 **Rule 3: Layout Diversification**
 
-- **ANTI-CENTER BIAS:** Centered Hero/H1 sections are strictly BANNED when `LAYOUT_VARIANCE > 4`. Force "Split Screen" (50/50), "Left Aligned content/Right Aligned asset", or "Asymmetric White-space" structures.
+- **ANTI-CENTER BIAS:** Centered Hero/H1 sections are strictly BANNED when `DESIGN_VARIANCE > 4`. Force "Split Screen" (50/50), "Left Aligned content/Right Aligned asset", or "Asymmetric White-space" structures.
 
 **Rule 4: Materiality, Shadows, and "Anti-Card Overuse"**
 

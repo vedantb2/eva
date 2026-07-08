@@ -85,6 +85,7 @@ import type * as _migrations_projectInterview from "../_migrations/projectInterv
 import type * as _migrations_projectPhases from "../_migrations/projectPhases.js";
 import type * as _migrations_repoSkills from "../_migrations/repoSkills.js";
 import type * as _migrations_sessionModes from "../_migrations/sessionModes.js";
+import type * as _migrations_setEprocSandboxProvider from "../_migrations/setEprocSandboxProvider.js";
 import type * as _prRecapWorkflow_finalizeOutcome from "../_prRecapWorkflow/finalizeOutcome.js";
 import type * as _prRecapWorkflow_prompts from "../_prRecapWorkflow/prompts.js";
 import type * as _prRecapWorkflow_start from "../_prRecapWorkflow/start.js";
@@ -98,6 +99,7 @@ import type * as _projects_queries from "../_projects/queries.js";
 import type * as _projects_sandbox from "../_projects/sandbox.js";
 import type * as _pty_daytona from "../_pty/daytona.js";
 import type * as _pty_owners from "../_pty/owners.js";
+import type * as _pty_vercel from "../_pty/vercel.js";
 import type * as _queues_helpers from "../_queues/helpers.js";
 import type * as _repoSkills_skillMarkdown from "../_repoSkills/skillMarkdown.js";
 import type * as _repoSkills_sync from "../_repoSkills/sync.js";
@@ -339,6 +341,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/projectPhases": typeof _migrations_projectPhases;
   "_migrations/repoSkills": typeof _migrations_repoSkills;
   "_migrations/sessionModes": typeof _migrations_sessionModes;
+  "_migrations/setEprocSandboxProvider": typeof _migrations_setEprocSandboxProvider;
   "_prRecapWorkflow/finalizeOutcome": typeof _prRecapWorkflow_finalizeOutcome;
   "_prRecapWorkflow/prompts": typeof _prRecapWorkflow_prompts;
   "_prRecapWorkflow/start": typeof _prRecapWorkflow_start;
@@ -352,6 +355,7 @@ declare const fullApi: ApiFromModules<{
   "_projects/sandbox": typeof _projects_sandbox;
   "_pty/daytona": typeof _pty_daytona;
   "_pty/owners": typeof _pty_owners;
+  "_pty/vercel": typeof _pty_vercel;
   "_queues/helpers": typeof _queues_helpers;
   "_repoSkills/skillMarkdown": typeof _repoSkills_skillMarkdown;
   "_repoSkills/sync": typeof _repoSkills_sync;

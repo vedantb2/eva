@@ -894,12 +894,30 @@ export const launchSeedRun = internalAction({
         // Staging dirs eva's commands hardcode as /home/eva/... — the Vercel
         // sandbox user is not literally "eva", so pre-create + open them up.
         "sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva",
-        'command -v docker >/dev/null 2>&1 || sudo dnf install -y docker git jq gzip tar procps-ng || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
+        'sudo dnf install -y docker git jq gzip tar procps-ng psmisc tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
+        "sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
         // Start dockerd detached and wait for it to come up.
         'sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
         'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
+        'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',
+        "git config --global --add safe.directory '*'",
         // Pinned Supabase CLI (tarball — same pinned version as the Daytona Image's .deb install).
         `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
+        'sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
+        'curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
+        'python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
+        "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
+        'sudo rm -rf /opt/noVNC && sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/noVNC || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
+        "sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'\n[google-chrome]\nname=google-chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\nEOF",
+        'sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || { echo "SEEDRUN-FAILED:chrome"; exit 1; }',
+        'curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh >/tmp/cursor.log 2>&1 || { echo "SEEDRUN-FAILED:cursor"; exit 1; }',
+        "if [ ! -x /home/eva/.local/bin/cursor-agent ] && [ -x /home/eva/.local/bin/agent ]; then ln -sf /home/eva/.local/bin/agent /home/eva/.local/bin/cursor-agent; fi",
+        "sudo ln -sf /home/eva/.local/bin/cursor-agent /usr/local/bin/cursor-agent || true",
+        "mkdir -p /home/eva/.claude/plugins/marketplaces",
+        'git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official || { echo "SEEDRUN-FAILED:claude-plugins"; exit 1; }',
+        'git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93 || { echo "SEEDRUN-FAILED:interface-design-plugin"; exit 1; }',
+        'git clone --depth 1 https://github.com/SkillPanel/maister.git /home/eva/.claude/plugins/marketplaces/maister-plugins || { echo "SEEDRUN-FAILED:maister-plugin"; exit 1; }',
+        `echo '{"enabledPlugins":{"frontend-design@claude-plugins-official":true,"superpowers@claude-plugins-official":true,"context7@claude-plugins-official":true,"interface-design@Dammyjay93":true,"maister@maister-plugins":true}}' > /home/eva/.claude/settings.json`,
       );
 
       // Config files (data.sql, backup zips) are NOT baked into a fresh Vercel
@@ -993,7 +1011,6 @@ export const launchSeedRun = internalAction({
     });
     lines.push('echo "SEEDRUN-DONE"', "touch /tmp/.seedrun-done");
     const script = lines.join("\n");
-    const b64 = Buffer.from(script, "utf8").toString("base64");
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     // Process-based guard makes the launch idempotent so the workflow can
     // retry a timed-out launch exec without racing a second copy. It must be
@@ -1003,21 +1020,30 @@ export const launchSeedRun = internalAction({
     // file-based guard would skip the launch and instantly report the baked
     // "done" — capturing without ever re-seeding. Stale markers are scrubbed
     // before every fresh launch for the same reason.
-    // Step 1: write the seed script idempotently (a live seedrun means a retry —
-    // skip re-writing so we don't race a second copy). Stale markers are scrubbed
-    // before a fresh write for the reason above (baked "done" from the source snap).
-    const writeResult = await execHandle(
+    const alreadyRunning = await execHandle(
       sandbox,
-      `if pgrep -f "[s]eedrun.sh" >/dev/null; then echo ALREADY-RUNNING; else rm -f /tmp/.seedrun-done /tmp/seedrun.log && echo ${b64} | base64 -d > /tmp/seedrun.sh && chmod +x /tmp/seedrun.sh && echo WROTE; fi`,
-      120,
+      'pgrep -f "[s]eedrun.sh" >/dev/null && echo ALREADY-RUNNING || echo NOT-RUNNING',
+      30,
     );
-    // Step 2: launch the script as a DETACHED, PERSISTENT process — its OWN main
-    // process, not a `setsid nohup … &` grandchild. On Daytona the adapter wraps
-    // it in setsid+nohup (fast return); on Vercel it becomes the detached
-    // runCommand's main process, which survives (a backgrounded grandchild does
-    // NOT persist under Vercel's process model). The workflow polls pollSeedRun
-    // markers for progress, so the launcher returns immediately either way.
-    if (writeResult.includes("WROTE")) {
+    if (!alreadyRunning.includes("ALREADY-RUNNING")) {
+      // Never inline the script as base64 in a shell command — carepulse's
+      // startup/background arrays make the payload far larger than ARG_MAX.
+      // Use the provider writeFile API (Vercel writeFiles / Daytona upload).
+      await execHandle(
+        sandbox,
+        "rm -f /tmp/.seedrun-done /tmp/seedrun.log /tmp/seedrun.sh",
+        30,
+      );
+      await sandbox.writeFile("/tmp/seedrun.sh", script);
+      await execHandle(sandbox, "chmod +x /tmp/seedrun.sh", 30);
+      const wrote = await execHandle(
+        sandbox,
+        "test -s /tmp/seedrun.sh && echo WROTE || echo WRITE-FAILED",
+        30,
+      );
+      if (!wrote.includes("WROTE")) {
+        throw new Error("Failed to write /tmp/seedrun.sh to the prep sandbox");
+      }
       await sandbox.execDetached("/tmp/seedrun.sh");
     }
     return null;
@@ -1074,12 +1100,28 @@ export const pollSeedRun = internalAction({
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     const out = await execHandle(
       sandbox,
-      'test -f /tmp/.seedrun-done && echo DONE; grep -aoE "SEEDRUN-FAILED:[a-z0-9-]+" /tmp/seedrun.log 2>/dev/null | tail -1; true',
+      [
+        "test -f /tmp/.seedrun-done && echo DONE",
+        'grep -aoE "SEEDRUN-FAILED:[a-z0-9-]+" /tmp/seedrun.log 2>/dev/null | tail -1',
+        "test -f /tmp/seedrun.sh || echo NO-SCRIPT",
+        'pgrep -f "[s]eedrun.sh" >/dev/null || echo NO-PROC',
+        "true",
+      ].join("; "),
       30,
     );
     if (out.includes("DONE")) return "done";
     const failed = out.match(/SEEDRUN-FAILED:([a-z0-9-]+)/);
     if (failed) return `failed:${failed[1]}`;
+    if (out.includes("NO-SCRIPT")) return "failed:no-script";
+    // Script file exists but process died without writing done/failed markers.
+    if (out.includes("NO-PROC") && !out.includes("DONE")) {
+      const hasLog = await execHandle(
+        sandbox,
+        "test -s /tmp/seedrun.log && echo HAS-LOG || echo NO-LOG",
+        15,
+      );
+      if (hasLog.includes("NO-LOG")) return "failed:exited-no-log";
+    }
     return "running";
   },
 });

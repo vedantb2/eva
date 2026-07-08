@@ -14,6 +14,16 @@ import { launchScript } from "./launch";
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
 
+/** Kills prior agent runners without matching the current shell wrapper. */
+export const KILL_PRIOR_AGENT_PROCESSES_CMD =
+  'pid=$(cat /tmp/run-design.pid 2>/dev/null || true); if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then comm=$(cat "/proc/$pid/comm" 2>/dev/null || true); cmdline=$(tr "\\0" " " < "/proc/$pid/cmdline" 2>/dev/null || true); if [ "$comm" = "node" ]; then case "$cmdline" in *"/tmp/run-design.mjs"*) kill "$pid" 2>/dev/null || true;; esac; fi; fi; ' +
+  "pkill -x claude 2>/dev/null || true; " +
+  "pkill -x claude-code 2>/dev/null || true; " +
+  "pkill -x codex 2>/dev/null || true; " +
+  "pkill -x opencode 2>/dev/null || true; " +
+  "pkill -x cursor-agent 2>/dev/null || true; " +
+  "true";
+
 /** Config file shape returned by getConfigFilesForSnapshot. */
 export type SandboxConfigFile = {
   fileName: string;
@@ -146,17 +156,18 @@ export async function execHandle(
  *   - If `docker info` already succeeds, it's a no-op.
  *   - Otherwise, it cleans up stale sockets/containerd remnants and starts dockerd.
  *
- * Failures are non-fatal — older snapshots without Docker installed log and continue.
+ * Returns whether `docker info` succeeds after the attempt. Callers that need
+ * Docker (e.g. seeded Supabase restore) should skip their work when this is false.
  */
 export async function ensureDockerDaemon(
   sandbox: SandboxHandle,
-): Promise<void> {
+): Promise<boolean> {
   try {
     await execHandle(sandbox, "docker info >/dev/null 2>&1", 5);
     console.log(
       `[daytona] ensureDockerDaemon: Docker daemon already running on ${sandbox.id}`,
     );
-    return;
+    return true;
   } catch {
     // Not running (or docker not installed) — try to start it below.
   }
@@ -166,27 +177,88 @@ export async function ensureDockerDaemon(
     // pidfiles survive but their PIDs map to unrelated processes in the new
     // boot — dockerd/containerd refuse to start while a pidfile claims a
     // running peer, so we must delete them.
+    //
+    // Vercel sandboxes bake docker via dnf but do not auto-start dockerd on
+    // snapshot restore — use systemctl when available, then setsid dockerd,
+    // then poll up to 60s (Daytona's 4s sleep was too short).
     await execHandle(
       sandbox,
       [
+        "command -v docker >/dev/null 2>&1 || sudo dnf install -y docker 2>/dev/null || true",
         "sudo pkill -9 containerd 2>/dev/null",
         "sudo pkill -9 dockerd 2>/dev/null",
         "sleep 1",
         "sudo rm -f /var/run/docker.pid /var/run/docker.sock /run/docker/containerd/containerd.pid /run/docker/containerd/containerd.sock /run/docker/containerd/containerd.sock.ttrpc /run/docker/containerd/containerd-debug.sock 2>/dev/null",
-        // setsid + </dev/null detaches dockerd from the exec session so it
-        // survives after the command returns.
-        "sudo setsid dockerd </dev/null >/dev/null 2>&1 &",
-        "sleep 4 && docker info >/dev/null 2>&1",
+        "sudo systemctl start docker 2>/dev/null || true",
+        "sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 &",
+        "for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done",
+        "sudo chmod 666 /var/run/docker.sock 2>/dev/null || true",
+        "docker info >/dev/null 2>&1",
       ].join("; "),
-      20,
+      90,
     );
     console.log(
       `[daytona] ensureDockerDaemon: Docker daemon started on ${sandbox.id}`,
     );
+    return true;
   } catch {
     console.log(
       `[daytona] ensureDockerDaemon: Docker not available on ${sandbox.id} (old snapshot or not installed)`,
     );
+  }
+
+  return bootstrapVercelDocker(sandbox);
+}
+
+/**
+ * Vercel-specific dockerd bootstrap. Fresh/restored Vercel sandboxes ship docker
+ * from the seeded snapshot but never auto-start dockerd — mirrors the seed-run
+ * docker-bootstrap stage in snapshotActions.ts.
+ */
+export async function bootstrapVercelDocker(
+  sandbox: SandboxHandle,
+): Promise<boolean> {
+  try {
+    await execHandle(sandbox, "docker info >/dev/null 2>&1", 5);
+    return true;
+  } catch {
+    // Not running — bootstrap below.
+  }
+
+  const script = [
+    "set -e",
+    'echo "bootstrap-docker:start"',
+    "command -v docker >/dev/null 2>&1 || sudo dnf install -y docker",
+    "sudo pkill -9 dockerd 2>/dev/null || true",
+    "sudo pkill -9 containerd 2>/dev/null || true",
+    "sudo rm -f /var/run/docker.pid /var/run/docker.sock /run/docker/containerd/containerd.pid /run/docker/containerd/containerd.sock /run/docker/containerd/containerd.sock.ttrpc /run/docker/containerd/containerd-debug.sock 2>/dev/null || true",
+    "sudo systemctl start docker 2>/dev/null || true",
+    "sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 &",
+    "for i in $(seq 1 90); do",
+    "  docker info >/dev/null 2>&1 && break",
+    "  sleep 1",
+    "done",
+    "sudo chmod 666 /var/run/docker.sock 2>/dev/null || true",
+    "docker info >/dev/null 2>&1 || { tail -30 /tmp/dockerd.log 2>/dev/null || true; exit 1; }",
+    'echo "bootstrap-docker:ok"',
+  ].join("\n");
+
+  try {
+    await sandbox.writeFile("/tmp/bootstrap-docker.sh", script);
+    await execHandle(
+      sandbox,
+      "chmod +x /tmp/bootstrap-docker.sh && bash /tmp/bootstrap-docker.sh",
+      180,
+    );
+    console.log(
+      `[daytona] bootstrapVercelDocker: Docker daemon started on ${sandbox.id}`,
+    );
+    return true;
+  } catch (error) {
+    console.log(
+      `[daytona] bootstrapVercelDocker failed on ${sandbox.id}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return false;
   }
 }
 

@@ -19,6 +19,7 @@ import {
   DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
   ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
   ensureDockerDaemon,
+  bootstrapVercelDocker,
   ensureSandboxRunning,
   sleep,
   withTimeout,
@@ -27,6 +28,7 @@ import {
 import { detectPackageManager } from "./devServer";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import { unwrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
+import { VERCEL_DEFAULT_EXPOSED_PORTS } from "../_sandbox/vercelProvider";
 
 type ActionCtx = GenericActionCtx<DataModel>;
 
@@ -310,6 +312,10 @@ export async function createSandbox(
     // networking. Vercel has no such requirement.
     const sandbox = await client.create({
       snapshot: snapshotName,
+      ports:
+        client.kind === "vercel"
+          ? [...VERCEL_DEFAULT_EXPOSED_PORTS]
+          : undefined,
       envVars: {
         // VNC_RESOLUTION is read by the snapshot's ComputerUse plugin at startup
         // (Xvfb + x11vnc). Setting it here makes the desktop start at 1920x1080
@@ -362,11 +368,22 @@ export async function createSandbox(
       `git config --global user.name "${appSlug}[bot]" && git config --global user.email "${botUserId}+${appSlug}[bot]@users.noreply.github.com"`,
       10,
     );
+    // Snapshot-restored /tmp/repo is owned by vercel-sandbox; session git
+    // commands run as a different uid and hit "dubious ownership" without this.
+    await execHandle(
+      sandbox,
+      "git config --global --add safe.directory '*'",
+      10,
+    );
 
     // Start Docker daemon if available (for Docker-in-Docker / Supabase local dev).
     // Idempotent — also re-invoked from ensureSandboxRunning on resume since
     // dockerd doesn't survive auto-stop.
-    await ensureDockerDaemon(sandbox);
+    if (client.kind === "vercel") {
+      await bootstrapVercelDocker(sandbox);
+    } else {
+      await ensureDockerDaemon(sandbox);
+    }
 
     return sandbox;
   });
@@ -842,7 +859,7 @@ export async function cloneAndSetupRepo(
       return;
     }
     if (onProgress) await onProgress("Installing dependencies...");
-    const pm = await detectPackageManager(unwrapDaytonaSandbox(sandbox));
+    const pm = await detectPackageManager(sandbox);
     logGit(
       `installDependencies: detected package manager "${pm}" for ${owner}/${name}`,
     );

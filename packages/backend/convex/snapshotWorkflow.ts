@@ -219,8 +219,9 @@ export const snapshotBuildWorkflow = workflow.define({
       { repoSnapshotId: args.repoSnapshotId },
     );
 
-    const seededName = `seeded-${primaryRepoId}-${args.buildId}`;
+    const seededName = `seeded-${primaryRepoId}`;
     let prepSandboxId: string | null = null;
+    let deletedExistingSeededSnapshots = false;
 
     // Marks every seedable app as fallback (keeping its previous snapshot
     // name) and completes the build with an error. Used on every failure exit.
@@ -230,7 +231,9 @@ export const snapshotBuildWorkflow = workflow.define({
           buildId: args.buildId,
           repoId: app.repoId,
           status: "fallback",
-          seededSnapshotName: app.seededSnapshotName,
+          seededSnapshotName: deletedExistingSeededSnapshots
+            ? null
+            : app.seededSnapshotName,
         });
       }
       await step.runMutation(internal.repoSnapshots.completeBuild, {
@@ -326,6 +329,33 @@ export const snapshotBuildWorkflow = workflow.define({
           `Seed run did not complete (state: ${seedState}) — see logs for diagnostics`,
         );
         return;
+      }
+
+      const previousSeededSnapshotNames: string[] = [];
+      for (const app of previousSeededNames) {
+        if (
+          app.seededSnapshotName &&
+          !previousSeededSnapshotNames.includes(app.seededSnapshotName)
+        ) {
+          previousSeededSnapshotNames.push(app.seededSnapshotName);
+        }
+      }
+      if (previousSeededSnapshotNames.length > 0) {
+        await step.runMutation(
+          internal.repoSnapshots.setSeededSnapshotNameForAll,
+          { repoIds: seedableRepoIds, seededSnapshotName: null },
+        );
+        for (const snapshotName of previousSeededSnapshotNames) {
+          await step.runAction(internal.snapshotActions.deleteSeededSnapshot, {
+            snapshotName,
+            repoId: primaryRepoId,
+          });
+        }
+        await step.runMutation(internal.repoSnapshots.appendLogs, {
+          buildId: args.buildId,
+          chunk: `Deleted ${previousSeededSnapshotNames.length} existing seeded snapshot(s) before capture.\n`,
+        });
+        deletedExistingSeededSnapshots = true;
       }
 
       // Capture the refreshed filesystem into ONE snapshot. Trigger fires the

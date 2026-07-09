@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
 import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
@@ -12,6 +13,42 @@ import { workflow } from "../workflowManager";
 
 const STALE_BUILD_MS = 30 * 60 * 1000;
 const MAX_CRON_RETRIES = 2;
+
+type SeededAppReturn = {
+  repoId: Id<"githubRepos">;
+  seededSnapshotName: string | null;
+  app?: string;
+  status?: "running" | "seeded" | "fallback";
+};
+
+/** Drops legacy warmup fields still present on older prod rows. */
+function sanitizeSeededApps(
+  seededApps: Doc<"snapshotBuilds">["seededApps"],
+): SeededAppReturn[] | undefined {
+  if (seededApps === undefined) {
+    return undefined;
+  }
+  return seededApps.map((app) => {
+    const cleaned: SeededAppReturn = {
+      repoId: app.repoId,
+      seededSnapshotName: app.seededSnapshotName,
+    };
+    if (app.app !== undefined) {
+      cleaned.app = app.app;
+    }
+    if (app.status !== undefined) {
+      cleaned.status = app.status;
+    }
+    return cleaned;
+  });
+}
+
+function sanitizeBuildForReturn(build: Doc<"snapshotBuilds">) {
+  return {
+    ...build,
+    seededApps: sanitizeSeededApps(build.seededApps),
+  };
+}
 
 /** Lists the most recent 20 snapshot builds for a given snapshot config. */
 export const listBuilds = authQuery({
@@ -40,7 +77,7 @@ export const listBuilds = authQuery({
       )
       .order("desc")
       .take(20);
-    return builds;
+    return builds.map((build) => sanitizeBuildForReturn(build));
   },
 });
 
@@ -65,7 +102,11 @@ export const getBuild = authQuery({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.buildId);
+    const build = await ctx.db.get(args.buildId);
+    if (!build) {
+      return null;
+    }
+    return sanitizeBuildForReturn(build);
   },
 });
 

@@ -301,6 +301,16 @@ export const archiveSandbox = internalAction({
  * in-progress state so the caller can poll via pollSandboxStarted. Throws only
  * when the sandbox is in a terminal failure state.
  */
+/** Returns the active sandbox provider for a repo (for workflow thaw id selection). */
+export const getSandboxProviderKind = internalAction({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.union(v.literal("daytona"), v.literal("vercel")),
+  handler: async (ctx, args) => {
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    return credentials.kind;
+  },
+});
+
 export const startSandboxAsyncKickoff = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.object({

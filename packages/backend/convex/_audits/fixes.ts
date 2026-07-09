@@ -55,6 +55,7 @@ export const runSelectedFixes = authMutation({
       auditId: args.auditId,
       selectedFailures: args.selectedFailures,
       sandboxId: run.sandboxId,
+      vercelSandboxId: run.vercelSandboxId,
       taskId,
       runId,
       userId: ctx.userId,

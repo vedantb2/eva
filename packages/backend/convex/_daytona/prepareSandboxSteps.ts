@@ -18,6 +18,7 @@ type PrepareSandboxArgs = {
   streamingEntityId: string;
   ephemeral: boolean;
   existingSandboxId?: string;
+  vercelSandboxId?: string;
   attachRunId?: Id<"agentRuns">;
   baseBranch?: string;
   branchName?: string;
@@ -48,23 +49,29 @@ async function emitSteps(
   });
 }
 
+type PrepareSandboxResult = {
+  sandboxId: string;
+  /** Set to the sandbox id when the provider is Vercel; undefined for Daytona. */
+  vercelSandboxId: string | undefined;
+};
+
 /** Orchestrates sandbox creation and local branch setup as a multi-step workflow. */
 export async function prepareSandboxSteps(
   step: WorkflowCtx,
   args: PrepareSandboxArgs,
-): Promise<string> {
+): Promise<PrepareSandboxResult> {
   const completedSteps: Array<ProgressStep> = [];
   const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
 
   // Thaw an archived/stopped existing sandbox across polling steps before the
   // create/resume action, so a multi-minute cold-storage restore doesn't blow
   // the per-action 10-minute limit inside createOrResumeSandbox →
-  // ensureSandboxRunning. New sandboxes (no existingSandboxId) have nothing to
-  // thaw. A thaw failure propagates as a sandbox-setup failure, matching how
-  // createOrResumeSandbox failures already surface to the caller.
-  if (args.existingSandboxId) {
+  // ensureSandboxRunning. On Vercel only vercelSandboxId is thawed (Daytona
+  // UUIDs must not hit Vercel get). New sandboxes have nothing to thaw.
+  if (args.existingSandboxId || args.vercelSandboxId) {
     await ensureSandboxStartedSteps(step, {
       sandboxId: args.existingSandboxId,
+      vercelSandboxId: args.vercelSandboxId,
       repoId: args.repoId,
       streamingEntityId: args.streamingEntityId,
     });
@@ -77,6 +84,7 @@ export async function prepareSandboxSteps(
     internal.daytona.createOrResumeSandbox,
     {
       existingSandboxId: args.existingSandboxId,
+      vercelSandboxId: args.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: args.repoOwner,
       repoName: args.repoName,
@@ -89,7 +97,7 @@ export async function prepareSandboxSteps(
     },
     args.createRetry ? { retry: args.createRetry } : undefined,
   );
-  const { sandboxId } = setupResult;
+  const { sandboxId, vercelSandboxId } = setupResult;
 
   completedSteps.push({
     type: "tool",
@@ -318,5 +326,5 @@ export async function prepareSandboxSteps(
     }
   }
 
-  return sandboxId;
+  return { sandboxId, vercelSandboxId };
 }

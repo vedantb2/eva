@@ -19,13 +19,14 @@ export async function detectPackageManager(
   sandbox: SandboxHandle,
   rootDir = "",
 ): Promise<string> {
-  const dir = rootDir
-    ? `${workspaceDirShell()}/${rootDir}`
-    : workspaceDirShell();
+  const workspaceRoot = workspaceDirShell();
+  const dir = rootDir ? `${workspaceRoot}/${rootDir}` : workspaceRoot;
+  // Prefer the package rootDir, then fall back to the workspace root — monorepos
+  // often keep pnpm-lock.yaml at the repo root while rootDirectory points at an app.
   const lockFile = (
     await execHandle(
       sandbox,
-      `cd ${dir} && ls -1 | grep -E '^(pnpm-lock.yaml|yarn.lock)$' | head -n1`,
+      `{ cd ${dir} && ls -1 pnpm-lock.yaml yarn.lock 2>/dev/null; cd ${workspaceRoot} && ls -1 pnpm-lock.yaml yarn.lock 2>/dev/null; } | head -n1`,
       5,
     )
   ).trim();

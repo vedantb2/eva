@@ -1,7 +1,6 @@
 "use node";
 
 import { v } from "convex/values";
-import type { Sandbox } from "@daytonaio/sdk";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
@@ -23,6 +22,7 @@ import {
   KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
 import { resolveSandboxCredentials } from "../envVarResolver";
+import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import { resolveDaytonaApiKey } from "../envVarResolver";
 import { detectPackageManager, launchDevServerInBackground } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
@@ -78,10 +78,6 @@ import {
   VERCEL_DESKTOP_INTERNAL_PORT,
   VERCEL_EDITOR_INTERNAL_PORT,
 } from "./previewProxy";
-import {
-  unwrapDaytonaSandbox,
-  wrapDaytonaSandbox,
-} from "../_sandbox/daytonaProvider";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
@@ -570,6 +566,7 @@ function isSandboxSetupRetryable(message: string): boolean {
 export const prepareSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -583,7 +580,10 @@ export const prepareSandbox = internalAction({
     startDesktop: v.optional(v.boolean()),
     streamingEntityId: v.optional(v.string()),
   },
-  returns: v.object({ sandboxId: v.string() }),
+  returns: v.object({
+    sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     const completedSteps: Array<{
       type: string;
@@ -609,23 +609,33 @@ export const prepareSandbox = internalAction({
     );
     const { client, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
+    // Vercel sandboxes are only ever reused via `vercelSandboxId` — a stale
+    // Daytona `existingSandboxId` on the entity must never be treated as
+    // reusable here.
+    const existingSandboxId = resolveExistingSandboxId({
+      providerKind: client.kind,
+      sandboxId: args.existingSandboxId,
+      vercelSandboxId: args.vercelSandboxId,
+    });
     // Persistence volumes remain a Daytona-only capability; resolve a raw
     // Daytona client just for the volume lookup on that path.
     const sessionVolumeMounts =
       args.sessionPersistenceId && args.sessionPersistenceKind
-        ? await ensureSessionPersistenceVolumes(
-            getDaytona(
-              (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
-            ),
-            args.repoId,
-            args.sessionPersistenceKind,
-            args.sessionPersistenceId,
-          )
+        ? client.kind === "vercel"
+          ? []
+          : await ensureSessionPersistenceVolumes(
+              getDaytona(
+                (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
+              ),
+              args.repoId,
+              args.sessionPersistenceKind,
+              args.sessionPersistenceId,
+            )
         : undefined;
     console.log(
-      `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
+      `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
-    let sandbox: Sandbox | undefined;
+    let sandbox: SandboxHandle | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
     const maxSetupAttempts = 3;
@@ -638,6 +648,8 @@ export const prepareSandbox = internalAction({
       await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.attachRunId,
         sandboxId: sandboxToAttach.id,
+        vercelSandboxId:
+          client.kind === "vercel" ? sandboxToAttach.id : undefined,
       });
     };
 
@@ -658,13 +670,13 @@ export const prepareSandbox = internalAction({
             emitProgress,
             { mode: "none" },
           );
-          sandbox = unwrapDaytonaSandbox(prepared.sandbox);
+          sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
         } else {
           const prepared = await getOrCreateSandbox(
             ctx,
             client,
-            args.existingSandboxId,
+            existingSandboxId,
             args.installationId,
             args.repoOwner,
             args.repoName,
@@ -675,28 +687,25 @@ export const prepareSandbox = internalAction({
             emitProgress,
             { mode: "none" },
           );
-          sandbox = unwrapDaytonaSandbox(prepared.sandbox);
+          sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
         }
 
         if (args.branchName) {
           await emitProgress("Setting up branch...");
           await setupBranch(
-            wrapDaytonaSandbox(sandbox),
+            sandbox,
             args.branchName,
             args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH,
           );
         } else if (args.baseBranch) {
           await emitProgress("Checking out base branch...");
-          await checkoutFetchedBaseBranch(
-            wrapDaytonaSandbox(sandbox),
-            args.baseBranch,
-          );
+          await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
         }
 
         if (args.startDesktop) {
           await emitProgress("Starting desktop...");
-          await startDesktopWithChrome(wrapDaytonaSandbox(sandbox));
+          await startDesktopWithChrome(sandbox);
         }
 
         break;
@@ -752,7 +761,10 @@ export const prepareSandbox = internalAction({
     console.log(
       `[daytona] prepareSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
     );
-    return { sandboxId: sandbox.id };
+    return {
+      sandboxId: sandbox.id,
+      vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
+    };
   },
 });
 
@@ -760,6 +772,7 @@ export const prepareSandbox = internalAction({
 export const createOrResumeSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -772,7 +785,10 @@ export const createOrResumeSandbox = internalAction({
     attachRunId: v.optional(v.id("agentRuns")),
     streamingEntityId: v.optional(v.string()),
   },
-  returns: v.object({ sandboxId: v.string() }),
+  returns: v.object({
+    sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     const completedSteps: Array<{
       type: string;
@@ -798,24 +814,34 @@ export const createOrResumeSandbox = internalAction({
     );
     const { client, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
+    // Vercel sandboxes are only ever reused via `vercelSandboxId` — a stale
+    // Daytona `existingSandboxId` on the entity must never be treated as
+    // reusable here.
+    const existingSandboxId = resolveExistingSandboxId({
+      providerKind: client.kind,
+      sandboxId: args.existingSandboxId,
+      vercelSandboxId: args.vercelSandboxId,
+    });
     // Persistence volumes remain a Daytona-only capability; resolve a raw
     // Daytona client just for the volume lookup on that path.
     const sessionVolumeMounts =
       args.sessionPersistenceId && args.sessionPersistenceKind
-        ? await ensureSessionPersistenceVolumes(
-            getDaytona(
-              (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
-            ),
-            args.repoId,
-            args.sessionPersistenceKind,
-            args.sessionPersistenceId,
-          )
+        ? client.kind === "vercel"
+          ? []
+          : await ensureSessionPersistenceVolumes(
+              getDaytona(
+                (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
+              ),
+              args.repoId,
+              args.sessionPersistenceKind,
+              args.sessionPersistenceId,
+            )
         : undefined;
     console.log(
-      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
+      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
 
-    let sandbox: Sandbox | undefined;
+    let sandbox: SandboxHandle | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
     const maxSetupAttempts = 3;
@@ -828,6 +854,8 @@ export const createOrResumeSandbox = internalAction({
       await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.attachRunId,
         sandboxId: sandboxToAttach.id,
+        vercelSandboxId:
+          client.kind === "vercel" ? sandboxToAttach.id : undefined,
       });
     };
 
@@ -848,13 +876,13 @@ export const createOrResumeSandbox = internalAction({
             emitProgress,
             { mode: "none" },
           );
-          sandbox = unwrapDaytonaSandbox(prepared.sandbox);
+          sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
         } else {
           const prepared = await getOrCreateSandbox(
             ctx,
             client,
-            args.existingSandboxId,
+            existingSandboxId,
             args.installationId,
             args.repoOwner,
             args.repoName,
@@ -865,7 +893,7 @@ export const createOrResumeSandbox = internalAction({
             emitProgress,
             { mode: "none" },
           );
-          sandbox = unwrapDaytonaSandbox(prepared.sandbox);
+          sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
         }
 
@@ -873,6 +901,7 @@ export const createOrResumeSandbox = internalAction({
           await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
             runId: args.attachRunId,
             sandboxId: sandbox.id,
+            vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
           });
         }
 
@@ -931,7 +960,10 @@ export const createOrResumeSandbox = internalAction({
     console.log(
       `[daytona] createOrResumeSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
     );
-    return { sandboxId: sandbox.id };
+    return {
+      sandboxId: sandbox.id,
+      vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
+    };
   },
 });
 

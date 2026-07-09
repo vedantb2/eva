@@ -70,6 +70,7 @@ export const startSandbox = authMutation({
       {
         sessionId: args.sessionId,
         existingSandboxId: session.sandboxId,
+        vercelSandboxId: session.vercelSandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -200,6 +201,7 @@ export const sandboxReady = internalMutation({
   args: {
     sessionId: v.id("sessions"),
     sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
     branchName: v.string(),
     isNew: v.boolean(),
     usedSnapshot: v.optional(v.boolean()),
@@ -230,6 +232,9 @@ export const sandboxReady = internalMutation({
       sandboxId: args.sandboxId,
       branchName: args.branchName,
       status: "active",
+      ...(args.vercelSandboxId !== undefined
+        ? { vercelSandboxId: args.vercelSandboxId }
+        : {}),
       ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),
       ...(args.devCommand !== undefined ? { devCommand: args.devCommand } : {}),
     });

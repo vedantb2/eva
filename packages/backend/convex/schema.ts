@@ -182,6 +182,8 @@ const schema = defineSchema(
       title: v.string(),
       status: sessionStatusValidator,
       sandboxId: v.optional(v.string()),
+      // Vercel sandbox name when SANDBOX_PROVIDER=vercel; prefer for reuse
+      vercelSandboxId: v.optional(v.string()),
       branchName: v.optional(v.string()),
       activeWorkflowId: v.optional(v.string()),
       archived: v.optional(v.boolean()),

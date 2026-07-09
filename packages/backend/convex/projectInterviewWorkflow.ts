@@ -140,6 +140,7 @@ export const projectInterviewWorkflow = workflow.define({
         // surrounding catch handles thaw failures.
         await ensureSandboxStartedSteps(step, {
           sandboxId: projectData.sandboxId,
+          vercelSandboxId: projectData.vercelSandboxId,
           repoId: projectData.repoId,
         });
       }
@@ -148,6 +149,7 @@ export const projectInterviewWorkflow = workflow.define({
         {
           projectId: args.projectId,
           existingSandboxId: projectData.sandboxId,
+          vercelSandboxId: projectData.vercelSandboxId,
           installationId: args.installationId,
           repoOwner: projectData.repoOwner,
           repoName: projectData.repoName,
@@ -219,6 +221,7 @@ export const getProjectData = internalQuery({
   args: { projectId: v.id("projects") },
   returns: v.object({
     sandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -241,6 +244,7 @@ export const getProjectData = internalQuery({
 
     return {
       sandboxId: project.sandboxId,
+      vercelSandboxId: project.vercelSandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: project.repoId,
@@ -530,6 +534,7 @@ Output ONLY valid JSON.`;
         // surrounding catch handles thaw failures.
         await ensureSandboxStartedSteps(step, {
           sandboxId: projectData.sandboxId,
+          vercelSandboxId: projectData.vercelSandboxId,
           repoId: projectData.repoId,
         });
       }
@@ -538,6 +543,7 @@ Output ONLY valid JSON.`;
         {
           projectId: args.projectId,
           existingSandboxId: projectData.sandboxId,
+          vercelSandboxId: projectData.vercelSandboxId,
           installationId: args.installationId,
           repoOwner: projectData.repoOwner,
           repoName: projectData.repoName,

@@ -1,6 +1,7 @@
 import type { WorkflowCtx } from "@convex-dev/workflow";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
+import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
 
 // First poll fires sooner (a stopped→started resume that just missed the
 // kick-off window settles quickly); later polls are spaced wider. MAX_POLLS at
@@ -11,7 +12,10 @@ const POLL_DELAY_MS = 20_000;
 const MAX_POLLS = 60; // ~20 minutes at 20s intervals
 
 type EnsureSandboxStartedArgs = {
-  sandboxId: string;
+  /** Daytona-era sandbox id (ignored for thaw when provider is vercel). */
+  sandboxId?: string;
+  /** Vercel sandbox name — preferred when SANDBOX_PROVIDER=vercel. */
+  vercelSandboxId?: string;
   repoId: Id<"githubRepos">;
   /** When set, a "restoring…" activity is surfaced to this streaming entity. */
   streamingEntityId?: string;
@@ -34,6 +38,10 @@ type EnsureSandboxStartedArgs = {
  * the kick-off, and a merely-stopped sandbox fast-resumes inside the kick-off
  * window with no polling.
  *
+ * On Vercel, only `vercelSandboxId` is thawed — a leftover Daytona UUID in
+ * `sandboxId` must not be passed to Vercel `get` (404). If neither id applies,
+ * this is a no-op and the caller creates a fresh sandbox.
+ *
  * Throws if the sandbox hits a terminal failure state or does not reach
  * "running" within the ceiling; callers wrap this to surface a retryable message.
  */
@@ -41,9 +49,24 @@ export async function ensureSandboxStartedSteps(
   step: WorkflowCtx,
   args: EnsureSandboxStartedArgs,
 ): Promise<void> {
+  const provider = await step.runAction(
+    internal.daytona.getSandboxProviderKind,
+    {
+      repoId: args.repoId,
+    },
+  );
+  const thawId = resolveExistingSandboxId({
+    providerKind: provider,
+    sandboxId: args.sandboxId,
+    vercelSandboxId: args.vercelSandboxId,
+  });
+  if (!thawId) {
+    return;
+  }
+
   const kickoff = await step.runAction(
     internal.daytona.startSandboxAsyncKickoff,
-    { sandboxId: args.sandboxId, repoId: args.repoId },
+    { sandboxId: thawId, repoId: args.repoId },
   );
   if (kickoff.state === "running") return;
   if (kickoff.provider === "vercel") return;
@@ -68,7 +91,7 @@ export async function ensureSandboxStartedSteps(
     attempt++;
     const poll = await step.runAction(
       internal.daytona.pollSandboxStarted,
-      { sandboxId: args.sandboxId, repoId: args.repoId },
+      { sandboxId: thawId, repoId: args.repoId },
       { runAfter: attempt === 1 ? FIRST_POLL_DELAY_MS : POLL_DELAY_MS },
     );
     state = poll.state;
@@ -76,7 +99,7 @@ export async function ensureSandboxStartedSteps(
 
   if (state !== "running") {
     throw new Error(
-      `Sandbox ${args.sandboxId} restore from cold storage did not complete within ~20 minutes (last state: ${state}). The restore continues in the background — retry to resume.`,
+      `Sandbox ${thawId} restore from cold storage did not complete within ~20 minutes (last state: ${state}). The restore continues in the background — retry to resume.`,
     );
   }
 }

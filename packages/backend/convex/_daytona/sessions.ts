@@ -6,7 +6,7 @@ import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { DataModel, Id } from "../_generated/dataModel";
 import {
-  exec,
+  execHandle,
   resolveSandboxContext,
   getDaytona,
   ensureSandboxRunning,
@@ -32,6 +32,7 @@ import {
 } from "../_sandbox/daytonaProvider";
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
 import { ensureSessionPersistenceVolumes } from "./volumes";
+import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
   detectPackageManager,
   resetDevTerminalForResume,
@@ -200,14 +201,14 @@ async function syncSessionRefsForRestore(
 
 /** Fetches both base and design branch refs for initial design session setup. */
 async function syncDesignRefsForSetup(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   repoOwner: string,
   repoName: string,
   branchName: string,
   baseBranch: string,
 ): Promise<void> {
   const fetchedBranches = await fetchBranchRefs(
-    wrapDaytonaSandbox(sandbox),
+    sandbox,
     repoOwner,
     repoName,
     [baseBranch, branchName],
@@ -230,25 +231,27 @@ async function syncDesignRefsForSetup(
 
 /** Installs project dependencies after snapshot restore, with retry on transient failures. */
 async function installSnapshotDependenciesWithRetry(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   rootDir: string,
 ): Promise<void> {
   const maxAttempts = 3;
-  const pm = await detectPackageManager(wrapDaytonaSandbox(sandbox), rootDir);
-  const dir = rootDir
-    ? `${workspaceDirShell()}/${rootDir}`
-    : workspaceDirShell();
+  const pm = await detectPackageManager(sandbox, rootDir);
+  const workspaceRoot = workspaceDirShell();
+  const dir = rootDir ? `${workspaceRoot}/${rootDir}` : workspaceRoot;
+  // pnpm workspaces must install from the lockfile root (usually the repo root),
+  // not from a nested app rootDirectory that only has package.json.
+  const installCwd = pm === "pnpm" ? workspaceRoot : dir;
   const installCommand =
     pm === "pnpm"
-      ? `npm install -g pnpm && cd ${dir} && pnpm install`
+      ? `npm install -g pnpm && cd ${installCwd} && pnpm install`
       : pm === "yarn"
-        ? `cd ${dir} && yarn install`
-        : `cd ${dir} && npm install`;
+        ? `cd ${installCwd} && yarn install`
+        : `cd ${installCwd} && npm install`;
   const timeoutSeconds = pm === "pnpm" ? 240 : 180;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      await exec(sandbox, installCommand, timeoutSeconds);
+      await execHandle(sandbox, installCommand, timeoutSeconds);
       if (attempt > 1) {
         logSession(
           `installSnapshotDependenciesWithRetry recovered on retry ${attempt}/${maxAttempts} (rootDir=${rootDir || "."}, pm=${pm})`,
@@ -366,9 +369,32 @@ async function tryReuseSandboxHandle(
   return sandbox;
 }
 
+/**
+ * Lazily resolves a Daytona client for a repo, memoizing the result so
+ * repeated Daytona-only steps (reuse, persistence volumes) within one
+ * preparation call share a single resolution. Callers must only invoke the
+ * returned function inside a `client.kind !== "vercel"` branch — resolving a
+ * Daytona API key on a Vercel-configured repo would throw for no reason.
+ */
+function createLazyDaytonaClient(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+): () => Promise<Daytona> {
+  let daytonaPromise: Promise<Daytona> | undefined;
+  return () => {
+    if (!daytonaPromise) {
+      daytonaPromise = resolveDaytonaApiKey(ctx, repoId).then((result) =>
+        getDaytona(result.daytonaApiKey),
+      );
+    }
+    return daytonaPromise;
+  };
+}
+
 type SessionSandboxPreparationArgs = {
   sessionId: Id<"sessions">;
   existingSandboxId: string | undefined;
+  vercelSandboxId: string | undefined;
   installationId: number;
   repoOwner: string;
   repoName: string;
@@ -386,6 +412,8 @@ type PreparedSessionSandbox = {
   branchName: string;
   devPort: number;
   devCommand: string;
+  /** Set to the sandbox id when the provider is Vercel; undefined for Daytona. */
+  vercelSandboxId: string | undefined;
 };
 
 type ProgressStep = { type: string; label: string; status: string };
@@ -520,10 +548,16 @@ async function prepareSessionSandboxInternal(
     () => resolveSandboxContext(ctx, args.repoId),
   );
   // Sandbox reuse and persistence volumes remain Daytona-only; resolve a raw
-  // Daytona client for those paths while the create path uses the neutral client.
-  const daytona = getDaytona(
-    (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
-  );
+  // Daytona client lazily (never invoked on the Vercel path) for those paths
+  // while the create path uses the neutral client.
+  const getDaytonaClient = createLazyDaytonaClient(ctx, args.repoId);
+  // Vercel sandboxes are only ever reused via `vercelSandboxId` — a stale
+  // Daytona `sandboxId` on the entity must never be treated as reusable here.
+  const reuseId = resolveExistingSandboxId({
+    providerKind: client.kind,
+    sandboxId: args.existingSandboxId,
+    vercelSandboxId: args.vercelSandboxId,
+  });
   logSession(
     `prepareSessionSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
   );
@@ -545,115 +579,108 @@ async function prepareSessionSandboxInternal(
       "tryReuseSessionSandbox",
       actionDetails,
       () =>
-        tryReuseSandboxHandle(
-          client,
-          args.existingSandboxId,
-          async (handle) => {
-            const sandboxDetails = `${actionDetails}, sandboxId=${handle.id}`;
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.prepare",
-              sandboxDetails,
-              async () => {
-                await ensureSandboxRunning(handle, {
-                  timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-                  onRestoring: () =>
-                    emitSessionProgress(
-                      ctx,
-                      args.sessionId,
-                      completedSteps,
-                      "Restoring sandbox from cold storage (can take up to 10 minutes)...",
-                    ),
-                });
-                await ensureGitCredentialHelper(
-                  ctx,
-                  handle,
-                  args.installationId,
-                );
-                await checkoutSessionBranchWithRetry(
-                  handle,
-                  args.branchName,
-                  args.baseBranch,
-                );
-              },
-            );
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.setupBranch",
-              sandboxDetails,
-              () => setupBranch(handle, args.branchName, args.baseBranch),
-            );
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.copyConfigFiles",
-              sandboxDetails,
-              () => copySandboxConfigFilesToWorkspace(handle),
-            );
-            const { port: devPort, devCommand } = await runLoggedSessionStep(
-              "reuseSessionSandbox.startSessionServices",
-              sandboxDetails,
-              () => startSessionServices(handle, rootDir, devOverrides(repo)),
-            );
-            if (args.startDesktop) {
-              await runLoggedSessionStep(
-                "reuseSessionSandbox.startDesktop",
-                sandboxDetails,
-                () => startDesktopWithChrome(handle),
-              );
-            }
-            await emitSessionProgress(
-              ctx,
-              args.sessionId,
-              completedSteps,
-              "Launching background commands...",
-            );
-            let reuseBgRan = false;
-            await runLoggedSessionStep(
-              "reuseSessionSandbox.runBackgroundCommands",
-              sandboxDetails,
-              async () => {
-                const result = await ctx.runAction(
-                  internal.daytona.runBackgroundCommands,
-                  { sandboxId: handle.id, repoId: args.repoId },
-                );
-                reuseBgRan = result.ran;
-                if (result.ran && result.commandCount > 0) {
-                  logSession(
-                    `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-                  );
-                }
-              },
-            );
-            if (reuseBgRan) {
-              completedSteps.push({
-                type: "tool",
-                label: "Launching background commands...",
-                status: "complete",
+        tryReuseSandboxHandle(client, reuseId, async (handle) => {
+          const sandboxDetails = `${actionDetails}, sandboxId=${handle.id}`;
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.prepare",
+            sandboxDetails,
+            async () => {
+              await ensureSandboxRunning(handle, {
+                timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+                onRestoring: () =>
+                  emitSessionProgress(
+                    ctx,
+                    args.sessionId,
+                    completedSteps,
+                    "Restoring sandbox from cold storage (can take up to 10 minutes)...",
+                  ),
               });
-            }
+              await ensureGitCredentialHelper(ctx, handle, args.installationId);
+              await checkoutSessionBranchWithRetry(
+                handle,
+                args.branchName,
+                args.baseBranch,
+              );
+            },
+          );
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.setupBranch",
+            sandboxDetails,
+            () => setupBranch(handle, args.branchName, args.baseBranch),
+          );
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.copyConfigFiles",
+            sandboxDetails,
+            () => copySandboxConfigFilesToWorkspace(handle),
+          );
+          const { port: devPort, devCommand } = await runLoggedSessionStep(
+            "reuseSessionSandbox.startSessionServices",
+            sandboxDetails,
+            () => startSessionServices(handle, rootDir, devOverrides(repo)),
+          );
+          if (args.startDesktop) {
             await runLoggedSessionStep(
-              "reuseSessionSandbox.runStartupCommands",
+              "reuseSessionSandbox.startDesktop",
               sandboxDetails,
-              async () => {
-                const result = await ctx.runAction(
-                  internal.daytona.runStartupCommands,
-                  { sandboxId: handle.id, repoId: args.repoId },
-                );
-                if (result.ran && result.commandCount > 0) {
-                  logSession(
-                    `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-                  );
-                }
-              },
+              () => startDesktopWithChrome(handle),
             );
-            reusedResult = {
-              sandbox: handle,
-              isNew: false,
-              usedSnapshot: false,
-              sandboxDetails,
-              branchName: args.branchName,
-              devPort,
-              devCommand,
-            };
-          },
-        ),
+          }
+          await emitSessionProgress(
+            ctx,
+            args.sessionId,
+            completedSteps,
+            "Launching background commands...",
+          );
+          let reuseBgRan = false;
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.runBackgroundCommands",
+            sandboxDetails,
+            async () => {
+              const result = await ctx.runAction(
+                internal.daytona.runBackgroundCommands,
+                { sandboxId: handle.id, repoId: args.repoId },
+              );
+              reuseBgRan = result.ran;
+              if (result.ran && result.commandCount > 0) {
+                logSession(
+                  `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                );
+              }
+            },
+          );
+          if (reuseBgRan) {
+            completedSteps.push({
+              type: "tool",
+              label: "Launching background commands...",
+              status: "complete",
+            });
+          }
+          await runLoggedSessionStep(
+            "reuseSessionSandbox.runStartupCommands",
+            sandboxDetails,
+            async () => {
+              const result = await ctx.runAction(
+                internal.daytona.runStartupCommands,
+                { sandboxId: handle.id, repoId: args.repoId },
+              );
+              if (result.ran && result.commandCount > 0) {
+                logSession(
+                  `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                );
+              }
+            },
+          );
+          reusedResult = {
+            sandbox: handle,
+            isNew: false,
+            usedSnapshot: false,
+            sandboxDetails,
+            branchName: args.branchName,
+            devPort,
+            devCommand,
+            vercelSandboxId: handle.id,
+          };
+        }),
     );
     if (reusedHandle && reusedResult) {
       await completeSessionProgress(ctx, args.sessionId);
@@ -669,10 +696,10 @@ async function prepareSessionSandboxInternal(
       : await runLoggedSessionStep(
           "tryReuseSessionSandbox",
           actionDetails,
-          () =>
+          async () =>
             tryReuseSandbox(
-              daytona,
-              args.existingSandboxId,
+              await getDaytonaClient(),
+              reuseId,
               async (sandbox) => {
                 const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
                 await runLoggedSessionStep(
@@ -808,6 +835,7 @@ async function prepareSessionSandboxInternal(
                   branchName: args.branchName,
                   devPort,
                   devCommand,
+                  vercelSandboxId: undefined,
                 };
               },
             ),
@@ -839,9 +867,9 @@ async function prepareSessionSandboxInternal(
       : await runLoggedSessionStep(
           "ensureSessionPersistenceVolumes",
           actionDetails,
-          () =>
+          async () =>
             ensureSessionPersistenceVolumes(
-              daytona,
+              await getDaytonaClient(),
               args.repoId,
               "sessions",
               args.sessionId,
@@ -886,6 +914,7 @@ async function prepareSessionSandboxInternal(
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: sandbox.id,
+            vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
             branchName: args.branchName,
             isNew: true,
             usedSnapshot: Boolean(snapshotName),
@@ -1117,6 +1146,7 @@ async function prepareSessionSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
+      vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
     };
   } catch (setupError) {
     console.warn(
@@ -1137,6 +1167,7 @@ export const startSessionSandbox = internalAction({
   args: {
     sessionId: v.id("sessions"),
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -1156,6 +1187,7 @@ export const startSessionSandbox = internalAction({
       const prepared = await prepareSessionSandboxInternal(ctx, {
         sessionId: args.sessionId,
         existingSandboxId: args.existingSandboxId,
+        vercelSandboxId: args.vercelSandboxId,
         installationId: args.installationId,
         repoOwner: args.repoOwner,
         repoName: args.repoName,
@@ -1173,6 +1205,7 @@ export const startSessionSandbox = internalAction({
           ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: prepared.sandbox.id,
+            vercelSandboxId: prepared.vercelSandboxId,
             branchName: prepared.branchName,
             isNew: prepared.isNew,
             usedSnapshot: prepared.isNew ? prepared.usedSnapshot : undefined,
@@ -1201,6 +1234,7 @@ export const prepareSessionSandbox = internalAction({
   args: {
     sessionId: v.id("sessions"),
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -1209,11 +1243,15 @@ export const prepareSessionSandbox = internalAction({
     repoId: v.id("githubRepos"),
     startDesktop: v.optional(v.boolean()),
   },
-  returns: v.object({ sandboxId: v.string() }),
+  returns: v.object({
+    sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     const prepared = await prepareSessionSandboxInternal(ctx, {
       sessionId: args.sessionId,
       existingSandboxId: args.existingSandboxId,
+      vercelSandboxId: args.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: args.repoOwner,
       repoName: args.repoName,
@@ -1222,7 +1260,10 @@ export const prepareSessionSandbox = internalAction({
       repoId: args.repoId,
       startDesktop: args.startDesktop === true,
     });
-    return { sandboxId: prepared.sandbox.id };
+    return {
+      sandboxId: prepared.sandbox.id,
+      vercelSandboxId: prepared.vercelSandboxId,
+    };
   },
 });
 
@@ -1231,6 +1272,7 @@ export const startDesignSandbox = internalAction({
   args: {
     designSessionId: v.id("designSessions"),
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -1242,7 +1284,7 @@ export const startDesignSandbox = internalAction({
   handler: async (ctx, args) => {
     // Track a freshly-created sandbox so the catch can delete it on setup
     // failure (else it leaks server-side). Stays undefined on the reuse path.
-    let newSandbox: Sandbox | undefined;
+    let newSandbox: SandboxHandle | undefined;
     try {
       if (!args.repoId) {
         throw new Error("repoId is required for startDesignSandbox");
@@ -1255,70 +1297,86 @@ export const startDesignSandbox = internalAction({
       const rootDir = repo?.rootDirectory ?? "";
       const { client, sandboxEnvVars, snapshotName } =
         await resolveSandboxContext(ctx, repoId);
+      const reuseId = resolveExistingSandboxId({
+        providerKind: client.kind,
+        sandboxId: args.existingSandboxId,
+        vercelSandboxId: args.vercelSandboxId,
+      });
       // Sandbox reuse and persistence volumes remain Daytona-only; resolve a
-      // raw Daytona client for those paths while create uses the neutral client.
-      const daytona = getDaytona(
-        (await resolveDaytonaApiKey(ctx, repoId)).daytonaApiKey,
-      );
+      // raw Daytona client lazily (never invoked on the Vercel path) for
+      // those paths while create uses the neutral client.
+      const getDaytonaClient = createLazyDaytonaClient(ctx, repoId);
 
-      const designVolumeMounts = await ensureSessionPersistenceVolumes(
-        daytona,
-        repoId,
-        "designSessions",
-        args.designSessionId,
-      );
+      const designVolumeMounts =
+        client.kind === "vercel"
+          ? []
+          : await ensureSessionPersistenceVolumes(
+              await getDaytonaClient(),
+              repoId,
+              "designSessions",
+              args.designSessionId,
+            );
 
-      const reused = await tryReuseSandbox(
-        daytona,
-        args.existingSandboxId,
-        async (sandbox) => {
-          // Resume the sandbox if it was stopped/archived, matching the session
-          // reuse path (previously this only ran `echo 1`, so a non-running
-          // sandbox fell through to a fresh rebuild). designSandboxStartupWorkflow
-          // pre-thaws archived sandboxes across polling steps first, so this
-          // fast-paths instead of blocking the action on a cold-storage restore.
-          await ensureSandboxRunning(wrapDaytonaSandbox(sandbox), {
-            timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-          });
-          // Self-heal: rotate the per-sandbox secret + reinstall the helper
-          // before any git network op so resumed sandboxes pick up the new
-          // credential flow without carrying a stale URL-embedded token.
-          await ensureGitCredentialHelper(
-            ctx,
-            wrapDaytonaSandbox(sandbox),
-            args.installationId,
-          );
-          await syncDesignRefsForSetup(
-            sandbox,
-            args.repoOwner,
-            args.repoName,
-            args.branchName,
-            args.baseBranch,
-          );
-          await setupBranch(
-            wrapDaytonaSandbox(sandbox),
-            args.branchName,
-            args.baseBranch,
-          );
-          const { port: devPort, devCommand } = await startSessionServices(
-            wrapDaytonaSandbox(sandbox),
-            rootDir,
-            devOverrides(repo),
-          );
-          await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
-          await ctx.runAction(internal.daytona.runBackgroundCommands, {
-            sandboxId: sandbox.id,
-            repoId,
-          });
-          await ctx.runMutation(internal.designSessions.sandboxReady, {
-            designSessionId: args.designSessionId,
-            sandboxId: sandbox.id,
-            branchName: args.branchName,
-            isNew: false,
-            devPort,
-          });
-        },
-      );
+      const prepareReusedDesignSandbox = async (
+        handle: SandboxHandle,
+      ): Promise<void> => {
+        // Resume the sandbox if it was stopped/archived, matching the session
+        // reuse path (previously this only ran `echo 1`, so a non-running
+        // sandbox fell through to a fresh rebuild). designSandboxStartupWorkflow
+        // pre-thaws archived sandboxes across polling steps first, so this
+        // fast-paths instead of blocking the action on a cold-storage restore.
+        await ensureSandboxRunning(handle, {
+          timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+        });
+        // Self-heal: rotate the per-sandbox secret + reinstall the helper
+        // before any git network op so resumed sandboxes pick up the new
+        // credential flow without carrying a stale URL-embedded token.
+        await ensureGitCredentialHelper(ctx, handle, args.installationId);
+        await syncDesignRefsForSetup(
+          handle,
+          args.repoOwner,
+          args.repoName,
+          args.branchName,
+          args.baseBranch,
+        );
+        await setupBranch(handle, args.branchName, args.baseBranch);
+        const { port: devPort, devCommand } = await startSessionServices(
+          handle,
+          rootDir,
+          devOverrides(repo),
+        );
+        await execHandle(
+          handle,
+          `${devCommand} > /tmp/devserver.log 2>&1 &`,
+          10,
+        );
+        await ctx.runAction(internal.daytona.runBackgroundCommands, {
+          sandboxId: handle.id,
+          repoId,
+        });
+        await ctx.runMutation(internal.designSessions.sandboxReady, {
+          designSessionId: args.designSessionId,
+          sandboxId: handle.id,
+          vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+          branchName: args.branchName,
+          isNew: false,
+          devPort,
+        });
+      };
+
+      const reused =
+        client.kind === "vercel"
+          ? await tryReuseSandboxHandle(
+              client,
+              reuseId,
+              prepareReusedDesignSandbox,
+            )
+          : await tryReuseSandbox(
+              await getDaytonaClient(),
+              reuseId,
+              (sandbox) =>
+                prepareReusedDesignSandbox(wrapDaytonaSandbox(sandbox)),
+            );
       if (reused) return null;
 
       const prepared = await createSandboxAndPrepareRepo(
@@ -1335,7 +1393,7 @@ export const startDesignSandbox = internalAction({
         undefined,
         { mode: "none" },
       );
-      const sandbox = unwrapDaytonaSandbox(prepared.sandbox);
+      const sandbox = prepared.sandbox;
       newSandbox = sandbox;
       await syncDesignRefsForSetup(
         sandbox,
@@ -1344,20 +1402,20 @@ export const startDesignSandbox = internalAction({
         args.branchName,
         args.baseBranch,
       );
-      await setupBranch(
-        wrapDaytonaSandbox(sandbox),
-        args.branchName,
-        args.baseBranch,
-      );
+      await setupBranch(sandbox, args.branchName, args.baseBranch);
       if (prepared.usedSnapshot) {
         await installSnapshotDependenciesWithRetry(sandbox, rootDir);
       }
       const { port: devPort, devCommand } = await startSessionServices(
-        wrapDaytonaSandbox(sandbox),
+        sandbox,
         rootDir,
         devOverrides(repo),
       );
-      await exec(sandbox, `${devCommand} > /tmp/devserver.log 2>&1 &`, 10);
+      await execHandle(
+        sandbox,
+        `${devCommand} > /tmp/devserver.log 2>&1 &`,
+        10,
+      );
       await ctx.runAction(internal.daytona.runBackgroundCommands, {
         sandboxId: sandbox.id,
         repoId,
@@ -1366,6 +1424,7 @@ export const startDesignSandbox = internalAction({
       await ctx.runMutation(internal.designSessions.sandboxReady, {
         designSessionId: args.designSessionId,
         sandboxId: sandbox.id,
+        vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
         branchName: args.branchName,
         isNew: true,
         devPort,
@@ -1395,6 +1454,7 @@ export const startDesignSandbox = internalAction({
 type TaskPreviewSandboxPreparationArgs = {
   taskId: Id<"agentTasks">;
   existingSandboxId: string | undefined;
+  vercelSandboxId: string | undefined;
   installationId: number;
   repoOwner: string;
   repoName: string;
@@ -1442,10 +1502,14 @@ async function prepareTaskPreviewSandboxInternal(
     () => resolveSandboxContext(ctx, args.repoId),
   );
   // Sandbox reuse and persistence volumes remain Daytona-only; resolve a raw
-  // Daytona client for those paths while the create path uses the neutral client.
-  const daytona = getDaytona(
-    (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
-  );
+  // Daytona client lazily (never invoked on the Vercel path) for those paths
+  // while the create path uses the neutral client.
+  const getDaytonaClient = createLazyDaytonaClient(ctx, args.repoId);
+  const reuseId = resolveExistingSandboxId({
+    providerKind: client.kind,
+    sandboxId: args.existingSandboxId,
+    vercelSandboxId: args.vercelSandboxId,
+  });
   logSession(
     `prepareTaskPreviewSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
   );
@@ -1462,164 +1526,172 @@ async function prepareTaskPreviewSandboxInternal(
     "Checking existing sandbox...",
   );
   let reusedResult: PreparedSessionSandbox | null = null;
-  const reused = await runLoggedSessionStep(
-    "tryReuseTaskSandbox",
-    actionDetails,
-    () =>
-      tryReuseSandbox(
-        daytona,
-        args.existingSandboxId,
-        async (sandbox) => {
-          const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
-          await emitTaskProgress(
-            ctx,
-            args.taskId,
-            completedSteps,
-            "Resuming existing sandbox...",
+  const prepareReusedTaskSandbox = async (
+    handle: SandboxHandle,
+  ): Promise<void> => {
+    const sandboxDetails = `${actionDetails}, sandboxId=${handle.id}`;
+    await emitTaskProgress(
+      ctx,
+      args.taskId,
+      completedSteps,
+      "Resuming existing sandbox...",
+    );
+    await runLoggedSessionStep(
+      "reuseTaskSandbox.prepare",
+      sandboxDetails,
+      async () => {
+        await ensureSandboxRunning(handle, {
+          timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+          onRestoring: () =>
+            emitTaskProgress(
+              ctx,
+              args.taskId,
+              completedSteps,
+              "Restoring sandbox from cold storage (can take up to 10 minutes)...",
+            ),
+        });
+        // Self-heal: rotate the per-sandbox secret + reinstall the
+        // helper every resume so in-sandbox `git pull` and any
+        // subsequent fetch authenticate without a stale URL token.
+        await ensureGitCredentialHelper(ctx, handle, args.installationId);
+        await checkoutSessionBranchWithRetry(
+          handle,
+          args.branchName,
+          args.baseBranch,
+        );
+      },
+    );
+    completedSteps.push({
+      type: "tool",
+      label: "Resuming existing sandbox...",
+      status: "complete",
+    });
+    // Restore baked config files from /home/eva/sandbox-config into the workspace.
+    // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
+    await emitTaskProgress(
+      ctx,
+      args.taskId,
+      completedSteps,
+      "Restoring config files...",
+    );
+    await runLoggedSessionStep(
+      "reuseTaskSandbox.copyConfigFiles",
+      sandboxDetails,
+      () => copySandboxConfigFilesToWorkspace(handle),
+    );
+    completedSteps.push({
+      type: "tool",
+      label: "Restoring config files...",
+      status: "complete",
+    });
+    await emitTaskProgress(
+      ctx,
+      args.taskId,
+      completedSteps,
+      "Starting dev server...",
+    );
+    const { port: devPort, devCommand } = await runLoggedSessionStep(
+      "reuseTaskSandbox.startSessionServices",
+      sandboxDetails,
+      () => startSessionServices(handle, rootDir, devOverrides(repo)),
+    );
+    // Terminal PTY reset only applies to Daytona — Vercel's PTY capability
+    // isn't wired yet (see SandboxHandle.pty).
+    if (client.kind !== "vercel") {
+      await runLoggedSessionStep(
+        "reuseTaskSandbox.resetDevTerminal",
+        sandboxDetails,
+        () =>
+          resetDevTerminalForResume(
+            unwrapDaytonaSandbox(handle),
+            `task-${args.taskId}`,
+          ),
+      );
+    }
+    completedSteps.push({
+      type: "tool",
+      label: "Starting dev server...",
+      status: "complete",
+    });
+    // Note: runStartupCommands is intentionally not surfaced as a UI step
+    // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
+    // makes it a no-op once the sandbox has been initialised, so showing
+    // "Running startup commands..." would be misleading on resume.
+    await runLoggedSessionStep(
+      "reuseTaskSandbox.runStartupCommands",
+      sandboxDetails,
+      async () => {
+        const result = await ctx.runAction(
+          internal.daytona.runStartupCommands,
+          {
+            sandboxId: handle.id,
+            repoId: args.repoId,
+            force: args.forceStartupCommands,
+          },
+        );
+        if (result.ran && result.commandCount > 0) {
+          logSession(
+            `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
           );
-          await runLoggedSessionStep(
-            "reuseTaskSandbox.prepare",
-            sandboxDetails,
-            async () => {
-              await ensureSandboxRunning(wrapDaytonaSandbox(sandbox), {
-                timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-                onRestoring: () =>
-                  emitTaskProgress(
-                    ctx,
-                    args.taskId,
-                    completedSteps,
-                    "Restoring sandbox from cold storage (can take up to 10 minutes)...",
-                  ),
-              });
-              // Self-heal: rotate the per-sandbox secret + reinstall the
-              // helper every resume so in-sandbox `git pull` and any
-              // subsequent fetch authenticate without a stale URL token.
-              await ensureGitCredentialHelper(
-                ctx,
-                wrapDaytonaSandbox(sandbox),
-                args.installationId,
-              );
-              await checkoutSessionBranchWithRetry(
-                wrapDaytonaSandbox(sandbox),
-                args.branchName,
-                args.baseBranch,
-              );
-            },
+        }
+      },
+    );
+    await emitTaskProgress(
+      ctx,
+      args.taskId,
+      completedSteps,
+      "Launching background commands...",
+    );
+    await runLoggedSessionStep(
+      "reuseTaskSandbox.runBackgroundCommands",
+      sandboxDetails,
+      async () => {
+        const result = await ctx.runAction(
+          internal.daytona.runBackgroundCommands,
+          { sandboxId: handle.id, repoId: args.repoId },
+        );
+        if (result.ran && result.commandCount > 0) {
+          logSession(
+            `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
           );
-          completedSteps.push({
-            type: "tool",
-            label: "Resuming existing sandbox...",
-            status: "complete",
-          });
-          // Restore baked config files from /home/eva/sandbox-config into the workspace.
-          // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
-          await emitTaskProgress(
-            ctx,
-            args.taskId,
-            completedSteps,
-            "Restoring config files...",
-          );
-          await runLoggedSessionStep(
-            "reuseTaskSandbox.copyConfigFiles",
-            sandboxDetails,
-            () =>
-              copySandboxConfigFilesToWorkspace(wrapDaytonaSandbox(sandbox)),
-          );
-          completedSteps.push({
-            type: "tool",
-            label: "Restoring config files...",
-            status: "complete",
-          });
-          await emitTaskProgress(
-            ctx,
-            args.taskId,
-            completedSteps,
-            "Starting dev server...",
-          );
-          const { port: devPort, devCommand } = await runLoggedSessionStep(
-            "reuseTaskSandbox.startSessionServices",
-            sandboxDetails,
-            () =>
-              startSessionServices(
-                wrapDaytonaSandbox(sandbox),
-                rootDir,
-                devOverrides(repo),
-              ),
-          );
-          await runLoggedSessionStep(
-            "reuseTaskSandbox.resetDevTerminal",
-            sandboxDetails,
-            () => resetDevTerminalForResume(sandbox, `task-${args.taskId}`),
-          );
-          completedSteps.push({
-            type: "tool",
-            label: "Starting dev server...",
-            status: "complete",
-          });
-          // Note: runStartupCommands is intentionally not surfaced as a UI step
-          // on the reuse path — the marker file (`/tmp/.startup-commands-done`)
-          // makes it a no-op once the sandbox has been initialised, so showing
-          // "Running startup commands..." would be misleading on resume.
-          await runLoggedSessionStep(
-            "reuseTaskSandbox.runStartupCommands",
-            sandboxDetails,
-            async () => {
-              const result = await ctx.runAction(
-                internal.daytona.runStartupCommands,
-                {
-                  sandboxId: sandbox.id,
-                  repoId: args.repoId,
-                  force: args.forceStartupCommands,
-                },
-              );
-              if (result.ran && result.commandCount > 0) {
-                logSession(
-                  `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-                );
-              }
-            },
-          );
-          await emitTaskProgress(
-            ctx,
-            args.taskId,
-            completedSteps,
-            "Launching background commands...",
-          );
-          await runLoggedSessionStep(
-            "reuseTaskSandbox.runBackgroundCommands",
-            sandboxDetails,
-            async () => {
-              const result = await ctx.runAction(
-                internal.daytona.runBackgroundCommands,
-                { sandboxId: sandbox.id, repoId: args.repoId },
-              );
-              if (result.ran && result.commandCount > 0) {
-                logSession(
-                  `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-                );
-              }
-            },
-          );
-          completedSteps.push({
-            type: "tool",
-            label: "Launching background commands...",
-            status: "complete",
-          });
-          reusedResult = {
-            sandbox: wrapDaytonaSandbox(sandbox),
-            isNew: false,
-            usedSnapshot: false,
-            sandboxDetails,
-            branchName: args.branchName,
-            devPort,
-            devCommand,
-          };
-        },
-        {
-          fallbackOnPrepareError: false,
-        },
-      ),
-  );
+        }
+      },
+    );
+    completedSteps.push({
+      type: "tool",
+      label: "Launching background commands...",
+      status: "complete",
+    });
+    reusedResult = {
+      sandbox: handle,
+      isNew: false,
+      usedSnapshot: false,
+      sandboxDetails,
+      branchName: args.branchName,
+      devPort,
+      devCommand,
+      vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+    };
+  };
+  const reused =
+    client.kind === "vercel"
+      ? await runLoggedSessionStep("tryReuseTaskSandbox", actionDetails, () =>
+          tryReuseSandboxHandle(client, reuseId, prepareReusedTaskSandbox, {
+            fallbackOnPrepareError: false,
+          }),
+        )
+      : await runLoggedSessionStep(
+          "tryReuseTaskSandbox",
+          actionDetails,
+          async () =>
+            tryReuseSandbox(
+              await getDaytonaClient(),
+              reuseId,
+              (sandbox) =>
+                prepareReusedTaskSandbox(wrapDaytonaSandbox(sandbox)),
+              { fallbackOnPrepareError: false },
+            ),
+        );
   if (reused && reusedResult) {
     return reusedResult;
   }
@@ -1633,24 +1705,31 @@ async function prepareTaskPreviewSandboxInternal(
     ctx,
     args.taskId,
     completedSteps,
-    "Setting up persistence volumes...",
+    client.kind === "vercel"
+      ? "Creating sandbox..."
+      : "Setting up persistence volumes...",
   );
-  const taskVolumeMounts = await runLoggedSessionStep(
-    "ensureTaskPersistenceVolumes",
-    actionDetails,
-    () =>
-      ensureSessionPersistenceVolumes(
-        daytona,
-        args.repoId,
-        "agentTasks",
-        args.taskId,
-      ),
-  );
-  completedSteps.push({
-    type: "tool",
-    label: "Setting up persistence volumes...",
-    status: "complete",
-  });
+  const taskVolumeMounts =
+    client.kind === "vercel"
+      ? []
+      : await runLoggedSessionStep(
+          "ensureTaskPersistenceVolumes",
+          actionDetails,
+          async () =>
+            ensureSessionPersistenceVolumes(
+              await getDaytonaClient(),
+              args.repoId,
+              "agentTasks",
+              args.taskId,
+            ),
+        );
+  if (client.kind !== "vercel") {
+    completedSteps.push({
+      type: "tool",
+      label: "Setting up persistence volumes...",
+      status: "complete",
+    });
+  }
 
   await emitTaskProgress(
     ctx,
@@ -1838,6 +1917,7 @@ async function prepareTaskPreviewSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
+      vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
     };
   } catch (setupError) {
     console.warn(
@@ -1856,6 +1936,7 @@ async function prepareTaskPreviewSandboxInternal(
 type ProjectPreviewSandboxPreparationArgs = {
   projectId: Id<"projects">;
   existingSandboxId: string | undefined;
+  vercelSandboxId: string | undefined;
   installationId: number;
   repoOwner: string;
   repoName: string;
@@ -1908,10 +1989,14 @@ async function prepareProjectPreviewSandboxInternal(
     () => resolveSandboxContext(ctx, args.repoId),
   );
   // Sandbox reuse and persistence volumes remain Daytona-only; resolve a raw
-  // Daytona client for those paths while the create path uses the neutral client.
-  const daytona = getDaytona(
-    (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
-  );
+  // Daytona client lazily (never invoked on the Vercel path) for those paths
+  // while the create path uses the neutral client.
+  const getDaytonaClient = createLazyDaytonaClient(ctx, args.repoId);
+  const reuseId = resolveExistingSandboxId({
+    providerKind: client.kind,
+    sandboxId: args.existingSandboxId,
+    vercelSandboxId: args.vercelSandboxId,
+  });
   logSession(
     `prepareProjectPreviewSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
   );
@@ -1928,163 +2013,176 @@ async function prepareProjectPreviewSandboxInternal(
     "Checking existing sandbox...",
   );
   let reusedResult: PreparedSessionSandbox | null = null;
-  const reused = await runLoggedSessionStep(
-    "tryReuseProjectSandbox",
-    actionDetails,
-    () =>
-      tryReuseSandbox(
-        daytona,
-        args.existingSandboxId,
-        async (sandbox) => {
-          const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
-          await emitProjectProgress(
-            ctx,
-            args.projectId,
-            completedSteps,
-            "Resuming existing sandbox...",
-          );
-          await runLoggedSessionStep(
-            "reuseProjectSandbox.prepare",
-            sandboxDetails,
-            async () => {
-              await ensureSandboxRunning(wrapDaytonaSandbox(sandbox), {
-                timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-                onRestoring: () =>
-                  emitProjectProgress(
-                    ctx,
-                    args.projectId,
-                    completedSteps,
-                    "Restoring sandbox from cold storage (can take up to 10 minutes)...",
-                  ),
-              });
-              // Self-heal: rotate the per-sandbox secret + reinstall the
-              // helper every resume so in-sandbox `git pull` and any
-              // subsequent fetch authenticate without a stale URL token.
-              await ensureGitCredentialHelper(
-                ctx,
-                wrapDaytonaSandbox(sandbox),
-                args.installationId,
-              );
-              await checkoutSessionBranchWithRetry(
-                wrapDaytonaSandbox(sandbox),
-                args.branchName,
-                args.baseBranch,
-              );
-            },
-          );
-          completedSteps.push({
-            type: "tool",
-            label: "Resuming existing sandbox...",
-            status: "complete",
-          });
-          // Restore baked config files from /home/eva/sandbox-config into the workspace.
-          // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
-          await emitProjectProgress(
-            ctx,
-            args.projectId,
-            completedSteps,
-            "Restoring config files...",
-          );
-          await runLoggedSessionStep(
-            "reuseProjectSandbox.copyConfigFiles",
-            sandboxDetails,
-            () =>
-              copySandboxConfigFilesToWorkspace(wrapDaytonaSandbox(sandbox)),
-          );
-          completedSteps.push({
-            type: "tool",
-            label: "Restoring config files...",
-            status: "complete",
-          });
-          await emitProjectProgress(
-            ctx,
-            args.projectId,
-            completedSteps,
-            "Starting dev server...",
-          );
-          const { port: devPort, devCommand } = await runLoggedSessionStep(
-            "reuseProjectSandbox.startSessionServices",
-            sandboxDetails,
-            () =>
-              startSessionServices(
-                wrapDaytonaSandbox(sandbox),
-                rootDir,
-                devOverrides(repo),
-              ),
-          );
-          await runLoggedSessionStep(
-            "reuseProjectSandbox.resetDevTerminal",
-            sandboxDetails,
-            () =>
-              resetDevTerminalForResume(sandbox, `project-${args.projectId}`),
-          );
-          completedSteps.push({
-            type: "tool",
-            label: "Starting dev server...",
-            status: "complete",
-          });
-          if (!args.skipStartupCommands) {
-            await runLoggedSessionStep(
-              "reuseProjectSandbox.runStartupCommands",
-              sandboxDetails,
-              async () => {
-                const result = await ctx.runAction(
-                  internal.daytona.runStartupCommands,
-                  {
-                    sandboxId: sandbox.id,
-                    repoId: args.repoId,
-                    force: args.forceStartupCommands,
-                  },
-                );
-                if (result.ran && result.commandCount > 0) {
-                  logSession(
-                    `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-                  );
-                }
-              },
-            );
-            await emitProjectProgress(
+  const prepareReusedProjectSandbox = async (
+    handle: SandboxHandle,
+  ): Promise<void> => {
+    const sandboxDetails = `${actionDetails}, sandboxId=${handle.id}`;
+    await emitProjectProgress(
+      ctx,
+      args.projectId,
+      completedSteps,
+      "Resuming existing sandbox...",
+    );
+    await runLoggedSessionStep(
+      "reuseProjectSandbox.prepare",
+      sandboxDetails,
+      async () => {
+        await ensureSandboxRunning(handle, {
+          timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+          onRestoring: () =>
+            emitProjectProgress(
               ctx,
               args.projectId,
               completedSteps,
-              "Launching background commands...",
+              "Restoring sandbox from cold storage (can take up to 10 minutes)...",
+            ),
+        });
+        // Self-heal: rotate the per-sandbox secret + reinstall the
+        // helper every resume so in-sandbox `git pull` and any
+        // subsequent fetch authenticate without a stale URL token.
+        await ensureGitCredentialHelper(ctx, handle, args.installationId);
+        await checkoutSessionBranchWithRetry(
+          handle,
+          args.branchName,
+          args.baseBranch,
+        );
+      },
+    );
+    completedSteps.push({
+      type: "tool",
+      label: "Resuming existing sandbox...",
+      status: "complete",
+    });
+    // Restore baked config files from /home/eva/sandbox-config into the workspace.
+    // The snapshot ships them; this re-copies in case `git clean -fd` wiped them.
+    await emitProjectProgress(
+      ctx,
+      args.projectId,
+      completedSteps,
+      "Restoring config files...",
+    );
+    await runLoggedSessionStep(
+      "reuseProjectSandbox.copyConfigFiles",
+      sandboxDetails,
+      () => copySandboxConfigFilesToWorkspace(handle),
+    );
+    completedSteps.push({
+      type: "tool",
+      label: "Restoring config files...",
+      status: "complete",
+    });
+    await emitProjectProgress(
+      ctx,
+      args.projectId,
+      completedSteps,
+      "Starting dev server...",
+    );
+    const { port: devPort, devCommand } = await runLoggedSessionStep(
+      "reuseProjectSandbox.startSessionServices",
+      sandboxDetails,
+      () => startSessionServices(handle, rootDir, devOverrides(repo)),
+    );
+    // Terminal PTY reset only applies to Daytona — Vercel's PTY capability
+    // isn't wired yet (see SandboxHandle.pty).
+    if (client.kind !== "vercel") {
+      await runLoggedSessionStep(
+        "reuseProjectSandbox.resetDevTerminal",
+        sandboxDetails,
+        () =>
+          resetDevTerminalForResume(
+            unwrapDaytonaSandbox(handle),
+            `project-${args.projectId}`,
+          ),
+      );
+    }
+    completedSteps.push({
+      type: "tool",
+      label: "Starting dev server...",
+      status: "complete",
+    });
+    if (!args.skipStartupCommands) {
+      await runLoggedSessionStep(
+        "reuseProjectSandbox.runStartupCommands",
+        sandboxDetails,
+        async () => {
+          const result = await ctx.runAction(
+            internal.daytona.runStartupCommands,
+            {
+              sandboxId: handle.id,
+              repoId: args.repoId,
+              force: args.forceStartupCommands,
+            },
+          );
+          if (result.ran && result.commandCount > 0) {
+            logSession(
+              `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
             );
-            await runLoggedSessionStep(
-              "reuseProjectSandbox.runBackgroundCommands",
-              sandboxDetails,
-              async () => {
-                const result = await ctx.runAction(
-                  internal.daytona.runBackgroundCommands,
-                  { sandboxId: sandbox.id, repoId: args.repoId },
-                );
-                if (result.ran && result.commandCount > 0) {
-                  logSession(
-                    `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
-                  );
-                }
-              },
-            );
-            completedSteps.push({
-              type: "tool",
-              label: "Launching background commands...",
-              status: "complete",
-            });
           }
-          reusedResult = {
-            sandbox: wrapDaytonaSandbox(sandbox),
-            isNew: false,
-            usedSnapshot: false,
-            sandboxDetails,
-            branchName: args.branchName,
-            devPort,
-            devCommand,
-          };
         },
-        {
-          fallbackOnPrepareError: false,
+      );
+      await emitProjectProgress(
+        ctx,
+        args.projectId,
+        completedSteps,
+        "Launching background commands...",
+      );
+      await runLoggedSessionStep(
+        "reuseProjectSandbox.runBackgroundCommands",
+        sandboxDetails,
+        async () => {
+          const result = await ctx.runAction(
+            internal.daytona.runBackgroundCommands,
+            { sandboxId: handle.id, repoId: args.repoId },
+          );
+          if (result.ran && result.commandCount > 0) {
+            logSession(
+              `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+            );
+          }
         },
-      ),
-  );
+      );
+      completedSteps.push({
+        type: "tool",
+        label: "Launching background commands...",
+        status: "complete",
+      });
+    }
+    reusedResult = {
+      sandbox: handle,
+      isNew: false,
+      usedSnapshot: false,
+      sandboxDetails,
+      branchName: args.branchName,
+      devPort,
+      devCommand,
+      vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+    };
+  };
+  const reused =
+    client.kind === "vercel"
+      ? await runLoggedSessionStep(
+          "tryReuseProjectSandbox",
+          actionDetails,
+          () =>
+            tryReuseSandboxHandle(
+              client,
+              reuseId,
+              prepareReusedProjectSandbox,
+              { fallbackOnPrepareError: false },
+            ),
+        )
+      : await runLoggedSessionStep(
+          "tryReuseProjectSandbox",
+          actionDetails,
+          async () =>
+            tryReuseSandbox(
+              await getDaytonaClient(),
+              reuseId,
+              (sandbox) =>
+                prepareReusedProjectSandbox(wrapDaytonaSandbox(sandbox)),
+              { fallbackOnPrepareError: false },
+            ),
+        );
   if (reused && reusedResult) {
     return reusedResult;
   }
@@ -2098,24 +2196,31 @@ async function prepareProjectPreviewSandboxInternal(
     ctx,
     args.projectId,
     completedSteps,
-    "Setting up persistence volumes...",
+    client.kind === "vercel"
+      ? "Creating sandbox..."
+      : "Setting up persistence volumes...",
   );
-  const projectVolumeMounts = await runLoggedSessionStep(
-    "ensureProjectPersistenceVolumes",
-    actionDetails,
-    () =>
-      ensureSessionPersistenceVolumes(
-        daytona,
-        args.repoId,
-        "projects",
-        args.projectId,
-      ),
-  );
-  completedSteps.push({
-    type: "tool",
-    label: "Setting up persistence volumes...",
-    status: "complete",
-  });
+  const projectVolumeMounts =
+    client.kind === "vercel"
+      ? []
+      : await runLoggedSessionStep(
+          "ensureProjectPersistenceVolumes",
+          actionDetails,
+          async () =>
+            ensureSessionPersistenceVolumes(
+              await getDaytonaClient(),
+              args.repoId,
+              "projects",
+              args.projectId,
+            ),
+        );
+  if (client.kind !== "vercel") {
+    completedSteps.push({
+      type: "tool",
+      label: "Setting up persistence volumes...",
+      status: "complete",
+    });
+  }
 
   await emitProjectProgress(
     ctx,
@@ -2147,6 +2252,7 @@ async function prepareProjectPreviewSandboxInternal(
   await ctx.runMutation(internal.projects.projectSandboxAllocated, {
     projectId: args.projectId,
     sandboxId: handle.id,
+    vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
   });
   completedSteps.push({
     type: "tool",
@@ -2302,6 +2408,7 @@ async function prepareProjectPreviewSandboxInternal(
     branchName: args.branchName,
     devPort,
     devCommand,
+    vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
   };
 }
 
@@ -2316,6 +2423,7 @@ export const startProjectPreviewSandbox = internalAction({
   args: {
     projectId: v.id("projects"),
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -2337,6 +2445,7 @@ export const startProjectPreviewSandbox = internalAction({
       const prepared = await prepareProjectPreviewSandboxInternal(ctx, {
         projectId: args.projectId,
         existingSandboxId: args.existingSandboxId,
+        vercelSandboxId: args.vercelSandboxId,
         installationId: args.installationId,
         repoOwner: args.repoOwner,
         repoName: args.repoName,
@@ -2355,6 +2464,7 @@ export const startProjectPreviewSandbox = internalAction({
           ctx.runMutation(internal.projects.projectSandboxReady, {
             projectId: args.projectId,
             sandboxId: prepared.sandbox.id,
+            vercelSandboxId: prepared.vercelSandboxId,
             isNew: prepared.isNew,
             devPort: prepared.devPort,
             devCommand: prepared.devCommand,
@@ -2384,6 +2494,7 @@ export const startTaskPreviewSandbox = internalAction({
   args: {
     taskId: v.id("agentTasks"),
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -2401,6 +2512,7 @@ export const startTaskPreviewSandbox = internalAction({
       const prepared = await prepareTaskPreviewSandboxInternal(ctx, {
         taskId: args.taskId,
         existingSandboxId: args.existingSandboxId,
+        vercelSandboxId: args.vercelSandboxId,
         installationId: args.installationId,
         repoOwner: args.repoOwner,
         repoName: args.repoName,
@@ -2418,6 +2530,7 @@ export const startTaskPreviewSandbox = internalAction({
           ctx.runMutation(internal.agentTasks.taskSandboxReady, {
             taskId: args.taskId,
             sandboxId: prepared.sandbox.id,
+            vercelSandboxId: prepared.vercelSandboxId,
             isNew: prepared.isNew,
             devPort: prepared.devPort,
             devCommand: prepared.devCommand,

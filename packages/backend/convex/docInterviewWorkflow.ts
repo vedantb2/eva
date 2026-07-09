@@ -102,7 +102,7 @@ export const docInterviewWorkflow = workflow.define({
     );
     const fullPrompt = `${INTERVIEW_PROMPT} ${questionPrompt}`;
 
-    const sandboxId = await prepareSandboxSteps(step, {
+    const { sandboxId } = await prepareSandboxSteps(step, {
       existingSandboxId: docData.sandboxId,
       installationId: args.installationId,
       repoOwner: docData.repoOwner,
@@ -363,7 +363,7 @@ Generate a product description, acceptance criteria, and user journeys for this 
 
 Output ONLY valid JSON.`;
 
-    const sandboxId = await prepareSandboxSteps(step, {
+    const { sandboxId } = await prepareSandboxSteps(step, {
       existingSandboxId: docData.sandboxId,
       installationId: args.installationId,
       repoOwner: docData.repoOwner,

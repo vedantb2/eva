@@ -49,6 +49,7 @@ export const startSandbox = authMutation({
       {
         designSessionId: args.id,
         existingSandboxId: session.sandboxId,
+        vercelSandboxId: session.vercelSandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -160,6 +161,7 @@ export const sandboxReady = internalMutation({
   args: {
     designSessionId: v.id("designSessions"),
     sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
     branchName: v.string(),
     isNew: v.boolean(),
     devPort: v.optional(v.number()),
@@ -177,6 +179,9 @@ export const sandboxReady = internalMutation({
     });
     await ctx.db.patch(args.designSessionId, {
       sandboxId: args.sandboxId,
+      ...(args.vercelSandboxId !== undefined
+        ? { vercelSandboxId: args.vercelSandboxId }
+        : {}),
       branchName: args.branchName,
       status: "active",
       updatedAt: Date.now(),

@@ -1,5 +1,11 @@
 # Changelog
 
+## Vercel everywhere cutover - 2026-07-09
+
+- All sandbox create/resume paths (sessions, tasks, projects, designs, automations, agent runs) now use Vercel when `SANDBOX_PROVIDER=vercel`, with `vercelSandboxId` as the only reuse key so Daytona UUIDs never hit Vercel `get`.
+- Chat/interview/audit thaw callers pass `vercelSandboxId`; automations persist it on runs; package-manager detect falls back to the monorepo root lockfile so pnpm workspaces install correctly after snapshot restore.
+- Reason for change: finish the Daytona→Vercel migration for every entity type, not just interactive sessions.
+
 ## Vercel session parity: Computer, Editor, auth, fast start - 2026-07-08
 
 - noVNC on Vercel now loads RFB from jsDelivr and strips `crossorigin` so ES modules instantiate behind `*.vercel.run`; static assets bypass auth while HTML/WebSocket stay gated (auth-v10).

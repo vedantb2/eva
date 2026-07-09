@@ -67,6 +67,7 @@ export const startTaskSandbox = authMutation({
       {
         taskId: args.taskId,
         existingSandboxId: task.sandboxId,
+        vercelSandboxId: task.vercelSandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -135,6 +136,7 @@ export const retryStartupCommands = authMutation({
       {
         taskId: args.taskId,
         existingSandboxId: task.sandboxId,
+        vercelSandboxId: task.vercelSandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -375,6 +377,7 @@ export const taskSandboxReady = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
     sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
     isNew: v.boolean(),
     devPort: v.optional(v.number()),
     devCommand: v.optional(v.string()),
@@ -400,6 +403,9 @@ export const taskSandboxReady = internalMutation({
 
     await ctx.db.patch(args.taskId, {
       sandboxId: args.sandboxId,
+      ...(args.vercelSandboxId !== undefined
+        ? { vercelSandboxId: args.vercelSandboxId }
+        : {}),
       reviewTaskSandboxStatus: "active",
       updatedAt: Date.now(),
       devPort: args.devPort,

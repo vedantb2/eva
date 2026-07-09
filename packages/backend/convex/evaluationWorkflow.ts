@@ -55,7 +55,7 @@ export const evaluationWorkflow = workflow.define({
 
       const streamingEntityId = String(args.reportId);
 
-      const sandboxId = await prepareSandboxSteps(step, {
+      const { sandboxId } = await prepareSandboxSteps(step, {
         installationId: args.installationId,
         repoOwner: docData.repoOwner,
         repoName: docData.repoName,
@@ -121,7 +121,7 @@ export const fixWorkflow = workflow.define({
 
       const baseBranch = args.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
 
-      const fixSandboxId = await prepareSandboxSteps(step, {
+      const { sandboxId: fixSandboxId } = await prepareSandboxSteps(step, {
         installationId: args.installationId,
         repoOwner: fixData.repoOwner,
         repoName: fixData.repoName,

@@ -152,6 +152,7 @@ export const updateRunStatus = internalMutation({
     runId: v.id("automationRuns"),
     status: runStatusValidator,
     sandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     error: v.optional(v.string()),
     resultSummary: v.optional(v.string()),
     prUrl: v.optional(v.string()),
@@ -162,6 +163,9 @@ export const updateRunStatus = internalMutation({
   handler: async (ctx, args) => {
     const patch: Partial<Doc<"automationRuns">> = { status: args.status };
     if (args.sandboxId !== undefined) patch.sandboxId = args.sandboxId;
+    if (args.vercelSandboxId !== undefined) {
+      patch.vercelSandboxId = args.vercelSandboxId;
+    }
     if (args.error !== undefined) patch.error = args.error;
     if (args.resultSummary !== undefined)
       patch.resultSummary = args.resultSummary;

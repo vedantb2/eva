@@ -89,7 +89,7 @@ export const docPrdWorkflow = workflow.define({
       docId: args.docId,
     });
 
-    const sandboxId = await prepareSandboxSteps(step, {
+    const { sandboxId } = await prepareSandboxSteps(step, {
       existingSandboxId: docData.sandboxId,
       installationId: args.installationId,
       repoOwner: docData.repoOwner,

@@ -32,6 +32,7 @@ export const automationExecutionWorkflow = workflow.define({
   },
   handler: async (step, args): Promise<void> => {
     let sandboxId: string | undefined;
+    let vercelSandboxId: string | undefined;
     let completionPrUrl: string | null = null;
     const isReadOnly = args.readOnly === true;
     const isActionable = isReadOnly && args.actionsEnabled === true;
@@ -69,7 +70,7 @@ export const automationExecutionWorkflow = workflow.define({
 
       const streamingEntityId = `automation-run-${String(args.runId)}`;
 
-      sandboxId = await prepareSandboxSteps(step, {
+      ({ sandboxId, vercelSandboxId } = await prepareSandboxSteps(step, {
         installationId: args.installationId,
         repoOwner: data.repoOwner,
         repoName: data.repoName,
@@ -81,12 +82,13 @@ export const automationExecutionWorkflow = workflow.define({
         createRetry: { maxAttempts: 1, initialBackoffMs: 2000, base: 2 },
         // Ephemeral agent runs only need checkout + Claude; skip repo setup daemons.
         skipStartupCommands: true,
-      });
+      }));
 
       await step.runMutation(internal.automations.updateRunStatus, {
         runId: args.runId,
         status: "running",
         sandboxId,
+        vercelSandboxId,
       });
 
       await step.runAction(internal.daytona.launchOnExistingSandbox, {

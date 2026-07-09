@@ -101,14 +101,9 @@ export const stopSandbox = authMutation({
       return null;
     }
 
-    await ctx.db.insert("messages", {
-      parentId: args.id,
-      role: "assistant",
-      content: "Sandbox stopped",
-      timestamp: Date.now(),
-      userId: ctx.userId,
-      isSystemAlert: true,
-    });
+    // The "Sandbox stopped" / "Failed to stop sandbox" divider is inserted by
+    // `markSandboxClosed` once the stop call settles, so the divider matches the
+    // actual outcome rather than being optimistic.
     await ctx.db.patch(args.id, {
       // Keep sandboxId so we can resume the stopped sandbox later.
       status: "stopping",
@@ -159,12 +154,28 @@ export const markSandboxClosed = internalMutation({
     if (!session) return null;
     if (session.status !== "stopping") return null;
     if (args.error) {
+      await ctx.db.insert("messages", {
+        parentId: args.designSessionId,
+        role: "assistant",
+        content: "Failed to stop sandbox",
+        timestamp: Date.now(),
+        isSystemAlert: true,
+        errorDetail: args.error,
+      });
+      // VM is still running — keep UI active so Stop can be retried.
       await ctx.db.patch(args.designSessionId, {
         status: "active",
         updatedAt: Date.now(),
       });
       return null;
     }
+    await ctx.db.insert("messages", {
+      parentId: args.designSessionId,
+      role: "assistant",
+      content: "Sandbox stopped",
+      timestamp: Date.now(),
+      isSystemAlert: true,
+    });
     await ctx.db.patch(args.designSessionId, {
       status: "closed",
       updatedAt: Date.now(),

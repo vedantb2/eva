@@ -2,6 +2,7 @@ import type { WorkflowCtx } from "@convex-dev/workflow";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
+import type { SandboxProviderKind } from "../_sandbox/provider";
 
 // First poll fires sooner (a stopped→started resume that just missed the
 // kick-off window settles quickly); later polls are spaced wider. MAX_POLLS at
@@ -44,11 +45,15 @@ type EnsureSandboxStartedArgs = {
  *
  * Throws if the sandbox hits a terminal failure state or does not reach
  * "running" within the ceiling; callers wrap this to surface a retryable message.
+ *
+ * Returns the resolved `provider` and `thawId` (the id to reuse, or undefined
+ * when there is nothing to resume) so callers do not re-run `getSandboxProviderKind`
+ * — that is a durable step measured at ~6–8s of scheduling latency.
  */
 export async function ensureSandboxStartedSteps(
   step: WorkflowCtx,
   args: EnsureSandboxStartedArgs,
-): Promise<void> {
+): Promise<{ provider: SandboxProviderKind; thawId: string | undefined }> {
   const thawStartedAt = Date.now();
   console.log(
     `[daytona] ensureSandboxStartedSteps begin repoId=${args.repoId} sandboxId=${args.sandboxId ?? "none"} vercelSandboxId=${args.vercelSandboxId ?? "none"} streamingEntityId=${args.streamingEntityId ?? "none"}`,
@@ -68,7 +73,7 @@ export async function ensureSandboxStartedSteps(
     console.log(
       `[daytona] ensureSandboxStartedSteps no thaw id (provider=${provider}, elapsed=${Date.now() - thawStartedAt}ms)`,
     );
-    return;
+    return { provider, thawId };
   }
 
   // Vercel: do not kickoff/poll here. Resume is ensureSandboxRunning in the
@@ -90,7 +95,7 @@ export async function ensureSandboxStartedSteps(
     console.log(
       `[daytona] ensureSandboxStartedSteps vercel skip-kickoff thawId=${thawId} elapsed=${Date.now() - thawStartedAt}ms`,
     );
-    return;
+    return { provider, thawId };
   }
 
   const kickoff = await step.runAction(
@@ -100,7 +105,7 @@ export async function ensureSandboxStartedSteps(
   console.log(
     `[daytona] ensureSandboxStartedSteps kickoff done provider=${kickoff.provider} state=${kickoff.state} thawId=${thawId} elapsed=${Date.now() - thawStartedAt}ms`,
   );
-  if (kickoff.state === "running") return;
+  if (kickoff.state === "running") return { provider, thawId };
 
   if (args.streamingEntityId) {
     await step.runMutation(internal.streaming.internalSet, {
@@ -133,4 +138,5 @@ export async function ensureSandboxStartedSteps(
       `Sandbox ${thawId} restore from cold storage did not complete within ~20 minutes (last state: ${state}). The restore continues in the background — retry to resume.`,
     );
   }
+  return { provider, thawId };
 }

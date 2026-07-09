@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { workflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
-import { resolveExistingSandboxId } from "./_sandbox/resolveExistingSandboxId";
 import { auditFailureValidator } from "./validators";
 
 /**
@@ -38,20 +37,12 @@ export const auditFixWorkflow = workflow.define({
     let resumeVercelSandboxId = args.vercelSandboxId;
     if (resumeSandboxId || resumeVercelSandboxId) {
       try {
-        await ensureSandboxStartedSteps(step, {
+        const started = await ensureSandboxStartedSteps(step, {
           sandboxId: resumeSandboxId,
           vercelSandboxId: resumeVercelSandboxId,
           repoId: args.repoId,
         });
-        const provider = await step.runAction(
-          internal.daytona.getSandboxProviderKind,
-          { repoId: args.repoId },
-        );
-        resumeSandboxId = resolveExistingSandboxId({
-          providerKind: provider,
-          sandboxId: resumeSandboxId,
-          vercelSandboxId: resumeVercelSandboxId,
-        });
+        resumeSandboxId = started.thawId;
       } catch {
         // Thaw exhausted its ceiling or the sandbox is gone — fall back to a
         // fresh sandbox (launchSelectedAuditFixes creates one when sandboxId is

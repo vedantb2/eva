@@ -4,7 +4,6 @@ import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
-import { resolveExistingSandboxId } from "./_sandbox/resolveExistingSandboxId";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
@@ -235,8 +234,9 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     // Bring an archived/stopped sandbox back to "started" via durable polling
     // steps before validating, so a multi-minute cold-storage thaw doesn't blow
     // the per-action 10-minute limit. Once started, validate hits its fast path.
+    let started: Awaited<ReturnType<typeof ensureSandboxStartedSteps>>;
     try {
-      await ensureSandboxStartedSteps(step, {
+      started = await ensureSandboxStartedSteps(step, {
         sandboxId: data.sandboxId,
         vercelSandboxId: data.vercelSandboxId,
         repoId: data.repoId,
@@ -256,15 +256,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       return;
     }
 
-    const provider = await step.runAction(
-      internal.daytona.getSandboxProviderKind,
-      { repoId: data.repoId },
-    );
-    const activeSandboxId = resolveExistingSandboxId({
-      providerKind: provider,
-      sandboxId: data.sandboxId,
-      vercelSandboxId: data.vercelSandboxId,
-    });
+    const activeSandboxId = started.thawId;
     if (!activeSandboxId) {
       await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
         taskId: args.taskId,

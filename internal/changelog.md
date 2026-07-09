@@ -1,5 +1,10 @@
 # Changelog
 
+## Cursor-style chat scroll pin - 2026-07-09
+
+- Latest user turn now fills the chat viewport height so stick-to-bottom places that message near the top while the assistant streams below; older messages stay reachable by scrolling up.
+- Reason for change: match Cursor/ChatGPT send behavior so new prompts aren't buried at the bottom of a long thread.
+
 ## AI Elements Queue for sandbox chat pending messages - 2026-07-09
 
 - Upgraded `@conductor/ui` Queue to the current AI Elements API (bordered container, scrollable list, hover-reveal actions, attachment primitives) and aligned `QueuedMessagesPanel` so sessions, quick tasks, projects, and designs share the same pending-message UI.

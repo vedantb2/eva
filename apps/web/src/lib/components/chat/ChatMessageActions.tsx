@@ -30,6 +30,8 @@ interface ChatMessageActionsProps {
   // Extra actions rendered after copy (retry, rating, share, custom).
   actions?: ChatMessageActionItem[];
   className?: string;
+  /** When false, parent handles hover/focus reveal (e.g. shared row with timestamp). */
+  revealOnHover?: boolean;
 }
 
 /**
@@ -45,6 +47,7 @@ export function ChatMessageActions({
   copyText,
   actions = [],
   className,
+  revealOnHover = true,
 }: ChatMessageActionsProps) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,7 +71,9 @@ export function ChatMessageActions({
   return (
     <MessageActions
       className={cn(
-        "gap-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100",
+        "gap-0.5",
+        revealOnHover &&
+          "opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100",
         className,
       )}
     >

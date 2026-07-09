@@ -1,5 +1,10 @@
 # Changelog
 
+## Session chat UI (without Agent SDK) - 2026-07-09
+
+- Optimistic send via Convex `.withOptimisticUpdate`, live streamed tokens on the active bubble, per-turn "Worked for Ns" collapsible with activity overflow cap, turn-duration footer, and empty activity-log accordion hidden on text-only replies.
+- Reason for change: ship the session chat UX improvements from the Agent SDK branch without coupling to `claude -p` → SDK migration.
+
 ## Vercel sandbox id lifecycle fixes - 2026-07-09
 
 - Persist and clear `vercelSandboxId` with `sandboxId` on audit-fix, docs, sessions, projects, tasks, and PR-merge cleanup so Vercel reuse never thaws a stale or missing name.

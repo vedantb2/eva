@@ -69,6 +69,12 @@ type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
 >[number];
 
+// Convex has no non-cast way to mint an Id<T> before the server assigns one;
+// this is the single, contained `as` for optimistic-insert temp ids.
+function optimisticMessageId(): Id<"messages"> {
+  return crypto.randomUUID() as Id<"messages">;
+}
+
 const REVIEW_AUDITS = [
   "Running code audits",
   "Analyzing results",
@@ -169,7 +175,54 @@ export function ChatPanel({
   });
 
   const startSummarize = useMutation(api.summarizeWorkflow.startSummarize);
-  const addMessage = useMutation(api.sessions.addMessage);
+  // Optimistic send: append the user message + an empty assistant placeholder
+  // to the reactive list instantly. The empty-content assistant doc drives
+  // ChatBody's existing StreamingActivityDisplay ("thinking") path. Convex
+  // rolls both temp docs back automatically once the mutation resolves and the
+  // real server rows arrive (on success OR error).
+  const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
+    (localStore, args) => {
+      // Only the user-message send should paint a placeholder pair; the error
+      // fallback below also calls addMessage (role "assistant") but there is no
+      // list yet to build against in that path beyond the existing rows.
+      if (args.role !== "user") return;
+      const existing = localStore.getQuery(api.messages.listByParent, {
+        parentId: args.id,
+      });
+      if (existing === undefined) return;
+
+      const now = Date.now();
+      const userMsg: SessionMessage = {
+        _id: optimisticMessageId(),
+        _creationTime: now,
+        parentId: args.id,
+        role: "user",
+        content: args.content,
+        timestamp: now,
+        mode: args.mode,
+        activityLog: "",
+        imageUrl: undefined,
+        videoUrl: undefined,
+      };
+      const assistantPlaceholder: SessionMessage = {
+        _id: optimisticMessageId(),
+        _creationTime: now + 1,
+        parentId: args.id,
+        role: "assistant",
+        content: "",
+        timestamp: now + 1,
+        mode: args.mode,
+        activityLog: "",
+        imageUrl: undefined,
+        videoUrl: undefined,
+      };
+      localStore.setQuery(api.messages.listByParent, { parentId: args.id }, [
+        ...existing,
+        userMsg,
+        assistantPlaceholder,
+      ]);
+    },
+  );
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const enqueueMessage = useMutation(api.sessionWorkflow.enqueueMessage);
   const cancelExecutionMutation = useMutation(
@@ -198,15 +251,17 @@ export function ChatPanel({
         });
         return;
       }
-      try {
-        await addMessage({ id: sessionId, role: "user", content, mode });
-        await startExecution({
-          sessionId,
-          message: content,
-          mode,
-          model,
-        });
-      } catch (error) {
+      // Optimistic send: addMessage's withOptimisticUpdate paints the user
+      // message + an empty assistant placeholder instantly, so we fire both
+      // mutations WITHOUT awaiting them serially — the callback resolves
+      // synchronously, the composer clears immediately (PromptInput clears only
+      // after onSend resolves), and the optimistic docs paint before any server
+      // round-trip. Convex rolls the temp docs back automatically once the real
+      // rows arrive (on success OR error).
+      void Promise.all([
+        addMessage({ id: sessionId, role: "user", content, mode }),
+        startExecution({ sessionId, message: content, mode, model }),
+      ]).catch(async (error) => {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to send message";
         await addMessage({
@@ -215,7 +270,7 @@ export function ChatPanel({
           content: `Error: ${errorMessage}`,
           mode,
         });
-      }
+      });
     },
     [
       isExecuting,

@@ -41,6 +41,7 @@ import {
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
 import dayjs from "@conductor/shared/dates";
+import { formatDuration } from "@conductor/shared/duration";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
@@ -312,9 +313,14 @@ export function ChatBody({
                             <StreamingActivityDisplay
                               activity={streamingActivity}
                               name="Eva"
-                              icon={evaIcon}
                               startedAt={message.timestamp}
                             />
+                            {message._id === lastMessage?._id &&
+                            streamingContent ? (
+                              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
+                                {streamingContent}
+                              </MessageResponse>
+                            ) : null}
                             {activePendingQuestion && (
                               <div className="mt-3">
                                 <MultipleChoiceQuestion
@@ -368,10 +374,22 @@ export function ChatBody({
                         )}
                       </MessageContent>
                       {message.role === "assistant" && message.content ? (
-                        <ChatMessageActions
-                          copyText={message.content}
-                          className="ml-0.5"
-                        />
+                        <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                          <ChatMessageActions
+                            copyText={message.content}
+                            className="ml-0.5"
+                            revealOnHover={false}
+                          />
+                          {message.finishedAt && message.timestamp ? (
+                            <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                              {dayjs(message.timestamp).format("h:mm A")} ·{" "}
+                              {formatDuration(
+                                message.timestamp,
+                                message.finishedAt,
+                              )}
+                            </span>
+                          ) : null}
+                        </div>
                       ) : null}
                       {message.role === "user" && (
                         <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">

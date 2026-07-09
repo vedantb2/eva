@@ -68,7 +68,6 @@ export function ChatMessage({
             <StreamingActivityDisplay
               activity={content}
               name="Eva"
-              icon={evaIcon}
               startedAt={startedAt}
             />
           ) : (

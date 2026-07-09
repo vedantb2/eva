@@ -69,6 +69,15 @@ export function ActivityLogDisplay({
     );
   }
 
+  // No parseable steps: a text-only reply (no tools) has an empty activity log
+  // ("[]"). Render nothing rather than a "View logs" accordion wrapping a bare
+  // "[]". The raw fallback below is only for a genuinely non-empty, unparseable
+  // log (kept for debugging odd payloads).
+  const trimmedLog = activityLog.trim();
+  if (trimmedLog === "" || trimmedLog === "[]") {
+    return null;
+  }
+
   return (
     <Reasoning defaultOpen={false}>
       <ReasoningTrigger getThinkingMessage={() => "View logs"} />

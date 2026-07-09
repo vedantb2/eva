@@ -53,6 +53,7 @@ export const startProjectSandbox = authMutation({
       {
         projectId: args.projectId,
         existingSandboxId: project.sandboxId,
+        vercelSandboxId: project.vercelSandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -122,6 +123,7 @@ export const retryProjectStartupCommands = authMutation({
       {
         projectId: args.projectId,
         existingSandboxId: project.sandboxId,
+        vercelSandboxId: project.vercelSandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -389,6 +391,7 @@ export const projectSandboxReady = internalMutation({
   args: {
     projectId: v.id("projects"),
     sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
     isNew: v.boolean(),
     devPort: v.optional(v.number()),
     devCommand: v.optional(v.string()),
@@ -408,6 +411,9 @@ export const projectSandboxReady = internalMutation({
     });
     await ctx.db.patch(args.projectId, {
       sandboxId: args.sandboxId,
+      ...(args.vercelSandboxId !== undefined
+        ? { vercelSandboxId: args.vercelSandboxId }
+        : {}),
       reviewProjectSandboxStatus: "active",
       lastSandboxActivity: Date.now(),
       devPort: args.devPort,
@@ -440,6 +446,7 @@ export const projectSandboxAllocated = internalMutation({
   args: {
     projectId: v.id("projects"),
     sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -448,6 +455,9 @@ export const projectSandboxAllocated = internalMutation({
 
     await ctx.db.patch(args.projectId, {
       sandboxId: args.sandboxId,
+      ...(args.vercelSandboxId !== undefined
+        ? { vercelSandboxId: args.vercelSandboxId }
+        : {}),
       reviewProjectSandboxStatus: "starting",
       lastSandboxActivity: Date.now(),
     });

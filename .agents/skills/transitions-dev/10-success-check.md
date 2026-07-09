@@ -33,14 +33,14 @@ hide behavior (e.g. unmount, opacity:0, or a custom exit).
 
 | Variable               | Default                             | Notes                             |
 | ---------------------- | ----------------------------------- | --------------------------------- |
-| `--check-opacity-dur`  | `550ms`                             | sourced from `--p10-opacity-dur`  |
-| `--check-rotate-dur`   | `550ms`                             | sourced from `--p10-rotate-dur`   |
+| `--check-opacity-dur`  | `500ms`                             | sourced from `--p10-opacity-dur`  |
+| `--check-rotate-dur`   | `500ms`                             | sourced from `--p10-rotate-dur`   |
 | `--check-rotate-from`  | `80deg`                             | sourced from `--p10-rotate-from`  |
-| `--check-bob-dur`      | `450ms`                             | sourced from `--p10-bob-dur`      |
+| `--check-bob-dur`      | `500ms`                             | sourced from `--p10-bob-dur`      |
 | `--check-y-amount`     | `40px`                              | sourced from `--p10-y-amount`     |
 | `--check-blur-dur`     | `500ms`                             | sourced from `--p10-blur-dur`     |
 | `--check-blur-from`    | `10px`                              | sourced from `--p10-blur-from`    |
-| `--check-path-dur`     | `550ms`                             | sourced from `--p10-path-dur`     |
+| `--check-path-dur`     | `500ms`                             | sourced from `--p10-path-dur`     |
 | `--check-path-delay`   | `80ms`                              | sourced from `--p10-path-delay`   |
 | `--check-ease-out`     | `cubic-bezier(0.22, 1, 0.36, 1)`    | sourced from `--p10-ease-out`     |
 | `--check-ease-opacity` | `cubic-bezier(0.22, 1, 0.36, 1)`    | sourced from `--p10-ease-opacity` |
@@ -52,14 +52,14 @@ The `:root` defaults below match the live tuning on [transitions.dev](https://tr
 
 ```css
 :root {
-  --check-opacity-dur: 550ms;
-  --check-rotate-dur: 550ms;
+  --check-opacity-dur: 500ms;
+  --check-rotate-dur: 500ms;
   --check-rotate-from: 80deg;
-  --check-bob-dur: 450ms;
+  --check-bob-dur: 500ms;
   --check-y-amount: 40px;
   --check-blur-dur: 500ms;
   --check-blur-from: 10px;
-  --check-path-dur: 550ms;
+  --check-path-dur: 500ms;
   --check-path-delay: 80ms;
   --check-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --check-ease-opacity: cubic-bezier(0.22, 1, 0.36, 1);

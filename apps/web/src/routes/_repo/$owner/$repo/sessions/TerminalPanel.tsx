@@ -18,7 +18,11 @@ import "@xterm/xterm/css/xterm.css";
 import {
   buildTerminalHistoryKey,
   createTerminalHistoryWriter,
+  startVercelPty,
   parseTerminalControlMessage,
+  parseVercelExitMessage,
+  sendVercelPtyControl,
+  type PtyProtocol,
   type TerminalHistoryWriter,
 } from "./_utils";
 
@@ -82,6 +86,7 @@ export function TerminalPanel({
   const terminalInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const ptyProtocolRef = useRef<PtyProtocol>("daytona");
   const intentionalCloseRef = useRef(false);
   const reconnectAttemptsRef = useRef(0);
   const terminalHistoryKey = buildTerminalHistoryKey(
@@ -108,7 +113,13 @@ export function TerminalPanel({
       mounted: { current: boolean },
       historyWriter: TerminalHistoryWriter,
     ) => {
-      const { wsUrl, isNewPty } = await connectPty({
+      const {
+        wsUrl,
+        isNewPty,
+        ptyProtocol,
+        sharedPtySessionName,
+        initialOutput,
+      } = await connectPty({
         owner,
         cols: terminal.cols,
         rows: terminal.rows,
@@ -117,13 +128,57 @@ export function TerminalPanel({
 
       if (!mounted.current) return;
 
+      ptyProtocolRef.current = ptyProtocol;
+      if (ptyProtocol === "vercel") {
+        historyWriter.clear();
+        terminal.clear();
+      }
       const ws = new WebSocket(wsUrl);
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
+      if (initialOutput && initialOutput.length > 0) {
+        terminal.write(initialOutput.replace(/\n/g, "\r\n"));
+      }
       const decoder = new TextDecoder();
+      let vercelHandshakeComplete = ptyProtocol !== "vercel";
+
+      const markConnected = () => {
+        if (!terminalInstanceRef.current) return;
+        if (vercelHandshakeComplete && ptyProtocol === "vercel") return;
+        if (ptyProtocol === "vercel") {
+          vercelHandshakeComplete = true;
+        }
+        terminalInstanceRef.current.writeln(
+          "\x1b[32m* Connected to sandbox\x1b[0m\r\n",
+        );
+        if (
+          isNewPty &&
+          runDevCommandOnConnect &&
+          devCommand &&
+          ptyProtocol !== "vercel" &&
+          ws.readyState === WebSocket.OPEN
+        ) {
+          terminalInstanceRef.current.writeln(
+            "\x1b[33m* Starting dev server...\x1b[0m\r\n",
+          );
+          setTimeout(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(devCommand + "\r");
+            }
+          }, 300);
+        }
+      };
 
       ws.onopen = () => {
         reconnectAttemptsRef.current = 0;
+        if (ptyProtocol === "vercel") {
+          startVercelPty(ws, {
+            cols: terminal.cols,
+            rows: terminal.rows,
+            sessionName: sharedPtySessionName,
+          });
+          markConnected();
+        }
       };
 
       ws.onmessage = (event) => {
@@ -133,24 +188,7 @@ export function TerminalPanel({
           const parsed = parseTerminalControlMessage(event.data);
           if (parsed) {
             if (parsed.status === "connected") {
-              terminalInstanceRef.current.writeln(
-                "\x1b[32m* Connected to sandbox\x1b[0m\r\n",
-              );
-              if (
-                isNewPty &&
-                runDevCommandOnConnect &&
-                devCommand &&
-                ws.readyState === WebSocket.OPEN
-              ) {
-                terminalInstanceRef.current.writeln(
-                  "\x1b[33m* Starting dev server...\x1b[0m\r\n",
-                );
-                setTimeout(() => {
-                  if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(devCommand + "\r");
-                  }
-                }, 300);
-              }
+              markConnected();
               return;
             }
             if (parsed.status === "error") {
@@ -161,12 +199,23 @@ export function TerminalPanel({
             }
             return;
           }
+          const exitFrame = parseVercelExitMessage(event.data);
+          if (exitFrame) {
+            terminalInstanceRef.current.writeln(
+              `\r\n\x1b[33m* Shell exited (${exitFrame.code ?? 0})\x1b[0m\r\n`,
+            );
+            return;
+          }
           terminalInstanceRef.current.write(event.data);
-          historyWriter.append(event.data);
+          if (ptyProtocol !== "vercel") {
+            historyWriter.append(event.data);
+          }
         } else {
           const text = decoder.decode(event.data, { stream: true });
           terminalInstanceRef.current.write(text);
-          historyWriter.append(text);
+          if (ptyProtocol !== "vercel") {
+            historyWriter.append(text);
+          }
         }
       };
 
@@ -258,7 +307,11 @@ export function TerminalPanel({
         terminal.onData((data) => {
           const currentWs = wsRef.current;
           if (currentWs?.readyState === WebSocket.OPEN) {
-            currentWs.send(data);
+            if (ptyProtocolRef.current === "vercel") {
+              currentWs.send(new TextEncoder().encode(data));
+            } else {
+              currentWs.send(data);
+            }
           }
         });
 
@@ -331,7 +384,16 @@ export function TerminalPanel({
     }
     fitAddonRef.current.fit();
     const { cols, rows } = terminalInstanceRef.current;
-    resizePtyRef.current({ owner, cols, rows, ptyInstanceId }).catch(() => {});
+    if (
+      ptyProtocolRef.current === "vercel" &&
+      wsRef.current?.readyState === WebSocket.OPEN
+    ) {
+      sendVercelPtyControl(wsRef.current, { type: "resize", cols, rows });
+    } else {
+      resizePtyRef
+        .current({ owner, cols, rows, ptyInstanceId })
+        .catch(() => {});
+    }
   }, [isForeground, owner, ptyInstanceId]);
 
   useEffect(() => {
@@ -354,9 +416,16 @@ export function TerminalPanel({
       if (fitAddonRef.current && terminalInstanceRef.current) {
         fitAddonRef.current.fit();
         const { cols, rows } = terminalInstanceRef.current;
-        resizePtyRef
-          .current({ owner, cols, rows, ptyInstanceId })
-          .catch(() => {});
+        if (
+          ptyProtocolRef.current === "vercel" &&
+          wsRef.current?.readyState === WebSocket.OPEN
+        ) {
+          sendVercelPtyControl(wsRef.current, { type: "resize", cols, rows });
+        } else {
+          resizePtyRef
+            .current({ owner, cols, rows, ptyInstanceId })
+            .catch(() => {});
+        }
       }
     });
     observer.observe(el);

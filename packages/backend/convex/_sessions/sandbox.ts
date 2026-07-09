@@ -42,7 +42,11 @@ export const clearSandbox = authMutation({
     if (!session) {
       throw new Error("Session not found");
     }
-    await ctx.db.patch(args.id, { sandboxId: undefined, status: "closed" });
+    await ctx.db.patch(args.id, {
+      sandboxId: undefined,
+      vercelSandboxId: undefined,
+      status: "closed",
+    });
     return null;
   },
 });
@@ -70,6 +74,7 @@ export const startSandbox = authMutation({
       {
         sessionId: args.sessionId,
         existingSandboxId: session.sandboxId,
+        vercelSandboxId: session.vercelSandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -200,6 +205,7 @@ export const sandboxReady = internalMutation({
   args: {
     sessionId: v.id("sessions"),
     sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
     branchName: v.string(),
     isNew: v.boolean(),
     usedSnapshot: v.optional(v.boolean()),
@@ -210,21 +216,31 @@ export const sandboxReady = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
-    const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
-    await ctx.db.insert("messages", {
-      parentId: args.sessionId,
-      role: "assistant",
-      content,
-      timestamp: Date.now(),
-      isSystemAlert: true,
-    });
+    // Early-ready (right after Sandbox.create) + final-ready (after services)
+    // both call this. Only emit the system alert once; still patch latest
+    // sandbox/dev metadata on every call.
+    const alreadyActive =
+      session.status === "active" && session.sandboxId === args.sandboxId;
+    if (!alreadyActive) {
+      const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
+      await ctx.db.insert("messages", {
+        parentId: args.sessionId,
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+        isSystemAlert: true,
+      });
+    }
     await ctx.db.patch(args.sessionId, {
       updatedAt: Date.now(),
       sandboxId: args.sandboxId,
       branchName: args.branchName,
       status: "active",
-      devPort: args.devPort,
-      devCommand: args.devCommand,
+      ...(args.vercelSandboxId !== undefined
+        ? { vercelSandboxId: args.vercelSandboxId }
+        : {}),
+      ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),
+      ...(args.devCommand !== undefined ? { devCommand: args.devCommand } : {}),
     });
     return null;
   },

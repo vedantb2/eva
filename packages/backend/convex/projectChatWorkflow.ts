@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
+import { resolveExistingSandboxId } from "./_sandbox/resolveExistingSandboxId";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
@@ -209,7 +210,7 @@ export const projectChatExecuteWorkflow = workflow.define({
       userId: args.userId,
     });
 
-    if (!data.sandboxId) {
+    if (!data.sandboxId && !data.vercelSandboxId) {
       await step.runMutation(internal.projectChatWorkflow.saveResult, {
         projectId: args.projectId,
         success: false,
@@ -229,6 +230,7 @@ export const projectChatExecuteWorkflow = workflow.define({
     try {
       await ensureSandboxStartedSteps(step, {
         sandboxId: data.sandboxId,
+        vercelSandboxId: data.vercelSandboxId,
         repoId: data.repoId,
         streamingEntityId,
       });
@@ -246,9 +248,30 @@ export const projectChatExecuteWorkflow = workflow.define({
       return;
     }
 
+    const provider = await step.runAction(
+      internal.daytona.getSandboxProviderKind,
+      { repoId: data.repoId },
+    );
+    const activeSandboxId = resolveExistingSandboxId({
+      providerKind: provider,
+      sandboxId: data.sandboxId,
+      vercelSandboxId: data.vercelSandboxId,
+    });
+    if (!activeSandboxId) {
+      await step.runMutation(internal.projectChatWorkflow.saveResult, {
+        projectId: args.projectId,
+        success: false,
+        result: null,
+        error:
+          "No active sandbox. Start the project sandbox before sending chat messages.",
+        activityLog: null,
+      });
+      return;
+    }
+
     const validation = await step.runAction(
       internal.daytona.validateSandbox,
-      { sandboxId: data.sandboxId, repoId: data.repoId },
+      { sandboxId: activeSandboxId, repoId: data.repoId },
       { retry: false },
     );
 
@@ -265,7 +288,7 @@ export const projectChatExecuteWorkflow = workflow.define({
     }
 
     await step.runAction(internal.daytona.launchOnExistingSandbox, {
-      sandboxId: data.sandboxId,
+      sandboxId: activeSandboxId,
       entityId: args.projectId,
       prompt: data.prompt,
       userId: args.userId,
@@ -283,10 +306,10 @@ export const projectChatExecuteWorkflow = workflow.define({
     let savedSuccess = result.success;
     let savedError = result.error;
 
-    if (result.success && data.sandboxId && data.branchName) {
+    if (result.success && activeSandboxId && data.branchName) {
       try {
         await step.runAction(internal.daytona.pushSandboxBranch, {
-          sandboxId: data.sandboxId,
+          sandboxId: activeSandboxId,
           installationId: data.installationId,
           repoOwner: data.repoOwner,
           repoName: data.repoName,
@@ -345,6 +368,7 @@ export const getChatData = internalQuery({
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -395,6 +419,7 @@ export const getChatData = internalQuery({
 
     return {
       sandboxId: project.sandboxId,
+      vercelSandboxId: project.vercelSandboxId,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: project.repoId,

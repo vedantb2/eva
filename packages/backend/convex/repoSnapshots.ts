@@ -9,8 +9,10 @@ export {
   getOrphanedSeededApps,
   getSeededAppStatus,
   setSeededSnapshotName,
+  setSeededSnapshotNameForAll,
   getSeedFingerprint,
   setImageFingerprint,
+  getPrimarySeedAppRepo,
 } from "./_repoSnapshots/config";
 
 export {
@@ -22,7 +24,6 @@ export {
   completeBuild,
   appendLogs,
   recordSeededApp,
-  updateSeededAppWarmupStatus,
   listReferencedSandboxIds,
 } from "./_repoSnapshots/builds";
 

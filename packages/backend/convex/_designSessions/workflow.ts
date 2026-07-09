@@ -8,6 +8,7 @@ export const designSandboxStartupWorkflow = workflow.define({
   args: {
     designSessionId: v.id("designSessions"),
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -19,10 +20,11 @@ export const designSandboxStartupWorkflow = workflow.define({
     // Thaw an archived/stopped sandbox across polling steps before the start
     // action, so a multi-minute cold-storage restore doesn't blow the per-action
     // 10-minute limit inside startDesignSandbox → ensureSandboxRunning.
-    if (args.existingSandboxId) {
+    if (args.existingSandboxId || args.vercelSandboxId) {
       try {
         await ensureSandboxStartedSteps(step, {
           sandboxId: args.existingSandboxId,
+          vercelSandboxId: args.vercelSandboxId,
           repoId: args.repoId,
         });
       } catch (error) {
@@ -39,6 +41,7 @@ export const designSandboxStartupWorkflow = workflow.define({
     await step.runAction(internal.daytona.startDesignSandbox, {
       designSessionId: args.designSessionId,
       existingSandboxId: args.existingSandboxId,
+      vercelSandboxId: args.vercelSandboxId,
       installationId: args.installationId,
       repoOwner: args.repoOwner,
       repoName: args.repoName,

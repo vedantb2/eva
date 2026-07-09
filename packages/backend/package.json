@@ -36,6 +36,7 @@
     "@tiptap/markdown": "^3.20.1",
     "@tiptap/pm": "^3.20.1",
     "@tiptap/starter-kit": "^3.20.1",
+    "@vercel/sandbox": "^2.4.0",
     "convex": "^1.40.0",
     "convex-helpers": "0.1.114",
     "jose": "^6.0.11",

@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { authMutation } from "../functions";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 
 /** Updates the sandbox ID and/or branch name for a design session (internal). */
 export const updateSandbox = internalMutation({
@@ -49,6 +50,7 @@ export const startSandbox = authMutation({
       {
         designSessionId: args.id,
         existingSandboxId: session.sandboxId,
+        vercelSandboxId: session.vercelSandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -77,13 +79,17 @@ export const stopSandbox = authMutation({
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
 
-    if (session.sandboxId) {
+    const stopId = preferPersistedSandboxId({
+      sandboxId: session.sandboxId,
+      vercelSandboxId: session.vercelSandboxId,
+    });
+    if (stopId) {
       await ctx.scheduler.runAfter(
         0,
         internal.designSessions.finalizeStopSandbox,
         {
           designSessionId: args.id,
-          sandboxId: session.sandboxId,
+          sandboxId: stopId,
           repoId: session.repoId,
         },
       );
@@ -160,6 +166,7 @@ export const sandboxReady = internalMutation({
   args: {
     designSessionId: v.id("designSessions"),
     sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
     branchName: v.string(),
     isNew: v.boolean(),
     devPort: v.optional(v.number()),
@@ -177,6 +184,9 @@ export const sandboxReady = internalMutation({
     });
     await ctx.db.patch(args.designSessionId, {
       sandboxId: args.sandboxId,
+      ...(args.vercelSandboxId !== undefined
+        ? { vercelSandboxId: args.vercelSandboxId }
+        : {}),
       branchName: args.branchName,
       status: "active",
       updatedAt: Date.now(),

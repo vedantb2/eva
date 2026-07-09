@@ -17,7 +17,6 @@ import {
   runStatusValidator,
   sessionModeValidator,
   sessionStatusValidator,
-  snapshotWarmupStatusValidator,
   taskActivityFieldValidator,
   taskSandboxEventValidator,
   taskSandboxStatusValidator,
@@ -81,6 +80,8 @@ export const agentTaskFields = {
   // across the task lifecycle so reviewers can resume in-sandbox state (DB,
   // generated fixtures) instead of re-bootstrapping from the branch.
   sandboxId: v.optional(v.string()),
+  // Vercel sandbox name when SANDBOX_PROVIDER=vercel; prefer for reuse
+  vercelSandboxId: v.optional(v.string()),
   // Separate from `activeWorkflowId` so a task can host an in-sandbox chat
   // (via the sandbox view) concurrently with — and without conflicting with —
   // its main run workflow.
@@ -117,6 +118,8 @@ export const agentRunFields = {
   limitResetAt: v.optional(v.number()),
   exitReason: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
+  // Vercel sandbox name when SANDBOX_PROVIDER=vercel; prefer for reuse
+  vercelSandboxId: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
@@ -145,6 +148,8 @@ export const sessionFields = {
     ),
   ),
   sandboxId: v.optional(v.string()),
+  // Vercel sandbox name when SANDBOX_PROVIDER=vercel; prefer for reuse
+  vercelSandboxId: v.optional(v.string()),
   ptySessionId: v.optional(v.string()),
   updatedAt: v.optional(v.number()),
   status: sessionStatusValidator,
@@ -199,8 +204,6 @@ export const seededAppResultValidator = v.object({
   app: v.optional(v.string()),
   status: v.optional(seededAppStatusValidator),
   seededSnapshotName: v.union(v.string(), v.null()),
-  warmupStatus: v.optional(snapshotWarmupStatusValidator),
-  warmupError: v.optional(v.string()),
 });
 
 export const githubRepoFields = {
@@ -256,6 +259,8 @@ export const projectFields = {
   baseBranch: v.optional(v.string()),
   prUrl: v.optional(v.string()),
   sandboxId: v.optional(v.string()),
+  // Vercel sandbox name when SANDBOX_PROVIDER=vercel; prefer for reuse
+  vercelSandboxId: v.optional(v.string()),
   lastSandboxActivity: v.optional(v.number()),
   // UI state for the project-level Start/Stop preview sandbox button.
   // Mirrors `agentTasks.reviewTaskSandboxStatus` lifecycle.
@@ -329,6 +334,8 @@ export const automationRunFields = {
   error: v.optional(v.string()),
   acknowledged: v.boolean(),
   sandboxId: v.optional(v.string()),
+  // Vercel sandbox name when SANDBOX_PROVIDER=vercel; prefer for reuse
+  vercelSandboxId: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
   activityLog: v.optional(v.string()),
   findings: v.optional(v.array(automationFindingValidator)),
@@ -474,6 +481,8 @@ export const docFields = {
     ),
   ),
   sandboxId: v.optional(v.string()),
+  // Vercel sandbox name when SANDBOX_PROVIDER=vercel; prefer for reuse
+  vercelSandboxId: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
   testGenStatus: v.optional(evaluationStatusValidator),
   testPrUrl: v.optional(v.string()),

@@ -158,18 +158,18 @@ export const verifyAccessToken = internalAction({
         "sub" in payload &&
         typeof payload.sub === "string"
       ) {
-        // Optionally verify user still exists in Clerk
+        // Best-effort Clerk lookup — agent/test users may not exist in Clerk but
+        // a verified JWT sub is still authoritative for MCP auth.
         try {
           const clerk = createClerkClient({ secretKey: getClerkSecretKey() });
           await clerk.users.getUser(payload.sub);
-          return { clerkUserId: payload.sub };
         } catch (err) {
-          console.error(
-            "[MCP][verifyAccessToken] Clerk getUser failed:",
+          console.warn(
+            "[MCP][verifyAccessToken] Clerk getUser failed (using JWT sub):",
             err instanceof Error ? err.message : err,
           );
-          return null;
         }
+        return { clerkUserId: payload.sub };
       }
       // OAuth payload missing sub — fall through to internal token
     } catch {

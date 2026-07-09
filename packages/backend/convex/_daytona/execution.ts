@@ -1,22 +1,65 @@
 "use node";
 
 import { v } from "convex/values";
-import type { Sandbox } from "@daytonaio/sdk";
+import type { SandboxHandle } from "../_sandbox/provider";
 import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import {
   exec,
+  execHandle,
   resolveSandboxContext,
   getSandbox,
+  getSandboxHandle,
+  getDaytona,
   ensureSandboxRunning,
   ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
   sleep,
   errorMessage,
   signAndLaunchScript,
+  workspaceDirShell,
+  KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
+import { resolveSandboxCredentials } from "../envVarResolver";
+import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
+import { resolveDaytonaApiKey } from "../envVarResolver";
+import { detectPackageManager, launchDevServerInBackground } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
+
+async function resolveDevCommandForPreview(
+  handle: SandboxHandle,
+  repo: { rootDirectory?: string; devPort?: number; devCommand?: string },
+  port: number,
+): Promise<string> {
+  const rootDir = repo.rootDirectory ?? "";
+  const dir = rootDir
+    ? `${workspaceDirShell()}/${rootDir}`
+    : workspaceDirShell();
+  const effectivePort = repo.devPort ?? port;
+  if (repo.devCommand && repo.devCommand.trim().length > 0) {
+    return `cd ${workspaceDirShell()} && HOSTNAME=0.0.0.0 PORT=${effectivePort} ${repo.devCommand}`;
+  }
+  const pm = await detectPackageManager(handle, rootDir);
+  return `cd ${dir} && HOSTNAME=0.0.0.0 PORT=${effectivePort} ${pm} run dev`;
+}
+
+async function probePreviewReady(
+  handle: SandboxHandle,
+  port: number,
+): Promise<boolean> {
+  try {
+    const result = await execHandle(
+      handle,
+      `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${port}`,
+      3,
+    );
+    const code = parseInt(result.trim() || "0", 10);
+    return code >= 200 && code < 500;
+  } catch {
+    return false;
+  }
+}
 import {
   fetchOrigin,
   setupBranch,
@@ -29,7 +72,12 @@ import {
 } from "./git";
 import { ensureSessionPersistenceVolumes, sessionClaudeUuid } from "./volumes";
 import { startDesktopWithChrome } from "./desktop";
-import { ensurePreviewNavigationProxy } from "./previewProxy";
+import {
+  ensurePreviewNavigationProxy,
+  VERCEL_PREVIEW_PROXY_PORT,
+  VERCEL_DESKTOP_INTERNAL_PORT,
+  VERCEL_EDITOR_INTERNAL_PORT,
+} from "./previewProxy";
 import { getPreviewGrantPublicJwk, signPreviewGrant } from "../previewGrant";
 import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
@@ -57,7 +105,7 @@ export const validateSandbox = internalAction({
   returns: v.object({ healthy: v.boolean() }),
   handler: async (ctx, args) => {
     try {
-      const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       // Start the sandbox if it's stopped (fast resume ~3-5s)
       await ensureSandboxRunning(sandbox, {
         timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
@@ -80,9 +128,9 @@ export const runSandboxCommand = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     return (
-      await exec(sandbox, args.command, args.timeoutSeconds ?? 30)
+      await execHandle(handle, args.command, args.timeoutSeconds ?? 30)
     ).trim();
   },
 });
@@ -95,9 +143,9 @@ export const startupCommandsMarkerExists = internalAction({
   },
   returns: v.boolean(),
   handler: async (ctx, args): Promise<boolean> => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     try {
-      await exec(sandbox, "test -f /tmp/.startup-commands-done", 5);
+      await execHandle(handle, "test -f /tmp/.startup-commands-done", 5);
       return true;
     } catch {
       return false;
@@ -113,7 +161,7 @@ export const restoreSeededRuntimeState = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await restoreSeededRuntimeStateInSandbox(sandbox);
     return null;
   },
@@ -147,12 +195,12 @@ export const runStartupCommands = internalAction({
       return { ran: false, commandCount: 0, errors: [] };
     }
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
     if (!args.force) {
       // Check if startup commands have already run (marker file)
       try {
-        await exec(sandbox, "test -f /tmp/.startup-commands-done", 5);
+        await execHandle(sandbox, "test -f /tmp/.startup-commands-done", 5);
         // Marker exists, commands already ran
         console.log(
           `[daytona] runStartupCommands: marker exists, skipping ${commands.length} commands`,
@@ -172,7 +220,7 @@ export const runStartupCommands = internalAction({
       console.log(`[daytona] runStartupCommands: running: ${command}`);
       try {
         // 10 minute timeout per command (supabase start can take a while)
-        const output = await exec(sandbox, command, 600);
+        const output = await execHandle(sandbox, command, 600);
         console.log(`[daytona] runStartupCommands: completed: ${command}`);
         if (output.trim()) {
           console.log(`[daytona] output: ${output.slice(0, 500)}`);
@@ -191,7 +239,7 @@ export const runStartupCommands = internalAction({
     // marker absent lets the next resume retry the full startup sequence.
     if (errors.length === 0) {
       try {
-        await exec(sandbox, "touch /tmp/.startup-commands-done", 5);
+        await execHandle(sandbox, "touch /tmp/.startup-commands-done", 5);
       } catch {
         // Non-fatal
       }
@@ -237,7 +285,7 @@ export const runBackgroundCommands = internalAction({
       return { ran: false, commandCount: 0, errors: [] };
     }
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
     console.log(
       `[daytona] runBackgroundCommands: launching ${commands.length} background command(s)`,
@@ -267,7 +315,7 @@ export const runBackgroundCommands = internalAction({
       );
       try {
         // Short timeout — we only wait for the shell to fork the daemon.
-        await exec(sandbox, launchCmd, 10);
+        await execHandle(sandbox, launchCmd, 10);
       } catch (e) {
         const msg = errorMessage(e, "command failed");
         console.error(
@@ -311,7 +359,7 @@ export const runStopCommands = internalAction({
       return { ran: false, commandCount: 0, errors: [] };
     }
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
     console.log(
       `[daytona] runStopCommands: running ${commands.length} stop command(s)`,
@@ -321,7 +369,7 @@ export const runStopCommands = internalAction({
     for (const command of commands) {
       console.log(`[daytona] runStopCommands: running: ${command}`);
       try {
-        await exec(sandbox, command, 300);
+        await execHandle(handle, command, 300);
         console.log(`[daytona] runStopCommands: completed: ${command}`);
       } catch (e) {
         const msg = errorMessage(e, "command failed");
@@ -362,47 +410,104 @@ export const getPreviewUrl = action({
       throw new Error("Not authorized to access this repository");
     }
 
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
+    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+
+    // On Vercel, services listen on internal ports and the auth proxy owns the
+    // exposed port (same pattern as app preview 54321→3000). Probe the
+    // upstream service port for readiness, not the proxy port.
+    const upstreamPort =
+      credentials.kind === "vercel" && args.port === 6080
+        ? VERCEL_DESKTOP_INTERNAL_PORT
+        : credentials.kind === "vercel" && args.port === 8080
+          ? VERCEL_EDITOR_INTERNAL_PORT
+          : args.port;
+
     let ready = true;
     if (args.checkReady) {
-      try {
-        const result = await exec(
-          sandbox,
-          `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${args.port}`,
-          3,
-        );
-        const code = parseInt(result.trim() || "0", 10);
-        ready = code >= 200 && code < 500;
-      } catch {
-        ready = false;
+      ready = await probePreviewReady(handle, upstreamPort);
+      // Only auto-restart the app/dev server for app preview ports.
+      // Desktop (6080) and editor (8080) are started by their own toggle
+      // actions — launching `pnpm run dev` onto those ports would clobber
+      // noVNC/websockify or code-server and surface as SANDBOX_NOT_LISTENING.
+      const isDesktopOrEditorPort = args.port === 6080 || args.port === 8080;
+      if (!ready && !isDesktopOrEditorPort) {
+        try {
+          const devCommand = await resolveDevCommandForPreview(
+            handle,
+            repo,
+            args.port,
+          );
+          await launchDevServerInBackground(handle, devCommand, args.port);
+          await sleep(8);
+          ready = await probePreviewReady(handle, args.port);
+        } catch (e) {
+          console.warn(
+            `[daytona] preview dev server restart failed sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "restart failed")}`,
+          );
+        }
       }
     }
 
-    // Always front the dev server with the in-sandbox proxy (not just when
-    // navigationSync is set) so the auth gate covers every preview surface —
-    // dev server, code-server editor, VNC desktop, design preview. When no
-    // grant key is configured the proxy runs in legacy pass-through mode.
-    // `navigationSync` now only decides whether the HTML nav-sync script is
-    // injected.
+    // Always front the service with the in-sandbox auth proxy so open-in-new-tab
+    // is gated the same way for Preview, Computer, and Editor.
+    //
+    // Vercel exposes a fixed 4-port set. Map:
+    //   app 3000  → proxy on 54321 (upstream 3000)
+    //   editor    → proxy on 8080  (upstream 18080)
+    //   desktop   → proxy on 6080  (upstream 16080)
+    // Daytona uses a free 9xxx proxy port in front of the real service port.
     const previewPublicJwk = getPreviewGrantPublicJwk();
-    let signedPort = args.port;
-    if (ready) {
+    let previewPort = args.port;
+    const fixedVercelProxyPort =
+      credentials.kind === "vercel" && args.port === 3000
+        ? VERCEL_PREVIEW_PROXY_PORT
+        : credentials.kind === "vercel" &&
+            (args.port === 6080 || args.port === 8080)
+          ? args.port
+          : undefined;
+    const proxyTargetPort =
+      credentials.kind === "vercel" && args.port === 6080
+        ? VERCEL_DESKTOP_INTERNAL_PORT
+        : credentials.kind === "vercel" && args.port === 8080
+          ? VERCEL_EDITOR_INTERNAL_PORT
+          : args.port;
+    const shouldStartPreviewProxy =
+      credentials.kind === "daytona" || fixedVercelProxyPort !== undefined;
+    if (ready && shouldStartPreviewProxy) {
       try {
-        signedPort = await ensurePreviewNavigationProxy(sandbox, args.port, {
-          publicKeyJwk: previewPublicJwk,
-          sandboxId: args.sandboxId,
-          repoId: args.repoId,
-          webAppUrl: process.env.WEB_APP_URL ?? "",
-          inject: args.navigationSync === true,
-        });
-      } catch (e) {
-        console.warn(
-          `[daytona] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${errorMessage(e, "proxy startup failed")}`,
+        previewPort = await ensurePreviewNavigationProxy(
+          handle,
+          proxyTargetPort,
+          {
+            publicKeyJwk: previewPublicJwk,
+            sandboxId: args.sandboxId,
+            repoId: args.repoId,
+            webAppUrl: process.env.WEB_APP_URL ?? "",
+            inject: args.navigationSync === true,
+            // Browser-facing port for /preview-auth (may differ from upstream).
+            authPort: args.port,
+          },
+          fixedVercelProxyPort,
         );
+      } catch (e) {
+        const proxyErrorMessage = errorMessage(e, "proxy startup failed");
+        console.warn(
+          `[daytona] preview navigation proxy unavailable for sandbox=${args.sandboxId} port=${args.port}: ${proxyErrorMessage}`,
+        );
+        // Vercel only exposes a fixed, small port set (VERCEL_DEFAULT_EXPOSED_PORTS).
+        // If the reserved proxy port fails to start while a preview grant
+        // key is configured, silently falling back to the unproxied service
+        // port would serve with no auth gate at all. Fail loudly instead.
+        if (fixedVercelProxyPort !== undefined && previewPublicJwk) {
+          throw new Error(
+            `Vercel preview proxy failed to start on port ${fixedVercelProxyPort}: ${proxyErrorMessage}`,
+          );
+        }
       }
     }
 
-    const signedPreview = await sandbox.getSignedPreviewUrl(signedPort, 86400);
+    const signedPreview = await handle.previewUrl(previewPort, 86400);
     const parsedUrl = new URL(signedPreview.url);
     parsedUrl.protocol = "https:";
 
@@ -461,6 +566,7 @@ function isSandboxSetupRetryable(message: string): boolean {
 export const prepareSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -474,7 +580,10 @@ export const prepareSandbox = internalAction({
     startDesktop: v.optional(v.boolean()),
     streamingEntityId: v.optional(v.string()),
   },
-  returns: v.object({ sandboxId: v.string() }),
+  returns: v.object({
+    sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     const completedSteps: Array<{
       type: string;
@@ -498,26 +607,40 @@ export const prepareSandbox = internalAction({
     console.log(
       `[daytona] prepareSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
     );
-    const { daytona, sandboxEnvVars, snapshotName } =
+    const { client, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
+    // Vercel sandboxes are only ever reused via `vercelSandboxId` — a stale
+    // Daytona `existingSandboxId` on the entity must never be treated as
+    // reusable here.
+    const existingSandboxId = resolveExistingSandboxId({
+      providerKind: client.kind,
+      sandboxId: args.existingSandboxId,
+      vercelSandboxId: args.vercelSandboxId,
+    });
+    // Persistence volumes remain a Daytona-only capability; resolve a raw
+    // Daytona client just for the volume lookup on that path.
     const sessionVolumeMounts =
       args.sessionPersistenceId && args.sessionPersistenceKind
-        ? await ensureSessionPersistenceVolumes(
-            daytona,
-            args.repoId,
-            args.sessionPersistenceKind,
-            args.sessionPersistenceId,
-          )
+        ? client.kind === "vercel"
+          ? []
+          : await ensureSessionPersistenceVolumes(
+              getDaytona(
+                (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
+              ),
+              args.repoId,
+              args.sessionPersistenceKind,
+              args.sessionPersistenceId,
+            )
         : undefined;
     console.log(
-      `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
+      `[daytona] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
-    let sandbox: Sandbox | undefined;
+    let sandbox: SandboxHandle | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
     const maxSetupAttempts = 3;
     const attachRunSandbox = async (
-      sandboxToAttach: Sandbox,
+      sandboxToAttach: SandboxHandle,
     ): Promise<void> => {
       if (!args.attachRunId) {
         return;
@@ -525,6 +648,8 @@ export const prepareSandbox = internalAction({
       await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.attachRunId,
         sandboxId: sandboxToAttach.id,
+        vercelSandboxId:
+          client.kind === "vercel" ? sandboxToAttach.id : undefined,
       });
     };
 
@@ -533,7 +658,7 @@ export const prepareSandbox = internalAction({
         if (args.ephemeral) {
           const prepared = await createSandboxAndPrepareRepo(
             ctx,
-            daytona,
+            client,
             args.installationId,
             args.repoOwner,
             args.repoName,
@@ -550,8 +675,8 @@ export const prepareSandbox = internalAction({
         } else {
           const prepared = await getOrCreateSandbox(
             ctx,
-            daytona,
-            args.existingSandboxId,
+            client,
+            existingSandboxId,
             args.installationId,
             args.repoOwner,
             args.repoName,
@@ -636,7 +761,10 @@ export const prepareSandbox = internalAction({
     console.log(
       `[daytona] prepareSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
     );
-    return { sandboxId: sandbox.id };
+    return {
+      sandboxId: sandbox.id,
+      vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
+    };
   },
 });
 
@@ -644,6 +772,7 @@ export const prepareSandbox = internalAction({
 export const createOrResumeSandbox = internalAction({
   args: {
     existingSandboxId: v.optional(v.string()),
+    vercelSandboxId: v.optional(v.string()),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -656,7 +785,10 @@ export const createOrResumeSandbox = internalAction({
     attachRunId: v.optional(v.id("agentRuns")),
     streamingEntityId: v.optional(v.string()),
   },
-  returns: v.object({ sandboxId: v.string() }),
+  returns: v.object({
+    sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     const completedSteps: Array<{
       type: string;
@@ -680,27 +812,41 @@ export const createOrResumeSandbox = internalAction({
     console.log(
       `[daytona] createOrResumeSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
     );
-    const { daytona, sandboxEnvVars, snapshotName } =
+    const { client, sandboxEnvVars, snapshotName } =
       await resolveSandboxContext(ctx, args.repoId);
+    // Vercel sandboxes are only ever reused via `vercelSandboxId` — a stale
+    // Daytona `existingSandboxId` on the entity must never be treated as
+    // reusable here.
+    const existingSandboxId = resolveExistingSandboxId({
+      providerKind: client.kind,
+      sandboxId: args.existingSandboxId,
+      vercelSandboxId: args.vercelSandboxId,
+    });
+    // Persistence volumes remain a Daytona-only capability; resolve a raw
+    // Daytona client just for the volume lookup on that path.
     const sessionVolumeMounts =
       args.sessionPersistenceId && args.sessionPersistenceKind
-        ? await ensureSessionPersistenceVolumes(
-            daytona,
-            args.repoId,
-            args.sessionPersistenceKind,
-            args.sessionPersistenceId,
-          )
+        ? client.kind === "vercel"
+          ? []
+          : await ensureSessionPersistenceVolumes(
+              getDaytona(
+                (await resolveDaytonaApiKey(ctx, args.repoId)).daytonaApiKey,
+              ),
+              args.repoId,
+              args.sessionPersistenceKind,
+              args.sessionPersistenceId,
+            )
         : undefined;
     console.log(
-      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${args.existingSandboxId ?? "none"}`,
+      `[daytona] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, volumes=${sessionVolumeMounts?.length ?? 0}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
 
-    let sandbox: Sandbox | undefined;
+    let sandbox: SandboxHandle | undefined;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
     const maxSetupAttempts = 3;
     const attachRunSandbox = async (
-      sandboxToAttach: Sandbox,
+      sandboxToAttach: SandboxHandle,
     ): Promise<void> => {
       if (!args.attachRunId) {
         return;
@@ -708,6 +854,8 @@ export const createOrResumeSandbox = internalAction({
       await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
         runId: args.attachRunId,
         sandboxId: sandboxToAttach.id,
+        vercelSandboxId:
+          client.kind === "vercel" ? sandboxToAttach.id : undefined,
       });
     };
 
@@ -716,7 +864,7 @@ export const createOrResumeSandbox = internalAction({
         if (args.ephemeral) {
           const prepared = await createSandboxAndPrepareRepo(
             ctx,
-            daytona,
+            client,
             args.installationId,
             args.repoOwner,
             args.repoName,
@@ -733,8 +881,8 @@ export const createOrResumeSandbox = internalAction({
         } else {
           const prepared = await getOrCreateSandbox(
             ctx,
-            daytona,
-            args.existingSandboxId,
+            client,
+            existingSandboxId,
             args.installationId,
             args.repoOwner,
             args.repoName,
@@ -753,6 +901,7 @@ export const createOrResumeSandbox = internalAction({
           await ctx.runMutation(internal.taskWorkflow.saveSandboxId, {
             runId: args.attachRunId,
             sandboxId: sandbox.id,
+            vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
           });
         }
 
@@ -811,7 +960,10 @@ export const createOrResumeSandbox = internalAction({
     console.log(
       `[daytona] createOrResumeSandbox: success in ${totalElapsed}ms, sandboxId=${sandbox.id}, attempts=${attempt}`,
     );
-    return { sandboxId: sandbox.id };
+    return {
+      sandboxId: sandbox.id,
+      vercelSandboxId: client.kind === "vercel" ? sandbox.id : undefined,
+    };
   },
 });
 
@@ -827,7 +979,7 @@ export const fetchBaseBranch = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await fetchOrigin(sandbox, args.repoOwner, args.repoName, args.baseBranch, {
       prune: false,
       timeoutSeconds: 120,
@@ -846,7 +998,7 @@ export const checkoutBaseBranch = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await checkoutFetchedBaseBranch(sandbox, args.baseBranch);
     return null;
   },
@@ -862,7 +1014,7 @@ export const setupSandboxBranch = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await setupBranch(sandbox, args.branchName, args.baseBranch);
     return null;
   },
@@ -880,14 +1032,20 @@ export const pushSandboxBranch = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
-    await pushBranchToOrigin(
-      sandbox,
-      args.repoOwner,
-      args.repoName,
-      args.branchName,
-      { timeoutSeconds: 90, retryAttempts: 3 },
-    );
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    try {
+      await pushBranchToOrigin(
+        sandbox,
+        args.repoOwner,
+        args.repoName,
+        args.branchName,
+        { timeoutSeconds: 90, retryAttempts: 3 },
+      );
+    } catch (error) {
+      console.error(
+        `[daytona][execution] pushSandboxBranch failed sandbox=${args.sandboxId} repo=${args.repoOwner}/${args.repoName} branch=${args.branchName}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     return null;
   },
 });
@@ -917,13 +1075,9 @@ export const launchOnExistingSandbox = internalAction({
     console.log(
       `[daytona][execution] launchOnExistingSandbox started entityId=${args.entityId} sandboxId=${args.sandboxId} repoId=${args.repoId}`,
     );
-    const sandbox = await getSandbox(ctx, args.repoId, args.sandboxId);
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
 
-    await exec(
-      sandbox,
-      "pkill -f 'claude-code' 2>/dev/null; pkill -f 'codex' 2>/dev/null; pkill -f 'opencode' 2>/dev/null; pkill -f 'cursor-agent' 2>/dev/null; pkill -f 'run-design.mjs' 2>/dev/null; true",
-      10,
-    );
+    await execHandle(sandbox, KILL_PRIOR_AGENT_PROCESSES_CMD, 10);
     console.log(
       `[daytona][execution] cleaned prior runner in ${Date.now() - launchStartedAt}ms entityId=${args.entityId}`,
     );

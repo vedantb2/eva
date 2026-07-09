@@ -29,22 +29,22 @@ animation can run.
 
 | Variable             | Default                          | Notes                            |
 | -------------------- | -------------------------------- | -------------------------------- |
-| `--tabs-dur`         | `200ms`                          | sourced from `--p16-dur`         |
+| `--tabs-dur`         | `250ms`                          | sourced from `--p16-dur`         |
 | `--tabs-ease`        | `cubic-bezier(0.22, 1, 0.36, 1)` | sourced from `--p16-ease`        |
-| `--tabs-text-muted`  | `rgba(15, 15, 15, 0.6)`          | sourced from `--p16-text-muted`  |
+| `--tabs-text-muted`  | `rgba(15, 15, 15, 0.8)`          | sourced from `--p16-text-muted`  |
 | `--tabs-text-active` | `#0f0f0f`                        | sourced from `--p16-text-active` |
-| `--tabs-bar-bg`      | `#eeeeee`                        | sourced from `--p16-bar-bg`      |
+| `--tabs-bar-bg`      | `#f1f1f1`                        | sourced from `--p16-bar-bg`      |
 | `--tabs-pill-bg`     | `#ffffff`                        | sourced from `--p16-pill-bg`     |
 
 The `:root` defaults below match the live tuning on [transitions.dev](https://transitions.dev). Drop them into your global stylesheet once — every transition in this skill reads from semantic names like these, so multiple transitions can share a single `:root` block.
 
 ```css
 :root {
-  --tabs-dur: 200ms;
+  --tabs-dur: 250ms;
   --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --tabs-text-muted: rgba(15, 15, 15, 0.6);
+  --tabs-text-muted: rgba(15, 15, 15, 0.8);
   --tabs-text-active: #0f0f0f;
-  --tabs-bar-bg: #eeeeee;
+  --tabs-bar-bg: #f1f1f1;
   --tabs-pill-bg: #ffffff;
 }
 ```

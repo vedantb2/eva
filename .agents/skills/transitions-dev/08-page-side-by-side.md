@@ -21,8 +21,8 @@ Page 1 exits to the left, page 2 exits to the right.
 
 | Variable                | Default                          | Notes                            |
 | ----------------------- | -------------------------------- | -------------------------------- |
-| `--page-slide-dur`      | `200ms`                          | sourced from `--p8-slide-dur`    |
-| `--page-fade-dur`       | `200ms`                          | sourced from `--p8-fade-dur`     |
+| `--page-slide-dur`      | `250ms`                          | sourced from `--p8-slide-dur`    |
+| `--page-fade-dur`       | `250ms`                          | sourced from `--p8-fade-dur`     |
 | `--page-slide-distance` | `8px`                            | sourced from `--p8-distance`     |
 | `--page-blur`           | `3px`                            | sourced from `--p8-blur`         |
 | `--page-stagger`        | `0ms`                            | sourced from `--p8-stagger`      |
@@ -34,8 +34,8 @@ The `:root` defaults below match the live tuning on [transitions.dev](https://tr
 
 ```css
 :root {
-  --page-slide-dur: 200ms;
-  --page-fade-dur: 200ms;
+  --page-slide-dur: 250ms;
+  --page-fade-dur: 250ms;
   --page-slide-distance: 8px;
   --page-blur: 3px;
   --page-stagger: 0ms;

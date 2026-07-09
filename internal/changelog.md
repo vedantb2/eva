@@ -1,5 +1,10 @@
 # Changelog
 
+## AI Elements Queue for sandbox chat pending messages - 2026-07-09
+
+- Upgraded `@conductor/ui` Queue to the current AI Elements API (bordered container, scrollable list, hover-reveal actions, attachment primitives) and aligned `QueuedMessagesPanel` so sessions, quick tasks, projects, and designs share the same pending-message UI.
+- Reason for change: replace the older custom-styled queue with the documented Elements Queue look across all sandbox chat composers.
+
 ## Session chat UI (without Agent SDK) - 2026-07-09
 
 - Optimistic send via Convex `.withOptimisticUpdate`, live streamed tokens on the active bubble, per-turn "Worked for Ns" collapsible with activity overflow cap, turn-duration footer, and empty activity-log accordion hidden on text-only replies.

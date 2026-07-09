@@ -39,6 +39,10 @@ interface QueuedMessagesPanelProps {
   onDelete?: (id: Id<"queuedMessages">) => Promise<void>;
 }
 
+/**
+ * Pending-message queue above the composer on sandbox chat pages
+ * (sessions, quick tasks, projects, designs). Built on AI Elements Queue.
+ */
 export function QueuedMessagesPanel({
   items,
   label = "Queued",
@@ -75,44 +79,44 @@ export function QueuedMessagesPanel({
             <QueueList>
               {items.map((item) => (
                 <QueueItem key={item.id}>
-                  <QueueItemIndicator />
-                  <QueueItemContent className="truncate">
-                    {renderContent ? (
-                      renderContent(item.content)
-                    ) : (
-                      <div className="truncate">{item.content}</div>
-                    )}
-                  </QueueItemContent>
-                  <QueueItemActions>
-                    {item.info ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <QueueItemAction aria-label="Queued message details">
-                            <IconInfoCircle size={14} />
-                          </QueueItemAction>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{item.info}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : null}
-                    {onEdit ? (
-                      <QueueItemAction
-                        aria-label="Edit queued message"
-                        onClick={() => setEditingItem(item)}
-                      >
-                        <IconPencil size={14} />
-                      </QueueItemAction>
-                    ) : null}
-                    {onDelete ? (
-                      <QueueItemAction
-                        aria-label="Delete queued message"
-                        onClick={() => setDeletingItem(item)}
-                      >
-                        <IconTrash size={14} />
-                      </QueueItemAction>
-                    ) : null}
-                  </QueueItemActions>
+                  <div className="flex items-start gap-2">
+                    <QueueItemIndicator />
+                    <QueueItemContent>
+                      {renderContent
+                        ? renderContent(item.content)
+                        : item.content}
+                    </QueueItemContent>
+                    <QueueItemActions>
+                      {item.info ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <QueueItemAction aria-label="Queued message details">
+                              <IconInfoCircle size={14} />
+                            </QueueItemAction>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{item.info}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : null}
+                      {onEdit ? (
+                        <QueueItemAction
+                          aria-label="Edit queued message"
+                          onClick={() => setEditingItem(item)}
+                        >
+                          <IconPencil size={14} />
+                        </QueueItemAction>
+                      ) : null}
+                      {onDelete ? (
+                        <QueueItemAction
+                          aria-label="Delete queued message"
+                          onClick={() => setDeletingItem(item)}
+                        >
+                          <IconTrash size={14} />
+                        </QueueItemAction>
+                      ) : null}
+                    </QueueItemActions>
+                  </div>
                 </QueueItem>
               ))}
             </QueueList>

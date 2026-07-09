@@ -3,7 +3,11 @@ import { z } from "zod";
 import { LandingPage } from "./_components/LandingPage";
 
 const searchSchema = z.object({
-  agent: z.boolean().optional(),
+  // A bare `?agent` (no value) parses as "", so accept it alongside `?agent=true`.
+  agent: z
+    .union([z.boolean(), z.literal("")])
+    .optional()
+    .transform((value) => (value === "" || value === true ? true : undefined)),
 });
 
 export const Route = createFileRoute("/")({

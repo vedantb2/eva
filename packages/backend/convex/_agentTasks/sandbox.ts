@@ -76,38 +76,29 @@ export const startTaskSandbox = authMutation({
       `[tasks] startTaskSandbox taskId=${args.taskId} existingSandboxId=${task.sandboxId ?? "none"} vercelSandboxId=${vercelSandboxId ?? "none"}`,
     );
 
+    const startArgs = {
+      taskId: args.taskId,
+      existingSandboxId: task.sandboxId,
+      vercelSandboxId: vercelSandboxId ?? task.vercelSandboxId,
+      installationId: repo.installationId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName,
+      baseBranch,
+      repoId: task.repoId,
+    };
     // Vercel: schedule start action directly (skip ~6s workflow scheduling).
     if (vercelSandboxId) {
       await ctx.scheduler.runAfter(
         0,
         internal.daytona.startTaskPreviewSandbox,
-        {
-          taskId: args.taskId,
-          existingSandboxId: task.sandboxId,
-          vercelSandboxId,
-          installationId: repo.installationId,
-          repoOwner: repo.owner,
-          repoName: repo.name,
-          branchName,
-          baseBranch,
-          repoId: task.repoId,
-        },
+        startArgs,
       );
     } else {
       await workflow.start(
         ctx,
         internal.taskSandboxWorkflow.taskPreviewSandboxStartupWorkflow,
-        {
-          taskId: args.taskId,
-          existingSandboxId: task.sandboxId,
-          vercelSandboxId: task.vercelSandboxId,
-          installationId: repo.installationId,
-          repoOwner: repo.owner,
-          repoName: repo.name,
-          branchName,
-          baseBranch,
-          repoId: task.repoId,
-        },
+        startArgs,
       );
     }
 

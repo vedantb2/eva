@@ -83,36 +83,31 @@ export const startSandbox = authMutation({
     console.log(
       `[sessions] startSandbox sessionId=${args.sessionId} existingSandboxId=${session.sandboxId ?? "none"} vercelSandboxId=${vercelSandboxId ?? "none"}`,
     );
+    const startArgs = {
+      sessionId: args.sessionId,
+      existingSandboxId: session.sandboxId,
+      vercelSandboxId: vercelSandboxId ?? session.vercelSandboxId,
+      installationId: repo.installationId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName,
+      baseBranch,
+      repoId: session.repoId,
+    };
     // Vercel: schedule the start action directly. Workflow step scheduling was
     // measured at ~6s before the first action ran — Daytona still needs the
     // multi-step thaw workflow for archived restores.
     if (vercelSandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
-        sessionId: args.sessionId,
-        existingSandboxId: session.sandboxId,
-        vercelSandboxId,
-        installationId: repo.installationId,
-        repoOwner: repo.owner,
-        repoName: repo.name,
-        branchName,
-        baseBranch,
-        repoId: session.repoId,
-      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.daytona.startSessionSandbox,
+        startArgs,
+      );
     } else {
       await workflow.start(
         ctx,
         internal.sessionWorkflow.sessionSandboxStartupWorkflow,
-        {
-          sessionId: args.sessionId,
-          existingSandboxId: session.sandboxId,
-          vercelSandboxId: session.vercelSandboxId,
-          installationId: repo.installationId,
-          repoOwner: repo.owner,
-          repoName: repo.name,
-          branchName,
-          baseBranch,
-          repoId: session.repoId,
-        },
+        startArgs,
       );
     }
     return null;

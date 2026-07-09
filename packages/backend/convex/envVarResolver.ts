@@ -110,9 +110,12 @@ export async function resolveSandboxProviderKind(
   repoId: Id<"githubRepos">,
 ): Promise<SandboxProviderKind> {
   const startedAt = Date.now();
-  const teamId = await ctx.runQuery(internal.githubRepos.getTeamIdForRepo, {
-    repoId,
-  });
+  // repoVars depends only on repoId, so fetch it alongside the team-id lookup
+  // rather than serialized behind the whole team chain.
+  const [teamId, repoVars] = await Promise.all([
+    ctx.runQuery(internal.githubRepos.getTeamIdForRepo, { repoId }),
+    ctx.runQuery(internal.repoEnvVars.getAllInternal, { repoId }),
+  ]);
   let kind: SandboxProviderKind = "daytona";
   if (teamId) {
     const teamVars = await ctx.runQuery(internal.teamEnvVars.getAllInternal, {
@@ -125,9 +128,6 @@ export async function resolveSandboxProviderKind(
       kind = "vercel";
     }
   }
-  const repoVars = await ctx.runQuery(internal.repoEnvVars.getAllInternal, {
-    repoId,
-  });
   const repoEntry = repoVars.find((entry) => entry.key === "SANDBOX_PROVIDER");
   if (repoEntry) {
     kind = decryptValue(repoEntry.value) === "vercel" ? "vercel" : "daytona";
@@ -174,9 +174,12 @@ export async function resolveSandboxCredentialsOnly(
   repoId: Id<"githubRepos">,
 ): Promise<SandboxCredentials> {
   const startedAt = Date.now();
-  const teamId = await ctx.runQuery(internal.githubRepos.getTeamIdForRepo, {
-    repoId,
-  });
+  // repoVars depends only on repoId, so fetch it alongside the team-id lookup
+  // rather than serialized behind the whole team chain.
+  const [teamId, repoVarsRaw] = await Promise.all([
+    ctx.runQuery(internal.githubRepos.getTeamIdForRepo, { repoId }),
+    ctx.runQuery(internal.repoEnvVars.getAllInternal, { repoId }),
+  ]);
   const teamVars: Record<string, string> = {};
   if (teamId) {
     const vars = await ctx.runQuery(internal.teamEnvVars.getAllInternal, {
@@ -184,9 +187,6 @@ export async function resolveSandboxCredentialsOnly(
     });
     Object.assign(teamVars, decryptCredentialKeys(vars));
   }
-  const repoVarsRaw = await ctx.runQuery(internal.repoEnvVars.getAllInternal, {
-    repoId,
-  });
   const allVars = {
     ...teamVars,
     ...decryptCredentialKeys(repoVarsRaw),

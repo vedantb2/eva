@@ -253,6 +253,7 @@ export const clearTaskSandbox = internalMutation({
     if (!task) return null;
     await ctx.db.patch(args.taskId, {
       sandboxId: undefined,
+      vercelSandboxId: undefined,
       reviewTaskSandboxStatus: undefined,
       updatedAt: Date.now(),
     });

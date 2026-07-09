@@ -195,6 +195,7 @@ export const launchSelectedAuditFixes = internalAction({
         await ctx.runMutation(internal.audits.saveAuditFixSandboxId, {
           taskId: args.taskId,
           sandboxId,
+          vercelSandboxId: result.vercelSandboxId,
         });
       }
 

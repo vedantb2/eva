@@ -42,7 +42,11 @@ export const clearSandbox = authMutation({
     if (!session) {
       throw new Error("Session not found");
     }
-    await ctx.db.patch(args.id, { sandboxId: undefined, status: "closed" });
+    await ctx.db.patch(args.id, {
+      sandboxId: undefined,
+      vercelSandboxId: undefined,
+      status: "closed",
+    });
     return null;
   },
 });

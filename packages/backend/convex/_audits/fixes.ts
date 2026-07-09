@@ -79,19 +79,26 @@ export const saveAuditFixSandboxId = internalMutation({
   args: {
     taskId: v.id("agentTasks"),
     sandboxId: v.string(),
+    vercelSandboxId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
+    const vercelPatch =
+      args.vercelSandboxId !== undefined
+        ? { vercelSandboxId: args.vercelSandboxId }
+        : {};
     if (task.projectId) {
       await ctx.db.patch(task.projectId, {
         sandboxId: args.sandboxId,
+        ...vercelPatch,
         lastSandboxActivity: Date.now(),
       });
     } else {
       await ctx.db.patch(args.taskId, {
         sandboxId: args.sandboxId,
+        ...vercelPatch,
         updatedAt: Date.now(),
       });
     }

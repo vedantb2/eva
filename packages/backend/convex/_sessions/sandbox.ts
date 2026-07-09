@@ -68,21 +68,78 @@ export const startSandbox = authMutation({
       status: "starting",
       updatedAt: Date.now(),
     });
-    await workflow.start(
-      ctx,
-      internal.sessionWorkflow.sessionSandboxStartupWorkflow,
-      {
+    // Seed startup streaming immediately so the UI shows a real step instead of
+    // the random "Eva is inferring…" spinner while the workflow schedules.
+    const startupEntityId = `session-startup-${args.sessionId}`;
+    const startupActivity = JSON.stringify([
+      { type: "tool", label: "Starting sandbox...", status: "active" },
+    ]);
+    const existingStreaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", startupEntityId))
+      .first();
+    if (existingStreaming) {
+      await ctx.db.patch(existingStreaming._id, {
+        currentActivity: startupActivity,
+        currentContent: "",
+        lastUpdatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("streamingActivity", {
+        entityId: startupEntityId,
+        currentActivity: startupActivity,
+        currentContent: "",
+        lastUpdatedAt: Date.now(),
+      });
+    }
+    // Prefer vercelSandboxId; fall back to sandboxId when it is a Vercel name
+    // (not a Daytona UUID). Missing vercelSandboxId used to skip reuse and
+    // create a second sandbox while still logging the old existingSandboxId.
+    const looksLikeDaytonaUuid =
+      typeof session.sandboxId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        session.sandboxId,
+      );
+    const vercelSandboxId =
+      session.vercelSandboxId ??
+      (session.sandboxId && !looksLikeDaytonaUuid
+        ? session.sandboxId
+        : undefined);
+    console.log(
+      `[sessions] startSandbox sessionId=${args.sessionId} existingSandboxId=${session.sandboxId ?? "none"} vercelSandboxId=${vercelSandboxId ?? "none"}`,
+    );
+    // Vercel: schedule the start action directly. Workflow step scheduling was
+    // measured at ~6s before the first action ran — Daytona still needs the
+    // multi-step thaw workflow for archived restores.
+    if (vercelSandboxId) {
+      await ctx.scheduler.runAfter(0, internal.daytona.startSessionSandbox, {
         sessionId: args.sessionId,
         existingSandboxId: session.sandboxId,
-        vercelSandboxId: session.vercelSandboxId,
+        vercelSandboxId,
         installationId: repo.installationId,
         repoOwner: repo.owner,
         repoName: repo.name,
         branchName,
         baseBranch,
         repoId: session.repoId,
-      },
-    );
+      });
+    } else {
+      await workflow.start(
+        ctx,
+        internal.sessionWorkflow.sessionSandboxStartupWorkflow,
+        {
+          sessionId: args.sessionId,
+          existingSandboxId: session.sandboxId,
+          vercelSandboxId: session.vercelSandboxId,
+          installationId: repo.installationId,
+          repoOwner: repo.owner,
+          repoName: repo.name,
+          branchName,
+          baseBranch,
+          repoId: session.repoId,
+        },
+      );
+    }
     return null;
   },
 });
@@ -104,6 +161,10 @@ export const stopSandbox = authMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
 
+    // Allow stop from closed when a sandboxId remains — start can early-ready
+    // then fail and leave a live Vercel VM while UI shows inactive.
+    if (session.status === "stopping") return null;
+
     if (session.sandboxId) {
       await ctx.scheduler.runAfter(
         0,
@@ -124,6 +185,15 @@ export const stopSandbox = authMutation({
       return null;
     }
 
+    // Clear leftover start steps so the chat does not re-show "Starting
+    // sandbox..." / cold-storage copy while status is stopping.
+    const startupEntityId = `session-startup-${args.sessionId}`;
+    const startupStreaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", startupEntityId))
+      .first();
+    if (startupStreaming) await ctx.db.delete(startupStreaming._id);
+
     // The "Sandbox stopped" / "Failed to stop sandbox" divider is inserted by
     // `markSandboxClosed` once Daytona's stop call settles, so the divider
     // matches the actual outcome rather than being optimistic.
@@ -138,10 +208,9 @@ export const stopSandbox = authMutation({
 });
 
 /**
- * Awaits the Daytona stop and finalizes the session status to `"closed"`.
- * Always flips status, even if Daytona errors — a stuck `"stopping"` state
- * would leave the user unable to Start. Captures any Daytona error so the
- * mutation can post a "Failed to stop sandbox" alert with full detail.
+ * Awaits provider stop and finalizes session status. Only marks `"closed"`
+ * after a successful stop — on failure reverts to `"active"` so the UI matches
+ * a still-running Vercel VM and the user can retry Stop.
  */
 export const finalizeStopSandbox = internalAction({
   args: {
@@ -169,9 +238,8 @@ export const finalizeStopSandbox = internalAction({
 });
 
 /**
- * Internal: flips session status from `"stopping"` to `"closed"` after Daytona
- * stop completes, and posts a "Sandbox stopped" (success) or "Failed to stop
- * sandbox" (with error detail) divider to the chat.
+ * Internal: after stop settles, either close the session (success) or revert
+ * to active (failure) so Eva never shows "off" while Vercel is still running.
  */
 export const markSandboxClosed = internalMutation({
   args: {
@@ -184,13 +252,28 @@ export const markSandboxClosed = internalMutation({
     if (!session) return null;
     // Only flip if still stopping — don't overwrite a fresh start.
     if (session.status !== "stopping") return null;
+    if (args.error) {
+      await ctx.db.insert("messages", {
+        parentId: args.sessionId,
+        role: "assistant",
+        content: "Failed to stop sandbox",
+        timestamp: Date.now(),
+        isSystemAlert: true,
+        errorDetail: args.error,
+      });
+      // VM is still running — keep UI active so Stop can be retried.
+      await ctx.db.patch(args.sessionId, {
+        status: "active",
+        updatedAt: Date.now(),
+      });
+      return null;
+    }
     await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",
-      content: args.error ? "Failed to stop sandbox" : "Sandbox stopped",
+      content: "Sandbox stopped",
       timestamp: Date.now(),
       isSystemAlert: true,
-      errorDetail: args.error,
     });
     await ctx.db.patch(args.sessionId, {
       status: "closed",
@@ -216,6 +299,15 @@ export const sandboxReady = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
+    // User may have clicked Stop while start/resume was still running. Never
+    // flip closed/stopping back to active — that left Vercel running with UI
+    // showing stopped, or re-activated after stop confirmation.
+    if (session.status === "stopping" || session.status === "closed") {
+      console.log(
+        `[sessions] sandboxReady ignored sessionId=${args.sessionId} status=${session.status} sandboxId=${args.sandboxId}`,
+      );
+      return null;
+    }
     // Early-ready (right after Sandbox.create) + final-ready (after services)
     // both call this. Only emit the system alert once; still patch latest
     // sandbox/dev metadata on every call.

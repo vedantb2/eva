@@ -60,22 +60,76 @@ export const startTaskSandbox = authMutation({
       reviewTaskSandboxStatus: "starting",
       updatedAt: Date.now(),
     });
-
-    await workflow.start(
-      ctx,
-      internal.taskSandboxWorkflow.taskPreviewSandboxStartupWorkflow,
-      {
-        taskId: args.taskId,
-        existingSandboxId: task.sandboxId,
-        vercelSandboxId: task.vercelSandboxId,
-        installationId: repo.installationId,
-        repoOwner: repo.owner,
-        repoName: repo.name,
-        branchName,
-        baseBranch,
-        repoId: task.repoId,
-      },
+    // Seed startup streaming immediately so the UI shows a real step instead of
+    // the random "Eva is inferring…" spinner while the workflow schedules.
+    const startupEntityId = `task-sandbox-startup-${args.taskId}`;
+    const startupActivity = JSON.stringify([
+      { type: "tool", label: "Starting sandbox...", status: "active" },
+    ]);
+    const existingStreaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", startupEntityId))
+      .first();
+    if (existingStreaming) {
+      await ctx.db.patch(existingStreaming._id, {
+        currentActivity: startupActivity,
+        currentContent: "",
+        lastUpdatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("streamingActivity", {
+        entityId: startupEntityId,
+        currentActivity: startupActivity,
+        currentContent: "",
+        lastUpdatedAt: Date.now(),
+      });
+    }
+    const looksLikeDaytonaUuid =
+      typeof task.sandboxId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        task.sandboxId,
+      );
+    const vercelSandboxId =
+      task.vercelSandboxId ??
+      (task.sandboxId && !looksLikeDaytonaUuid ? task.sandboxId : undefined);
+    console.log(
+      `[tasks] startTaskSandbox taskId=${args.taskId} existingSandboxId=${task.sandboxId ?? "none"} vercelSandboxId=${vercelSandboxId ?? "none"}`,
     );
+
+    // Vercel: schedule start action directly (skip ~6s workflow scheduling).
+    if (vercelSandboxId) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.daytona.startTaskPreviewSandbox,
+        {
+          taskId: args.taskId,
+          existingSandboxId: task.sandboxId,
+          vercelSandboxId,
+          installationId: repo.installationId,
+          repoOwner: repo.owner,
+          repoName: repo.name,
+          branchName,
+          baseBranch,
+          repoId: task.repoId,
+        },
+      );
+    } else {
+      await workflow.start(
+        ctx,
+        internal.taskSandboxWorkflow.taskPreviewSandboxStartupWorkflow,
+        {
+          taskId: args.taskId,
+          existingSandboxId: task.sandboxId,
+          vercelSandboxId: task.vercelSandboxId,
+          installationId: repo.installationId,
+          repoOwner: repo.owner,
+          repoName: repo.name,
+          branchName,
+          baseBranch,
+          repoId: task.repoId,
+        },
+      );
+    }
 
     return null;
   },
@@ -290,6 +344,14 @@ export const stopTaskSandbox = authMutation({
       },
     );
 
+    // Clear leftover start steps so stop does not re-show startup activity.
+    const startupEntityId = `task-sandbox-startup-${args.taskId}`;
+    const startupStreaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", startupEntityId))
+      .first();
+    if (startupStreaming) await ctx.db.delete(startupStreaming._id);
+
     // Keep sandboxId so we can resume the stopped sandbox later.
     await ctx.db.patch(args.taskId, {
       reviewTaskSandboxStatus: "stopping",
@@ -301,10 +363,9 @@ export const stopTaskSandbox = authMutation({
 });
 
 /**
- * Awaits the Daytona stop and finalizes the task sandbox status to `"closed"`.
- * Always flips status, even if Daytona errors — a stuck `"stopping"` state
- * would leave the user unable to Start. Captures any Daytona error so the
- * mutation can record a `stop_failed` event with full detail.
+ * Awaits provider stop and finalizes task sandbox status. Only marks `"closed"`
+ * after a successful stop — on failure reverts to `"active"` so the UI matches
+ * a still-running Vercel VM.
  */
 export const finalizeStopTaskSandbox = internalAction({
   args: {
@@ -332,9 +393,8 @@ export const finalizeStopTaskSandbox = internalAction({
 });
 
 /**
- * Internal: flips task sandbox status from `"stopping"` to `"closed"` after
- * Daytona stop completes, and logs a `stopped` (success) or `stop_failed`
- * (with error detail) event to the activity timeline.
+ * Internal: after stop settles, either close (success) or revert to active
+ * (failure) so Eva never shows off while Vercel is still running.
  */
 export const markTaskSandboxClosed = internalMutation({
   args: {
@@ -347,19 +407,38 @@ export const markTaskSandboxClosed = internalMutation({
     if (!task) return null;
     // Only flip if still stopping — don't overwrite a fresh start.
     if (task.reviewTaskSandboxStatus !== "stopping") return null;
+    if (args.error) {
+      await ctx.db.insert("taskSandboxEvents", {
+        taskId: args.taskId,
+        event: "stop_failed",
+        errorDetail: args.error,
+        createdAt: Date.now(),
+      });
+      await ctx.db.insert("messages", {
+        parentId: args.taskId,
+        role: "assistant",
+        content: "Failed to stop sandbox",
+        timestamp: Date.now(),
+        isSystemAlert: true,
+        errorDetail: args.error,
+      });
+      await ctx.db.patch(args.taskId, {
+        reviewTaskSandboxStatus: "active",
+        updatedAt: Date.now(),
+      });
+      return null;
+    }
     await ctx.db.insert("taskSandboxEvents", {
       taskId: args.taskId,
-      event: args.error ? "stop_failed" : "stopped",
-      errorDetail: args.error,
+      event: "stopped",
       createdAt: Date.now(),
     });
     await ctx.db.insert("messages", {
       parentId: args.taskId,
       role: "assistant",
-      content: args.error ? "Failed to stop sandbox" : "Sandbox stopped",
+      content: "Sandbox stopped",
       timestamp: Date.now(),
       isSystemAlert: true,
-      errorDetail: args.error,
     });
     await ctx.db.patch(args.taskId, {
       reviewTaskSandboxStatus: "closed",
@@ -387,19 +466,36 @@ export const taskSandboxReady = internalMutation({
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
 
-    const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
-    await ctx.db.insert("taskSandboxEvents", {
-      taskId: args.taskId,
-      event: args.isNew ? "started" : "reconnected",
-      createdAt: Date.now(),
-    });
-    await ctx.db.insert("messages", {
-      parentId: args.taskId,
-      role: "assistant",
-      content,
-      timestamp: Date.now(),
-      isSystemAlert: true,
-    });
+    if (
+      task.reviewTaskSandboxStatus === "stopping" ||
+      task.reviewTaskSandboxStatus === "closed"
+    ) {
+      console.log(
+        `[tasks] taskSandboxReady ignored taskId=${args.taskId} status=${task.reviewTaskSandboxStatus} sandboxId=${args.sandboxId}`,
+      );
+      return null;
+    }
+
+    // Early-ready (VM up) + final-ready (after services) both call this. Only
+    // emit the system alert once; still patch latest sandbox/dev metadata.
+    const alreadyActive =
+      task.reviewTaskSandboxStatus === "active" &&
+      task.sandboxId === args.sandboxId;
+    if (!alreadyActive) {
+      const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
+      await ctx.db.insert("taskSandboxEvents", {
+        taskId: args.taskId,
+        event: args.isNew ? "started" : "reconnected",
+        createdAt: Date.now(),
+      });
+      await ctx.db.insert("messages", {
+        parentId: args.taskId,
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+        isSystemAlert: true,
+      });
+    }
 
     await ctx.db.patch(args.taskId, {
       sandboxId: args.sandboxId,
@@ -408,8 +504,8 @@ export const taskSandboxReady = internalMutation({
         : {}),
       reviewTaskSandboxStatus: "active",
       updatedAt: Date.now(),
-      devPort: args.devPort,
-      devCommand: args.devCommand,
+      ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),
+      ...(args.devCommand !== undefined ? { devCommand: args.devCommand } : {}),
     });
 
     return null;

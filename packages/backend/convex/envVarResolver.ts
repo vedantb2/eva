@@ -100,6 +100,125 @@ function readProviderKind(
 }
 
 /**
+ * Cheap provider-kind lookup for workflow thaw routing. Only decrypts the
+ * `SANDBOX_PROVIDER` key (repo overrides team) instead of the full env map —
+ * measured `getSandboxProviderKind` was spending multi-seconds decrypting
+ * every team/repo var before kickoff, which left the UI on "Eva is inferring…".
+ */
+export async function resolveSandboxProviderKind(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<SandboxProviderKind> {
+  const startedAt = Date.now();
+  const teamId = await ctx.runQuery(internal.githubRepos.getTeamIdForRepo, {
+    repoId,
+  });
+  let kind: SandboxProviderKind = "daytona";
+  if (teamId) {
+    const teamVars = await ctx.runQuery(internal.teamEnvVars.getAllInternal, {
+      teamId,
+    });
+    const teamEntry = teamVars.find(
+      (entry) => entry.key === "SANDBOX_PROVIDER",
+    );
+    if (teamEntry && decryptValue(teamEntry.value) === "vercel") {
+      kind = "vercel";
+    }
+  }
+  const repoVars = await ctx.runQuery(internal.repoEnvVars.getAllInternal, {
+    repoId,
+  });
+  const repoEntry = repoVars.find((entry) => entry.key === "SANDBOX_PROVIDER");
+  if (repoEntry) {
+    kind = decryptValue(repoEntry.value) === "vercel" ? "vercel" : "daytona";
+  }
+  console.log(
+    `[env] resolveSandboxProviderKind repoId=${repoId} kind=${kind} elapsed=${Date.now() - startedAt}ms`,
+  );
+  return kind;
+}
+
+const CREDENTIAL_ENV_KEYS = [
+  "SANDBOX_PROVIDER",
+  "VERCEL_TOKEN",
+  "VERCEL_TEAM_ID",
+  "VERCEL_PROJECT_ID",
+  "DAYTONA_API_KEY",
+] as const;
+
+/**
+ * Decrypts only provider credential keys from an encrypted env-var list.
+ * Kickoff/thaw must not pay for decrypting the full team+repo env map.
+ */
+function decryptCredentialKeys(
+  vars: Array<{ key: string; value: string }>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const entry of vars) {
+    for (const key of CREDENTIAL_ENV_KEYS) {
+      if (entry.key === key) {
+        out[key] = decryptValue(entry.value);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Resolves only the selected provider's credentials (no full sandbox env map).
+ * Used by kickoff/thaw paths that only need to call the provider SDK.
+ */
+export async function resolveSandboxCredentialsOnly(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<SandboxCredentials> {
+  const startedAt = Date.now();
+  const teamId = await ctx.runQuery(internal.githubRepos.getTeamIdForRepo, {
+    repoId,
+  });
+  const teamVars: Record<string, string> = {};
+  if (teamId) {
+    const vars = await ctx.runQuery(internal.teamEnvVars.getAllInternal, {
+      teamId,
+    });
+    Object.assign(teamVars, decryptCredentialKeys(vars));
+  }
+  const repoVarsRaw = await ctx.runQuery(internal.repoEnvVars.getAllInternal, {
+    repoId,
+  });
+  const allVars = {
+    ...teamVars,
+    ...decryptCredentialKeys(repoVarsRaw),
+  };
+  const kind = readProviderKind(allVars);
+  if (kind === "vercel") {
+    const token = allVars.VERCEL_TOKEN;
+    const vercelTeamId = allVars.VERCEL_TEAM_ID;
+    const projectId = allVars.VERCEL_PROJECT_ID;
+    if (!token || !vercelTeamId || !projectId) {
+      throw new Error(
+        "SANDBOX_PROVIDER=vercel requires VERCEL_TOKEN, VERCEL_TEAM_ID and VERCEL_PROJECT_ID in team or repo environment variables.",
+      );
+    }
+    console.log(
+      `[env] resolveSandboxCredentialsOnly repoId=${repoId} kind=vercel elapsed=${Date.now() - startedAt}ms`,
+    );
+    return { kind: "vercel", token, teamId: vercelTeamId, projectId };
+  }
+  const apiKey = allVars.DAYTONA_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "DAYTONA_API_KEY not found in team or repo environment variables. Please add it to your team or repo env vars.",
+    );
+  }
+  console.log(
+    `[env] resolveSandboxCredentialsOnly repoId=${repoId} kind=daytona elapsed=${Date.now() - startedAt}ms`,
+  );
+  return { kind: "daytona", apiKey };
+}
+
+/**
  * Resolves the active provider and its credentials for a repo, alongside the
  * sandbox-eligible env vars passed into the sandbox. This is the single seam
  * the provider factory uses to pick Daytona vs Vercel; existing callers that

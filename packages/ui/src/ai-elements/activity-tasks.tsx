@@ -194,9 +194,18 @@ export const ActivityTasks = memo(
 
     void finalText;
 
-    const headerText = `${name ?? "Eva"} is ${verb.toLowerCase()}...${
-      startedAt ? ` (${formatElapsed(elapsed)})` : ""
-    }`;
+    // When real tool/file blocks exist, they already shimmer their own titles —
+    // don't also show the random "Eva is inferring…" header above them.
+    // When only hidden steps (thinking) remain, prefer that step's label over
+    // a random verb so sandbox startup can say "Starting sandbox..." immediately.
+    const activeStep =
+      steps.find((step) => step.status === "active") ?? steps[0];
+    const headerText =
+      blocks.length > 0
+        ? null
+        : `${
+            activeStep?.label ?? `${name ?? "Eva"} is ${verb.toLowerCase()}...`
+          }${startedAt ? ` (${formatElapsed(elapsed)})` : ""}`;
 
     // Settled turn with a known per-turn duration (P1): collapse the whole
     // turn's activity behind one "Worked for Ns" trigger, default closed.
@@ -220,14 +229,14 @@ export const ActivityTasks = memo(
 
     return (
       <div className={cn("space-y-1.5 text-sm", className)} {...props}>
-        {isStreaming && (
+        {isStreaming && headerText ? (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Spinner size="sm" />
             <Shimmer as="span" duration={2.5} spread={1.5}>
               {headerText}
             </Shimmer>
           </div>
-        )}
+        ) : null}
         <ActivityBlockList blocks={blocks} isStreaming={isStreaming} />
       </div>
     );

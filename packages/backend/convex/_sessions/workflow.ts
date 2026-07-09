@@ -63,16 +63,18 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     repoId: v.id("githubRepos"),
   },
   handler: async (step, args): Promise<void> => {
-    // Thaw an archived/stopped sandbox across polling steps before the start
-    // action, so a multi-minute cold-storage restore doesn't blow the
-    // per-action 10-minute limit inside startSessionSandbox →
-    // ensureSandboxRunning.
-    if (args.existingSandboxId || args.vercelSandboxId) {
+    // Daytona-only pre-thaw: archived restores can exceed the 10-minute action
+    // limit, so poll across workflow steps first. Vercel resume is handled
+    // inside startSessionSandbox → ensureSandboxRunning; running kickoff here
+    // only added ~6–8s of workflow step-scheduling latency (measured).
+    if (args.existingSandboxId && !args.vercelSandboxId) {
       try {
         await ensureSandboxStartedSteps(step, {
           sandboxId: args.existingSandboxId,
           vercelSandboxId: args.vercelSandboxId,
           repoId: args.repoId,
+          // Must match SessionDetailClient + startSandbox seed entity.
+          streamingEntityId: `session-startup-${args.sessionId}`,
         });
       } catch (error) {
         await step.runMutation(internal.sessions.sandboxError, {

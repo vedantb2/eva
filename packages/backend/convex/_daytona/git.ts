@@ -1220,7 +1220,9 @@ async function tryResumeSandbox(
         onRestoring: onProgress
           ? () =>
               onProgress(
-                "Restoring sandbox from cold storage (can take up to 10 minutes)...",
+                client.kind === "vercel"
+                  ? "Resuming sandbox..."
+                  : "Restoring sandbox from cold storage (can take up to 10 minutes)...",
               )
           : undefined,
       });

@@ -119,9 +119,8 @@ export const stopSandbox = authMutation({
 });
 
 /**
- * Awaits the Daytona stop and finalizes the design session status to `"closed"`.
- * Always flips status, even if Daytona errors — a stuck `"stopping"` state
- * would leave the user unable to Start.
+ * Awaits provider stop and finalizes design session status. Only marks
+ * `"closed"` after a successful stop — on failure reverts to `"active"`.
  */
 export const finalizeStopSandbox = internalAction({
   args: {
@@ -131,28 +130,41 @@ export const finalizeStopSandbox = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    let stopError: string | undefined;
     try {
       await ctx.runAction(internal.daytona.stopSandbox, {
         sandboxId: args.sandboxId,
         repoId: args.repoId,
       });
-    } finally {
-      await ctx.runMutation(internal.designSessions.markSandboxClosed, {
-        designSessionId: args.designSessionId,
-      });
+    } catch (err) {
+      stopError = err instanceof Error ? err.message : String(err);
     }
+    await ctx.runMutation(internal.designSessions.markSandboxClosed, {
+      designSessionId: args.designSessionId,
+      error: stopError,
+    });
     return null;
   },
 });
 
-/** Internal: flips design session status from `"stopping"` to `"closed"` after Daytona stop completes. */
+/** Internal: close on success, revert to active on stop failure. */
 export const markSandboxClosed = internalMutation({
-  args: { designSessionId: v.id("designSessions") },
+  args: {
+    designSessionId: v.id("designSessions"),
+    error: v.optional(v.string()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.designSessionId);
     if (!session) return null;
     if (session.status !== "stopping") return null;
+    if (args.error) {
+      await ctx.db.patch(args.designSessionId, {
+        status: "active",
+        updatedAt: Date.now(),
+      });
+      return null;
+    }
     await ctx.db.patch(args.designSessionId, {
       status: "closed",
       updatedAt: Date.now(),

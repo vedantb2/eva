@@ -49,6 +49,10 @@ export async function ensureSandboxStartedSteps(
   step: WorkflowCtx,
   args: EnsureSandboxStartedArgs,
 ): Promise<void> {
+  const thawStartedAt = Date.now();
+  console.log(
+    `[daytona] ensureSandboxStartedSteps begin repoId=${args.repoId} sandboxId=${args.sandboxId ?? "none"} vercelSandboxId=${args.vercelSandboxId ?? "none"} streamingEntityId=${args.streamingEntityId ?? "none"}`,
+  );
   const provider = await step.runAction(
     internal.daytona.getSandboxProviderKind,
     {
@@ -61,6 +65,31 @@ export async function ensureSandboxStartedSteps(
     vercelSandboxId: args.vercelSandboxId,
   });
   if (!thawId) {
+    console.log(
+      `[daytona] ensureSandboxStartedSteps no thaw id (provider=${provider}, elapsed=${Date.now() - thawStartedAt}ms)`,
+    );
+    return;
+  }
+
+  // Vercel: do not kickoff/poll here. Resume is ensureSandboxRunning in the
+  // start action; extra workflow steps were measured at ~6–8s of pure latency.
+  // Also skip cold-storage copy — that is Daytona archived restore only.
+  if (provider === "vercel") {
+    if (args.streamingEntityId) {
+      await step.runMutation(internal.streaming.internalSet, {
+        entityId: args.streamingEntityId,
+        currentActivity: JSON.stringify([
+          {
+            type: "tool",
+            label: "Resuming sandbox...",
+            status: "active",
+          },
+        ]),
+      });
+    }
+    console.log(
+      `[daytona] ensureSandboxStartedSteps vercel skip-kickoff thawId=${thawId} elapsed=${Date.now() - thawStartedAt}ms`,
+    );
     return;
   }
 
@@ -68,8 +97,10 @@ export async function ensureSandboxStartedSteps(
     internal.daytona.startSandboxAsyncKickoff,
     { sandboxId: thawId, repoId: args.repoId },
   );
+  console.log(
+    `[daytona] ensureSandboxStartedSteps kickoff done provider=${kickoff.provider} state=${kickoff.state} thawId=${thawId} elapsed=${Date.now() - thawStartedAt}ms`,
+  );
   if (kickoff.state === "running") return;
-  if (kickoff.provider === "vercel") return;
 
   if (args.streamingEntityId) {
     await step.runMutation(internal.streaming.internalSet, {

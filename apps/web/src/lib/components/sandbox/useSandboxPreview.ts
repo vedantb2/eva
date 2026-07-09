@@ -64,6 +64,12 @@ export function useSandboxPreview({
 
   const getPreviewUrl = useAction(api.daytona.getPreviewUrl);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Poll generation. An in-flight getPreviewUrl continuation used to re-arm the
+  // 3s timer AFTER the isActive-flip cleanup ran (stale closure with the old
+  // isActive=true), so the poll chain kept hitting the backend forever after a
+  // sandbox stop — which on Vercel resumed the stopped sandbox. Each config
+  // change bumps the generation; stale continuations see the mismatch and bail.
+  const generationRef = useRef(0);
 
   useEffect(() => {
     clearLegacyPreviewUrlCache();
@@ -78,6 +84,7 @@ export function useSandboxPreview({
 
   const fetchPreview = useCallback(async () => {
     if (!sandboxId || !isActive) return;
+    const generation = generationRef.current;
     setIsLoading(true);
     setError(null);
     stopPolling();
@@ -89,6 +96,9 @@ export function useSandboxPreview({
         navigationSync: true,
         repoId,
       });
+      // Config changed (sandbox stopped / port switched) while the request was
+      // in flight — drop the result and do NOT re-arm the poll timer.
+      if (generation !== generationRef.current) return;
       if (data.ready) {
         await dismissDaytonaWarning(data.url);
         setPreviewInfo(data);
@@ -100,12 +110,16 @@ export function useSandboxPreview({
         }, 3000);
       }
     } catch (err) {
+      if (generation !== generationRef.current) return;
       setError(err instanceof Error ? err.message : "Failed to load preview");
       setIsLoading(false);
     }
   }, [sandboxId, isActive, getPreviewUrl, stopPolling, repoId, effectivePort]);
 
   useEffect(() => {
+    // Invalidate any in-flight poll from the previous config before starting
+    // (or not starting) a new chain for this one.
+    generationRef.current++;
     if (isActive && sandboxId) {
       setPreviewInfo(null);
       fetchPreview();

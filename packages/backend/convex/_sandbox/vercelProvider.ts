@@ -63,6 +63,8 @@ export function renderEvaEnvFile(env: Record<string, string>): string {
 const SOURCE_ENV = `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE};`;
 /** Vercel exposes at most 4 ports; default to the eva dev + proxy range if unset. */
 const MAX_PORTS = 4;
+const STOP_CONFIRMATION_TIMEOUT_MS = 180_000;
+const STOP_CONFIRMATION_POLL_MS = 1_000;
 export const VERCEL_DEFAULT_EXPOSED_PORTS: ReadonlyArray<number> = [
   3000, 8080, 6080, 54321,
 ];
@@ -73,9 +75,13 @@ function normalizeState(raw: string | undefined): SandboxState {
     case "running":
       return "running";
     case "stopped":
+      return "stopped";
+    // Mid-stop / snapshot must NOT look like idle-stopped. Callers that treat
+    // "stopped" as "safe to resume" (ensureSandboxRunning → start) would wait
+    // the stop out and then wake the VM — the auto-restart bug after Stop.
     case "stopping":
     case "snapshotting":
-      return "stopped";
+      return "starting";
     case "starting":
     case "pending":
       return "starting";
@@ -117,22 +123,30 @@ function extractApiErrorDetail(e: unknown): string {
   }
 }
 
+/** True when the Vercel command NDJSON stream died while the VM is still up. */
+function isVercelCommandStreamClosed(detail: string): boolean {
+  const lower = detail.toLowerCase();
+  return (
+    lower.includes("stream was closed") ||
+    lower.includes("not accepting commands") ||
+    lower.includes("stream_ended_early") ||
+    lower.includes("stream ended before")
+  );
+}
+
 /** Vercel git operations, implemented over the shell (no native git client). */
 class VercelGit implements SandboxGit {
-  constructor(private readonly sandbox: Sandbox) {}
+  constructor(private readonly handle: VercelSandboxHandle) {}
 
   private async sh(cmd: string): Promise<string> {
-    const c = await this.sandbox.runCommand({
-      cmd: "bash",
-      args: ["-lc", cmd],
-    });
-    if (c.exitCode !== 0) {
-      const err = await c.output("both").catch(() => "");
+    // Goes through handle.exec so stream-closed refresh+retry applies.
+    const result = await this.handle.exec(cmd);
+    if (result.exitCode !== 0) {
       throw new Error(
-        `git shell failed (exit ${c.exitCode}): ${cmd}\n${err.slice(-2000)}`,
+        `git shell failed (exit ${result.exitCode}): ${cmd}\n${result.output.slice(-2000)}`,
       );
     }
-    return await c.stdout().catch(() => "");
+    return result.output;
   }
 
   async branches(workspaceDir: string): Promise<{ branches: string[] }> {
@@ -307,7 +321,7 @@ class VercelSandboxHandle implements SandboxHandle {
 
   /** Fresh git facade bound to the current session (refresh() swaps the sandbox). */
   get git(): SandboxGit {
-    return new VercelGit(this.sandbox);
+    return new VercelGit(this);
   }
 
   /** Migration escape hatch (see unwrapVercelSandbox). */
@@ -329,39 +343,249 @@ class VercelSandboxHandle implements SandboxHandle {
     return undefined;
   }
   get state(): SandboxState {
-    return normalizeState(this.sandbox.status);
+    // `Sandbox.status` reads currentSession(), which THROWS when the record
+    // was fetched with resume:false and the sandbox has no live session.
+    // Do NOT map that throw to "stopped": mid-stop Vercel often omits the
+    // session from get(), and treating it as idle-stopped made
+    // ensureSandboxRunning → start(resume:true) wait out the stop and wake
+    // the VM. Prefer "starting" so callers go through start(), which polls
+    // listSessions and refuses resume while stop is in flight.
+    try {
+      return normalizeState(this.sandbox.status);
+    } catch {
+      return "starting";
+    }
   }
   get errorReason(): string | null {
     // Vercel surfaces failure via status, not a reason string.
     return null;
   }
 
+  /**
+   * Returns Vercel's un-normalized session status, or `null` when the SDK
+   * throws (common for `resume: false` mid-transition). Never invent
+   * `"stopped"` from a throw — that made stop confirmation exit while Vercel
+   * was still `stopping` / snapshotting, so Eva UI flipped to stopped early.
+   */
+  private rawStatus(): string | null {
+    try {
+      return this.sandbox.status;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Latest session via listSessions. `get(resume:false)` often omits the
+   * session object while Vercel is still stopping/snapshotting — the attached
+   * handle then throws "No active session", which must not be treated as idle
+   * stopped (that caused early UI closed + resume:true auto-restart).
+   *
+   * Returns:
+   * - `{ kind: "status", status, sessionId }` when a session row exists
+   * - `{ kind: "empty" }` when the sandbox has no sessions (fully idle)
+   * - `{ kind: "error" }` when the list call failed (keep polling)
+   */
+  private async latestListedSession(): Promise<
+    | { kind: "status"; status: string; sessionId: string }
+    | { kind: "empty" }
+    | { kind: "error" }
+  > {
+    try {
+      const page = await this.sandbox.listSessions({ limit: 1 });
+      const sessions = page.sessions;
+      if (!sessions || sessions.length === 0) return { kind: "empty" };
+      const latest = sessions[0];
+      if (
+        !latest ||
+        typeof latest.status !== "string" ||
+        typeof latest.id !== "string"
+      ) {
+        return { kind: "empty" };
+      }
+      return {
+        kind: "status",
+        status: latest.status,
+        sessionId: latest.id,
+      };
+    } catch (e) {
+      console.log(
+        `[vercel] listSessions failed sandbox=${this.sandbox.name}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return { kind: "error" };
+    }
+  }
+
+  /**
+   * Stops a session by id via the Vercel REST API. Needed when
+   * `get(resume:false)` left this handle without an attached session — SDK
+   * `sandbox.stop()` then throws "No active session to stop" and our old path
+   * only waited, so the VM stayed `running` while Eva eventually marked closed.
+   */
+  private async stopSessionById(sessionId: string): Promise<void> {
+    const url = new URL(
+      `https://vercel.com/api/v2/sandboxes/sessions/${sessionId}/stop`,
+    );
+    url.searchParams.set("teamId", this.creds.teamId);
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.creds.token}`,
+        "content-type": "application/json",
+      },
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(
+        `vercel stopSession failed sessionId=${sessionId} status=${response.status}${body ? `: ${body.slice(0, 300)}` : ""}`,
+      );
+    }
+  }
+
+  /**
+   * Prefer attached session status; fall back to listSessions when missing.
+   * Distinguishes "truly idle" from "unknown / still stopping".
+   */
+  private async resolveSessionStatus(): Promise<
+    { kind: "status"; status: string } | { kind: "empty" } | { kind: "unknown" }
+  > {
+    const attached = this.rawStatus();
+    if (attached !== null) return { kind: "status", status: attached };
+    const listed = await this.latestListedSession();
+    if (listed.kind === "status") return listed;
+    if (listed.kind === "empty") return { kind: "empty" };
+    return { kind: "unknown" };
+  }
+
+  private isTerminalStopStatus(status: string): boolean {
+    return (
+      status === "stopped" ||
+      status === "failed" ||
+      status === "error" ||
+      status === "aborted" ||
+      status === "destroyed"
+    );
+  }
+
+  private isStopInFlightStatus(status: string): boolean {
+    return status === "stopping" || status === "snapshotting";
+  }
+
+  private shouldReissueStop(status: string): boolean {
+    return (
+      status === "running" || status === "pending" || status === "starting"
+    );
+  }
+
+  /** Waits for Vercel to finish stopping and snapshotting without resuming it. */
+  private async waitForStopConfirmation(): Promise<void> {
+    const deadline = Date.now() + STOP_CONFIRMATION_TIMEOUT_MS;
+    let resolved = await this.resolveSessionStatus();
+    let lastKnown =
+      resolved.kind === "status" ? resolved.status : resolved.kind;
+    // Require a few consecutive idle readings before treating "no session" as
+    // done — a single empty listSessions mid-stop would flip Eva UI early.
+    let consecutiveIdle = 0;
+    let lastStopReissueAt = 0;
+
+    while (Date.now() < deadline) {
+      if (
+        resolved.kind === "status" &&
+        this.isTerminalStopStatus(resolved.status)
+      ) {
+        consecutiveIdle += 1;
+        lastKnown = resolved.status;
+        if (consecutiveIdle >= 2) {
+          console.log(
+            `[vercel] stop confirmed sandbox=${this.sandbox.name} status=${resolved.status}`,
+          );
+          return;
+        }
+      } else if (resolved.kind === "empty") {
+        consecutiveIdle += 1;
+        lastKnown = "empty";
+        if (consecutiveIdle >= 3) {
+          console.log(
+            `[vercel] stop confirmed sandbox=${this.sandbox.name} status=none (no session)`,
+          );
+          return;
+        }
+      } else {
+        consecutiveIdle = 0;
+        if (resolved.kind === "status") lastKnown = resolved.status;
+        else lastKnown = resolved.kind;
+        if (
+          resolved.kind === "status" &&
+          this.shouldReissueStop(resolved.status) &&
+          Date.now() - lastStopReissueAt >= 5_000
+        ) {
+          const listed = await this.latestListedSession();
+          if (
+            listed.kind === "status" &&
+            this.shouldReissueStop(listed.status)
+          ) {
+            lastStopReissueAt = Date.now();
+            console.log(
+              `[vercel] stop reissued sandbox=${this.sandbox.name} sessionId=${listed.sessionId} status=${listed.status}`,
+            );
+            await this.stopSessionById(listed.sessionId);
+          }
+        }
+      }
+
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, STOP_CONFIRMATION_POLL_MS);
+      });
+      await this.refresh();
+      resolved = await this.resolveSessionStatus();
+    }
+
+    throw new Error(
+      `vercel stop: sandbox ${this.sandbox.name} did not reach a terminal stopped state within ${STOP_CONFIRMATION_TIMEOUT_MS}ms (last status: ${lastKnown})`,
+    );
+  }
+
   async exec(
     cmd: string,
     opts?: SandboxExecOptions,
   ): Promise<SandboxExecResult> {
-    try {
-      const finished = await this.sandbox.runCommand({
-        cmd: "bash",
-        args: ["-lc", `${SOURCE_ENV} ${cmd}`],
-        ...(opts?.cwd ? { cwd: opts.cwd } : {}),
-        ...(opts?.env ? { env: opts.env } : {}),
-        ...(opts?.sudo ? { sudo: true } : {}),
-        ...(opts?.timeoutSeconds
-          ? { timeoutMs: opts.timeoutSeconds * 1000 }
-          : {}),
-      });
-      const output = await finished.output("both").catch(() => "");
-      return { exitCode: finished.exitCode, output };
-    } catch (e) {
-      // The Vercel SDK throws APIError whose .json / .text fields carry the
-      // actual API response body — surface them so 400/422 failures are
-      // diagnosable in Convex logs instead of just "Status code 4xx is not ok".
-      const detail = extractApiErrorDetail(e);
-      throw new Error(
-        `vercel exec failed (cwd=${opts?.cwd ?? "(default)"}, cmd=${cmd.slice(0, 120)}): ${detail}`,
-      );
+    // One refresh+retry on "stream was closed" — common after resume when the
+    // SDK's command stream dies while the VM is still running.
+    const maxAttempts = 2;
+    let lastError: Error | undefined;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const finished = await this.sandbox.runCommand({
+          cmd: "bash",
+          args: ["-lc", `${SOURCE_ENV} ${cmd}`],
+          ...(opts?.cwd ? { cwd: opts.cwd } : {}),
+          ...(opts?.env ? { env: opts.env } : {}),
+          ...(opts?.sudo ? { sudo: true } : {}),
+          ...(opts?.timeoutSeconds
+            ? { timeoutMs: opts.timeoutSeconds * 1000 }
+            : {}),
+        });
+        const output = await finished.output("both").catch(() => "");
+        return { exitCode: finished.exitCode, output };
+      } catch (e) {
+        // The Vercel SDK throws APIError whose .json / .text fields carry the
+        // actual API response body — surface them so 400/422 failures are
+        // diagnosable in Convex logs instead of just "Status code 4xx is not ok".
+        const detail = extractApiErrorDetail(e);
+        lastError = new Error(
+          `vercel exec failed (cwd=${opts?.cwd ?? "(default)"}, cmd=${cmd.slice(0, 120)}): ${detail}`,
+        );
+        if (attempt < maxAttempts && isVercelCommandStreamClosed(detail)) {
+          console.log(
+            `[vercel] exec stream closed on ${this.id}; refreshing and retrying (attempt ${attempt}/${maxAttempts})`,
+          );
+          await this.refresh();
+          continue;
+        }
+        throw lastError;
+      }
     }
+    throw lastError ?? new Error("vercel exec failed");
   }
 
   async execDetached(cmd: string, opts?: SandboxExecOptions): Promise<void> {
@@ -381,29 +605,173 @@ class VercelSandboxHandle implements SandboxHandle {
   }
 
   async start(timeoutSeconds: number): Promise<void> {
-    // Vercel persistent sandboxes resume when a command is run. A plain get()
-    // only returns the saved sandbox record, so kick it with a tiny command.
+    // Explicit resume via get(resume:true) — the SDK's native resume path (one
+    // getSandbox API call that provisions a fresh session, sub-second on warm
+    // hosts). The previous exec("true") kick went through withResume, which on
+    // a stopping/snapshotting session POLLS THE STOP TO COMPLETION first and
+    // paid full command-stream setup — observed ~32s resumes vs ~1s native.
     await this.refresh();
-    if (this.state !== "running") {
-      await this.exec("true", { timeoutSeconds });
+    // Read state into locals: TS narrows the `this.state` getter across the
+    // whole function (reassigning this.sandbox does not reset it).
+    let observed: SandboxState = this.state;
+    if (observed === "running") return;
+
+    // If a stop is in flight, NEVER issue resume:true — the SDK waits the stop
+    // out and then wakes the VM (auto-restart after the user clicked Stop).
+    // Wait for a terminal stopped state with resume:false, then refuse to start
+    // so in-flight resume/start callers fail cleanly instead of resurrecting.
+    let resolved = await this.resolveSessionStatus();
+    if (
+      resolved.kind === "status" &&
+      this.isStopInFlightStatus(resolved.status)
+    ) {
+      console.log(
+        `[vercel] start refused while ${resolved.status} sandbox=${this.sandbox.name}; waiting for stop to finish`,
+      );
+      await this.waitForStopConfirmation();
+      throw new Error(
+        `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
+      );
+    }
+
+    // Retry loop: a resume issued while a previous stop is still snapshotting
+    // is rejected by the API (the SDK's waitForStopAndResume exists for this),
+    // so keep re-issuing until the session reports running or we time out.
+    const deadline = Date.now() + timeoutSeconds * 1000;
+    let lastError: string | null = null;
+    while (Date.now() < deadline) {
+      resolved = await this.resolveSessionStatus();
+      if (
+        resolved.kind === "status" &&
+        this.isStopInFlightStatus(resolved.status)
+      ) {
+        console.log(
+          `[vercel] start aborted — stop began mid-resume sandbox=${this.sandbox.name}`,
+        );
+        await this.waitForStopConfirmation();
+        throw new Error(
+          `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
+        );
+      }
+      // Still resolving (listSessions error / race) — do not resume yet.
+      if (resolved.kind === "unknown") {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await this.refresh();
+        continue;
+      }
+      try {
+        this.sandbox = await Sandbox.get({
+          ...this.creds,
+          name: this.sandbox.name,
+          resume: true,
+        });
+        observed = this.state;
+        if (observed === "running") return;
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : String(e);
+        // SDK may reject resume while stop finishes even if listSessions lagged.
+        if (
+          lastError.includes("sandbox_stopping") ||
+          lastError.includes("sandbox_snapshotting") ||
+          lastError.includes("stopping") ||
+          lastError.includes("snapshotting")
+        ) {
+          console.log(
+            `[vercel] start hit stop-in-flight API error sandbox=${this.sandbox.name}: ${lastError}`,
+          );
+          await this.waitForStopConfirmation();
+          throw new Error(
+            `vercel start: sandbox ${this.sandbox.name} was stopped while a start was in progress`,
+          );
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
       await this.refresh();
     }
+    throw new Error(
+      `vercel start: sandbox ${this.sandbox.name} did not reach running within ${timeoutSeconds}s (state: ${observed}${lastError ? `, last error: ${lastError}` : ""})`,
+    );
   }
   async stop(): Promise<void> {
-    await this.sandbox.stop();
+    // Prefer the stop API (not runCommand) so a dead command stream cannot
+    // block shutdown. Refresh first so we target the current session record.
+    // A successful stop request only means Vercel accepted it: the session can
+    // remain `stopping` while its snapshot is written. Do not let callers mark
+    // the session closed until a side-effect-free `resume: false` read confirms
+    // that transition has actually completed.
+    await this.refresh();
+    const resolved = await this.resolveSessionStatus();
+    if (
+      resolved.kind === "empty" ||
+      (resolved.kind === "status" && this.isTerminalStopStatus(resolved.status))
+    ) {
+      return;
+    }
+    // Already mid-stop (user double-clicked, or concurrent stop) — just wait.
+    if (
+      resolved.kind === "status" &&
+      this.isStopInFlightStatus(resolved.status)
+    ) {
+      console.log(
+        `[vercel] stop already in progress sandbox=${this.sandbox.name} status=${resolved.status}`,
+      );
+      await this.waitForStopConfirmation();
+      return;
+    }
+    // Prefer SDK stop when this handle still has an attached session.
+    const attached = this.rawStatus();
+    if (attached !== null) {
+      console.log(
+        `[vercel] stop requested sandbox=${this.sandbox.name} status=${attached}`,
+      );
+      await this.sandbox.stop();
+      await this.waitForStopConfirmation();
+      return;
+    }
+    // get(resume:false) dropped the session object, but listSessions still
+    // shows a live/pending session. SDK stop() throws "No active session to
+    // stop" here — stop by session id instead of waiting forever on `running`.
+    const listed = await this.latestListedSession();
+    if (listed.kind !== "status") {
+      console.log(
+        `[vercel] stop: no attached session and no listed session sandbox=${this.sandbox.name} listed=${listed.kind}; waiting`,
+      );
+      await this.waitForStopConfirmation();
+      return;
+    }
+    if (this.isTerminalStopStatus(listed.status)) {
+      return;
+    }
+    if (this.isStopInFlightStatus(listed.status)) {
+      console.log(
+        `[vercel] stop already in progress (listed) sandbox=${this.sandbox.name} status=${listed.status}`,
+      );
+      await this.waitForStopConfirmation();
+      return;
+    }
+    console.log(
+      `[vercel] stop via sessionId sandbox=${this.sandbox.name} sessionId=${listed.sessionId} status=${listed.status}`,
+    );
+    await this.stopSessionById(listed.sessionId);
+    await this.waitForStopConfirmation();
   }
   async archive(): Promise<void> {
     // No separate cold-storage archive on Vercel — stop() auto-snapshots.
-    await this.sandbox.stop();
+    await this.stop();
   }
   async delete(): Promise<void> {
     await this.sandbox.delete();
   }
   async refresh(): Promise<void> {
-    // Re-fetch the sandbox to pick up current status (resumes if stopped).
+    // Re-fetch the sandbox to pick up current status. resume:false is CRITICAL:
+    // the SDK's `resume` param defaults to TRUE, so a bare get() on a stopped
+    // sandbox silently resumes it server-side — status polls (preview checks,
+    // stop preflights) were waking sandboxes the user had just stopped. Reads
+    // must be side-effect free; only start() resumes explicitly.
     this.sandbox = await Sandbox.get({
       ...this.creds,
       name: this.sandbox.name,
+      resume: false,
     });
   }
 
@@ -499,7 +867,15 @@ class VercelSandboxClient implements SandboxClient {
   }
 
   async get(sandboxId: string): Promise<SandboxHandle> {
-    const sandbox = await Sandbox.get({ ...this.creds, name: sandboxId });
+    // resume:false — the SDK default (true) silently RESUMES a stopped sandbox
+    // on lookup, so status checks / preview polls were waking sandboxes the
+    // user had just stopped. Resume happens only via handle.start() or lazily
+    // on the first exec (the SDK's withResume).
+    const sandbox = await Sandbox.get({
+      ...this.creds,
+      name: sandboxId,
+      resume: false,
+    });
     return new VercelSandboxHandle(sandbox, this.creds);
   }
 

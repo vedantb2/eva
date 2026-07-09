@@ -3,7 +3,7 @@
 **Base PR:** [#425](https://github.com/vvedantb/eva/pull/425) — `feat/vercel-sandbox-migration` → `main`  
 **Fix PR:** stacked on #425 — `fix/vercel-sandbox-id-lifecycle`  
 **Checked:** 2026-07-09  
-**Verdict:** Code blockers #1–#6, #8–#10, #13, #15 addressed on stacked branch. Ops #7 still required before production flip. Remaining items are known limitations / cleanup.
+**Verdict:** Actionable code items on stacked PR done (#1–#6, #8–#10, #13, #15–#16). Ops #7 + E2E #5 re-check remain. Deferred: #11/#12/#14 (known limitations).
 
 **PR status (base):** MERGEABLE, checks green, `REVIEW_REQUIRED`. Title still says WIP.
 

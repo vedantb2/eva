@@ -4,7 +4,10 @@ import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { authMutation } from "../functions";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
-import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
+import {
+  preferPersistedSandboxId,
+  resolveReusableVercelSandboxId,
+} from "../_sandbox/resolveExistingSandboxId";
 
 /** Updates the sandbox ID and/or branch name for a design session (internal). */
 export const updateSandbox = internalMutation({
@@ -44,21 +47,33 @@ export const startSandbox = authMutation({
       status: "starting",
       updatedAt: Date.now(),
     });
-    await workflow.start(
-      ctx,
-      internal.designSessions.designSandboxStartupWorkflow,
-      {
-        designSessionId: args.id,
-        existingSandboxId: session.sandboxId,
-        vercelSandboxId: session.vercelSandboxId,
-        installationId: repo.installationId,
-        repoOwner: repo.owner,
-        repoName: repo.name,
-        branchName,
-        baseBranch,
-        repoId: session.repoId,
-      },
-    );
+    const vercelSandboxId = resolveReusableVercelSandboxId(session);
+    const startArgs = {
+      designSessionId: args.id,
+      existingSandboxId: session.sandboxId,
+      vercelSandboxId: vercelSandboxId ?? session.vercelSandboxId,
+      installationId: repo.installationId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName,
+      baseBranch,
+      repoId: session.repoId,
+    };
+    // Vercel: schedule the start action directly (skip ~6s workflow scheduling).
+    // Daytona still needs the multi-step thaw workflow for archived restores.
+    if (vercelSandboxId) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.daytona.startDesignSandbox,
+        startArgs,
+      );
+    } else {
+      await workflow.start(
+        ctx,
+        internal.designSessions.designSandboxStartupWorkflow,
+        startArgs,
+      );
+    }
     return null;
   },
 });

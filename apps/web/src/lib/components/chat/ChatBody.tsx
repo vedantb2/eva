@@ -316,6 +316,12 @@ export function ChatBody({
                               icon={evaIcon}
                               startedAt={message.timestamp}
                             />
+                            {message._id === lastMessage?._id &&
+                            streamingContent ? (
+                              <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
+                                {streamingContent}
+                              </MessageResponse>
+                            ) : null}
                             {activePendingQuestion && (
                               <div className="mt-3">
                                 <MultipleChoiceQuestion

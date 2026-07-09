@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 
@@ -21,6 +22,8 @@ type LegacyBuildJson = {
   warmupStatus?: string;
   warmupError?: string;
 };
+
+const BUILD_BATCH_SIZE = 1;
 
 function readLegacySeededAppJson(app: SeededAppDoc): LegacySeededAppJson {
   const serialized = JSON.stringify(app);
@@ -101,17 +104,28 @@ function replaceSnapshotBuild(
 /**
  * Strips removed warmup / snapshot-class fields from prod data so snapshot build
  * queries validate against the current seededAppResultValidator.
+ *
+ * Paginates one build at a time — build logs can be large enough to exceed the
+ * per-function read limit when collected in bulk.
  */
 export const removeSnapshotWarmupFields = internalMutation({
-  args: {},
+  args: {
+    cursor: v.optional(v.string()),
+    buildsPatched: v.optional(v.number()),
+  },
   returns: v.object({
     buildsPatched: v.number(),
+    done: v.boolean(),
   }),
-  handler: async (ctx) => {
-    let buildsPatched = 0;
+  handler: async (ctx, args) => {
+    let buildsPatched = args.buildsPatched ?? 0;
 
-    const builds = await ctx.db.query("snapshotBuilds").collect();
-    for (const build of builds) {
+    const page = await ctx.db.query("snapshotBuilds").paginate({
+      cursor: args.cursor ?? null,
+      numItems: BUILD_BATCH_SIZE,
+    });
+
+    for (const build of page.page) {
       if (!buildNeedsClean(build)) {
         continue;
       }
@@ -119,10 +133,22 @@ export const removeSnapshotWarmupFields = internalMutation({
       buildsPatched++;
     }
 
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.migrations.removeSnapshotWarmupFields,
+        {
+          cursor: page.continueCursor,
+          buildsPatched,
+        },
+      );
+      return { buildsPatched, done: false };
+    }
+
     console.log(
       `[migration] removeSnapshotWarmupFields: patched ${buildsPatched} snapshotBuilds`,
     );
 
-    return { buildsPatched };
+    return { buildsPatched, done: true };
   },
 });

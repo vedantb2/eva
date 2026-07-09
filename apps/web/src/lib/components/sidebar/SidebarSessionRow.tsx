@@ -16,6 +16,7 @@ import {
   IconLink,
   IconPencil,
 } from "@tabler/icons-react";
+import { entityPathSegment } from "@/lib/numId";
 import { SidebarSessionItem } from "@/lib/components/sidebar/SidebarSessionItem";
 import { SharedLayoutNavSurface } from "@/lib/components/sidebar/SharedLayoutNav";
 
@@ -23,6 +24,7 @@ type SessionStatus = "active" | "starting" | "stopping" | "closed";
 
 interface SessionItem {
   _id: string;
+  numId?: number;
   _creationTime: number;
   userId: Id<"users">;
   title: string;
@@ -41,7 +43,7 @@ interface SidebarSessionRowProps<T extends SessionItem> {
   onRename?: (session: T, newTitle: string) => Promise<void>;
   onDuplicate?: (session: T) => Promise<string>;
   onArchiveRequest: (session: T) => void;
-  onDuplicateNavigate: (newId: string) => void;
+  onDuplicateNavigate: (pathSegment: string) => void;
   onRenameRequest: (session: T) => void;
 }
 
@@ -61,6 +63,9 @@ export function SidebarSessionRow<T extends SessionItem>({
   onDuplicateNavigate,
   onRenameRequest,
 }: SidebarSessionRowProps<T>) {
+  const pathSegment = entityPathSegment(session);
+  const href = pathSegment ? `${baseUrl}/${pathSegment}` : baseUrl;
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -76,7 +81,7 @@ export function SidebarSessionRow<T extends SessionItem>({
             className="group mx-1 rounded-menu-item px-3 py-1.5"
           >
             <SidebarSessionItem
-              href={`${baseUrl}/${session._id}`}
+              href={href}
               title={session.title}
               userId={session.userId}
               createdAt={session._creationTime}
@@ -100,8 +105,8 @@ export function SidebarSessionRow<T extends SessionItem>({
         {onDuplicate && (
           <ContextMenuItem
             onSelect={() => {
-              void onDuplicate(session).then((newId) => {
-                onDuplicateNavigate(newId);
+              void onDuplicate(session).then((newPathSegment) => {
+                onDuplicateNavigate(newPathSegment);
               });
             }}
           >
@@ -119,9 +124,7 @@ export function SidebarSessionRow<T extends SessionItem>({
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={() => {
-            void navigator.clipboard.writeText(
-              window.location.origin + `${baseUrl}/${session._id}`,
-            );
+            void navigator.clipboard.writeText(window.location.origin + href);
           }}
         >
           <IconLink size={16} />

@@ -29,6 +29,7 @@ import {
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTaskCard } from "./QuickTaskCard";
+import { entityPathSegment } from "@/lib/numId";
 import { RunAllDialog } from "./RunAllDialog";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
@@ -49,7 +50,7 @@ interface QuickTasksListViewProps {
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
-  onOpenTask: (id: Id<"agentTasks">) => void;
+  onOpenTask: (task: Task) => void;
   selectedTaskId?: string | null;
 }
 
@@ -305,12 +306,16 @@ export function QuickTasksListView({
                                           ? projectNames.get(task.projectId)
                                           : undefined
                                       }
-                                      href={`${basePath}/quick-tasks/${task._id}/activity`}
+                                      href={
+                                        entityPathSegment(task)
+                                          ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+                                          : `${basePath}/quick-tasks`
+                                      }
                                       onClick={() => {
                                         if (isSelecting) {
                                           onToggleSelect(task._id);
                                         } else {
-                                          onOpenTask(task._id);
+                                          onOpenTask(task);
                                         }
                                       }}
                                       isSelecting={isSelecting}

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { authQuery, hasRepoAccess } from "../functions";
+import { filterActiveEntities } from "../numId";
 import { taskSandboxStatusValidator } from "../_validators/enums";
 
 /**
@@ -12,6 +13,7 @@ export const chatEntryValidator = v.union(
   v.object({
     kind: v.literal("project"),
     id: v.id("projects"),
+    numId: v.optional(v.number()),
     title: v.string(),
     userId: v.id("users"),
     lastMessageAt: v.number(),
@@ -20,6 +22,7 @@ export const chatEntryValidator = v.union(
   v.object({
     kind: v.literal("task"),
     id: v.id("agentTasks"),
+    numId: v.optional(v.number()),
     title: v.string(),
     userId: v.id("users"),
     lastMessageAt: v.number(),
@@ -45,16 +48,20 @@ export const listChatEntries = authQuery({
     // repos with a long project/task history, at the cost of not surfacing
     // chats older than the cap (acceptable — the sidebar only needs recent
     // activity).
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .take(100);
+    const projects = filterActiveEntities(
+      await ctx.db
+        .query("projects")
+        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+        .take(100),
+    );
 
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_repo_and_updatedAt", (q) => q.eq("repoId", args.repoId))
-      .order("desc")
-      .take(300);
+    const tasks = filterActiveEntities(
+      await ctx.db
+        .query("agentTasks")
+        .withIndex("by_repo_and_updatedAt", (q) => q.eq("repoId", args.repoId))
+        .order("desc")
+        .take(300),
+    );
     const quickTasks = tasks.filter((task) => task.projectId === undefined);
 
     const projectEntries = await Promise.all(
@@ -68,6 +75,7 @@ export const listChatEntries = authQuery({
         return {
           kind: "project" as const,
           id: project._id,
+          numId: project.numId,
           title: project.title,
           userId: project.userId,
           lastMessageAt: lastMessage.timestamp,
@@ -87,6 +95,7 @@ export const listChatEntries = authQuery({
         return {
           kind: "task" as const,
           id: task._id,
+          numId: task.numId,
           title: task.title,
           userId: task.createdBy,
           lastMessageAt: lastMessage.timestamp,

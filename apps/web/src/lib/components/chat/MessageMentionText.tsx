@@ -9,7 +9,7 @@ import {
   MENTION_CHIP_CLASS,
   SKILL_CHIP_CLASS,
 } from "@/lib/components/mentions";
-import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
+import { useDocMentionNavigate } from "@/lib/useDocMentionNavigate";
 
 interface MessageMentionTextProps {
   text: string;
@@ -24,6 +24,7 @@ export function MessageMentionText({
   className,
 }: MessageMentionTextProps) {
   const navigate = useNavigate();
+  const navigateToDocById = useDocMentionNavigate(repoBasePath);
 
   return (
     <MentionText
@@ -32,9 +33,9 @@ export function MessageMentionText({
       renderMention={(match, key) => {
         const navigateToDoc = (e: MouseEvent<HTMLButtonElement>) => {
           e.stopPropagation();
-          navigate({
-            to: `${repoBasePath}/docs/${match.id}/${DOC_VIEWER_DEFAULT_TAB}`,
-          });
+          if (isMentionTokenDocId(match.id)) {
+            void navigateToDocById(match.id);
+          }
         };
         if (isMentionTokenDocId(match.id)) {
           return (

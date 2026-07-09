@@ -26,6 +26,7 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import { entityPathSegment } from "@/lib/numId";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 interface TestingArenaSidebarProps {
@@ -138,7 +139,9 @@ export function TestingArenaSidebar({
         ) : (
           <SharedLayoutNav layoutId="testing-arena-nav" className="space-y-1">
             {filteredDocs.map((doc) => {
-              const href = `${basePath}/testing-arena/${doc._id}`;
+              const segment = entityPathSegment(doc);
+              if (!segment) return null;
+              const href = `${basePath}/testing-arena/${segment}`;
               const isSelected = pathname.startsWith(href);
               return (
                 <SharedLayoutNavSurface

@@ -21,6 +21,7 @@ import {
   Spinner,
 } from "@conductor/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { entityPathSegment } from "@/lib/numId";
 import type { Id } from "@conductor/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
@@ -65,12 +66,14 @@ import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMes
 
 export function ProjectDetailClient({
   projectId,
+  projectNumId,
   surface,
   sandboxTab,
   selectedTaskId,
   detailTab,
 }: {
   projectId: string;
+  projectNumId?: number;
   surface: "main" | "sandbox";
   sandboxTab?: TaskRouteSandboxTab;
   selectedTaskId?: string;
@@ -131,12 +134,17 @@ export function ProjectDetailClient({
 
   const isSandboxSurface = surface === "sandbox";
 
+  const projectPathSegment = entityPathSegment({ numId: projectNumId });
+
   const toggleProjectSandboxView = () => {
+    if (!projectPathSegment) return;
     if (isSandboxSurface) {
-      navigate({ to: `${basePath}/projects/${projectId}` });
+      navigate({ to: `${basePath}/projects/${projectPathSegment}` });
       return;
     }
-    navigate({ to: `${basePath}/projects/${projectId}/sandbox/preview` });
+    navigate({
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/preview`,
+    });
   };
 
   const handleStopBuild = async () => {
@@ -238,6 +246,7 @@ export function ProjectDetailClient({
     isSandboxActive && projectSandboxId ? (
       <ProjectSandboxPanel
         projectId={typedProjectId}
+        projectNumId={projectNumId}
         sandboxId={projectSandboxId}
         isActive={isSandboxActive}
         repoId={repo._id}

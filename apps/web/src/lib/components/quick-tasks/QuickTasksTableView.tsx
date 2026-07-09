@@ -23,6 +23,7 @@ import {
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { compactRelativeTime } from "@conductor/shared/dates";
 import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
+import { entityPathSegment } from "@/lib/numId";
 import { PRIORITY_LABELS } from "@/lib/components/priority/priorityMeta";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
@@ -33,7 +34,7 @@ interface QuickTasksTableViewProps {
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
-  onOpenTask: (id: Id<"agentTasks">) => void;
+  onOpenTask: (task: Task) => void;
 }
 
 function StatusCell({ status }: { status: Task["status"] }) {
@@ -286,19 +287,22 @@ export function QuickTasksTableView({
                   typeof index === "number"
                     ? (e: React.MouseEvent) => {
                         const task = rows[index].original;
+                        const segment = entityPathSegment(task);
                         if (e.metaKey || e.ctrlKey) {
                           e.preventDefault();
                           e.stopPropagation();
-                          window.open(
-                            `${basePath}/quick-tasks/${task._id}/activity`,
-                            "_blank",
-                          );
+                          if (segment) {
+                            window.open(
+                              `${basePath}/quick-tasks/${segment}/activity`,
+                              "_blank",
+                            );
+                          }
                           return;
                         }
                         if (isSelecting) {
                           onToggleSelect(task._id);
                         } else {
-                          onOpenTask(task._id);
+                          onOpenTask(task);
                         }
                       }
                     : undefined;

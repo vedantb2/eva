@@ -41,6 +41,8 @@ import {
   draftFields,
   evaluationReportFields,
   artifactFields,
+  designSessionFields,
+  repoEntityCounterFields,
 } from "./validators";
 
 const schema = defineSchema(
@@ -57,7 +59,8 @@ const schema = defineSchema(
       .index("by_repo", ["repoId"])
       .index("by_user", ["userId"])
       .index("by_repo_and_phase", ["repoId", "phase"])
-      .index("by_pr_url", ["prUrl"]),
+      .index("by_pr_url", ["prUrl"])
+      .index("by_repo_and_numId", ["repoId", "numId"]),
 
     projectDetails: defineTable(projectDetailsFields).index("by_project", [
       "projectId",
@@ -68,7 +71,8 @@ const schema = defineSchema(
       .index("by_repo_and_status", ["repoId", "status"])
       .index("by_repo_and_updatedAt", ["repoId", "updatedAt"])
       .index("by_project", ["projectId"])
-      .index("by_project_and_status", ["projectId", "status"]),
+      .index("by_project_and_status", ["projectId", "status"])
+      .index("by_repo_and_numId", ["repoId", "numId"]),
 
     agentRuns: defineTable(agentRunFields)
       .index("by_task", ["taskId"])
@@ -136,7 +140,8 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_repo_and_status", ["repoId", "status"])
       .index("by_repo_and_archived", ["repoId", "archived"])
-      .index("by_pr_url", ["prUrl"]),
+      .index("by_pr_url", ["prUrl"])
+      .index("by_repo_and_numId", ["repoId", "numId"]),
     streamingActivity: defineTable({
       entityId: v.string(),
       currentActivity: v.string(),
@@ -147,7 +152,8 @@ const schema = defineSchema(
     docs: defineTable(docFields)
       .index("by_repo", ["repoId"])
       .index("by_session", ["sessionId"])
-      .index("by_repo_and_pr_url", ["repoId", "prUrl"]),
+      .index("by_repo_and_pr_url", ["repoId", "prUrl"])
+      .index("by_repo_and_numId", ["repoId", "numId"]),
 
     docComments: defineTable(docCommentFields).index("by_doc", ["docId"]),
 
@@ -176,23 +182,10 @@ const schema = defineSchema(
       name: v.string(),
       prompt: v.string(),
     }).index("by_repo", ["repoId"]),
-    designSessions: defineTable({
-      repoId: v.id("githubRepos"),
-      userId: v.id("users"),
-      title: v.string(),
-      status: sessionStatusValidator,
-      sandboxId: v.optional(v.string()),
-      // Vercel sandbox name when SANDBOX_PROVIDER=vercel; prefer for reuse
-      vercelSandboxId: v.optional(v.string()),
-      branchName: v.optional(v.string()),
-      activeWorkflowId: v.optional(v.string()),
-      archived: v.optional(v.boolean()),
-      selectedVariationIndex: v.optional(v.number()),
-      updatedAt: v.optional(v.number()),
-      devPort: v.optional(v.number()),
-    })
+    designSessions: defineTable(designSessionFields)
       .index("by_repo", ["repoId"])
-      .index("by_user", ["userId"]),
+      .index("by_user", ["userId"])
+      .index("by_repo_and_numId", ["repoId", "numId"]),
     auditCategories: defineTable({
       repoId: v.id("githubRepos"),
       name: v.string(),
@@ -342,7 +335,8 @@ const schema = defineSchema(
     }).index("by_team", ["teamId"]),
     automations: defineTable(automationFields)
       .index("by_repo", ["repoId"])
-      .index("by_repo_and_enabled", ["repoId", "enabled"]),
+      .index("by_repo_and_enabled", ["repoId", "enabled"])
+      .index("by_repo_and_numId", ["repoId", "numId"]),
 
     automationRuns: defineTable(automationRunFields)
       .index("by_automation", ["automationId"])
@@ -368,6 +362,11 @@ const schema = defineSchema(
       "owner",
       "name",
     ]),
+
+    repoEntityCounters: defineTable(repoEntityCounterFields).index(
+      "by_repo_and_type",
+      ["repoId", "entityType"],
+    ),
 
     mcpAuthCodes: defineTable({
       code: v.string(),

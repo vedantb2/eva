@@ -33,6 +33,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
+import { entityPathSegment, routeNumIdFromPath } from "@/lib/numId";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -44,6 +45,7 @@ type SessionStatus = "active" | "starting" | "stopping" | "closed";
 
 interface SessionItem {
   _id: string;
+  numId?: number;
   _creationTime: number;
   userId: Id<"users">;
   title: string;
@@ -111,7 +113,8 @@ export function SessionListSidebar<T extends SessionItem>({
   const [newSessionTitle, setNewSessionTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [sessionToArchive, setSessionToArchive] = useState<{
-    id: string;
+    pathSegment: string;
+    sessionId: string;
     title: string;
   } | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
@@ -121,9 +124,7 @@ export function SessionListSidebar<T extends SessionItem>({
   const [isRenaming, setIsRenaming] = useState(false);
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
-  const currentSessionId = pathname.startsWith(`${baseUrl}/`)
-    ? pathname.slice(baseUrl.length + 1).split("/")[0]
-    : null;
+  const currentSessionNumId = routeNumIdFromPath(pathname, baseUrl);
 
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
@@ -180,7 +181,7 @@ export function SessionListSidebar<T extends SessionItem>({
   const handleArchive = async () => {
     if (!sessionToArchive) return;
     const sessionData = sessions?.find(
-      (session) => session._id === sessionToArchive.id,
+      (session) => session._id === sessionToArchive.sessionId,
     );
     if (!sessionData) return;
     setIsArchiving(true);
@@ -188,7 +189,7 @@ export function SessionListSidebar<T extends SessionItem>({
       await onArchive(sessionData);
       setSessionToArchive(null);
 
-      if (currentSessionId === sessionToArchive.id) {
+      if (currentSessionNumId === sessionToArchive.pathSegment) {
         navigate({ to: baseUrl });
         onNavigate?.();
       }
@@ -310,7 +311,9 @@ export function SessionListSidebar<T extends SessionItem>({
                 }
 
                 const { session } = row;
-                const isSelected = currentSessionId === session._id;
+                const pathSegment = entityPathSegment(session);
+                const isSelected =
+                  pathSegment !== null && currentSessionNumId === pathSegment;
                 return (
                   <SidebarSessionRow
                     key={session._id}
@@ -324,11 +327,17 @@ export function SessionListSidebar<T extends SessionItem>({
                       setSessionToRename(s);
                       setRenameValue(s.title);
                     }}
-                    onArchiveRequest={(s) =>
-                      setSessionToArchive({ id: s._id, title: s.title })
-                    }
-                    onDuplicateNavigate={(newId) => {
-                      navigate({ to: `${baseUrl}/${newId}` });
+                    onArchiveRequest={(s) => {
+                      const segment = entityPathSegment(s);
+                      if (!segment) return;
+                      setSessionToArchive({
+                        pathSegment: segment,
+                        sessionId: s._id,
+                        title: s.title,
+                      });
+                    }}
+                    onDuplicateNavigate={(pathSegment) => {
+                      navigate({ to: `${baseUrl}/${pathSegment}` });
                       onNavigate?.();
                     }}
                   />
@@ -355,7 +364,10 @@ export function SessionListSidebar<T extends SessionItem>({
                 <AnimatePresence initial={false}>
                   {isArchiveOpen &&
                     filteredArchivedSessions.map((session) => {
-                      const isSelected = currentSessionId === session._id;
+                      const pathSegment = entityPathSegment(session);
+                      const isSelected =
+                        pathSegment !== null &&
+                        currentSessionNumId === pathSegment;
                       return (
                         <ContextMenu key={session._id}>
                           <ContextMenuTrigger asChild>
@@ -371,7 +383,7 @@ export function SessionListSidebar<T extends SessionItem>({
                                 className="group mx-1 rounded-menu-item"
                               >
                                 <DynamicLink
-                                  to={`${baseUrl}/${session._id}`}
+                                  to={`${baseUrl}/${entityPathSegment(session) ?? session._id}`}
                                   onClick={onNavigate}
                                   className={cn(
                                     "block",
@@ -424,7 +436,7 @@ export function SessionListSidebar<T extends SessionItem>({
                               onSelect={() => {
                                 void navigator.clipboard.writeText(
                                   window.location.origin +
-                                    `${baseUrl}/${session._id}`,
+                                    `${baseUrl}/${entityPathSegment(session) ?? session._id}`,
                                 );
                               }}
                             >

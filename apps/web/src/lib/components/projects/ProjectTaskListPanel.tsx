@@ -8,6 +8,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { Virtuoso } from "react-virtuoso";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { entityPathSegment } from "@/lib/numId";
 import {
   DndContext,
   closestCenter,
@@ -95,7 +96,11 @@ function SortableTaskWrapper({
           tags={task.tags}
           createdAt={task._creationTime}
           scheduledAt={task.scheduledAt}
-          href={`${basePath}/quick-tasks/${task._id}/activity`}
+          href={
+            entityPathSegment(task)
+              ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+              : `${basePath}/quick-tasks`
+          }
           isActive={selectedTaskId === task._id}
           onClick={() => onSelectTask(task._id)}
           assignedTo={task.assignedTo}
@@ -342,7 +347,11 @@ export function ProjectTaskListPanel({
                             tags={task.tags}
                             createdAt={task._creationTime}
                             scheduledAt={task.scheduledAt}
-                            href={`${basePath}/quick-tasks/${task._id}/activity`}
+                            href={
+                              entityPathSegment(task)
+                                ? `${basePath}/quick-tasks/${entityPathSegment(task)}/activity`
+                                : `${basePath}/quick-tasks`
+                            }
                             isActive={selectedTaskId === task._id}
                             onClick={() => onSelectTask(task._id)}
                             assignedTo={task.assignedTo}

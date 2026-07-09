@@ -11,6 +11,7 @@ import { api } from "@conductor/backend";
 import { IconFolder, IconLoader2 } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { DynamicLink } from "@/lib/components/DynamicLink";
+import { entityPathSegment } from "@/lib/numId";
 
 interface BuildingProjectsBadgeProps {
   repoId: Id<"githubRepos">;
@@ -109,7 +110,7 @@ export function BuildingProjectsBadge({
                   <ProjectRow
                     key={project._id}
                     title={project.title}
-                    to={`${basePath}/projects/${project._id}`}
+                    to={`${basePath}/projects/${entityPathSegment(project) ?? ""}`}
                   />
                 ))}
               </Section>
@@ -125,7 +126,7 @@ export function BuildingProjectsBadge({
                   <ProjectRow
                     key={project._id}
                     title={project.title}
-                    to={`${basePath}/projects/${project._id}`}
+                    to={`${basePath}/projects/${entityPathSegment(project) ?? ""}`}
                   />
                 ))}
               </Section>

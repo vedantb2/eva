@@ -6,6 +6,7 @@ import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
+import { entityPathSegment } from "@/lib/numId";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 import { ProjectDescription } from "./ProjectDescription";
@@ -17,6 +18,7 @@ import type { ProjectPhase } from "./ProjectPhaseBadge";
 
 interface Project {
   _id: Id<"projects">;
+  numId?: number;
   title: string;
   description?: string;
   branchName?: string;
@@ -43,46 +45,67 @@ export function ProjectActiveLayout({
   const navigate = useNavigate();
   const cleanupTriggeredRef = useRef(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
+  const projectPathSegment = entityPathSegment(project);
 
   const tasks = useQuery(api.agentTasks.listByProject, { projectId });
   const clearProjectSandbox = useMutation(api.projects.clearProjectSandbox);
 
   const selectedTaskId = useMemo<Id<"agentTasks"> | null>(() => {
-    if (!selectedTaskIdParam) return null;
-    const typed = selectedTaskIdParam as Id<"agentTasks">;
-    if (!tasks) return typed;
-    return tasks.some((t) => t._id === typed) ? typed : null;
+    if (!selectedTaskIdParam || !tasks) return null;
+    const match = tasks.find((t) => t._id === selectedTaskIdParam);
+    return match?._id ?? null;
   }, [selectedTaskIdParam, tasks]);
+
+  const selectedTask = useMemo(() => {
+    if (!selectedTaskId || !tasks) return null;
+    return tasks.find((t) => t._id === selectedTaskId) ?? null;
+  }, [selectedTaskId, tasks]);
 
   const handleSelectTask = useCallback(
     (id: Id<"agentTasks">) => {
-      navigate({ to: `${basePath}/projects/${projectId}/${id}/activity` });
+      if (!projectPathSegment) return;
+      const task = tasks?.find((t) => t._id === id);
+      const taskPathSegment = task ? entityPathSegment(task) : null;
+      if (!taskPathSegment) return;
+      navigate({
+        to: `${basePath}/projects/${projectPathSegment}/${taskPathSegment}/activity`,
+      });
     },
-    [navigate, basePath, projectId],
+    [navigate, basePath, projectPathSegment, tasks],
   );
 
   const handleCloseTask = useCallback(() => {
-    navigate({ to: `${basePath}/projects/${projectId}` });
-  }, [navigate, basePath, projectId]);
+    if (!projectPathSegment) return;
+    navigate({ to: `${basePath}/projects/${projectPathSegment}` });
+  }, [navigate, basePath, projectPathSegment]);
 
   const activeDetailTab: TaskDetailTab = detailTab ?? "activity";
 
   const routing = useMemo(
     () =>
-      selectedTaskId
+      selectedTaskId && selectedTask && projectPathSegment
         ? ({
             mode: "project-detail",
             project: {
               detailTab: activeDetailTab,
               onDetailTabChange: (tab: TaskDetailTab) => {
+                const taskPathSegment = entityPathSegment(selectedTask);
+                if (!taskPathSegment) return;
                 navigate({
-                  to: `${basePath}/projects/${projectId}/${selectedTaskId}/${tab}`,
+                  to: `${basePath}/projects/${projectPathSegment}/${taskPathSegment}/${tab}`,
                 });
               },
             },
           } as const)
         : undefined,
-    [activeDetailTab, basePath, navigate, projectId, selectedTaskId],
+    [
+      activeDetailTab,
+      basePath,
+      navigate,
+      projectPathSegment,
+      selectedTask,
+      selectedTaskId,
+    ],
   );
 
   const allTags = useMemo(() => {

@@ -14,3 +14,7 @@ export {
   repairStuckProjectPhases,
 } from "./_migrations/projectPhases";
 export { removeSnapshotWarmupFields } from "./_migrations/removeSnapshotWarmupFields";
+export {
+  backfillNumIds,
+  backfillNumIdsForEntityType,
+} from "./_migrations/backfillNumIds";

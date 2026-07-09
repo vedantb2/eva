@@ -319,6 +319,31 @@ export async function deleteTaskRelatedData(
   await ctx.db.delete(taskId);
 }
 
+/**
+ * Soft-deletes a task: cancels schedules and sandbox cleanup, but keeps the row.
+ */
+export async function softDeleteAgentTask(
+  ctx: MutationCtx,
+  taskId: Id<"agentTasks">,
+): Promise<void> {
+  const task = await ctx.db.get(taskId);
+  if (!task || task.deletedAt !== undefined) return;
+  if (task.scheduledFunctionId) {
+    try {
+      await ctx.scheduler.cancel(task.scheduledFunctionId);
+    } catch {
+      // may have already fired
+    }
+  }
+  if (!task.projectId && task.sandboxId && task.repoId) {
+    await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+      sandboxId: task.sandboxId,
+      repoId: task.repoId,
+    });
+  }
+  await ctx.db.patch(taskId, { deletedAt: Date.now() });
+}
+
 /** Authenticated query wrapper — injects userId into context, throws if not authenticated. */
 export const authQuery = customQuery(
   query,

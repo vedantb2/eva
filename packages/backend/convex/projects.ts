@@ -1,6 +1,7 @@
 export {
   list,
   get,
+  getByNumId,
   getActive,
   getTaskCount,
   getTaskProgress,

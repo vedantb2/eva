@@ -6,6 +6,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
+import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { isDocViewerTab, type DocViewerTab } from "@/lib/search-params";
 import {
@@ -88,11 +89,11 @@ export function DocRecapViewer({
     (value: string) => {
       if (!isDocViewerTab(value)) return;
       navigate({
-        to: `${basePath}/docs/${doc._id}/${value}`,
+        to: `${basePath}/docs/${entityPathSegment(doc) ?? ""}/${value}`,
         search: (prev) => prev,
       });
     },
-    [basePath, doc._id, navigate],
+    [basePath, doc, navigate],
   );
 
   const handleCopy = useCallback(async () => {

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { authMutation, hasRepoAccess } from "../functions";
+import { allocateNumId } from "../numId";
 import { ensureSubscribed } from "../taskSubscribers";
 import { workflow } from "../workflowManager";
 import type { Id } from "../_generated/dataModel";
@@ -57,6 +58,7 @@ export const createTasksFromFindings = authMutation({
         createdBy: ctx.userId,
         baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
         model: automation.model ?? repo.defaultModel,
+        numId: await allocateNumId(ctx.db, automation.repoId, "agentTasks"),
       });
       await ensureSubscribed(ctx, taskId, ctx.userId);
 

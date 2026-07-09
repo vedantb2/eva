@@ -1,4 +1,10 @@
-export { list, listArchived, get, countActive } from "./_sessions/queries";
+export {
+  list,
+  listArchived,
+  get,
+  getByNumId,
+  countActive,
+} from "./_sessions/queries";
 
 export { listChatEntries } from "./_sessions/chatEntries";
 

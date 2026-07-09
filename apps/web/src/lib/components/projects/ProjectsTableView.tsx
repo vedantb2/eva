@@ -23,6 +23,7 @@ import {
 import { compactRelativeTime } from "@conductor/shared/dates";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import { PriorityIcon } from "@/lib/components/priority/PriorityIcon";
+import { entityPathSegment } from "@/lib/numId";
 import { PRIORITY_LABELS } from "@/lib/components/priority/priorityMeta";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
@@ -149,7 +150,7 @@ const columns: ColumnDef<Project, unknown>[] = [
 
 interface ProjectsTableViewProps {
   projects: Project[];
-  onOpenProject: (id: string) => void;
+  onOpenProject: (project: { numId?: number }) => void;
   onDelete: (id: Id<"projects">, title: string) => void;
 }
 
@@ -295,17 +296,20 @@ export function ProjectsTableView({
                 const handleClick =
                   typeof index === "number"
                     ? (e: React.MouseEvent) => {
-                        const projectId = rows[index].original._id;
+                        const project = rows[index].original;
+                        const segment = entityPathSegment(project);
                         if (e.metaKey || e.ctrlKey) {
                           e.preventDefault();
                           e.stopPropagation();
-                          window.open(
-                            `${basePath}/projects/${projectId}`,
-                            "_blank",
-                          );
+                          if (segment) {
+                            window.open(
+                              `${basePath}/projects/${segment}`,
+                              "_blank",
+                            );
+                          }
                           return;
                         }
-                        onOpenProject(projectId);
+                        onOpenProject(project);
                       }
                     : undefined;
                 return (

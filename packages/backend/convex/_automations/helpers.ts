@@ -1,6 +1,7 @@
 import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { resolveCanonicalRepoId } from "../_githubRepos/helpers";
+import { filterActiveEntities } from "../numId";
 
 export function buildAutomationRunBranchName(
   automationId: Id<"automations">,
@@ -22,10 +23,10 @@ export async function listAutomationsForRepo(
     .collect();
 
   if (canonicalId === repoId) {
-    return localAutomations;
+    return filterActiveEntities(localAutomations);
   }
 
-  const appAutomations = localAutomations.filter(
+  const appAutomations = filterActiveEntities(localAutomations).filter(
     (automation) => automation.shared !== true,
   );
 
@@ -34,7 +35,7 @@ export async function listAutomationsForRepo(
     .withIndex("by_repo", (q) => q.eq("repoId", canonicalId))
     .collect();
 
-  const sharedAutomations = canonicalAutomations.filter(
+  const sharedAutomations = filterActiveEntities(canonicalAutomations).filter(
     (automation) => automation.shared === true,
   );
 

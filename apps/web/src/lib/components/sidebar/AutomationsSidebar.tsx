@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useMutation, useConvex } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -27,6 +27,7 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import { entityPathSegment } from "@/lib/numId";
 
 interface AutomationsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -42,6 +43,7 @@ export function AutomationsSidebar({
   onNavigate,
 }: AutomationsSidebarProps) {
   const navigate = useNavigate();
+  const convex = useConvex();
   const automations = useQuery(api.automations.list, { repoId });
   const createAutomation = useMutation(api.automations.create);
 
@@ -63,9 +65,12 @@ export function AutomationsSidebar({
     setIsCreating(true);
     try {
       const id = await createAutomation({ repoId, title: newTitle.trim() });
+      const created = await convex.query(api.automations.get, { id });
+      const segment = created ? entityPathSegment(created) : null;
+      if (!segment) return;
       setNewTitle("");
       setIsCreateOpen(false);
-      navigate({ to: `${basePath}/automations/${id}` });
+      navigate({ to: `${basePath}/automations/${segment}` });
       onNavigate?.();
     } finally {
       setIsCreating(false);
@@ -114,7 +119,9 @@ export function AutomationsSidebar({
         ) : (
           <SharedLayoutNav layoutId="automations-nav" className="space-y-1">
             {filteredAutomations.map((automation) => {
-              const href = `${basePath}/automations/${automation._id}`;
+              const segment = entityPathSegment(automation);
+              if (!segment) return null;
+              const href = `${basePath}/automations/${segment}`;
               const isSelected = pathname.startsWith(href);
               return (
                 <SharedLayoutNavSurface

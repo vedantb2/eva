@@ -12,6 +12,8 @@ import { TaskStatusBadge } from "@/lib/components/tasks/TaskStatusBadge";
 import { IconListCheck } from "@tabler/icons-react";
 import type { Id } from "@conductor/backend";
 import { Link } from "@tanstack/react-router";
+import { entityPathSegment } from "@/lib/numId";
+import { useMemo } from "react";
 
 interface ActiveTasksAccordionProps {
   repoId?: Id<"githubRepos">;
@@ -23,11 +25,32 @@ export function ActiveTasksAccordion({
   basePath,
 }: ActiveTasksAccordionProps) {
   const allTasks = useQuery(api.agentTasks.getActiveTasks, { repoId });
+  const projects = useQuery(api.projects.list, repoId ? { repoId } : "skip");
   const tasks = allTasks?.filter((t) => t.status === "in_progress") ?? [];
 
+  const projectNumIdById = useMemo(() => {
+    const map = new Map<string, number>();
+    if (projects) {
+      for (const project of projects) {
+        if (project.numId !== undefined) {
+          map.set(project._id, project.numId);
+        }
+      }
+    }
+    return map;
+  }, [projects]);
+
   const getTaskLink = (task: NonNullable<typeof allTasks>[number]) => {
+    const taskSegment = entityPathSegment(task);
     if (task.projectId) {
-      return `${basePath}/projects/${task.projectId}`;
+      const projectNumId = projectNumIdById.get(task.projectId);
+      if (projectNumId !== undefined && taskSegment) {
+        return `${basePath}/projects/${projectNumId}/${taskSegment}/activity`;
+      }
+      return `${basePath}/projects`;
+    }
+    if (taskSegment) {
+      return `${basePath}/quick-tasks/${taskSegment}/activity`;
     }
     return `${basePath}/quick-tasks`;
   };

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { authMutation, recomputeProjectPhase } from "../functions";
+import { allocateNumId } from "../numId";
 import { ensureSubscribed } from "../taskSubscribers";
 import {
   parseSpec,
@@ -39,6 +40,7 @@ export const startDevelopment = authMutation({
     for (let i = 0; i < spec.tasks.length; i++) {
       const task = spec.tasks[i];
       const taskNumber = i + 1;
+      const numId = await allocateNumId(ctx.db, project.repoId, "agentTasks");
       const taskId = await ctx.db.insert("agentTasks", {
         title: task.title,
         description: task.description,
@@ -50,6 +52,7 @@ export const startDevelopment = authMutation({
         updatedAt: now,
         createdBy: ctx.userId,
         baseBranch: projectBaseBranch,
+        numId,
       });
       await ensureSubscribed(ctx, taskId, ctx.userId);
       taskIdMap.set(taskNumber, taskId);
@@ -92,6 +95,7 @@ export const createFromTasks = authMutation({
     }
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
+    const projectNumId = await allocateNumId(ctx.db, args.repoId, "projects");
     const projectId = await ctx.db.insert("projects", {
       repoId: args.repoId,
       userId: ctx.userId,
@@ -101,6 +105,7 @@ export const createFromTasks = authMutation({
       planningMode: "tasks_only",
       baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
       projectStartDate: Date.now(),
+      numId: projectNumId,
     });
     await setProjectConversation(ctx.db, projectId, []);
     await ctx.db.patch(projectId, {

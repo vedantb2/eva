@@ -1,5 +1,11 @@
 # Changelog
 
+## Readable per-repo numId URLs + soft delete - 2026-07-09
+
+- Sessions, docs, testing arena, projects, tasks, design sessions, and automations now use per-repo sequential `numId` in URLs (`/sessions/3`, `/projects/1/5`, etc.) instead of Convex `_id`; `getByNumId` resolves routes while internal refs stay on `_id`.
+- Entities soft-delete via `deletedAt` (hidden from lists, direct URL → not-found); `repoEntityCounters` allocates ids atomically; `backfillNumIds` migration backfills existing rows.
+- Reason for change: human-readable shareable URLs and safer deletes without orphaning related data or breaking internal Convex references.
+
 ## Cursor-style chat scroll pin - 2026-07-09
 
 - Latest user turn now fills the chat viewport height so stick-to-bottom places that message near the top while the assistant streams below; older messages stay reachable by scrolling up.

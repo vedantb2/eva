@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import { allocateNumId, entityVisible } from "./numId";
 import {
   internalMutation,
   internalQuery,
@@ -65,6 +66,7 @@ export const list = authQuery({
         const isCurrentRepo = siblingId === args.repoId;
         const isSharedRecap = doc.kind === "pr-recap";
         if (!isCurrentRepo && !isSharedRecap) continue;
+        if (doc.deletedAt !== undefined) continue;
         seen.add(doc._id);
         docs.push(doc);
       }
@@ -93,7 +95,7 @@ export const getRecapByPrUrl = authQuery({
       )
       .first();
     if (!doc || doc.kind !== "pr-recap") return null;
-    return doc;
+    return entityVisible(doc);
   },
 });
 
@@ -109,11 +111,30 @@ export const get = authQuery({
       if (!(await hasCodebaseRepoAccess(ctx.db, doc.repoId, ctx.userId))) {
         return null;
       }
-      return doc;
+      return entityVisible(doc);
     }
 
     if (!(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId))) return null;
-    return doc;
+    return entityVisible(doc);
+  },
+});
+
+/** Resolves a doc by per-repo numeric id (URL segment). */
+export const getByNumId = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    numId: v.number(),
+  },
+  returns: v.union(docValidator, v.null()),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return null;
+    const doc = await ctx.db
+      .query("docs")
+      .withIndex("by_repo_and_numId", (q) =>
+        q.eq("repoId", args.repoId).eq("numId", args.numId),
+      )
+      .first();
+    return entityVisible(doc);
   },
 });
 
@@ -130,12 +151,14 @@ export const create = authMutation({
       throw new Error("Not authorized");
     }
     const now = Date.now();
+    const numId = await allocateNumId(ctx.db, args.repoId, "docs");
     const docId = await ctx.db.insert("docs", {
       repoId: args.repoId,
       title: args.title,
       content: args.content,
       createdAt: now,
       updatedAt: now,
+      numId,
     });
 
     await prosemirrorSync.create(ctx, docId, markdownToDocJson(args.content));
@@ -242,6 +265,7 @@ export const createFromSession = authMutation({
       contentUpdatedAt: now,
       createdAt: now,
       updatedAt: now,
+      numId: await allocateNumId(ctx.db, session.repoId, "docs"),
     });
     await prosemirrorSync.create(ctx, docId, planJson);
     return docId;
@@ -270,7 +294,7 @@ export const ensureSyncDoc = authMutation({
   },
 });
 
-/** Deletes a doc and all associated data. */
+/** Deletes a doc (soft-delete — row is retained). */
 export const remove = authMutation({
   args: { id: v.id("docs") },
   returns: v.null(),
@@ -279,44 +303,10 @@ export const remove = authMutation({
     if (!doc) {
       throw new Error("Doc not found");
     }
-
-    await ctx.runMutation(components.prosemirrorSync.lib.deleteDocument, {
-      id: args.id,
-    });
-
-    const comments = await ctx.db
-      .query("docComments")
-      .withIndex("by_doc", (q) => q.eq("docId", args.id))
-      .collect();
-    for (const comment of comments) {
-      await ctx.db.delete(comment._id);
+    if (!(await hasRepoAccess(ctx.db, doc.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
     }
-
-    const subscribers = await ctx.db
-      .query("docSubscribers")
-      .withIndex("by_doc", (q) => q.eq("docId", args.id))
-      .collect();
-    for (const sub of subscribers) {
-      await ctx.db.delete(sub._id);
-    }
-
-    const versions = await ctx.db
-      .query("docVersions")
-      .withIndex("by_doc", (q) => q.eq("docId", args.id))
-      .collect();
-    for (const ver of versions) {
-      await ctx.db.delete(ver._id);
-    }
-
-    const drafts = await ctx.db
-      .query("docVersionDrafts")
-      .withIndex("by_doc", (q) => q.eq("docId", args.id))
-      .collect();
-    for (const draft of drafts) {
-      await ctx.db.delete(draft._id);
-    }
-
-    await ctx.db.delete(args.id);
+    await ctx.db.patch(args.id, { deletedAt: Date.now() });
     return null;
   },
 });
@@ -469,6 +459,7 @@ async function upsertPrRecapDocImpl(
     contentUpdatedAt: now,
     createdAt: now,
     updatedAt: now,
+    numId: await allocateNumId(ctx.db, docsRepoId, "docs"),
   });
   await prosemirrorSync.create(ctx, docId, markdownJson);
   return docId;

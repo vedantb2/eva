@@ -76,6 +76,7 @@ import type * as _mentions_resolveDocMentions from "../_mentions/resolveDocMenti
 import type * as _mentions_resolveMessageTokens from "../_mentions/resolveMessageTokens.js";
 import type * as _mentions_resolveSkillMentions from "../_mentions/resolveSkillMentions.js";
 import type * as _mentions_skillToken from "../_mentions/skillToken.js";
+import type * as _migrations_backfillNumIds from "../_migrations/backfillNumIds.js";
 import type * as _migrations_backfillTaskSubscribers from "../_migrations/backfillTaskSubscribers.js";
 import type * as _migrations_cleanup from "../_migrations/cleanup.js";
 import type * as _migrations_deleteRepos from "../_migrations/deleteRepos.js";
@@ -203,6 +204,7 @@ import type * as migrations from "../migrations.js";
 import type * as notificationDigest from "../notificationDigest.js";
 import type * as notificationEmail from "../notificationEmail.js";
 import type * as notifications from "../notifications.js";
+import type * as numId from "../numId.js";
 import type * as prBody from "../prBody.js";
 import type * as prRecapWorkflow from "../prRecapWorkflow.js";
 import type * as presence from "../presence.js";
@@ -334,6 +336,7 @@ declare const fullApi: ApiFromModules<{
   "_mentions/resolveMessageTokens": typeof _mentions_resolveMessageTokens;
   "_mentions/resolveSkillMentions": typeof _mentions_resolveSkillMentions;
   "_mentions/skillToken": typeof _mentions_skillToken;
+  "_migrations/backfillNumIds": typeof _migrations_backfillNumIds;
   "_migrations/backfillTaskSubscribers": typeof _migrations_backfillTaskSubscribers;
   "_migrations/cleanup": typeof _migrations_cleanup;
   "_migrations/deleteRepos": typeof _migrations_deleteRepos;
@@ -461,6 +464,7 @@ declare const fullApi: ApiFromModules<{
   notificationDigest: typeof notificationDigest;
   notificationEmail: typeof notificationEmail;
   notifications: typeof notifications;
+  numId: typeof numId;
   prBody: typeof prBody;
   prRecapWorkflow: typeof prRecapWorkflow;
   presence: typeof presence;

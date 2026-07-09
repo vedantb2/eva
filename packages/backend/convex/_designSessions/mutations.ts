@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { roleValidator, variationValidator } from "../validators";
 import { authMutation, hasRepoAccess } from "../functions";
+import { allocateNumId } from "../numId";
 
 /** Creates a new design session in a repo with "closed" initial status. */
 export const create = authMutation({
@@ -13,12 +14,14 @@ export const create = authMutation({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+    const numId = await allocateNumId(ctx.db, args.repoId, "designSessions");
     return await ctx.db.insert("designSessions", {
       repoId: args.repoId,
       userId: ctx.userId,
       title: args.title,
       status: "closed",
       updatedAt: Date.now(),
+      numId,
     });
   },
 });

@@ -7,6 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@conductor/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { entityPathSegment } from "@/lib/numId";
 import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
@@ -145,9 +146,12 @@ export function SpotlightSearch() {
                     key={p._id}
                     value={`${p.title} ${p.description ?? ""}`}
                     className={itemClass}
-                    onSelect={() =>
-                      handleSelect(`${basePath}/projects/${p._id}`)
-                    }
+                    onSelect={() => {
+                      const segment = entityPathSegment(p);
+                      if (segment) {
+                        handleSelect(`${basePath}/projects/${segment}`);
+                      }
+                    }}
                   >
                     <IconLayoutKanban size={16} className="flex-shrink-0" />
                     <MarqueeOnHover className="min-w-0 flex-1">
@@ -168,7 +172,16 @@ export function SpotlightSearch() {
                     key={t._id}
                     value={t.title}
                     className={itemClass}
-                    onSelect={() => handleSelect(`${basePath}/quick-tasks`)}
+                    onSelect={() => {
+                      const segment = entityPathSegment(t);
+                      if (segment) {
+                        handleSelect(
+                          `${basePath}/quick-tasks/${segment}/activity`,
+                        );
+                      } else {
+                        handleSelect(`${basePath}/quick-tasks`);
+                      }
+                    }}
                   >
                     <IconChecklist size={16} className="flex-shrink-0" />
                     <MarqueeOnHover className="min-w-0 flex-1">
@@ -189,9 +202,12 @@ export function SpotlightSearch() {
                     key={s._id}
                     value={s.title}
                     className={itemClass}
-                    onSelect={() =>
-                      handleSelect(`${basePath}/sessions/${s._id}`)
-                    }
+                    onSelect={() => {
+                      const segment = entityPathSegment(s);
+                      if (segment) {
+                        handleSelect(`${basePath}/sessions/${segment}`);
+                      }
+                    }}
                   >
                     <IconTerminal2 size={16} className="flex-shrink-0" />
                     <MarqueeOnHover className="min-w-0 flex-1">
@@ -212,11 +228,14 @@ export function SpotlightSearch() {
                     key={d._id}
                     value={d.title}
                     className={itemClass}
-                    onSelect={() =>
-                      handleSelect(
-                        `${basePath}/docs/${d._id}/${DOC_VIEWER_DEFAULT_TAB}`,
-                      )
-                    }
+                    onSelect={() => {
+                      const segment = entityPathSegment(d);
+                      if (segment) {
+                        handleSelect(
+                          `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+                        );
+                      }
+                    }}
                   >
                     <IconFileText size={16} className="flex-shrink-0" />
                     <MarqueeOnHover className="min-w-0 flex-1">
@@ -235,9 +254,12 @@ export function SpotlightSearch() {
                     key={`test-${d._id}`}
                     value={`test ${d.title}`}
                     className={itemClass}
-                    onSelect={() =>
-                      handleSelect(`${basePath}/testing-arena/${d._id}`)
-                    }
+                    onSelect={() => {
+                      const segment = entityPathSegment(d);
+                      if (segment) {
+                        handleSelect(`${basePath}/testing-arena/${segment}`);
+                      }
+                    }}
                   >
                     <IconFlask size={16} className="flex-shrink-0" />
                     <MarqueeOnHover className="min-w-0 flex-1">

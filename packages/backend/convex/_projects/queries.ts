@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authQuery, hasRepoAccess } from "../functions";
 import { internalQuery } from "../_generated/server";
+import { entityVisible, filterActiveEntities } from "../numId";
 import { taskSandboxStatusValidator } from "../_validators/enums";
 import {
   taskProgressValidator,
@@ -23,10 +24,12 @@ export const list = authQuery({
   returns: v.array(projectListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
+    const projects = filterActiveEntities(
+      await ctx.db
+        .query("projects")
+        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+        .collect(),
+    );
     return await Promise.all(
       projects.map(async (project) => ({
         ...project,
@@ -46,10 +49,42 @@ export const get = authQuery({
       return null;
     }
     if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) return null;
+    const visible = entityVisible(project);
+    if (!visible) return null;
     const conversationHistory = await getProjectConversation(ctx.db, args.id);
     const generatedSpec = await getProjectGeneratedSpec(ctx.db, args.id);
     return {
-      ...project,
+      ...visible,
+      conversationHistory,
+      ...(generatedSpec !== undefined ? { generatedSpec } : {}),
+    };
+  },
+});
+
+/** Resolves a project by per-repo numeric id (URL segment). */
+export const getByNumId = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    numId: v.number(),
+  },
+  returns: v.union(projectWithDetailsValidator, v.null()),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return null;
+    const project = await ctx.db
+      .query("projects")
+      .withIndex("by_repo_and_numId", (q) =>
+        q.eq("repoId", args.repoId).eq("numId", args.numId),
+      )
+      .first();
+    const visible = entityVisible(project);
+    if (!visible) return null;
+    const conversationHistory = await getProjectConversation(
+      ctx.db,
+      visible._id,
+    );
+    const generatedSpec = await getProjectGeneratedSpec(ctx.db, visible._id);
+    return {
+      ...visible,
       conversationHistory,
       ...(generatedSpec !== undefined ? { generatedSpec } : {}),
     };
@@ -64,10 +99,12 @@ export const getTaskCount = authQuery({
     const project = await ctx.db.get(args.projectId);
     if (!project || !(await hasRepoAccess(ctx.db, project.repoId, ctx.userId)))
       return 0;
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
+    const tasks = filterActiveEntities(
+      await ctx.db
+        .query("agentTasks")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+    );
     return tasks.length;
   },
 });
@@ -78,10 +115,12 @@ export const countBuilding = authQuery({
   returns: v.number(),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return 0;
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
+    const projects = filterActiveEntities(
+      await ctx.db
+        .query("projects")
+        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+        .collect(),
+    );
     return projects.filter((p) => p.activeBuildWorkflowId !== undefined).length;
   },
 });
@@ -92,6 +131,7 @@ export const getActive = authQuery({
   returns: v.array(
     v.object({
       _id: v.id("projects"),
+      numId: v.optional(v.number()),
       title: v.string(),
       activeBuildWorkflowId: v.optional(v.string()),
       reviewProjectSandboxStatus: v.optional(taskSandboxStatusValidator),
@@ -99,13 +139,17 @@ export const getActive = authQuery({
   ),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
+    const projects = filterActiveEntities(
+      await ctx.db
+        .query("projects")
+        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+        .collect(),
+    );
     return projects
+      .filter((p) => p.deletedAt === undefined)
       .map((p) => ({
         _id: p._id,
+        numId: p.numId,
         title: p.title,
         activeBuildWorkflowId: p.activeBuildWorkflowId,
         reviewProjectSandboxStatus: p.reviewProjectSandboxStatus,
@@ -154,10 +198,12 @@ export const getProjectPrCreationData = internalQuery({
       project.branchName ??
       buildProjectBranchName(args.projectId, project.branchVersion);
 
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
+    const tasks = filterActiveEntities(
+      await ctx.db
+        .query("agentTasks")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+    );
     const completedTasks = tasks
       .filter(
         (t) =>
@@ -212,10 +258,12 @@ export const getTaskProgress = authQuery({
     ) {
       return computeTaskProgress([]);
     }
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
+    const tasks = filterActiveEntities(
+      await ctx.db
+        .query("agentTasks")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+    );
     return computeTaskProgress(tasks);
   },
 });
@@ -230,10 +278,12 @@ export const listTaskProgress = authQuery({
   ),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
+    const projects = filterActiveEntities(
+      await ctx.db
+        .query("projects")
+        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+        .collect(),
+    );
     return await Promise.all(
       projects.map(async (project) => {
         const tasks = await ctx.db

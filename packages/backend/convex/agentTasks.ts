@@ -1,6 +1,7 @@
 export {
   listByProject,
   get,
+  getByNumId,
   getActiveTasks,
   getAllTasks,
   getDependentTasks,

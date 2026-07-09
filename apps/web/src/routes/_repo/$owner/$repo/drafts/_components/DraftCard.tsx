@@ -1,12 +1,15 @@
 "use client";
 
-import { useMutation } from "convex/react";
+import { useMutation, useConvex } from "convex/react";
+import type { ConvexReactClient } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@conductor/backend";
+import type { Id } from "@conductor/backend";
 import { Badge, Button, cn } from "@conductor/ui";
 import { IconTrash } from "@tabler/icons-react";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
+import { entityPathSegment } from "@/lib/numId";
 import type { DraftCardModel } from "../_utils";
 
 interface DraftCardProps {
@@ -38,8 +41,31 @@ function snippetText(model: DraftCardModel): string {
   return tokenizedToDisplayText(model.row.content);
 }
 
+async function resolveTaskActivityPath(
+  convex: ConvexReactClient,
+  basePath: string,
+  taskId: Id<"agentTasks">,
+  taskProjectId: Id<"projects"> | undefined,
+): Promise<string | null> {
+  const task = await convex.query(api.agentTasks.get, { id: taskId });
+  const taskSegment = task ? entityPathSegment(task) : null;
+  if (!taskSegment) {
+    return null;
+  }
+  if (taskProjectId) {
+    const project = await convex.query(api.projects.get, { id: taskProjectId });
+    const projectSegment = project ? entityPathSegment(project) : null;
+    if (!projectSegment) {
+      return null;
+    }
+    return `${basePath}/projects/${projectSegment}/${taskSegment}/activity`;
+  }
+  return `${basePath}/quick-tasks/${taskSegment}/activity`;
+}
+
 export function DraftCard({ model, basePath }: DraftCardProps) {
   const navigate = useNavigate();
+  const convex = useConvex();
   const removeCommentDraft = useMutation(api.drafts.remove);
   const removeTaskDraft = useMutation(api.agentTasks.remove);
 
@@ -65,23 +91,43 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
       model.row;
 
     if (kind === "taskComment" && taskId) {
-      if (taskProjectId) {
-        void navigate({
-          to: `${basePath}/projects/${taskProjectId}/${taskId}/activity`,
+      void (async () => {
+        const path = await resolveTaskActivityPath(
+          convex,
+          basePath,
+          taskId,
+          taskProjectId,
+        );
+        if (path) {
+          await navigate({ to: path });
+        }
+      })();
+      return;
+    }
+
+    if (kind === "sessionChat" && sessionId) {
+      void (async () => {
+        const session = await convex.query(api.sessions.get, { id: sessionId });
+        const segment = session ? entityPathSegment(session) : null;
+        if (!segment) {
+          return;
+        }
+        await navigate({ to: `${basePath}/sessions/${segment}/preview` });
+      })();
+      return;
+    }
+
+    if (kind === "designChat" && designSessionId) {
+      void (async () => {
+        const designSession = await convex.query(api.designSessions.get, {
+          id: designSessionId,
         });
-      } else {
-        void navigate({
-          to: `${basePath}/quick-tasks/${taskId}/activity`,
-        });
-      }
-    } else if (kind === "sessionChat" && sessionId) {
-      void navigate({
-        to: `${basePath}/sessions/${sessionId}/preview`,
-      });
-    } else if (kind === "designChat" && designSessionId) {
-      void navigate({
-        to: `${basePath}/designs/${designSessionId}`,
-      });
+        const segment = designSession ? entityPathSegment(designSession) : null;
+        if (!segment) {
+          return;
+        }
+        await navigate({ to: `${basePath}/designs/${segment}` });
+      })();
     }
   };
 

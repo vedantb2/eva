@@ -11,8 +11,9 @@ import {
   authMutation,
   hasRepoAccess,
   getProjectWithAccess,
-  deleteTaskRelatedData,
+  softDeleteAgentTask,
 } from "../functions";
+import { allocateNumId } from "../numId";
 import {
   getProjectConversation,
   setProjectConversation,
@@ -43,6 +44,7 @@ export const create = authMutation({
       throw new Error("Not authorized");
     }
     const skipPlanning = args.skipPlanning ?? false;
+    const numId = await allocateNumId(ctx.db, args.repoId, "projects");
     const projectId = await ctx.db.insert("projects", {
       repoId: args.repoId,
       userId: ctx.userId,
@@ -54,6 +56,7 @@ export const create = authMutation({
       planningMode: skipPlanning ? "tasks_only" : "interview",
       projectStartDate: Date.now(),
       priority: args.priority,
+      numId,
     });
     if (skipPlanning) {
       await ctx.db.patch(projectId, {
@@ -158,19 +161,18 @@ export const addMessage = authMutation({
   },
 });
 
-/** Deletes a project and its associated details document. */
+/** Soft-deletes a project (row retained; hidden from lists and direct URLs). */
 export const remove = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
     await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    await deleteProjectDetails(ctx.db, args.id);
-    await ctx.db.delete(args.id);
+    await ctx.db.patch(args.id, { deletedAt: Date.now() });
     return null;
   },
 });
 
-/** Deletes a project along with all its tasks and their related data. */
+/** Soft-deletes a project and all its tasks. */
 export const deleteCascade = authMutation({
   args: { id: v.id("projects") },
   returns: v.null(),
@@ -181,10 +183,9 @@ export const deleteCascade = authMutation({
       .withIndex("by_project", (q) => q.eq("projectId", args.id))
       .collect();
     for (const task of tasks) {
-      await deleteTaskRelatedData(ctx, task._id);
+      await softDeleteAgentTask(ctx, task._id);
     }
-    await deleteProjectDetails(ctx.db, args.id);
-    await ctx.db.delete(args.id);
+    await ctx.db.patch(args.id, { deletedAt: Date.now() });
     return null;
   },
 });

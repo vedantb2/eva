@@ -134,7 +134,7 @@ export const projectInterviewWorkflow = workflow.define({
     // on the project (otherwise every answer would spawn a fresh sandbox) and
     // the card/sidebar "active" indicator lights up while the interview runs.
     try {
-      if (projectData.sandboxId) {
+      if (projectData.sandboxId || projectData.vercelSandboxId) {
         // Thaw an archived/stopped sandbox across polling steps first so a
         // cold-storage restore can exceed the per-action 10-minute limit; the
         // surrounding catch handles thaw failures.
@@ -528,7 +528,7 @@ Based on the interview conversation above, generate an implementation spec with 
 Output ONLY valid JSON.`;
 
     try {
-      if (projectData.sandboxId) {
+      if (projectData.sandboxId || projectData.vercelSandboxId) {
         // Thaw an archived/stopped sandbox across polling steps first so a
         // cold-storage restore can exceed the per-action 10-minute limit; the
         // surrounding catch handles thaw failures.

@@ -125,7 +125,7 @@ export const sessionExecuteWorkflow = workflow.define({
 
     let validatedSandboxId: string | null = null;
 
-    if (data.sandboxId) {
+    if (data.sandboxId || data.vercelSandboxId) {
       // Bring an archived/stopped sandbox back to "started" via durable polling
       // steps first, so a multi-minute cold-storage thaw doesn't blow the
       // per-action 10-minute limit inside validateSandbox. Once started, the

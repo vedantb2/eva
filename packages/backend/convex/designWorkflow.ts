@@ -17,6 +17,7 @@ import {
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { startNextQueuedDesignMessage } from "./_queues/helpers";
+import { preferPersistedSandboxId } from "./_sandbox/resolveExistingSandboxId";
 import {
   resolveDocMentions,
   stripMentionTokens,
@@ -303,7 +304,10 @@ export const getSessionDataAndPrompt = internalQuery({
     }
 
     return {
-      sandboxId: session.sandboxId,
+      sandboxId: preferPersistedSandboxId({
+        sandboxId: session.sandboxId,
+        vercelSandboxId: session.vercelSandboxId,
+      }),
       branchName: session.branchName,
       repoOwner: repo.owner,
       repoName: repo.name,

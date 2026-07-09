@@ -57,6 +57,7 @@ export const auditFixWorkflow = workflow.define({
         // fresh sandbox (launchSelectedAuditFixes creates one when sandboxId is
         // undefined, checking out the pushed branch).
         resumeSandboxId = undefined;
+        resumeVercelSandboxId = undefined;
       }
     }
     await step.runAction(internal.daytona.launchSelectedAuditFixes, {

@@ -23,15 +23,22 @@ export async function detectPackageManager(
   const dir = rootDir ? `${workspaceRoot}/${rootDir}` : workspaceRoot;
   // Prefer the package rootDir, then fall back to the workspace root — monorepos
   // often keep pnpm-lock.yaml at the repo root while rootDirectory points at an app.
-  const lockFile = (
+  // Also treat packageManager / workspace: deps as pnpm so npm never hits workspace:*.
+  const detection = (
     await execHandle(
       sandbox,
-      `{ cd ${dir} && ls -1 pnpm-lock.yaml yarn.lock 2>/dev/null; cd ${workspaceRoot} && ls -1 pnpm-lock.yaml yarn.lock 2>/dev/null; } | head -n1`,
+      [
+        `if [ -f ${dir}/pnpm-lock.yaml ] || [ -f ${workspaceRoot}/pnpm-lock.yaml ]; then echo pnpm;`,
+        `elif [ -f ${dir}/yarn.lock ] || [ -f ${workspaceRoot}/yarn.lock ]; then echo yarn;`,
+        `elif grep -q '"packageManager"[[:space:]]*:[[:space:]]*"pnpm@' ${dir}/package.json ${workspaceRoot}/package.json 2>/dev/null; then echo pnpm;`,
+        `elif grep -q 'workspace:' ${dir}/package.json ${workspaceRoot}/package.json 2>/dev/null; then echo pnpm;`,
+        `else echo npm; fi`,
+      ].join(" "),
       5,
     )
   ).trim();
-  if (lockFile === "pnpm-lock.yaml") return "pnpm";
-  if (lockFile === "yarn.lock") return "yarn";
+  if (detection === "pnpm") return "pnpm";
+  if (detection === "yarn") return "yarn";
   return "npm";
 }
 

@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { authMutation } from "../functions";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 
 /** Updates the sandbox ID and/or branch name for a design session (internal). */
 export const updateSandbox = internalMutation({
@@ -78,13 +79,17 @@ export const stopSandbox = authMutation({
     const session = await ctx.db.get(args.id);
     if (!session) throw new Error("Design session not found");
 
-    if (session.sandboxId) {
+    const stopId = preferPersistedSandboxId({
+      sandboxId: session.sandboxId,
+      vercelSandboxId: session.vercelSandboxId,
+    });
+    if (stopId) {
       await ctx.scheduler.runAfter(
         0,
         internal.designSessions.finalizeStopSandbox,
         {
           designSessionId: args.id,
-          sandboxId: session.sandboxId,
+          sandboxId: stopId,
           repoId: session.repoId,
         },
       );

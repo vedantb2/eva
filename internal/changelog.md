@@ -1,5 +1,11 @@
 # Changelog
 
+## Vercel sandbox id lifecycle fixes - 2026-07-09
+
+- Persist and clear `vercelSandboxId` with `sandboxId` on audit-fix, docs, sessions, projects, tasks, and PR-merge cleanup so Vercel reuse never thaws a stale or missing name.
+- Shared `preferPersistedSandboxId` for provider-blind callers; thaw gates and design stop/launch use either id; stronger pnpm detect for `workspace:` monorepos.
+- Reason for change: stacked fixes on the Vercel cutover PR so close→start and audit/doc reuse work after provider flip.
+
 ## Vercel everywhere cutover - 2026-07-09
 
 - All sandbox create/resume paths (sessions, tasks, projects, designs, automations, agent runs) now use Vercel when `SANDBOX_PROVIDER=vercel`, with `vercelSandboxId` as the only reuse key so Daytona UUIDs never hit Vercel `get`.

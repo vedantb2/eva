@@ -6,6 +6,7 @@ import type { WorkflowId } from "@convex-dev/workflow";
 import { LlmJson } from "@solvers-hub/llm-json";
 import { workflow } from "../workflowManager";
 import { buildProjectBranchName } from "../_projects/helpers";
+import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import { isUsageLimitError, parseUsageLimitResetTime } from "./recovery";
 
 export const llmJson = new LlmJson({ attemptCorrection: true });
@@ -24,6 +25,10 @@ export async function resolveTaskBranchName(
   return `eva/task-${String(task._id)}`;
 }
 
+/**
+ * Resolves the sandbox id to use for a task run (push / audit-fix).
+ * Prefer vercelSandboxId when present so Vercel never receives a Daytona UUID.
+ */
 export async function resolveTaskSandboxIdForRun(
   db: GenericDatabaseReader<DataModel>,
   task: Doc<"agentTasks">,
@@ -31,9 +36,15 @@ export async function resolveTaskSandboxIdForRun(
 ): Promise<string | undefined> {
   if (task.projectId) {
     const project = await db.get(task.projectId);
-    return project?.sandboxId ?? run.sandboxId;
+    return preferPersistedSandboxId({
+      sandboxId: project?.sandboxId ?? run.sandboxId,
+      vercelSandboxId: project?.vercelSandboxId ?? run.vercelSandboxId,
+    });
   }
-  return run.sandboxId ?? task.sandboxId;
+  return preferPersistedSandboxId({
+    sandboxId: run.sandboxId ?? task.sandboxId,
+    vercelSandboxId: run.vercelSandboxId ?? task.vercelSandboxId,
+  });
 }
 
 /** Returns the streaming entity ID used for a task run's activity stream. */

@@ -27,7 +27,6 @@ import {
 } from "./helpers";
 import { detectPackageManager } from "./devServer";
 import { ensureGitCredentialHelper } from "./gitCredentials";
-import { unwrapDaytonaSandbox } from "../_sandbox/daytonaProvider";
 import {
   EVA_ENV_FILE,
   renderEvaEnvFile,

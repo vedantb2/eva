@@ -313,7 +313,6 @@ export function ChatBody({
                             <StreamingActivityDisplay
                               activity={streamingActivity}
                               name="Eva"
-                              icon={evaIcon}
                               startedAt={message.timestamp}
                             />
                             {message._id === lastMessage?._id &&
@@ -375,10 +374,11 @@ export function ChatBody({
                         )}
                       </MessageContent>
                       {message.role === "assistant" && message.content ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
                           <ChatMessageActions
                             copyText={message.content}
                             className="ml-0.5"
+                            revealOnHover={false}
                           />
                           {message.finishedAt && message.timestamp ? (
                             <span className="text-[11px] tabular-nums text-muted-foreground/60">

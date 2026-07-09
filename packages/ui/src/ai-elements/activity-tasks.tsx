@@ -129,25 +129,24 @@ function ActivityBlockList({
       : blocks.slice(0, MAX_VISIBLE_BLOCKS)
     : blocks;
 
+  // Streaming turns show the toggle above the list (newest kept at the
+  // bottom); settled turns show it below. Same element either way.
+  const toggle =
+    overflow > 0 ? (
+      <OverflowToggle
+        expanded={expanded}
+        overflow={overflow}
+        onToggle={() => setExpanded((v) => !v)}
+      />
+    ) : null;
+
   return (
     <>
-      {overflow > 0 && isStreaming && (
-        <OverflowToggle
-          expanded={expanded}
-          overflow={overflow}
-          onToggle={() => setExpanded((v) => !v)}
-        />
-      )}
+      {isStreaming && toggle}
       {visible.map((block, i) => (
         <ActivityBlockRow key={i} block={block} />
       ))}
-      {overflow > 0 && !isStreaming && (
-        <OverflowToggle
-          expanded={expanded}
-          overflow={overflow}
-          onToggle={() => setExpanded((v) => !v)}
-        />
-      )}
+      {!isStreaming && toggle}
     </>
   );
 }

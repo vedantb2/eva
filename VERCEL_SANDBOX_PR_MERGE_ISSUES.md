@@ -69,7 +69,9 @@
 
 - **Stacked fix:** design stop + design chat launch use `preferPersistedSandboxId`.
 
-### 16. Dead `unwrapDaytonaSandbox` import in `git.ts` — defer cleanup
+### 16. Dead `unwrapDaytonaSandbox` import in `git.ts` — FIXED
+
+- **Stacked fix:** removed unused import from `_daytona/git.ts`.
 
 ### 17. Changelog overclaims full entity cutover — FIXED via #3 wiring + stacked changelog entry
 

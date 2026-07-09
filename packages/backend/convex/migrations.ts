@@ -13,3 +13,4 @@ export {
   migrateProjectPhases,
   repairStuckProjectPhases,
 } from "./_migrations/projectPhases";
+export { removeSnapshotWarmupFields } from "./_migrations/removeSnapshotWarmupFields";

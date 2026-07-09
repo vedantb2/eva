@@ -146,7 +146,6 @@ export const getActive = authQuery({
         .collect(),
     );
     return projects
-      .filter((p) => p.deletedAt === undefined)
       .map((p) => ({
         _id: p._id,
         numId: p.numId,
@@ -286,10 +285,12 @@ export const listTaskProgress = authQuery({
     );
     return await Promise.all(
       projects.map(async (project) => {
-        const tasks = await ctx.db
-          .query("agentTasks")
-          .withIndex("by_project", (q) => q.eq("projectId", project._id))
-          .collect();
+        const tasks = filterActiveEntities(
+          await ctx.db
+            .query("agentTasks")
+            .withIndex("by_project", (q) => q.eq("projectId", project._id))
+            .collect(),
+        );
         return { projectId: project._id, ...computeTaskProgress(tasks) };
       }),
     );

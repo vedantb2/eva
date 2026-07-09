@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
-import { allocateNumId, entityVisible } from "./numId";
+import { allocateNumId, entityVisible, isEntityDeleted } from "./numId";
 import {
   internalMutation,
   internalQuery,
@@ -66,7 +66,7 @@ export const list = authQuery({
         const isCurrentRepo = siblingId === args.repoId;
         const isSharedRecap = doc.kind === "pr-recap";
         if (!isCurrentRepo && !isSharedRecap) continue;
-        if (doc.deletedAt !== undefined) continue;
+        if (isEntityDeleted(doc)) continue;
         seen.add(doc._id);
         docs.push(doc);
       }

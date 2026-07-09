@@ -4,6 +4,11 @@ import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation } from "../functions";
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
+import { resolveReusableVercelSandboxId } from "../_sandbox/resolveExistingSandboxId";
+import {
+  seedSandboxStartupActivity,
+  clearSandboxStartupActivity,
+} from "../_sandbox/startupActivity";
 
 /** Updates sandbox-related fields (sandbox ID, branch, PR URL) on a session. */
 export const updateSandbox = authMutation({
@@ -70,41 +75,11 @@ export const startSandbox = authMutation({
     });
     // Seed startup streaming immediately so the UI shows a real step instead of
     // the random "Eva is inferring…" spinner while the workflow schedules.
-    const startupEntityId = `session-startup-${args.sessionId}`;
-    const startupActivity = JSON.stringify([
-      { type: "tool", label: "Starting sandbox...", status: "active" },
-    ]);
-    const existingStreaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", startupEntityId))
-      .first();
-    if (existingStreaming) {
-      await ctx.db.patch(existingStreaming._id, {
-        currentActivity: startupActivity,
-        currentContent: "",
-        lastUpdatedAt: Date.now(),
-      });
-    } else {
-      await ctx.db.insert("streamingActivity", {
-        entityId: startupEntityId,
-        currentActivity: startupActivity,
-        currentContent: "",
-        lastUpdatedAt: Date.now(),
-      });
-    }
-    // Prefer vercelSandboxId; fall back to sandboxId when it is a Vercel name
-    // (not a Daytona UUID). Missing vercelSandboxId used to skip reuse and
-    // create a second sandbox while still logging the old existingSandboxId.
-    const looksLikeDaytonaUuid =
-      typeof session.sandboxId === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        session.sandboxId,
-      );
-    const vercelSandboxId =
-      session.vercelSandboxId ??
-      (session.sandboxId && !looksLikeDaytonaUuid
-        ? session.sandboxId
-        : undefined);
+    await seedSandboxStartupActivity(
+      ctx.db,
+      `session-startup-${args.sessionId}`,
+    );
+    const vercelSandboxId = resolveReusableVercelSandboxId(session);
     console.log(
       `[sessions] startSandbox sessionId=${args.sessionId} existingSandboxId=${session.sandboxId ?? "none"} vercelSandboxId=${vercelSandboxId ?? "none"}`,
     );
@@ -187,12 +162,10 @@ export const stopSandbox = authMutation({
 
     // Clear leftover start steps so the chat does not re-show "Starting
     // sandbox..." / cold-storage copy while status is stopping.
-    const startupEntityId = `session-startup-${args.sessionId}`;
-    const startupStreaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", startupEntityId))
-      .first();
-    if (startupStreaming) await ctx.db.delete(startupStreaming._id);
+    await clearSandboxStartupActivity(
+      ctx.db,
+      `session-startup-${args.sessionId}`,
+    );
 
     // The "Sandbox stopped" / "Failed to stop sandbox" divider is inserted by
     // `markSandboxClosed` once Daytona's stop call settles, so the divider

@@ -1,5 +1,15 @@
 # Changelog
 
+## Deduplicate sandbox start/resume mechanics across entity flows - 2026-07-09
+
+- Extracted `resolveReusableVercelSandboxId`, `seedSandboxStartupActivity`/`clearSandboxStartupActivity`, and `resumeReusedSandbox` so the Vercel-id fallback, startup streaming seed/clear, and reuse ordering live in one place instead of being copy-pasted across the session, task, and project sandbox flows.
+- Reason for change: the resume ordering fix (start docker after early-ready) had to be applied in four separate sites; centralising the mechanics stops the next fix landing in one path but not the others.
+
+## Reissue Vercel stop while session remains running - 2026-07-09
+
+- Stop confirmation now actively reissues Vercel stop against the latest session id when a sandbox keeps reporting `running`, instead of passively waiting until timeout.
+- Reason for change: concurrent multi-session stops could leave one sandbox running for 180s despite an initial stop request; reissuing stop confirmed `coral-novel-pig-9y4qKG` stopped.
+
 ## Stop by session id; never mark closed on failed stop - 2026-07-09
 
 - When `get(resume:false)` has no attached session but listSessions still shows `running`, stop via Vercel session-id API instead of waiting (old path never called stop, timed out at 60s, then Eva marked closed while Vercel stayed running).

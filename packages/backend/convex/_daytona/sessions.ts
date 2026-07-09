@@ -154,6 +154,50 @@ async function checkoutSessionBranchWithRetry(
   }
 }
 
+/**
+ * Shared resume ordering for reused sandboxes across session/task/project
+ * reuse flows. Owns the drift-prone sequence so a fix lands in one place, not
+ * four: wait for the VM (skipping docker + the ~14s post-resume exec probe),
+ * unlock the UI via `onEarlyReady` as soon as it reports running, then start
+ * docker, self-heal the git credential helper, and check out the branch.
+ *
+ * Callers supply the entity-specific progress message (`onRestoring`) and
+ * early-ready mutation (`onEarlyReady`); the operational ordering lives here.
+ */
+async function resumeReusedSandbox(
+  ctx: GenericActionCtx<DataModel>,
+  handle: SandboxHandle,
+  opts: {
+    installationId: number;
+    branchName: string;
+    baseBranch: string;
+    onRestoring: () => Promise<void>;
+    onEarlyReady: () => Promise<void>;
+  },
+): Promise<void> {
+  await ensureSandboxRunning(handle, {
+    timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+    skipDocker: true,
+    // Skip the ~14s post-resume exec probe: start() already verified the
+    // session reports running, and the git steps right after early-ready
+    // surface any real failure.
+    skipExecProbe: true,
+    onRestoring: opts.onRestoring,
+  });
+  // Unlock chat/tabs as soon as the VM is up — docker/git/services continue.
+  await opts.onEarlyReady();
+  await ensureDockerDaemon(handle);
+  // Self-heal: rotate the per-sandbox secret + reinstall the helper every
+  // resume so in-sandbox `git pull` and any subsequent fetch authenticate
+  // without relying on a stale URL-embedded token.
+  await ensureGitCredentialHelper(ctx, handle, opts.installationId);
+  await checkoutSessionBranchWithRetry(
+    handle,
+    opts.branchName,
+    opts.baseBranch,
+  );
+}
+
 /** Syncs remote refs for session restore, falling back to base branch if session branch is missing. */
 async function syncSessionRefsForRestore(
   sandbox: SandboxHandle,
@@ -588,18 +632,14 @@ async function prepareSessionSandboxInternal(
           reuseId,
           async (handle) => {
             const sandboxDetails = `${actionDetails}, sandboxId=${handle.id}`;
-            let reuseEarlyReadyEmitted = false;
             await runLoggedSessionStep(
               "reuseSessionSandbox.prepare",
               sandboxDetails,
-              async () => {
-                await ensureSandboxRunning(handle, {
-                  timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-                  skipDocker: true,
-                  // Skip the ~14s post-resume exec probe: start() already
-                  // verified the session reports running, and the git/services
-                  // steps right after early-ready surface any real failure.
-                  skipExecProbe: true,
+              () =>
+                resumeReusedSandbox(ctx, handle, {
+                  installationId: args.installationId,
+                  branchName: args.branchName,
+                  baseBranch: args.baseBranch,
                   onRestoring: () =>
                     emitSessionProgress(
                       ctx,
@@ -608,31 +648,17 @@ async function prepareSessionSandboxInternal(
                       // Vercel resume is snapshot wake, not Daytona cold storage.
                       "Resuming sandbox...",
                     ),
-                });
-                // Unlock chat/tabs as soon as the VM is up — docker/git/services continue.
-                if (!reuseEarlyReadyEmitted) {
-                  reuseEarlyReadyEmitted = true;
-                  await ctx.runMutation(internal.sessions.sandboxReady, {
-                    sessionId: args.sessionId,
-                    sandboxId: handle.id,
-                    vercelSandboxId: handle.id,
-                    branchName: args.branchName,
-                    isNew: false,
-                    usedSnapshot: false,
-                  });
-                }
-                await ensureDockerDaemon(handle);
-                await ensureGitCredentialHelper(
-                  ctx,
-                  handle,
-                  args.installationId,
-                );
-                await checkoutSessionBranchWithRetry(
-                  handle,
-                  args.branchName,
-                  args.baseBranch,
-                );
-              },
+                  onEarlyReady: async () => {
+                    await ctx.runMutation(internal.sessions.sandboxReady, {
+                      sessionId: args.sessionId,
+                      sandboxId: handle.id,
+                      vercelSandboxId: handle.id,
+                      branchName: args.branchName,
+                      isNew: false,
+                      usedSnapshot: false,
+                    });
+                  },
+                }),
             );
             await runLoggedSessionStep(
               "reuseSessionSandbox.setupBranch",
@@ -737,17 +763,15 @@ async function prepareSessionSandboxInternal(
               reuseId,
               async (sandbox) => {
                 const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
-                let reuseEarlyReadyEmitted = false;
+                const handle = wrapDaytonaSandbox(sandbox);
                 await runLoggedSessionStep(
                   "reuseSessionSandbox.prepare",
                   sandboxDetails,
-                  async () => {
-                    await ensureSandboxRunning(wrapDaytonaSandbox(sandbox), {
-                      timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-                      skipDocker: true,
-                      // Same rationale as the vercel reuse path: the git steps
-                      // right after early-ready surface any exec failure.
-                      skipExecProbe: true,
+                  () =>
+                    resumeReusedSandbox(ctx, handle, {
+                      installationId: args.installationId,
+                      branchName: args.branchName,
+                      baseBranch: args.baseBranch,
                       onRestoring: () =>
                         emitSessionProgress(
                           ctx,
@@ -755,33 +779,16 @@ async function prepareSessionSandboxInternal(
                           completedSteps,
                           "Restoring sandbox from cold storage (can take up to 10 minutes)...",
                         ),
-                    });
-                    // Unlock chat/tabs as soon as the VM is up — docker/git/services continue.
-                    if (!reuseEarlyReadyEmitted) {
-                      reuseEarlyReadyEmitted = true;
-                      await ctx.runMutation(internal.sessions.sandboxReady, {
-                        sessionId: args.sessionId,
-                        sandboxId: sandbox.id,
-                        branchName: args.branchName,
-                        isNew: false,
-                        usedSnapshot: false,
-                      });
-                    }
-                    await ensureDockerDaemon(wrapDaytonaSandbox(sandbox));
-                    // Self-heal: rotate the per-sandbox secret + reinstall the helper
-                    // every resume so in-sandbox `git pull` and any subsequent fetch
-                    // authenticate without relying on a stale URL-embedded token.
-                    await ensureGitCredentialHelper(
-                      ctx,
-                      wrapDaytonaSandbox(sandbox),
-                      args.installationId,
-                    );
-                    await checkoutSessionBranchWithRetry(
-                      wrapDaytonaSandbox(sandbox),
-                      args.branchName,
-                      args.baseBranch,
-                    );
-                  },
+                      onEarlyReady: async () => {
+                        await ctx.runMutation(internal.sessions.sandboxReady, {
+                          sessionId: args.sessionId,
+                          sandboxId: sandbox.id,
+                          branchName: args.branchName,
+                          isNew: false,
+                          usedSnapshot: false,
+                        });
+                      },
+                    }),
                 );
                 await runLoggedSessionStep(
                   "reuseSessionSandbox.setupBranch",
@@ -1630,43 +1637,29 @@ async function prepareTaskPreviewSandboxInternal(
       completedSteps,
       "Resuming existing sandbox...",
     );
-    await runLoggedSessionStep(
-      "reuseTaskSandbox.prepare",
-      sandboxDetails,
-      async () => {
-        await ensureSandboxRunning(handle, {
-          timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-          skipDocker: true,
-          // Skip the post-resume exec probe (see session reuse path).
-          skipExecProbe: true,
-          onRestoring: () =>
-            emitTaskProgress(
-              ctx,
-              args.taskId,
-              completedSteps,
-              client.kind === "vercel"
-                ? "Resuming sandbox..."
-                : "Restoring sandbox from cold storage (can take up to 10 minutes)...",
-            ),
-        });
-        // Unlock UI as soon as the VM is up — docker/git/services continue.
-        await ctx.runMutation(internal.agentTasks.taskSandboxReady, {
-          taskId: args.taskId,
-          sandboxId: handle.id,
-          vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
-          isNew: false,
-        });
-        await ensureDockerDaemon(handle);
-        // Self-heal: rotate the per-sandbox secret + reinstall the
-        // helper every resume so in-sandbox `git pull` and any
-        // subsequent fetch authenticate without a stale URL token.
-        await ensureGitCredentialHelper(ctx, handle, args.installationId);
-        await checkoutSessionBranchWithRetry(
-          handle,
-          args.branchName,
-          args.baseBranch,
-        );
-      },
+    await runLoggedSessionStep("reuseTaskSandbox.prepare", sandboxDetails, () =>
+      resumeReusedSandbox(ctx, handle, {
+        installationId: args.installationId,
+        branchName: args.branchName,
+        baseBranch: args.baseBranch,
+        onRestoring: () =>
+          emitTaskProgress(
+            ctx,
+            args.taskId,
+            completedSteps,
+            client.kind === "vercel"
+              ? "Resuming sandbox..."
+              : "Restoring sandbox from cold storage (can take up to 10 minutes)...",
+          ),
+        onEarlyReady: async () => {
+          await ctx.runMutation(internal.agentTasks.taskSandboxReady, {
+            taskId: args.taskId,
+            sandboxId: handle.id,
+            vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+            isNew: false,
+          });
+        },
+      }),
     );
     completedSteps.push({
       type: "tool",
@@ -2139,12 +2132,11 @@ async function prepareProjectPreviewSandboxInternal(
     await runLoggedSessionStep(
       "reuseProjectSandbox.prepare",
       sandboxDetails,
-      async () => {
-        await ensureSandboxRunning(handle, {
-          timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-          skipDocker: true,
-          // Skip the post-resume exec probe (see session reuse path).
-          skipExecProbe: true,
+      () =>
+        resumeReusedSandbox(ctx, handle, {
+          installationId: args.installationId,
+          branchName: args.branchName,
+          baseBranch: args.baseBranch,
           onRestoring: () =>
             emitProjectProgress(
               ctx,
@@ -2154,25 +2146,15 @@ async function prepareProjectPreviewSandboxInternal(
                 ? "Resuming sandbox..."
                 : "Restoring sandbox from cold storage (can take up to 10 minutes)...",
             ),
-        });
-        // Unlock UI as soon as the VM is up — docker/git/services continue.
-        await ctx.runMutation(internal.projects.projectSandboxReady, {
-          projectId: args.projectId,
-          sandboxId: handle.id,
-          vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
-          isNew: false,
-        });
-        await ensureDockerDaemon(handle);
-        // Self-heal: rotate the per-sandbox secret + reinstall the
-        // helper every resume so in-sandbox `git pull` and any
-        // subsequent fetch authenticate without a stale URL token.
-        await ensureGitCredentialHelper(ctx, handle, args.installationId);
-        await checkoutSessionBranchWithRetry(
-          handle,
-          args.branchName,
-          args.baseBranch,
-        );
-      },
+          onEarlyReady: async () => {
+            await ctx.runMutation(internal.projects.projectSandboxReady, {
+              projectId: args.projectId,
+              sandboxId: handle.id,
+              vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+              isNew: false,
+            });
+          },
+        }),
     );
     completedSteps.push({
       type: "tool",

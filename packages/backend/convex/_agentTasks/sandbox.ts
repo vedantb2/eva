@@ -4,6 +4,11 @@ import { internalAction, internalMutation } from "../_generated/server";
 import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
 import { resolveTaskWorkflowBaseBranchForTask } from "../_taskWorkflow/resolveBaseBranch";
+import { resolveReusableVercelSandboxId } from "../_sandbox/resolveExistingSandboxId";
+import {
+  seedSandboxStartupActivity,
+  clearSandboxStartupActivity,
+} from "../_sandbox/startupActivity";
 
 const PREVIEW_ALLOWED_STATUSES = [
   "code_review",
@@ -62,36 +67,11 @@ export const startTaskSandbox = authMutation({
     });
     // Seed startup streaming immediately so the UI shows a real step instead of
     // the random "Eva is inferring…" spinner while the workflow schedules.
-    const startupEntityId = `task-sandbox-startup-${args.taskId}`;
-    const startupActivity = JSON.stringify([
-      { type: "tool", label: "Starting sandbox...", status: "active" },
-    ]);
-    const existingStreaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", startupEntityId))
-      .first();
-    if (existingStreaming) {
-      await ctx.db.patch(existingStreaming._id, {
-        currentActivity: startupActivity,
-        currentContent: "",
-        lastUpdatedAt: Date.now(),
-      });
-    } else {
-      await ctx.db.insert("streamingActivity", {
-        entityId: startupEntityId,
-        currentActivity: startupActivity,
-        currentContent: "",
-        lastUpdatedAt: Date.now(),
-      });
-    }
-    const looksLikeDaytonaUuid =
-      typeof task.sandboxId === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        task.sandboxId,
-      );
-    const vercelSandboxId =
-      task.vercelSandboxId ??
-      (task.sandboxId && !looksLikeDaytonaUuid ? task.sandboxId : undefined);
+    await seedSandboxStartupActivity(
+      ctx.db,
+      `task-sandbox-startup-${args.taskId}`,
+    );
+    const vercelSandboxId = resolveReusableVercelSandboxId(task);
     console.log(
       `[tasks] startTaskSandbox taskId=${args.taskId} existingSandboxId=${task.sandboxId ?? "none"} vercelSandboxId=${vercelSandboxId ?? "none"}`,
     );
@@ -345,12 +325,10 @@ export const stopTaskSandbox = authMutation({
     );
 
     // Clear leftover start steps so stop does not re-show startup activity.
-    const startupEntityId = `task-sandbox-startup-${args.taskId}`;
-    const startupStreaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", startupEntityId))
-      .first();
-    if (startupStreaming) await ctx.db.delete(startupStreaming._id);
+    await clearSandboxStartupActivity(
+      ctx.db,
+      `task-sandbox-startup-${args.taskId}`,
+    );
 
     // Keep sandboxId so we can resume the stopped sandbox later.
     await ctx.db.patch(args.taskId, {

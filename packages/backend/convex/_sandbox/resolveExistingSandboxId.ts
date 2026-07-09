@@ -29,3 +29,24 @@ export function preferPersistedSandboxId(args: {
 }): string | undefined {
   return args.vercelSandboxId ?? args.sandboxId;
 }
+
+const DAYTONA_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolves the reusable Vercel sandbox id from a persisted entity's fields for a
+ * start/resume flow. Prefers `vercelSandboxId`; falls back to `sandboxId` when it
+ * is a Vercel name (not a Daytona UUID). A missing `vercelSandboxId` used to skip
+ * reuse and create a second sandbox while still logging the old `sandboxId`.
+ */
+export function resolveReusableVercelSandboxId(args: {
+  sandboxId?: string;
+  vercelSandboxId?: string;
+}): string | undefined {
+  const looksLikeDaytonaUuid =
+    typeof args.sandboxId === "string" && DAYTONA_UUID.test(args.sandboxId);
+  return (
+    args.vercelSandboxId ??
+    (args.sandboxId && !looksLikeDaytonaUuid ? args.sandboxId : undefined)
+  );
+}

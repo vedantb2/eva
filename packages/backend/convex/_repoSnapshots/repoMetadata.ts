@@ -42,6 +42,8 @@ export const getRepo = internalQuery({
       owner: v.string(),
       name: v.string(),
       installationId: v.number(),
+      stopCommands: v.optional(v.array(v.string())),
+      seededSnapshotName: v.optional(v.string()),
     }),
     v.null(),
   ),
@@ -52,6 +54,8 @@ export const getRepo = internalQuery({
       owner: repo.owner,
       name: repo.name,
       installationId: repo.installationId,
+      stopCommands: repo.stopCommands,
+      seededSnapshotName: repo.seededSnapshotName,
     };
   },
 });

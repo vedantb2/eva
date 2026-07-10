@@ -11,7 +11,6 @@ import {
   QueueItem,
   QueueItemAction,
   QueueItemActions,
-  QueueItemContent,
   QueueItemIndicator,
   QueueList,
   QueueSection,
@@ -24,6 +23,7 @@ import {
   TooltipTrigger,
 } from "@conductor/ui";
 import { IconInfoCircle, IconPencil, IconTrash } from "@tabler/icons-react";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
 interface QueuedMessageItem {
   id: Id<"queuedMessages">;
@@ -81,11 +81,11 @@ export function QueuedMessagesPanel({
                 <QueueItem key={item.id}>
                   <div className="flex items-start gap-2">
                     <QueueItemIndicator />
-                    <QueueItemContent>
+                    <MarqueeOnHover className="min-w-0 grow text-xs text-muted-foreground">
                       {renderContent
                         ? renderContent(item.content)
                         : item.content}
-                    </QueueItemContent>
+                    </MarqueeOnHover>
                     <QueueItemActions>
                       {item.info ? (
                         <Tooltip>

@@ -466,9 +466,10 @@ export function ChatBody({
             items={queuedMessageItems}
             renderContent={(content) => (
               <MessageMentionText
+                as="span"
                 text={content}
                 repoBasePath={repoBasePath}
-                className="truncate text-xs"
+                className="text-xs"
               />
             )}
             onEdit={async (id, content) => {

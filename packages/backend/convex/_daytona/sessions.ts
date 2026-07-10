@@ -155,14 +155,45 @@ async function checkoutSessionBranchWithRetry(
 }
 
 /**
+ * Thrown by a resume/start when the user has requested a stop mid-flight. The
+ * start action catches it, ensures the (possibly woken) VM is stopped, and
+ * defers the terminal status to the stop flow — so a Stop that races a Start
+ * never leaves a live orphan VM, a stuck `stopping` row, or a false
+ * "Sandbox Error" for what was really a stop.
+ */
+class SandboxStartAbortedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SandboxStartAbortedError";
+  }
+}
+
+/** True once the user has requested this session stop/close (Stop clicked). */
+async function sessionStopRequested(
+  ctx: GenericActionCtx<DataModel>,
+  sessionId: Id<"sessions">,
+): Promise<boolean> {
+  const session = await ctx.runQuery(internal.sessions.getInternal, {
+    id: sessionId,
+  });
+  return (
+    !session || session.status === "stopping" || session.status === "closed"
+  );
+}
+
+/**
  * Shared resume ordering for reused sandboxes across session/task/project
  * reuse flows. Owns the drift-prone sequence so a fix lands in one place, not
  * four: wait for the VM (skipping docker + the ~14s post-resume exec probe),
  * unlock the UI via `onEarlyReady` as soon as it reports running, then start
  * docker, self-heal the git credential helper, and check out the branch.
  *
- * Callers supply the entity-specific progress message (`onRestoring`) and
- * early-ready mutation (`onEarlyReady`); the operational ordering lives here.
+ * Callers supply the entity-specific progress message (`onRestoring`), the
+ * early-ready mutation (`onEarlyReady`), and a `shouldAbort` predicate that
+ * reports the user's stop intent. `shouldAbort` is polled before waking the VM
+ * and before each post-wake exec, so a Stop that races this resume aborts
+ * (throwing {@link SandboxStartAbortedError}) instead of running commands
+ * against a stopping sandbox (which 422s) or resurrecting a stopped one.
  */
 async function resumeReusedSandbox(
   ctx: GenericActionCtx<DataModel>,
@@ -173,8 +204,18 @@ async function resumeReusedSandbox(
     baseBranch: string;
     onRestoring: () => Promise<void>;
     onEarlyReady: () => Promise<void>;
+    shouldAbort?: () => Promise<boolean>;
   },
 ): Promise<void> {
+  const abortIfStopRequested = async (): Promise<void> => {
+    if (opts.shouldAbort && (await opts.shouldAbort())) {
+      throw new SandboxStartAbortedError(
+        `resume aborted: stop requested for sandbox ${handle.id}`,
+      );
+    }
+  };
+  // Don't wake a VM the user has already asked to stop.
+  await abortIfStopRequested();
   await ensureSandboxRunning(handle, {
     timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
     skipDocker: true,
@@ -184,9 +225,13 @@ async function resumeReusedSandbox(
     skipExecProbe: true,
     onRestoring: opts.onRestoring,
   });
+  // A Stop may have landed while start() was waking the VM — bail before the
+  // exec steps rather than run commands against a now-stopping sandbox.
+  await abortIfStopRequested();
   // Unlock chat/tabs as soon as the VM is up — docker/git/services continue.
   await opts.onEarlyReady();
   await ensureDockerDaemon(handle);
+  await abortIfStopRequested();
   // Self-heal: rotate the per-sandbox secret + reinstall the helper every
   // resume so in-sandbox `git pull` and any subsequent fetch authenticate
   // without relying on a stale URL-embedded token.
@@ -658,6 +703,7 @@ async function prepareSessionSandboxInternal(
                       usedSnapshot: false,
                     });
                   },
+                  shouldAbort: () => sessionStopRequested(ctx, args.sessionId),
                 }),
             );
             await runLoggedSessionStep(
@@ -788,6 +834,8 @@ async function prepareSessionSandboxInternal(
                           usedSnapshot: false,
                         });
                       },
+                      shouldAbort: () =>
+                        sessionStopRequested(ctx, args.sessionId),
                     }),
                 );
                 await runLoggedSessionStep(
@@ -1299,13 +1347,36 @@ export const startSessionSandbox = internalAction({
         `startSessionSandbox completed in ${formatDurationMsShort(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
     } catch (e) {
+      const stopId = args.vercelSandboxId ?? args.existingSandboxId;
+      // A Stop that raced this Start. The resume may have briefly woken the VM,
+      // so still stop it (idempotent with finalizeStopSandbox), but leave the
+      // session status to the stop flow's markSandboxClosed — do NOT mark a
+      // start error, or Eva shows a false "Sandbox Error" and the row can stick
+      // in `stopping` while the two paths fight over status.
+      if (e instanceof SandboxStartAbortedError) {
+        console.log(
+          `[daytona][sessions] startSessionSandbox aborted by stop sessionId=${args.sessionId}: ${e.message}`,
+        );
+        if (args.repoId && stopId) {
+          try {
+            await ctx.runAction(internal.daytona.stopSandbox, {
+              sandboxId: stopId,
+              repoId: args.repoId,
+            });
+          } catch (stopErr) {
+            console.log(
+              `[daytona][sessions] stop after aborted start failed for ${stopId}: ${errorMessage(stopErr, "stop failed")}`,
+            );
+          }
+        }
+        return null;
+      }
       console.error(
         `[daytona][sessions] startSessionSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );
       // Early-ready may have already marked the session active while the VM is
       // still running. Stop the provider sandbox so UI "closed" matches reality
       // and a later Start can resume cleanly instead of fighting a live orphan.
-      const stopId = args.vercelSandboxId ?? args.existingSandboxId;
       if (args.repoId && stopId) {
         try {
           await ctx.runAction(internal.daytona.stopSandbox, {

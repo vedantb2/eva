@@ -31,6 +31,7 @@ export function BuildRow({
     status: "running" | "success" | "error";
     triggeredBy: "cron" | "manual";
     kind?: "base" | "seeded";
+    provider: "vercel" | "daytona";
     logs: string;
     error?: string;
     startedAt: number;
@@ -62,6 +63,9 @@ export function BuildRow({
         <td className="px-2 py-2 sm:px-4">{duration}</td>
         <td className="px-2 py-2 capitalize sm:px-4">{build.triggeredBy}</td>
         <td className="px-2 py-2 sm:px-4">
+          <ProviderBadge provider={build.provider} />
+        </td>
+        <td className="px-2 py-2 sm:px-4">
           <BuildKindBadge kind={build.kind} />
         </td>
         <td className="px-2 py-2 sm:px-4">
@@ -73,7 +77,7 @@ export function BuildRow({
       </tr>
       {isExpanded && (
         <tr>
-          <td colSpan={7} className="px-4 py-3">
+          <td colSpan={8} className="px-4 py-3">
             {build.error && (
               <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {build.error}
@@ -157,6 +161,27 @@ export function BuildStatusBadge({
       <IconX size={12} />
       Error
     </span>
+  );
+}
+
+/** Sandbox provider badge with tooltip: Vercel or Daytona. */
+function ProviderBadge({ provider }: { provider: "vercel" | "daytona" }) {
+  const isVercel = provider === "vercel";
+  return (
+    <div className="group relative inline-flex">
+      <span
+        className={`inline-flex items-center gap-1 rounded-surface border px-2 py-0.5 text-[11px] font-medium ${
+          isVercel
+            ? "border-blue-500/30 bg-blue-500/10 text-blue-600"
+            : "border-border bg-muted text-muted-foreground"
+        }`}
+      >
+        {isVercel ? "▲" : "⬤"} {isVercel ? "Vercel" : "Daytona"}
+      </span>
+      <div className="absolute bottom-full mb-1 hidden whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] text-background group-hover:block">
+        {isVercel ? "Vercel sandbox provider" : "Daytona sandbox provider"}
+      </div>
+    </div>
   );
 }
 

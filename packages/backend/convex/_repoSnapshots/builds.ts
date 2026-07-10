@@ -78,6 +78,7 @@ export const listBuilds = authQuery({
       status: snapshotBuildStatusValidator,
       triggeredBy: snapshotBuildTriggerValidator,
       kind: v.optional(snapshotBuildKindValidator),
+      provider: v.union(v.literal("vercel"), v.literal("daytona")),
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),
@@ -88,6 +89,36 @@ export const listBuilds = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    const config = await ctx.db.get(args.repoSnapshotId);
+    let provider: "vercel" | "daytona" = "daytona";
+    if (config) {
+      const repo = await ctx.db.get(config.repoId);
+      if (repo && repo.teamId) {
+        const teamVarsDocs = await ctx.db
+          .query("teamEnvVars")
+          .withIndex("by_team", (q) => q.eq("teamId", repo.teamId!))
+          .collect();
+        const teamVar = teamVarsDocs
+          .flatMap((doc) => doc.vars)
+          .find((v) => v.key === "SANDBOX_PROVIDER");
+        if (teamVar?.value === "vercel") {
+          provider = "vercel";
+        }
+      }
+      const repoVarsDocs = await ctx.db
+        .query("repoEnvVars")
+        .withIndex("by_repo", (q) => q.eq("repoId", config.repoId))
+        .collect();
+      const repoVar = repoVarsDocs
+        .flatMap((doc) => doc.vars)
+        .find((v) => v.key === "SANDBOX_PROVIDER");
+      if (repoVar?.value === "vercel") {
+        provider = "vercel";
+      } else if (repoVar) {
+        provider = "daytona";
+      }
+    }
+
     const builds = await ctx.db
       .query("snapshotBuilds")
       .withIndex("by_repo_snapshot", (q) =>
@@ -95,7 +126,10 @@ export const listBuilds = authQuery({
       )
       .order("desc")
       .take(20);
-    return builds.map((build) => sanitizeBuildForReturn(build));
+    return builds.map((build) => ({
+      ...sanitizeBuildForReturn(build),
+      provider,
+    }));
   },
 });
 
@@ -110,6 +144,7 @@ export const getBuild = authQuery({
       status: snapshotBuildStatusValidator,
       triggeredBy: snapshotBuildTriggerValidator,
       kind: v.optional(snapshotBuildKindValidator),
+      provider: v.union(v.literal("vercel"), v.literal("daytona")),
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),
@@ -125,7 +160,39 @@ export const getBuild = authQuery({
     if (!build) {
       return null;
     }
-    return sanitizeBuildForReturn(build);
+    const config = await ctx.db.get(build.repoSnapshotId);
+    let provider: "vercel" | "daytona" = "daytona";
+    if (config) {
+      const repo = await ctx.db.get(config.repoId);
+      if (repo && repo.teamId) {
+        const teamVarsDocs = await ctx.db
+          .query("teamEnvVars")
+          .withIndex("by_team", (q) => q.eq("teamId", repo.teamId!))
+          .collect();
+        const teamVar = teamVarsDocs
+          .flatMap((doc) => doc.vars)
+          .find((v) => v.key === "SANDBOX_PROVIDER");
+        if (teamVar?.value === "vercel") {
+          provider = "vercel";
+        }
+      }
+      const repoVarsDocs = await ctx.db
+        .query("repoEnvVars")
+        .withIndex("by_repo", (q) => q.eq("repoId", config.repoId))
+        .collect();
+      const repoVar = repoVarsDocs
+        .flatMap((doc) => doc.vars)
+        .find((v) => v.key === "SANDBOX_PROVIDER");
+      if (repoVar?.value === "vercel") {
+        provider = "vercel";
+      } else if (repoVar) {
+        provider = "daytona";
+      }
+    }
+    return {
+      ...sanitizeBuildForReturn(build),
+      provider,
+    };
   },
 });
 

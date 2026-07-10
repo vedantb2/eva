@@ -32,6 +32,13 @@ export interface ResolvedOwner {
   setDefaultPtyId: ((nextPtyId: string) => Promise<void>) | undefined;
   /** Stable suffix used to derive the legacy default PTY name when missing. */
   ownerIdSuffix: string;
+  /**
+   * True when the owner is `stopping`/`closed`. A terminal connect must not
+   * exec on the sandbox in this state — on Vercel any exec lazily resumes a
+   * stopped VM (SDK withResume), which resurrects a sandbox the user stopped
+   * (invisible to the session status) and defeats a manual stop.
+   */
+  isStoppingOrClosed: boolean;
 }
 
 export async function resolveOwner(
@@ -58,6 +65,8 @@ export async function resolveOwner(
         });
       },
       ownerIdSuffix: String(owner.sessionId).slice(-8),
+      isStoppingOrClosed:
+        session.status === "stopping" || session.status === "closed",
     };
   }
 
@@ -74,6 +83,9 @@ export async function resolveOwner(
       defaultPtyId: undefined,
       setDefaultPtyId: undefined,
       ownerIdSuffix: String(owner.taskId).slice(-8),
+      isStoppingOrClosed:
+        task.reviewTaskSandboxStatus === "stopping" ||
+        task.reviewTaskSandboxStatus === "closed",
     };
   }
 
@@ -88,5 +100,8 @@ export async function resolveOwner(
     defaultPtyId: undefined,
     setDefaultPtyId: undefined,
     ownerIdSuffix: String(owner.projectId).slice(-8),
+    isStoppingOrClosed:
+      project.reviewProjectSandboxStatus === "stopping" ||
+      project.reviewProjectSandboxStatus === "closed",
   };
 }

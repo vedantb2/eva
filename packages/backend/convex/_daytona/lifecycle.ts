@@ -8,7 +8,12 @@ import {
   getSandboxHandle,
   KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
-import { resolveSandboxCredentials } from "../envVarResolver";
+import {
+  resolveSandboxCredentials,
+  resolveSandboxCredentialsOnly,
+  resolveSandboxProviderKind,
+} from "../envVarResolver";
+import { getSandboxClient } from "../_sandbox/factory";
 
 /**
  * Short wait window for the start kick-off. A stopped→started fast resume
@@ -162,7 +167,7 @@ export const killSandboxProcess = internalAction({
   },
 });
 
-/** Stops a Daytona sandbox (preserves state, fast resume). Silently ignores already-stopped sandboxes. */
+/** Stops a Daytona/Vercel sandbox (preserves state, fast resume). */
 export const stopSandbox = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.null(),
@@ -170,8 +175,26 @@ export const stopSandbox = internalAction({
     try {
       const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       await sandbox.stop();
-    } catch {
-      // Sandbox may already be stopped, archived, or deleted
+      console.log(`[daytona] stopSandbox ok sandboxId=${args.sandboxId}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // Already gone / already idle — treat as success so finalize can close.
+      const benign =
+        /already.?stopped|not found|does not exist|no active session|destroyed|gone/i.test(
+          message,
+        ) && !/did not reach a terminal stopped state/i.test(message);
+      if (benign) {
+        console.log(
+          `[daytona] stopSandbox ignored benign error for ${args.sandboxId}: ${message}`,
+        );
+        return null;
+      }
+      // Real stop failures must propagate — swallowing them made Eva mark the
+      // session closed while Vercel still showed running.
+      console.error(
+        `[daytona] stopSandbox failed for ${args.sandboxId}: ${message}`,
+      );
+      throw error instanceof Error ? error : new Error(message);
     }
     return null;
   },
@@ -306,8 +329,9 @@ export const getSandboxProviderKind = internalAction({
   args: { repoId: v.id("githubRepos") },
   returns: v.union(v.literal("daytona"), v.literal("vercel")),
   handler: async (ctx, args) => {
-    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
-    return credentials.kind;
+    // Do not call resolveSandboxCredentials here — that decrypts the full env
+    // map and was the multi-second gap before kickoff on resume.
+    return resolveSandboxProviderKind(ctx, args.repoId);
   },
 });
 
@@ -318,11 +342,25 @@ export const startSandboxAsyncKickoff = internalAction({
     provider: v.union(v.literal("daytona"), v.literal("vercel")),
   }),
   handler: async (ctx, args) => {
-    const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
-    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    const kickoffStartedAt = Date.now();
+    const credentials = await resolveSandboxCredentialsOnly(ctx, args.repoId);
+    const sandbox = await getSandboxClient(credentials).get(args.sandboxId);
     await sandbox.refresh();
     if (sandbox.state === "running") {
+      console.log(
+        `[daytona] startSandboxAsyncKickoff: sandbox ${args.sandboxId} already running (elapsed=${Date.now() - kickoffStartedAt}ms)`,
+      );
       return { state: "running", provider: credentials.kind };
+    }
+    // Vercel resumes on the first exec inside ensureSandboxRunning (with
+    // progress UI). Waiting here blocks the workflow step for the full restore
+    // (~10–30s) with no streaming activity — measured ~17s on carepulse resume.
+    if (credentials.kind === "vercel") {
+      const state: string = sandbox.state;
+      console.log(
+        `[daytona] startSandboxAsyncKickoff: vercel sandbox ${args.sandboxId} state=${state} (defer resume to ensureSandboxRunning, elapsed=${Date.now() - kickoffStartedAt}ms)`,
+      );
+      return { state, provider: "vercel" as const };
     }
     try {
       // start() POSTs the start request, then waits up to the given window. The
@@ -342,7 +380,7 @@ export const startSandboxAsyncKickoff = internalAction({
       );
     }
     console.log(
-      `[daytona] startSandboxAsyncKickoff: sandbox ${args.sandboxId} state after kick-off = ${state}`,
+      `[daytona] startSandboxAsyncKickoff: sandbox ${args.sandboxId} state after kick-off = ${state} (elapsed=${Date.now() - kickoffStartedAt}ms)`,
     );
     return { state, provider: credentials.kind };
   },

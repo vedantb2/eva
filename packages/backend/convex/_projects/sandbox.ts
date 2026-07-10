@@ -5,6 +5,11 @@ import { authMutation, getProjectWithAccess, hasActiveRun } from "../functions";
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { buildProjectBranchName } from "./helpers";
+import { resolveReusableVercelSandboxId } from "../_sandbox/resolveExistingSandboxId";
+import {
+  seedSandboxStartupActivity,
+  clearSandboxStartupActivity,
+} from "../_sandbox/startupActivity";
 
 const PREVIEW_ALLOWED_PHASES = [
   "in_progress",
@@ -46,22 +51,42 @@ export const startProjectSandbox = authMutation({
     await ctx.db.patch(args.projectId, {
       reviewProjectSandboxStatus: "starting",
     });
-
-    await workflow.start(
-      ctx,
-      internal.projectSandboxWorkflow.projectPreviewSandboxStartupWorkflow,
-      {
-        projectId: args.projectId,
-        existingSandboxId: project.sandboxId,
-        vercelSandboxId: project.vercelSandboxId,
-        installationId: repo.installationId,
-        repoOwner: repo.owner,
-        repoName: repo.name,
-        branchName,
-        baseBranch,
-        repoId: project.repoId,
-      },
+    // Seed startup streaming immediately so the UI shows a real step instead of
+    // the random "Eva is inferring…" spinner while the workflow schedules.
+    await seedSandboxStartupActivity(
+      ctx.db,
+      `project-sandbox-startup-${args.projectId}`,
     );
+    const vercelSandboxId = resolveReusableVercelSandboxId(project);
+    console.log(
+      `[projects] startProjectSandbox projectId=${args.projectId} existingSandboxId=${project.sandboxId ?? "none"} vercelSandboxId=${vercelSandboxId ?? "none"}`,
+    );
+
+    const startArgs = {
+      projectId: args.projectId,
+      existingSandboxId: project.sandboxId,
+      vercelSandboxId: vercelSandboxId ?? project.vercelSandboxId,
+      installationId: repo.installationId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName,
+      baseBranch,
+      repoId: project.repoId,
+    };
+    // Vercel: schedule start action directly (skip ~6s workflow scheduling).
+    if (vercelSandboxId) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.daytona.startProjectPreviewSandbox,
+        startArgs,
+      );
+    } else {
+      await workflow.start(
+        ctx,
+        internal.projectSandboxWorkflow.projectPreviewSandboxStartupWorkflow,
+        startArgs,
+      );
+    }
 
     return null;
   },
@@ -317,6 +342,12 @@ export const stopProjectSandbox = authMutation({
       },
     );
 
+    // Clear leftover start steps so stop does not re-show startup activity.
+    await clearSandboxStartupActivity(
+      ctx.db,
+      `project-sandbox-startup-${args.projectId}`,
+    );
+
     // Keep sandboxId so we can resume the stopped sandbox later.
     await ctx.db.patch(args.projectId, {
       reviewProjectSandboxStatus: "stopping",
@@ -327,9 +358,8 @@ export const stopProjectSandbox = authMutation({
 });
 
 /**
- * Awaits the Daytona stop and finalizes the project sandbox status to `"closed"`.
- * Always flips status, even if Daytona errors — a stuck `"stopping"` state
- * would leave the user unable to Start.
+ * Awaits provider stop and finalizes project sandbox status. Only marks
+ * `"closed"` after a successful stop — on failure reverts to `"active"`.
  */
 export const finalizeStopProjectSandbox = internalAction({
   args: {
@@ -357,8 +387,8 @@ export const finalizeStopProjectSandbox = internalAction({
 });
 
 /**
- * Internal: flips project sandbox status from `"stopping"` to `"closed"` after
- * Daytona stop completes, and posts a sandbox stop divider to the chat.
+ * Internal: after stop settles, either close (success) or revert to active
+ * (failure) so Eva never shows off while Vercel is still running.
  */
 export const markProjectSandboxClosed = internalMutation({
   args: {
@@ -371,13 +401,26 @@ export const markProjectSandboxClosed = internalMutation({
     if (!project) return null;
     // Only flip if still stopping — don't overwrite a fresh start.
     if (project.reviewProjectSandboxStatus !== "stopping") return null;
+    if (args.error) {
+      await ctx.db.insert("messages", {
+        parentId: args.projectId,
+        role: "assistant",
+        content: "Failed to stop sandbox",
+        timestamp: Date.now(),
+        isSystemAlert: true,
+        errorDetail: args.error,
+      });
+      await ctx.db.patch(args.projectId, {
+        reviewProjectSandboxStatus: "active",
+      });
+      return null;
+    }
     await ctx.db.insert("messages", {
       parentId: args.projectId,
       role: "assistant",
-      content: args.error ? "Failed to stop sandbox" : "Sandbox stopped",
+      content: "Sandbox stopped",
       timestamp: Date.now(),
       isSystemAlert: true,
-      errorDetail: args.error,
     });
     await ctx.db.patch(args.projectId, {
       reviewProjectSandboxStatus: "closed",
@@ -401,14 +444,31 @@ export const projectSandboxReady = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
 
-    const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
-    await ctx.db.insert("messages", {
-      parentId: args.projectId,
-      role: "assistant",
-      content,
-      timestamp: Date.now(),
-      isSystemAlert: true,
-    });
+    if (
+      project.reviewProjectSandboxStatus === "stopping" ||
+      project.reviewProjectSandboxStatus === "closed"
+    ) {
+      console.log(
+        `[projects] projectSandboxReady ignored projectId=${args.projectId} status=${project.reviewProjectSandboxStatus} sandboxId=${args.sandboxId}`,
+      );
+      return null;
+    }
+
+    // Early-ready (VM up) + final-ready (after services) both call this. Only
+    // emit the system alert once; still patch latest sandbox/dev metadata.
+    const alreadyActive =
+      project.reviewProjectSandboxStatus === "active" &&
+      project.sandboxId === args.sandboxId;
+    if (!alreadyActive) {
+      const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
+      await ctx.db.insert("messages", {
+        parentId: args.projectId,
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+        isSystemAlert: true,
+      });
+    }
     await ctx.db.patch(args.projectId, {
       sandboxId: args.sandboxId,
       ...(args.vercelSandboxId !== undefined
@@ -416,8 +476,8 @@ export const projectSandboxReady = internalMutation({
         : {}),
       reviewProjectSandboxStatus: "active",
       lastSandboxActivity: Date.now(),
-      devPort: args.devPort,
-      devCommand: args.devCommand,
+      ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),
+      ...(args.devCommand !== undefined ? { devCommand: args.devCommand } : {}),
     });
 
     return null;

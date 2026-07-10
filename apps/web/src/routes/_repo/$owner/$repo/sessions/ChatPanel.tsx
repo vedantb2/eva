@@ -107,6 +107,8 @@ interface ChatPanelProps {
   startupStreamingActivity?: string;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
+  /** True while status is stopping / stop mutation in flight — not a start. */
+  isSandboxStopping?: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
   isArchived?: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
@@ -131,6 +133,7 @@ export function ChatPanel({
   startupStreamingActivity,
   isSandboxActive,
   isSandboxToggling,
+  isSandboxStopping = false,
   onSandboxToggle,
   isArchived,
   deploymentStatus,
@@ -351,8 +354,9 @@ export function ChatPanel({
 
   const hasSummary = Boolean(summary && summary.length > 0);
   const showSummaryStreaming = Boolean(summaryStreamingActivity);
+  // Startup steps only while starting — stopping must not reuse start activity.
   const isStartupStreaming =
-    isSandboxToggling && !isSandboxActive && Boolean(startupStreamingActivity);
+    isSandboxToggling && !isSandboxActive && !isSandboxStopping;
 
   const selectedModeOption =
     SESSION_MODE_OPTIONS.find((option) => option.value === mode) ??
@@ -579,9 +583,11 @@ export function ChatPanel({
 
   const emptyStateTitle = isSandboxActive
     ? "No messages yet. Start the conversation!"
-    : isSandboxToggling
-      ? "Starting sandbox..."
-      : "Sandbox is inactive. Start the sandbox to begin chatting.";
+    : isSandboxStopping
+      ? "Stopping sandbox..."
+      : isSandboxToggling
+        ? "Starting sandbox..."
+        : "Sandbox is inactive. Start the sandbox to begin chatting.";
 
   const placeholder = !isSandboxActive
     ? "Start the sandbox to begin chatting..."

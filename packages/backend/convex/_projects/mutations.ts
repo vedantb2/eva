@@ -14,6 +14,7 @@ import {
   softDeleteAgentTask,
 } from "../functions";
 import { allocateNumId } from "../numId";
+import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import {
   getProjectConversation,
   setProjectConversation,
@@ -258,7 +259,10 @@ export const clearProjectSandbox = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    const deleteId = project.vercelSandboxId ?? project.sandboxId;
+    const deleteId = preferPersistedSandboxId({
+      sandboxId: project.sandboxId,
+      vercelSandboxId: project.vercelSandboxId,
+    });
     if (deleteId) {
       await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
         sandboxId: deleteId,

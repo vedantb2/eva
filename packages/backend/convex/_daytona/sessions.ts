@@ -8,8 +8,10 @@ import type { DataModel, Id } from "../_generated/dataModel";
 import {
   execHandle,
   resolveSandboxContext,
+  resolveSandboxClientOnly,
   getDaytona,
   ensureSandboxRunning,
+  ensureDockerDaemon,
   ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
   errorMessage,
   sleep,
@@ -150,6 +152,95 @@ async function checkoutSessionBranchWithRetry(
       await sleep(delayMs);
     }
   }
+}
+
+/**
+ * Thrown by a resume/start when the user has requested a stop mid-flight. The
+ * start action catches it, ensures the (possibly woken) VM is stopped, and
+ * defers the terminal status to the stop flow — so a Stop that races a Start
+ * never leaves a live orphan VM, a stuck `stopping` row, or a false
+ * "Sandbox Error" for what was really a stop.
+ */
+class SandboxStartAbortedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SandboxStartAbortedError";
+  }
+}
+
+/** True once the user has requested this session stop/close (Stop clicked). */
+async function sessionStopRequested(
+  ctx: GenericActionCtx<DataModel>,
+  sessionId: Id<"sessions">,
+): Promise<boolean> {
+  const session = await ctx.runQuery(internal.sessions.getInternal, {
+    id: sessionId,
+  });
+  return (
+    !session || session.status === "stopping" || session.status === "closed"
+  );
+}
+
+/**
+ * Shared resume ordering for reused sandboxes across session/task/project
+ * reuse flows. Owns the drift-prone sequence so a fix lands in one place, not
+ * four: wait for the VM (skipping docker + the ~14s post-resume exec probe),
+ * unlock the UI via `onEarlyReady` as soon as it reports running, then start
+ * docker, self-heal the git credential helper, and check out the branch.
+ *
+ * Callers supply the entity-specific progress message (`onRestoring`), the
+ * early-ready mutation (`onEarlyReady`), and a `shouldAbort` predicate that
+ * reports the user's stop intent. `shouldAbort` is polled before waking the VM
+ * and before each post-wake exec, so a Stop that races this resume aborts
+ * (throwing {@link SandboxStartAbortedError}) instead of running commands
+ * against a stopping sandbox (which 422s) or resurrecting a stopped one.
+ */
+async function resumeReusedSandbox(
+  ctx: GenericActionCtx<DataModel>,
+  handle: SandboxHandle,
+  opts: {
+    installationId: number;
+    branchName: string;
+    baseBranch: string;
+    onRestoring: () => Promise<void>;
+    onEarlyReady: () => Promise<void>;
+    shouldAbort?: () => Promise<boolean>;
+  },
+): Promise<void> {
+  const abortIfStopRequested = async (): Promise<void> => {
+    if (opts.shouldAbort && (await opts.shouldAbort())) {
+      throw new SandboxStartAbortedError(
+        `resume aborted: stop requested for sandbox ${handle.id}`,
+      );
+    }
+  };
+  // Don't wake a VM the user has already asked to stop.
+  await abortIfStopRequested();
+  await ensureSandboxRunning(handle, {
+    timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+    skipDocker: true,
+    // Skip the ~14s post-resume exec probe: start() already verified the
+    // session reports running, and the git steps right after early-ready
+    // surface any real failure.
+    skipExecProbe: true,
+    onRestoring: opts.onRestoring,
+  });
+  // A Stop may have landed while start() was waking the VM — bail before the
+  // exec steps rather than run commands against a now-stopping sandbox.
+  await abortIfStopRequested();
+  // Unlock chat/tabs as soon as the VM is up — docker/git/services continue.
+  await opts.onEarlyReady();
+  await ensureDockerDaemon(handle);
+  await abortIfStopRequested();
+  // Self-heal: rotate the per-sandbox secret + reinstall the helper every
+  // resume so in-sandbox `git pull` and any subsequent fetch authenticate
+  // without relying on a stale URL-embedded token.
+  await ensureGitCredentialHelper(ctx, handle, opts.installationId);
+  await checkoutSessionBranchWithRetry(
+    handle,
+    opts.branchName,
+    opts.baseBranch,
+  );
 }
 
 /** Syncs remote refs for session restore, falling back to base branch if session branch is missing. */
@@ -542,10 +633,12 @@ async function prepareSessionSandboxInternal(
     completedSteps,
     "Resolving sandbox context...",
   );
-  const { client, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
-    "resolveSessionSandboxContext",
+  // Resume path: credentials-only client (no full env decrypt). Full context
+  // (env map + snapshot) loads only if reuse fails and we create.
+  const client = await runLoggedSessionStep(
+    "resolveSessionSandboxClient",
     actionDetails,
-    () => resolveSandboxContext(ctx, args.repoId),
+    () => resolveSandboxClientOnly(ctx, args.repoId),
   );
   // Sandbox reuse and persistence volumes remain Daytona-only; resolve a raw
   // Daytona client lazily (never invoked on the Vercel path) for those paths
@@ -559,7 +652,7 @@ async function prepareSessionSandboxInternal(
     vercelSandboxId: args.vercelSandboxId,
   });
   logSession(
-    `prepareSessionSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
+    `prepareSessionSandbox client resolved (${actionDetails}, rootDir=${rootDir || "."})`,
   );
   completedSteps.push({
     type: "tool",
@@ -579,108 +672,122 @@ async function prepareSessionSandboxInternal(
       "tryReuseSessionSandbox",
       actionDetails,
       () =>
-        tryReuseSandboxHandle(client, reuseId, async (handle) => {
-          const sandboxDetails = `${actionDetails}, sandboxId=${handle.id}`;
-          await runLoggedSessionStep(
-            "reuseSessionSandbox.prepare",
-            sandboxDetails,
-            async () => {
-              await ensureSandboxRunning(handle, {
-                timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-                onRestoring: () =>
-                  emitSessionProgress(
-                    ctx,
-                    args.sessionId,
-                    completedSteps,
-                    "Restoring sandbox from cold storage (can take up to 10 minutes)...",
-                  ),
-              });
-              await ensureGitCredentialHelper(ctx, handle, args.installationId);
-              await checkoutSessionBranchWithRetry(
-                handle,
-                args.branchName,
-                args.baseBranch,
-              );
-            },
-          );
-          await runLoggedSessionStep(
-            "reuseSessionSandbox.setupBranch",
-            sandboxDetails,
-            () => setupBranch(handle, args.branchName, args.baseBranch),
-          );
-          await runLoggedSessionStep(
-            "reuseSessionSandbox.copyConfigFiles",
-            sandboxDetails,
-            () => copySandboxConfigFilesToWorkspace(handle),
-          );
-          const { port: devPort, devCommand } = await runLoggedSessionStep(
-            "reuseSessionSandbox.startSessionServices",
-            sandboxDetails,
-            () => startSessionServices(handle, rootDir, devOverrides(repo)),
-          );
-          if (args.startDesktop) {
+        tryReuseSandboxHandle(
+          client,
+          reuseId,
+          async (handle) => {
+            const sandboxDetails = `${actionDetails}, sandboxId=${handle.id}`;
             await runLoggedSessionStep(
-              "reuseSessionSandbox.startDesktop",
+              "reuseSessionSandbox.prepare",
               sandboxDetails,
-              () => startDesktopWithChrome(handle),
+              () =>
+                resumeReusedSandbox(ctx, handle, {
+                  installationId: args.installationId,
+                  branchName: args.branchName,
+                  baseBranch: args.baseBranch,
+                  onRestoring: () =>
+                    emitSessionProgress(
+                      ctx,
+                      args.sessionId,
+                      completedSteps,
+                      // Vercel resume is snapshot wake, not Daytona cold storage.
+                      "Resuming sandbox...",
+                    ),
+                  onEarlyReady: async () => {
+                    await ctx.runMutation(internal.sessions.sandboxReady, {
+                      sessionId: args.sessionId,
+                      sandboxId: handle.id,
+                      vercelSandboxId: handle.id,
+                      branchName: args.branchName,
+                      isNew: false,
+                      usedSnapshot: false,
+                    });
+                  },
+                  shouldAbort: () => sessionStopRequested(ctx, args.sessionId),
+                }),
             );
-          }
-          await emitSessionProgress(
-            ctx,
-            args.sessionId,
-            completedSteps,
-            "Launching background commands...",
-          );
-          let reuseBgRan = false;
-          await runLoggedSessionStep(
-            "reuseSessionSandbox.runBackgroundCommands",
-            sandboxDetails,
-            async () => {
-              const result = await ctx.runAction(
-                internal.daytona.runBackgroundCommands,
-                { sandboxId: handle.id, repoId: args.repoId },
+            await runLoggedSessionStep(
+              "reuseSessionSandbox.setupBranch",
+              sandboxDetails,
+              () => setupBranch(handle, args.branchName, args.baseBranch),
+            );
+            await runLoggedSessionStep(
+              "reuseSessionSandbox.copyConfigFiles",
+              sandboxDetails,
+              () => copySandboxConfigFilesToWorkspace(handle),
+            );
+            const { port: devPort, devCommand } = await runLoggedSessionStep(
+              "reuseSessionSandbox.startSessionServices",
+              sandboxDetails,
+              () => startSessionServices(handle, rootDir, devOverrides(repo)),
+            );
+            if (args.startDesktop) {
+              await runLoggedSessionStep(
+                "reuseSessionSandbox.startDesktop",
+                sandboxDetails,
+                () => startDesktopWithChrome(handle),
               );
-              reuseBgRan = result.ran;
-              if (result.ran && result.commandCount > 0) {
-                logSession(
-                  `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+            }
+            await emitSessionProgress(
+              ctx,
+              args.sessionId,
+              completedSteps,
+              "Launching background commands...",
+            );
+            let reuseBgRan = false;
+            await runLoggedSessionStep(
+              "reuseSessionSandbox.runBackgroundCommands",
+              sandboxDetails,
+              async () => {
+                const result = await ctx.runAction(
+                  internal.daytona.runBackgroundCommands,
+                  { sandboxId: handle.id, repoId: args.repoId },
                 );
-              }
-            },
-          );
-          if (reuseBgRan) {
-            completedSteps.push({
-              type: "tool",
-              label: "Launching background commands...",
-              status: "complete",
-            });
-          }
-          await runLoggedSessionStep(
-            "reuseSessionSandbox.runStartupCommands",
-            sandboxDetails,
-            async () => {
-              const result = await ctx.runAction(
-                internal.daytona.runStartupCommands,
-                { sandboxId: handle.id, repoId: args.repoId },
-              );
-              if (result.ran && result.commandCount > 0) {
-                logSession(
-                  `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                reuseBgRan = result.ran;
+                if (result.ran && result.commandCount > 0) {
+                  logSession(
+                    `Launched ${result.commandCount} background command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                  );
+                }
+              },
+            );
+            if (reuseBgRan) {
+              completedSteps.push({
+                type: "tool",
+                label: "Launching background commands...",
+                status: "complete",
+              });
+            }
+            await runLoggedSessionStep(
+              "reuseSessionSandbox.runStartupCommands",
+              sandboxDetails,
+              async () => {
+                const result = await ctx.runAction(
+                  internal.daytona.runStartupCommands,
+                  { sandboxId: handle.id, repoId: args.repoId },
                 );
-              }
-            },
-          );
-          reusedResult = {
-            sandbox: handle,
-            isNew: false,
-            usedSnapshot: false,
-            sandboxDetails,
-            branchName: args.branchName,
-            devPort,
-            devCommand,
-            vercelSandboxId: handle.id,
-          };
-        }),
+                if (result.ran && result.commandCount > 0) {
+                  logSession(
+                    `Ran ${result.commandCount} startup command(s)${result.errors.length > 0 ? ` with errors: ${result.errors.join("; ")}` : ""}`,
+                  );
+                }
+              },
+            );
+            reusedResult = {
+              sandbox: handle,
+              isNew: false,
+              usedSnapshot: false,
+              sandboxDetails,
+              branchName: args.branchName,
+              devPort,
+              devCommand,
+              vercelSandboxId: handle.id,
+            };
+          },
+          // Never silently create a replacement when the existing sandbox is
+          // still reachable — that orphans the old VM and loses workspace state.
+          { fallbackOnPrepareError: false },
+        ),
     );
     if (reusedHandle && reusedResult) {
       await completeSessionProgress(ctx, args.sessionId);
@@ -702,12 +809,15 @@ async function prepareSessionSandboxInternal(
               reuseId,
               async (sandbox) => {
                 const sandboxDetails = `${actionDetails}, sandboxId=${sandbox.id}`;
+                const handle = wrapDaytonaSandbox(sandbox);
                 await runLoggedSessionStep(
                   "reuseSessionSandbox.prepare",
                   sandboxDetails,
-                  async () => {
-                    await ensureSandboxRunning(wrapDaytonaSandbox(sandbox), {
-                      timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+                  () =>
+                    resumeReusedSandbox(ctx, handle, {
+                      installationId: args.installationId,
+                      branchName: args.branchName,
+                      baseBranch: args.baseBranch,
                       onRestoring: () =>
                         emitSessionProgress(
                           ctx,
@@ -715,21 +825,18 @@ async function prepareSessionSandboxInternal(
                           completedSteps,
                           "Restoring sandbox from cold storage (can take up to 10 minutes)...",
                         ),
-                    });
-                    // Self-heal: rotate the per-sandbox secret + reinstall the helper
-                    // every resume so in-sandbox `git pull` and any subsequent fetch
-                    // authenticate without relying on a stale URL-embedded token.
-                    await ensureGitCredentialHelper(
-                      ctx,
-                      wrapDaytonaSandbox(sandbox),
-                      args.installationId,
-                    );
-                    await checkoutSessionBranchWithRetry(
-                      wrapDaytonaSandbox(sandbox),
-                      args.branchName,
-                      args.baseBranch,
-                    );
-                  },
+                      onEarlyReady: async () => {
+                        await ctx.runMutation(internal.sessions.sandboxReady, {
+                          sessionId: args.sessionId,
+                          sandboxId: sandbox.id,
+                          branchName: args.branchName,
+                          isNew: false,
+                          usedSnapshot: false,
+                        });
+                      },
+                      shouldAbort: () =>
+                        sessionStopRequested(ctx, args.sessionId),
+                    }),
                 );
                 await runLoggedSessionStep(
                   "reuseSessionSandbox.setupBranch",
@@ -838,6 +945,7 @@ async function prepareSessionSandboxInternal(
                   vercelSandboxId: undefined,
                 };
               },
+              { fallbackOnPrepareError: false },
             ),
         );
   if (reused && reusedResult) {
@@ -852,6 +960,13 @@ async function prepareSessionSandboxInternal(
     label: "Checking existing sandbox...",
     status: "complete",
   });
+
+  // Create path needs full env map + snapshot — load only after reuse failed.
+  const { sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
+    "resolveSessionSandboxContext",
+    actionDetails,
+    () => resolveSandboxContext(ctx, args.repoId),
+  );
 
   await emitSessionProgress(
     ctx,
@@ -1184,6 +1299,21 @@ export const startSessionSandbox = internalAction({
       if (!args.repoId) {
         throw new Error("repoId is required for startSessionSandbox");
       }
+      // User may have clicked Stop after this action was scheduled. Abort before
+      // any resume:true / create — otherwise we wake a VM the UI already left.
+      const sessionBefore = await ctx.runQuery(internal.sessions.getInternal, {
+        id: args.sessionId,
+      });
+      if (
+        sessionBefore &&
+        (sessionBefore.status === "stopping" ||
+          sessionBefore.status === "closed")
+      ) {
+        console.log(
+          `[daytona][sessions] startSessionSandbox aborted sessionId=${args.sessionId} status=${sessionBefore.status}`,
+        );
+        return null;
+      }
       const prepared = await prepareSessionSandboxInternal(ctx, {
         sessionId: args.sessionId,
         existingSandboxId: args.existingSandboxId,
@@ -1217,9 +1347,51 @@ export const startSessionSandbox = internalAction({
         `startSessionSandbox completed in ${formatDurationMsShort(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
     } catch (e) {
+      const stopId = args.vercelSandboxId ?? args.existingSandboxId;
+      // A Stop that raced this Start. The resume may have briefly woken the VM,
+      // so still stop it (idempotent with finalizeStopSandbox), but leave the
+      // session status to the stop flow's markSandboxClosed — do NOT mark a
+      // start error, or Eva shows a false "Sandbox Error" and the row can stick
+      // in `stopping` while the two paths fight over status.
+      if (e instanceof SandboxStartAbortedError) {
+        console.log(
+          `[daytona][sessions] startSessionSandbox aborted by stop sessionId=${args.sessionId}: ${e.message}`,
+        );
+        if (args.repoId && stopId) {
+          try {
+            await ctx.runAction(internal.daytona.stopSandbox, {
+              sandboxId: stopId,
+              repoId: args.repoId,
+            });
+          } catch (stopErr) {
+            console.log(
+              `[daytona][sessions] stop after aborted start failed for ${stopId}: ${errorMessage(stopErr, "stop failed")}`,
+            );
+          }
+        }
+        return null;
+      }
       console.error(
         `[daytona][sessions] startSessionSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );
+      // Early-ready may have already marked the session active while the VM is
+      // still running. Stop the provider sandbox so UI "closed" matches reality
+      // and a later Start can resume cleanly instead of fighting a live orphan.
+      if (args.repoId && stopId) {
+        try {
+          await ctx.runAction(internal.daytona.stopSandbox, {
+            sandboxId: stopId,
+            repoId: args.repoId,
+          });
+          console.log(
+            `[daytona][sessions] stopped sandbox ${stopId} after start failure`,
+          );
+        } catch (stopErr) {
+          console.log(
+            `[daytona][sessions] stop after start failure failed for ${stopId}: ${errorMessage(stopErr, "stop failed")}`,
+          );
+        }
+      }
       await ctx.runMutation(internal.sessions.sandboxError, {
         sessionId: args.sessionId,
         error: errorMessage(e, "Unknown error"),
@@ -1496,10 +1668,10 @@ async function prepareTaskPreviewSandboxInternal(
     completedSteps,
     "Resolving sandbox context...",
   );
-  const { client, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
-    "resolveTaskSandboxContext",
+  const client = await runLoggedSessionStep(
+    "resolveTaskSandboxClient",
     actionDetails,
-    () => resolveSandboxContext(ctx, args.repoId),
+    () => resolveSandboxClientOnly(ctx, args.repoId),
   );
   // Sandbox reuse and persistence volumes remain Daytona-only; resolve a raw
   // Daytona client lazily (never invoked on the Vercel path) for those paths
@@ -1511,7 +1683,7 @@ async function prepareTaskPreviewSandboxInternal(
     vercelSandboxId: args.vercelSandboxId,
   });
   logSession(
-    `prepareTaskPreviewSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
+    `prepareTaskPreviewSandbox client resolved (${actionDetails}, rootDir=${rootDir || "."})`,
   );
   completedSteps.push({
     type: "tool",
@@ -1536,30 +1708,29 @@ async function prepareTaskPreviewSandboxInternal(
       completedSteps,
       "Resuming existing sandbox...",
     );
-    await runLoggedSessionStep(
-      "reuseTaskSandbox.prepare",
-      sandboxDetails,
-      async () => {
-        await ensureSandboxRunning(handle, {
-          timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
-          onRestoring: () =>
-            emitTaskProgress(
-              ctx,
-              args.taskId,
-              completedSteps,
-              "Restoring sandbox from cold storage (can take up to 10 minutes)...",
-            ),
-        });
-        // Self-heal: rotate the per-sandbox secret + reinstall the
-        // helper every resume so in-sandbox `git pull` and any
-        // subsequent fetch authenticate without a stale URL token.
-        await ensureGitCredentialHelper(ctx, handle, args.installationId);
-        await checkoutSessionBranchWithRetry(
-          handle,
-          args.branchName,
-          args.baseBranch,
-        );
-      },
+    await runLoggedSessionStep("reuseTaskSandbox.prepare", sandboxDetails, () =>
+      resumeReusedSandbox(ctx, handle, {
+        installationId: args.installationId,
+        branchName: args.branchName,
+        baseBranch: args.baseBranch,
+        onRestoring: () =>
+          emitTaskProgress(
+            ctx,
+            args.taskId,
+            completedSteps,
+            client.kind === "vercel"
+              ? "Resuming sandbox..."
+              : "Restoring sandbox from cold storage (can take up to 10 minutes)...",
+          ),
+        onEarlyReady: async () => {
+          await ctx.runMutation(internal.agentTasks.taskSandboxReady, {
+            taskId: args.taskId,
+            sandboxId: handle.id,
+            vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+            isNew: false,
+          });
+        },
+      }),
     );
     completedSteps.push({
       type: "tool",
@@ -1700,6 +1871,12 @@ async function prepareTaskPreviewSandboxInternal(
     label: "Checking existing sandbox...",
     status: "complete",
   });
+
+  const { sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
+    "resolveTaskSandboxContext",
+    actionDetails,
+    () => resolveSandboxContext(ctx, args.repoId),
+  );
 
   await emitTaskProgress(
     ctx,
@@ -1983,10 +2160,10 @@ async function prepareProjectPreviewSandboxInternal(
     completedSteps,
     "Resolving sandbox context...",
   );
-  const { client, sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
-    "resolveProjectSandboxContext",
+  const client = await runLoggedSessionStep(
+    "resolveProjectSandboxClient",
     actionDetails,
-    () => resolveSandboxContext(ctx, args.repoId),
+    () => resolveSandboxClientOnly(ctx, args.repoId),
   );
   // Sandbox reuse and persistence volumes remain Daytona-only; resolve a raw
   // Daytona client lazily (never invoked on the Vercel path) for those paths
@@ -1998,7 +2175,7 @@ async function prepareProjectPreviewSandboxInternal(
     vercelSandboxId: args.vercelSandboxId,
   });
   logSession(
-    `prepareProjectPreviewSandbox context resolved (${actionDetails}, snapshot=${snapshotName ?? "none"}, rootDir=${rootDir || "."})`,
+    `prepareProjectPreviewSandbox client resolved (${actionDetails}, rootDir=${rootDir || "."})`,
   );
   completedSteps.push({
     type: "tool",
@@ -2026,27 +2203,29 @@ async function prepareProjectPreviewSandboxInternal(
     await runLoggedSessionStep(
       "reuseProjectSandbox.prepare",
       sandboxDetails,
-      async () => {
-        await ensureSandboxRunning(handle, {
-          timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+      () =>
+        resumeReusedSandbox(ctx, handle, {
+          installationId: args.installationId,
+          branchName: args.branchName,
+          baseBranch: args.baseBranch,
           onRestoring: () =>
             emitProjectProgress(
               ctx,
               args.projectId,
               completedSteps,
-              "Restoring sandbox from cold storage (can take up to 10 minutes)...",
+              client.kind === "vercel"
+                ? "Resuming sandbox..."
+                : "Restoring sandbox from cold storage (can take up to 10 minutes)...",
             ),
-        });
-        // Self-heal: rotate the per-sandbox secret + reinstall the
-        // helper every resume so in-sandbox `git pull` and any
-        // subsequent fetch authenticate without a stale URL token.
-        await ensureGitCredentialHelper(ctx, handle, args.installationId);
-        await checkoutSessionBranchWithRetry(
-          handle,
-          args.branchName,
-          args.baseBranch,
-        );
-      },
+          onEarlyReady: async () => {
+            await ctx.runMutation(internal.projects.projectSandboxReady, {
+              projectId: args.projectId,
+              sandboxId: handle.id,
+              vercelSandboxId: client.kind === "vercel" ? handle.id : undefined,
+              isNew: false,
+            });
+          },
+        }),
     );
     completedSteps.push({
       type: "tool",
@@ -2191,6 +2370,12 @@ async function prepareProjectPreviewSandboxInternal(
     label: "Checking existing sandbox...",
     status: "complete",
   });
+
+  const { sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
+    "resolveProjectSandboxContext",
+    actionDetails,
+    () => resolveSandboxContext(ctx, args.repoId),
+  );
 
   await emitProjectProgress(
     ctx,

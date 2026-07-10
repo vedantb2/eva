@@ -18,16 +18,16 @@ export const taskPreviewSandboxStartupWorkflow = workflow.define({
     forceStartupCommands: v.optional(v.boolean()),
   },
   handler: async (step, args): Promise<void> => {
-    // Thaw an archived/stopped sandbox across polling steps before the start
-    // action, so a multi-minute cold-storage restore doesn't blow the
-    // per-action 10-minute limit inside startTaskPreviewSandbox →
-    // ensureSandboxRunning.
-    if (args.existingSandboxId || args.vercelSandboxId) {
+    // Daytona-only pre-thaw (see sessionSandboxStartupWorkflow). Vercel resume
+    // runs inside startTaskPreviewSandbox — skip kickoff to avoid ~6–8s of
+    // empty workflow step latency before sandbox.start().
+    if (args.existingSandboxId && !args.vercelSandboxId) {
       try {
         await ensureSandboxStartedSteps(step, {
           sandboxId: args.existingSandboxId,
           vercelSandboxId: args.vercelSandboxId,
           repoId: args.repoId,
+          streamingEntityId: `task-sandbox-startup-${args.taskId}`,
         });
       } catch (error) {
         await step.runMutation(internal.agentTasks.taskSandboxError, {

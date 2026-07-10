@@ -200,14 +200,13 @@ export const getDependentTasks = authQuery({
     const depTasks = await Promise.all(
       dependents.map((dep) => ctx.db.get(dep.taskId)),
     );
-    return depTasks
-      .filter((t): t is Exclude<typeof t, null> => t !== null)
-      .filter((t) => t.deletedAt === undefined)
-      .map((t) => ({
-        _id: t._id,
-        title: t.title,
-        taskNumber: t.taskNumber,
-      }));
+    return filterActiveEntities(
+      depTasks.filter((t): t is Exclude<typeof t, null> => t !== null),
+    ).map((t) => ({
+      _id: t._id,
+      title: t.title,
+      taskNumber: t.taskNumber,
+    }));
   },
 });
 

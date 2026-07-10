@@ -4,7 +4,6 @@ import { internal } from "../_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "../workflowManager";
 import { ensureSandboxStartedSteps } from "../_daytona/resumeSandboxSteps";
-import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
@@ -63,16 +62,18 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     repoId: v.id("githubRepos"),
   },
   handler: async (step, args): Promise<void> => {
-    // Thaw an archived/stopped sandbox across polling steps before the start
-    // action, so a multi-minute cold-storage restore doesn't blow the
-    // per-action 10-minute limit inside startSessionSandbox →
-    // ensureSandboxRunning.
-    if (args.existingSandboxId || args.vercelSandboxId) {
+    // Daytona-only pre-thaw: archived restores can exceed the 10-minute action
+    // limit, so poll across workflow steps first. Vercel resume is handled
+    // inside startSessionSandbox → ensureSandboxRunning; running kickoff here
+    // only added ~6–8s of workflow step-scheduling latency (measured).
+    if (args.existingSandboxId && !args.vercelSandboxId) {
       try {
         await ensureSandboxStartedSteps(step, {
           sandboxId: args.existingSandboxId,
           vercelSandboxId: args.vercelSandboxId,
           repoId: args.repoId,
+          // Must match SessionDetailClient + startSandbox seed entity.
+          streamingEntityId: `session-startup-${args.sessionId}`,
         });
       } catch (error) {
         await step.runMutation(internal.sessions.sandboxError, {
@@ -130,8 +131,9 @@ export const sessionExecuteWorkflow = workflow.define({
       // steps first, so a multi-minute cold-storage thaw doesn't blow the
       // per-action 10-minute limit inside validateSandbox. Once started, the
       // validate below hits its fast (echo) path.
+      let started: Awaited<ReturnType<typeof ensureSandboxStartedSteps>>;
       try {
-        await ensureSandboxStartedSteps(step, {
+        started = await ensureSandboxStartedSteps(step, {
           sandboxId: data.sandboxId,
           vercelSandboxId: data.vercelSandboxId,
           repoId: data.repoId,
@@ -151,15 +153,7 @@ export const sessionExecuteWorkflow = workflow.define({
         return;
       }
 
-      const provider = await step.runAction(
-        internal.daytona.getSandboxProviderKind,
-        { repoId: data.repoId },
-      );
-      const thawId = resolveExistingSandboxId({
-        providerKind: provider,
-        sandboxId: data.sandboxId,
-        vercelSandboxId: data.vercelSandboxId,
-      });
+      const thawId = started.thawId;
       if (thawId) {
         const validation = await step.runAction(
           internal.daytona.validateSandbox,

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentProps, ReactNode } from "react";
-import { ChevronDownIcon, PaperclipIcon } from "lucide-react";
+import { ChevronDownIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import {
   Collapsible,
@@ -9,26 +9,6 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import { cn } from "../utils/cn";
-
-export interface QueueMessagePart {
-  type: string;
-  text?: string;
-  url?: string;
-  filename?: string;
-  mediaType?: string;
-}
-
-export interface QueueMessage {
-  id: string;
-  parts: QueueMessagePart[];
-}
-
-export interface QueueTodo {
-  id: string;
-  title: string;
-  description?: string;
-  status?: "pending" | "completed";
-}
 
 export type QueueProps = ComponentProps<"div">;
 
@@ -176,27 +156,6 @@ export const QueueItemContent = ({
   />
 );
 
-export type QueueItemDescriptionProps = ComponentProps<"div"> & {
-  completed?: boolean;
-};
-
-export const QueueItemDescription = ({
-  completed = false,
-  className,
-  ...props
-}: QueueItemDescriptionProps) => (
-  <div
-    className={cn(
-      "ml-6 text-xs",
-      completed
-        ? "text-muted-foreground/40 line-through"
-        : "text-muted-foreground",
-      className,
-    )}
-    {...props}
-  />
-);
-
 export type QueueItemActionsProps = ComponentProps<"div">;
 
 export const QueueItemActions = ({
@@ -225,47 +184,4 @@ export const QueueItemAction = ({
     variant="ghost"
     {...props}
   />
-);
-
-export type QueueItemAttachmentProps = ComponentProps<"div">;
-
-export const QueueItemAttachment = ({
-  className,
-  ...props
-}: QueueItemAttachmentProps) => (
-  <div className={cn("mt-1 flex flex-wrap gap-2", className)} {...props} />
-);
-
-export type QueueItemImageProps = ComponentProps<"img">;
-
-export const QueueItemImage = ({
-  className,
-  ...props
-}: QueueItemImageProps) => (
-  <img
-    alt=""
-    className={cn("h-8 w-8 rounded border object-cover", className)}
-    height={32}
-    width={32}
-    {...props}
-  />
-);
-
-export type QueueItemFileProps = ComponentProps<"span">;
-
-export const QueueItemFile = ({
-  children,
-  className,
-  ...props
-}: QueueItemFileProps) => (
-  <span
-    className={cn(
-      "flex items-center gap-1 rounded border bg-muted px-2 py-1 text-xs",
-      className,
-    )}
-    {...props}
-  >
-    <PaperclipIcon size={12} />
-    <span className="max-w-[100px] truncate">{children}</span>
-  </span>
 );

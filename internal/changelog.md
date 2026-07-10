@@ -1,10 +1,56 @@
 # Changelog
 
+## Deduplicate sandbox start/resume mechanics across entity flows - 2026-07-09
+
+- Extracted `resolveReusableVercelSandboxId`, `seedSandboxStartupActivity`/`clearSandboxStartupActivity`, and `resumeReusedSandbox` so the Vercel-id fallback, startup streaming seed/clear, and reuse ordering live in one place instead of being copy-pasted across the session, task, and project sandbox flows.
+- Reason for change: the resume ordering fix (start docker after early-ready) had to be applied in four separate sites; centralising the mechanics stops the next fix landing in one path but not the others.
+
+## Reissue Vercel stop while session remains running - 2026-07-09
+
+- Stop confirmation now actively reissues Vercel stop against the latest session id when a sandbox keeps reporting `running`, instead of passively waiting until timeout.
+- Reason for change: concurrent multi-session stops could leave one sandbox running for 180s despite an initial stop request; reissuing stop confirmed `coral-novel-pig-9y4qKG` stopped.
+
+## Stop by session id; never mark closed on failed stop - 2026-07-09
+
+- When `get(resume:false)` has no attached session but listSessions still shows `running`, stop via Vercel session-id API instead of waiting (old path never called stop, timed out at 60s, then Eva marked closed while Vercel stayed running).
+- `stopSandbox` propagates real failures; finalize only marks closed on success and reverts to active on failure; start aborts if session is already stopping/closed.
+- Reason for change: Convex logs showed stop confirmation timing out at `last status: running`, errors swallowed, UI off while Vercel still had live sandboxes / auto-restart.
+
+## Stop waits for Vercel terminal state; no silent resume mid-stop - 2026-07-09
+
+- Stop confirmation polls `listSessions` when `get(resume:false)` omits the session, and requires consecutive terminal/idle readings before Eva marks closed — so UI no longer flips to stopped while Vercel still shows stopping.
+- Missing session is no longer mapped to idle-stopped; `start()` refuses `resume:true` while stop/snapshot is in flight (and on stop-in-flight API errors) so in-flight resume cannot auto-restart a sandbox the user just stopped; `sandboxReady` ignores stopping/closed.
+- Reason for change: Eva showed stopped while Vercel was still stopping, and one of four stopped sandboxes silently became active again.
+
+## Fix Vercel stream-closed orphan after early-ready - 2026-07-09
+
+- Retry Vercel `exec` once after refresh when the command stream closes; stop the VM on start failure after early-ready so UI closed matches a stopped sandbox.
+- Reason for change: resume could mark the session active then fail on git, leaving a live Vercel sandbox while the UI showed inactive / "Failed to start".
+
+## Fix resume creating a second sandbox + stop/start UI copy - 2026-07-09
+
+- Session reuse no longer silently creates a replacement on prepare errors (`fallbackOnPrepareError: false`); Vercel resume copy is "Resuming sandbox..." (cold-storage wording stays Daytona-only); stop clears startup streaming and no longer shows start steps.
+- Legacy rows missing `vercelSandboxId` fall back to a non-UUID `sandboxId` so Vercel resume reuses instead of creating.
+- Reason for change: resume was orphaning the old VM and the UI reused start activity / Daytona cold-storage labels on Vercel stop/resume.
+
+## Faster sandbox resume parity (session + task + project) - 2026-07-09
+
+- Vercel start mutations schedule the start action directly (skip ~6s workflow scheduling); credentials-only client on resume; full env map deferred until create.
+- Task/project early-ready + streaming seed aligned with sessions; ActivityTasks drops random "inferring" above real tool steps / uses step label when only thinking.
+- Reason for change: measured non-resume overhead and blank/inferring UI before Vercel `start()` began.
+
 ## Readable per-repo numId URLs + soft delete - 2026-07-09
 
 - Sessions, docs, testing arena, projects, tasks, design sessions, and automations now use per-repo sequential `numId` in URLs (`/sessions/3`, `/projects/1/5`, etc.) instead of Convex `_id`; `getByNumId` resolves routes while internal refs stay on `_id`.
 - Entities soft-delete via `deletedAt` (hidden from lists, direct URL → not-found); `repoEntityCounters` allocates ids atomically; `backfillNumIds` migration backfills existing rows.
 - Reason for change: human-readable shareable URLs and safer deletes without orphaning related data or breaking internal Convex references.
+
+## Faster Vercel session resume - 2026-07-09
+
+- Vercel kickoff no longer blocks ~15–30s waiting for resume with no progress UI; restore happens in `ensureSandboxRunning` with a restoring label.
+- Session reuse marks the sandbox active as soon as the VM is up (before docker/git/services), and docker bootstrap prefers the Vercel path first to avoid a failed Daytona-style restart.
+- `ensureSandboxRunning` refreshes state first and skips the exec probe when already stopped — a stopped Vercel sandbox was burning ~20s on a timed-out `echo` before `start()`.
+- Reason for change: measured resume spent ~17s in silent kickoff, then ~20s on a useless stopped-sandbox probe, plus docker before chat unlocked.
 
 ## Cursor-style chat scroll pin - 2026-07-09
 
@@ -5448,6 +5494,10 @@ Behavior per context:
 - Updated `TerminalPanel.tsx` to POST new cols/rows to backend after `FitAddon.fit()`
 - Added `TERM: "xterm-256color"` env to PTY creation for proper terminal rendering
 - Removed unnecessary 50ms/100ms sleep delays after input and connection
+
+## Confirm Vercel stop completion before closing sessions - 2026-07-09
+
+- Keep session state in `stopping` until Vercel confirms that its asynchronous stop/snapshot transition has reached a terminal stopped state, preventing a misleading closed UI and start/stop races.
 
 ## Extract shared `@conductor/ui` workspace package - 2026-02-07
 

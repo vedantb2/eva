@@ -425,6 +425,16 @@ export const getPreviewUrl = action({
 
     let ready = true;
     if (args.checkReady) {
+      // Never probe or restart the dev server on a sandbox that is not
+      // running. On Vercel every exec goes through the SDK's withResume: on a
+      // stopped sandbox it RESUMES it, and on a stopping/snapshotting one it
+      // waits the stop out and then revives it — so the preview poll loop was
+      // waking sandboxes the user had just stopped. Report not-ready without
+      // touching the VM; polling recovers once the sandbox is started again.
+      // (handle.state is fresh: getSandboxHandle fetches with resume:false.)
+      if (handle.state !== "running") {
+        return { url: "", port: args.port, ready: false };
+      }
       ready = await probePreviewReady(handle, upstreamPort);
       // Only auto-restart the app/dev server for app preview ports.
       // Desktop (6080) and editor (8080) are started by their own toggle

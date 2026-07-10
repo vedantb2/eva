@@ -102,6 +102,7 @@ export function SessionDetailClient({
           isSandboxToggling={
             isSandboxStarting || isSandboxStopping || isStopPending
           }
+          isSandboxStopping={isSandboxStopping || isStopPending}
           onSandboxToggle={handleSandboxToggle}
           isArchived={session.archived === true}
           deploymentStatus={session.deploymentStatus}

@@ -99,14 +99,16 @@ export const snapshotBuildWorkflow = workflow.define({
       internal.repoSnapshots.getPrimarySeedAppRepo,
       { repoSnapshotId: args.repoSnapshotId },
     );
-    if (!primary && !args.forceImageRebuild) {
-      await step.runMutation(internal.repoSnapshots.completeBuild, {
+    // Repos with no app stop commands cannot run the seeded-snapshot path; rebuild
+    // the declarative base Image instead (same outcome as forceImageRebuild).
+    const imageOnlyBuild = primary === null && args.forceImageRebuild !== true;
+    const rebuildBaseImage = args.forceImageRebuild === true || imageOnlyBuild;
+    if (imageOnlyBuild) {
+      await step.runMutation(internal.repoSnapshots.appendLogs, {
         buildId: args.buildId,
-        status: "error",
-        logs: "",
-        error: "No seedable apps configured for this repo",
+        chunk:
+          "No seedable apps configured (add Stop Commands on at least one app repo to enable seeded snapshots). Rebuilding base Image snapshot only.\n",
       });
-      return;
     }
     const seedableRepoIds = primary?.seedableRepoIds ?? [];
 
@@ -156,7 +158,7 @@ export const snapshotBuildWorkflow = workflow.define({
 
     // Bootstrap / toolchain path: rebuild the declarative base Image first
     // (serial — captures contending with the Image builder slow both down).
-    if (args.forceImageRebuild) {
+    if (rebuildBaseImage) {
       await step.runAction(internal.snapshotActions.deleteExistingSnapshot, {
         snapshotName: config.snapshotName,
         repoId: config.repoId,

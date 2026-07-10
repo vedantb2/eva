@@ -129,6 +129,14 @@ async function findOpenPullRequestForBranch(params: {
   return { url: pr.html_url, number: pr.number, body: pr.body };
 }
 
+function isPullRequestAlreadyExistsError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    /pull request already exists/i.test(message) ||
+    /A pull request already exists for/i.test(message)
+  );
+}
+
 async function createPullRequestWithGitHub(
   args: PullRequestCreateParams,
 ): Promise<string> {
@@ -155,32 +163,52 @@ async function createPullRequestWithGitHub(
     baseBranch,
   });
 
-  const pr = await octokit.rest.pulls.create({
-    owner: args.repoOwner,
-    repo: args.repoName,
-    title: `Eva: ${args.title}`,
-    body: args.body,
-    head: args.branchName,
-    base: baseBranch,
-    draft: args.draft ?? false,
-  });
+  let prNumber: number;
+  let prUrl: string;
+  try {
+    const pr = await octokit.rest.pulls.create({
+      owner: args.repoOwner,
+      repo: args.repoName,
+      title: `Eva: ${args.title}`,
+      body: args.body,
+      head: args.branchName,
+      base: baseBranch,
+      draft: args.draft ?? false,
+    });
+    prNumber = pr.data.number;
+    prUrl = pr.data.html_url;
+  } catch (error) {
+    // Concurrent create or list lag: adopt the existing PR instead of failing.
+    if (isPullRequestAlreadyExistsError(error)) {
+      for (const delayMs of [0, 1000, 2000]) {
+        if (delayMs > 0) {
+          await sleep(delayMs);
+        }
+        const raced = await findOpenPullRequestForBranch(args);
+        if (raced) {
+          return raced.url;
+        }
+      }
+    }
+    throw error;
+  }
 
   if (args.labels.length > 0) {
     try {
       await octokit.rest.issues.addLabels({
         owner: args.repoOwner,
         repo: args.repoName,
-        issue_number: pr.data.number,
+        issue_number: prNumber,
         labels: args.labels,
       });
     } catch (labelError) {
       console.error(
-        `Failed to add labels to PR ${pr.data.html_url}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
+        `Failed to add labels to PR ${prUrl}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
       );
     }
   }
 
-  return pr.data.html_url;
+  return prUrl;
 }
 
 async function refreshPullRequestBodyWithGitHub(

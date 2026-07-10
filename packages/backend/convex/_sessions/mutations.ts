@@ -61,6 +61,7 @@ export const addMessage = authMutation({
     content: v.string(),
     mode: v.optional(sessionModeValidator),
     activityLog: v.optional(v.string()),
+    clientId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -75,6 +76,7 @@ export const addMessage = authMutation({
       timestamp: Date.now(),
       mode: args.mode,
       activityLog: args.activityLog,
+      clientId: args.clientId,
       userId: ctx.userId,
     });
     await ctx.db.patch(args.id, { updatedAt: Date.now() });

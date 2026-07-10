@@ -2,7 +2,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@conductor/backend";
 import type { Id } from "@conductor/backend";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@conductor/ui";
@@ -36,6 +36,17 @@ export function SessionDetailClient({
   });
   const startSandboxMutation = useMutation(api.sessions.startSandbox);
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
+
+  // Pre-warm the Claude daemon as soon as the session opens (once its sandbox is
+  // known), so the user's first message is warm instead of paying a ~20s cold
+  // respawn. Idempotent server-side (skips if a daemon is already alive), so
+  // re-firing when the sandbox id resolves is cheap.
+  const prewarmDaemon = useMutation(api.sessionWorkflow.prewarmDaemon);
+  const sandboxId = session?.sandboxId;
+  useEffect(() => {
+    if (!sandboxId) return;
+    void prewarmDaemon({ sessionId: typedSessionId });
+  }, [typedSessionId, sandboxId, prewarmDaemon]);
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
   // cleared once Daytona's stop call completes (~10s). Showing the spinner

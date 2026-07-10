@@ -2,11 +2,11 @@
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
 import {
-  existsSync as existsSync6,
+  existsSync as existsSync7,
   mkdirSync as mkdirSync7,
   readdirSync as readdirSync2,
-  unlinkSync,
-  writeFileSync as writeFileSync10
+  unlinkSync as unlinkSync2,
+  writeFileSync as writeFileSync11
 } from "fs";
 
 // callback-src/config.ts
@@ -25,6 +25,10 @@ var REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
+var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
+var CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
+var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
+var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
 var SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 var WORK_DIR = existsSync("/tmp/repo") ? "/tmp/repo" : existsSync("/workspace/repo") ? "/workspace/repo" : "/tmp/repo";
 var NO_OUTPUT_TIMEOUT_MS = Number(
@@ -199,6 +203,9 @@ var completedLabels = {
   "Asking a question...": "Asked a question"
 };
 
+// callback-src/providers/claudeSdkDaemon.ts
+import { unlinkSync, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
+
 // callback-src/http/convexClient.ts
 function narrowJsonValue(value) {
   if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
@@ -370,6 +377,18 @@ async function callStreamingHeartbeatTouch(entityId) {
   }
 }
 
+// callback-src/utils.ts
+import { spawnSync } from "child_process";
+import {
+  cpSync,
+  existsSync as existsSync2,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync
+} from "fs";
+
 // callback-src/runtime/state.ts
 function parsePriorStep(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -418,6 +437,7 @@ var callbackState = {
   firstAssistantEventAt: 0,
   firstTextBlockAt: 0,
   currentStreamedContent: "",
+  streamedAssistantTextThisMessage: false,
   activeAttemptChild: null,
   fatalHeartbeatErrorMessage: "",
   consecutiveHeartbeatFailures: 0,
@@ -471,20 +491,7 @@ function assignRawLogStream(stream) {
 }
 var accumulatedSteps = callbackState.accumulatedSteps;
 
-// callback-src/session/claudeSession.ts
-import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "fs";
-
 // callback-src/utils.ts
-import { spawnSync } from "child_process";
-import {
-  cpSync,
-  existsSync as existsSync2,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync
-} from "fs";
 function narrowJsonValue2(value) {
   if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return value;
@@ -643,210 +650,6 @@ function attemptElapsedMs() {
 }
 function elapsedAttemptMs() {
   return attemptElapsedMs();
-}
-
-// callback-src/session/claudeSession.ts
-function buildClaudeStartupStep() {
-  if (callbackState.waitingForFirstAssistantEvent && callbackState.claudeInitAt > 0) {
-    const elapsedSeconds = Math.max(
-      1,
-      Math.floor((Date.now() - callbackState.claudeInitAt) / 1e3)
-    );
-    return callbackState.activeClaudeSessionMode === "resume" ? {
-      label: "Restoring Claude session...",
-      detail: "Claude started. Restoring saved context... " + elapsedSeconds + "s"
-    } : {
-      label: "Starting Claude CLI...",
-      detail: "Claude started. Waiting for first output... " + elapsedSeconds + "s"
-    };
-  }
-  return callbackState.activeClaudeSessionMode === "resume" ? {
-    label: "Starting Claude CLI...",
-    detail: "Launching Claude with saved session..."
-  } : {
-    label: "Starting Claude CLI...",
-    detail: "Launching Claude process..."
-  };
-}
-function readClaudeSessionState() {
-  if (!existsSync3(CLAUDE_LOCAL_STATE_FILE)) {
-    return null;
-  }
-  const parsed = tryParseJson(readFileSync2(CLAUDE_LOCAL_STATE_FILE, "utf8"));
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return null;
-  }
-  const resumeSessionId = typeof parsed.resumeSessionId === "string" ? parsed.resumeSessionId.trim() : "";
-  if (!resumeSessionId) {
-    return null;
-  }
-  return { resumeSessionId };
-}
-function writeClaudeSessionState() {
-  if (!process.env.CLAUDE_SESSION_ID) {
-    return;
-  }
-  const resumeSessionId = typeof callbackState.activeClaudeSessionId === "string" && callbackState.activeClaudeSessionId.trim() ? callbackState.activeClaudeSessionId.trim() : process.env.CLAUDE_SESSION_ID;
-  if (!resumeSessionId) {
-    return;
-  }
-  mkdirSync2(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
-  writeFileSync2(
-    CLAUDE_LOCAL_STATE_FILE,
-    JSON.stringify(
-      {
-        logicalSessionId: process.env.CLAUDE_SESSION_ID,
-        resumeSessionId,
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      },
-      null,
-      2
-    )
-  );
-}
-function collectClaudeTranscriptSessionIds() {
-  const sessionIds = /* @__PURE__ */ new Set();
-  const configuredSessionId = process.env.CLAUDE_SESSION_ID;
-  if (configuredSessionId) {
-    sessionIds.add(configuredSessionId);
-  }
-  const persistedState = readClaudeSessionState();
-  if (persistedState && persistedState.resumeSessionId) {
-    sessionIds.add(persistedState.resumeSessionId);
-  }
-  const currentSessionId = typeof callbackState.activeClaudeSessionId === "string" ? callbackState.activeClaudeSessionId.trim() : "";
-  if (currentSessionId) {
-    sessionIds.add(currentSessionId);
-  }
-  return Array.from(sessionIds);
-}
-function hydratePersistedClaudeState() {
-  const startedAt = Date.now();
-  if (!process.env.CLAUDE_SESSION_ID) {
-    log("hydratePersistedClaudeState skipped: no Claude session id");
-    return;
-  }
-  copyBaseClaudeConfig();
-  mkdirSync2(CLAUDE_LOCAL_PROJECT_DIR, { recursive: true });
-  const prepareScript = "mkdir -p " + JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) + " " + JSON.stringify(CLAUDE_RUNTIME_CONFIG_DIR);
-  runTimedBashSync(prepareScript, "hydratePersistedClaudeState(prepare)");
-  copyFileIfPresent(
-    CLAUDE_PERSIST_STATE_FILE,
-    CLAUDE_LOCAL_STATE_FILE,
-    "hydratePersistedClaudeState(state)"
-  );
-  const transcriptSessionIds = collectClaudeTranscriptSessionIds();
-  for (const sessionId of transcriptSessionIds) {
-    copyFileIfPresent(
-      buildClaudeTranscriptPath(CLAUDE_PERSIST_PROJECT_DIR, sessionId),
-      buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, sessionId),
-      "hydratePersistedClaudeState(" + sessionId + ")"
-    );
-  }
-  log(
-    "hydratePersistedClaudeState sessionIds=" + (transcriptSessionIds.length > 0 ? transcriptSessionIds.join(",") : "none")
-  );
-  log(
-    "hydratePersistedClaudeState finished in " + String(Date.now() - startedAt) + "ms"
-  );
-}
-function ensureClaudeWorkspaceTrust() {
-  const configPath = CLAUDE_RUNTIME_CONFIG_DIR + "/.claude.json";
-  mkdirSync2(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
-  const parsed = existsSync3(configPath) ? tryParseJson(readFileSync2(configPath, "utf8")) : null;
-  const config = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? { ...parsed } : {};
-  const rawProjects = config.projects;
-  const projects = rawProjects && typeof rawProjects === "object" && !Array.isArray(rawProjects) ? { ...rawProjects } : {};
-  const rawProject = projects[WORK_DIR];
-  const projectEntry = rawProject && typeof rawProject === "object" && !Array.isArray(rawProject) ? { ...rawProject } : {};
-  projectEntry.hasTrustDialogAccepted = true;
-  projects[WORK_DIR] = projectEntry;
-  config.projects = projects;
-  writeFileSync2(configPath, JSON.stringify(config, null, 2));
-}
-function resolveClaudeSessionMode() {
-  const configuredSessionId = process.env.CLAUDE_SESSION_ID;
-  if (!configuredSessionId) {
-    return { mode: "none", sessionId: null };
-  }
-  const persistedState = readClaudeSessionState();
-  if (persistedState) {
-    if (existsSync3(
-      buildClaudeTranscriptPath(
-        CLAUDE_LOCAL_PROJECT_DIR,
-        persistedState.resumeSessionId
-      )
-    )) {
-      return { mode: "resume", sessionId: persistedState.resumeSessionId };
-    }
-    log(
-      "resolveClaudeSessionMode: persisted state without transcript, starting fresh session"
-    );
-    return { mode: "session", sessionId: configuredSessionId };
-  }
-  if (existsSync3(
-    buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, configuredSessionId)
-  )) {
-    return { mode: "resume", sessionId: configuredSessionId };
-  }
-  return { mode: "session", sessionId: configuredSessionId };
-}
-function syncClaudeStateToPersist(reason) {
-  if (!process.env.CLAUDE_SESSION_ID) {
-    return;
-  }
-  writeClaudeSessionState();
-  const prepareScript = "mkdir -p " + JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) + " " + JSON.stringify(CLAUDE_PERSIST_DIR);
-  runTimedBashSync(
-    prepareScript,
-    "syncClaudeStateToPersist(" + reason + ":prepare)"
-  );
-  copyFileIfPresent(
-    CLAUDE_LOCAL_STATE_FILE,
-    CLAUDE_PERSIST_STATE_FILE,
-    "syncClaudeStateToPersist(" + reason + ":state)"
-  );
-  const transcriptSessionIds = collectClaudeTranscriptSessionIds();
-  for (const sessionId of transcriptSessionIds) {
-    copyFileIfPresent(
-      buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, sessionId),
-      buildClaudeTranscriptPath(CLAUDE_PERSIST_PROJECT_DIR, sessionId),
-      "syncClaudeStateToPersist(" + reason + ":" + sessionId + ")"
-    );
-  }
-  log(
-    "syncClaudeStateToPersist(" + reason + ") sessionIds=" + (transcriptSessionIds.length > 0 ? transcriptSessionIds.join(",") : "none")
-  );
-}
-function prepareClaudeSessionState() {
-  if (!process.env.CLAUDE_SESSION_ID) {
-    callbackState.activeClaudeSessionMode = "none";
-    updateThinkingStep("Starting Claude CLI...", "Launching Claude process...");
-    return { mode: "none", sessionId: null };
-  }
-  updateThinkingStep(
-    "Preparing Claude session...",
-    "Hydrating saved session..."
-  );
-  hydratePersistedClaudeState();
-  ensureClaudeWorkspaceTrust();
-  const sessionMode = resolveClaudeSessionMode();
-  callbackState.activeClaudeSessionMode = sessionMode.mode;
-  updateThinkingStep(
-    "Preparing Claude session...",
-    sessionMode.mode === "resume" ? "Saved session hydrated. Starting Claude..." : "Preparing fresh saved session..."
-  );
-  if (sessionMode.sessionId) {
-    callbackState.activeClaudeSessionId = sessionMode.sessionId;
-  }
-  logTranscriptStats(
-    sessionMode.sessionId ?? "",
-    sessionMode.mode === "resume" ? "resume transcript stats" : "session transcript stats"
-  );
-  log(
-    "prepareClaudeSessionState resolved mode=" + sessionMode.mode + " sessionId=" + (sessionMode.sessionId || "none")
-  );
-  return sessionMode;
 }
 
 // callback-src/parse/toolSteps.ts
@@ -1337,964 +1140,8 @@ function codexItemToStep(item) {
   };
 }
 
-// callback-src/providers/claude.ts
-function claudeParseLine(event) {
-  const events = [];
-  if (event.type === "tool_result") {
-    const toolUseId = typeof event.tool_use_id === "string" && event.tool_use_id.trim() ? event.tool_use_id.trim() : void 0;
-    events.push({ kind: "complete_tool", trackingId: toolUseId });
-    return events;
-  }
-  if (event.type === "user") {
-    const message2 = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
-    const content2 = message2 && Array.isArray(message2.content) ? message2.content : [];
-    for (const block of content2) {
-      if (!block || typeof block !== "object" || Array.isArray(block)) continue;
-      if (block.type === "tool_result" && typeof block.tool_use_id === "string" && block.tool_use_id.trim()) {
-        events.push({
-          kind: "complete_tool",
-          trackingId: block.tool_use_id.trim()
-        });
-      }
-    }
-    if (events.length > 0) {
-      return events;
-    }
-  }
-  if (event.type !== "assistant") return events;
-  if (callbackState.waitingForFirstAssistantEvent) {
-    events.push({ kind: "mark_first_assistant" });
-  }
-  const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
-  const content = message && Array.isArray(message.content) ? message.content : [];
-  for (const block of content) {
-    if (!block || typeof block !== "object" || Array.isArray(block)) continue;
-    if (block.type === "tool_use" && typeof block.name === "string") {
-      const input = block.input && typeof block.input === "object" && !Array.isArray(block.input) ? block.input : {};
-      const step = toolCallToStep(block.name, input);
-      const trackingId = typeof block.id === "string" && block.id.trim() ? block.id.trim() : void 0;
-      events.push(
-        trackingId ? { kind: "push_step", step, trackingId } : { kind: "push_step", step }
-      );
-      if (block.name === "AskUserQuestion" && block.input) {
-        events.push({
-          kind: "set_pending_question",
-          data: JSON.stringify(block.input)
-        });
-      }
-    } else if (block.type === "thinking" && "thinking" in block && block.thinking) {
-      events.push({ kind: "update_reasoning", text: String(block.thinking) });
-    } else if (block.type === "text" && "text" in block && block.text) {
-      events.push({ kind: "append_text", text: String(block.text) });
-    }
-  }
-  return events;
-}
-function onStreamLine(parsed) {
-  if (parsed.type === "system" && parsed.subtype === "init" && typeof parsed.session_id === "string" && parsed.session_id.trim()) {
-    callbackState.activeClaudeSessionId = parsed.session_id.trim();
-    callbackState.claudeInitAt = Date.now();
-    callbackState.waitingForFirstAssistantEvent = true;
-    log(
-      "claude init event after " + String(elapsedAttemptMs()) + "ms sessionId=" + callbackState.activeClaudeSessionId
-    );
-    log("captured Claude session id " + callbackState.activeClaudeSessionId);
-    const startupStep = buildClaudeStartupStep();
-    updateThinkingStep(startupStep.label, startupStep.detail);
-    return { needsHeartbeat: true };
-  }
-  if (parsed.type === "assistant") {
-    if (callbackState.firstAssistantEventAt === 0) {
-      callbackState.firstAssistantEventAt = Date.now();
-      log(
-        "first assistant event after " + String(callbackState.firstAssistantEventAt - callbackState.activeAttemptStartedAt) + "ms"
-      );
-    }
-    const message = parsed.message && typeof parsed.message === "object" && !Array.isArray(parsed.message) ? parsed.message : null;
-    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
-    for (const block of contentBlocks) {
-      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string") {
-        if (callbackState.firstTextBlockAt === 0) {
-          callbackState.firstTextBlockAt = Date.now();
-          log(
-            "first text block after " + String(callbackState.firstTextBlockAt - callbackState.activeAttemptStartedAt) + "ms chars=" + String(block.text.length)
-          );
-        }
-        break;
-      }
-    }
-    return {};
-  }
-  if (parsed.type === "result" && !callbackState.resultEventSeen) {
-    callbackState.resultEventSeen = true;
-    syncClaudeStateToPersist("result-event");
-  }
-  return {};
-}
-var claudeAdapter = {
-  parseLine: claudeParseLine,
-  onStreamLine(_line, parsed) {
-    return onStreamLine(parsed);
-  }
-};
-
-// callback-src/session/codexSession.ts
-import { mkdirSync as mkdirSync4, writeFileSync as writeFileSync4 } from "fs";
-
-// callback-src/session/createSessionStore.ts
-import { existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
-function createSessionStore(config) {
-  const readSessionState = () => {
-    const statePath = existsSync4(config.localStateFile) ? config.localStateFile : existsSync4(config.persistStateFile) ? config.persistStateFile : "";
-    if (!statePath) {
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(readFileSync3(statePath, "utf8"));
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return null;
-      }
-      const value = parsed[config.resumeField];
-      if (typeof value === "string" && value.trim()) {
-        if (config.resumeField === "resumeThreadId") {
-          return { resumeThreadId: value.trim() };
-        }
-        return { resumeSessionId: value.trim() };
-      }
-    } catch (error) {
-      console.error(
-        "Failed to read session state from " + statePath + ":",
-        String(error)
-      );
-    }
-    return null;
-  };
-  const writeSessionState = () => {
-    const activeId = config.getActiveId();
-    if (!activeId) {
-      return;
-    }
-    mkdirSync3(config.runtimeHomeDir, { recursive: true });
-    const payload = {
-      [config.resumeField]: activeId,
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    writeFileSync3(config.localStateFile, JSON.stringify(payload, null, 2));
-  };
-  const hydratePersistedState = (label) => {
-    mkdirSync3(config.runtimeHomeDir, { recursive: true });
-    copyFileIfPresent(
-      config.persistStateFile,
-      config.localStateFile,
-      label + "(state)"
-    );
-  };
-  const syncStateToPersist = (label) => {
-    writeSessionState();
-    mkdirSync3(config.persistDir, { recursive: true });
-    copyFileIfPresent(
-      config.localStateFile,
-      config.persistStateFile,
-      label + "(state)"
-    );
-  };
-  const resolveResumeId = () => {
-    const persisted = readSessionState();
-    if (!persisted) return null;
-    if (config.resumeField === "resumeThreadId") {
-      return persisted.resumeThreadId ?? null;
-    }
-    return persisted.resumeSessionId ?? null;
-  };
-  return {
-    readSessionState,
-    writeSessionState,
-    hydratePersistedState,
-    syncStateToPersist,
-    resolveResumeId
-  };
-}
-
-// callback-src/session/codexSession.ts
-var store = createSessionStore({
-  runtimeHomeDir: CODEX_RUNTIME_HOME_DIR,
-  persistDir: CODEX_PERSIST_DIR,
-  localStateFile: CODEX_LOCAL_STATE_FILE,
-  persistStateFile: CODEX_PERSIST_STATE_FILE,
-  resumeField: "resumeThreadId",
-  getActiveId: () => callbackState.activeCodexThreadId,
-  setActiveId: (id) => {
-    callbackState.activeCodexThreadId = id;
-  }
-});
-var readCodexSessionState = store.readSessionState;
-var writeCodexSessionState = store.writeSessionState;
-function syncCodexStateToPersist() {
-  store.syncStateToPersist("syncCodexStateToPersist");
-  copyFileIfPresent(
-    CODEX_AUTH_FILE,
-    CODEX_PERSIST_AUTH_FILE,
-    "syncCodexStateToPersist(auth)"
-  );
-}
-function writeCodexFileIfConfigured(fileName, rawValue, encodedValue) {
-  const value = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
-  if (!value) {
-    return;
-  }
-  mkdirSync4(CODEX_RUNTIME_HOME_DIR, { recursive: true });
-  writeFileSync4(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
-}
-function buildCodexRuntimeConfig(rawValue, encodedValue) {
-  const configuredValue = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
-  const preservedLines = configuredValue ? configuredValue.split(/\\r?\\n/).filter((line) => {
-    const trimmed = line.trim().toLowerCase();
-    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy");
-  }) : [];
-  const normalizedPreservedLines = preservedLines.filter((line) => line.trim());
-  const runtimeLines = [
-    'approval_policy = "never"',
-    'sandbox_mode = "danger-full-access"'
-  ];
-  if (normalizedPreservedLines.length > 0) {
-    runtimeLines.push(...normalizedPreservedLines);
-  }
-  return runtimeLines.join("\\n") + "\\n";
-}
-function hydratePersistedCodexState() {
-  store.hydratePersistedState("hydratePersistedCodexState");
-  if (!CODEX_AUTH_JSON && !CODEX_AUTH_JSON_BASE64) {
-    copyFileIfPresent(
-      CODEX_PERSIST_AUTH_FILE,
-      CODEX_AUTH_FILE,
-      "hydratePersistedCodexState(auth)"
-    );
-  }
-  writeCodexFileIfConfigured(
-    "auth.json",
-    CODEX_AUTH_JSON,
-    CODEX_AUTH_JSON_BASE64
-  );
-  mkdirSync4(CODEX_RUNTIME_HOME_DIR, { recursive: true });
-  writeFileSync4(
-    CODEX_RUNTIME_HOME_DIR + "/config.toml",
-    buildCodexRuntimeConfig(CODEX_CONFIG_TOML, CODEX_CONFIG_TOML_BASE64)
-  );
-}
-function prepareCodexSessionState() {
-  updateThinkingStep(
-    "Preparing Codex session...",
-    "Hydrating saved session..."
-  );
-  hydratePersistedCodexState();
-  const persistedState = readCodexSessionState();
-  updateThinkingStep(
-    "Preparing Codex session...",
-    persistedState ? "Saved session hydrated. Starting Codex..." : "Preparing fresh Codex session..."
-  );
-  return persistedState && persistedState.resumeThreadId ? { mode: "resume", sessionId: persistedState.resumeThreadId } : { mode: "none", sessionId: null };
-}
-
-// callback-src/providers/codex.ts
-function codexParseLine(event) {
-  const events = [];
-  const threadId = getCodexThreadId(event);
-  if (event.type === "thread.started" && threadId) {
-    events.push({ kind: "set_codex_thread", threadId });
-    events.push({
-      kind: "update_thinking",
-      label: "Starting Codex CLI...",
-      detail: "Restoring saved context..."
-    });
-    return events;
-  }
-  if (event.type === "turn.started") {
-    events.push({
-      kind: "update_thinking",
-      label: "Starting Codex CLI...",
-      detail: "Codex is reasoning..."
-    });
-    return events;
-  }
-  if ((event.type === "item.started" || event.type === "item.updated" || event.type === "item.completed") && event.item && typeof event.item === "object" && !Array.isArray(event.item) && event.item.type === "reasoning") {
-    if (typeof event.item.text === "string" && event.item.text.trim()) {
-      events.push({ kind: "update_reasoning", text: event.item.text });
-    }
-    return events;
-  }
-  if (event.type === "item.started" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message") {
-    const step = codexItemToStep(event.item);
-    const trackingId = step.type !== "thinking" && typeof event.item.id === "string" ? event.item.id : void 0;
-    events.push(
-      trackingId ? { kind: "push_step", step, trackingId } : { kind: "push_step", step }
-    );
-    return events;
-  }
-  if (event.type === "item.completed" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && event.item.type === "agent_message") {
-    const messageText = getCodexAgentMessageText(event.item);
-    if (messageText) {
-      events.push({ kind: "append_text", text: messageText });
-    }
-    return events;
-  }
-  if ((event.type === "item.completed" || event.type === "item.failed") && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message") {
-    if (typeof event.item.id === "string") {
-      events.push({ kind: "complete_tool", trackingId: event.item.id });
-    } else {
-      events.push({ kind: "mark_last_complete" });
-    }
-    return events;
-  }
-  if (event.type === "turn.completed") {
-    events.push({ kind: "mark_last_complete" });
-    return events;
-  }
-  return events;
-}
-function inspectCodexStdout(text) {
-  for (const line of text.split("\\n")) {
-    const clean = line.trim();
-    if (!clean) continue;
-    try {
-      const parsed = tryParseJson(clean);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed.type === "item.completed" && parsed.item && typeof parsed.item === "object" && !Array.isArray(parsed.item) && parsed.item.type === "agent_message" && getCodexAgentMessageText(parsed.item) && callbackState.firstTextBlockAt === 0) {
-        callbackState.firstTextBlockAt = Date.now();
-      }
-    } catch {
-    }
-  }
-}
-function onStreamLine2(parsed) {
-  const threadId = getCodexThreadId(parsed);
-  if (parsed.type === "thread.started" && threadId) {
-    callbackState.activeCodexThreadId = threadId;
-    writeCodexSessionState();
-    return {};
-  }
-  if (parsed.type === "turn.completed" && !callbackState.resultEventSeen) {
-    callbackState.resultEventSeen = true;
-    syncCodexStateToPersist();
-  }
-  return {};
-}
-var codexAdapter = {
-  parseLine: codexParseLine,
-  onStreamLine(_line, parsed) {
-    return onStreamLine2(parsed);
-  },
-  onStdoutText: inspectCodexStdout
-};
-
-// callback-src/session/cursorSession.ts
-import { existsSync as existsSync5, mkdirSync as mkdirSync5, readFileSync as readFileSync4, writeFileSync as writeFileSync5 } from "fs";
-var store2 = createSessionStore({
-  runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
-  persistDir: CURSOR_PERSIST_DIR,
-  localStateFile: CURSOR_LOCAL_STATE_FILE,
-  persistStateFile: CURSOR_PERSIST_STATE_FILE,
-  resumeField: "resumeSessionId",
-  getActiveId: () => callbackState.activeCursorSessionId,
-  setActiveId: (id) => {
-    callbackState.activeCursorSessionId = id;
-  }
-});
-var readCursorSessionState = store2.readSessionState;
-var writeCursorSessionState = store2.writeSessionState;
-function syncCursorStateToPersist() {
-  store2.syncStateToPersist("syncCursorStateToPersist");
-}
-function hydratePersistedCursorState() {
-  store2.hydratePersistedState("hydratePersistedCursorState");
-  if (existsSync5("/tmp/eva-mcp.json")) {
-    try {
-      const raw = readFileSync4("/tmp/eva-mcp.json", "utf8");
-      const evaMcp = tryParseJson(raw);
-      const cursorDir = WORK_DIR + "/.cursor";
-      mkdirSync5(cursorDir, { recursive: true });
-      const cursorMcp = { mcpServers: {} };
-      if (evaMcp && typeof evaMcp === "object" && !Array.isArray(evaMcp) && evaMcp.mcpServers && typeof evaMcp.mcpServers === "object" && !Array.isArray(evaMcp.mcpServers)) {
-        for (const [name, server] of Object.entries(evaMcp.mcpServers)) {
-          if (!server || typeof server !== "object" || Array.isArray(server))
-            continue;
-          const entry = {};
-          if (typeof server.url === "string") entry.url = server.url;
-          if (server.headers && typeof server.headers === "object" && !Array.isArray(server.headers)) {
-            const headers = {};
-            for (const [hk, hv] of Object.entries(server.headers)) {
-              if (typeof hv === "string") headers[hk] = hv;
-            }
-            if (Object.keys(headers).length > 0) entry.headers = headers;
-          }
-          if (Object.keys(entry).length > 0) {
-            cursorMcp.mcpServers[name] = entry;
-          }
-        }
-      }
-      writeFileSync5(
-        cursorDir + "/mcp.json",
-        JSON.stringify(cursorMcp, null, 2)
-      );
-    } catch (error) {
-      console.error(
-        "Failed to translate MCP config for Cursor:",
-        String(error)
-      );
-    }
-  }
-}
-function prepareCursorSessionState() {
-  updateThinkingStep(
-    "Preparing Cursor session...",
-    "Hydrating saved session..."
-  );
-  hydratePersistedCursorState();
-  const persistedState = readCursorSessionState();
-  updateThinkingStep(
-    "Preparing Cursor session...",
-    persistedState ? "Saved session hydrated. Starting Cursor..." : "Preparing fresh Cursor session..."
-  );
-  if (persistedState && persistedState.resumeSessionId) {
-    callbackState.activeCursorSessionId = persistedState.resumeSessionId;
-    return { mode: "resume", sessionId: persistedState.resumeSessionId };
-  }
-  return { mode: "none", sessionId: null };
-}
-
-// callback-src/providers/cursor.ts
-function cursorParseLine(event) {
-  const events = [];
-  if (event.type === "system" && event.subtype === "init") {
-    events.push({
-      kind: "update_thinking",
-      label: "Starting Cursor CLI...",
-      detail: "Cursor session initializing..."
-    });
-    return events;
-  }
-  if (event.type === "assistant") {
-    const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
-    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
-    for (const block of contentBlocks) {
-      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && block.text) {
-        events.push({ kind: "append_text", text: block.text });
-      } else if (block && typeof block === "object" && !Array.isArray(block) && block.type === "thinking" && typeof block.thinking === "string" && block.thinking) {
-        events.push({ kind: "update_reasoning", text: block.thinking });
-      }
-    }
-    return events;
-  }
-  if (event.type === "tool_call" && event.subtype === "started" && event.tool_call && typeof event.tool_call === "object" && !Array.isArray(event.tool_call)) {
-    events.push({ kind: "push_step", step: cursorToolToStep(event.tool_call) });
-    return events;
-  }
-  if (event.type === "tool_call" && event.subtype === "completed") {
-    events.push({ kind: "complete_tool" });
-    return events;
-  }
-  if (event.type === "result") {
-    events.push({ kind: "mark_last_complete" });
-    return events;
-  }
-  return events;
-}
-function onStreamLine3(parsed) {
-  if (parsed.type === "system" && parsed.subtype === "init" && typeof parsed.session_id === "string" && parsed.session_id.trim()) {
-    const sid = parsed.session_id.trim();
-    if (sid !== callbackState.activeCursorSessionId) {
-      callbackState.activeCursorSessionId = sid;
-      writeCursorSessionState();
-      return { needsHeartbeat: true };
-    }
-    return {};
-  }
-  if (parsed.type === "assistant") {
-    if (callbackState.firstAssistantEventAt === 0) callbackState.firstAssistantEventAt = Date.now();
-    const message = parsed.message && typeof parsed.message === "object" && !Array.isArray(parsed.message) ? parsed.message : null;
-    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
-    for (const block of contentBlocks) {
-      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && callbackState.firstTextBlockAt === 0) {
-        callbackState.firstTextBlockAt = Date.now();
-        break;
-      }
-    }
-    return {};
-  }
-  if (parsed.type === "tool_call") {
-    callbackState.firstTextBlockAt = 0;
-    return {};
-  }
-  if (parsed.type === "result" && !callbackState.resultEventSeen) {
-    callbackState.resultEventSeen = true;
-    syncCursorStateToPersist();
-  }
-  return {};
-}
-var cursorAdapter = {
-  parseLine: cursorParseLine,
-  onStreamLine(_line, parsed) {
-    return onStreamLine3(parsed);
-  }
-};
-
-// callback-src/session/opencodeSession.ts
-import { mkdirSync as mkdirSync6, writeFileSync as writeFileSync6 } from "fs";
-var store3 = createSessionStore({
-  runtimeHomeDir: OPENCODE_RUNTIME_HOME_DIR,
-  persistDir: OPENCODE_PERSIST_DIR,
-  localStateFile: OPENCODE_LOCAL_STATE_FILE,
-  persistStateFile: OPENCODE_PERSIST_STATE_FILE,
-  resumeField: "resumeSessionId",
-  getActiveId: () => callbackState.activeOpencodeSessionId,
-  setActiveId: (id) => {
-    callbackState.activeOpencodeSessionId = id;
-  }
-});
-var readOpencodeSessionState = store3.readSessionState;
-var writeOpencodeSessionState = store3.writeSessionState;
-function syncOpencodeStateToPersist() {
-  store3.syncStateToPersist("syncOpencodeStateToPersist");
-  copyFileIfPresent(
-    OPENCODE_AUTH_FILE,
-    OPENCODE_PERSIST_AUTH_FILE,
-    "syncOpencodeStateToPersist(auth)"
-  );
-}
-function hydratePersistedOpencodeState() {
-  store3.hydratePersistedState("hydratePersistedOpencodeState");
-  const configJson = OPENCODE_CONFIG_JSON || (OPENCODE_CONFIG_JSON_BASE64 ? decodeBase64(OPENCODE_CONFIG_JSON_BASE64) : "");
-  if (configJson) {
-    process.env.OPENCODE_CONFIG_CONTENT = configJson;
-  }
-  mkdirSync6(OPENCODE_AUTH_DIR, { recursive: true });
-  const authJson = OPENCODE_AUTH_JSON || (OPENCODE_AUTH_JSON_BASE64 ? decodeBase64(OPENCODE_AUTH_JSON_BASE64) : "");
-  if (authJson) {
-    writeFileSync6(OPENCODE_AUTH_FILE, authJson);
-  } else {
-    copyFileIfPresent(
-      OPENCODE_PERSIST_AUTH_FILE,
-      OPENCODE_AUTH_FILE,
-      "hydratePersistedOpencodeState(auth)"
-    );
-  }
-  process.env.OPENCODE_PERMISSION = '"allow"';
-  process.env.OPENCODE_DISABLE_AUTOUPDATE = "1";
-}
-function prepareOpencodeSessionState() {
-  updateThinkingStep(
-    "Preparing Opencode session...",
-    "Hydrating saved session..."
-  );
-  hydratePersistedOpencodeState();
-  const persistedState = readOpencodeSessionState();
-  updateThinkingStep(
-    "Preparing Opencode session...",
-    persistedState ? "Saved session hydrated. Starting Opencode..." : "Preparing fresh Opencode session..."
-  );
-  if (persistedState && persistedState.resumeSessionId) {
-    callbackState.activeOpencodeSessionId = persistedState.resumeSessionId;
-    return { mode: "resume", sessionId: persistedState.resumeSessionId };
-  }
-  return { mode: "none", sessionId: null };
-}
-
-// callback-src/providers/opencode.ts
-function opencodeParseLine(event) {
-  const events = [];
-  if (event.type === "reasoning" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {
-    events.push({ kind: "update_reasoning", text: event.part.text });
-    return events;
-  }
-  if (event.type === "text" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {
-    events.push({ kind: "append_text", text: event.part.text });
-    return events;
-  }
-  if (event.type === "tool_use" && event.part && typeof event.part === "object") {
-    const state = "state" in event.part && event.part.state && typeof event.part.state === "object" && !Array.isArray(event.part.state) ? event.part.state : {};
-    const status = typeof state.status === "string" ? state.status : "";
-    if (status === "running") {
-      events.push({ kind: "push_step", step: opencodeToolToStep(event.part) });
-      return events;
-    }
-    if (status === "completed" || status === "error") {
-      events.push({ kind: "complete_tool" });
-      return events;
-    }
-    return events;
-  }
-  if (event.type === "step_finish") {
-    const reason = event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.reason === "string" ? event.part.reason : "";
-    if (reason === "stop") {
-      events.push({ kind: "mark_last_complete" });
-    }
-    return events;
-  }
-  return events;
-}
-function onStreamLine4(parsed) {
-  const sessionID = typeof parsed.sessionID === "string" && parsed.sessionID.trim() ? parsed.sessionID.trim() : "";
-  let needsHeartbeat = false;
-  if (sessionID && sessionID !== callbackState.activeOpencodeSessionId) {
-    callbackState.activeOpencodeSessionId = sessionID;
-    writeOpencodeSessionState();
-    needsHeartbeat = true;
-  }
-  if (parsed.type === "step_start") {
-    if (callbackState.firstAssistantEventAt === 0) {
-      callbackState.firstAssistantEventAt = Date.now();
-    }
-  }
-  if (parsed.type === "text" && parsed.part && typeof parsed.part === "object" && !Array.isArray(parsed.part) && typeof parsed.part.text === "string" && parsed.part.text) {
-    if (callbackState.firstTextBlockAt === 0) {
-      callbackState.firstTextBlockAt = Date.now();
-    }
-  }
-  if (parsed.type === "step_finish" && parsed.part && typeof parsed.part === "object" && !Array.isArray(parsed.part) && parsed.part.reason === "stop" && !callbackState.resultEventSeen) {
-    if (typeof parsed.part.messageID === "string" && parsed.part.messageID) {
-      callbackState.opencodeFinalMessageId = parsed.part.messageID;
-    }
-    callbackState.resultEventSeen = true;
-    syncOpencodeStateToPersist();
-  }
-  return needsHeartbeat ? { needsHeartbeat: true } : {};
-}
-var opencodeAdapter = {
-  parseLine: opencodeParseLine,
-  onStreamLine(_line, parsed) {
-    return onStreamLine4(parsed);
-  }
-};
-
-// callback-src/parse/canonical.ts
-function markLastComplete() {
-  if (callbackState.accumulatedSteps.length === 0) return;
-  const last = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
-  last.status = "complete";
-  if (completedLabels[last.label]) {
-    last.label = completedLabels[last.label];
-  } else if (last.label.startsWith("Using ") && last.label.endsWith("...")) {
-    last.label = "Used " + last.label.slice(6, -3);
-  }
-}
-function updateThinkingStep(label, detail) {
-  void label;
-  void detail;
-  callbackState.lastStepType = "thinking";
-}
-function shouldRecordProgressStep(step) {
-  return step.type !== "thinking" && step.type !== "reasoning" && step.type !== "response";
-}
-function pushProgressStep(step) {
-  if (!shouldRecordProgressStep(step)) {
-    updateThinkingStep(step.label, step.detail);
-    return;
-  }
-  markLastComplete();
-  callbackState.accumulatedSteps.push(step);
-  callbackState.lastStepType = "tool";
-}
-function parseToCanonical(event, provider = PROVIDER) {
-  if (provider === "cursor") return cursorParseLine(event);
-  if (provider === "opencode") return opencodeParseLine(event);
-  if (provider === "codex") return codexParseLine(event);
-  return claudeParseLine(event);
-}
-function applyCanonicalEvents(events) {
-  if (events.length === 0) return false;
-  for (const ev of events) {
-    switch (ev.kind) {
-      case "update_thinking":
-        updateThinkingStep(ev.label, ev.detail);
-        break;
-      case "push_step":
-        pushProgressStep(ev.step);
-        if (shouldRecordProgressStep(ev.step)) {
-          if (ev.trackingId) callbackState.codexToolItemIds.add(ev.trackingId);
-          callbackState.inFlightToolUses++;
-        }
-        break;
-      case "complete_tool":
-        markLastComplete();
-        if (ev.trackingId !== void 0) {
-          callbackState.codexToolItemIds.delete(ev.trackingId);
-        }
-        if (callbackState.inFlightToolUses > 0) {
-          callbackState.inFlightToolUses--;
-        }
-        break;
-      case "mark_last_complete":
-        markLastComplete();
-        break;
-      case "append_text":
-        appendStreamedContent(ev.text);
-        break;
-      case "update_reasoning":
-        callbackState.lastStepType = "thinking";
-        break;
-      case "set_pending_question":
-        callbackState.pendingQuestionData = ev.data;
-        break;
-      case "set_codex_thread":
-        callbackState.activeCodexThreadId = ev.threadId;
-        break;
-      case "mark_first_assistant":
-        callbackState.waitingForFirstAssistantEvent = false;
-        break;
-    }
-  }
-  return true;
-}
-function parseStreamEvent(line) {
-  const event = tryParseJson(line);
-  if (!event || typeof event !== "object" || Array.isArray(event)) {
-    return false;
-  }
-  try {
-    return applyCanonicalEvents(parseToCanonical(event, PROVIDER));
-  } catch {
-    return false;
-  }
-}
-function appendStreamedContent(text) {
-  const nextText = String(text);
-  if (!nextText) {
-    return;
-  }
-  if (nextText.startsWith(callbackState.currentStreamedContent)) {
-    callbackState.currentStreamedContent = nextText;
-    return;
-  }
-  callbackState.currentStreamedContent += nextText;
-}
-
-// callback-src/runtime/heartbeats.ts
-import { writeFileSync as writeFileSync7 } from "fs";
-
-// callback-src/runtime/processControl.ts
-import { spawnSync as spawnSync2 } from "child_process";
-function terminateAttemptProcess(child) {
-  try {
-    child.kill("SIGTERM");
-  } catch {
-  }
-  setTimeout(() => {
-    try {
-      child.kill("SIGKILL");
-    } catch {
-    }
-  }, 2e3);
-}
-function isChildZombie(pid) {
-  if (!pid) return false;
-  try {
-    const result = spawnSync2("ps", ["-p", String(pid), "-o", "state="], {
-      timeout: 2e3,
-      encoding: "utf8"
-    });
-    if (result.error || result.status !== 0) return false;
-    return (result.stdout || "").trim() === "Z";
-  } catch {
-    return false;
-  }
-}
-
-// callback-src/runtime/heartbeats.ts
-var flushInterval = null;
-var heartbeatInterval = null;
-function buildStreamingPayload() {
-  return JSON.stringify(callbackState.accumulatedSteps);
-}
-function markHeartbeatSuccess(payload) {
-  callbackState.lastSentPayload = payload;
-  callbackState.lastSentContent = callbackState.currentStreamedContent;
-  callbackState.lastStreamingSentAt = Date.now();
-  if (callbackState.consecutiveHeartbeatFailures > 0) {
-    console.error(
-      "Heartbeat recovered after " + callbackState.consecutiveHeartbeatFailures + " consecutive failures"
-    );
-  }
-  callbackState.consecutiveHeartbeatFailures = 0;
-  callbackState.heartbeatFailureStreakStartedAt = 0;
-}
-function noteHeartbeatFailure(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  callbackState.consecutiveHeartbeatFailures++;
-  if (callbackState.consecutiveHeartbeatFailures === 1) {
-    callbackState.heartbeatFailureStreakStartedAt = Date.now();
-  }
-  console.error(
-    "Heartbeat failed (consecutive: " + callbackState.consecutiveHeartbeatFailures + "):",
-    message
-  );
-  if (callbackState.consecutiveHeartbeatFailures === 2 || callbackState.consecutiveHeartbeatFailures === 4) {
-    console.error(
-      "[streaming-heartbeat] degraded: " + callbackState.consecutiveHeartbeatFailures + " consecutive post-retry failures (burstFatal>=" + HEARTBEAT_FATAL_BURST + " or slowFatal>=" + HEARTBEAT_FATAL_SLOW_COUNT + " over " + HEARTBEAT_FATAL_SLOW_WINDOW_MS + "ms)"
-    );
-  }
-  if (callbackState.fatalHeartbeatErrorMessage) {
-    return;
-  }
-  const streakAge = callbackState.heartbeatFailureStreakStartedAt > 0 ? Date.now() - callbackState.heartbeatFailureStreakStartedAt : 0;
-  const burstFatal = callbackState.consecutiveHeartbeatFailures >= HEARTBEAT_FATAL_BURST;
-  const slowFatal = callbackState.consecutiveHeartbeatFailures >= HEARTBEAT_FATAL_SLOW_COUNT && streakAge >= HEARTBEAT_FATAL_SLOW_WINDOW_MS;
-  const absoluteFatal = callbackState.consecutiveHeartbeatFailures >= HEARTBEAT_ABSOLUTE_MAX_FAILURES;
-  if (burstFatal || slowFatal || absoluteFatal) {
-    callbackState.fatalHeartbeatErrorMessage = "Lost streaming heartbeat after " + String(callbackState.consecutiveHeartbeatFailures) + " consecutive failures: " + message;
-    log(callbackState.fatalHeartbeatErrorMessage);
-    if (callbackState.activeAttemptChild) {
-      terminateAttemptProcess(callbackState.activeAttemptChild);
-    }
-  }
-}
-async function sendStreamingHeartbeatUpdate(payload) {
-  try {
-    await callStreamingHeartbeat(
-      STREAMING_ENTITY_ID ?? "",
-      payload,
-      callbackState.currentStreamedContent,
-      callbackState.pendingQuestionData || void 0
-    );
-    markHeartbeatSuccess(payload);
-    return true;
-  } catch (error) {
-    noteHeartbeatFailure(error instanceof Error ? error : String(error));
-    return false;
-  }
-}
-async function flushStreaming() {
-  if (callbackState.flushInProgress) return;
-  if (callbackState.rawOutput.length <= callbackState.lastProcessed) return;
-  callbackState.flushInProgress = true;
-  try {
-    const pending = callbackState.rawOutput.slice(callbackState.lastProcessed);
-    const lastNewline = pending.lastIndexOf("\\n");
-    if (lastNewline === -1) return;
-    callbackState.lastProcessed += lastNewline + 1;
-    let hasNew = false;
-    for (const line of pending.slice(0, lastNewline).split("\\n")) {
-      const clean = line.trim();
-      if (!clean) continue;
-      if (parseStreamEvent(clean)) {
-        hasNew = true;
-        callbackState.parsedStreamEventCount++;
-      }
-    }
-    if (hasNew) {
-      const payload = buildStreamingPayload();
-      if (payload === callbackState.lastSentPayload && callbackState.currentStreamedContent === callbackState.lastSentContent) {
-        return;
-      }
-      await sendStreamingHeartbeatUpdate(payload);
-    } else if (callbackState.inFlightToolUses > 0 && Date.now() - callbackState.lastStreamingSentAt > 15e3) {
-      const entityId = STREAMING_ENTITY_ID ?? "";
-      if (entityId) {
-        await callStreamingHeartbeatTouch(entityId);
-        callbackState.lastStreamingSentAt = Date.now();
-      }
-    }
-  } finally {
-    callbackState.flushInProgress = false;
-  }
-}
-var PING_STUCK_MS = 45e3;
-async function heartbeatPing() {
-  if (callbackState.pingInProgress && callbackState.pingStartedAt > 0 && Date.now() - callbackState.pingStartedAt < PING_STUCK_MS) {
-    return;
-  }
-  if (callbackState.pingInProgress) {
-    console.warn(
-      "[streaming-heartbeat] pingInProgress stuck past timeout, resetting"
-    );
-    callbackState.pingInProgress = false;
-  }
-  if (Date.now() - callbackState.lastStreamingSentAt < 1e4) return;
-  callbackState.pingInProgress = true;
-  callbackState.pingStartedAt = Date.now();
-  try {
-    if (callbackState.waitingForFirstAssistantEvent) {
-      const startupStep = buildClaudeStartupStep();
-      updateThinkingStep(startupStep.label, startupStep.detail);
-      await sendStreamingHeartbeatUpdate(buildStreamingPayload());
-      return;
-    }
-    const entityId = STREAMING_ENTITY_ID ?? "";
-    if (!entityId) return;
-    await callStreamingHeartbeatTouch(entityId);
-    callbackState.lastStreamingSentAt = Date.now();
-    callbackState.consecutiveHeartbeatFailures = 0;
-    callbackState.heartbeatFailureStreakStartedAt = 0;
-  } catch (error) {
-    noteHeartbeatFailure(error instanceof Error ? error : String(error));
-  } finally {
-    callbackState.pingInProgress = false;
-    callbackState.pingStartedAt = 0;
-  }
-}
-async function initialHeartbeat() {
-  const startedAt = Date.now();
-  let attempt = 0;
-  while (attempt <= 1) {
-    try {
-      const payload = buildStreamingPayload();
-      await callStreamingHeartbeat(
-        STREAMING_ENTITY_ID ?? "",
-        payload,
-        callbackState.currentStreamedContent,
-        callbackState.pendingQuestionData || void 0
-      );
-      markHeartbeatSuccess(payload);
-      log(
-        "initialHeartbeat succeeded in " + String(Date.now() - startedAt) + "ms attempts=" + String(attempt + 1)
-      );
-      return;
-    } catch (e) {
-      attempt++;
-      if (attempt > 1) throw e;
-      await new Promise((r) => setTimeout(r, 1e3));
-    }
-  }
-}
-function startStreamingLoops() {
-  flushInterval = setInterval(() => {
-    void flushStreaming();
-  }, 500);
-  heartbeatInterval = setInterval(() => {
-    void heartbeatPing();
-  }, 1e4);
-}
-async function stopStreamingLoops() {
-  if (callbackState.streamingLoopsStopped) return;
-  callbackState.streamingLoopsStopped = true;
-  if (flushInterval) clearInterval(flushInterval);
-  if (heartbeatInterval) clearInterval(heartbeatInterval);
-  await flushStreaming();
-}
-async function setFinalizingState() {
-  markLastComplete();
-  callbackState.lastStepType = "thinking";
-  try {
-    await sendStreamingHeartbeatUpdate(buildStreamingPayload());
-  } catch {
-  }
-}
-async function runPreflightHeartbeat() {
-  try {
-    await initialHeartbeat();
-    try {
-      writeFileSync7(READY_FILE, String(Date.now()));
-      log(
-        "ready file written after " + String(Date.now() - SCRIPT_STARTED_AT) + "ms"
-      );
-    } catch {
-    }
-    return true;
-  } catch (error) {
-    console.error("Callback preflight failed:", String(error));
-    return false;
-  }
-}
-
 // callback-src/runtime/completion.ts
-import { readFileSync as readFileSync5, writeFileSync as writeFileSync8 } from "fs";
+import { readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "fs";
 function parseJsonObject(line) {
   const parsed = tryParseJson(line);
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -2320,7 +1167,7 @@ function writeDoneFile(status, extras) {
       rawLogBytesWritten: callbackState.rawLogBytesWritten,
       ...extras || {}
     };
-    writeFileSync8(DONE_FILE, JSON.stringify(payload));
+    writeFileSync2(DONE_FILE, JSON.stringify(payload));
   } catch (err) {
     console.error(
       "Failed to write done file: " + String(err instanceof Error ? err.message : err)
@@ -2610,7 +1457,7 @@ async function uploadMediaFile(filePath, mimeType) {
   );
   const urlValue = urlRes && typeof urlRes === "object" && !Array.isArray(urlRes) && urlRes.value && typeof urlRes.value === "string" ? urlRes.value : "";
   if (!urlValue) throw new Error("Missing upload URL");
-  const fileData = readFileSync5(filePath);
+  const fileData = readFileSync2(filePath);
   const uploadRes = await fetchWithTimeout(
     urlValue,
     {
@@ -2684,9 +1531,1203 @@ function hasToolActivity() {
   return callbackState.accumulatedSteps.some((step) => TOOL_STEP_TYPES.has(step.type));
 }
 
-// callback-src/runtime/cliAttempt.ts
-import { spawn } from "child_process";
-import { writeFileSync as writeFileSync9 } from "fs";
+// callback-src/session/claudeSession.ts
+import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
+function buildClaudeStartupStep() {
+  if (callbackState.waitingForFirstAssistantEvent && callbackState.claudeInitAt > 0) {
+    const elapsedSeconds = Math.max(
+      1,
+      Math.floor((Date.now() - callbackState.claudeInitAt) / 1e3)
+    );
+    return callbackState.activeClaudeSessionMode === "resume" ? {
+      label: "Restoring Claude session...",
+      detail: "Claude started. Restoring saved context... " + elapsedSeconds + "s"
+    } : {
+      label: "Starting Claude CLI...",
+      detail: "Claude started. Waiting for first output... " + elapsedSeconds + "s"
+    };
+  }
+  return callbackState.activeClaudeSessionMode === "resume" ? {
+    label: "Starting Claude CLI...",
+    detail: "Launching Claude with saved session..."
+  } : {
+    label: "Starting Claude CLI...",
+    detail: "Launching Claude process..."
+  };
+}
+function readClaudeSessionState() {
+  if (!existsSync3(CLAUDE_LOCAL_STATE_FILE)) {
+    return null;
+  }
+  const parsed = tryParseJson(readFileSync3(CLAUDE_LOCAL_STATE_FILE, "utf8"));
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  const resumeSessionId = typeof parsed.resumeSessionId === "string" ? parsed.resumeSessionId.trim() : "";
+  if (!resumeSessionId) {
+    return null;
+  }
+  return { resumeSessionId };
+}
+function writeClaudeSessionState() {
+  if (!process.env.CLAUDE_SESSION_ID) {
+    return;
+  }
+  const resumeSessionId = typeof callbackState.activeClaudeSessionId === "string" && callbackState.activeClaudeSessionId.trim() ? callbackState.activeClaudeSessionId.trim() : process.env.CLAUDE_SESSION_ID;
+  if (!resumeSessionId) {
+    return;
+  }
+  mkdirSync2(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  writeFileSync3(
+    CLAUDE_LOCAL_STATE_FILE,
+    JSON.stringify(
+      {
+        logicalSessionId: process.env.CLAUDE_SESSION_ID,
+        resumeSessionId,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      null,
+      2
+    )
+  );
+}
+function collectClaudeTranscriptSessionIds() {
+  const sessionIds = /* @__PURE__ */ new Set();
+  const configuredSessionId = process.env.CLAUDE_SESSION_ID;
+  if (configuredSessionId) {
+    sessionIds.add(configuredSessionId);
+  }
+  const persistedState = readClaudeSessionState();
+  if (persistedState && persistedState.resumeSessionId) {
+    sessionIds.add(persistedState.resumeSessionId);
+  }
+  const currentSessionId = typeof callbackState.activeClaudeSessionId === "string" ? callbackState.activeClaudeSessionId.trim() : "";
+  if (currentSessionId) {
+    sessionIds.add(currentSessionId);
+  }
+  return Array.from(sessionIds);
+}
+function hydratePersistedClaudeState() {
+  const startedAt = Date.now();
+  if (!process.env.CLAUDE_SESSION_ID) {
+    log("hydratePersistedClaudeState skipped: no Claude session id");
+    return;
+  }
+  copyBaseClaudeConfig();
+  mkdirSync2(CLAUDE_LOCAL_PROJECT_DIR, { recursive: true });
+  const prepareScript = "mkdir -p " + JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) + " " + JSON.stringify(CLAUDE_RUNTIME_CONFIG_DIR);
+  runTimedBashSync(prepareScript, "hydratePersistedClaudeState(prepare)");
+  copyFileIfPresent(
+    CLAUDE_PERSIST_STATE_FILE,
+    CLAUDE_LOCAL_STATE_FILE,
+    "hydratePersistedClaudeState(state)"
+  );
+  const transcriptSessionIds = collectClaudeTranscriptSessionIds();
+  for (const sessionId of transcriptSessionIds) {
+    copyFileIfPresent(
+      buildClaudeTranscriptPath(CLAUDE_PERSIST_PROJECT_DIR, sessionId),
+      buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, sessionId),
+      "hydratePersistedClaudeState(" + sessionId + ")"
+    );
+  }
+  log(
+    "hydratePersistedClaudeState sessionIds=" + (transcriptSessionIds.length > 0 ? transcriptSessionIds.join(",") : "none")
+  );
+  log(
+    "hydratePersistedClaudeState finished in " + String(Date.now() - startedAt) + "ms"
+  );
+}
+function ensureClaudeWorkspaceTrust() {
+  const configPath = CLAUDE_RUNTIME_CONFIG_DIR + "/.claude.json";
+  mkdirSync2(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  const parsed = existsSync3(configPath) ? tryParseJson(readFileSync3(configPath, "utf8")) : null;
+  const config = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? { ...parsed } : {};
+  const rawProjects = config.projects;
+  const projects = rawProjects && typeof rawProjects === "object" && !Array.isArray(rawProjects) ? { ...rawProjects } : {};
+  const rawProject = projects[WORK_DIR];
+  const projectEntry = rawProject && typeof rawProject === "object" && !Array.isArray(rawProject) ? { ...rawProject } : {};
+  projectEntry.hasTrustDialogAccepted = true;
+  projects[WORK_DIR] = projectEntry;
+  config.projects = projects;
+  writeFileSync3(configPath, JSON.stringify(config, null, 2));
+}
+function resolveClaudeSessionMode() {
+  const configuredSessionId = process.env.CLAUDE_SESSION_ID;
+  if (!configuredSessionId) {
+    return { mode: "none", sessionId: null };
+  }
+  const persistedState = readClaudeSessionState();
+  if (persistedState) {
+    if (existsSync3(
+      buildClaudeTranscriptPath(
+        CLAUDE_LOCAL_PROJECT_DIR,
+        persistedState.resumeSessionId
+      )
+    )) {
+      return { mode: "resume", sessionId: persistedState.resumeSessionId };
+    }
+    log(
+      "resolveClaudeSessionMode: persisted state without transcript, starting fresh session"
+    );
+    return { mode: "session", sessionId: configuredSessionId };
+  }
+  if (existsSync3(
+    buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, configuredSessionId)
+  )) {
+    return { mode: "resume", sessionId: configuredSessionId };
+  }
+  return { mode: "session", sessionId: configuredSessionId };
+}
+function syncClaudeStateToPersist(reason) {
+  if (!process.env.CLAUDE_SESSION_ID) {
+    return;
+  }
+  writeClaudeSessionState();
+  const prepareScript = "mkdir -p " + JSON.stringify(CLAUDE_PERSIST_PROJECT_DIR) + " " + JSON.stringify(CLAUDE_PERSIST_DIR);
+  runTimedBashSync(
+    prepareScript,
+    "syncClaudeStateToPersist(" + reason + ":prepare)"
+  );
+  copyFileIfPresent(
+    CLAUDE_LOCAL_STATE_FILE,
+    CLAUDE_PERSIST_STATE_FILE,
+    "syncClaudeStateToPersist(" + reason + ":state)"
+  );
+  const transcriptSessionIds = collectClaudeTranscriptSessionIds();
+  for (const sessionId of transcriptSessionIds) {
+    copyFileIfPresent(
+      buildClaudeTranscriptPath(CLAUDE_LOCAL_PROJECT_DIR, sessionId),
+      buildClaudeTranscriptPath(CLAUDE_PERSIST_PROJECT_DIR, sessionId),
+      "syncClaudeStateToPersist(" + reason + ":" + sessionId + ")"
+    );
+  }
+  log(
+    "syncClaudeStateToPersist(" + reason + ") sessionIds=" + (transcriptSessionIds.length > 0 ? transcriptSessionIds.join(",") : "none")
+  );
+}
+function prepareClaudeSessionState() {
+  if (!process.env.CLAUDE_SESSION_ID) {
+    callbackState.activeClaudeSessionMode = "none";
+    updateThinkingStep("Starting Claude CLI...", "Launching Claude process...");
+    return { mode: "none", sessionId: null };
+  }
+  updateThinkingStep(
+    "Preparing Claude session...",
+    "Hydrating saved session..."
+  );
+  hydratePersistedClaudeState();
+  ensureClaudeWorkspaceTrust();
+  const sessionMode = resolveClaudeSessionMode();
+  callbackState.activeClaudeSessionMode = sessionMode.mode;
+  updateThinkingStep(
+    "Preparing Claude session...",
+    sessionMode.mode === "resume" ? "Saved session hydrated. Starting Claude..." : "Preparing fresh saved session..."
+  );
+  if (sessionMode.sessionId) {
+    callbackState.activeClaudeSessionId = sessionMode.sessionId;
+  }
+  logTranscriptStats(
+    sessionMode.sessionId ?? "",
+    sessionMode.mode === "resume" ? "resume transcript stats" : "session transcript stats"
+  );
+  log(
+    "prepareClaudeSessionState resolved mode=" + sessionMode.mode + " sessionId=" + (sessionMode.sessionId || "none")
+  );
+  return sessionMode;
+}
+
+// callback-src/providers/claude.ts
+function parseClaudeStreamEvent(event) {
+  const events = [];
+  const inner = event.event && typeof event.event === "object" && !Array.isArray(event.event) ? event.event : null;
+  if (!inner) return events;
+  if (inner.type === "message_start") {
+    events.push({ kind: "mark_message_start" });
+    return events;
+  }
+  if (inner.type !== "content_block_delta") return events;
+  const delta = inner.delta && typeof inner.delta === "object" && !Array.isArray(inner.delta) ? inner.delta : null;
+  if (!delta) return events;
+  if (delta.type === "text_delta" && typeof delta.text === "string") {
+    if (delta.text) {
+      events.push({ kind: "stream_text_delta", text: delta.text });
+    }
+    return events;
+  }
+  if (delta.type === "thinking_delta" && typeof delta.thinking === "string") {
+    if (delta.thinking) {
+      events.push({ kind: "update_reasoning", text: delta.thinking });
+    }
+  }
+  return events;
+}
+function claudeParseLine(event) {
+  const events = [];
+  if (event.type === "stream_event") {
+    return parseClaudeStreamEvent(event);
+  }
+  if (event.type === "tool_result") {
+    const toolUseId = typeof event.tool_use_id === "string" && event.tool_use_id.trim() ? event.tool_use_id.trim() : void 0;
+    events.push({ kind: "complete_tool", trackingId: toolUseId });
+    return events;
+  }
+  if (event.type === "user") {
+    const message2 = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
+    const content2 = message2 && Array.isArray(message2.content) ? message2.content : [];
+    for (const block of content2) {
+      if (!block || typeof block !== "object" || Array.isArray(block)) continue;
+      if (block.type === "tool_result" && typeof block.tool_use_id === "string" && block.tool_use_id.trim()) {
+        events.push({
+          kind: "complete_tool",
+          trackingId: block.tool_use_id.trim()
+        });
+      }
+    }
+    if (events.length > 0) {
+      return events;
+    }
+  }
+  if (event.type !== "assistant") return events;
+  if (callbackState.waitingForFirstAssistantEvent) {
+    events.push({ kind: "mark_first_assistant" });
+  }
+  const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
+  const content = message && Array.isArray(message.content) ? message.content : [];
+  for (const block of content) {
+    if (!block || typeof block !== "object" || Array.isArray(block)) continue;
+    if (block.type === "tool_use" && typeof block.name === "string") {
+      const input = block.input && typeof block.input === "object" && !Array.isArray(block.input) ? block.input : {};
+      const step = toolCallToStep(block.name, input);
+      const trackingId = typeof block.id === "string" && block.id.trim() ? block.id.trim() : void 0;
+      events.push(
+        trackingId ? { kind: "push_step", step, trackingId } : { kind: "push_step", step }
+      );
+      if (block.name === "AskUserQuestion" && block.input) {
+        events.push({
+          kind: "set_pending_question",
+          data: JSON.stringify(block.input)
+        });
+      }
+    } else if (block.type === "thinking" && "thinking" in block && block.thinking) {
+      events.push({ kind: "update_reasoning", text: String(block.thinking) });
+    } else if (block.type === "text" && "text" in block && block.text) {
+      if (!callbackState.streamedAssistantTextThisMessage) {
+        events.push({ kind: "append_text", text: String(block.text) });
+      }
+    }
+  }
+  return events;
+}
+function onStreamLine(parsed) {
+  if (parsed.type === "system" && parsed.subtype === "init" && typeof parsed.session_id === "string" && parsed.session_id.trim()) {
+    callbackState.activeClaudeSessionId = parsed.session_id.trim();
+    callbackState.claudeInitAt = Date.now();
+    callbackState.waitingForFirstAssistantEvent = true;
+    log(
+      "claude init event after " + String(elapsedAttemptMs()) + "ms sessionId=" + callbackState.activeClaudeSessionId
+    );
+    log("captured Claude session id " + callbackState.activeClaudeSessionId);
+    const startupStep = buildClaudeStartupStep();
+    updateThinkingStep(startupStep.label, startupStep.detail);
+    return { needsHeartbeat: true };
+  }
+  if (parsed.type === "assistant") {
+    if (callbackState.firstAssistantEventAt === 0) {
+      callbackState.firstAssistantEventAt = Date.now();
+      log(
+        "first assistant event after " + String(callbackState.firstAssistantEventAt - callbackState.activeAttemptStartedAt) + "ms"
+      );
+    }
+    const message = parsed.message && typeof parsed.message === "object" && !Array.isArray(parsed.message) ? parsed.message : null;
+    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
+    for (const block of contentBlocks) {
+      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string") {
+        if (callbackState.firstTextBlockAt === 0) {
+          callbackState.firstTextBlockAt = Date.now();
+          log(
+            "first text block after " + String(callbackState.firstTextBlockAt - callbackState.activeAttemptStartedAt) + "ms chars=" + String(block.text.length)
+          );
+        }
+        break;
+      }
+    }
+    return {};
+  }
+  if (parsed.type === "result" && !callbackState.resultEventSeen) {
+    callbackState.resultEventSeen = true;
+    syncClaudeStateToPersist("result-event");
+  }
+  return {};
+}
+var claudeAdapter = {
+  parseLine: claudeParseLine,
+  onStreamLine(_line, parsed) {
+    return onStreamLine(parsed);
+  }
+};
+
+// callback-src/session/codexSession.ts
+import { mkdirSync as mkdirSync4, writeFileSync as writeFileSync5 } from "fs";
+
+// callback-src/session/createSessionStore.ts
+import { existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
+function createSessionStore(config) {
+  const readSessionState = () => {
+    const statePath = existsSync4(config.localStateFile) ? config.localStateFile : existsSync4(config.persistStateFile) ? config.persistStateFile : "";
+    if (!statePath) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(readFileSync4(statePath, "utf8"));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return null;
+      }
+      const value = parsed[config.resumeField];
+      if (typeof value === "string" && value.trim()) {
+        if (config.resumeField === "resumeThreadId") {
+          return { resumeThreadId: value.trim() };
+        }
+        return { resumeSessionId: value.trim() };
+      }
+    } catch (error) {
+      console.error(
+        "Failed to read session state from " + statePath + ":",
+        String(error)
+      );
+    }
+    return null;
+  };
+  const writeSessionState = () => {
+    const activeId = config.getActiveId();
+    if (!activeId) {
+      return;
+    }
+    mkdirSync3(config.runtimeHomeDir, { recursive: true });
+    const payload = {
+      [config.resumeField]: activeId,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    writeFileSync4(config.localStateFile, JSON.stringify(payload, null, 2));
+  };
+  const hydratePersistedState = (label) => {
+    mkdirSync3(config.runtimeHomeDir, { recursive: true });
+    copyFileIfPresent(
+      config.persistStateFile,
+      config.localStateFile,
+      label + "(state)"
+    );
+  };
+  const syncStateToPersist = (label) => {
+    writeSessionState();
+    mkdirSync3(config.persistDir, { recursive: true });
+    copyFileIfPresent(
+      config.localStateFile,
+      config.persistStateFile,
+      label + "(state)"
+    );
+  };
+  const resolveResumeId = () => {
+    const persisted = readSessionState();
+    if (!persisted) return null;
+    if (config.resumeField === "resumeThreadId") {
+      return persisted.resumeThreadId ?? null;
+    }
+    return persisted.resumeSessionId ?? null;
+  };
+  return {
+    readSessionState,
+    writeSessionState,
+    hydratePersistedState,
+    syncStateToPersist,
+    resolveResumeId
+  };
+}
+
+// callback-src/session/codexSession.ts
+var store = createSessionStore({
+  runtimeHomeDir: CODEX_RUNTIME_HOME_DIR,
+  persistDir: CODEX_PERSIST_DIR,
+  localStateFile: CODEX_LOCAL_STATE_FILE,
+  persistStateFile: CODEX_PERSIST_STATE_FILE,
+  resumeField: "resumeThreadId",
+  getActiveId: () => callbackState.activeCodexThreadId,
+  setActiveId: (id) => {
+    callbackState.activeCodexThreadId = id;
+  }
+});
+var readCodexSessionState = store.readSessionState;
+var writeCodexSessionState = store.writeSessionState;
+function syncCodexStateToPersist() {
+  store.syncStateToPersist("syncCodexStateToPersist");
+  copyFileIfPresent(
+    CODEX_AUTH_FILE,
+    CODEX_PERSIST_AUTH_FILE,
+    "syncCodexStateToPersist(auth)"
+  );
+}
+function writeCodexFileIfConfigured(fileName, rawValue, encodedValue) {
+  const value = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
+  if (!value) {
+    return;
+  }
+  mkdirSync4(CODEX_RUNTIME_HOME_DIR, { recursive: true });
+  writeFileSync5(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
+}
+function buildCodexRuntimeConfig(rawValue, encodedValue) {
+  const configuredValue = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
+  const preservedLines = configuredValue ? configuredValue.split(/\\r?\\n/).filter((line) => {
+    const trimmed = line.trim().toLowerCase();
+    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy");
+  }) : [];
+  const normalizedPreservedLines = preservedLines.filter((line) => line.trim());
+  const runtimeLines = [
+    'approval_policy = "never"',
+    'sandbox_mode = "danger-full-access"'
+  ];
+  if (normalizedPreservedLines.length > 0) {
+    runtimeLines.push(...normalizedPreservedLines);
+  }
+  return runtimeLines.join("\\n") + "\\n";
+}
+function hydratePersistedCodexState() {
+  store.hydratePersistedState("hydratePersistedCodexState");
+  if (!CODEX_AUTH_JSON && !CODEX_AUTH_JSON_BASE64) {
+    copyFileIfPresent(
+      CODEX_PERSIST_AUTH_FILE,
+      CODEX_AUTH_FILE,
+      "hydratePersistedCodexState(auth)"
+    );
+  }
+  writeCodexFileIfConfigured(
+    "auth.json",
+    CODEX_AUTH_JSON,
+    CODEX_AUTH_JSON_BASE64
+  );
+  mkdirSync4(CODEX_RUNTIME_HOME_DIR, { recursive: true });
+  writeFileSync5(
+    CODEX_RUNTIME_HOME_DIR + "/config.toml",
+    buildCodexRuntimeConfig(CODEX_CONFIG_TOML, CODEX_CONFIG_TOML_BASE64)
+  );
+}
+function prepareCodexSessionState() {
+  updateThinkingStep(
+    "Preparing Codex session...",
+    "Hydrating saved session..."
+  );
+  hydratePersistedCodexState();
+  const persistedState = readCodexSessionState();
+  updateThinkingStep(
+    "Preparing Codex session...",
+    persistedState ? "Saved session hydrated. Starting Codex..." : "Preparing fresh Codex session..."
+  );
+  return persistedState && persistedState.resumeThreadId ? { mode: "resume", sessionId: persistedState.resumeThreadId } : { mode: "none", sessionId: null };
+}
+
+// callback-src/providers/codex.ts
+function codexParseLine(event) {
+  const events = [];
+  const threadId = getCodexThreadId(event);
+  if (event.type === "thread.started" && threadId) {
+    events.push({ kind: "set_codex_thread", threadId });
+    events.push({
+      kind: "update_thinking",
+      label: "Starting Codex CLI...",
+      detail: "Restoring saved context..."
+    });
+    return events;
+  }
+  if (event.type === "turn.started") {
+    events.push({
+      kind: "update_thinking",
+      label: "Starting Codex CLI...",
+      detail: "Codex is reasoning..."
+    });
+    return events;
+  }
+  if ((event.type === "item.started" || event.type === "item.updated" || event.type === "item.completed") && event.item && typeof event.item === "object" && !Array.isArray(event.item) && event.item.type === "reasoning") {
+    if (typeof event.item.text === "string" && event.item.text.trim()) {
+      events.push({ kind: "update_reasoning", text: event.item.text });
+    }
+    return events;
+  }
+  if (event.type === "item.started" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message") {
+    const step = codexItemToStep(event.item);
+    const trackingId = step.type !== "thinking" && typeof event.item.id === "string" ? event.item.id : void 0;
+    events.push(
+      trackingId ? { kind: "push_step", step, trackingId } : { kind: "push_step", step }
+    );
+    return events;
+  }
+  if (event.type === "item.completed" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && event.item.type === "agent_message") {
+    const messageText = getCodexAgentMessageText(event.item);
+    if (messageText) {
+      events.push({ kind: "append_text", text: messageText });
+    }
+    return events;
+  }
+  if ((event.type === "item.completed" || event.type === "item.failed") && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message") {
+    if (typeof event.item.id === "string") {
+      events.push({ kind: "complete_tool", trackingId: event.item.id });
+    } else {
+      events.push({ kind: "mark_last_complete" });
+    }
+    return events;
+  }
+  if (event.type === "turn.completed") {
+    events.push({ kind: "mark_last_complete" });
+    return events;
+  }
+  return events;
+}
+function inspectCodexStdout(text) {
+  for (const line of text.split("\\n")) {
+    const clean = line.trim();
+    if (!clean) continue;
+    try {
+      const parsed = tryParseJson(clean);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed.type === "item.completed" && parsed.item && typeof parsed.item === "object" && !Array.isArray(parsed.item) && parsed.item.type === "agent_message" && getCodexAgentMessageText(parsed.item) && callbackState.firstTextBlockAt === 0) {
+        callbackState.firstTextBlockAt = Date.now();
+      }
+    } catch {
+    }
+  }
+}
+function onStreamLine2(parsed) {
+  const threadId = getCodexThreadId(parsed);
+  if (parsed.type === "thread.started" && threadId) {
+    callbackState.activeCodexThreadId = threadId;
+    writeCodexSessionState();
+    return {};
+  }
+  if (parsed.type === "turn.completed" && !callbackState.resultEventSeen) {
+    callbackState.resultEventSeen = true;
+    syncCodexStateToPersist();
+  }
+  return {};
+}
+var codexAdapter = {
+  parseLine: codexParseLine,
+  onStreamLine(_line, parsed) {
+    return onStreamLine2(parsed);
+  },
+  onStdoutText: inspectCodexStdout
+};
+
+// callback-src/session/cursorSession.ts
+import { existsSync as existsSync5, mkdirSync as mkdirSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync6 } from "fs";
+var store2 = createSessionStore({
+  runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
+  persistDir: CURSOR_PERSIST_DIR,
+  localStateFile: CURSOR_LOCAL_STATE_FILE,
+  persistStateFile: CURSOR_PERSIST_STATE_FILE,
+  resumeField: "resumeSessionId",
+  getActiveId: () => callbackState.activeCursorSessionId,
+  setActiveId: (id) => {
+    callbackState.activeCursorSessionId = id;
+  }
+});
+var readCursorSessionState = store2.readSessionState;
+var writeCursorSessionState = store2.writeSessionState;
+function syncCursorStateToPersist() {
+  store2.syncStateToPersist("syncCursorStateToPersist");
+}
+function hydratePersistedCursorState() {
+  store2.hydratePersistedState("hydratePersistedCursorState");
+  if (existsSync5("/tmp/eva-mcp.json")) {
+    try {
+      const raw = readFileSync5("/tmp/eva-mcp.json", "utf8");
+      const evaMcp = tryParseJson(raw);
+      const cursorDir = WORK_DIR + "/.cursor";
+      mkdirSync5(cursorDir, { recursive: true });
+      const cursorMcp = { mcpServers: {} };
+      if (evaMcp && typeof evaMcp === "object" && !Array.isArray(evaMcp) && evaMcp.mcpServers && typeof evaMcp.mcpServers === "object" && !Array.isArray(evaMcp.mcpServers)) {
+        for (const [name, server] of Object.entries(evaMcp.mcpServers)) {
+          if (!server || typeof server !== "object" || Array.isArray(server))
+            continue;
+          const entry = {};
+          if (typeof server.url === "string") entry.url = server.url;
+          if (server.headers && typeof server.headers === "object" && !Array.isArray(server.headers)) {
+            const headers = {};
+            for (const [hk, hv] of Object.entries(server.headers)) {
+              if (typeof hv === "string") headers[hk] = hv;
+            }
+            if (Object.keys(headers).length > 0) entry.headers = headers;
+          }
+          if (Object.keys(entry).length > 0) {
+            cursorMcp.mcpServers[name] = entry;
+          }
+        }
+      }
+      writeFileSync6(
+        cursorDir + "/mcp.json",
+        JSON.stringify(cursorMcp, null, 2)
+      );
+    } catch (error) {
+      console.error(
+        "Failed to translate MCP config for Cursor:",
+        String(error)
+      );
+    }
+  }
+}
+function prepareCursorSessionState() {
+  updateThinkingStep(
+    "Preparing Cursor session...",
+    "Hydrating saved session..."
+  );
+  hydratePersistedCursorState();
+  const persistedState = readCursorSessionState();
+  updateThinkingStep(
+    "Preparing Cursor session...",
+    persistedState ? "Saved session hydrated. Starting Cursor..." : "Preparing fresh Cursor session..."
+  );
+  if (persistedState && persistedState.resumeSessionId) {
+    callbackState.activeCursorSessionId = persistedState.resumeSessionId;
+    return { mode: "resume", sessionId: persistedState.resumeSessionId };
+  }
+  return { mode: "none", sessionId: null };
+}
+
+// callback-src/providers/cursor.ts
+function cursorParseLine(event) {
+  const events = [];
+  if (event.type === "system" && event.subtype === "init") {
+    events.push({
+      kind: "update_thinking",
+      label: "Starting Cursor CLI...",
+      detail: "Cursor session initializing..."
+    });
+    return events;
+  }
+  if (event.type === "assistant") {
+    const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
+    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
+    for (const block of contentBlocks) {
+      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && block.text) {
+        events.push({ kind: "append_text", text: block.text });
+      } else if (block && typeof block === "object" && !Array.isArray(block) && block.type === "thinking" && typeof block.thinking === "string" && block.thinking) {
+        events.push({ kind: "update_reasoning", text: block.thinking });
+      }
+    }
+    return events;
+  }
+  if (event.type === "tool_call" && event.subtype === "started" && event.tool_call && typeof event.tool_call === "object" && !Array.isArray(event.tool_call)) {
+    events.push({ kind: "push_step", step: cursorToolToStep(event.tool_call) });
+    return events;
+  }
+  if (event.type === "tool_call" && event.subtype === "completed") {
+    events.push({ kind: "complete_tool" });
+    return events;
+  }
+  if (event.type === "result") {
+    events.push({ kind: "mark_last_complete" });
+    return events;
+  }
+  return events;
+}
+function onStreamLine3(parsed) {
+  if (parsed.type === "system" && parsed.subtype === "init" && typeof parsed.session_id === "string" && parsed.session_id.trim()) {
+    const sid = parsed.session_id.trim();
+    if (sid !== callbackState.activeCursorSessionId) {
+      callbackState.activeCursorSessionId = sid;
+      writeCursorSessionState();
+      return { needsHeartbeat: true };
+    }
+    return {};
+  }
+  if (parsed.type === "assistant") {
+    if (callbackState.firstAssistantEventAt === 0) callbackState.firstAssistantEventAt = Date.now();
+    const message = parsed.message && typeof parsed.message === "object" && !Array.isArray(parsed.message) ? parsed.message : null;
+    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
+    for (const block of contentBlocks) {
+      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && callbackState.firstTextBlockAt === 0) {
+        callbackState.firstTextBlockAt = Date.now();
+        break;
+      }
+    }
+    return {};
+  }
+  if (parsed.type === "tool_call") {
+    callbackState.firstTextBlockAt = 0;
+    return {};
+  }
+  if (parsed.type === "result" && !callbackState.resultEventSeen) {
+    callbackState.resultEventSeen = true;
+    syncCursorStateToPersist();
+  }
+  return {};
+}
+var cursorAdapter = {
+  parseLine: cursorParseLine,
+  onStreamLine(_line, parsed) {
+    return onStreamLine3(parsed);
+  }
+};
+
+// callback-src/session/opencodeSession.ts
+import { mkdirSync as mkdirSync6, writeFileSync as writeFileSync7 } from "fs";
+var store3 = createSessionStore({
+  runtimeHomeDir: OPENCODE_RUNTIME_HOME_DIR,
+  persistDir: OPENCODE_PERSIST_DIR,
+  localStateFile: OPENCODE_LOCAL_STATE_FILE,
+  persistStateFile: OPENCODE_PERSIST_STATE_FILE,
+  resumeField: "resumeSessionId",
+  getActiveId: () => callbackState.activeOpencodeSessionId,
+  setActiveId: (id) => {
+    callbackState.activeOpencodeSessionId = id;
+  }
+});
+var readOpencodeSessionState = store3.readSessionState;
+var writeOpencodeSessionState = store3.writeSessionState;
+function syncOpencodeStateToPersist() {
+  store3.syncStateToPersist("syncOpencodeStateToPersist");
+  copyFileIfPresent(
+    OPENCODE_AUTH_FILE,
+    OPENCODE_PERSIST_AUTH_FILE,
+    "syncOpencodeStateToPersist(auth)"
+  );
+}
+function hydratePersistedOpencodeState() {
+  store3.hydratePersistedState("hydratePersistedOpencodeState");
+  const configJson = OPENCODE_CONFIG_JSON || (OPENCODE_CONFIG_JSON_BASE64 ? decodeBase64(OPENCODE_CONFIG_JSON_BASE64) : "");
+  if (configJson) {
+    process.env.OPENCODE_CONFIG_CONTENT = configJson;
+  }
+  mkdirSync6(OPENCODE_AUTH_DIR, { recursive: true });
+  const authJson = OPENCODE_AUTH_JSON || (OPENCODE_AUTH_JSON_BASE64 ? decodeBase64(OPENCODE_AUTH_JSON_BASE64) : "");
+  if (authJson) {
+    writeFileSync7(OPENCODE_AUTH_FILE, authJson);
+  } else {
+    copyFileIfPresent(
+      OPENCODE_PERSIST_AUTH_FILE,
+      OPENCODE_AUTH_FILE,
+      "hydratePersistedOpencodeState(auth)"
+    );
+  }
+  process.env.OPENCODE_PERMISSION = '"allow"';
+  process.env.OPENCODE_DISABLE_AUTOUPDATE = "1";
+}
+function prepareOpencodeSessionState() {
+  updateThinkingStep(
+    "Preparing Opencode session...",
+    "Hydrating saved session..."
+  );
+  hydratePersistedOpencodeState();
+  const persistedState = readOpencodeSessionState();
+  updateThinkingStep(
+    "Preparing Opencode session...",
+    persistedState ? "Saved session hydrated. Starting Opencode..." : "Preparing fresh Opencode session..."
+  );
+  if (persistedState && persistedState.resumeSessionId) {
+    callbackState.activeOpencodeSessionId = persistedState.resumeSessionId;
+    return { mode: "resume", sessionId: persistedState.resumeSessionId };
+  }
+  return { mode: "none", sessionId: null };
+}
+
+// callback-src/providers/opencode.ts
+function opencodeParseLine(event) {
+  const events = [];
+  if (event.type === "reasoning" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {
+    events.push({ kind: "update_reasoning", text: event.part.text });
+    return events;
+  }
+  if (event.type === "text" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {
+    events.push({ kind: "append_text", text: event.part.text });
+    return events;
+  }
+  if (event.type === "tool_use" && event.part && typeof event.part === "object") {
+    const state = "state" in event.part && event.part.state && typeof event.part.state === "object" && !Array.isArray(event.part.state) ? event.part.state : {};
+    const status = typeof state.status === "string" ? state.status : "";
+    if (status === "running") {
+      events.push({ kind: "push_step", step: opencodeToolToStep(event.part) });
+      return events;
+    }
+    if (status === "completed" || status === "error") {
+      events.push({ kind: "complete_tool" });
+      return events;
+    }
+    return events;
+  }
+  if (event.type === "step_finish") {
+    const reason = event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.reason === "string" ? event.part.reason : "";
+    if (reason === "stop") {
+      events.push({ kind: "mark_last_complete" });
+    }
+    return events;
+  }
+  return events;
+}
+function onStreamLine4(parsed) {
+  const sessionID = typeof parsed.sessionID === "string" && parsed.sessionID.trim() ? parsed.sessionID.trim() : "";
+  let needsHeartbeat = false;
+  if (sessionID && sessionID !== callbackState.activeOpencodeSessionId) {
+    callbackState.activeOpencodeSessionId = sessionID;
+    writeOpencodeSessionState();
+    needsHeartbeat = true;
+  }
+  if (parsed.type === "step_start") {
+    if (callbackState.firstAssistantEventAt === 0) {
+      callbackState.firstAssistantEventAt = Date.now();
+    }
+  }
+  if (parsed.type === "text" && parsed.part && typeof parsed.part === "object" && !Array.isArray(parsed.part) && typeof parsed.part.text === "string" && parsed.part.text) {
+    if (callbackState.firstTextBlockAt === 0) {
+      callbackState.firstTextBlockAt = Date.now();
+    }
+  }
+  if (parsed.type === "step_finish" && parsed.part && typeof parsed.part === "object" && !Array.isArray(parsed.part) && parsed.part.reason === "stop" && !callbackState.resultEventSeen) {
+    if (typeof parsed.part.messageID === "string" && parsed.part.messageID) {
+      callbackState.opencodeFinalMessageId = parsed.part.messageID;
+    }
+    callbackState.resultEventSeen = true;
+    syncOpencodeStateToPersist();
+  }
+  return needsHeartbeat ? { needsHeartbeat: true } : {};
+}
+var opencodeAdapter = {
+  parseLine: opencodeParseLine,
+  onStreamLine(_line, parsed) {
+    return onStreamLine4(parsed);
+  }
+};
+
+// callback-src/parse/canonical.ts
+function markLastComplete() {
+  if (callbackState.accumulatedSteps.length === 0) return;
+  const last = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
+  last.status = "complete";
+  if (completedLabels[last.label]) {
+    last.label = completedLabels[last.label];
+  } else if (last.label.startsWith("Using ") && last.label.endsWith("...")) {
+    last.label = "Used " + last.label.slice(6, -3);
+  }
+}
+function updateThinkingStep(label, detail) {
+  void label;
+  void detail;
+  callbackState.lastStepType = "thinking";
+}
+function shouldRecordProgressStep(step) {
+  return step.type !== "thinking" && step.type !== "reasoning" && step.type !== "response";
+}
+function pushProgressStep(step) {
+  if (!shouldRecordProgressStep(step)) {
+    updateThinkingStep(step.label, step.detail);
+    return;
+  }
+  markLastComplete();
+  callbackState.accumulatedSteps.push(step);
+  callbackState.lastStepType = "tool";
+}
+function parseToCanonical(event, provider = PROVIDER) {
+  if (provider === "cursor") return cursorParseLine(event);
+  if (provider === "opencode") return opencodeParseLine(event);
+  if (provider === "codex") return codexParseLine(event);
+  return claudeParseLine(event);
+}
+function applyCanonicalEvents(events) {
+  if (events.length === 0) return false;
+  for (const ev of events) {
+    switch (ev.kind) {
+      case "update_thinking":
+        updateThinkingStep(ev.label, ev.detail);
+        break;
+      case "push_step":
+        pushProgressStep(ev.step);
+        if (shouldRecordProgressStep(ev.step)) {
+          if (ev.trackingId) callbackState.codexToolItemIds.add(ev.trackingId);
+          callbackState.inFlightToolUses++;
+        }
+        break;
+      case "complete_tool":
+        markLastComplete();
+        if (ev.trackingId !== void 0) {
+          callbackState.codexToolItemIds.delete(ev.trackingId);
+        }
+        if (callbackState.inFlightToolUses > 0) {
+          callbackState.inFlightToolUses--;
+        }
+        break;
+      case "mark_last_complete":
+        markLastComplete();
+        break;
+      case "append_text":
+        appendStreamedContent(ev.text);
+        break;
+      case "stream_text_delta":
+        appendStreamedContent(ev.text);
+        callbackState.streamedAssistantTextThisMessage = true;
+        break;
+      case "mark_message_start":
+        callbackState.streamedAssistantTextThisMessage = false;
+        break;
+      case "update_reasoning":
+        callbackState.lastStepType = "thinking";
+        break;
+      case "set_pending_question":
+        callbackState.pendingQuestionData = ev.data;
+        break;
+      case "set_codex_thread":
+        callbackState.activeCodexThreadId = ev.threadId;
+        break;
+      case "mark_first_assistant":
+        callbackState.waitingForFirstAssistantEvent = false;
+        break;
+    }
+  }
+  return true;
+}
+function parseStreamEvent(line) {
+  const event = tryParseJson(line);
+  if (!event || typeof event !== "object" || Array.isArray(event)) {
+    return false;
+  }
+  try {
+    return applyCanonicalEvents(parseToCanonical(event, PROVIDER));
+  } catch {
+    return false;
+  }
+}
+function appendStreamedContent(text) {
+  const nextText = String(text);
+  if (!nextText) {
+    return;
+  }
+  if (nextText.startsWith(callbackState.currentStreamedContent)) {
+    callbackState.currentStreamedContent = nextText;
+    return;
+  }
+  callbackState.currentStreamedContent += nextText;
+}
+
+// callback-src/runtime/heartbeats.ts
+import { writeFileSync as writeFileSync8 } from "fs";
+
+// callback-src/runtime/processControl.ts
+import { spawnSync as spawnSync2 } from "child_process";
+function terminateAttemptProcess(child) {
+  try {
+    child.kill("SIGTERM");
+  } catch {
+  }
+  setTimeout(() => {
+    try {
+      child.kill("SIGKILL");
+    } catch {
+    }
+  }, 2e3);
+}
+function isChildZombie(pid) {
+  if (!pid) return false;
+  try {
+    const result = spawnSync2("ps", ["-p", String(pid), "-o", "state="], {
+      timeout: 2e3,
+      encoding: "utf8"
+    });
+    if (result.error || result.status !== 0) return false;
+    return (result.stdout || "").trim() === "Z";
+  } catch {
+    return false;
+  }
+}
+
+// callback-src/runtime/heartbeats.ts
+var flushInterval = null;
+var heartbeatInterval = null;
+function buildStreamingPayload() {
+  return JSON.stringify(callbackState.accumulatedSteps);
+}
+function markHeartbeatSuccess(payload) {
+  callbackState.lastSentPayload = payload;
+  callbackState.lastSentContent = callbackState.currentStreamedContent;
+  callbackState.lastStreamingSentAt = Date.now();
+  if (callbackState.consecutiveHeartbeatFailures > 0) {
+    console.error(
+      "Heartbeat recovered after " + callbackState.consecutiveHeartbeatFailures + " consecutive failures"
+    );
+  }
+  callbackState.consecutiveHeartbeatFailures = 0;
+  callbackState.heartbeatFailureStreakStartedAt = 0;
+}
+function noteHeartbeatFailure(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  callbackState.consecutiveHeartbeatFailures++;
+  if (callbackState.consecutiveHeartbeatFailures === 1) {
+    callbackState.heartbeatFailureStreakStartedAt = Date.now();
+  }
+  console.error(
+    "Heartbeat failed (consecutive: " + callbackState.consecutiveHeartbeatFailures + "):",
+    message
+  );
+  if (callbackState.consecutiveHeartbeatFailures === 2 || callbackState.consecutiveHeartbeatFailures === 4) {
+    console.error(
+      "[streaming-heartbeat] degraded: " + callbackState.consecutiveHeartbeatFailures + " consecutive post-retry failures (burstFatal>=" + HEARTBEAT_FATAL_BURST + " or slowFatal>=" + HEARTBEAT_FATAL_SLOW_COUNT + " over " + HEARTBEAT_FATAL_SLOW_WINDOW_MS + "ms)"
+    );
+  }
+  if (callbackState.fatalHeartbeatErrorMessage) {
+    return;
+  }
+  const streakAge = callbackState.heartbeatFailureStreakStartedAt > 0 ? Date.now() - callbackState.heartbeatFailureStreakStartedAt : 0;
+  const burstFatal = callbackState.consecutiveHeartbeatFailures >= HEARTBEAT_FATAL_BURST;
+  const slowFatal = callbackState.consecutiveHeartbeatFailures >= HEARTBEAT_FATAL_SLOW_COUNT && streakAge >= HEARTBEAT_FATAL_SLOW_WINDOW_MS;
+  const absoluteFatal = callbackState.consecutiveHeartbeatFailures >= HEARTBEAT_ABSOLUTE_MAX_FAILURES;
+  if (burstFatal || slowFatal || absoluteFatal) {
+    callbackState.fatalHeartbeatErrorMessage = "Lost streaming heartbeat after " + String(callbackState.consecutiveHeartbeatFailures) + " consecutive failures: " + message;
+    log(callbackState.fatalHeartbeatErrorMessage);
+    if (callbackState.activeAttemptChild) {
+      terminateAttemptProcess(callbackState.activeAttemptChild);
+    }
+  }
+}
+async function sendStreamingHeartbeatUpdate(payload) {
+  try {
+    await callStreamingHeartbeat(
+      STREAMING_ENTITY_ID ?? "",
+      payload,
+      callbackState.currentStreamedContent,
+      callbackState.pendingQuestionData || void 0
+    );
+    markHeartbeatSuccess(payload);
+    return true;
+  } catch (error) {
+    noteHeartbeatFailure(error instanceof Error ? error : String(error));
+    return false;
+  }
+}
+async function flushStreaming() {
+  if (callbackState.flushInProgress) return;
+  if (callbackState.rawOutput.length <= callbackState.lastProcessed) return;
+  callbackState.flushInProgress = true;
+  try {
+    const pending = callbackState.rawOutput.slice(callbackState.lastProcessed);
+    const lastNewline = pending.lastIndexOf("\\n");
+    if (lastNewline === -1) return;
+    callbackState.lastProcessed += lastNewline + 1;
+    let hasNew = false;
+    for (const line of pending.slice(0, lastNewline).split("\\n")) {
+      const clean = line.trim();
+      if (!clean) continue;
+      if (parseStreamEvent(clean)) {
+        hasNew = true;
+        callbackState.parsedStreamEventCount++;
+      }
+    }
+    const contentChanged = callbackState.currentStreamedContent !== callbackState.lastSentContent;
+    if (hasNew || contentChanged) {
+      const payload = buildStreamingPayload();
+      if (payload === callbackState.lastSentPayload && !contentChanged) {
+        return;
+      }
+      await sendStreamingHeartbeatUpdate(payload);
+    } else if (callbackState.inFlightToolUses > 0 && Date.now() - callbackState.lastStreamingSentAt > 15e3) {
+      const entityId = STREAMING_ENTITY_ID ?? "";
+      if (entityId) {
+        await callStreamingHeartbeatTouch(entityId);
+        callbackState.lastStreamingSentAt = Date.now();
+      }
+    }
+  } finally {
+    callbackState.flushInProgress = false;
+  }
+}
+var PING_STUCK_MS = 45e3;
+async function heartbeatPing() {
+  if (callbackState.pingInProgress && callbackState.pingStartedAt > 0 && Date.now() - callbackState.pingStartedAt < PING_STUCK_MS) {
+    return;
+  }
+  if (callbackState.pingInProgress) {
+    console.warn(
+      "[streaming-heartbeat] pingInProgress stuck past timeout, resetting"
+    );
+    callbackState.pingInProgress = false;
+  }
+  if (Date.now() - callbackState.lastStreamingSentAt < 1e4) return;
+  callbackState.pingInProgress = true;
+  callbackState.pingStartedAt = Date.now();
+  try {
+    if (callbackState.waitingForFirstAssistantEvent) {
+      const startupStep = buildClaudeStartupStep();
+      updateThinkingStep(startupStep.label, startupStep.detail);
+      await sendStreamingHeartbeatUpdate(buildStreamingPayload());
+      return;
+    }
+    const entityId = STREAMING_ENTITY_ID ?? "";
+    if (!entityId) return;
+    await callStreamingHeartbeatTouch(entityId);
+    callbackState.lastStreamingSentAt = Date.now();
+    callbackState.consecutiveHeartbeatFailures = 0;
+    callbackState.heartbeatFailureStreakStartedAt = 0;
+  } catch (error) {
+    noteHeartbeatFailure(error instanceof Error ? error : String(error));
+  } finally {
+    callbackState.pingInProgress = false;
+    callbackState.pingStartedAt = 0;
+  }
+}
+async function initialHeartbeat() {
+  const startedAt = Date.now();
+  let attempt = 0;
+  while (attempt <= 1) {
+    try {
+      const payload = buildStreamingPayload();
+      await callStreamingHeartbeat(
+        STREAMING_ENTITY_ID ?? "",
+        payload,
+        callbackState.currentStreamedContent,
+        callbackState.pendingQuestionData || void 0
+      );
+      markHeartbeatSuccess(payload);
+      log(
+        "initialHeartbeat succeeded in " + String(Date.now() - startedAt) + "ms attempts=" + String(attempt + 1)
+      );
+      return;
+    } catch (e) {
+      attempt++;
+      if (attempt > 1) throw e;
+      await new Promise((r) => setTimeout(r, 1e3));
+    }
+  }
+}
+function startStreamingLoops() {
+  flushInterval = setInterval(() => {
+    void flushStreaming();
+  }, 150);
+  heartbeatInterval = setInterval(() => {
+    void heartbeatPing();
+  }, 1e4);
+}
+async function stopStreamingLoops() {
+  if (callbackState.streamingLoopsStopped) return;
+  callbackState.streamingLoopsStopped = true;
+  if (flushInterval) clearInterval(flushInterval);
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  await flushStreaming();
+}
+async function setFinalizingState() {
+  markLastComplete();
+  callbackState.lastStepType = "thinking";
+  try {
+    await sendStreamingHeartbeatUpdate(buildStreamingPayload());
+  } catch {
+  }
+}
+async function runPreflightHeartbeat() {
+  try {
+    await initialHeartbeat();
+    try {
+      writeFileSync8(READY_FILE, String(Date.now()));
+      log(
+        "ready file written after " + String(Date.now() - SCRIPT_STARTED_AT) + "ms"
+      );
+    } catch {
+    }
+    return true;
+  } catch (error) {
+    console.error("Callback preflight failed:", String(error));
+    return false;
+  }
+}
 
 // callback-src/providers/index.ts
 function getProviderAdapter(provider = PROVIDER) {
@@ -2761,7 +2802,13 @@ function appendToRawLogFile(text) {
   }
 }
 
+// callback-src/providers/claudeSdk.ts
+import { execSync } from "child_process";
+import { existsSync as existsSync6, readFileSync as readFileSync6 } from "fs";
+
 // callback-src/runtime/cliAttempt.ts
+import { spawn } from "child_process";
+import { writeFileSync as writeFileSync9 } from "fs";
 function evaluateAttemptHealth(input) {
   const result = {
     shouldTerminate: false,
@@ -2926,6 +2973,670 @@ async function runCliAttempt(options) {
   });
 }
 
+// callback-src/providers/claudeSdk.ts
+var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
+var SDK_VERSION = "0.3.201";
+var MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
+function globalNpmRoot() {
+  return execSync("npm root -g", { encoding: "utf8" }).trim();
+}
+var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
+async function loadSdk() {
+  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
+  const localEntry = SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + "/sdk.mjs";
+  if (existsSync6(globalEntry)) {
+    const mod2 = await import(globalEntry);
+    return mod2;
+  }
+  if (!existsSync6(localEntry)) {
+    log(
+      "claude-agent-sdk not found in sandbox; installing " + SDK_PACKAGE + "@" + SDK_VERSION + " to " + SDK_LOCAL_PREFIX + " (one-time)"
+    );
+    execSync(
+      "mkdir -p " + SDK_LOCAL_PREFIX + " && npm install --prefix " + SDK_LOCAL_PREFIX + " " + SDK_PACKAGE + "@" + SDK_VERSION,
+      { encoding: "utf8", timeout: 18e4 }
+    );
+  }
+  const mod = await import(localEntry);
+  return mod;
+}
+function claudeExecutablePath() {
+  try {
+    return execSync("command -v claude", { encoding: "utf8" }).trim();
+  } catch {
+    return "claude";
+  }
+}
+function readPromptText() {
+  return readFileSync6("/tmp/design-prompt.txt", "utf8");
+}
+function buildSdkOptions(sessionMode) {
+  const extraArgs = { settings: settingsJson };
+  if (existsSync6(MCP_CONFIG_PATH)) {
+    extraArgs["mcp-config"] = MCP_CONFIG_PATH;
+  }
+  return buildSdkOptionsFromParts(sessionMode, extraArgs);
+}
+function buildConversationalSdkOptions() {
+  return {
+    cwd: WORK_DIR,
+    model: "haiku",
+    pathToClaudeCodeExecutable: claudeExecutablePath(),
+    systemPrompt: "Reply briefly and directly. Do not use tools.",
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
+    allowedTools: [],
+    includePartialMessages: true,
+    env: {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+      DISABLE_TELEMETRY: "1",
+      DISABLE_AUTOUPDATER: "1",
+      DISABLE_ERROR_REPORTING: "1"
+    }
+  };
+}
+var EVA_SDK_SYSTEM_APPEND = "You are running inside Eva, a platform that runs coding agents in remote sandboxes against GitHub repos. Treat the workspace as the active repo checkout.";
+function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
+  const allowedToolsOption = tools === "agent" && ALLOWED_TOOLS ? { allowedTools: ALLOWED_TOOLS.split(",") } : { allowedTools: [] };
+  return {
+    cwd: WORK_DIR,
+    model: normalizedClaudeModel,
+    pathToClaudeCodeExecutable: claudeExecutablePath(),
+    systemPrompt: SYSTEM_PROMPT ? {
+      type: "preset",
+      preset: "claude_code",
+      append: \`\${EVA_SDK_SYSTEM_APPEND}
+
+\${SYSTEM_PROMPT}\`
+    } : {
+      type: "preset",
+      preset: "claude_code",
+      append: EVA_SDK_SYSTEM_APPEND
+    },
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
+    // Emit token-level partial (\`stream_event\`) messages so claudeParseLine can
+    // stream text deltas into the reply live (dedup guards the final message).
+    includePartialMessages: true,
+    ...allowedToolsOption,
+    // Suppress the claude engine's per-turn NON-ESSENTIAL model calls (topic /
+    // title / flavour-text side calls) — measured as a ~6s second API call
+    // that delays turn completion after the visible reply.
+    env: {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: CLAUDE_RUNTIME_CONFIG_DIR,
+      DISABLE_NON_ESSENTIAL_MODEL_CALLS: "1",
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+      DISABLE_TELEMETRY: "1",
+      DISABLE_AUTOUPDATER: "1",
+      DISABLE_ERROR_REPORTING: "1"
+    },
+    ...sessionMode.mode === "session" && sessionMode.sessionId ? { sessionId: sessionMode.sessionId } : {},
+    ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},
+    extraArgs
+  };
+}
+async function runClaudeSdkAttempt(sessionMode) {
+  resetAttemptState();
+  callbackState.activeAttemptStartedAt = Date.now();
+  const startupStep = buildClaudeStartupStep();
+  updateThinkingStep(startupStep.label, startupStep.detail);
+  log(
+    "runClaudeSdkAttempt started (mode=" + sessionMode.mode + ", sessionId=" + (sessionMode.sessionId || "none") + ")"
+  );
+  let attemptOutput = "";
+  let lastMessageAt = Date.now();
+  let timedOutForNoOutput = false;
+  let timedOutForMaxRuntime = false;
+  let sawResult = false;
+  let resultIsError = false;
+  let queryErrorMessage = "";
+  const sdk = await loadSdk();
+  let effectiveMode = sessionMode;
+  let q = sdk.query({
+    prompt: readPromptText(),
+    options: buildSdkOptions(effectiveMode)
+  });
+  const interrupt = async () => {
+    try {
+      if (q.interrupt) await q.interrupt();
+    } catch {
+    }
+  };
+  const healthTimer = setInterval(() => {
+    const now = Date.now();
+    if (now - callbackState.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
+      timedOutForMaxRuntime = true;
+      log("runClaudeSdkAttempt: max runtime exceeded \\u2014 interrupting");
+      void interrupt();
+      return;
+    }
+    if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
+      timedOutForNoOutput = true;
+      log("runClaudeSdkAttempt: no SDK messages \\u2014 interrupting");
+      void interrupt();
+    }
+  }, NO_OUTPUT_CHECK_INTERVAL_MS);
+  const consumeQuery = async () => {
+    for await (const message of q) {
+      lastMessageAt = Date.now();
+      const line = JSON.stringify(message) + "\\n";
+      appendToRawLogFile(line);
+      attemptOutput = trimBufferHead(attemptOutput + line);
+      appendToRawOutput(line);
+      processRealtimeStdoutChunk(line);
+      if (message.type === "result") {
+        sawResult = true;
+        resultIsError = message.is_error === true;
+      }
+      if (timedOutForMaxRuntime || timedOutForNoOutput) break;
+    }
+  };
+  try {
+    try {
+      await consumeQuery();
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      if (effectiveMode.mode === "resume" && effectiveMode.sessionId && messageText.includes("No conversation found with session ID")) {
+        log(
+          "runClaudeSdkAttempt: resume target missing \\u2014 retrying as a new session with the same id"
+        );
+        appendToRawLogFile("[sdk-retry] " + messageText + "\\n");
+        sawResult = false;
+        resultIsError = false;
+        effectiveMode = { mode: "session", sessionId: effectiveMode.sessionId };
+        q = sdk.query({
+          prompt: readPromptText(),
+          options: buildSdkOptions(effectiveMode)
+        });
+        await consumeQuery();
+      } else {
+        throw error;
+      }
+    }
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    queryErrorMessage = messageText;
+    log("runClaudeSdkAttempt: query failed \\u2014 " + messageText);
+    appendToRawLogFile("[sdk-error] " + messageText + "\\n");
+    callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + messageText + "\\n");
+  } finally {
+    clearInterval(healthTimer);
+  }
+  const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
+  log(
+    "runClaudeSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (queryErrorMessage ? ", queryError=" + queryErrorMessage : "") + ")"
+  );
+  return {
+    code,
+    output: attemptOutput,
+    timedOutForNoOutput,
+    timedOutForMaxRuntime,
+    timedOutForFirstEvent: false,
+    timedOutForFirstAssistant: false,
+    timedOutAfterFirstText: false,
+    timedOutForZombie: false,
+    toolStallErrorMessage: ""
+  };
+}
+
+// callback-src/providers/claudeSdkDaemon.ts
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+var DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
+var DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
+var DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
+var CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
+var IDLE_EXIT_MS = 45 * 60 * 1e3;
+var PROMPT_POLL_INTERVAL_MS = 50;
+function createPromptStream() {
+  const queue = [];
+  let notify = null;
+  const push = (text) => {
+    queue.push({
+      type: "user",
+      message: { role: "user", content: text },
+      parent_tool_use_id: null,
+      session_id: callbackState.activeClaudeSessionId || ""
+    });
+    const resume = notify;
+    notify = null;
+    if (resume) resume();
+  };
+  const iterable = {
+    [Symbol.asyncIterator]() {
+      return {
+        async next() {
+          while (queue.length === 0) {
+            await new Promise((resolve) => {
+              notify = resolve;
+            });
+          }
+          const value = queue.shift();
+          if (value === void 0) {
+            return { value: void 0, done: true };
+          }
+          return { value, done: false };
+        }
+      };
+    }
+  };
+  return { push, iterable };
+}
+async function ensureGithubToken() {
+  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
+  try {
+    const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + CONVEX_TOKEN
+      },
+      body: JSON.stringify({
+        path: "github:getInstallationTokenAction",
+        args: { repoId: REPO_ID },
+        format: "json"
+      })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const token = readToken(data);
+    if (token) {
+      process.env.GITHUB_TOKEN = token;
+      process.env.GH_TOKEN = token;
+    }
+  } catch {
+  }
+}
+function readToken(data) {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    return null;
+  }
+  const value = data.value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  return typeof value.token === "string" ? value.token : null;
+}
+function resetTurnState() {
+  callbackState.accumulatedSteps.length = 0;
+  callbackState.currentStreamedContent = "";
+  callbackState.streamedAssistantTextThisMessage = false;
+  callbackState.resultEventSeen = false;
+  callbackState.rawOutput = "";
+  callbackState.lastProcessed = 0;
+  callbackState.inFlightToolUses = 0;
+  callbackState.pendingQuestionData = "";
+  callbackState.lastStepType = "thinking";
+}
+async function finalizeTurn(output, opts = {}) {
+  await flushStreaming();
+  const resultEvent = extractResultEvent(output);
+  for (const step of callbackState.accumulatedSteps) step.status = "complete";
+  const activityLog = JSON.stringify(callbackState.accumulatedSteps);
+  const success = resultEvent ? !resultEvent.isError : false;
+  const completionArgs = {
+    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+    success,
+    result: resultEvent?.result ?? callbackState.rawOutput,
+    error: resultEvent?.isError ? resultEvent.result : null,
+    activityLog
+  };
+  if (RUN_ID) completionArgs.runId = RUN_ID;
+  if (resultEvent?.rawResultEvent) {
+    completionArgs.rawResultEvent = resultEvent.rawResultEvent;
+  }
+  if (callbackState.pendingQuestionData) {
+    completionArgs.pendingQuestion = callbackState.pendingQuestionData;
+  }
+  const completionSentAt = Date.now();
+  await callConvexWithRetry(
+    "mutation",
+    COMPLETION_MUTATION ?? "",
+    completionArgs
+  );
+  log(
+    "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
+  );
+  if (!opts.skipBookkeeping) {
+    const bookkeepingAt = Date.now();
+    syncClaudeStateToPersist("daemon-turn");
+    await setFinalizingState();
+    log(
+      "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
+    );
+  }
+}
+function readClaimedPrompt(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const prompt = payload.prompt;
+  return typeof prompt === "string" ? prompt : null;
+}
+function readClaimedTurn(result) {
+  const prompt = readClaimedPrompt(result);
+  if (prompt === null) {
+    return null;
+  }
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return { prompt, turnKind: "agent" };
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const turnKindField = payload.turnKind;
+  const turnKind = turnKindField === "conversational" ? "conversational" : "agent";
+  return { prompt, turnKind };
+}
+function processDaemonMessage(message, output, turnStartedAt, sawFirstMessageThisTurn, sawAssistantThisTurn) {
+  const messageType = typeof message.type === "string" ? message.type : "?";
+  if (!sawFirstMessageThisTurn.value) {
+    sawFirstMessageThisTurn.value = true;
+    log(
+      "daemon[timing]: first SDK message (" + messageType + ") +" + (Date.now() - turnStartedAt) + "ms after turn start"
+    );
+  }
+  if (!sawAssistantThisTurn.value && messageType === "assistant") {
+    sawAssistantThisTurn.value = true;
+    log(
+      "daemon[timing]: first assistant msg +" + (Date.now() - turnStartedAt) + "ms after turn start"
+    );
+  }
+  const line = JSON.stringify(message) + "\\n";
+  appendToRawLogFile(line);
+  const nextOutput = trimBufferHead(output + line);
+  appendToRawOutput(line);
+  processRealtimeStdoutChunk(line);
+  const isResult = message.type === "result";
+  return { output: nextOutput, isResult };
+}
+function extractAssistantTextFromMessage(message) {
+  if (message.type !== "assistant") {
+    return null;
+  }
+  const nested = message.message;
+  if (typeof nested !== "object" || nested === null || Array.isArray(nested)) {
+    return null;
+  }
+  const content = nested.content;
+  if (!Array.isArray(content)) {
+    return null;
+  }
+  const parts = [];
+  for (const block of content) {
+    if (typeof block !== "object" || block === null || Array.isArray(block)) {
+      continue;
+    }
+    if (block.type === "text" && typeof block.text === "string") {
+      parts.push(block.text);
+    }
+  }
+  const text = parts.join("");
+  return text.length > 0 ? text : null;
+}
+function appendSyntheticResultLine(output, replyText) {
+  const line = JSON.stringify({
+    type: "result",
+    subtype: "success",
+    is_error: false,
+    result: replyText
+  }) + "\\n";
+  return trimBufferHead(output + line);
+}
+function createWarmConversationalRunner(sdk) {
+  const { push, iterable } = createPromptStream();
+  log("daemon: booting warm conversational query()");
+  const query = sdk.query({
+    prompt: iterable,
+    options: buildConversationalSdkOptions()
+  });
+  const pending = [];
+  let notify = null;
+  let pumpFinished = false;
+  const wakeWaiters = () => {
+    const resume = notify;
+    notify = null;
+    if (resume) resume();
+  };
+  void (async () => {
+    try {
+      for await (const raw of query) {
+        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+          continue;
+        }
+        pending.push(raw);
+        wakeWaiters();
+      }
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      log("daemon: conversational query pump failed \\u2014 " + messageText);
+    } finally {
+      pumpFinished = true;
+      wakeWaiters();
+    }
+  })();
+  const waitMessage = async () => {
+    while (pending.length === 0) {
+      if (pumpFinished) return null;
+      await new Promise((resolve) => {
+        notify = resolve;
+      });
+      if (pending.length === 0 && pumpFinished) return null;
+    }
+    const message = pending.shift();
+    return message ?? null;
+  };
+  return { push, waitMessage };
+}
+async function drainUntilConversationalResult(runner) {
+  while (true) {
+    const message = await runner.waitMessage();
+    if (message === null) {
+      return;
+    }
+    if (message.type === "result") {
+      return;
+    }
+  }
+}
+async function runConversationalWarmTurn(runner, prompt) {
+  resetTurnState();
+  const turnStartedAt = Date.now();
+  callbackState.activeAttemptStartedAt = turnStartedAt;
+  log("daemon: conversational warm turn started");
+  runner.push(prompt);
+  let output = "";
+  const sawFirstMessageThisTurn = { value: false };
+  const sawAssistantThisTurn = { value: false };
+  while (true) {
+    const message = await runner.waitMessage();
+    if (message === null) {
+      log("daemon: conversational query ended unexpectedly");
+      return;
+    }
+    const processed = processDaemonMessage(
+      message,
+      output,
+      turnStartedAt,
+      sawFirstMessageThisTurn,
+      sawAssistantThisTurn
+    );
+    output = processed.output;
+    if (!processed.isResult) {
+      const replyText = extractAssistantTextFromMessage(message);
+      if (replyText !== null) {
+        output = appendSyntheticResultLine(output, replyText);
+        const resultAt2 = Date.now();
+        log(
+          "daemon[timing]: conversational early result (assistant) +" + (resultAt2 - turnStartedAt) + "ms after turn start"
+        );
+        await finalizeTurn(output, { skipBookkeeping: true });
+        log(
+          "daemon[timing]: conversational finalizeTurn took " + (Date.now() - resultAt2) + "ms"
+        );
+        resetTurnState();
+        await drainUntilConversationalResult(runner);
+        return;
+      }
+      continue;
+    }
+    const resultAt = Date.now();
+    log(
+      "daemon[timing]: conversational result +" + (resultAt - turnStartedAt) + "ms after turn start"
+    );
+    await finalizeTurn(output, { skipBookkeeping: true });
+    log(
+      "daemon[timing]: conversational finalizeTurn took " + (Date.now() - resultAt) + "ms"
+    );
+    resetTurnState();
+    return;
+  }
+}
+function callbackScriptWentStaleOnDisk() {
+  if (!CALLBACK_SCRIPT_FP) return false;
+  try {
+    const onDisk = readFileSync7("/tmp/eva-callback-fp", "utf8").trim();
+    return onDisk !== CALLBACK_SCRIPT_FP;
+  } catch {
+    return false;
+  }
+}
+async function waitForNextTurn() {
+  const idleDeadline = Date.now() + IDLE_EXIT_MS;
+  while (Date.now() < idleDeadline) {
+    if (callbackScriptWentStaleOnDisk()) {
+      log("daemon: callback script updated on disk \\u2014 exiting for respawn");
+      return null;
+    }
+    const claimed = await callConvexWithRetry(
+      "mutation",
+      CLAIM_PENDING_TURN_MUTATION,
+      { sessionId: ENTITY_ID ?? "" }
+    );
+    const turn = readClaimedTurn(claimed);
+    if (turn !== null) {
+      return turn;
+    }
+    await sleep(PROMPT_POLL_INTERVAL_MS);
+  }
+  return null;
+}
+async function runSdkDaemon() {
+  writeFileSync10(DAEMON_PID_FILE, String(process.pid));
+  writeFileSync10(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
+  writeFileSync10(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
+  const preflightOk2 = await runPreflightHeartbeat();
+  if (!preflightOk2) {
+    log("daemon: preflight failed");
+    process.exit(1);
+  }
+  startStreamingLoops();
+  await ensureGithubToken();
+  const sessionMode = prepareClaudeSessionState();
+  const options = buildSdkOptions(sessionMode);
+  const sdk = await loadSdk();
+  const convRunner = createWarmConversationalRunner(sdk);
+  const { push, iterable } = createPromptStream();
+  const query = sdk.query({ prompt: iterable, options });
+  log(
+    "runSdkDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", mode=" + sessionMode.mode + ")"
+  );
+  log("daemon: warm query() live, waiting for first prompt (pull)");
+  let nextTurn = await waitForNextTurn();
+  if (nextTurn === null) {
+    log("daemon: idle timeout before first prompt \\u2014 exiting");
+    try {
+      unlinkSync(DAEMON_PID_FILE);
+    } catch {
+    }
+    await stopStreamingLoops();
+    process.exit(0);
+  }
+  try {
+    while (nextTurn !== null && nextTurn.turnKind === "conversational") {
+      await runConversationalWarmTurn(convRunner, nextTurn.prompt);
+      nextTurn = await waitForNextTurn();
+    }
+    if (nextTurn === null) {
+      log("daemon: idle timeout after conversational turns \\u2014 exiting");
+    } else {
+      let turnStartedAt = Date.now();
+      const sawFirstMessageThisTurn = { value: false };
+      const sawAssistantThisTurn = { value: false };
+      push(nextTurn.prompt);
+      callbackState.activeAttemptStartedAt = turnStartedAt;
+      let output = "";
+      for await (const message of query) {
+        if (typeof message !== "object" || message === null || Array.isArray(message)) {
+          continue;
+        }
+        const processed = processDaemonMessage(
+          message,
+          output,
+          turnStartedAt,
+          sawFirstMessageThisTurn,
+          sawAssistantThisTurn
+        );
+        output = processed.output;
+        if (!processed.isResult) {
+          continue;
+        }
+        const resultAt = Date.now();
+        log(
+          "daemon[timing]: result message +" + (resultAt - turnStartedAt) + "ms after push"
+        );
+        await finalizeTurn(output);
+        log(
+          "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
+        );
+        resetTurnState();
+        output = "";
+        let upcoming = await waitForNextTurn();
+        while (upcoming !== null && upcoming.turnKind === "conversational") {
+          await runConversationalWarmTurn(convRunner, upcoming.prompt);
+          upcoming = await waitForNextTurn();
+        }
+        if (upcoming === null) {
+          log("daemon: idle timeout \\u2014 exiting");
+          break;
+        }
+        log("daemon: next agent turn received");
+        turnStartedAt = Date.now();
+        sawFirstMessageThisTurn.value = false;
+        sawAssistantThisTurn.value = false;
+        callbackState.activeAttemptStartedAt = turnStartedAt;
+        push(upcoming.prompt);
+      }
+    }
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("daemon: query failed \\u2014 " + messageText);
+    try {
+      await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+        [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+        success: false,
+        result: null,
+        error: "Agent SDK daemon failed: " + messageText,
+        activityLog: JSON.stringify(callbackState.accumulatedSteps)
+      });
+    } catch {
+    }
+  } finally {
+    try {
+      unlinkSync(DAEMON_PID_FILE);
+    } catch {
+    }
+    await stopStreamingLoops();
+  }
+  process.exit(0);
+}
+
 // callback-src/providers/attempts.ts
 function prepareProviderSessionState() {
   if (PROVIDER === "codex") return prepareCodexSessionState();
@@ -2949,6 +3660,9 @@ function syncProviderStateToPersist(reason) {
   syncClaudeStateToPersist(reason);
 }
 async function runClaudeAttempt(sessionMode) {
+  if (CLAUDE_ATTEMPT_MODE === "sdk" || CLAUDE_ATTEMPT_MODE === "sdk-daemon") {
+    return await runClaudeSdkAttempt(sessionMode);
+  }
   const sessionArg = sessionMode.mode === "session" && sessionMode.sessionId ? " --session-id " + JSON.stringify(sessionMode.sessionId) : sessionMode.mode === "resume" && sessionMode.sessionId ? " --resume " + JSON.stringify(sessionMode.sessionId) : "";
   const cmd = claudeBaseCmd + sessionArg;
   const startupStep = buildClaudeStartupStep();
@@ -3029,14 +3743,17 @@ process.on("exit", (code) => {
   }
 });
 try {
-  unlinkSync(READY_FILE);
+  unlinkSync2(READY_FILE);
 } catch {
 }
 try {
-  writeFileSync10("/proc/self/oom_score_adj", "-600");
+  writeFileSync11("/proc/self/oom_score_adj", "-600");
 } catch {
 }
 callbackState.lastStepType = "thinking";
+if (CLAUDE_ATTEMPT_MODE === "sdk-daemon" && PROVIDER === "claude" && ENTITY_ID_FIELD === "sessionId") {
+  await runSdkDaemon();
+}
 var preflightOk = await runPreflightHeartbeat();
 if (!preflightOk) {
   writeDoneFile("preflight-failed");
@@ -3044,10 +3761,10 @@ if (!preflightOk) {
 }
 startStreamingLoops();
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
-  if (existsSync6(d)) {
+  if (existsSync7(d)) {
     for (const f of readdirSync2(d)) {
       try {
-        unlinkSync(d + "/" + f);
+        unlinkSync2(d + "/" + f);
       } catch {
       }
     }
@@ -3194,7 +3911,7 @@ try {
     let imageStorageId = null;
     let lastFileName = null;
     const recDir = WORK_DIR + "/recordings";
-    if (existsSync6(recDir)) {
+    if (existsSync7(recDir)) {
       for (const file of readdirSync2(recDir)) {
         if (!/\\.(webm|mp4|mov|avi)\$/i.test(file)) continue;
         const fp = recDir + "/" + file;
@@ -3205,14 +3922,14 @@ try {
         } catch {
         }
         try {
-          unlinkSync(fp);
+          unlinkSync2(fp);
         } catch {
         }
       }
     }
     if (!videoStorageId) {
       const ssDir = WORK_DIR + "/screenshots";
-      if (existsSync6(ssDir)) {
+      if (existsSync7(ssDir)) {
         for (const file of readdirSync2(ssDir)) {
           if (!/\\.(png|jpg|jpeg|gif|webp)\$/i.test(file)) continue;
           const fp = ssDir + "/" + file;
@@ -3231,7 +3948,7 @@ try {
           } catch {
           }
           try {
-            unlinkSync(fp);
+            unlinkSync2(fp);
           } catch {
           }
         }

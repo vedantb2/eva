@@ -6,6 +6,8 @@ import { aiModelValidator, sessionModeValidator } from "../validators";
 import { trackSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
+import { buildSessionPrompt, MODE_TOOLS } from "./workflow";
+import { normalizeAIModel } from "../validators";
 
 /** Frontend trigger to start a session execution workflow in the specified mode. */
 export const startExecute = authMutation({
@@ -31,6 +33,57 @@ export const startExecute = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
+    // Daemon-pull dispatch: stage the turn for a warm daemon to claim in one
+    // poll instead of waiting on the workflow's durable step queue. We must
+    // reproduce, in this mutation, the exact side effects the workflow's first
+    // two steps used to do — insert the assistant placeholder and build the
+    // prompt — so the daemon runs precisely what the workflow would have handed
+    // it. The workflow still starts below (for cold-resume, completion,
+    // post-turn push/save, and cancellation); it simply no longer pushes the
+    // prompt (see sessionExecuteWorkflow), so the turn is never double-executed.
+    await ctx.db.insert("messages", {
+      parentId: args.sessionId,
+      role: "assistant",
+      content: "",
+      timestamp: Date.now(),
+      mode: args.mode,
+      activityLog: "",
+    });
+
+    const user = await ctx.db.get(ctx.userId);
+    const { prompt, turnKind } = await buildSessionPrompt(ctx, {
+      session,
+      repo,
+      user,
+      message: args.message,
+      mode: args.mode,
+    });
+
+    await ctx.db.patch(args.sessionId, {
+      pendingTurn: { prompt, requestedAt: Date.now(), turnKind },
+      updatedAt: Date.now(),
+    });
+
+    // Ensure a daemon exists to claim the staged prompt. Idempotent: a no-op if
+    // one is already warm, and it never pkills a live daemon — it only respawns
+    // (in pull mode, WITHOUT a prompt) when none is alive. On a cold/archived
+    // sandbox this thaws it; if there is no sandbox yet the action skips and the
+    // workflow's cold path below creates one.
+    if (session.sandboxId) {
+      const normalizedModel = normalizeAIModel(args.model);
+      const effectiveMode: "edit" | "plan" =
+        args.mode === "plan" ? "plan" : "edit";
+      await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
+        sandboxId: session.sandboxId,
+        sessionId: args.sessionId,
+        repoId: session.repoId,
+        userId: ctx.userId,
+        model: normalizedModel,
+        allowedTools: MODE_TOOLS[effectiveMode],
+        sessionPersistenceId: args.sessionId,
+      });
+    }
+
     const workflowId = await workflow.start(
       ctx,
       internal.sessionWorkflow.sessionExecuteWorkflow,
@@ -46,6 +99,31 @@ export const startExecute = authMutation({
 
     await trackSessionWorkflow(ctx, args.sessionId, workflowId);
 
+    return null;
+  },
+});
+
+/**
+ * Fired when a session page opens: boot the Claude daemon ahead of the user's
+ * first message so that message is warm instead of paying a ~20s cold respawn.
+ * No-op unless the session already has a sandbox and is in sdk-daemon mode.
+ * Best-effort and cheap to call repeatedly (the action skips if already warm).
+ */
+export const prewarmDaemon = authMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || !session.sandboxId) return null;
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+    await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
+      sandboxId: session.sandboxId,
+      sessionId: args.sessionId,
+      repoId: session.repoId,
+      userId: session.userId,
+      sessionPersistenceId: args.sessionId,
+    });
     return null;
   },
 });
@@ -133,6 +211,9 @@ export const cancelExecution = authMutation({
 
     await ctx.db.patch(args.sessionId, {
       activeWorkflowId: undefined,
+      // Clear any staged-but-unclaimed turn so a cancelled prompt is never
+      // later picked up by the daemon's claim poll and executed after the fact.
+      pendingTurn: undefined,
       updatedAt: Date.now(),
     });
 

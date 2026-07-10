@@ -7,10 +7,8 @@ import { api, internal } from "../_generated/api";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import {
-  exec,
   execHandle,
   resolveSandboxContext,
-  getSandbox,
   getSandboxHandle,
   getDaytona,
   ensureSandboxRunning,
@@ -21,6 +19,8 @@ import {
   workspaceDirShell,
   KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
+import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
+import { uploadCallbackScriptBundle } from "./launch";
 import { resolveSandboxCredentials } from "../envVarResolver";
 import { resolveExistingSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import { resolveDaytonaApiKey } from "../envVarResolver";
@@ -1060,6 +1060,127 @@ export const pushSandboxBranch = internalAction({
       throw error;
     }
     return null;
+  },
+});
+
+/**
+ * Pre-warm a session's Claude daemon so the user's FIRST message is warm.
+ *
+ * The ~20s "slow hi" is a cold respawn: after the daemon idle-exits (or a
+ * fresh/resumed sandbox), the first message pays token mint + 132KB script
+ * upload + node/CLI boot before any token. This action, fired when the session
+ * page opens, does that boot ahead of time: it launches the daemon in
+ * CLAUDE_PREWARM mode (create the warm query() — spawning + warming the claude
+ * CLI/MCP/API — then wait for the first prompt via the handoff protocol). By
+ * the time the user types, tryWarmDaemonHandoff finds a live daemon and the turn
+ * skips the boot entirely. No-op if a daemon is already alive for this session.
+ * Best-effort: any failure is swallowed (the normal path still works).
+ */
+export const prewarmSessionDaemon = internalAction({
+  args: {
+    sandboxId: v.string(),
+    sessionId: v.id("sessions"),
+    repoId: v.id("githubRepos"),
+    userId: v.id("users"),
+    model: v.optional(v.string()),
+    allowedTools: v.optional(v.string()),
+    sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
+  },
+  returns: v.object({ prewarmed: v.boolean() }),
+  handler: async (ctx, args) => {
+    const startedAt = Date.now();
+    // The warm daemon only runs in sdk-daemon mode. In CLI mode a prewarm would
+    // launch a runner with an empty prompt that nothing consumes (and on the
+    // one-shot path would resolve the turn with a blank result), so no-op.
+    if (process.env.CLAUDE_ATTEMPT_MODE !== "sdk-daemon") {
+      return { prewarmed: false };
+    }
+    try {
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      const sessionIdStr = String(args.sessionId);
+      const fp = CALLBACK_SCRIPT_FINGERPRINT;
+      const normalizedModel = normalizeAIModel(args.model);
+      // The daemon freezes its model + tool set when it boots, so a daemon
+      // started for a different model/tools must be replaced — reusing it would
+      // run the turn on the wrong model or without edit tools. The daemon writes
+      // this exact signature to /tmp/eva-daemon.opts at boot (via EVA_DAEMON_OPTS
+      // below), so the comparison is a literal string match with no drift.
+      const optsSig = `${normalizedModel}|${args.allowedTools ?? ""}`;
+      // Classify the sandbox daemon: alive (reuse), optsmismatch (model/tools
+      // changed — kill + respawn), stale (new callback bundle — reupload without
+      // killing; the daemon self-exits on the fp change), or cold (launch fresh).
+      const alive = await execHandle(
+        sandbox,
+        `if [ -f /tmp/eva-daemon.pid ] && kill -0 "$(cat /tmp/eva-daemon.pid)" 2>/dev/null && [ "$(cat /tmp/eva-daemon.entity 2>/dev/null)" = ${JSON.stringify(sessionIdStr)} ]; then if [ "$(cat /tmp/eva-callback-fp 2>/dev/null)" = ${JSON.stringify(fp)} ]; then if [ "$(cat /tmp/eva-daemon.opts 2>/dev/null)" = ${JSON.stringify(optsSig)} ]; then echo alive; else echo optsmismatch; fi; else echo stale; fi; else echo cold; fi`,
+        10,
+      );
+      const aliveState = alive.trim().split("\n").pop()?.trim() ?? "cold";
+      if (aliveState === "alive") {
+        console.log(
+          `[daytona][execution] prewarmSessionDaemon: already warm sessionId=${args.sessionId}`,
+        );
+        return { prewarmed: false };
+      }
+      if (aliveState === "stale") {
+        console.log(
+          `[daytona][execution] prewarmSessionDaemon: stale callback script — uploading bundle without killing live daemon sessionId=${args.sessionId}`,
+        );
+        await uploadCallbackScriptBundle(sandbox);
+        return { prewarmed: false };
+      }
+      if (aliveState === "optsmismatch") {
+        // Turns are serial per session, so a live daemon is idle here — safe to
+        // kill and respawn below with the requested model/tools.
+        console.log(
+          `[daytona][execution] prewarmSessionDaemon: model/tools changed — respawning daemon sessionId=${args.sessionId}`,
+        );
+        await execHandle(
+          sandbox,
+          `kill "$(cat /tmp/eva-daemon.pid 2>/dev/null)" 2>/dev/null; rm -f /tmp/eva-daemon.pid /tmp/eva-daemon.opts; true`,
+          10,
+        );
+      }
+
+      await ensureSandboxRunning(sandbox, {
+        timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+      });
+
+      const claudeSessionId =
+        getAIModelProvider(normalizedModel) === "claude" &&
+        args.sessionPersistenceId
+          ? sessionClaudeUuid(args.sessionPersistenceId)
+          : undefined;
+
+      // Empty prompt: the daemon in CLAUDE_PREWARM mode never reads it — it waits
+      // for the first real message via the pending-turn claim. EVA_DAEMON_OPTS
+      // records the frozen model/tools so a later turn can detect a mismatch.
+      await signAndLaunchScript(
+        ctx,
+        sandbox,
+        args.userId,
+        "",
+        "sessionWorkflow:handleCompletion",
+        "sessionId",
+        String(args.sessionId),
+        args.repoId,
+        {
+          model: normalizedModel,
+          allowedTools: args.allowedTools,
+          extraEnvVars: { CLAUDE_PREWARM: "1", EVA_DAEMON_OPTS: optsSig },
+          claudeSessionId,
+          enableMcp: true,
+        },
+      );
+      console.log(
+        `[daytona][execution] prewarmSessionDaemon: launched in ${Date.now() - startedAt}ms sessionId=${args.sessionId}`,
+      );
+      return { prewarmed: true };
+    } catch (error) {
+      console.log(
+        `[daytona][execution] prewarmSessionDaemon: skipped in ${Date.now() - startedAt}ms sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { prewarmed: false };
+    }
   },
 });
 

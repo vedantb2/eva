@@ -186,6 +186,18 @@ export const sessionFields = {
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
+  // Daemon-pull turn dispatch: startExecute writes the built prompt here and the
+  // warm sandbox daemon claims it (clearing this field) in one poll, bypassing
+  // the workflow's durable step queue. Absent between turns.
+  pendingTurn: v.optional(
+    v.object({
+      prompt: v.string(),
+      requestedAt: v.number(),
+      turnKind: v.optional(
+        v.union(v.literal("conversational"), v.literal("agent")),
+      ),
+    }),
+  ),
 };
 
 export const syncSettingFields = {
@@ -380,6 +392,10 @@ export const messageFields = {
     v.id("agentTasks"),
   ),
   mode: v.optional(sessionModeValidator),
+  // Client-generated id (crypto.randomUUID) set when a user message is sent
+  // optimistically. Lets the client dedup its local pending row against the
+  // server row once the reactive query delivers it.
+  clientId: v.optional(v.string()),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),

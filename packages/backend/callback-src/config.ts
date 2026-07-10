@@ -16,6 +16,23 @@ export const PROVIDER = process.env.AI_PROVIDER || "claude";
 export const MODEL =
   process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
+/** "sdk" runs Claude via the Agent SDK query(); anything else spawns `claude -p`. */
+export const CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
+/**
+ * Pre-warm mode for the sdk-daemon: boot the daemon (creating the warm query()
+ * so the CLI/MCP/API connection is live) and wait for the first prompt via the
+ * handoff protocol instead of running an initial turn. Lets a session-open
+ * trigger pay the boot cost BEFORE the user sends their first message.
+ */
+export const CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
+/** Fingerprint of the callback bundle this daemon was started with; exit when disk fp differs. */
+export const CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
+/**
+ * Opaque model+tools signature the launcher computed for this daemon. Written to
+ * /tmp/eva-daemon.opts at boot so a later prewarm can detect a model/tools change
+ * and respawn the daemon instead of reusing it with the wrong options.
+ */
+export const DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
 export const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 export const WORK_DIR = existsSync("/tmp/repo")
   ? "/tmp/repo"

@@ -95,6 +95,18 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
       case "append_text":
         appendStreamedContent(ev.text);
         break;
+      case "stream_text_delta":
+        // Live token delta from an Anthropic partial message. Appends exactly
+        // like append_text but marks the flag so the FINAL assistant message's
+        // duplicate text block is skipped (see claudeParseLine dedup).
+        appendStreamedContent(ev.text);
+        S.streamedAssistantTextThisMessage = true;
+        break;
+      case "mark_message_start":
+        // A new assistant message is beginning; clear the per-message dedup flag
+        // so its text blocks stream fresh.
+        S.streamedAssistantTextThisMessage = false;
+        break;
       case "update_reasoning":
         S.lastStepType = "thinking";
         break;

@@ -1,5 +1,13 @@
 # Changelog
 
+## Agent SDK daemon review fixes - 2026-07-10
+
+- Prewarm now respawns the warm daemon when a turn's model or tools differ from the daemon's frozen options (model+tools signature written to `/tmp/eva-daemon.opts` at boot), so an edit-mode turn can no longer run on a stale read-only daemon.
+- Prewarm is a no-op unless `CLAUDE_ATTEMPT_MODE=sdk-daemon`, so a non-daemon deployment never launches an empty-prompt runner.
+- Turn classification no longer routes every short question ending in "?" to the stateless conversational path — context-dependent follow-ups stay on the agent path and keep session context.
+- Removed the dead file-based daemon handoff (`buildDaemonHandoffCommand`, `tryWarmDaemonHandoff`) and the `devStartExecute` harness.
+- Reason for change: review of the Agent SDK migration found the daemon could serve turns with the wrong model/tools, lose context on follow-up questions, and carried dead dispatch code.
+
 ## Monorepo snapshot builds use sibling Vercel credentials - 2026-07-10
 
 - Snapshot credential resolution walks monorepo siblings so `SANDBOX_PROVIDER=vercel` on apps/web applies to eprocurement and shared parent configs; silent fallback to Daytona when Vercel creds are incomplete now errors loudly.
@@ -16,6 +24,29 @@
 
 - Rebuild Now is provider-aware: Daytona keeps the declarative Image path; when `SANDBOX_PROVIDER=vercel`, the workflow builds a fresh sandbox, runs toolchain/install/build commands, captures `snap_*`, and stores it on `repoSnapshots.baseSnapshotId` for sandbox boot.
 - Reason for change: eva on Vercel-only credentials could not rebuild its base snapshot because the image-only path always called Daytona APIs.
+
+## Warm conversational query latency - 2026-07-06
+
+- Boot a persistent Haiku conversational `query()` at daemon start, complete on assistant text (skip slow `result` tail), and strip settings/MCP from conversational SDK options.
+- Reason for change: conversational turns spawned a fresh SDK subprocess each message (~14s); warm query + early finalize brings simple Q&A under 5s on a live daemon.
+
+## Conversational latency hardening - 2026-07-06
+
+- Force Haiku on conversational one-shots, skip transcript bookkeeping, fingerprint callback bundles on sandboxes, and upload refreshed scripts without killing a live mid-turn daemon.
+- Reason for change: stale-script prewarm was pkilling the daemon after claim (losing the turn) and conversational turns still inherited the session Opus model; claude.ai parity needs a safe fast path without interrupting in-flight work.
+
+## Session conversational fast path - 2026-07-06
+
+- Classify simple Q&A turns and run them as fresh one-shot Agent SDK queries (no resume, no tools/MCP) instead of the warm coding-agent session with full transcript context.
+- Skip git push for conversational turns; log `claimWaitMs` and `turnKind` for latency debugging.
+- Reason for change: warm daemon worked but Opus still took ~11s on math questions because every message paid for coding-agent prompt scaffolding and 50+ turn resume context; claude.ai answers in ~3s on a fresh thread.
+
+## Session turn latency improvements - 2026-07-06
+
+- Stream live assistant tokens in the chat UI via `streamingContent` while a turn is in progress.
+- Persist assistant replies before git push so the UI updates as soon as the Agent SDK daemon finishes.
+- Faster daemon claim polling (50ms) and stream heartbeats when only text content changes.
+- Reason for change: Agent SDK warm daemon was working but perceived latency stayed ~10s because the UI waited for workflow bookkeeping and never rendered streamed tokens.
 
 ## Snapshot build falls back to base Image when no seedable apps - 2026-07-10
 

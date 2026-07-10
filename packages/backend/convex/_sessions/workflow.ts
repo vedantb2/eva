@@ -19,7 +19,14 @@ import {
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
-import { buildPlanPrompt, buildEditPrompt } from "./prompts";
+import {
+  buildPlanPrompt,
+  buildEditPrompt,
+  buildConversationalPrompt,
+} from "./prompts";
+import { classifyTurnKind, type SessionTurnKind } from "./turnKind";
+import type { QueryCtx } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
 
 // --- Completion event ---
 
@@ -30,7 +37,7 @@ export const sessionCompleteEvent = defineEvent({
 
 // --- Mode config ---
 
-const MODE_TOOLS: Record<"edit" | "plan", string> = {
+export const MODE_TOOLS: Record<"edit" | "plan", string> = {
   edit: "Read,Write,Edit,Bash,Glob,Grep",
   plan: "Read,Write,Glob,Grep",
 };
@@ -45,6 +52,78 @@ export const sessionModeArgValidator = v.union(
   v.literal("execute"),
   v.literal("plan"),
 );
+
+/**
+ * Builds the mode-specific agent prompt for a session turn (doc `@` mentions
+ * resolved, custom instructions + system prompt folded in). Shared single
+ * source of truth so both the workflow's `getSessionData` query and the
+ * daemon-pull `startExecute` mutation produce byte-identical prompts — the
+ * daemon must run exactly what the workflow would have handed it, never a
+ * second variant. Takes already-fetched session/repo/user docs so it works from
+ * either a query or a mutation context (MutationCtx satisfies QueryCtx for the
+ * read-only mention resolution).
+ */
+export async function buildSessionPrompt(
+  ctx: QueryCtx,
+  args: {
+    session: Doc<"sessions">;
+    repo: Doc<"githubRepos">;
+    user: Doc<"users"> | null;
+    message: string;
+    mode: "edit" | "ask" | "execute" | "plan";
+  },
+): Promise<{ prompt: string; branchName: string; turnKind: SessionTurnKind }> {
+  const { session, repo, user } = args;
+  const rootDirectory = repo.rootDirectory ?? "";
+  const customInstructionsBlock = buildCustomInstructionsBlock(
+    user?.role ?? undefined,
+    user?.customInstructions ?? undefined,
+  );
+
+  const effectiveMode: "edit" | "plan" = args.mode === "plan" ? "plan" : "edit";
+  const branchName = session.branchName || `eva/session-${session._id}`;
+
+  const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
+    ctx,
+    args.message,
+    session.repoId,
+  );
+
+  const turnKind: SessionTurnKind =
+    effectiveMode === "plan" ? "agent" : classifyTurnKind(resolvedMessage);
+
+  let prompt: string;
+  if (effectiveMode === "plan") {
+    prompt = buildPlanPrompt(
+      { owner: repo.owner, name: repo.name },
+      session.planContent || "",
+      resolvedMessage,
+      rootDirectory,
+      customInstructionsBlock,
+      repo.systemPrompt,
+    );
+  } else if (turnKind === "conversational") {
+    prompt = buildConversationalPrompt(
+      resolvedMessage,
+      customInstructionsBlock,
+      repo.systemPrompt,
+    );
+  } else {
+    prompt = buildEditPrompt(
+      { owner: repo.owner, name: repo.name },
+      branchName,
+      session.planContent || "",
+      resolvedMessage,
+      rootDirectory,
+      customInstructionsBlock,
+      repo.systemPrompt,
+    );
+  }
+  if (prefixBlock) {
+    prompt = `${prefixBlock}\n\n${prompt}`;
+  }
+  return { prompt, branchName, turnKind };
+}
 
 // --- Workflows ---
 
@@ -124,6 +203,16 @@ export const sessionExecuteWorkflow = workflow.define({
       userId: args.userId,
     });
 
+    // Daemon-pull dispatch: the prompt is NOT pushed from here. `startExecute`
+    // has already staged it in `session.pendingTurn` and scheduled a daemon to
+    // claim it; the warm daemon pulls it via `claimPendingTurn` in ~one poll,
+    // which is why we no longer probe/handoff/launch WITH a prompt here (doing
+    // so would double-execute the turn). This workflow's remaining job is to
+    // (a) make sure the sandbox is started (thawing cold/archived storage over
+    // durable steps) and a daemon is alive to do the claim, then (b) awaitEvent
+    // + run the unchanged post-turn bookkeeping (branch push, saveResult,
+    // deployment tracking).
+    let sandboxId: string | null = null;
     let validatedSandboxId: string | null = null;
 
     if (data.sandboxId || data.vercelSandboxId) {
@@ -164,8 +253,6 @@ export const sessionExecuteWorkflow = workflow.define({
       }
     }
 
-    let sandboxId: string;
-
     if (validatedSandboxId) {
       sandboxId = validatedSandboxId;
     } else {
@@ -195,33 +282,27 @@ export const sessionExecuteWorkflow = workflow.define({
       });
     }
 
-    try {
-      await step.runAction(internal.daytona.launchOnExistingSandbox, {
-        sandboxId,
-        entityId: args.sessionId,
-        prompt: data.prompt,
-        userId: args.userId,
-        completionMutation: "sessionWorkflow:handleCompletion",
-        entityIdField: "sessionId",
-        model: data.model,
-        allowedTools: data.allowedTools,
-        repoId: data.repoId,
-        sessionPersistenceId: args.sessionId,
-        streamingEntityId: args.sessionId,
-      });
-    } catch (error) {
-      await step.runMutation(internal.sessionWorkflow.saveResult, {
-        sessionId: args.sessionId,
-        success: false,
-        result: null,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Sandbox agent launch failed.",
-        activityLog: null,
-      });
-      return;
+    if (sandboxId === null) {
+      // Unreachable: sandboxId is assigned on both branches above.
+      throw new Error("sessionExecuteWorkflow: sandbox was not resolved");
     }
+
+    // Ensure a daemon is alive to claim the staged prompt. Idempotent and
+    // prompt-less: a no-op if a daemon is already warm (the common warm-turn
+    // case, and it never pkills a live daemon), otherwise it respawns one in
+    // pull mode. `startExecute` already scheduled this same action; running it
+    // again here covers the cold/archived path where the sandbox was only just
+    // started by the steps above (so the earlier schedule found nothing to
+    // start) and guards against a daemon that died between turns.
+    await step.runAction(internal.daytona.prewarmSessionDaemon, {
+      sandboxId,
+      sessionId: args.sessionId,
+      repoId: data.repoId,
+      userId: args.userId,
+      model: data.model,
+      allowedTools: data.allowedTools,
+      sessionPersistenceId: args.sessionId,
+    });
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 
@@ -243,20 +324,38 @@ export const sessionExecuteWorkflow = workflow.define({
     let savedError = result.error;
 
     // Eva owns publishing: the agent commits inside the sandbox but never
-    // pushes (see prompts.ts). Push unconditionally after a successful run —
-    // a clean working tree still has unpushed commits, and a push with nothing
-    // new is a harmless no-op. Surface any failure so the run is not reported
-    // as a success while the branch is missing from GitHub.
-    if (args.mode !== "plan" && result.success && data.branchName) {
+    // pushes (see prompts.ts). Push after a successful AGENT turn only —
+    // conversational turns make no commits — and only when the working tree
+    // has changes. Surface a publish failure so the run is not reported as a
+    // success while the branch is missing from GitHub.
+    let pushSucceeded = false;
+    if (
+      args.mode !== "plan" &&
+      result.success &&
+      data.branchName &&
+      data.turnKind === "agent"
+    ) {
       try {
-        await step.runAction(internal.daytona.pushSandboxBranch, {
-          sandboxId,
-          installationId: args.installationId,
-          repoOwner: data.repoOwner,
-          repoName: data.repoName,
-          repoId: data.repoId,
-          branchName: data.branchName,
-        });
+        const status = await step.runAction(
+          internal.daytona.runSandboxCommand,
+          {
+            sandboxId,
+            command: `test -d ${WORKSPACE_DIR}/.git && cd ${WORKSPACE_DIR} && git status --porcelain`,
+            timeoutSeconds: 10,
+            repoId: data.repoId,
+          },
+        );
+        if (status.trim()) {
+          await step.runAction(internal.daytona.pushSandboxBranch, {
+            sandboxId,
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            repoId: data.repoId,
+            branchName: data.branchName,
+          });
+          pushSucceeded = true;
+        }
       } catch (error) {
         savedSuccess = false;
         savedError = `Session completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
@@ -266,6 +365,10 @@ export const sessionExecuteWorkflow = workflow.define({
       }
     }
 
+    // Persist the assistant reply after the push so a publish failure is
+    // reflected in the saved result (streamed tokens already showed the reply
+    // live during the turn). saveResult keeps the reply content on a
+    // publish-only failure via its publishFailedAfterResult branch.
     await step.runMutation(internal.sessionWorkflow.saveResult, {
       sessionId: args.sessionId,
       success: savedSuccess,
@@ -276,7 +379,7 @@ export const sessionExecuteWorkflow = workflow.define({
       pendingQuestion: result.pendingQuestion,
     });
 
-    if (args.mode !== "plan" && savedSuccess && data.branchName) {
+    if (pushSucceeded) {
       await step.runMutation(
         internal.sessionWorkflow.scheduleSessionDeploymentTracking,
         {
@@ -329,7 +432,12 @@ export const scheduleSessionDeploymentTracking = internalMutation({
 
 // --- Supporting internal functions ---
 
-/** Inserts an empty assistant message into the session for streaming updates. */
+/**
+ * Inserts an empty assistant message into the session for streaming updates.
+ * Idempotent: the daemon-pull `startExecute` already inserts this placeholder
+ * before starting the workflow, so if the last message is already an empty
+ * assistant placeholder we skip, avoiding a duplicate.
+ */
 export const addAssistantPlaceholder = internalMutation({
   args: {
     sessionId: v.id("sessions"),
@@ -339,6 +447,16 @@ export const addAssistantPlaceholder = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
+
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .order("desc")
+      .first();
+    if (last && last.role === "assistant" && last.content === "") {
+      // Placeholder already staged by startExecute — nothing to do.
+      return null;
+    }
 
     await ctx.db.insert("messages", {
       parentId: args.sessionId,
@@ -374,6 +492,7 @@ export const getSessionData = internalQuery({
     allowedTools: v.string(),
     model: aiModelValidator,
     deploymentProjectName: v.optional(v.string()),
+    turnKind: v.union(v.literal("conversational"), v.literal("agent")),
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -382,50 +501,17 @@ export const getSessionData = internalQuery({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    const rootDirectory = repo.rootDirectory ?? "";
-
-    const user = await ctx.db.get(args.userId);
-    const customInstructionsBlock = buildCustomInstructionsBlock(
-      user?.role ?? undefined,
-      user?.customInstructions ?? undefined,
-    );
-
-    // Normalize legacy "ask"/"execute" to "edit"
     const effectiveMode: "edit" | "plan" =
       args.mode === "plan" ? "plan" : "edit";
 
-    const branchName = session.branchName || `eva/session-${args.sessionId}`;
-
-    const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
-      ctx,
-      args.message,
-      session.repoId,
-    );
-
-    let prompt: string;
-    if (effectiveMode === "plan") {
-      prompt = buildPlanPrompt(
-        { owner: repo.owner, name: repo.name },
-        session.planContent || "",
-        resolvedMessage,
-        rootDirectory,
-        customInstructionsBlock,
-        repo.systemPrompt,
-      );
-    } else {
-      prompt = buildEditPrompt(
-        { owner: repo.owner, name: repo.name },
-        branchName,
-        session.planContent || "",
-        resolvedMessage,
-        rootDirectory,
-        customInstructionsBlock,
-        repo.systemPrompt,
-      );
-    }
-    if (prefixBlock) {
-      prompt = `${prefixBlock}\n\n${prompt}`;
-    }
+    const user = await ctx.db.get(args.userId);
+    const { prompt, branchName, turnKind } = await buildSessionPrompt(ctx, {
+      session,
+      repo,
+      user,
+      message: args.message,
+      mode: args.mode,
+    });
 
     return {
       sandboxId: session.sandboxId,
@@ -435,6 +521,7 @@ export const getSessionData = internalQuery({
       repoId: session.repoId,
       prompt,
       branchName,
+      turnKind,
       baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
       allowedTools: MODE_TOOLS[effectiveMode],
       model: normalizeAIModel(args.model),
@@ -538,6 +625,44 @@ export const saveResult = internalMutation({
     await ctx.db.patch(args.sessionId, sessionPatch);
     await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
+  },
+});
+
+/**
+ * Daemon-pull turn claim. The warm sandbox daemon polls this every ~200ms; when
+ * `startExecute` has staged a prompt in `session.pendingTurn`, this atomically
+ * hands it over and clears the field so the same prompt is never claimed twice
+ * (which would double-execute the turn). Returns `{ prompt: null }` when nothing
+ * is pending. Public + auth-gated (via the sandbox CONVEX_TOKEN identity) to
+ * match `handleCompletion` — the daemon calls it over `/api/mutation`, and
+ * internal mutations are not reachable there.
+ */
+export const claimPendingTurn = authMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.object({
+    prompt: v.union(v.string(), v.null()),
+    turnKind: v.union(v.literal("conversational"), v.literal("agent")),
+  }),
+  handler: async (ctx, args) => {
+    const emptyClaim = {
+      prompt: null,
+      turnKind: "agent",
+    } satisfies { prompt: null; turnKind: SessionTurnKind };
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return emptyClaim;
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+      throw new Error("Not authorized");
+
+    if (!session.pendingTurn) return emptyClaim;
+
+    const prompt = session.pendingTurn.prompt;
+    const turnKind: SessionTurnKind = session.pendingTurn.turnKind ?? "agent";
+    const claimWaitMs = Date.now() - session.pendingTurn.requestedAt;
+    await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
+    console.log(
+      `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} turnKind=${turnKind} claimWaitMs=${claimWaitMs}`,
+    );
+    return { prompt, turnKind };
   },
 });
 

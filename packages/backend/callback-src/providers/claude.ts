@@ -9,8 +9,58 @@ import type { CanonicalEvent, JsonObject, StreamLineResult } from "../types.js";
 import { elapsedAttemptMs, log } from "../utils.js";
 import type { ProviderAdapter } from "./types.js";
 
+/**
+ * Handles Anthropic partial (`stream_event`) messages emitted when the SDK is
+ * run with `includePartialMessages: true`. These carry token-level deltas:
+ *   { type: "stream_event", event: { type: "content_block_delta",
+ *       delta: { type: "text_delta", text: "..." } } }
+ * plus lifecycle frames (message_start / content_block_start / _stop /
+ * message_stop) and `thinking_delta`. We stream text_delta tokens live and map
+ * thinking_delta to the existing reasoning liveness signal. Tool/json deltas
+ * (input_json_delta) are ignored — the final assistant message still carries
+ * the complete tool_use block. All field accesses are guarded (objects, not
+ * arrays/null) to match the rest of the parser.
+ */
+function parseClaudeStreamEvent(event: JsonObject): CanonicalEvent[] {
+  const events: CanonicalEvent[] = [];
+  const inner =
+    event.event &&
+    typeof event.event === "object" &&
+    !Array.isArray(event.event)
+      ? event.event
+      : null;
+  if (!inner) return events;
+  if (inner.type === "message_start") {
+    events.push({ kind: "mark_message_start" });
+    return events;
+  }
+  if (inner.type !== "content_block_delta") return events;
+  const delta =
+    inner.delta &&
+    typeof inner.delta === "object" &&
+    !Array.isArray(inner.delta)
+      ? inner.delta
+      : null;
+  if (!delta) return events;
+  if (delta.type === "text_delta" && typeof delta.text === "string") {
+    if (delta.text) {
+      events.push({ kind: "stream_text_delta", text: delta.text });
+    }
+    return events;
+  }
+  if (delta.type === "thinking_delta" && typeof delta.thinking === "string") {
+    if (delta.thinking) {
+      events.push({ kind: "update_reasoning", text: delta.thinking });
+    }
+  }
+  return events;
+}
+
 export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
   const events: CanonicalEvent[] = [];
+  if (event.type === "stream_event") {
+    return parseClaudeStreamEvent(event);
+  }
   if (event.type === "tool_result") {
     const toolUseId =
       typeof event.tool_use_id === "string" && event.tool_use_id.trim()
@@ -90,7 +140,14 @@ export function claudeParseLine(event: JsonObject): CanonicalEvent[] {
     ) {
       events.push({ kind: "update_reasoning", text: String(block.thinking) });
     } else if (block.type === "text" && "text" in block && block.text) {
-      events.push({ kind: "append_text", text: String(block.text) });
+      // Dedup: when text was already streamed live via text_delta partials
+      // (flag set in applyCanonicalEvents), the final assistant message repeats
+      // the same complete text — skip it to avoid doubling. When no deltas
+      // streamed (flag false — non-partial path or other frames), append as the
+      // fallback so text is never lost.
+      if (!S.streamedAssistantTextThisMessage) {
+        events.push({ kind: "append_text", text: String(block.text) });
+      }
     }
   }
   return events;

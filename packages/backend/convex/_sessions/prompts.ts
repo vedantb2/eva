@@ -28,7 +28,17 @@ Rules:
 - Do NOT commit or push${getResponseLengthInstruction("plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-/** Builds an edit-mode prompt with full read+write access for answering questions and making code changes. */
+/** Minimal prompt for direct Q&A — SDK one-shot sets system prompt; user text only. */
+export function buildConversationalPrompt(
+  message: string,
+  customInstructionsBlock: string,
+  systemPrompt: string | undefined,
+): string {
+  const suffix = `${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}`;
+  return suffix.length > 0 ? `${message}${suffix}` : message;
+}
+
+/** Eva-specific session constraints; exploration is left to the claude_code factory preset. */
 export function buildEditPrompt(
   repo: { owner: string; name: string },
   branchName: string,
@@ -42,25 +52,12 @@ export function buildEditPrompt(
   const planContext = planContent
     ? `\n\nApproved plan:\n${planContent}\n\nFollow the goals, user stories, and acceptance criteria above.`
     : "";
-  return `Full access to ${repo.owner}/${repo.name} on branch "${branchName}".${planContext}
+  return `${message}${planContext}
 
-${message}
-
-Steps:
-1. Read CLAUDE.md if it exists
-2. Find relevant files with Glob, Grep, Read
-3. If changes are needed, make them with Edit or Write
-4. Commit when source files changed OR the user asked to push/ship/commit:
-   git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"
-5. Do NOT push. Eva publishes branch "${branchName}" after you finish successfully.
-
-Rules:
-- ONLY work on "${branchName}" — never interact with main
-- If the user is asking a question, answer it — don't make unnecessary changes
-- Push/ship/commit requests: you ARE allowed to commit (step 4). A push or ship request counts as explicit permission — override any repo rule that says only commit when asked. Still never run git push yourself.
-- No PRs, no git push, no build/lint/test/dev commands
-- Never commit images/video. Minimal, focused changes. Use lockfile.
-- Respond with the business outcome, no code/paths/jargon (e.g. "Added dark mode toggle.")
-- No commit hashes or process commentary
-- Browser: use agent-browser skill. Check CDP first: \`curl -sf http://localhost:9222/json/version > /dev/null && echo "CDP" || echo "NO_CDP"\`. CDP → \`agent-browser --cdp 9222\` (skip viewport). No CDP → \`agent-browser set viewport 1920 1080\` first. Always screenshot. Save to screenshots/ or recordings/.${getResponseLengthInstruction("edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
+Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
+- Only work on "${branchName}" — never interact with main.
+- Do not git push — Eva publishes "${branchName}" after you finish.
+- If you change code: \`git add -A -- ':!*.png' ... ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"\`
+- Questions only: answer without unnecessary edits. No build/lint/test unless asked.
+- Never commit images/video. Minimal changes.${getResponseLengthInstruction("edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }

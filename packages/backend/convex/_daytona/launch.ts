@@ -6,6 +6,7 @@ import { getAIModelProvider, normalizeAIModel } from "../validators";
 import { execHandle, requireEnv } from "./helpers";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
+import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import {
   CLAUDE_BASE_CONFIG_DIR,
   CLAUDE_PERSIST_VOLUME_MOUNT_PATH,
@@ -88,6 +89,16 @@ async function ensureCursorCliAvailable(sandbox: SandboxHandle): Promise<void> {
   );
 }
 
+/** Uploads the bundled callback runner + fingerprint without starting a process. */
+export async function uploadCallbackScriptBundle(
+  sandbox: SandboxHandle,
+): Promise<void> {
+  await Promise.all([
+    sandbox.writeFile("/tmp/run-design.mjs", CALLBACK_SCRIPT),
+    sandbox.writeFile("/tmp/eva-callback-fp", CALLBACK_SCRIPT_FINGERPRINT),
+  ]);
+}
+
 /** Uploads prompt and callback script to the sandbox, then launches the AI runner process. */
 export async function launchScript(
   sandbox: SandboxHandle,
@@ -133,6 +144,13 @@ export async function launchScript(
         `[daytona][launchScript] callback script uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
       );
     }),
+    sandbox
+      .writeFile("/tmp/eva-callback-fp", CALLBACK_SCRIPT_FINGERPRINT)
+      .then(() => {
+        console.log(
+          `[daytona][launchScript] callback fingerprint uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
+        );
+      }),
   ];
 
   if (opts.mcpBaseUrl && opts.mcpToken) {
@@ -183,6 +201,14 @@ export async function launchScript(
     `CURSOR_PERSIST_DIR=${quote([CURSOR_PERSIST_VOLUME_MOUNT_PATH])}`,
     `CURSOR_BIN_PATH=${quote([CURSOR_FALLBACK_BIN_PATH])}`,
   ];
+  // Deployment-level switch for the Claude Agent SDK runner: set
+  // CLAUDE_ATTEMPT_MODE=sdk on a Convex deployment to flip its sessions off the
+  // `claude -p` spawn. Unset (prod default) keeps the CLI path.
+  if (process.env.CLAUDE_ATTEMPT_MODE) {
+    envParts.push(
+      `CLAUDE_ATTEMPT_MODE=${quote([process.env.CLAUDE_ATTEMPT_MODE])}`,
+    );
+  }
   if (streamingHmac) {
     envParts.push(
       `CONVEX_SITE_URL=${quote([resolveConvexSiteUrl(convexUrl)])}`,
@@ -204,6 +230,7 @@ export async function launchScript(
       envParts.push(`${key}=${quote([val])}`);
     }
   }
+  envParts.push(`CALLBACK_SCRIPT_FP=${quote([CALLBACK_SCRIPT_FINGERPRINT])}`);
   const exportLines = envParts.map((part) => `export ${part}`);
   const runnerLaunchScript = [
     "#!/usr/bin/env bash",

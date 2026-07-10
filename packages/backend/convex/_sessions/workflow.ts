@@ -728,9 +728,10 @@ export const restageOpenTurn = internalMutation({
   ),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) return { restaged: false, reason: "session not found" };
+    if (!session)
+      return { restaged: false as const, reason: "session not found" };
     if (session.pendingTurn)
-      return { restaged: false, reason: "pendingTurn already set" };
+      return { restaged: false as const, reason: "pendingTurn already set" };
 
     const messages = await ctx.db
       .query("messages")
@@ -743,7 +744,10 @@ export const restageOpenTurn = internalMutation({
       lastAssistant.finishedAt !== undefined ||
       lastAssistant.content !== ""
     ) {
-      return { restaged: false, reason: "no open empty assistant placeholder" };
+      return {
+        restaged: false as const,
+        reason: "no open empty assistant placeholder",
+      };
     }
     const lastUser = messages.find((m) => m.role === "user");
     if (
@@ -751,11 +755,14 @@ export const restageOpenTurn = internalMutation({
       typeof lastUser.content !== "string" ||
       !lastUser.content
     ) {
-      return { restaged: false, reason: "no user message to restage" };
+      return {
+        restaged: false as const,
+        reason: "no user message to restage",
+      };
     }
 
     const repo = await ctx.db.get(session.repoId);
-    if (!repo) return { restaged: false, reason: "repo not found" };
+    if (!repo) return { restaged: false as const, reason: "repo not found" };
     const user = await ctx.db.get(session.userId);
     const rawMode = lastAssistant.mode ?? lastUser.mode ?? "edit";
     const mode: "edit" | "ask" | "execute" | "plan" =
@@ -784,7 +791,7 @@ export const restageOpenTurn = internalMutation({
     console.log(
       `[sessionWorkflow] restageOpenTurn sessionId=${args.sessionId} turnKind=${turnKind}`,
     );
-    return { restaged: true, turnKind };
+    return { restaged: true as const, turnKind };
   },
 });
 

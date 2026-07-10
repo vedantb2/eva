@@ -3193,6 +3193,56 @@ var DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
 var CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
 var PROMPT_POLL_INTERVAL_MS = 50;
+var NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
+var WATCHDOG_TICK_MS = 5e3;
+var turnActive = false;
+var turnStartedAtMs = 0;
+var lastMessageAtMs = 0;
+function beginWatchedTurn() {
+  turnActive = true;
+  turnStartedAtMs = Date.now();
+  lastMessageAtMs = turnStartedAtMs;
+}
+function noteWatchedMessage() {
+  lastMessageAtMs = Date.now();
+}
+function endWatchedTurn() {
+  turnActive = false;
+}
+async function failTurnAndExit(error) {
+  log("daemon: failing turn \\u2014 " + error);
+  try {
+    await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+      [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+      success: false,
+      result: null,
+      error,
+      activityLog: JSON.stringify(callbackState.accumulatedSteps),
+      ...RUN_ID ? { runId: RUN_ID } : {}
+    });
+  } catch {
+  }
+  try {
+    unlinkSync(DAEMON_PID_FILE);
+  } catch {
+  }
+  await stopStreamingLoops();
+  process.exit(1);
+}
+function startTurnWatchdog() {
+  const timer = setInterval(() => {
+    if (!turnActive) return;
+    const now = Date.now();
+    if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
+      turnActive = false;
+      void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
+    } else if (now - lastMessageAtMs > NO_MESSAGE_TIMEOUT_MS) {
+      turnActive = false;
+      void failTurnAndExit("The assistant stopped responding. Please try again.");
+    }
+  }, WATCHDOG_TICK_MS);
+  timer.unref?.();
+}
 function createPromptStream() {
   const queue = [];
   let notify = null;
@@ -3449,6 +3499,7 @@ async function runConversationalWarmTurn(runner, prompt) {
   resetTurnState();
   const turnStartedAt = Date.now();
   callbackState.activeAttemptStartedAt = turnStartedAt;
+  beginWatchedTurn();
   log("daemon: conversational warm turn started");
   runner.push(prompt);
   let output = "";
@@ -3457,9 +3508,11 @@ async function runConversationalWarmTurn(runner, prompt) {
   while (true) {
     const message = await runner.waitMessage();
     if (message === null) {
-      log("daemon: conversational query ended unexpectedly");
-      return;
+      return failTurnAndExit(
+        "The assistant could not generate a reply. Please try again."
+      );
     }
+    noteWatchedMessage();
     const processed = processDaemonMessage(
       message,
       output,
@@ -3471,6 +3524,7 @@ async function runConversationalWarmTurn(runner, prompt) {
     if (!processed.isResult) {
       const replyText = extractAssistantTextFromMessage(message);
       if (replyText !== null) {
+        endWatchedTurn();
         output = appendSyntheticResultLine(output, replyText);
         const resultAt2 = Date.now();
         log(
@@ -3486,6 +3540,7 @@ async function runConversationalWarmTurn(runner, prompt) {
       }
       continue;
     }
+    endWatchedTurn();
     const resultAt = Date.now();
     log(
       "daemon[timing]: conversational result +" + (resultAt - turnStartedAt) + "ms after turn start"
@@ -3548,6 +3603,7 @@ async function runSdkDaemon() {
     "runSdkDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", mode=" + sessionMode.mode + ")"
   );
   log("daemon: warm query() live, waiting for first prompt (pull)");
+  startTurnWatchdog();
   let nextTurn = await waitForNextTurn();
   if (nextTurn === null) {
     log("daemon: idle timeout before first prompt \\u2014 exiting");
@@ -3569,6 +3625,7 @@ async function runSdkDaemon() {
       let turnStartedAt = Date.now();
       const sawFirstMessageThisTurn = { value: false };
       const sawAssistantThisTurn = { value: false };
+      beginWatchedTurn();
       push(nextTurn.prompt);
       callbackState.activeAttemptStartedAt = turnStartedAt;
       let output = "";
@@ -3576,6 +3633,7 @@ async function runSdkDaemon() {
         if (typeof message !== "object" || message === null || Array.isArray(message)) {
           continue;
         }
+        noteWatchedMessage();
         const processed = processDaemonMessage(
           message,
           output,
@@ -3587,6 +3645,7 @@ async function runSdkDaemon() {
         if (!processed.isResult) {
           continue;
         }
+        endWatchedTurn();
         const resultAt = Date.now();
         log(
           "daemon[timing]: result message +" + (resultAt - turnStartedAt) + "ms after push"
@@ -3611,7 +3670,13 @@ async function runSdkDaemon() {
         sawFirstMessageThisTurn.value = false;
         sawAssistantThisTurn.value = false;
         callbackState.activeAttemptStartedAt = turnStartedAt;
+        beginWatchedTurn();
         push(upcoming.prompt);
+      }
+      if (turnActive) {
+        return failTurnAndExit(
+          "The assistant ended without a reply. Please try again."
+        );
       }
     }
   } catch (error) {

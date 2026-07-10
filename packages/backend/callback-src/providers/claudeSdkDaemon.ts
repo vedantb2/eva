@@ -7,6 +7,8 @@ import {
   DAEMON_OPTS_SIG,
   ENTITY_ID,
   ENTITY_ID_FIELD,
+  MAX_TOTAL_RUNTIME_MS,
+  NO_OUTPUT_TIMEOUT_MS,
   REPO_ID,
   RUN_ID,
 } from "../config.js";
@@ -64,6 +66,82 @@ const IDLE_EXIT_MS = 45 * 60 * 1000;
 // Poll interval for the claim mutation. Low enough to keep handoff→turn-start
 // latency to ~one poll; the turn itself dominates so this only trims the tail.
 const PROMPT_POLL_INTERVAL_MS = 50;
+
+// Per-turn watchdog. Without this a turn whose SDK query stalls or ends without
+// emitting a result would never send a completion event, so the workflow's
+// awaitEvent hangs until the 2h stale-session timeout (empty "Working…" bubble).
+// Mirrors the one-shot path (claudeSdk.ts): fail the turn if it produces no SDK
+// message for a while, or exceeds the hard runtime cap. On a fire we send a
+// failure completion (resolving awaitEvent) and exit so the next turn respawns a
+// clean daemon rather than reusing a wedged query.
+const NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
+const WATCHDOG_TICK_MS = 5000;
+
+let turnActive = false;
+let turnStartedAtMs = 0;
+let lastMessageAtMs = 0;
+
+function beginWatchedTurn(): void {
+  turnActive = true;
+  turnStartedAtMs = Date.now();
+  lastMessageAtMs = turnStartedAtMs;
+}
+
+function noteWatchedMessage(): void {
+  lastMessageAtMs = Date.now();
+}
+
+// Called as soon as a turn's result is in hand (before finalize) and between
+// turns, so the watchdog only guards a turn that is genuinely in flight.
+function endWatchedTurn(): void {
+  turnActive = false;
+}
+
+/**
+ * Sends a failure completion for the current turn (resolving the workflow's
+ * awaitEvent so the UI stops spinning) and exits the process. Exiting abandons a
+ * potentially wedged SDK query; the next turn's prewarm boots a fresh daemon.
+ */
+async function failTurnAndExit(error: string): Promise<never> {
+  log("daemon: failing turn — " + error);
+  try {
+    await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+      [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+      success: false,
+      result: null,
+      error,
+      activityLog: JSON.stringify(S.accumulatedSteps),
+      ...(RUN_ID ? { runId: RUN_ID } : {}),
+    });
+  } catch {
+    /* best-effort: exit regardless so the daemon does not wedge */
+  }
+  try {
+    unlinkSync(DAEMON_PID_FILE);
+  } catch {
+    /* ignore */
+  }
+  await stopStreamingLoops();
+  process.exit(1);
+}
+
+/** Arms the per-turn watchdog interval for the daemon's lifetime. */
+function startTurnWatchdog(): void {
+  const timer = setInterval(() => {
+    if (!turnActive) return;
+    const now = Date.now();
+    if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
+      turnActive = false;
+      void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
+    } else if (now - lastMessageAtMs > NO_MESSAGE_TIMEOUT_MS) {
+      turnActive = false;
+      void failTurnAndExit(
+        "The assistant stopped responding. Please try again.",
+      );
+    }
+  }, WATCHDOG_TICK_MS);
+  timer.unref?.();
+}
 
 type TurnKind = "conversational" | "agent";
 
@@ -459,6 +537,7 @@ async function runConversationalWarmTurn(
   resetTurnState();
   const turnStartedAt = Date.now();
   S.activeAttemptStartedAt = turnStartedAt;
+  beginWatchedTurn();
   log("daemon: conversational warm turn started");
   runner.push(prompt);
   let output = "";
@@ -468,9 +547,13 @@ async function runConversationalWarmTurn(
   while (true) {
     const message = await runner.waitMessage();
     if (message === null) {
-      log("daemon: conversational query ended unexpectedly");
-      return;
+      // The warm Haiku query ended without a result — surface a failure so the
+      // workflow's awaitEvent resolves instead of hanging, then respawn.
+      return failTurnAndExit(
+        "The assistant could not generate a reply. Please try again.",
+      );
     }
+    noteWatchedMessage();
     const processed = processDaemonMessage(
       message,
       output,
@@ -482,6 +565,7 @@ async function runConversationalWarmTurn(
     if (!processed.isResult) {
       const replyText = extractAssistantTextFromMessage(message);
       if (replyText !== null) {
+        endWatchedTurn();
         output = appendSyntheticResultLine(output, replyText);
         const resultAt = Date.now();
         log(
@@ -501,6 +585,7 @@ async function runConversationalWarmTurn(
       }
       continue;
     }
+    endWatchedTurn();
     const resultAt = Date.now();
     log(
       "daemon[timing]: conversational result +" +
@@ -602,6 +687,7 @@ export async function runSdkDaemon(): Promise<void> {
   // API handshake) already happened above when query() was created, so here we
   // just wait for the first staged prompt to appear.
   log("daemon: warm query() live, waiting for first prompt (pull)");
+  startTurnWatchdog();
   let nextTurn = await waitForNextTurn();
   if (nextTurn === null) {
     log("daemon: idle timeout before first prompt — exiting");
@@ -625,6 +711,7 @@ export async function runSdkDaemon(): Promise<void> {
       let turnStartedAt = Date.now();
       const sawFirstMessageThisTurn = { value: false };
       const sawAssistantThisTurn = { value: false };
+      beginWatchedTurn();
       push(nextTurn.prompt);
       S.activeAttemptStartedAt = turnStartedAt;
 
@@ -637,6 +724,7 @@ export async function runSdkDaemon(): Promise<void> {
         ) {
           continue;
         }
+        noteWatchedMessage();
         const processed = processDaemonMessage(
           message,
           output,
@@ -649,6 +737,7 @@ export async function runSdkDaemon(): Promise<void> {
           continue;
         }
 
+        endWatchedTurn();
         const resultAt = Date.now();
         log(
           "daemon[timing]: result message +" +
@@ -676,7 +765,15 @@ export async function runSdkDaemon(): Promise<void> {
         sawFirstMessageThisTurn.value = false;
         sawAssistantThisTurn.value = false;
         S.activeAttemptStartedAt = turnStartedAt;
+        beginWatchedTurn();
         push(upcoming.prompt);
+      }
+      // The agent query stream closed. If a turn was still in flight (no result
+      // emitted), surface a failure so the workflow's awaitEvent resolves.
+      if (turnActive) {
+        return failTurnAndExit(
+          "The assistant ended without a reply. Please try again.",
+        );
       }
     }
   } catch (error) {

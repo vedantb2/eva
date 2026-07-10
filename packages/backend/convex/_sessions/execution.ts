@@ -132,11 +132,16 @@ export const prewarmDaemon = authMutation({
       return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
+    // Match edit-mode defaults so the first real message does not immediately
+    // optsmismatch-kill this daemon (which races with claimPendingTurn and
+    // leaves the chat stuck on Working).
     await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
       sandboxId: session.sandboxId,
       sessionId: args.sessionId,
       repoId: session.repoId,
       userId: session.userId,
+      model: "claude:sonnet",
+      allowedTools: MODE_TOOLS.edit,
       sessionPersistenceId: args.sessionId,
     });
     return null;

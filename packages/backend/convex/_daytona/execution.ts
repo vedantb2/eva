@@ -1158,8 +1158,22 @@ export const prewarmSessionDaemon = internalAction({
         return { prewarmed: false };
       }
       if (aliveState === "optsmismatch") {
-        // Turns are serial per session, so a live daemon is idle here — safe to
-        // kill and respawn below with the requested model/tools.
+        // Re-read: startExecute stages pendingTurn then schedules this prewarm.
+        // A page-open daemon (different model/tools) may already have claimed
+        // that turn. Killing it mid-claim leaves the workflow waiting forever
+        // on sessionComplete with an empty pendingTurn. Only respawn when idle.
+        const fresh = await ctx.runQuery(internal.sessions.getInternal, {
+          id: args.sessionId,
+        });
+        const turnInFlight =
+          fresh?.pendingTurn !== undefined ||
+          fresh?.activeWorkflowId !== undefined;
+        if (turnInFlight) {
+          console.log(
+            `[daytona][execution] prewarmSessionDaemon: model/tools mismatch but turn in flight — deferring respawn sessionId=${args.sessionId}`,
+          );
+          return { prewarmed: false };
+        }
         console.log(
           `[daytona][execution] prewarmSessionDaemon: model/tools changed — respawning daemon sessionId=${args.sessionId}`,
         );

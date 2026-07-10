@@ -1,5 +1,11 @@
 # Changelog
 
+## Stop prewarm from killing a mid-turn session daemon - 2026-07-10
+
+- `prewarmSessionDaemon` no longer kills an opts-mismatched daemon while a turn is in flight (`pendingTurn` or `activeWorkflowId`); that race claimed the prompt then wiped the daemon, leaving chat stuck on Working.
+- Page-open prewarm now boots with edit-mode tools + sonnet defaults so the first message is less likely to optsmismatch at all.
+- Reason for change: prod session 36 stuck ~2m+ on Working after first message — daemon claimed then was killed by startExecute's tool-aware prewarm.
+
 ## Auto-open draft session PRs after first push - 2026-07-10
 
 - Sessions open a draft GitHub PR as soon as the first agent commit is pushed (and retry on later turns if that failed); "Send for Review" only promotes draft → ready and archives the sandbox.

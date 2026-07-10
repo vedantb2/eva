@@ -94,10 +94,7 @@ export const snapshotBuildWorkflow = workflow.define({
     // In the per-app model, config.repoId IS the app. Check if it has Stop Commands.
     // Repos with no app stop commands cannot run the seeded-snapshot path; rebuild
     // the declarative base Image instead (same outcome as forceImageRebuild).
-    const appRepo = await step.runQuery(internal.repoSnapshots.getRepo, {
-      repoId: config.repoId,
-    });
-    const hasStopCommands = appRepo && (appRepo.stopCommands?.length ?? 0) > 0;
+    const hasStopCommands = (repo.stopCommands?.length ?? 0) > 0;
     const imageOnlyBuild = !hasStopCommands && args.forceImageRebuild !== true;
     const rebuildBaseImage = args.forceImageRebuild === true || imageOnlyBuild;
     if (imageOnlyBuild) {
@@ -357,8 +354,10 @@ export const snapshotBuildWorkflow = workflow.define({
       });
     }
 
-    // Base image only — no seeding if the app has no Stop Commands.
-    if (imageOnlyBuild) return;
+    // No seeding without Stop Commands. This also covers forceImageRebuild on an
+    // app with no Stop Commands: rebuild the base Image above, then stop here
+    // (there is nothing to seed).
+    if (!hasStopCommands) return;
 
     // Per-app seeding: this app's snapshot is built and captured independently.
     const appRepoId = config.repoId; // The app whose snapshot we're building

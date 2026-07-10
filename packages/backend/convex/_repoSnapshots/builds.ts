@@ -5,6 +5,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
+  snapshotBuildKindValidator,
   seededAppResultValidator,
   seededAppStatusValidator,
 } from "../validators";
@@ -13,6 +14,22 @@ import { workflow } from "../workflowManager";
 
 const STALE_BUILD_MS = 30 * 60 * 1000;
 const MAX_CRON_RETRIES = 2;
+
+/**
+ * Resolves whether a build seeds a DB or only rebuilds the base Image.
+ * An app seeds iff it has Stop Commands; otherwise the workflow can only
+ * rebuild the base Image. forceImageRebuild does not change this — it just
+ * refreshes the base before the same seed path runs.
+ */
+async function resolveBuildKind(
+  ctx: {
+    db: { get: (id: Id<"githubRepos">) => Promise<Doc<"githubRepos"> | null> };
+  },
+  repoId: Id<"githubRepos">,
+): Promise<"base" | "seeded"> {
+  const repo = await ctx.db.get(repoId);
+  return (repo?.stopCommands?.length ?? 0) > 0 ? "seeded" : "base";
+}
 
 type SeededAppReturn = {
   repoId: Id<"githubRepos">;
@@ -60,6 +77,7 @@ export const listBuilds = authQuery({
       repoSnapshotId: v.id("repoSnapshots"),
       status: snapshotBuildStatusValidator,
       triggeredBy: snapshotBuildTriggerValidator,
+      kind: v.optional(snapshotBuildKindValidator),
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),
@@ -91,6 +109,7 @@ export const getBuild = authQuery({
       repoSnapshotId: v.id("repoSnapshots"),
       status: snapshotBuildStatusValidator,
       triggeredBy: snapshotBuildTriggerValidator,
+      kind: v.optional(snapshotBuildKindValidator),
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),
@@ -157,10 +176,12 @@ export const triggerScheduledBuild = internalMutation({
     }
 
     const now = Date.now();
+    const kind = await resolveBuildKind(ctx, config.repoId);
     const buildId = await ctx.db.insert("snapshotBuilds", {
       repoSnapshotId: args.repoSnapshotId,
       status: "running",
       triggeredBy: args.disableRetries === true ? "manual" : "cron",
+      kind,
       logs: "",
       startedAt: now,
     });
@@ -244,10 +265,12 @@ export const startBuild = authMutation({
     }
 
     const now = Date.now();
+    const kind = await resolveBuildKind(ctx, config.repoId);
     const buildId = await ctx.db.insert("snapshotBuilds", {
       repoSnapshotId: args.repoSnapshotId,
       status: "running",
       triggeredBy: "manual",
+      kind,
       logs: "",
       startedAt: now,
     });
@@ -294,6 +317,7 @@ export const completeBuild = internalMutation({
         repoSnapshotId: build.repoSnapshotId,
         status: "running",
         triggeredBy: "cron",
+        kind: build.kind,
         logs: `Retry ${retryCount}/${MAX_CRON_RETRIES} after failure: ${args.error ?? "unknown error"}\n`,
         startedAt: now,
         retryCount,

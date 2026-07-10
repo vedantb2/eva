@@ -1,5 +1,10 @@
 # Changelog
 
+## Unblock session Working UI before git publish - 2026-07-10
+
+- Session workflow now saves the assistant reply as soon as the daemon completes, then publishes the branch; a hung `git push` no longer leaves the chat stuck on Working after a successful answer.
+- Reason for change: session 34's daemon finished ("dev server is running") and wrote completion logs, but the UI stayed on Working because saveResult ran only after pushSandboxBranch.
+
 ## Fix session stuck Working after cancel race with Agent SDK daemon - 2026-07-10
 
 - Cancel no longer clears a newer `pendingTurn` / `activeWorkflowId` staged by a concurrent `startExecute`, which left the daemon polling empty forever while the workflow waited on completion.

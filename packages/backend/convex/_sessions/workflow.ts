@@ -436,8 +436,7 @@ export const scheduleSessionDeploymentTracking = internalMutation({
  * Inserts an empty assistant message into the session for streaming updates.
  * Idempotent: the daemon-pull `startExecute` already inserts this placeholder
  * before starting the workflow, so if the last message is already an empty
- * assistant placeholder we skip, avoiding a duplicate. Callers that do NOT
- * pre-insert (e.g. the dev harness `devStartExecute`) still get one here.
+ * assistant placeholder we skip, avoiding a duplicate.
  */
 export const addAssistantPlaceholder = internalMutation({
   args: {

@@ -185,10 +185,10 @@ function buildSdkOptionsFromParts(
   extraArgs: Record<string, string>,
   tools: "agent" | "none" = "agent",
 ): SdkOptions {
-  const allowedToolsOption =
+  const allowedToolsOption: { allowedTools: string[] } =
     tools === "agent" && ALLOWED_TOOLS
       ? { allowedTools: ALLOWED_TOOLS.split(",") }
-      : { allowedTools: [] as string[] };
+      : { allowedTools: [] };
 
   return {
     cwd: WORK_DIR,

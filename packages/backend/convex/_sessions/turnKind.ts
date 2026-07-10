@@ -33,8 +33,11 @@ export function classifyTurnKind(message: string): SessionTurnKind {
   if (MATH_PATTERN.test(trimmed)) return "conversational";
   if (MATH_QUESTION_PATTERN.test(trimmed)) return "conversational";
   if (CONVERSATIONAL_PREFIX_PATTERN.test(trimmed)) return "conversational";
-  if (/\?\s*$/.test(trimmed) && trimmed.length < 220) {
-    return "conversational";
-  }
+  // NOTE: no blanket "ends in ?" rule. A short question is not safe to run as a
+  // conversational turn — those use a fresh, stateless query with no resume and
+  // no tools, so a context-dependent follow-up ("why did you do that?", "can you
+  // explain that again?") would answer with none of the prior turn's context.
+  // Only the explicit self-contained patterns above take the fast path; anything
+  // else runs as a full agent turn that keeps the session's context.
   return "agent";
 }

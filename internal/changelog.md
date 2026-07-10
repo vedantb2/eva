@@ -1,5 +1,13 @@
 # Changelog
 
+## Agent SDK daemon review fixes - 2026-07-10
+
+- Prewarm now respawns the warm daemon when a turn's model or tools differ from the daemon's frozen options (model+tools signature written to `/tmp/eva-daemon.opts` at boot), so an edit-mode turn can no longer run on a stale read-only daemon.
+- Prewarm is a no-op unless `CLAUDE_ATTEMPT_MODE=sdk-daemon`, so a non-daemon deployment never launches an empty-prompt runner.
+- Turn classification no longer routes every short question ending in "?" to the stateless conversational path — context-dependent follow-ups stay on the agent path and keep session context.
+- Removed the dead file-based daemon handoff (`buildDaemonHandoffCommand`, `tryWarmDaemonHandoff`) and the `devStartExecute` harness.
+- Reason for change: review of the Agent SDK migration found the daemon could serve turns with the wrong model/tools, lose context on follow-up questions, and carried dead dispatch code.
+
 ## Monorepo snapshot builds use sibling Vercel credentials - 2026-07-10
 
 - Snapshot credential resolution walks monorepo siblings so `SANDBOX_PROVIDER=vercel` on apps/web applies to eprocurement and shared parent configs; silent fallback to Daytona when Vercel creds are incomplete now errors loudly.

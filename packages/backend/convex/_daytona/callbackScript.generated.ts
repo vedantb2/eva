@@ -28,6 +28,7 @@ var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 var CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
 var CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
+var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
 var SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 var WORK_DIR = existsSync("/tmp/repo") ? "/tmp/repo" : existsSync("/workspace/repo") ? "/workspace/repo" : "/tmp/repo";
 var NO_OUTPUT_TIMEOUT_MS = Number(
@@ -3188,6 +3189,7 @@ function sleep(ms) {
 }
 var DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
 var DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
+var DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
 var CLAIM_PENDING_TURN_MUTATION = "sessionWorkflow:claimPendingTurn";
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
 var PROMPT_POLL_INTERVAL_MS = 50;
@@ -3528,6 +3530,7 @@ async function waitForNextTurn() {
 async function runSdkDaemon() {
   writeFileSync10(DAEMON_PID_FILE, String(process.pid));
   writeFileSync10(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
+  writeFileSync10(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
   const preflightOk2 = await runPreflightHeartbeat();
   if (!preflightOk2) {
     log("daemon: preflight failed");

@@ -12,7 +12,6 @@ export {
 
 export {
   startExecute,
-  devStartExecute,
   prewarmDaemon,
   enqueueMessage,
   cancelExecution,

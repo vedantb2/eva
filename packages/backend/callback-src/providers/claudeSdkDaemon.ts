@@ -4,6 +4,7 @@ import {
   CONVEX_TOKEN,
   CONVEX_URL,
   CALLBACK_SCRIPT_FP,
+  DAEMON_OPTS_SIG,
   ENTITY_ID,
   ENTITY_ID_FIELD,
   REPO_ID,
@@ -46,6 +47,9 @@ function sleep(ms: number): Promise<void> {
 // claimPendingTurn (daemon-pull), so there is no prompt/ready file to poll.
 export const DAEMON_PID_FILE = "/tmp/eva-daemon.pid";
 export const DAEMON_ENTITY_FILE = "/tmp/eva-daemon.entity";
+// Model+tools signature this daemon booted with. The prewarm alive-check reads
+// it to detect a model/tools change and respawn rather than reuse the daemon.
+export const DAEMON_OPTS_FILE = "/tmp/eva-daemon.opts";
 
 // Public Convex mutation the daemon polls to atomically claim the next staged
 // turn's prompt for THIS session (ENTITY_ID). Mirrors how COMPLETION_MUTATION is
@@ -565,6 +569,7 @@ async function waitForNextTurn(): Promise<ClaimedTurn | null> {
 export async function runSdkDaemon(): Promise<void> {
   writeFileSync(DAEMON_PID_FILE, String(process.pid));
   writeFileSync(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
+  writeFileSync(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
 
   const preflightOk = await runPreflightHeartbeat();
   if (!preflightOk) {

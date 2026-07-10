@@ -27,6 +27,12 @@ export const CLAUDE_ATTEMPT_MODE = process.env.CLAUDE_ATTEMPT_MODE || "cli";
 export const CLAUDE_PREWARM = process.env.CLAUDE_PREWARM === "1";
 /** Fingerprint of the callback bundle this daemon was started with; exit when disk fp differs. */
 export const CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
+/**
+ * Opaque model+tools signature the launcher computed for this daemon. Written to
+ * /tmp/eva-daemon.opts at boot so a later prewarm can detect a model/tools change
+ * and respawn the daemon instead of reusing it with the wrong options.
+ */
+export const DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
 export const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 export const WORK_DIR = existsSync("/tmp/repo")
   ? "/tmp/repo"

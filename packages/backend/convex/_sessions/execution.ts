@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalMutation } from "../_generated/server";
 import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authMutation, hasRepoAccess } from "../functions";
 import { aiModelValidator, sessionModeValidator } from "../validators";
@@ -100,64 +99,6 @@ export const startExecute = authMutation({
 
     await trackSessionWorkflow(ctx, args.sessionId, workflowId);
 
-    return null;
-  },
-});
-
-/** DEV-ONLY latency harness — drive a turn from `npx convex run`. Remove before merge. */
-export const devStartExecute = internalMutation({
-  args: { sessionId: v.id("sessions"), message: v.string() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
-    const repo = await ctx.db.get(session.repoId);
-    if (!repo) throw new Error("Repository not found");
-    // Mirror startExecute's daemon-pull staging so the warm daemon can claim it.
-    await ctx.db.insert("messages", {
-      parentId: args.sessionId,
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-      mode: "ask",
-      activityLog: "",
-    });
-    const user = await ctx.db.get(session.userId);
-    const { prompt, turnKind } = await buildSessionPrompt(ctx, {
-      session,
-      repo,
-      user,
-      message: args.message,
-      mode: "ask",
-    });
-    await ctx.db.patch(args.sessionId, {
-      pendingTurn: { prompt, requestedAt: Date.now(), turnKind },
-      updatedAt: Date.now(),
-    });
-    if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {
-        sandboxId: session.sandboxId,
-        sessionId: args.sessionId,
-        repoId: session.repoId,
-        userId: session.userId,
-        model: normalizeAIModel("sonnet"),
-        allowedTools: MODE_TOOLS.edit,
-        sessionPersistenceId: args.sessionId,
-      });
-    }
-    const workflowId = await workflow.start(
-      ctx,
-      internal.sessionWorkflow.sessionExecuteWorkflow,
-      {
-        sessionId: args.sessionId,
-        message: args.message,
-        mode: "ask",
-        model: "sonnet",
-        userId: session.userId,
-        installationId: repo.installationId,
-      },
-    );
-    await trackSessionWorkflow(ctx, args.sessionId, workflowId);
     return null;
   },
 });

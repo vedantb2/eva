@@ -33,3 +33,13 @@ test("classifyTurnKind marks MCP and platform tool requests as agent", () => {
   );
   assert.equal(classifyTurnKind("use the eva mcp to list projects"), "agent");
 });
+
+test("classifyTurnKind keeps context-dependent questions on the agent path", () => {
+  // A short question that is not a self-contained math/greeting query must run
+  // as an agent turn so it keeps the session's context. A conversational turn
+  // is stateless (no resume), so it would answer with none of the prior turn's
+  // work — see turnKind.ts for why there is no blanket "ends in ?" rule.
+  assert.equal(classifyTurnKind("why did you do that?"), "agent");
+  assert.equal(classifyTurnKind("can you explain that again?"), "agent");
+  assert.equal(classifyTurnKind("is that correct?"), "agent");
+});

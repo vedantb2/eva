@@ -2,6 +2,7 @@ export {
   sessionSandboxStartupWorkflow,
   sessionExecuteWorkflow,
   scheduleSessionDeploymentTracking,
+  postSystemAlert,
   addAssistantPlaceholder,
   getSessionData,
   updateSandboxId,

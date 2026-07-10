@@ -400,6 +400,25 @@ export const sessionExecuteWorkflow = workflow.define({
           deploymentProjectName: data.deploymentProjectName,
         },
       );
+
+      // Open a draft PR after the first successful push (no-op if one exists).
+      // Retried on later turns so a transient GitHub failure self-heals.
+      try {
+        await step.runAction(internal.github.createDraftSessionPr, {
+          sessionId: args.sessionId,
+        });
+      } catch (error) {
+        const errorDetail =
+          error instanceof Error ? error.message : String(error);
+        console.error(
+          `[sessionWorkflow] createDraftSessionPr failed sessionId=${args.sessionId}: ${errorDetail}`,
+        );
+        await step.runMutation(internal.sessionWorkflow.postSystemAlert, {
+          sessionId: args.sessionId,
+          content: "Failed to create draft PR",
+          errorDetail,
+        });
+      }
     }
   },
 });
@@ -439,6 +458,28 @@ export const scheduleSessionDeploymentTracking = internalMutation({
 });
 
 // --- Supporting internal functions ---
+
+/** Posts a non-streaming system alert into the session chat (e.g. draft PR failure). */
+export const postSystemAlert = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    content: v.string(),
+    errorDetail: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.insert("messages", {
+      parentId: args.sessionId,
+      role: "assistant",
+      content: args.content,
+      timestamp: Date.now(),
+      isSystemAlert: true,
+      ...(args.errorDetail !== undefined && { errorDetail: args.errorDetail }),
+    });
+    await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
+    return null;
+  },
+});
 
 /**
  * Inserts an empty assistant message into the session for streaming updates.

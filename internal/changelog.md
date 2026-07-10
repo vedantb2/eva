@@ -1,5 +1,10 @@
 # Changelog
 
+## Auto-open draft session PRs after first push - 2026-07-10
+
+- Sessions open a draft GitHub PR as soon as the first agent commit is pushed (and retry on later turns if that failed); "Send for Review" only promotes draft → ready and archives the sandbox.
+- Reason for change: sessions had commits on the branch but no PR until manual create, and Send for Review was creating open PRs from scratch instead of flipping an existing draft.
+
 ## Stop viewing a closed session from waking its Vercel sandbox - 2026-07-10
 
 - `prewarmDaemon` now skips closed/stopping sessions; it previously fired whenever a `sandboxId` was set, and on Vercel the prewarm's sandbox exec lazily resumes a stopped VM (SDK `withResume`), silently resurrecting it.

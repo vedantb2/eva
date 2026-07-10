@@ -133,7 +133,29 @@ export const stopSandbox = authMutation({
 
     // Allow stop from closed when a sandboxId remains — start can early-ready
     // then fail and leave a live Vercel VM while UI shows inactive.
-    if (session.status === "stopping") return null;
+    if (session.status === "stopping") {
+      // Already stopping — but a previous finalize may have stalled (e.g. its
+      // action was killed while a racing resume held the VM). Re-issue the
+      // idempotent finalize so clicking Stop again recovers a stuck `stopping`
+      // row instead of being a no-op that leaves it wedged forever.
+      if (session.sandboxId) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal._sessions.sandbox.finalizeStopSandbox,
+          {
+            sessionId: args.sessionId,
+            sandboxId: session.sandboxId,
+            repoId: session.repoId,
+          },
+        );
+      } else {
+        await ctx.db.patch(args.sessionId, {
+          status: "closed",
+          updatedAt: Date.now(),
+        });
+      }
+      return null;
+    }
 
     if (session.sandboxId) {
       await ctx.scheduler.runAfter(

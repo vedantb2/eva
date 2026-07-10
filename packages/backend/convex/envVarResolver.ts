@@ -210,7 +210,7 @@ function decryptCredentialKeys(
 async function resolveVercelCredentialsForRepo(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
-): Promise<SandboxCredentials> {
+): Promise<Extract<SandboxCredentials, { kind: "vercel" }>> {
   const targetVars = await resolveAllEnvVars(ctx, repoId);
   const projectId = targetVars.VERCEL_PROJECT_ID;
   let token = targetVars.VERCEL_TOKEN;

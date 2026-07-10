@@ -39,6 +39,33 @@ export const aiModelValidator = v.union(
   v.literal("cursor:composer-2.5"),
 );
 
+/**
+ * Abstract, provider-neutral reasoning effort levels shown on the chat input
+ * lever. A single level is threaded to the sandbox as the `AI_REASONING_EFFORT`
+ * env var and mapped to each provider's native control in the callback runner
+ * (`callback-src/config.ts`): Claude -> `MAX_THINKING_TOKENS`, Codex ->
+ * `model_reasoning_effort`. Only Claude and Codex expose a runtime lever, so the
+ * UI hides it for other providers (see `providerSupportsReasoning`).
+ */
+export const REASONING_LEVELS = [
+  "off",
+  "low",
+  "medium",
+  "high",
+  "max",
+] as const;
+export type ReasoningLevel = (typeof REASONING_LEVELS)[number];
+
+export const reasoningLevelValidator = v.union(
+  v.literal("off"),
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high"),
+  v.literal("max"),
+);
+
+export const DEFAULT_REASONING_LEVEL: ReasoningLevel = "medium";
+
 export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
 export type AIModel =
@@ -365,6 +392,15 @@ export function getAIModelProvider(
   if (normalized.startsWith("opencode:")) return "opencode";
   if (normalized.startsWith("cursor:")) return "cursor";
   return "claude";
+}
+
+/**
+ * Whether a provider exposes a runtime reasoning-effort lever. Cursor bakes
+ * reasoning into the model id (e.g. `cursor:...-high-thinking`) and Opencode has
+ * no runtime control, so the chat input hides the lever for them.
+ */
+export function providerSupportsReasoning(provider: AIProvider): boolean {
+  return provider === "claude" || provider === "codex";
 }
 
 /** Finds the full AIModelOption metadata for a given model string, falling back to the default. */

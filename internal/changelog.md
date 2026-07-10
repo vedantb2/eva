@@ -1,5 +1,11 @@
 # Changelog
 
+## Session-wide reasoning/thinking lever for sandbox chats - 2026-07-10
+
+- Added a reasoning-effort lever (Off/Low/Med/High/Max slider in a toolbar popover) to session, task, and project sandbox chats so users can tune how hard the agent thinks; the level persists per-chat and applies to every message.
+- The lever only shows for Claude and Codex, which expose a runtime control; it is hidden for Cursor (reasoning baked into the model id) and Opencode (no runtime lever).
+- One abstract level is threaded to the sandbox and mapped per provider — Claude via `MAX_THINKING_TOKENS`, Codex via `model_reasoning_effort` — and folded into the session daemon signature so changing it mid-session respawns the daemon.
+
 ## Vercel session preview for non-3000 ports (Vite 5173) - 2026-07-10
 
 - Vercel app/dev preview now always fronts the real listen port through the reserved auth proxy on 54321, so Vite (and any non-3000) sessions no longer call `sandbox.domain(5173)` and hit "No route for port".

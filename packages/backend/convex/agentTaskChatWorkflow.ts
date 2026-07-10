@@ -7,6 +7,7 @@ import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
+  reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
 } from "./validators";
@@ -70,6 +71,7 @@ export const startExecute = authMutation({
     taskId: v.id("agentTasks"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -89,6 +91,7 @@ export const startExecute = authMutation({
         taskId: args.taskId,
         message: args.message,
         model: args.model,
+        reasoningLevel: args.reasoningLevel,
         userId: ctx.userId,
       },
     );
@@ -104,6 +107,7 @@ export const enqueueMessage = authMutation({
     taskId: v.id("agentTasks"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -125,6 +129,7 @@ export const enqueueMessage = authMutation({
       createdAt: Date.now(),
       userId: ctx.userId,
       model: args.model,
+      reasoningLevel: args.reasoningLevel,
     });
     await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
     return null;
@@ -199,6 +204,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     taskId: v.id("agentTasks"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
     userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
@@ -295,6 +301,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       completionMutation: "agentTaskChatWorkflow:handleCompletion",
       entityIdField: "taskId",
       model: data.model,
+      reasoningLevel: args.reasoningLevel,
       allowedTools: CHAT_ALLOWED_TOOLS,
       repoId: data.repoId,
       sessionPersistenceId: args.taskId,

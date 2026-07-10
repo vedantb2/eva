@@ -18,9 +18,13 @@ export {
   getVisibleAIModelOptions,
   hasCodexAuthEnvVar,
   normalizeAIModel,
+  providerSupportsReasoning,
+  REASONING_LEVELS,
+  DEFAULT_REASONING_LEVEL,
   type AIModel,
   type AIModelOption,
   type AIProvider,
   type AIProviderAvailability,
+  type ReasoningLevel,
   PERSONALISATION_PRESETS,
 } from "./convex/validators";

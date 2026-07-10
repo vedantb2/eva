@@ -4,8 +4,10 @@ import { useCallback } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import {
   DEFAULT_AI_MODEL,
+  DEFAULT_REASONING_LEVEL,
   normalizeAIModel,
   type AIModel,
+  type ReasoningLevel,
 } from "@conductor/backend";
 
 const SESSION_MODES = ["edit", "plan"] as const;
@@ -21,11 +23,13 @@ function normalizeMode(mode: string): SessionMode {
 interface StoredSettings {
   model: AIModel;
   mode: SessionMode;
+  reasoningLevel: ReasoningLevel;
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
   model: DEFAULT_AI_MODEL,
   mode: "edit",
+  reasoningLevel: DEFAULT_REASONING_LEVEL,
 };
 
 function storageKey(sessionId: string) {
@@ -59,10 +63,19 @@ export function useSessionSettings(
     [setSettings],
   );
 
+  const setReasoningLevel = useCallback(
+    (reasoningLevel: ReasoningLevel) => {
+      setSettings((prev) => ({ ...prev, reasoningLevel }));
+    },
+    [setSettings],
+  );
+
   return {
     model: normalizeAIModel(settings.model),
     mode: normalizeMode(settings.mode),
+    reasoningLevel: settings.reasoningLevel ?? DEFAULT_REASONING_LEVEL,
     setModel,
     setMode,
+    setReasoningLevel,
   };
 }

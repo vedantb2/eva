@@ -75,6 +75,7 @@ export async function startNextQueuedSessionMessage(
         message: nextMessage.content,
         mode: nextMessage.mode,
         model: nextMessage.model,
+        reasoningLevel: nextMessage.reasoningLevel,
         userId: nextMessage.userId,
         installationId: repo.installationId,
       },
@@ -218,6 +219,7 @@ export async function startNextQueuedProjectChatMessage(
         projectId,
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
+        reasoningLevel: nextMessage.reasoningLevel,
         userId: nextMessage.userId,
       },
     );
@@ -284,6 +286,7 @@ export async function startNextQueuedTaskChatMessage(
         taskId,
         message: nextMessage.content,
         model: nextMessage.model ?? DEFAULT_AI_MODEL,
+        reasoningLevel: nextMessage.reasoningLevel,
         userId: nextMessage.userId,
       },
     );

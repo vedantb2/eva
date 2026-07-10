@@ -29,8 +29,9 @@ export {
 } from "./_repoSnapshots/builds";
 
 export {
+  getRepo,
+  getRepoSandboxProvider,
   getStartupCommands,
   getBackgroundCommands,
   getStopCommands,
-  getRepo,
 } from "./_repoSnapshots/repoMetadata";

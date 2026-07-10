@@ -10,6 +10,7 @@ import {
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
+  snapshotBuildKindValidator,
   seededAppResultValidator,
   teamMemberRoleValidator,
   webhookEventStatusValidator,
@@ -275,6 +276,9 @@ const schema = defineSchema(
       repoSnapshotId: v.id("repoSnapshots"),
       status: snapshotBuildStatusValidator,
       triggeredBy: snapshotBuildTriggerValidator,
+      // "base" (image only) vs "seeded" (boots + seeds DB before capture).
+      // Optional: legacy rows predate this field and render without a type.
+      kind: v.optional(snapshotBuildKindValidator),
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),

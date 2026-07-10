@@ -135,6 +135,9 @@ export function SnapshotsClient({
   const sharedSeededSnapshotName =
     seededApps?.find((app) => app.seededSnapshotName !== null)
       ?.seededSnapshotName ?? null;
+  const hasSeedableApps = (seededApps?.length ?? 0) > 0;
+  const baseImageReady =
+    lastBuild?.status === "success" && !isRunning && !isSeeding;
 
   const handleSnapshotsTabChange = useCallback(
     (value: string) => {
@@ -342,42 +345,90 @@ export function SnapshotsClient({
                       ? "Seeding..."
                       : "Rebuild Now"}
                 </Button>
+                <p className="text-[11px] text-muted-foreground">
+                  Always rebuilds the base Image below.
+                  {hasSeedableApps
+                    ? " Also re-captures the optional seeded snapshot when apps have Stop Commands."
+                    : " No seed file or Stop Commands required."}
+                </p>
               </div>
-              <div className="rounded-lg bg-muted/40 p-4 space-y-3">
-                <h3 className="text-sm font-medium">Seeded Snapshot</h3>
+              <div className="rounded-surface border border-border bg-card p-4 space-y-3">
+                <h3 className="text-sm font-medium">Base Image</h3>
                 <p className="text-xs text-muted-foreground">
-                  One running-sandbox snapshot shared by every app in this repo,
-                  with the DB already seeded. Without one, apps fall back to the
-                  base Image (slower cold start).
+                  Declarative snapshot with toolchain,{" "}
+                  <code className="font-mono text-[11px]">pnpm install</code>,
+                  and your build commands. This is what sandboxes boot from
+                  unless a seeded snapshot exists. Rebuild Now always refreshes
+                  this — no seed file needed.
+                </p>
+                {baseImageReady ? (
+                  <div className="flex items-start gap-1 text-xs text-green-500">
+                    <IconCheck size={12} className="mt-0.5 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="mr-1 text-muted-foreground">
+                        Active:
+                      </span>
+                      <span className="font-mono break-all text-foreground">
+                        {snapshot.snapshotName}
+                      </span>
+                    </span>
+                  </div>
+                ) : isRunning ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-blue-500">
+                    <Spinner size="sm" />
+                    Building base Image…
+                  </span>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-mono">{snapshot.snapshotName}</span>
+                    {lastBuild?.status === "error"
+                      ? " — last build failed; click Rebuild Now to retry."
+                      : " — not built yet; click Rebuild Now."}
+                  </p>
+                )}
+              </div>
+              <div className="rounded-surface border border-border bg-muted/40 p-4 space-y-3">
+                <h3 className="text-sm font-medium">
+                  Seeded snapshot{" "}
+                  <span className="font-normal text-muted-foreground">
+                    (optional)
+                  </span>
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Running-sandbox capture with DB and services already started.
+                  Only needed when cold boot is too slow — e.g. carepulse with
+                  Supabase + Convex data. Configure Stop Commands on an app
+                  (Settings → App); upload seed files only if startup commands
+                  reference them.
                 </p>
                 {seededApps === undefined ? (
                   <p className="text-xs text-muted-foreground">Loading…</p>
                 ) : isSeeding ? (
                   <span className="inline-flex items-center gap-1 text-xs text-blue-500">
                     <Spinner size="sm" />
-                    Seeding…
+                    Capturing seeded snapshot…
                   </span>
                 ) : sharedSeededSnapshotName ? (
                   <div className="flex items-start gap-1 text-xs text-green-500">
                     <IconCheck size={12} className="mt-0.5 shrink-0" />
                     <span className="min-w-0">
                       <span className="mr-1 text-muted-foreground">
-                        Seeded snapshot:
+                        Active:
                       </span>
                       <span className="font-mono break-all">
                         {sharedSeededSnapshotName}
                       </span>
                     </span>
                   </div>
-                ) : seededApps.length === 0 ? (
+                ) : !hasSeedableApps ? (
                   <p className="text-xs text-muted-foreground">
-                    No seedable apps yet — configure Stop Commands on an app
-                    (Settings → App) to capture a seeded snapshot. Rebuild Now
-                    refreshes the base Image only.
+                    Not configured — no apps have Stop Commands. Sandboxes use
+                    the base Image only, which is fine for most repos.
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Using base Image
+                    Not captured yet — run Rebuild Now after configuring app
+                    startup/background/stop commands.
                   </p>
                 )}
               </div>
@@ -593,18 +644,24 @@ function ConfigFilesSection({
 
       <div className="rounded-surface border border-border bg-card p-4 space-y-4">
         <div>
-          <h3 className="text-sm font-medium">Sandbox Config Files</h3>
+          <h3 className="text-sm font-medium">
+            Sandbox Config Files{" "}
+            <span className="font-normal text-muted-foreground">
+              (optional — seeded snapshots only)
+            </span>
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Files uploaded here will be copied into the codebase root when a
-            sandbox starts. They are also available at{" "}
+            Files uploaded here are copied into the codebase root when a sandbox
+            starts. They are also available at{" "}
             <code className="font-mono text-[11px]">
               /home/eva/sandbox-config/
             </code>{" "}
             and{" "}
             <code className="font-mono text-[11px]">/tmp/sandbox-config/</code>
             {". "}
-            Use for sensitive files like database seeds that cannot be committed
-            to the repo.
+            Only needed when app startup commands reference sensitive seeds
+            (e.g. SQL dumps) that cannot live in git. Base Image rebuilds do not
+            require any files here.
           </p>
         </div>
 

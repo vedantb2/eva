@@ -1,5 +1,10 @@
 # Changelog
 
+## Snapshot build falls back to base Image when no seedable apps - 2026-07-10
+
+- Snapshot rebuild no longer errors with "No seedable apps configured"; repos without app Stop Commands rebuild the declarative base Image only, with UI copy explaining how to enable seeded snapshots.
+- Reason for change: eva prod snapshot builds failed immediately because no app repos had stop commands configured.
+
 ## Deduplicate sandbox start/resume mechanics across entity flows - 2026-07-09
 
 - Extracted `resolveReusableVercelSandboxId`, `seedSandboxStartupActivity`/`clearSandboxStartupActivity`, and `resumeReusedSandbox` so the Vercel-id fallback, startup streaming seed/clear, and reuse ordering live in one place instead of being copy-pasted across the session, task, and project sandbox flows.

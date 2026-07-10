@@ -369,6 +369,12 @@ export function SnapshotsClient({
                       </span>
                     </span>
                   </div>
+                ) : seededApps.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No seedable apps yet — configure Stop Commands on an app
+                    (Settings → App) to capture a seeded snapshot. Rebuild Now
+                    refreshes the base Image only.
+                  </p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     Using base Image

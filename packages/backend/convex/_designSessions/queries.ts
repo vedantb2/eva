@@ -1,12 +1,22 @@
 import { v } from "convex/values";
 import { designSessionFields } from "../validators";
 import { authQuery, hasRepoAccess } from "../functions";
+import { internalQuery } from "../_generated/server";
 import { entityVisible, filterActiveEntities } from "../numId";
 
 export const designSessionValidator = v.object({
   _id: v.id("designSessions"),
   _creationTime: v.number(),
   ...designSessionFields,
+});
+
+/** Internal fetch of a design session by id (status checks in node actions). */
+export const getInternal = internalQuery({
+  args: { id: v.id("designSessions") },
+  returns: v.union(designSessionValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
 });
 
 /** Lists active (non-archived) design sessions for a repo, sorted by most recently updated. */

@@ -44,18 +44,29 @@ export function DesignDetailClient({
       setPreviewUrl(null);
       return;
     }
+    // Never resolve the preview for a stopped/stopping design session. This
+    // effect runs on mount, and getPreviewUrl execs on the sandbox to bring up
+    // the auth proxy; on Vercel any exec lazily resumes a stopped VM (SDK
+    // withResume), silently resurrecting a sandbox the user stopped (status
+    // stays "closed"). A closed session keeps its sandboxId, so gate here — and
+    // pass checkReady so the backend's handle.state guard is the last defence.
+    if (session.status === "closed" || session.status === "stopping") {
+      setPreviewUrl(null);
+      return;
+    }
     try {
       const data = await getPreviewUrl({
         sandboxId: session.sandboxId,
         port: session.devPort ?? 3000,
         repoId: session.repoId,
+        checkReady: true,
       });
       await dismissDaytonaWarning(data.url);
       setPreviewUrl(data.url);
     } catch {
       setPreviewUrl(null);
     }
-  }, [session?.sandboxId, getPreviewUrl, session?.repoId]);
+  }, [session?.sandboxId, session?.status, getPreviewUrl, session?.repoId]);
 
   useEffect(() => {
     fetchPreviewUrl();

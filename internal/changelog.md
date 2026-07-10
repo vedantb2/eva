@@ -1,5 +1,11 @@
 # Changelog
 
+## Per-app Vercel project for monorepo snapshot builds - 2026-07-10
+
+- Vercel credential resolution no longer borrows a sibling app's `VERCEL_PROJECT_ID` when inheriting `SANDBOX_PROVIDER`; token/team can still come from team/siblings, but project id must be on the target app.
+- Rebuild Now from an app under a shared monorepo snapshot config lazily creates a per-app `repoSnapshots` row so eprocurement builds stay separate from apps/web.
+- Reason for change: triggering eprocurement snapshot rebuild created sandboxes under the apps/web Vercel project and shared build history with web.
+
 ## Agent SDK daemon review fixes - 2026-07-10
 
 - Prewarm now respawns the warm daemon when a turn's model or tools differ from the daemon's frozen options (model+tools signature written to `/tmp/eva-daemon.opts` at boot), so an edit-mode turn can no longer run on a stale read-only daemon.

@@ -401,7 +401,8 @@ export const sessionExecuteWorkflow = workflow.define({
         },
       );
 
-      // Open a draft PR after the first successful push (no-op if one exists).
+      // Open a draft PR after the first successful push (no-op if one exists
+      // on the session or on GitHub for this branch, or if not ahead of base).
       // Retried on later turns so a transient GitHub failure self-heals.
       try {
         await step.runAction(internal.github.createDraftSessionPr, {

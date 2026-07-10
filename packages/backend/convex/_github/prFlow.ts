@@ -69,11 +69,22 @@ export const createSessionPr = action({
   },
 });
 
+function isBranchNotAheadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("is not ahead of") ||
+    message.includes("No commits between") ||
+    /not ready for a pull request/i.test(message)
+  );
+}
+
 /**
  * Opens a draft PR for a session branch after the first successful push.
  * Idempotent: returns the existing prUrl when one is already stored.
- * Called from sessionExecuteWorkflow after pushSandboxBranch succeeds; also
- * retried on later turns if the first attempt failed.
+ * Returns null (no alert) when the branch has no commits ahead of base —
+ * plan-only turns push the branch tip but have nothing to review yet; later
+ * turns with commits retry and open the draft.
+ * Called from sessionExecuteWorkflow after pushSandboxBranch succeeds.
  */
 export const createDraftSessionPr = internalAction({
   args: { sessionId: v.id("sessions") },
@@ -107,23 +118,34 @@ export const createDraftSessionPr = internalAction({
       repo.rootDirectory,
     );
 
-    const result: string = await ctx.runAction(
-      internal.taskWorkflowActions.createPullRequest,
-      {
-        installationId: repo.installationId,
-        repoOwner: repo.owner,
-        repoName: repo.name,
-        branchName: session.branchName,
-        baseBranch: repo.defaultBaseBranch,
-        title: session.title,
-        body: buildPrBody(
-          [{ heading: "Summary", content: summaryContent }],
-          evaUrl,
-        ),
-        labels: ["eva", "session", "draft", ...(appLabel ? [appLabel] : [])],
-        draft: true,
-      },
-    );
+    let result: string;
+    try {
+      result = await ctx.runAction(
+        internal.taskWorkflowActions.createPullRequest,
+        {
+          installationId: repo.installationId,
+          repoOwner: repo.owner,
+          repoName: repo.name,
+          branchName: session.branchName,
+          baseBranch: repo.defaultBaseBranch,
+          title: session.title,
+          body: buildPrBody(
+            [{ heading: "Summary", content: summaryContent }],
+            evaUrl,
+          ),
+          labels: ["eva", "session", "draft", ...(appLabel ? [appLabel] : [])],
+          draft: true,
+        },
+      );
+    } catch (error) {
+      if (isBranchNotAheadError(error)) {
+        console.log(
+          `[github] Skipping draft PR for session ${args.sessionId}: branch has no commits ahead of base`,
+        );
+        return null;
+      }
+      throw error;
+    }
 
     await ctx.runMutation(internal.sessions.setPrUrl, {
       id: args.sessionId,

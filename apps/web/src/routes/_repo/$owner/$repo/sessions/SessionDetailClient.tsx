@@ -114,6 +114,7 @@ export function SessionDetailClient({
         <SandboxPanel
           sessionId={typedSessionId}
           sandboxId={session.sandboxId}
+          vercelSandboxId={session.vercelSandboxId}
           isActive={isSandboxActive}
           repoId={session.repoId}
           devPort={session.devPort}

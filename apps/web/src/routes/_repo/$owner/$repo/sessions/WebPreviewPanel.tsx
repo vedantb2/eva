@@ -28,6 +28,12 @@ interface PreviewInfo {
 interface WebPreviewPanelProps {
   isActive: boolean;
   sandboxId: string | undefined;
+  /**
+   * Vercel sandbox name when the sandbox runs on Vercel. Used only to hide the
+   * Daytona preview-interstitial hint: Vercel previews go through the auth proxy
+   * and never show that "Accept" warning, so the hint is noise there.
+   */
+  vercelSandboxId: string | undefined;
   previewInfo: PreviewInfo | null;
   isLoading: boolean;
   error: string | null;
@@ -79,6 +85,7 @@ function NavigationBar({
 export function WebPreviewPanel({
   isActive,
   sandboxId,
+  vercelSandboxId,
   previewInfo,
   isLoading,
   error,
@@ -144,7 +151,7 @@ export function WebPreviewPanel({
         previewPath={previewPath}
         onPathChange={handlePathChange}
       />
-      {!warningHintDismissed ? (
+      {!warningHintDismissed && !vercelSandboxId ? (
         <div className="flex items-start gap-2 bg-warning/10 px-3 py-2 text-xs text-warning">
           <IconAlertTriangle size={14} className="mt-0.5 shrink-0" />
           <p className="flex-1 leading-relaxed">

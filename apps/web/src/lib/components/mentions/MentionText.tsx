@@ -16,6 +16,12 @@ export interface SkillMatch {
 interface MentionTextProps {
   text: string;
   className?: string;
+  /**
+   * Root element. Defaults to a block `<p>`. Use `"span"` when the text must be
+   * inline single-line content — e.g. inside MarqueeOnHover, whose overflow
+   * measurement and ellipsis only work with inline children, not a block box.
+   */
+  as?: "p" | "span";
   renderMention?: (match: MentionMatch, key: number) => ReactNode;
   renderSkill?: (match: SkillMatch, key: number) => ReactNode;
 }
@@ -90,13 +96,14 @@ const defaultRenderSkill = (match: SkillMatch, key: number): ReactNode => (
 export function MentionText({
   text,
   className,
+  as: Tag = "p",
   renderMention = defaultRenderMention,
   renderSkill = defaultRenderSkill,
 }: MentionTextProps) {
   const segments = parseSegments(text);
 
   return (
-    <p
+    <Tag
       className={
         className ?? "text-sm text-foreground whitespace-pre-wrap break-words"
       }
@@ -110,6 +117,6 @@ export function MentionText({
         }
         return renderSkill(segment.match, i);
       })}
-    </p>
+    </Tag>
   );
 }

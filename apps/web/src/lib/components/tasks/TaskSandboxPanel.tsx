@@ -16,6 +16,7 @@ const TASK_ENABLED_TABS = ["preview", "terminal", "editor", "desktop"] as const;
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
   sandboxId: string | undefined;
+  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   /**
@@ -45,6 +46,7 @@ interface TaskSandboxPanelProps {
 export function TaskSandboxPanel({
   taskId,
   sandboxId,
+  vercelSandboxId,
   isActive,
   repoId,
   devPort,
@@ -109,6 +111,7 @@ export function TaskSandboxPanel({
           preview={preview}
           owner={owner}
           sandboxId={sandboxId}
+          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           cacheKey={taskIdStr}

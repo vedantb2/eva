@@ -10,6 +10,7 @@ import {
   reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
+  taskSandboxStatusValidator,
 } from "./validators";
 import {
   recordCompletionLog,
@@ -239,6 +240,7 @@ export const projectChatExecuteWorkflow = workflow.define({
         vercelSandboxId: data.vercelSandboxId,
         repoId: data.repoId,
         streamingEntityId,
+        sandboxRunning: data.sandboxStatus === "active",
       });
     } catch (error) {
       await step.runMutation(internal.projectChatWorkflow.saveResult, {
@@ -368,6 +370,7 @@ export const getChatData = internalQuery({
   returns: v.object({
     sandboxId: v.optional(v.string()),
     vercelSandboxId: v.optional(v.string()),
+    sandboxStatus: v.optional(taskSandboxStatusValidator),
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -419,6 +422,7 @@ export const getChatData = internalQuery({
     return {
       sandboxId: project.sandboxId,
       vercelSandboxId: project.vercelSandboxId,
+      sandboxStatus: project.reviewProjectSandboxStatus,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: project.repoId,

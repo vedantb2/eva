@@ -167,24 +167,11 @@ export const snapshotBuildWorkflow = workflow.define({
       if (providerKind === "vercel") {
         const baseSnapshotLabel = `base-${config.repoId}`;
         let prepSandboxId: string | null = null;
-
-        if (config.baseSnapshotId) {
-          try {
-            await step.runAction(
-              internal.snapshotActions.deleteSeededSnapshot,
-              {
-                snapshotName: config.baseSnapshotId,
-                repoId: config.repoId,
-              },
-            );
-          } catch (e) {
-            console.error(
-              `[snapshot] failed to delete previous Vercel base snapshot ${config.baseSnapshotId}: ${
-                e instanceof Error ? e.message : String(e)
-              }`,
-            );
-          }
-        }
+        // Keep-last-good: hold the previous base id and delete it only AFTER
+        // the new one is captured and stored. Deleting up front would leave
+        // repoSnapshots.baseSnapshotId pointing at a deleted snapshot on any
+        // failure, breaking every sandbox boot until the next success.
+        const previousBaseSnapshotId = config.baseSnapshotId ?? null;
 
         await step.runMutation(internal.repoSnapshots.appendLogs, {
           buildId: args.buildId,
@@ -316,6 +303,31 @@ export const snapshotBuildWorkflow = workflow.define({
             repoSnapshotId: args.repoSnapshotId,
             baseSnapshotId: effectiveBaseId,
           });
+
+          // New base is stored and bootable — now retire the previous one.
+          // Best-effort: a leaked old snapshot is harmless; failing the build
+          // here would be worse than leaving it for the next rebuild to clear.
+          if (
+            previousBaseSnapshotId &&
+            previousBaseSnapshotId !== effectiveBaseId
+          ) {
+            try {
+              await step.runAction(
+                internal.snapshotActions.deleteSeededSnapshot,
+                {
+                  snapshotName: previousBaseSnapshotId,
+                  repoId: config.repoId,
+                },
+              );
+            } catch (e) {
+              console.error(
+                `[snapshot] failed to delete previous Vercel base snapshot ${previousBaseSnapshotId}: ${
+                  e instanceof Error ? e.message : String(e)
+                }`,
+              );
+            }
+          }
+
           await step.runMutation(internal.repoSnapshots.completeBuild, {
             buildId: args.buildId,
             status: "success",

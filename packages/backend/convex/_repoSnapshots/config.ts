@@ -61,6 +61,7 @@ export const getRepoSnapshot = authQuery({
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
       imageFingerprint: v.optional(v.string()),
+      baseSnapshotId: v.optional(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     }),
@@ -89,6 +90,11 @@ export const getRepoSnapshotName = internalQuery({
 
     const snapshot = await findSnapshotForRepo(ctx.db, args.repoId);
     if (!snapshot) return null;
+
+    // Vercel base Image (`snap_*`) — written by the provider-aware rebuild path.
+    if (snapshot.baseSnapshotId) {
+      return { snapshotName: snapshot.baseSnapshotId };
+    }
 
     const latestSuccessfulBuild = await ctx.db
       .query("snapshotBuilds")
@@ -385,6 +391,7 @@ export const getRepoSnapshotInternal = internalQuery({
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
       imageFingerprint: v.optional(v.string()),
+      baseSnapshotId: v.optional(v.string()),
     }),
     v.null(),
   ),
@@ -397,7 +404,24 @@ export const getRepoSnapshotInternal = internalQuery({
       workflowRef: doc.workflowRef,
       buildCommands: doc.buildCommands,
       imageFingerprint: doc.imageFingerprint,
+      baseSnapshotId: doc.baseSnapshotId,
     };
+  },
+});
+
+/** Stores the Vercel base Image snapshot id (`snap_*`) after a successful capture. */
+export const setBaseSnapshotId = internalMutation({
+  args: {
+    repoSnapshotId: v.id("repoSnapshots"),
+    baseSnapshotId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.repoSnapshotId, {
+      baseSnapshotId: args.baseSnapshotId,
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
 

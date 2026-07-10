@@ -136,6 +136,8 @@ export function SnapshotsClient({
     seededApps?.find((app) => app.seededSnapshotName !== null)
       ?.seededSnapshotName ?? null;
   const hasSeedableApps = (seededApps?.length ?? 0) > 0;
+  const activeBaseSnapshotId =
+    snapshot?.baseSnapshotId ?? snapshot?.snapshotName ?? null;
   const baseImageReady =
     lastBuild?.status === "success" && !isRunning && !isSeeding;
 
@@ -267,8 +269,12 @@ export function SnapshotsClient({
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Requires <code className="font-mono">DAYTONA_API_KEY</code> in team
-            or repo environment variables.
+            Requires sandbox provider credentials in team or repo environment
+            variables: set <code className="font-mono">SANDBOX_PROVIDER</code>{" "}
+            to <code className="font-mono">daytona</code> (
+            <code className="font-mono">DAYTONA_API_KEY</code>) or{" "}
+            <code className="font-mono">vercel</code> (
+            <code className="font-mono">VERCEL_TOKEN</code>, team, and project).
           </p>
         </TabsContent>
 
@@ -355,11 +361,13 @@ export function SnapshotsClient({
               <div className="rounded-surface border border-border bg-card p-4 space-y-3">
                 <h3 className="text-sm font-medium">Base Image</h3>
                 <p className="text-xs text-muted-foreground">
-                  Declarative snapshot with toolchain,{" "}
+                  Provider-native base snapshot with toolchain,{" "}
                   <code className="font-mono text-[11px]">pnpm install</code>,
-                  and your build commands. This is what sandboxes boot from
-                  unless a seeded snapshot exists. Rebuild Now always refreshes
-                  this — no seed file needed.
+                  and your build commands. Daytona builds a declarative Image;
+                  Vercel captures a running sandbox as{" "}
+                  <code className="font-mono text-[11px]">snap_*</code>. This is
+                  what sandboxes boot from unless a seeded snapshot exists.
+                  Rebuild Now always refreshes this — no seed file needed.
                 </p>
                 {baseImageReady ? (
                   <div className="flex items-start gap-1 text-xs text-green-500">
@@ -369,7 +377,7 @@ export function SnapshotsClient({
                         Active:
                       </span>
                       <span className="font-mono break-all text-foreground">
-                        {snapshot.snapshotName}
+                        {activeBaseSnapshotId}
                       </span>
                     </span>
                   </div>
@@ -380,6 +388,16 @@ export function SnapshotsClient({
                   </span>
                 ) : (
                   <p className="text-xs text-muted-foreground">
+                    {snapshot.baseSnapshotId ? (
+                      <>
+                        Last active:{" "}
+                        <span className="font-mono">
+                          {snapshot.baseSnapshotId}
+                        </span>
+                        {" — "}
+                      </>
+                    ) : null}
+                    Config name:{" "}
                     <span className="font-mono">{snapshot.snapshotName}</span>
                     {lastBuild?.status === "error"
                       ? " — last build failed; click Rebuild Now to retry."

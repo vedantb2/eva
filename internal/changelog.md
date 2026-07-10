@@ -1,5 +1,10 @@
 # Changelog
 
+## Vercel base Image snapshot builds - 2026-07-10
+
+- Rebuild Now is provider-aware: Daytona keeps the declarative Image path; when `SANDBOX_PROVIDER=vercel`, the workflow builds a fresh sandbox, runs toolchain/install/build commands, captures `snap_*`, and stores it on `repoSnapshots.baseSnapshotId` for sandbox boot.
+- Reason for change: eva on Vercel-only credentials could not rebuild its base snapshot because the image-only path always called Daytona APIs.
+
 ## Snapshot build falls back to base Image when no seedable apps - 2026-07-10
 
 - Snapshot rebuild no longer errors with "No seedable apps configured"; repos without app Stop Commands rebuild the declarative base Image only, with UI copy explaining how to enable seeded snapshots.

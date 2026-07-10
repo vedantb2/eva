@@ -2,7 +2,11 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authMutation, hasRepoAccess } from "../functions";
-import { aiModelValidator, sessionModeValidator } from "../validators";
+import {
+  aiModelValidator,
+  reasoningLevelValidator,
+  sessionModeValidator,
+} from "../validators";
 import { trackSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
@@ -16,6 +20,7 @@ export const startExecute = authMutation({
     message: v.string(),
     mode: sessionModeValidator,
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -79,6 +84,7 @@ export const startExecute = authMutation({
         repoId: session.repoId,
         userId: ctx.userId,
         model: normalizedModel,
+        reasoningLevel: args.reasoningLevel,
         allowedTools: MODE_TOOLS[effectiveMode],
         sessionPersistenceId: args.sessionId,
       });
@@ -92,6 +98,7 @@ export const startExecute = authMutation({
         message: args.message,
         mode: args.mode,
         model: args.model,
+        reasoningLevel: args.reasoningLevel,
         userId: ctx.userId,
         installationId: repo.installationId,
       },
@@ -135,6 +142,7 @@ export const enqueueMessage = authMutation({
     message: v.string(),
     mode: sessionModeValidator,
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -153,6 +161,7 @@ export const enqueueMessage = authMutation({
       userId: ctx.userId,
       mode: args.mode,
       model: args.model,
+      reasoningLevel: args.reasoningLevel,
     });
     await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
     return null;

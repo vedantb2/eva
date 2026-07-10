@@ -132,6 +132,25 @@ if (GH_TOKEN) {
 process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 var REPO_ID = process.env.REPO_ID;
+var REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
+var CLAUDE_THINKING_BUDGET = {
+  off: "0",
+  low: "4000",
+  medium: "10000",
+  high: "24000",
+  max: "31999"
+};
+var CODEX_REASONING_EFFORT = {
+  off: "minimal",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  max: "high"
+};
+if (PROVIDER === "claude" && CLAUDE_THINKING_BUDGET[REASONING_EFFORT]) {
+  process.env.MAX_THINKING_TOKENS = CLAUDE_THINKING_BUDGET[REASONING_EFFORT];
+}
+var codexReasoningEffort = PROVIDER === "codex" ? CODEX_REASONING_EFFORT[REASONING_EFFORT] ?? "" : "";
 var toolsArg = ALLOWED_TOOLS ? '--allowedTools "' + ALLOWED_TOOLS + '"' : "";
 var systemArg = SYSTEM_PROMPT ? "--append-system-prompt " + JSON.stringify(SYSTEM_PROMPT) : "";
 var settingsJson = '{"attribution":{"commit":"","pr":""}}';
@@ -1977,13 +1996,17 @@ function buildCodexRuntimeConfig(rawValue, encodedValue) {
   const configuredValue = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
   const preservedLines = configuredValue ? configuredValue.split(/\\r?\\n/).filter((line) => {
     const trimmed = line.trim().toLowerCase();
-    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy");
+    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy") && // Drop any configured reasoning effort; the session lever wins when set.
+    !(codexReasoningEffort && trimmed.startsWith("model_reasoning_effort"));
   }) : [];
   const normalizedPreservedLines = preservedLines.filter((line) => line.trim());
   const runtimeLines = [
     'approval_policy = "never"',
     'sandbox_mode = "danger-full-access"'
   ];
+  if (codexReasoningEffort) {
+    runtimeLines.push(\`model_reasoning_effort = "\${codexReasoningEffort}"\`);
+  }
   if (normalizedPreservedLines.length > 0) {
     runtimeLines.push(...normalizedPreservedLines);
   }
@@ -3238,7 +3261,9 @@ function startTurnWatchdog() {
       void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
     } else if (now - lastMessageAtMs > NO_MESSAGE_TIMEOUT_MS) {
       turnActive = false;
-      void failTurnAndExit("The assistant stopped responding. Please try again.");
+      void failTurnAndExit(
+        "The assistant stopped responding. Please try again."
+      );
     }
   }, WATCHDOG_TICK_MS);
   timer.unref?.();

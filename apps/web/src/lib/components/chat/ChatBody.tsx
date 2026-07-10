@@ -14,6 +14,7 @@ import {
   PromptInputSpeech,
   PromptInputSubmit,
   ModelSelect,
+  ReasoningLever,
   usePromptInputController,
   type PromptInputMessage,
   type ModelOption,
@@ -33,7 +34,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api, type AIModel } from "@conductor/backend";
+import {
+  api,
+  getAIModelProvider,
+  providerSupportsReasoning,
+  REASONING_LEVELS,
+  type AIModel,
+  type ReasoningLevel,
+} from "@conductor/backend";
 import type { Doc, Id } from "@conductor/backend";
 import { ScreenshotPreview, VideoPreview } from "@/lib/components/MediaPreview";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
@@ -60,6 +68,18 @@ export type ChatBodyMessage = Doc<"messages"> & {
 };
 
 export type ChatBodyQueuedMessage = Doc<"queuedMessages">;
+
+const REASONING_LEVEL_LABELS: Record<ReasoningLevel, string> = {
+  off: "Off",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  max: "Max",
+};
+const REASONING_LEVEL_OPTIONS = REASONING_LEVELS.map((value) => ({
+  value,
+  label: REASONING_LEVEL_LABELS[value],
+}));
 
 interface ParsedQuestion {
   question: string;
@@ -126,6 +146,13 @@ interface ChatBodyProps {
   model: AIModel;
   setModel: (model: AIModel) => void;
   modelOptions: ReadonlyArray<ModelOption<AIModel>>;
+  /**
+   * Session-wide reasoning effort. When both the level and setter are provided
+   * and the selected model's provider supports a runtime lever (Claude/Codex),
+   * a reasoning lever is shown next to the model selector.
+   */
+  reasoningLevel?: ReasoningLevel;
+  onReasoningLevelChange?: (level: ReasoningLevel) => void;
   /** Called with the tokenized content. Caller decides whether to send or enqueue. */
   onSend: (content: string) => Promise<void>;
   onCancel: () => Promise<void>;
@@ -176,6 +203,8 @@ export function ChatBody({
   model,
   setModel,
   modelOptions,
+  reasoningLevel,
+  onReasoningLevelChange,
   onSend,
   onCancel,
   preConversationContent,
@@ -540,6 +569,15 @@ export function ChatBody({
                   <PromptInputFooter>
                     <PromptInputTools>{toolsBefore}</PromptInputTools>
                     <div className="flex min-w-0 items-center gap-1">
+                      {onReasoningLevelChange &&
+                      reasoningLevel &&
+                      providerSupportsReasoning(getAIModelProvider(model)) ? (
+                        <ReasoningLever
+                          value={reasoningLevel}
+                          options={REASONING_LEVEL_OPTIONS}
+                          onValueChange={onReasoningLevelChange}
+                        />
+                      ) : null}
                       <ModelSelect
                         value={model}
                         options={modelOptions}

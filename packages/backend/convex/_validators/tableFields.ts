@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { aiModelValidator } from "./aiModels";
+import { aiModelValidator, reasoningLevelValidator } from "./aiModels";
 import {
   deploymentStatusValidator,
   docKindValidator,
@@ -417,6 +417,7 @@ export const queuedMessageFields = {
   userId: v.id("users"),
   mode: v.optional(sessionModeValidator),
   model: v.optional(aiModelValidator),
+  reasoningLevel: v.optional(reasoningLevelValidator),
   responseLength: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),
   numDesigns: v.optional(v.number()),

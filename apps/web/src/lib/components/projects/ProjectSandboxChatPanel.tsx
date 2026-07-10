@@ -7,10 +7,12 @@ import { useLocalStorage } from "usehooks-ts";
 import {
   api,
   DEFAULT_AI_MODEL,
+  DEFAULT_REASONING_LEVEL,
   findAIModelOption,
   normalizeAIModel,
   type AIModel,
   type Id,
+  type ReasoningLevel,
 } from "@conductor/backend";
 import {
   ChatBody,
@@ -21,6 +23,7 @@ import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 interface StoredSettings {
   model: AIModel;
+  reasoningLevel: ReasoningLevel;
 }
 
 function chatSettingsKey(parentId: string) {
@@ -54,14 +57,21 @@ export function ProjectSandboxChatPanel({
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [settings, setSettings] = useLocalStorage<StoredSettings>(
     chatSettingsKey(projectId),
-    { model: defaultModel },
+    { model: defaultModel, reasoningLevel: DEFAULT_REASONING_LEVEL },
   );
   const model = normalizeAIModel(settings.model);
+  const reasoningLevel = settings.reasoningLevel ?? DEFAULT_REASONING_LEVEL;
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
   const setModel = useCallback(
     (next: AIModel) =>
       setSettings((prev) => ({ ...prev, model: normalizeAIModel(next) })),
+    [setSettings],
+  );
+
+  const setReasoningLevel = useCallback(
+    (next: ReasoningLevel) =>
+      setSettings((prev) => ({ ...prev, reasoningLevel: next })),
     [setSettings],
   );
 
@@ -78,6 +88,7 @@ export function ProjectSandboxChatPanel({
           projectId,
           message: content,
           model,
+          reasoningLevel,
         });
         return;
       }
@@ -86,9 +97,18 @@ export function ProjectSandboxChatPanel({
         projectId,
         message: content,
         model,
+        reasoningLevel,
       });
     },
-    [isExecuting, enqueueMessage, addMessage, startExecute, projectId, model],
+    [
+      isExecuting,
+      enqueueMessage,
+      addMessage,
+      startExecute,
+      projectId,
+      model,
+      reasoningLevel,
+    ],
   );
 
   const handleCancel = useCallback(async () => {
@@ -128,6 +148,8 @@ export function ProjectSandboxChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
+        reasoningLevel={reasoningLevel}
+        onReasoningLevelChange={setReasoningLevel}
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}

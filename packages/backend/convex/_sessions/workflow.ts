@@ -7,6 +7,7 @@ import { ensureSandboxStartedSteps } from "../_daytona/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
+  reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
 } from "../validators";
@@ -186,6 +187,7 @@ export const sessionExecuteWorkflow = workflow.define({
     message: v.string(),
     mode: sessionModeArgValidator,
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
     userId: v.id("users"),
     installationId: v.number(),
   },
@@ -300,6 +302,7 @@ export const sessionExecuteWorkflow = workflow.define({
       repoId: data.repoId,
       userId: args.userId,
       model: data.model,
+      reasoningLevel: args.reasoningLevel,
       allowedTools: data.allowedTools,
       sessionPersistenceId: args.sessionId,
     });

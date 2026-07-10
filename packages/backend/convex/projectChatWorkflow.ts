@@ -7,6 +7,7 @@ import { ensureSandboxStartedSteps } from "./_daytona/resumeSandboxSteps";
 import { authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
+  reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
 } from "./validators";
@@ -71,6 +72,7 @@ export const startExecute = authMutation({
     projectId: v.id("projects"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -87,6 +89,7 @@ export const startExecute = authMutation({
         projectId: args.projectId,
         message: args.message,
         model: args.model,
+        reasoningLevel: args.reasoningLevel,
         userId: ctx.userId,
       },
     );
@@ -103,6 +106,7 @@ export const enqueueMessage = authMutation({
     projectId: v.id("projects"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -121,6 +125,7 @@ export const enqueueMessage = authMutation({
       createdAt: Date.now(),
       userId: ctx.userId,
       model: args.model,
+      reasoningLevel: args.reasoningLevel,
     });
     await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
     return null;
@@ -192,6 +197,7 @@ export const projectChatExecuteWorkflow = workflow.define({
     projectId: v.id("projects"),
     message: v.string(),
     model: aiModelValidator,
+    reasoningLevel: v.optional(reasoningLevelValidator),
     userId: v.id("users"),
   },
   handler: async (step, args): Promise<void> => {
@@ -287,6 +293,7 @@ export const projectChatExecuteWorkflow = workflow.define({
       completionMutation: "projectChatWorkflow:handleCompletion",
       entityIdField: "projectId",
       model: data.model,
+      reasoningLevel: args.reasoningLevel,
       allowedTools: CHAT_ALLOWED_TOOLS,
       repoId: data.repoId,
       sessionPersistenceId: args.projectId,

@@ -151,9 +151,10 @@ export function ChatPanel({
   const [completedAudits, setCompletedAudits] = useState(0);
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  const { mode, setMode, model, setModel } = useSessionSettings(sessionId, {
-    defaultModel,
-  });
+  const { mode, setMode, model, setModel, reasoningLevel, setReasoningLevel } =
+    useSessionSettings(sessionId, {
+      defaultModel,
+    });
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
   const draftSeed = useChatDraftSeed({
@@ -251,6 +252,7 @@ export function ChatPanel({
           message: content,
           mode,
           model,
+          reasoningLevel,
         });
         return;
       }
@@ -263,7 +265,13 @@ export function ChatPanel({
       // rows arrive (on success OR error).
       void Promise.all([
         addMessage({ id: sessionId, role: "user", content, mode }),
-        startExecution({ sessionId, message: content, mode, model }),
+        startExecution({
+          sessionId,
+          message: content,
+          mode,
+          model,
+          reasoningLevel,
+        }),
       ]).catch(async (error) => {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to send message";
@@ -283,6 +291,7 @@ export function ChatPanel({
       sessionId,
       mode,
       model,
+      reasoningLevel,
     ],
   );
 
@@ -624,6 +633,8 @@ export function ChatPanel({
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
+        reasoningLevel={reasoningLevel}
+        onReasoningLevelChange={setReasoningLevel}
         onSend={handleSend}
         onCancel={handleCancel}
         formatQueuedInfo={formatQueuedInfo}

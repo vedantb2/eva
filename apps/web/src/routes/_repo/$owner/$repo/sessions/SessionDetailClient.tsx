@@ -43,10 +43,15 @@ export function SessionDetailClient({
   // re-firing when the sandbox id resolves is cheap.
   const prewarmDaemon = useMutation(api.sessionWorkflow.prewarmDaemon);
   const sandboxId = session?.sandboxId;
+  // A closed/stopping session keeps its sandboxId, so gate on status too:
+  // prewarming resumes the stopped Vercel VM (server-side no-op now, but this
+  // avoids the pointless round-trip on every closed-session page open).
+  const sandboxStatus = session?.status;
   useEffect(() => {
     if (!sandboxId) return;
+    if (sandboxStatus === "closed" || sandboxStatus === "stopping") return;
     void prewarmDaemon({ sessionId: typedSessionId });
-  }, [typedSessionId, sandboxId, prewarmDaemon]);
+  }, [typedSessionId, sandboxId, sandboxStatus, prewarmDaemon]);
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
   // cleared once Daytona's stop call completes (~10s). Showing the spinner

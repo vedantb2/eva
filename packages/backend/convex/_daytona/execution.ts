@@ -1107,6 +1107,20 @@ export const prewarmSessionDaemon = internalAction({
     if (process.env.CLAUDE_ATTEMPT_MODE !== "sdk-daemon") {
       return { prewarmed: false };
     }
+    // Defense-in-depth: never touch the sandbox for a closed/stopping session.
+    // The exec below lazily resumes a stopped Vercel VM (SDK withResume), so a
+    // stray prewarm on a closed session would resurrect it. Callers already
+    // guard, but this is the last exec-on-sandbox boundary.
+    const session = await ctx.runQuery(internal.sessions.getInternal, {
+      id: args.sessionId,
+    });
+    if (
+      !session ||
+      session.status === "closed" ||
+      session.status === "stopping"
+    ) {
+      return { prewarmed: false };
+    }
     try {
       const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       const sessionIdStr = String(args.sessionId);

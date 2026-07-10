@@ -1,5 +1,11 @@
 # Changelog
 
+## Stop viewing a closed session from waking its Vercel sandbox - 2026-07-10
+
+- `prewarmDaemon` now skips closed/stopping sessions; it previously fired whenever a `sandboxId` was set, and on Vercel the prewarm's sandbox exec lazily resumes a stopped VM (SDK `withResume`), silently resurrecting it.
+- The resurrection was invisible: the session stayed `closed` in the UI while the sandbox showed active on Vercel, because prewarm never writes session status.
+- Reason for change: prod session 40 was stopped at 11:50 but reappeared as active on Vercel hours later — traced to the session page's mount-time prewarm running against the still-set `sandboxId`.
+
 ## Session agent commits actually publish to GitHub - 2026-07-10
 
 - Session workflow no longer gates `pushSandboxBranch` on a dirty working tree; after the agent commits the tree is clean, so that check skipped every publish and left commits stranded in the sandbox.

@@ -122,6 +122,14 @@ export const prewarmDaemon = authMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session || !session.sandboxId) return null;
+    // Never prewarm a stopped/stopping session. prewarmSessionDaemon execs on
+    // the sandbox, and on Vercel any exec lazily resumes a stopped VM (SDK
+    // withResume) — resurrecting a sandbox the user stopped, invisibly (the
+    // session status stays "closed"). A closed session keeps its sandboxId, so
+    // without this guard merely opening its page (SessionDetailClient fires this
+    // on mount) wakes the VM behind the user's back.
+    if (session.status === "closed" || session.status === "stopping")
+      return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
     await ctx.scheduler.runAfter(0, internal.daytona.prewarmSessionDaemon, {

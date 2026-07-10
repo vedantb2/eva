@@ -149,7 +149,7 @@ interface ChatBodyProps {
   /**
    * Session-wide reasoning effort. When both the level and setter are provided
    * and the selected model's provider supports a runtime lever (Claude/Codex),
-   * a reasoning lever is shown next to the model selector.
+   * a reasoning lever is shown after the model selector in the input tools row.
    */
   reasoningLevel?: ReasoningLevel;
   onReasoningLevelChange?: (level: ReasoningLevel) => void;
@@ -567,8 +567,14 @@ export function ChatBody({
                     initialSkillMap={draft?.skillMap}
                   />
                   <PromptInputFooter>
-                    <PromptInputTools>{toolsBefore}</PromptInputTools>
-                    <div className="flex min-w-0 items-center gap-1">
+                    <PromptInputTools>
+                      {toolsBefore}
+                      <ModelSelect
+                        value={model}
+                        options={modelOptions}
+                        onValueChange={setModel}
+                        className="max-w-48 truncate sm:max-w-none"
+                      />
                       {onReasoningLevelChange &&
                       reasoningLevel &&
                       providerSupportsReasoning(getAIModelProvider(model)) ? (
@@ -578,12 +584,8 @@ export function ChatBody({
                           onValueChange={onReasoningLevelChange}
                         />
                       ) : null}
-                      <ModelSelect
-                        value={model}
-                        options={modelOptions}
-                        onValueChange={setModel}
-                        className="max-w-48 truncate sm:max-w-none"
-                      />
+                    </PromptInputTools>
+                    <div className="flex min-w-0 items-center gap-1">
                       <PromptInputSpeech />
                       {isExecuting ? (
                         <Button

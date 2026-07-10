@@ -22,6 +22,7 @@ export {
   getBuildStatus,
   triggerScheduledBuild,
   startBuild,
+  startBuildForRepo,
   completeBuild,
   appendLogs,
   recordSeededApp,

@@ -113,7 +113,7 @@ export function SnapshotsClient({
     if (!snapshot) return;
     setBuilding(true);
     try {
-      await startBuild({ repoSnapshotId: snapshot._id });
+      await startBuild({ repoSnapshotId: snapshot._id, appRepoId: repoId });
     } catch {
       // Error already shown in UI via build status
     } finally {
@@ -654,7 +654,7 @@ function ConfigFilesSection({
   const handleRebuild = async () => {
     if (!snapshotId) return;
     try {
-      await startBuild({ repoSnapshotId: snapshotId });
+      await startBuild({ repoSnapshotId: snapshotId, appRepoId: repoId });
     } catch {
       // Error shown via build status
     }

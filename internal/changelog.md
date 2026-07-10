@@ -1,5 +1,11 @@
 # Changelog
 
+## Monorepo snapshot builds use sibling Vercel credentials - 2026-07-10
+
+- Snapshot credential resolution walks monorepo siblings so `SANDBOX_PROVIDER=vercel` on apps/web applies to eprocurement and shared parent configs; silent fallback to Daytona when Vercel creds are incomplete now errors loudly.
+- Rebuild Now passes the triggering app repo into the workflow so seeded builds use that app's stop commands and provider instead of the shared parent config repo.
+- Reason for change: carepulse eprocurement snapshot builds still created Daytona sandboxes despite Vercel being configured on apps/web.
+
 ## Snapshot builds table shows type and provider - 2026-07-10
 
 - Added Type column showing "base image" (toolchain only) or "seeded" (boots + seeds DB) for each build.

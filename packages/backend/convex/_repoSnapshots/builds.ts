@@ -293,7 +293,11 @@ export const listReferencedSandboxIds = internalQuery({
 
 /** Manually starts a new snapshot build, failing if one is already running. */
 export const startBuild = authMutation({
-  args: { repoSnapshotId: v.id("repoSnapshots") },
+  args: {
+    repoSnapshotId: v.id("repoSnapshots"),
+    /** App repo that triggered the build (for shared monorepo snapshot configs). */
+    appRepoId: v.optional(v.id("githubRepos")),
+  },
   returns: v.id("snapshotBuilds"),
   handler: async (ctx, args) => {
     const config = await ctx.db.get(args.repoSnapshotId);
@@ -319,8 +323,9 @@ export const startBuild = authMutation({
       }
     }
 
+    const effectiveAppRepoId = args.appRepoId ?? config.repoId;
     const now = Date.now();
-    const kind = await resolveBuildKind(ctx, config.repoId);
+    const kind = await resolveBuildKind(ctx, effectiveAppRepoId);
     const buildId = await ctx.db.insert("snapshotBuilds", {
       repoSnapshotId: args.repoSnapshotId,
       status: "running",
@@ -333,6 +338,7 @@ export const startBuild = authMutation({
     await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
       buildId,
       repoSnapshotId: args.repoSnapshotId,
+      appRepoId: args.appRepoId,
     });
 
     return buildId;

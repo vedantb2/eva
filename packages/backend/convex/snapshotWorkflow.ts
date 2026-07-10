@@ -54,6 +54,8 @@ export const snapshotBuildWorkflow = workflow.define({
   args: {
     buildId: v.id("snapshotBuilds"),
     repoSnapshotId: v.id("repoSnapshots"),
+    // App that triggered the build (when using a shared monorepo snapshot config).
+    appRepoId: v.optional(v.id("githubRepos")),
     // Rebuild the declarative base Image first (bootstrap / toolchain
     // changes). The nightly cron and Rebuild Now leave this unset.
     forceImageRebuild: v.optional(v.boolean()),
@@ -77,8 +79,9 @@ export const snapshotBuildWorkflow = workflow.define({
       });
       return;
     }
+    const appRepoId = args.appRepoId ?? config.repoId;
     const repo = await step.runQuery(internal.repoSnapshots.getRepo, {
-      repoId: config.repoId,
+      repoId: appRepoId,
     });
     if (!repo) {
       await step.runMutation(internal.repoSnapshots.completeBuild, {
@@ -92,17 +95,16 @@ export const snapshotBuildWorkflow = workflow.define({
     const branch = config.workflowRef ?? "main";
 
     const providerKind = await step.runAction(
-      internal.daytona.getSnapshotSandboxProviderKind,
-      { repoSnapshotId: args.repoSnapshotId },
+      internal.daytona.getSandboxProviderKind,
+      { repoId: appRepoId },
     );
     await step.runMutation(internal.repoSnapshots.setBuildProvider, {
       buildId: args.buildId,
       provider: providerKind,
     });
 
-    // In the per-app model, config.repoId IS the app. Check if it has Stop Commands.
-    // Repos with no app stop commands cannot run the seeded-snapshot path; rebuild
-    // the declarative base Image instead (same outcome as forceImageRebuild).
+    // Stop Commands live on the app repo; shared monorepo configs may point at
+    // the parent while the build is triggered from apps/web or eprocurement.
     const hasStopCommands = (repo.stopCommands?.length ?? 0) > 0;
     const imageOnlyBuild = !hasStopCommands && args.forceImageRebuild !== true;
     const rebuildBaseImage = args.forceImageRebuild === true || imageOnlyBuild;
@@ -135,7 +137,7 @@ export const snapshotBuildWorkflow = workflow.define({
         try {
           const created = await step.runAction(
             internal.snapshotActions.createSeedPrepSandbox,
-            { repoId: config.repoId, imageSnapshot: config.snapshotName },
+            { repoId: appRepoId, imageSnapshot: config.snapshotName },
             { retry: { maxAttempts: 4, initialBackoffMs: 15000, base: 2 } },
           );
           prepSandboxId = created.sandboxId;
@@ -148,7 +150,7 @@ export const snapshotBuildWorkflow = workflow.define({
               repoOwner: repo.owner,
               repoName: repo.name,
               baseBranch: branch,
-              repoId: config.repoId,
+              repoId: appRepoId,
             },
             { retry: { maxAttempts: 3, initialBackoffMs: 10000, base: 2 } },
           );
@@ -157,7 +159,7 @@ export const snapshotBuildWorkflow = workflow.define({
             internal.snapshotActions.launchSeedRun,
             {
               sandboxId: prepSandboxId,
-              repoId: config.repoId,
+              repoId: appRepoId,
               branch,
               buildCommands: config.buildCommands ?? [],
             },
@@ -172,14 +174,14 @@ export const snapshotBuildWorkflow = workflow.define({
           ) {
             seedState = await step.runAction(
               internal.snapshotActions.pollSeedRun,
-              { sandboxId: prepSandboxId, repoId: config.repoId },
+              { sandboxId: prepSandboxId, repoId: appRepoId },
               { runAfter: SEED_RUN_POLL_DELAY_MS },
             );
           }
           if (seedState !== "done") {
             const diagnostics = await step.runAction(
               internal.snapshotActions.fetchSeedDiagnostics,
-              { sandboxId: prepSandboxId, repoId: config.repoId },
+              { sandboxId: prepSandboxId, repoId: appRepoId },
             );
             await step.runMutation(internal.repoSnapshots.appendLogs, {
               buildId: args.buildId,
@@ -187,7 +189,7 @@ export const snapshotBuildWorkflow = workflow.define({
             });
             await step.runAction(
               internal.snapshotActions.deleteSeedPrepSandbox,
-              { sandboxId: prepSandboxId, repoId: config.repoId },
+              { sandboxId: prepSandboxId, repoId: appRepoId },
             );
             prepSandboxId = null;
             await step.runMutation(internal.repoSnapshots.completeBuild, {
@@ -202,7 +204,7 @@ export const snapshotBuildWorkflow = workflow.define({
           const { snapshotId: effectiveBaseId } = await step.runAction(
             internal.snapshotActions.triggerSeededSnapshot,
             {
-              repoId: config.repoId,
+              repoId: appRepoId,
               sandboxId: prepSandboxId,
               seededName: baseSnapshotLabel,
             },
@@ -217,7 +219,7 @@ export const snapshotBuildWorkflow = workflow.define({
           ) {
             snapState = await step.runAction(
               internal.snapshotActions.pollSeededSnapshotState,
-              { repoId: config.repoId, seededName: effectiveBaseId },
+              { repoId: appRepoId, seededName: effectiveBaseId },
               {
                 runAfter:
                   pollAttempt === 1 ? 10_000 : SEED_SNAPSHOT_POLL_DELAY_MS,
@@ -227,14 +229,14 @@ export const snapshotBuildWorkflow = workflow.define({
           if (snapState !== "active") {
             await step.runAction(
               internal.snapshotActions.deleteSeedPrepSandbox,
-              { sandboxId: prepSandboxId, repoId: config.repoId },
+              { sandboxId: prepSandboxId, repoId: appRepoId },
             );
             prepSandboxId = null;
             await step.runAction(
               internal.snapshotActions.deleteSeededSnapshot,
               {
                 snapshotName: effectiveBaseId,
-                repoId: config.repoId,
+                repoId: appRepoId,
               },
             );
             await step.runMutation(internal.repoSnapshots.completeBuild, {
@@ -248,7 +250,7 @@ export const snapshotBuildWorkflow = workflow.define({
 
           await step.runAction(internal.snapshotActions.deleteSeedPrepSandbox, {
             sandboxId: prepSandboxId,
-            repoId: config.repoId,
+            repoId: appRepoId,
           });
           prepSandboxId = null;
 
@@ -269,7 +271,7 @@ export const snapshotBuildWorkflow = workflow.define({
                 internal.snapshotActions.deleteSeededSnapshot,
                 {
                   snapshotName: previousBaseSnapshotId,
-                  repoId: config.repoId,
+                  repoId: appRepoId,
                 },
               );
             } catch (e) {
@@ -292,7 +294,7 @@ export const snapshotBuildWorkflow = workflow.define({
               internal.snapshotActions.deleteSeedPrepSandbox,
               {
                 sandboxId: prepSandboxId,
-                repoId: config.repoId,
+                repoId: appRepoId,
               },
             );
           }
@@ -310,7 +312,7 @@ export const snapshotBuildWorkflow = workflow.define({
       } else {
         await step.runAction(internal.snapshotActions.deleteExistingSnapshot, {
           snapshotName: config.snapshotName,
-          repoId: config.repoId,
+          repoId: appRepoId,
           buildId: args.buildId,
         });
         const kickOffResult = await step.runAction(
@@ -364,7 +366,6 @@ export const snapshotBuildWorkflow = workflow.define({
     if (!hasStopCommands) return;
 
     // Per-app seeding: this app's snapshot is built and captured independently.
-    const appRepoId = config.repoId; // The app whose snapshot we're building
     const seededName = `seeded-${appRepoId}`;
     let prepSandboxId: string | null = null;
 

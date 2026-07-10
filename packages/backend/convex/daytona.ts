@@ -8,6 +8,7 @@ export {
   archiveSandbox,
   verifySandboxLiveness,
   getSandboxProviderKind,
+  getSnapshotSandboxProviderKind,
   startSandboxAsyncKickoff,
   pollSandboxStarted,
 } from "./_daytona/lifecycle";

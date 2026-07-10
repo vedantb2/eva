@@ -12,6 +12,7 @@ export {
   setSeededSnapshotNameForAll,
   getSeedFingerprint,
   setImageFingerprint,
+  setBaseSnapshotId,
   getPrimarySeedAppRepo,
 } from "./_repoSnapshots/config";
 
@@ -24,12 +25,14 @@ export {
   completeBuild,
   appendLogs,
   recordSeededApp,
+  setBuildProvider,
   listReferencedSandboxIds,
 } from "./_repoSnapshots/builds";
 
 export {
+  getRepo,
+  getRepoSandboxProvider,
   getStartupCommands,
   getBackgroundCommands,
   getStopCommands,
-  getRepo,
 } from "./_repoSnapshots/repoMetadata";

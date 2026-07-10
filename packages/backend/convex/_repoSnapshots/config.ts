@@ -13,17 +13,21 @@ function resolveCronspec(schedule: string): string | null {
   return schedule;
 }
 
-/** Finds a snapshot config for a repo, checking sibling repos with the same owner/name if needed. */
+/** Finds a snapshot config for a repo (app-scoped model with backward compat fallback). */
 export async function findSnapshotForRepo(
   db: GenericDatabaseReader<DataModel>,
   repoId: Id<"githubRepos">,
 ): Promise<Doc<"repoSnapshots"> | null> {
-  const direct = await db
+  // First priority: app-specific config (new per-app model)
+  const appSpecific = await db
     .query("repoSnapshots")
     .withIndex("by_repo", (q) => q.eq("repoId", repoId))
     .first();
-  if (direct) return direct;
+  if (appSpecific) return appSpecific;
 
+  // Fallback (backward compat): if this is an app repo without its own config,
+  // check if a shared root config exists and return it.
+  // This allows existing monorepo-scoped configs to keep working while we migrate to per-app.
   const repo = await db.get(repoId);
   if (!repo) return null;
 
@@ -61,6 +65,7 @@ export const getRepoSnapshot = authQuery({
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
       imageFingerprint: v.optional(v.string()),
+      baseSnapshotId: v.optional(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     }),
@@ -89,6 +94,11 @@ export const getRepoSnapshotName = internalQuery({
 
     const snapshot = await findSnapshotForRepo(ctx.db, args.repoId);
     if (!snapshot) return null;
+
+    // Vercel base Image (`snap_*`) — written by the provider-aware rebuild path.
+    if (snapshot.baseSnapshotId) {
+      return { snapshotName: snapshot.baseSnapshotId };
+    }
 
     const latestSuccessfulBuild = await ctx.db
       .query("snapshotBuilds")
@@ -385,6 +395,7 @@ export const getRepoSnapshotInternal = internalQuery({
       workflowRef: v.optional(v.string()),
       buildCommands: v.optional(v.array(v.string())),
       imageFingerprint: v.optional(v.string()),
+      baseSnapshotId: v.optional(v.string()),
     }),
     v.null(),
   ),
@@ -397,7 +408,24 @@ export const getRepoSnapshotInternal = internalQuery({
       workflowRef: doc.workflowRef,
       buildCommands: doc.buildCommands,
       imageFingerprint: doc.imageFingerprint,
+      baseSnapshotId: doc.baseSnapshotId,
     };
+  },
+});
+
+/** Stores the Vercel base Image snapshot id (`snap_*`) after a successful capture. */
+export const setBaseSnapshotId = internalMutation({
+  args: {
+    repoSnapshotId: v.id("repoSnapshots"),
+    baseSnapshotId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.repoSnapshotId, {
+      baseSnapshotId: args.baseSnapshotId,
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
 
@@ -416,7 +444,7 @@ export const setImageFingerprint = internalMutation({
   },
 });
 
-/** Creates or updates a snapshot config for a repo, managing the associated cron job. */
+/** Creates or updates a snapshot config for a repo (app-specific), managing the cron job. */
 export const saveRepoSnapshot = authMutation({
   args: {
     repoId: v.id("githubRepos"),
@@ -426,37 +454,88 @@ export const saveRepoSnapshot = authMutation({
   },
   returns: v.id("repoSnapshots"),
   handler: async (ctx, args) => {
-    const existing = await findSnapshotForRepo(ctx.db, args.repoId);
+    // Check for an app-specific config first (per-app model).
+    // During transition, fall back to a shared root config and create an app-scoped row from it.
+    const appSpecific = await ctx.db
+      .query("repoSnapshots")
+      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .first();
 
-    const canonicalRepoId = existing ? existing.repoId : args.repoId;
-    const cronName = `snapshot-rebuild-${canonicalRepoId}`;
-    const snapshotName = existing
-      ? existing.snapshotName
-      : `snapshot-${canonicalRepoId}`;
+    const cronName = `snapshot-rebuild-${args.repoId}`;
 
-    if (existing) {
+    if (appSpecific) {
+      // Update the app's own config
       const cronspec = resolveCronspec(args.schedule);
       const cronJobId = await safeReplaceCron(ctx, {
         name: cronName,
-        existingCronJobId: existing.cronJobId,
-        cronspec: cronspec && existing.enabled === true ? cronspec : null,
+        existingCronJobId: appSpecific.cronJobId,
+        cronspec: cronspec && appSpecific.enabled === true ? cronspec : null,
         handler: internal.repoSnapshots.triggerScheduledBuild,
-        args: { repoSnapshotId: existing._id },
+        args: { repoSnapshotId: appSpecific._id },
       });
 
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch(appSpecific._id, {
         schedule: args.schedule,
         cronJobId,
         workflowRef: args.workflowRef,
         buildCommands: args.buildCommands,
         updatedAt: Date.now(),
       });
-      return existing._id;
+      return appSpecific._id;
     }
 
+    // No app-specific config. For backwards compat, check if a shared root config exists
+    // and copy it to this app. This is the lazy-migration path.
+    const repo = await ctx.db.get(args.repoId);
+    if (repo) {
+      const siblings = await ctx.db
+        .query("githubRepos")
+        .withIndex("by_owner_and_name", (q) =>
+          q.eq("owner", repo.owner).eq("name", repo.name),
+        )
+        .collect();
+
+      for (const sibling of siblings) {
+        if (sibling._id === args.repoId) continue;
+        const siblingSnapshot = await ctx.db
+          .query("repoSnapshots")
+          .withIndex("by_repo", (q) => q.eq("repoId", sibling._id))
+          .first();
+        if (siblingSnapshot) {
+          // Found a shared root config. Migrate it to this app by creating an app-scoped row.
+          const now = Date.now();
+          const id = await ctx.db.insert("repoSnapshots", {
+            repoId: args.repoId,
+            snapshotName: siblingSnapshot.snapshotName,
+            schedule: args.schedule,
+            enabled: true,
+            workflowRef: args.workflowRef,
+            buildCommands: args.buildCommands,
+            baseSnapshotId: siblingSnapshot.baseSnapshotId,
+            createdAt: now,
+            updatedAt: now,
+          });
+
+          const cronJobId = await safeReplaceCron(ctx, {
+            name: cronName,
+            existingCronJobId: undefined,
+            cronspec: resolveCronspec(args.schedule),
+            handler: internal.repoSnapshots.triggerScheduledBuild,
+            args: { repoSnapshotId: id },
+          });
+          if (cronJobId) {
+            await ctx.db.patch(id, { cronJobId });
+          }
+          return id;
+        }
+      }
+    }
+
+    // No shared config found — create a new app-specific row from scratch
+    const snapshotName = `snapshot-${args.repoId}`;
     const now = Date.now();
     const id = await ctx.db.insert("repoSnapshots", {
-      repoId: canonicalRepoId,
+      repoId: args.repoId,
       snapshotName,
       schedule: args.schedule,
       enabled: true,

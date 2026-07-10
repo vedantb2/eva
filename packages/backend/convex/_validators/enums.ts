@@ -158,6 +158,19 @@ export const snapshotBuildTriggerValidator = v.union(
   v.literal("manual"),
 );
 
+// "base" = base Image only (app has no Stop Commands). "seeded" = app boots and
+// seeds its DB before capture (app has Stop Commands). A forceImageRebuild that
+// also seeds is still "seeded" — the base rebuild is an implementation detail.
+export const snapshotBuildKindValidator = v.union(
+  v.literal("base"),
+  v.literal("seeded"),
+);
+
+export const sandboxProviderKindValidator = v.union(
+  v.literal("vercel"),
+  v.literal("daytona"),
+);
+
 export const teamMemberRoleValidator = v.union(
   v.literal("owner"),
   v.literal("member"),

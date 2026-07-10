@@ -10,6 +10,8 @@ import {
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
+  snapshotBuildKindValidator,
+  sandboxProviderKindValidator,
   seededAppResultValidator,
   teamMemberRoleValidator,
   webhookEventStatusValidator,
@@ -265,6 +267,9 @@ const schema = defineSchema(
       // last successful Image build. When unchanged, the build workflow skips the
       // ~11-15m image rebuild — its output would be byte-identical.
       imageFingerprint: v.optional(v.string()),
+      // Vercel base Image capture (`snap_*`) from a running sandbox — separate
+      // from Daytona `snapshotName` and per-app `seededSnapshotName`.
+      baseSnapshotId: v.optional(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     }).index("by_repo", ["repoId"]),
@@ -272,6 +277,11 @@ const schema = defineSchema(
       repoSnapshotId: v.id("repoSnapshots"),
       status: snapshotBuildStatusValidator,
       triggeredBy: snapshotBuildTriggerValidator,
+      // "base" (image only) vs "seeded" (boots + seeds DB before capture).
+      // Optional: legacy rows predate this field and render without a type.
+      kind: v.optional(snapshotBuildKindValidator),
+      // Sandbox provider used for this build (set at workflow start).
+      provider: v.optional(sandboxProviderKindValidator),
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),

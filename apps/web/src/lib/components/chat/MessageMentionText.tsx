@@ -16,12 +16,15 @@ interface MessageMentionTextProps {
   /** Repo route prefix, e.g. `/owner/repo` or `/owner/repo--app`. */
   repoBasePath: string;
   className?: string;
+  /** Root element — `"span"` for inline single-line contexts (see MentionText). */
+  as?: "p" | "span";
 }
 
 export function MessageMentionText({
   text,
   repoBasePath,
   className,
+  as,
 }: MessageMentionTextProps) {
   const navigate = useNavigate();
   const navigateToDocById = useDocMentionNavigate(repoBasePath);
@@ -30,6 +33,7 @@ export function MessageMentionText({
     <MentionText
       text={text}
       className={className}
+      as={as}
       renderMention={(match, key) => {
         const navigateToDoc = (e: MouseEvent<HTMLButtonElement>) => {
           e.stopPropagation();

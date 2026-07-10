@@ -11,6 +11,7 @@ import {
 interface EditorPanelProps {
   cacheKey: string;
   sandboxId: string | undefined;
+  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
 }
@@ -23,6 +24,7 @@ interface EditorPanelProps {
 export function EditorPanel({
   cacheKey,
   sandboxId,
+  vercelSandboxId,
   isActive,
   repoId,
 }: EditorPanelProps) {
@@ -43,6 +45,7 @@ export function EditorPanel({
       cacheNamespace="editor"
       cacheKey={cacheKey}
       sandboxId={sandboxId}
+      vercelSandboxId={vercelSandboxId}
       isActive={isActive}
       repoId={repoId}
       port={8080}

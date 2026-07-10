@@ -41,6 +41,11 @@ interface SandboxIframeServiceProps {
   cacheNamespace: string;
   cacheKey: string;
   sandboxId: string | undefined;
+  /**
+   * Vercel sandbox name; when set, the Daytona preview-interstitial hint is
+   * hidden (Vercel services go through the auth proxy and never show it).
+   */
+  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   port: number;
@@ -86,6 +91,7 @@ export function SandboxIframeService({
   cacheNamespace,
   cacheKey,
   sandboxId,
+  vercelSandboxId,
   isActive,
   repoId,
   port,
@@ -381,7 +387,7 @@ export function SandboxIframeService({
               <IconPlayerStop className="w-4 h-4" />
             </Button>
           </div>
-          {!warningHintDismissed ? (
+          {!warningHintDismissed && !vercelSandboxId ? (
             <div className="flex items-start gap-2 bg-warning/10 px-3 py-2 text-xs text-warning">
               <IconAlertTriangle size={14} className="mt-0.5 shrink-0" />
               <p className="flex-1 leading-relaxed">

@@ -5,6 +5,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
+  snapshotBuildKindValidator,
+  sandboxProviderKindValidator,
   seededAppResultValidator,
   seededAppStatusValidator,
 } from "../validators";
@@ -13,6 +15,22 @@ import { workflow } from "../workflowManager";
 
 const STALE_BUILD_MS = 30 * 60 * 1000;
 const MAX_CRON_RETRIES = 2;
+
+/**
+ * Resolves whether a build seeds a DB or only rebuilds the base Image.
+ * An app seeds iff it has Stop Commands; otherwise the workflow can only
+ * rebuild the base Image. forceImageRebuild does not change this — it just
+ * refreshes the base before the same seed path runs.
+ */
+async function resolveBuildKind(
+  ctx: {
+    db: { get: (id: Id<"githubRepos">) => Promise<Doc<"githubRepos"> | null> };
+  },
+  repoId: Id<"githubRepos">,
+): Promise<"base" | "seeded"> {
+  const repo = await ctx.db.get(repoId);
+  return (repo?.stopCommands?.length ?? 0) > 0 ? "seeded" : "base";
+}
 
 type SeededAppReturn = {
   repoId: Id<"githubRepos">;
@@ -50,6 +68,52 @@ function sanitizeBuildForReturn(build: Doc<"snapshotBuilds">) {
   };
 }
 
+/**
+ * Provider for display: persisted on the build when possible. Legacy rows and
+ * builds still running infer from log markers (env vars are encrypted and
+ * cannot be read in query handlers).
+ */
+function resolveBuildProvider(
+  build: Doc<"snapshotBuilds">,
+): "vercel" | "daytona" {
+  if (build.provider) {
+    return build.provider;
+  }
+  if (build.logs.includes("Vercel base Image")) {
+    return "vercel";
+  }
+  if (build.logs.includes("Starting Daytona snapshot build")) {
+    return "daytona";
+  }
+  // Vercel captures return snap_* ids; Daytona seeded snapshots use seeded-<repoId>.
+  if (build.logs.includes("snap_")) {
+    return "vercel";
+  }
+  const seededApps = build.seededApps ?? [];
+  if (seededApps.some((app) => app.seededSnapshotName?.startsWith("snap_"))) {
+    return "vercel";
+  }
+  if (seededApps.some((app) => app.seededSnapshotName?.startsWith("seeded-"))) {
+    return "daytona";
+  }
+  return "daytona";
+}
+
+/** Persists the sandbox provider at workflow start (requires action to decrypt env). */
+export const setBuildProvider = internalMutation({
+  args: {
+    buildId: v.id("snapshotBuilds"),
+    provider: sandboxProviderKindValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return null;
+    await ctx.db.patch(args.buildId, { provider: args.provider });
+    return null;
+  },
+});
+
 /** Lists the most recent 20 snapshot builds for a given snapshot config. */
 export const listBuilds = authQuery({
   args: { repoSnapshotId: v.id("repoSnapshots") },
@@ -60,6 +124,8 @@ export const listBuilds = authQuery({
       repoSnapshotId: v.id("repoSnapshots"),
       status: snapshotBuildStatusValidator,
       triggeredBy: snapshotBuildTriggerValidator,
+      kind: v.optional(snapshotBuildKindValidator),
+      provider: sandboxProviderKindValidator,
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),
@@ -77,7 +143,10 @@ export const listBuilds = authQuery({
       )
       .order("desc")
       .take(20);
-    return builds.map((build) => sanitizeBuildForReturn(build));
+    return builds.map((build) => ({
+      ...sanitizeBuildForReturn(build),
+      provider: resolveBuildProvider(build),
+    }));
   },
 });
 
@@ -91,6 +160,8 @@ export const getBuild = authQuery({
       repoSnapshotId: v.id("repoSnapshots"),
       status: snapshotBuildStatusValidator,
       triggeredBy: snapshotBuildTriggerValidator,
+      kind: v.optional(snapshotBuildKindValidator),
+      provider: sandboxProviderKindValidator,
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),
@@ -106,7 +177,10 @@ export const getBuild = authQuery({
     if (!build) {
       return null;
     }
-    return sanitizeBuildForReturn(build);
+    return {
+      ...sanitizeBuildForReturn(build),
+      provider: resolveBuildProvider(build),
+    };
   },
 });
 
@@ -157,10 +231,12 @@ export const triggerScheduledBuild = internalMutation({
     }
 
     const now = Date.now();
+    const kind = await resolveBuildKind(ctx, config.repoId);
     const buildId = await ctx.db.insert("snapshotBuilds", {
       repoSnapshotId: args.repoSnapshotId,
       status: "running",
       triggeredBy: args.disableRetries === true ? "manual" : "cron",
+      kind,
       logs: "",
       startedAt: now,
     });
@@ -217,7 +293,11 @@ export const listReferencedSandboxIds = internalQuery({
 
 /** Manually starts a new snapshot build, failing if one is already running. */
 export const startBuild = authMutation({
-  args: { repoSnapshotId: v.id("repoSnapshots") },
+  args: {
+    repoSnapshotId: v.id("repoSnapshots"),
+    /** App repo that triggered the build (for shared monorepo snapshot configs). */
+    appRepoId: v.optional(v.id("githubRepos")),
+  },
   returns: v.id("snapshotBuilds"),
   handler: async (ctx, args) => {
     const config = await ctx.db.get(args.repoSnapshotId);
@@ -243,11 +323,14 @@ export const startBuild = authMutation({
       }
     }
 
+    const effectiveAppRepoId = args.appRepoId ?? config.repoId;
     const now = Date.now();
+    const kind = await resolveBuildKind(ctx, effectiveAppRepoId);
     const buildId = await ctx.db.insert("snapshotBuilds", {
       repoSnapshotId: args.repoSnapshotId,
       status: "running",
       triggeredBy: "manual",
+      kind,
       logs: "",
       startedAt: now,
     });
@@ -255,6 +338,7 @@ export const startBuild = authMutation({
     await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
       buildId,
       repoSnapshotId: args.repoSnapshotId,
+      appRepoId: args.appRepoId,
     });
 
     return buildId;
@@ -294,6 +378,8 @@ export const completeBuild = internalMutation({
         repoSnapshotId: build.repoSnapshotId,
         status: "running",
         triggeredBy: "cron",
+        kind: build.kind,
+        provider: build.provider,
         logs: `Retry ${retryCount}/${MAX_CRON_RETRIES} after failure: ${args.error ?? "unknown error"}\n`,
         startedAt: now,
         retryCount,

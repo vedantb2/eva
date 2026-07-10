@@ -9,6 +9,7 @@ export {
   listSiblingApps,
   getInternal,
   findParentRepoByOwnerAndName,
+  listRepoIdsByOwnerAndName,
   listGroupedByCodebase,
   getAppSlug,
 } from "./_githubRepos/queries";

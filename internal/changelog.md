@@ -1,5 +1,22 @@
 # Changelog
 
+## Monorepo snapshot builds use sibling Vercel credentials - 2026-07-10
+
+- Snapshot credential resolution walks monorepo siblings so `SANDBOX_PROVIDER=vercel` on apps/web applies to eprocurement and shared parent configs; silent fallback to Daytona when Vercel creds are incomplete now errors loudly.
+- Rebuild Now passes the triggering app repo into the workflow so seeded builds use that app's stop commands and provider instead of the shared parent config repo.
+- Reason for change: carepulse eprocurement snapshot builds still created Daytona sandboxes despite Vercel being configured on apps/web.
+
+## Snapshot builds table shows type and provider - 2026-07-10
+
+- Added Type column showing "base image" (toolchain only) or "seeded" (boots + seeds DB) for each build.
+- Added Provider column showing "vercel" or "daytona" with tooltip; resolves from team/repo SANDBOX_PROVIDER env vars.
+- Reason for change: operators need visibility into which provider and build kind created each snapshot to understand build behaviour and debug misconfigurations.
+
+## Vercel base Image snapshot builds - 2026-07-10
+
+- Rebuild Now is provider-aware: Daytona keeps the declarative Image path; when `SANDBOX_PROVIDER=vercel`, the workflow builds a fresh sandbox, runs toolchain/install/build commands, captures `snap_*`, and stores it on `repoSnapshots.baseSnapshotId` for sandbox boot.
+- Reason for change: eva on Vercel-only credentials could not rebuild its base snapshot because the image-only path always called Daytona APIs.
+
 ## Warm conversational query latency - 2026-07-06
 
 - Boot a persistent Haiku conversational `query()` at daemon start, complete on assistant text (skip slow `result` tail), and strip settings/MCP from conversational SDK options.

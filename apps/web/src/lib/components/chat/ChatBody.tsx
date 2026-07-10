@@ -21,6 +21,7 @@ import {
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
+import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import {
   IconPlayerStop,
@@ -465,9 +466,10 @@ export function ChatBody({
             items={queuedMessageItems}
             renderContent={(content) => (
               <MessageMentionText
+                as="span"
                 text={content}
                 repoBasePath={repoBasePath}
-                className="truncate text-xs"
+                className="text-xs"
               />
             )}
             onEdit={async (id, content) => {
@@ -512,6 +514,10 @@ export function ChatBody({
                 <ChatTypingLayer
                   roomId={`typing:chat:${conversationId}`}
                   userId={currentUserId}
+                />
+                <ChatTypeToFocus
+                  mentionRef={mentionRef}
+                  disabled={isInputDisabled}
                 />
                 {draft && (
                   <ChatDraftSync

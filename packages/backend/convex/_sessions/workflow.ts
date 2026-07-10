@@ -320,18 +320,14 @@ export const sessionExecuteWorkflow = workflow.define({
       }
     }
 
-    // Persist the assistant reply before git push so the UI updates as soon as
-    // the daemon finishes — branch publish is best-effort bookkeeping after.
-    await step.runMutation(internal.sessionWorkflow.saveResult, {
-      sessionId: args.sessionId,
-      success: result.success,
-      result: result.result,
-      error: result.error,
-      activityLog: result.activityLog,
-      planContent,
-      pendingQuestion: result.pendingQuestion,
-    });
+    let savedSuccess = result.success;
+    let savedError = result.error;
 
+    // Eva owns publishing: the agent commits inside the sandbox but never
+    // pushes (see prompts.ts). Push after a successful AGENT turn only —
+    // conversational turns make no commits — and only when the working tree
+    // has changes. Surface a publish failure so the run is not reported as a
+    // success while the branch is missing from GitHub.
     let pushSucceeded = false;
     if (
       args.mode !== "plan" &&
@@ -361,11 +357,27 @@ export const sessionExecuteWorkflow = workflow.define({
           pushSucceeded = true;
         }
       } catch (error) {
+        savedSuccess = false;
+        savedError = `Session completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
         console.error(
           `[sessionWorkflow] pushSandboxBranch failed sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
+
+    // Persist the assistant reply after the push so a publish failure is
+    // reflected in the saved result (streamed tokens already showed the reply
+    // live during the turn). saveResult keeps the reply content on a
+    // publish-only failure via its publishFailedAfterResult branch.
+    await step.runMutation(internal.sessionWorkflow.saveResult, {
+      sessionId: args.sessionId,
+      success: savedSuccess,
+      result: result.result,
+      error: savedError,
+      activityLog: result.activityLog,
+      planContent,
+      pendingQuestion: result.pendingQuestion,
+    });
 
     if (pushSucceeded) {
       await step.runMutation(

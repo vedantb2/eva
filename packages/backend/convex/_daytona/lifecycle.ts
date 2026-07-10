@@ -335,6 +335,39 @@ export const getSandboxProviderKind = internalAction({
   },
 });
 
+/**
+ * Provider for a snapshot config: checks the config repo and every monorepo
+ * sibling. SANDBOX_PROVIDER often lives on an app repo (e.g. apps/web) while
+ * the shared snapshot config points at the monorepo parent.
+ */
+export const getSnapshotSandboxProviderKind = internalAction({
+  args: { repoSnapshotId: v.id("repoSnapshots") },
+  returns: v.union(v.literal("daytona"), v.literal("vercel")),
+  handler: async (ctx, args) => {
+    const config = await ctx.runQuery(
+      internal.repoSnapshots.getRepoSnapshotInternal,
+      { repoSnapshotId: args.repoSnapshotId },
+    );
+    if (!config) return "daytona";
+
+    const repo = await ctx.runQuery(internal.repoSnapshots.getRepo, {
+      repoId: config.repoId,
+    });
+    if (!repo) return "daytona";
+
+    const siblingIds = await ctx.runQuery(
+      internal.githubRepos.listRepoIdsByOwnerAndName,
+      { owner: repo.owner, name: repo.name },
+    );
+
+    for (const repoId of siblingIds) {
+      const kind = await resolveSandboxProviderKind(ctx, repoId);
+      if (kind === "vercel") return "vercel";
+    }
+    return "daytona";
+  },
+});
+
 export const startSandboxAsyncKickoff = internalAction({
   args: { sandboxId: v.string(), repoId: v.id("githubRepos") },
   returns: v.object({

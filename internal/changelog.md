@@ -1,5 +1,10 @@
 # Changelog
 
+## Remove project/quick-task sandbox chats from the sessions sidebar - 2026-07-10
+
+- The sessions sidebar no longer interleaves virtual project and quick-task sandbox chat entries; it lists real sessions only, as it did before. Backend `sessions.listChatEntries` and its `_sessions/chatEntries` query are gone.
+- Reason for change: the merged chat entries were reverted at the user's request; project and quick-task chats stay reachable from their own pages.
+
 ## Stop prewarm from killing a mid-turn session daemon - 2026-07-10
 
 - `prewarmSessionDaemon` no longer kills an opts-mismatched daemon while a turn is in flight (`pendingTurn` or `activeWorkflowId`); that race claimed the prompt then wiped the daemon, leaving chat stuck on Working.

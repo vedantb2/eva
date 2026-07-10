@@ -14,6 +14,7 @@ export {
   repairStuckProjectPhases,
 } from "./_migrations/projectPhases";
 export { removeSnapshotWarmupFields } from "./_migrations/removeSnapshotWarmupFields";
+export { removeSessionStartupRequestedAt } from "./_migrations/removeSessionStartupRequestedAt";
 export {
   backfillNumIds,
   backfillNumIdsForEntityType,

@@ -6,6 +6,7 @@ import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
   snapshotBuildKindValidator,
+  sandboxProviderKindValidator,
   seededAppResultValidator,
   seededAppStatusValidator,
 } from "../validators";
@@ -67,6 +68,41 @@ function sanitizeBuildForReturn(build: Doc<"snapshotBuilds">) {
   };
 }
 
+/**
+ * Provider for display: persisted on the build when possible. Legacy rows and
+ * builds still running infer from log markers (env vars are encrypted and
+ * cannot be read in query handlers).
+ */
+function resolveBuildProvider(
+  build: Doc<"snapshotBuilds">,
+): "vercel" | "daytona" {
+  if (build.provider) {
+    return build.provider;
+  }
+  if (build.logs.includes("Vercel base Image")) {
+    return "vercel";
+  }
+  if (build.logs.includes("Starting Daytona snapshot build")) {
+    return "daytona";
+  }
+  return "daytona";
+}
+
+/** Persists the sandbox provider at workflow start (requires action to decrypt env). */
+export const setBuildProvider = internalMutation({
+  args: {
+    buildId: v.id("snapshotBuilds"),
+    provider: sandboxProviderKindValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const build = await ctx.db.get(args.buildId);
+    if (!build) return null;
+    await ctx.db.patch(args.buildId, { provider: args.provider });
+    return null;
+  },
+});
+
 /** Lists the most recent 20 snapshot builds for a given snapshot config. */
 export const listBuilds = authQuery({
   args: { repoSnapshotId: v.id("repoSnapshots") },
@@ -78,7 +114,7 @@ export const listBuilds = authQuery({
       status: snapshotBuildStatusValidator,
       triggeredBy: snapshotBuildTriggerValidator,
       kind: v.optional(snapshotBuildKindValidator),
-      provider: v.union(v.literal("vercel"), v.literal("daytona")),
+      provider: sandboxProviderKindValidator,
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),
@@ -89,36 +125,6 @@ export const listBuilds = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    const config = await ctx.db.get(args.repoSnapshotId);
-    let provider: "vercel" | "daytona" = "daytona";
-    if (config) {
-      const repo = await ctx.db.get(config.repoId);
-      if (repo && repo.teamId) {
-        const teamVarsDocs = await ctx.db
-          .query("teamEnvVars")
-          .withIndex("by_team", (q) => q.eq("teamId", repo.teamId!))
-          .collect();
-        const teamVar = teamVarsDocs
-          .flatMap((doc) => doc.vars)
-          .find((v) => v.key === "SANDBOX_PROVIDER");
-        if (teamVar?.value === "vercel") {
-          provider = "vercel";
-        }
-      }
-      const repoVarsDocs = await ctx.db
-        .query("repoEnvVars")
-        .withIndex("by_repo", (q) => q.eq("repoId", config.repoId))
-        .collect();
-      const repoVar = repoVarsDocs
-        .flatMap((doc) => doc.vars)
-        .find((v) => v.key === "SANDBOX_PROVIDER");
-      if (repoVar?.value === "vercel") {
-        provider = "vercel";
-      } else if (repoVar) {
-        provider = "daytona";
-      }
-    }
-
     const builds = await ctx.db
       .query("snapshotBuilds")
       .withIndex("by_repo_snapshot", (q) =>
@@ -128,7 +134,7 @@ export const listBuilds = authQuery({
       .take(20);
     return builds.map((build) => ({
       ...sanitizeBuildForReturn(build),
-      provider,
+      provider: resolveBuildProvider(build),
     }));
   },
 });
@@ -144,7 +150,7 @@ export const getBuild = authQuery({
       status: snapshotBuildStatusValidator,
       triggeredBy: snapshotBuildTriggerValidator,
       kind: v.optional(snapshotBuildKindValidator),
-      provider: v.union(v.literal("vercel"), v.literal("daytona")),
+      provider: sandboxProviderKindValidator,
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),
@@ -160,38 +166,9 @@ export const getBuild = authQuery({
     if (!build) {
       return null;
     }
-    const config = await ctx.db.get(build.repoSnapshotId);
-    let provider: "vercel" | "daytona" = "daytona";
-    if (config) {
-      const repo = await ctx.db.get(config.repoId);
-      if (repo && repo.teamId) {
-        const teamVarsDocs = await ctx.db
-          .query("teamEnvVars")
-          .withIndex("by_team", (q) => q.eq("teamId", repo.teamId!))
-          .collect();
-        const teamVar = teamVarsDocs
-          .flatMap((doc) => doc.vars)
-          .find((v) => v.key === "SANDBOX_PROVIDER");
-        if (teamVar?.value === "vercel") {
-          provider = "vercel";
-        }
-      }
-      const repoVarsDocs = await ctx.db
-        .query("repoEnvVars")
-        .withIndex("by_repo", (q) => q.eq("repoId", config.repoId))
-        .collect();
-      const repoVar = repoVarsDocs
-        .flatMap((doc) => doc.vars)
-        .find((v) => v.key === "SANDBOX_PROVIDER");
-      if (repoVar?.value === "vercel") {
-        provider = "vercel";
-      } else if (repoVar) {
-        provider = "daytona";
-      }
-    }
     return {
       ...sanitizeBuildForReturn(build),
-      provider,
+      provider: resolveBuildProvider(build),
     };
   },
 });
@@ -385,6 +362,7 @@ export const completeBuild = internalMutation({
         status: "running",
         triggeredBy: "cron",
         kind: build.kind,
+        provider: build.provider,
         logs: `Retry ${retryCount}/${MAX_CRON_RETRIES} after failure: ${args.error ?? "unknown error"}\n`,
         startedAt: now,
         retryCount,

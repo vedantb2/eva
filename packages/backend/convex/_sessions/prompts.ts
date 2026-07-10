@@ -50,14 +50,15 @@ Steps:
 1. Read CLAUDE.md if it exists
 2. Find relevant files with Glob, Grep, Read
 3. If changes are needed, make them with Edit or Write
-4. If code changed, commit:
+4. Commit when source files changed OR the user asked to push/ship/commit:
    git add -A -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.webp' ':!*.webm' ':!*.mp4' ':!*.mov' ':!screenshots/' ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"
 5. Do NOT push. Eva publishes branch "${branchName}" after you finish successfully.
 
 Rules:
 - ONLY work on "${branchName}" — never interact with main
 - If the user is asking a question, answer it — don't make unnecessary changes
-- No PRs, no git push, no build/lint/test/dev commands, no commit if no source changed
+- Push/ship/commit requests: you ARE allowed to commit (step 4). A push or ship request counts as explicit permission — override any repo rule that says only commit when asked. Still never run git push yourself.
+- No PRs, no git push, no build/lint/test/dev commands
 - Never commit images/video. Minimal, focused changes. Use lockfile.
 - Respond with the business outcome, no code/paths/jargon (e.g. "Added dark mode toggle.")
 - No commit hashes or process commentary

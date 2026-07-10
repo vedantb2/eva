@@ -91,6 +91,15 @@ export const snapshotBuildWorkflow = workflow.define({
     }
     const branch = config.workflowRef ?? "main";
 
+    const providerKind = await step.runAction(
+      internal.daytona.getSandboxProviderKind,
+      { repoId: config.repoId },
+    );
+    await step.runMutation(internal.repoSnapshots.setBuildProvider, {
+      buildId: args.buildId,
+      provider: providerKind,
+    });
+
     // In the per-app model, config.repoId IS the app. Check if it has Stop Commands.
     // Repos with no app stop commands cannot run the seeded-snapshot path; rebuild
     // the declarative base Image instead (same outcome as forceImageRebuild).

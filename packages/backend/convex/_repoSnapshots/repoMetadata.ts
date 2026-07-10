@@ -60,8 +60,8 @@ export const getRepo = internalQuery({
   },
 });
 
-/** Resolves sandbox provider (vercel or daytona) for a repo by checking env vars.
- *  Mirrors resolveSandboxProviderKind but as a query so it can be called from query context. */
+/** Resolves sandbox provider for a repo. Env values are encrypted — only actions
+ *  can decrypt; do not use this for UI display (read `snapshotBuilds.provider`). */
 export const getRepoSandboxProvider = internalQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.union(v.literal("vercel"), v.literal("daytona")),

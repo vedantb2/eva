@@ -11,6 +11,7 @@ import {
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
   snapshotBuildKindValidator,
+  sandboxProviderKindValidator,
   seededAppResultValidator,
   teamMemberRoleValidator,
   webhookEventStatusValidator,
@@ -279,6 +280,8 @@ const schema = defineSchema(
       // "base" (image only) vs "seeded" (boots + seeds DB before capture).
       // Optional: legacy rows predate this field and render without a type.
       kind: v.optional(snapshotBuildKindValidator),
+      // Sandbox provider used for this build (set at workflow start).
+      provider: v.optional(sandboxProviderKindValidator),
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),

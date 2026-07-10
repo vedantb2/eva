@@ -630,11 +630,18 @@ export const saveResult = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
 
-    const last = await ctx.db
+    const recent = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
       .order("desc")
-      .first();
+      .take(20);
+    // Never overwrite system alerts (e.g. draft-PR failures posted after a
+    // prior turn) — those sit as the latest assistant row and would steal the
+    // next saveResult, leaving errorDetail on the real reply.
+    const last = recent.find(
+      (message) =>
+        message.role === "assistant" && message.isSystemAlert !== true,
+    );
     if (!last) return null;
 
     const publishFailedAfterResult =
@@ -648,12 +655,16 @@ export const saveResult = internalMutation({
       activityLog?: string;
       finishedAt?: number;
       pendingQuestion?: string;
+      isSystemAlert?: boolean;
+      errorDetail?: string;
     } = {
       content:
         args.success || publishFailedAfterResult
           ? args.result || "I couldn't process your message."
           : `Error: ${args.error || "Unknown error during execution."}`,
       finishedAt: Date.now(),
+      isSystemAlert: undefined,
+      errorDetail: undefined,
     };
     if (args.activityLog) {
       patch.activityLog = args.activityLog;

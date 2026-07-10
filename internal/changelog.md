@@ -1,5 +1,10 @@
 # Changelog
 
+## Suppress spurious "Resuming sandbox" step for active chats - 2026-07-10
+
+- Session, project, and agent-task chats no longer flash a "Resuming sandbox..." step on every message when the sandbox is already active; on Vercel the step now only shows for a genuine resume.
+- Each chat's data query now surfaces its sandbox status so the resume workflow can skip the cosmetic activity when the status is "active", with no extra query or latency.
+
 ## Session-wide reasoning/thinking lever for sandbox chats - 2026-07-10
 
 - Added a reasoning-effort lever (Off/Low/Med/High/Max slider in a toolbar popover) to session, task, and project sandbox chats so users can tune how hard the agent thinks; the level persists per-chat and applies to every message.

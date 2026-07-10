@@ -20,6 +20,14 @@ type EnsureSandboxStartedArgs = {
   repoId: Id<"githubRepos">;
   /** When set, a "restoring…" activity is surfaced to this streaming entity. */
   streamingEntityId?: string;
+  /**
+   * True when the caller already knows the sandbox is running (e.g. the
+   * session/project/task status is "active"). Suppresses the cosmetic Vercel
+   * "Resuming sandbox…" activity so it does not flash on every message for an
+   * already-running sandbox. Ignored on Daytona, which gates on the real
+   * `kickoff.state` instead.
+   */
+  sandboxRunning?: boolean;
 };
 
 /**
@@ -80,7 +88,7 @@ export async function ensureSandboxStartedSteps(
   // start action; extra workflow steps were measured at ~6–8s of pure latency.
   // Also skip cold-storage copy — that is Daytona archived restore only.
   if (provider === "vercel") {
-    if (args.streamingEntityId) {
+    if (args.streamingEntityId && !args.sandboxRunning) {
       await step.runMutation(internal.streaming.internalSet, {
         entityId: args.streamingEntityId,
         currentActivity: JSON.stringify([

@@ -427,7 +427,13 @@ export function ChatBody({
           ) : null}
           {message.role === "user" && (
             <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
-              <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                {message.content ? (
+                  <ChatMessageActions
+                    copyText={message.content}
+                    revealOnHover={false}
+                  />
+                ) : null}
                 {message.mode && (
                   <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
                     {message.mode === "plan" ? (

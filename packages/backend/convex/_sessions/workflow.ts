@@ -10,6 +10,7 @@ import {
   reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
+  sessionStatusValidator,
 } from "../validators";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
 import {
@@ -229,6 +230,7 @@ export const sessionExecuteWorkflow = workflow.define({
           vercelSandboxId: data.vercelSandboxId,
           repoId: data.repoId,
           streamingEntityId: args.sessionId,
+          sandboxRunning: data.status === "active",
         });
       } catch (error) {
         await step.runMutation(internal.sessionWorkflow.saveResult, {
@@ -499,6 +501,7 @@ export const getSessionData = internalQuery({
   returns: v.object({
     sandboxId: v.optional(v.string()),
     vercelSandboxId: v.optional(v.string()),
+    status: sessionStatusValidator,
     repoOwner: v.string(),
     repoName: v.string(),
     repoId: v.id("githubRepos"),
@@ -532,6 +535,7 @@ export const getSessionData = internalQuery({
     return {
       sandboxId: session.sandboxId,
       vercelSandboxId: session.vercelSandboxId,
+      status: session.status,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoId: session.repoId,

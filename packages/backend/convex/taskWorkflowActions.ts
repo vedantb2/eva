@@ -230,8 +230,16 @@ async function waitForPullRequestHead(params: {
       if (comparison.data.ahead_by > 0) {
         return;
       }
-      lastError = `${params.branchName} is not ahead of ${params.baseBranch}`;
+      // Compare succeeded: GitHub sees both tips and head is not ahead.
+      // Retrying won't create commits — fail immediately (plan-only turns).
+      throw new Error(
+        `${params.branchName} is not ahead of ${params.baseBranch}`,
+      );
     } catch (error) {
+      if (error instanceof Error && error.message.includes("is not ahead of")) {
+        throw error;
+      }
+      // Branch may not be visible yet right after push — keep retrying.
       lastError =
         error instanceof Error ? error.message : "GitHub compare failed";
     }

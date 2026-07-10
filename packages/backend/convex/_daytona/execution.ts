@@ -5,7 +5,11 @@ import type { SandboxHandle } from "../_sandbox/provider";
 import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { FALLBACK_GIT_BASE_BRANCH } from "@conductor/shared";
-import { getAIModelProvider, normalizeAIModel } from "../validators";
+import {
+  getAIModelProvider,
+  normalizeAIModel,
+  reasoningLevelValidator,
+} from "../validators";
 import {
   execHandle,
   resolveSandboxContext,
@@ -462,20 +466,27 @@ export const getPreviewUrl = action({
     // Always front the service with the in-sandbox auth proxy so open-in-new-tab
     // is gated the same way for Preview, Computer, and Editor.
     //
-    // Vercel exposes a fixed 4-port set. Map:
-    //   app 3000  → proxy on 54321 (upstream 3000)
-    //   editor    → proxy on 8080  (upstream 18080)
-    //   desktop   → proxy on 6080  (upstream 16080)
+    // Vercel exposes a fixed 4-port set (VERCEL_DEFAULT_EXPOSED_PORTS). Map:
+    //   app/dev (3000, 5173, …) → proxy on 54321 (upstream = real listen port)
+    //   editor                  → proxy on 8080  (upstream 18080)
+    //   desktop                 → proxy on 6080  (upstream 16080)
+    // Calling sandbox.domain(5173) throws "No route for port 5173" because Vite
+    // is not in that fixed set — always resolve the public URL via the proxy
+    // port, even before the proxy process is up (route exists; upstream may 502).
     // Daytona uses a free 9xxx proxy port in front of the real service port.
     const previewPublicJwk = getPreviewGrantPublicJwk();
-    let previewPort = args.port;
+    const isVercelDesktopOrEditor =
+      credentials.kind === "vercel" &&
+      (args.port === 6080 || args.port === 8080);
     const fixedVercelProxyPort =
-      credentials.kind === "vercel" && args.port === 3000
-        ? VERCEL_PREVIEW_PROXY_PORT
-        : credentials.kind === "vercel" &&
-            (args.port === 6080 || args.port === 8080)
+      credentials.kind !== "vercel"
+        ? undefined
+        : isVercelDesktopOrEditor
           ? args.port
-          : undefined;
+          : VERCEL_PREVIEW_PROXY_PORT;
+    // Public route port: on Vercel app/dev previews this is always 54321, never
+    // the upstream listen port (e.g. Vite 5173).
+    let previewPort = fixedVercelProxyPort ?? args.port;
     const proxyTargetPort =
       credentials.kind === "vercel" && args.port === 6080
         ? VERCEL_DESKTOP_INTERNAL_PORT
@@ -1083,6 +1094,7 @@ export const prewarmSessionDaemon = internalAction({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),
     model: v.optional(v.string()),
+    reasoningLevel: v.optional(reasoningLevelValidator),
     allowedTools: v.optional(v.string()),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
   },
@@ -1105,7 +1117,10 @@ export const prewarmSessionDaemon = internalAction({
       // run the turn on the wrong model or without edit tools. The daemon writes
       // this exact signature to /tmp/eva-daemon.opts at boot (via EVA_DAEMON_OPTS
       // below), so the comparison is a literal string match with no drift.
-      const optsSig = `${normalizedModel}|${args.allowedTools ?? ""}`;
+      // Reasoning level is part of the signature: the daemon freezes its thinking
+      // budget at boot (MAX_THINKING_TOKENS env), so changing the lever mid-session
+      // must respawn the daemon to take effect.
+      const optsSig = `${normalizedModel}|${args.allowedTools ?? ""}|${args.reasoningLevel ?? ""}`;
       // Classify the sandbox daemon: alive (reuse), optsmismatch (model/tools
       // changed — kill + respawn), stale (new callback bundle — reupload without
       // killing; the daemon self-exits on the fp change), or cold (launch fresh).
@@ -1166,7 +1181,13 @@ export const prewarmSessionDaemon = internalAction({
         {
           model: normalizedModel,
           allowedTools: args.allowedTools,
-          extraEnvVars: { CLAUDE_PREWARM: "1", EVA_DAEMON_OPTS: optsSig },
+          extraEnvVars: {
+            CLAUDE_PREWARM: "1",
+            EVA_DAEMON_OPTS: optsSig,
+            ...(args.reasoningLevel
+              ? { AI_REASONING_EFFORT: args.reasoningLevel }
+              : {}),
+          },
           claudeSessionId,
           enableMcp: true,
         },
@@ -1194,6 +1215,7 @@ export const launchOnExistingSandbox = internalAction({
     completionMutation: v.string(),
     entityIdField: v.string(),
     model: v.optional(v.string()),
+    reasoningLevel: v.optional(reasoningLevelValidator),
     allowedTools: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     repoId: v.id("githubRepos"),
@@ -1236,6 +1258,12 @@ export const launchOnExistingSandbox = internalAction({
     }
     if (args.requireTaskCommit === true) {
       extraEnvVars.REQUIRE_TASK_COMMIT = "true";
+    }
+    // Session-wide reasoning effort. The runner maps this abstract level to each
+    // provider's native control (Claude MAX_THINKING_TOKENS, Codex config.toml)
+    // and ignores it for providers without a runtime lever (see config.ts).
+    if (args.reasoningLevel) {
+      extraEnvVars.AI_REASONING_EFFORT = args.reasoningLevel;
     }
     extraEnvVars.CLAUDE_MAX_TOTAL_RUNTIME_MS = QUICK_TASK_MAX_TOTAL_RUNTIME_MS;
 

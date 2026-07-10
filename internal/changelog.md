@@ -1,5 +1,10 @@
 # Changelog
 
+## Vercel session preview for non-3000 ports (Vite 5173) - 2026-07-10
+
+- Vercel app/dev preview now always fronts the real listen port through the reserved auth proxy on 54321, so Vite (and any non-3000) sessions no longer call `sandbox.domain(5173)` and hit "No route for port".
+- Reason for change: session 34 preview on prod threw Uncaught Error: No route for port 5173 — Vercel only exposes 3000/8080/6080/54321.
+
 ## Unblock session Working UI before git publish - 2026-07-10
 
 - Session workflow now saves the assistant reply as soon as the daemon completes, then publishes the branch; a hung `git push` no longer leaves the chat stuck on Working after a successful answer.

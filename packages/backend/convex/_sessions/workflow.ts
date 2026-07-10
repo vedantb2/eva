@@ -242,28 +242,24 @@ export const sessionExecuteWorkflow = workflow.define({
     let savedSuccess = result.success;
     let savedError = result.error;
 
+    // Eva owns publishing: the agent commits inside the sandbox but never
+    // pushes (see prompts.ts). Push unconditionally after a successful run —
+    // a clean working tree still has unpushed commits, and a push with nothing
+    // new is a harmless no-op. Surface any failure so the run is not reported
+    // as a success while the branch is missing from GitHub.
     if (args.mode !== "plan" && result.success && data.branchName) {
       try {
-        const status = await step.runAction(
-          internal.daytona.runSandboxCommand,
-          {
-            sandboxId,
-            command: `test -d ${WORKSPACE_DIR}/.git && cd ${WORKSPACE_DIR} && git status --porcelain`,
-            timeoutSeconds: 10,
-            repoId: data.repoId,
-          },
-        );
-        if (status.trim()) {
-          await step.runAction(internal.daytona.pushSandboxBranch, {
-            sandboxId,
-            installationId: args.installationId,
-            repoOwner: data.repoOwner,
-            repoName: data.repoName,
-            repoId: data.repoId,
-            branchName: data.branchName,
-          });
-        }
+        await step.runAction(internal.daytona.pushSandboxBranch, {
+          sandboxId,
+          installationId: args.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          repoId: data.repoId,
+          branchName: data.branchName,
+        });
       } catch (error) {
+        savedSuccess = false;
+        savedError = `Session completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
         console.error(
           `[sessionWorkflow] pushSandboxBranch failed sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
         );

@@ -1055,6 +1055,9 @@ export const pushSandboxBranch = internalAction({
       console.error(
         `[daytona][execution] pushSandboxBranch failed sandbox=${args.sandboxId} repo=${args.repoOwner}/${args.repoName} branch=${args.branchName}: ${error instanceof Error ? error.message : String(error)}`,
       );
+      // Rethrow so callers can surface the failure and preserve the sandbox for
+      // recovery. Swallowing here made every caller's error handling dead code.
+      throw error;
     }
     return null;
   },

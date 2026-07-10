@@ -16,6 +16,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
   sandboxId: string | undefined;
+  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
   devPort?: number;
@@ -30,6 +31,7 @@ interface SandboxPanelProps {
 export function SandboxPanel({
   sessionId,
   sandboxId,
+  vercelSandboxId,
   isActive,
   repoId,
   devPort,
@@ -125,6 +127,7 @@ export function SandboxPanel({
           preview={preview}
           owner={owner}
           sandboxId={sandboxId}
+          vercelSandboxId={vercelSandboxId}
           isActive={isActive}
           repoId={repoId}
           cacheKey={sessionIdStr}

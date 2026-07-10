@@ -11,6 +11,7 @@ import {
 interface DesktopPanelProps {
   cacheKey: string;
   sandboxId: string | undefined;
+  vercelSandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
 }
@@ -42,6 +43,7 @@ function appendNoVncParams(baseUrl: string): string {
 export function DesktopPanel({
   cacheKey,
   sandboxId,
+  vercelSandboxId,
   isActive,
   repoId,
 }: DesktopPanelProps) {
@@ -69,6 +71,7 @@ export function DesktopPanel({
       cacheNamespace="desktop"
       cacheKey={cacheKey}
       sandboxId={sandboxId}
+      vercelSandboxId={vercelSandboxId}
       isActive={isActive}
       repoId={repoId}
       port={6080}

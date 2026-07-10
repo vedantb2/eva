@@ -482,6 +482,40 @@ export const postSystemAlert = internalMutation({
   },
 });
 
+/** Clears stuck empty Working bubbles + leftover streaming for a session. */
+export const clearStuckWorkingState = internalMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.object({
+    deletedPlaceholders: v.number(),
+    clearedStreaming: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .collect();
+    let deletedPlaceholders = 0;
+    for (const message of messages) {
+      if (
+        message.role === "assistant" &&
+        message.isSystemAlert !== true &&
+        message.content === "" &&
+        message.finishedAt === undefined
+      ) {
+        await ctx.db.delete(message._id);
+        deletedPlaceholders += 1;
+      }
+    }
+    await clearStreamingActivity(ctx, String(args.sessionId));
+    await ctx.db.patch(args.sessionId, {
+      activeWorkflowId: undefined,
+      pendingTurn: undefined,
+      updatedAt: Date.now(),
+    });
+    return { deletedPlaceholders, clearedStreaming: true };
+  },
+});
+
 /**
  * Inserts an empty assistant message into the session for streaming updates.
  * Idempotent: the daemon-pull `startExecute` already inserts this placeholder
@@ -498,13 +532,22 @@ export const addAssistantPlaceholder = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
 
-    const last = await ctx.db
+    const recent = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
       .order("desc")
-      .first();
-    if (last && last.role === "assistant" && last.content === "") {
-      // Placeholder already staged by startExecute — nothing to do.
+      .take(10);
+    // Ignore system alerts (e.g. draft-PR failures) sitting on top — startExecute
+    // may already have staged an empty placeholder underneath them.
+    const lastTurnMessage = recent.find(
+      (message) => message.isSystemAlert !== true,
+    );
+    if (
+      lastTurnMessage &&
+      lastTurnMessage.role === "assistant" &&
+      lastTurnMessage.content === "" &&
+      lastTurnMessage.finishedAt === undefined
+    ) {
       return null;
     }
 
@@ -673,6 +716,20 @@ export const saveResult = internalMutation({
       patch.pendingQuestion = args.pendingQuestion;
     }
     await ctx.db.patch(last._id, patch);
+
+    // Drop any orphan empty placeholders left when a system alert sat on top
+    // and addAssistantPlaceholder / startExecute staged a second bubble.
+    for (const message of recent) {
+      if (
+        message._id !== last._id &&
+        message.role === "assistant" &&
+        message.isSystemAlert !== true &&
+        message.content === "" &&
+        message.finishedAt === undefined
+      ) {
+        await ctx.db.delete(message._id);
+      }
+    }
 
     const sessionPatch: {
       activeWorkflowId?: string;

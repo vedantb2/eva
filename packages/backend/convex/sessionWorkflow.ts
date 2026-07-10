@@ -3,6 +3,7 @@ export {
   sessionExecuteWorkflow,
   scheduleSessionDeploymentTracking,
   postSystemAlert,
+  clearStuckWorkingState,
   addAssistantPlaceholder,
   getSessionData,
   updateSandboxId,

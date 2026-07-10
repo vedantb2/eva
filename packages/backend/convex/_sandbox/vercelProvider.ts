@@ -493,14 +493,15 @@ class VercelSandboxHandle implements SandboxHandle {
         resolved.kind === "status" &&
         this.isTerminalStopStatus(resolved.status)
       ) {
-        consecutiveIdle += 1;
-        lastKnown = resolved.status;
-        if (consecutiveIdle >= 2) {
-          console.log(
-            `[vercel] stop confirmed sandbox=${this.sandbox.name} status=${resolved.status}`,
-          );
-          return;
-        }
+        // A terminal status reading is unambiguous — confirm on the first one.
+        // (The consecutive-read guard below is only for "empty" listSessions,
+        // which can transiently drop the session mid-stop.) Waiting for a
+        // second read added a full poll interval of UI lag after Vercel
+        // already reported stopped.
+        console.log(
+          `[vercel] stop confirmed sandbox=${this.sandbox.name} status=${resolved.status}`,
+        );
+        return;
       } else if (resolved.kind === "empty") {
         consecutiveIdle += 1;
         lastKnown = "empty";

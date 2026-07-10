@@ -181,6 +181,49 @@ async function sessionStopRequested(
   );
 }
 
+/** True once the user has requested this task's sandbox stop/close. */
+async function taskStopRequested(
+  ctx: GenericActionCtx<DataModel>,
+  taskId: Id<"agentTasks">,
+): Promise<boolean> {
+  const task = await ctx.runQuery(internal.agentTasks.getInternal, {
+    id: taskId,
+  });
+  return (
+    !task ||
+    task.reviewTaskSandboxStatus === "stopping" ||
+    task.reviewTaskSandboxStatus === "closed"
+  );
+}
+
+/** True once the user has requested this project's sandbox stop/close. */
+async function projectStopRequested(
+  ctx: GenericActionCtx<DataModel>,
+  projectId: Id<"projects">,
+): Promise<boolean> {
+  const project = await ctx.runQuery(internal.projects.getInternal, {
+    id: projectId,
+  });
+  return (
+    !project ||
+    project.reviewProjectSandboxStatus === "stopping" ||
+    project.reviewProjectSandboxStatus === "closed"
+  );
+}
+
+/** True once the user has requested this design session's sandbox stop/close. */
+async function designStopRequested(
+  ctx: GenericActionCtx<DataModel>,
+  designSessionId: Id<"designSessions">,
+): Promise<boolean> {
+  const session = await ctx.runQuery(internal.designSessions.getInternal, {
+    id: designSessionId,
+  });
+  return (
+    !session || session.status === "stopping" || session.status === "closed"
+  );
+}
+
 /**
  * Shared resume ordering for reused sandboxes across session/task/project
  * reuse flows. Owns the drift-prone sequence so a fix lands in one place, not
@@ -1497,9 +1540,19 @@ export const startDesignSandbox = internalAction({
         // sandbox fell through to a fresh rebuild). designSandboxStartupWorkflow
         // pre-thaws archived sandboxes across polling steps first, so this
         // fast-paths instead of blocking the action on a cold-storage restore.
+        if (await designStopRequested(ctx, args.designSessionId)) {
+          throw new SandboxStartAbortedError(
+            `resume aborted: stop requested for sandbox ${handle.id}`,
+          );
+        }
         await ensureSandboxRunning(handle, {
           timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
         });
+        if (await designStopRequested(ctx, args.designSessionId)) {
+          throw new SandboxStartAbortedError(
+            `resume aborted: stop requested for sandbox ${handle.id}`,
+          );
+        }
         // Self-heal: rotate the per-sandbox secret + reinstall the helper
         // before any git network op so resumed sandboxes pick up the new
         // credential flow without carrying a stale URL-embedded token.
@@ -1602,6 +1655,21 @@ export const startDesignSandbox = internalAction({
         devPort,
       });
     } catch (e) {
+      if (e instanceof SandboxStartAbortedError) {
+        console.log(
+          `[daytona][sessions] startDesignSandbox aborted by stop designSessionId=${args.designSessionId}: ${e.message}`,
+        );
+        const stopId = args.vercelSandboxId ?? args.existingSandboxId;
+        if (args.repoId && stopId) {
+          try {
+            await ctx.runAction(internal.daytona.stopSandbox, {
+              sandboxId: stopId,
+              repoId: args.repoId,
+            });
+          } catch {}
+        }
+        return null;
+      }
       if (newSandbox) {
         console.warn(
           `[daytona][sessions] deleting failed new design sandbox ${newSandbox.id}: ${errorMessage(e, "setup failed")}`,
@@ -1730,6 +1798,7 @@ async function prepareTaskPreviewSandboxInternal(
             isNew: false,
           });
         },
+        shouldAbort: () => taskStopRequested(ctx, args.taskId),
       }),
     );
     completedSteps.push({
@@ -2225,6 +2294,7 @@ async function prepareProjectPreviewSandboxInternal(
               isNew: false,
             });
           },
+          shouldAbort: () => projectStopRequested(ctx, args.projectId),
         }),
     );
     completedSteps.push({
@@ -2661,6 +2731,22 @@ export const startProjectPreviewSandbox = internalAction({
       );
       return { sandboxId: prepared.sandbox.id };
     } catch (e) {
+      if (e instanceof SandboxStartAbortedError) {
+        console.log(
+          `[daytona][sessions] startProjectPreviewSandbox aborted by stop projectId=${args.projectId}: ${e.message}`,
+        );
+        await completeProjectProgress(ctx, args.projectId);
+        const stopId = args.vercelSandboxId ?? args.existingSandboxId;
+        if (stopId) {
+          try {
+            await ctx.runAction(internal.daytona.stopSandbox, {
+              sandboxId: stopId,
+              repoId: args.repoId,
+            });
+          } catch {}
+        }
+        return { sandboxId: stopId ?? "" };
+      }
       console.error(
         `[daytona][sessions] startProjectPreviewSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );
@@ -2726,6 +2812,22 @@ export const startTaskPreviewSandbox = internalAction({
         `startTaskPreviewSandbox completed in ${formatDurationMsShort(Date.now() - actionStartedAt)} (${prepared.sandboxDetails})`,
       );
     } catch (e) {
+      if (e instanceof SandboxStartAbortedError) {
+        console.log(
+          `[daytona][sessions] startTaskPreviewSandbox aborted by stop taskId=${args.taskId}: ${e.message}`,
+        );
+        await completeTaskProgress(ctx, args.taskId);
+        const stopId = args.vercelSandboxId ?? args.existingSandboxId;
+        if (stopId) {
+          try {
+            await ctx.runAction(internal.daytona.stopSandbox, {
+              sandboxId: stopId,
+              repoId: args.repoId,
+            });
+          } catch {}
+        }
+        return null;
+      }
       console.error(
         `[daytona][sessions] startTaskPreviewSandbox failed after ${formatDurationMsShort(Date.now() - actionStartedAt)} (${actionDetails}): ${errorMessage(e, "Unknown error")}`,
       );

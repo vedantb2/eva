@@ -51,6 +51,14 @@ export const connectPty = action({
     if (!identity) throw new Error("Not authenticated");
 
     const resolved = await resolveOwner(ctx, args.owner);
+    // Never open a terminal against a stopping/closed sandbox: the setup exec
+    // (ensureVercelSharedTerminal) would lazily resume a stopped Vercel VM,
+    // resurrecting a sandbox the user stopped and defeating a manual stop. A
+    // reconnecting terminal tab is what kept an idle sandbox running with no
+    // active session.
+    if (resolved.isStoppingOrClosed) {
+      throw new Error("Sandbox is not running. Start the sandbox first.");
+    }
     const { credentials } = await resolveSandboxCredentials(
       ctx,
       resolved.repoId,

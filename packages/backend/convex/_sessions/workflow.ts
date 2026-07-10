@@ -304,6 +304,15 @@ export const sessionExecuteWorkflow = workflow.define({
       sessionPersistenceId: args.sessionId,
     });
 
+    // Cancel can race with startExecute and wipe the newly staged pendingTurn
+    // while this workflow keeps waiting. Re-stage from workflow args whenever
+    // the turn is still open and nothing is pending for the daemon to claim.
+    await step.runMutation(internal.sessionWorkflow.ensurePendingTurn, {
+      sessionId: args.sessionId,
+      prompt: data.prompt,
+      turnKind: data.turnKind,
+    });
+
     const result = await step.awaitEvent(sessionCompleteEvent);
 
     let planContent: string | undefined;
@@ -663,6 +672,119 @@ export const claimPendingTurn = authMutation({
       `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} turnKind=${turnKind} claimWaitMs=${claimWaitMs}`,
     );
     return { prompt, turnKind };
+  },
+});
+
+/**
+ * Re-stages `pendingTurn` when a cancel raced with startExecute and wiped the
+ * prompt while the workflow is still waiting on sessionComplete. No-op when a
+ * turn is already pending or the latest assistant message already finished.
+ */
+export const ensurePendingTurn = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    prompt: v.string(),
+    turnKind: v.union(v.literal("conversational"), v.literal("agent")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    if (session.pendingTurn) return null;
+
+    const last = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .order("desc")
+      .first();
+    if (!last || last.role !== "assistant" || last.finishedAt !== undefined) {
+      return null;
+    }
+
+    await ctx.db.patch(args.sessionId, {
+      pendingTurn: {
+        prompt: args.prompt,
+        requestedAt: Date.now(),
+        turnKind: args.turnKind,
+      },
+      updatedAt: Date.now(),
+    });
+    console.log(
+      `[sessionWorkflow] ensurePendingTurn restaged sessionId=${args.sessionId} turnKind=${args.turnKind}`,
+    );
+    return null;
+  },
+});
+
+/**
+ * Ops/recovery: rebuild and stage pendingTurn for a session stuck on an open
+ * assistant placeholder (daemon polling empty after a cancel race).
+ */
+export const restageOpenTurn = internalMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.union(
+    v.object({ restaged: v.literal(true), turnKind: v.string() }),
+    v.object({ restaged: v.literal(false), reason: v.string() }),
+  ),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return { restaged: false, reason: "session not found" };
+    if (session.pendingTurn)
+      return { restaged: false, reason: "pendingTurn already set" };
+
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .order("desc")
+      .take(5);
+    const lastAssistant = messages.find((m) => m.role === "assistant");
+    if (
+      !lastAssistant ||
+      lastAssistant.finishedAt !== undefined ||
+      lastAssistant.content !== ""
+    ) {
+      return { restaged: false, reason: "no open empty assistant placeholder" };
+    }
+    const lastUser = messages.find((m) => m.role === "user");
+    if (
+      !lastUser ||
+      typeof lastUser.content !== "string" ||
+      !lastUser.content
+    ) {
+      return { restaged: false, reason: "no user message to restage" };
+    }
+
+    const repo = await ctx.db.get(session.repoId);
+    if (!repo) return { restaged: false, reason: "repo not found" };
+    const user = await ctx.db.get(session.userId);
+    const rawMode = lastAssistant.mode ?? lastUser.mode ?? "edit";
+    const mode: "edit" | "ask" | "execute" | "plan" =
+      rawMode === "plan" ||
+      rawMode === "ask" ||
+      rawMode === "execute" ||
+      rawMode === "edit"
+        ? rawMode
+        : "edit";
+    const { prompt, turnKind } = await buildSessionPrompt(ctx, {
+      session,
+      repo,
+      user,
+      message: lastUser.content,
+      mode,
+    });
+
+    await ctx.db.patch(args.sessionId, {
+      pendingTurn: {
+        prompt,
+        requestedAt: Date.now(),
+        turnKind,
+      },
+      updatedAt: Date.now(),
+    });
+    console.log(
+      `[sessionWorkflow] restageOpenTurn sessionId=${args.sessionId} turnKind=${turnKind}`,
+    );
+    return { restaged: true, turnKind };
   },
 });
 

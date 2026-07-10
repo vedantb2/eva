@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix session stuck Working after cancel race with Agent SDK daemon - 2026-07-10
+
+- Cancel no longer clears a newer `pendingTurn` / `activeWorkflowId` staged by a concurrent `startExecute`, which left the daemon polling empty forever while the workflow waited on completion.
+- Workflow re-stages `pendingTurn` after daemon prewarm if the turn is still open, so a wiped prompt recovers automatically.
+- Reason for change: session 34 on prod stuck on Working after "hi" — Convex logs showed continuous empty `claimPendingTurn` polls with no completion callback.
+
 ## Per-app Vercel project for monorepo snapshot builds - 2026-07-10
 
 - Vercel credential resolution no longer borrows a sibling app's `VERCEL_PROJECT_ID` when inheriting `SANDBOX_PROVIDER`; token/team can still come from team/siblings, but project id must be on the target app.

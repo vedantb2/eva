@@ -171,7 +171,13 @@ export const cancelExecution = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
-    await cancelTrackedWorkflow(ctx, session.activeWorkflowId);
+    // Snapshot what this cancel owns. A concurrent startExecute may stage a
+    // newer pendingTurn / activeWorkflowId while we run — must not clear those
+    // or mark the newer assistant placeholder as cancelled.
+    const workflowIdToCancel = session.activeWorkflowId;
+    const pendingRequestedAt = session.pendingTurn?.requestedAt;
+
+    await cancelTrackedWorkflow(ctx, workflowIdToCancel);
 
     if (session.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.daytona.killSandboxProcess, {
@@ -185,37 +191,62 @@ export const cancelExecution = authMutation({
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
       .first();
 
-    const last = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
-      .order("desc")
-      .first();
-    if (last && last.role === "assistant") {
-      const patch: {
-        content?: string;
-        activityLog?: string;
-        finishedAt: number;
-      } = {
-        finishedAt: Date.now(),
-      };
-      if (!last.content) {
-        patch.content = "Execution cancelled by user.";
+    const latest = await ctx.db.get(args.sessionId);
+    if (!latest) return null;
+
+    const newerTurnStaged =
+      latest.pendingTurn !== undefined &&
+      latest.pendingTurn.requestedAt !== pendingRequestedAt;
+    const newerWorkflowTracked =
+      latest.activeWorkflowId !== undefined &&
+      latest.activeWorkflowId !== workflowIdToCancel;
+
+    if (!newerTurnStaged && !newerWorkflowTracked) {
+      const last = await ctx.db
+        .query("messages")
+        .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+        .order("desc")
+        .first();
+      if (last && last.role === "assistant" && last.finishedAt === undefined) {
+        const patch: {
+          content?: string;
+          activityLog?: string;
+          finishedAt: number;
+        } = {
+          finishedAt: Date.now(),
+        };
+        if (!last.content) {
+          patch.content = "Execution cancelled by user.";
+        }
+        if (streaming?.currentActivity) {
+          patch.activityLog = streaming.currentActivity;
+        }
+        await ctx.db.patch(last._id, patch);
       }
-      if (streaming?.currentActivity) {
-        patch.activityLog = streaming.currentActivity;
-      }
-      await ctx.db.patch(last._id, patch);
     }
 
     await clearStreamingActivity(ctx, String(args.sessionId));
 
-    await ctx.db.patch(args.sessionId, {
-      activeWorkflowId: undefined,
-      // Clear any staged-but-unclaimed turn so a cancelled prompt is never
-      // later picked up by the daemon's claim poll and executed after the fact.
-      pendingTurn: undefined,
-      updatedAt: Date.now(),
-    });
+    const sessionPatch: {
+      activeWorkflowId?: undefined;
+      pendingTurn?: undefined;
+      updatedAt: number;
+    } = { updatedAt: Date.now() };
+
+    if (
+      workflowIdToCancel !== undefined &&
+      latest.activeWorkflowId === workflowIdToCancel
+    ) {
+      sessionPatch.activeWorkflowId = undefined;
+    }
+    if (
+      pendingRequestedAt !== undefined &&
+      latest.pendingTurn?.requestedAt === pendingRequestedAt
+    ) {
+      sessionPatch.pendingTurn = undefined;
+    }
+
+    await ctx.db.patch(args.sessionId, sessionPatch);
 
     await startNextQueuedSessionMessage(ctx, args.sessionId);
 

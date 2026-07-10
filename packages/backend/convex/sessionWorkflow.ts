@@ -8,6 +8,8 @@ export {
   saveResult,
   handleCompletion,
   claimPendingTurn,
+  ensurePendingTurn,
+  restageOpenTurn,
 } from "./_sessions/workflow";
 
 export {

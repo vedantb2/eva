@@ -92,8 +92,8 @@ export const snapshotBuildWorkflow = workflow.define({
     const branch = config.workflowRef ?? "main";
 
     const providerKind = await step.runAction(
-      internal.daytona.getSandboxProviderKind,
-      { repoId: config.repoId },
+      internal.daytona.getSnapshotSandboxProviderKind,
+      { repoSnapshotId: args.repoSnapshotId },
     );
     await step.runMutation(internal.repoSnapshots.setBuildProvider, {
       buildId: args.buildId,
@@ -117,11 +117,6 @@ export const snapshotBuildWorkflow = workflow.define({
     // Bootstrap / toolchain path: rebuild the base Image first
     // (serial — captures contending with the Image builder slow both down).
     if (rebuildBaseImage) {
-      const providerKind = await step.runAction(
-        internal.daytona.getSandboxProviderKind,
-        { repoId: config.repoId },
-      );
-
       if (providerKind === "vercel") {
         const baseSnapshotLabel = `base-${config.repoId}`;
         let prepSandboxId: string | null = null;

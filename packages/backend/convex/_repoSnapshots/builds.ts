@@ -85,6 +85,17 @@ function resolveBuildProvider(
   if (build.logs.includes("Starting Daytona snapshot build")) {
     return "daytona";
   }
+  // Vercel captures return snap_* ids; Daytona seeded snapshots use seeded-<repoId>.
+  if (build.logs.includes("snap_")) {
+    return "vercel";
+  }
+  const seededApps = build.seededApps ?? [];
+  if (seededApps.some((app) => app.seededSnapshotName?.startsWith("snap_"))) {
+    return "vercel";
+  }
+  if (seededApps.some((app) => app.seededSnapshotName?.startsWith("seeded-"))) {
+    return "daytona";
+  }
   return "daytona";
 }
 

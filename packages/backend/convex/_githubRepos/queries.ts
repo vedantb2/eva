@@ -243,6 +243,21 @@ export const listByTeam = authQuery({
   },
 });
 
+/** Internal: all repo ids sharing owner/name (monorepo siblings + self). */
+export const listRepoIdsByOwnerAndName = internalQuery({
+  args: { owner: v.string(), name: v.string() },
+  returns: v.array(v.id("githubRepos")),
+  handler: async (ctx, args) => {
+    const siblings = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", args.owner).eq("name", args.name),
+      )
+      .collect();
+    return siblings.map((repo) => repo._id);
+  },
+});
+
 /** Lists sibling monorepo sub-apps for a given repo entry. */
 export const listSiblingApps = authQuery({
   args: { repoId: v.id("githubRepos") },
